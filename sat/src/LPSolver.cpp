@@ -1272,8 +1272,9 @@ bool LPSolver::check_counter_example_main_loop(LPFormulaId f_id)
 			ics_result = ics_interface.assert_formula_in_scratch_state(-f_idx);
 		
 		if (!ics_result) {
-			assert(false);
-			return false;
+			cerr << "ICS incompleteness was detected.\n";
+			// assert(false);
+			// return false;
 		}
 		break;
 	}
@@ -1366,6 +1367,7 @@ int LPSolver::check_formula_truth_value_loop(LPFormulaId f_id, int * memo) {
 	unsigned int f_idx = absolute(f_id);
 	bool sign = f_id < 0;
 	int cached_val = memo[f_idx];
+	// cout << "f_idx = " << f_idx << ", memo[f_idx] = " << cached_val << ", loop ...\n";
 	if (cached_val != EV_NIL)
 		return sign ? ev_neg(cached_val) : cached_val;
 	
@@ -1392,13 +1394,22 @@ int LPSolver::check_formula_truth_value_loop(LPFormulaId f_id, int * memo) {
 		result = EV_X;
 	}
 
+// 	cout << f_idx << " = ";
+// 	switch (result) {
+// 	case EV_X: cout << "X\n";
+// 	case EV_T: cout << "T\n";
+// 	case EV_F: cout << "F\n";
+// 	default: cout << "D\n";
+// 	}
+
 	memo[f_idx] = result;
 	return sign ? ev_neg(result) : result;
 }
 
 bool LPSolver::check_formula_truth_value(LPFormulaId root_id) {
-	int n = formula_manager->get_num_formulas();
+	int n = formula_manager->get_num_formulas() + 1;
 	int * memo = new int[n];
+	// cout << "n = " << n << endl;
 	memset(memo, 0, sizeof(int)*n);
 	bool result = check_formula_truth_value_loop(root_id, memo) == EV_T;
 	delete[] memo;
