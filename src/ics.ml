@@ -827,6 +827,10 @@ and cmd_output fmt result =
   (match result with
      | Result.Process(status) -> 
 	 Context.Status.pp Name.pp fmt status
+     | Result.Sat(None) ->
+	 Format.fprintf fmt ":unsat@?"
+     | Result.Sat(Some(rho)) ->
+	 Format.fprintf fmt ":sat "; Prop.Assignment.pp fmt rho
      | Result.Unit() ->
 	 Format.fprintf fmt ":unit@?"
      | Result.Bool(true) ->
