@@ -52,11 +52,15 @@ let pp_interval fmt (dom,i,j) =
     | Interval.Int -> "int"
     | Interval.NonintReal -> "nonintreal"
   in
-  Format.fprintf fmt "@[%s" domstr; 
-  pp_low fmt i;
-  Format.fprintf fmt "..";
-  pp_high fmt j;
-  Format.fprintf fmt "@]"
+  match i, j with
+    | Interval.Neginf, Interval.Posinf ->
+	Format.fprintf fmt "@[%s@]" domstr
+    | _ ->
+	Format.fprintf fmt "@[%s" domstr; 
+	pp_low fmt i;
+	Format.fprintf fmt "..";
+	pp_high fmt j;
+	Format.fprintf fmt "@]"
 	
 let rec pp_cnstrnt prec fmt c =
   if Interval.is_top c then
