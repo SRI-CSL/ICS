@@ -238,10 +238,12 @@ module Effects = struct
 		| Eqs.Right ->
 		    let (y, tau) = R.inv r a in         (* [tau |- y = a] *)
 		    let  sigma = Justification.trans (x, a, y) tau rho in
+		      Partition.merge p (Fact.Equal.make (x, y, sigma));
 		      R.restrict Eqs.effects0 (p, r) y  (* now restrict [y = a] in [R]. *)
 		| Eqs.Left ->
 		    let (y, tau) = T.inv t a in         (* [tau |- y = a] *)
 		    let  sigma = Justification.trans (x, a, y) tau rho in
+		      Partition.merge p (Fact.Equal.make (x, y, sigma));
 		      R.restrict Eqs.effects0 (p, r) x) (* restrict [x = a] in [R] *)
 	   with
 	       Not_found -> ());
