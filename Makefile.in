@@ -239,6 +239,7 @@ HTMLFILES = \
 web::
 	cp $(HTMLFILES) $(WEBHOME) 
 	cp $(LICENSE) $(WEBHOME)
+	cp $(DOCDIR)/icslogo.gif $(WEBHOME)
 	cp -R ./tests $(WEBHOME)
 	make distclean 
 	tar cf $(WEBHOME)/ics.tar .
@@ -275,7 +276,7 @@ $(DOCDIR)/doc.ps.gz:  $(DOCDIR)/doc.ps
 
 $(DOCDIR)/doc.pdf:  $(LITERAL) $(DOCDIR)/dep.ps $(DOCDIR)/doc.tex
 
-$(DOCDIR)/doc.html: $(DOCDIR)/doc.tex $(LITERAL) $(DOCDIR)/dep.gif $(DOCDIR)/doc.tex
+$(DOCDIR)/doc.html: $(DOCDIR)/doc.tex $(LITERAL) $(DOCDIR)/dep.gif $(DOCDIR)/doc.tex $(DOCDIR)/docheader.html
 	(cd $(DOCDIR); $(HEVEA) $(OCAMLWEBSTY) ./doc.tex -o ./doc.html)
 
 $(DOCDIR)/dep.ps: $(SRC)
