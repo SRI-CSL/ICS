@@ -124,20 +124,21 @@ let choose p s =
 let inv s a = 
   if is_var a then 
     v s a
-  else if is_const a then
-    v s (Map.find a s.inv)
   else 
     let f, l = destruct a in
-    let b =
-      choose
-	(fun y ->
-	   assert(is_cod y);
-	   let g, m = destruct y in
-	   (Sym.eq f g) && 
-	   try List.for_all2 (veq s) l m with Invalid_argument _ -> false)
-	(use s (List.hd l))
-    in
-    v s (Map.find b s.inv)
+    if l = [] then
+      v s (Map.find a s.inv)
+    else 
+      let b =
+	choose
+	  (fun y ->
+	     assert(is_cod y);
+	     let g, m = destruct y in
+	     (Sym.eq f g) && 
+	     try List.for_all2 (veq s) l m with Invalid_argument _ -> false)
+	  (use s (List.hd l))
+      in
+      v s (Map.find b s.inv)
 
 
 (*s Merging two equivalence classes. Make sure that whenever 
