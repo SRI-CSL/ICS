@@ -58,41 +58,9 @@ let rec pp fmt a =
 let to_string = Pretty.to_string pp
 
 
-
-(** {6 Term Ordering} *)
-
-let rec cmp a b =
-  match a, b with  
-    | Var(x, _), Var(y, _) -> Var.cmp x y
-    | Var _, App _ -> 1
-    | App _, Var _ -> -1
-    | App(f, l, _), App(g, m, _) ->
-	let c1 = Sym.cmp f g in
-	if c1 != 0 then c1 else cmpl l m
- 
-and cmpl l m =
-  let rec loop c l m =
-    match l, m with
-      | [], [] -> c
-      | [], _  -> -1
-      | _,  [] -> 1
-      | x :: xl, y :: yl -> 
-	  if c != 0 then 
-	    loop c xl yl 
-	  else 
-	    loop (cmp x y) xl yl
-  in
-  loop 0 l m
-
-let (<<<) a b = (cmp a b <= 0)
-
-let orient ((a, b) as e) =
-  if cmp a b >= 0 then e else (b, a)
-
-
-
 (** {6 Variables} *)
 
+let varcmp = Var.cmp  (* avoid name clash *)
 
 module Var = struct
 
@@ -311,17 +279,51 @@ and eq1 a b =
 and eql al bl =
   try List.for_all2 eq al bl with Invalid_argument _ -> false
 
-(** Syntactic term comparison. *)
+
+
+(** {6 Term Ordering} *)
+
+    
+let rec cmp a b = 
+  match a, b with  
+    | Var(x, _), Var(y, _) -> varcmp x y
+    | Var _, App _ -> 1
+    | App _, Var _ -> -1
+    | App(f, l, _), App(g, m, _) ->
+	let c1 = Sym.cmp f g in
+	if c1 != 0 then c1 else cmpl l m
+ 
+and cmpl l m =
+  let rec loop c l m =
+    match l, m with
+      | [], [] -> c
+      | [], _  -> -1
+      | _,  [] -> 1
+      | x :: xl, y :: yl -> 
+	  if c != 0 then 
+	    loop c xl yl 
+	  else 
+	    loop (cmp x y) xl yl
+  in
+  loop 0 l m
+
+
+let (<<<) a b = (cmp a b <= 0)
+
+let orient ((a, b) as e) =
+  if cmp a b >= 0 then e else (b, a)
+
+
+(** {6 Syntactic term ordering} *)
+
+(** [compare] is faster than [cmp] and is used for building sets
+  and maplets. It does not obey the variable ordering {!Var.cmp} *)
 let compare a b = (* cmp a b *)         (* syntactic comparison does not work. why? *)
   let res = Pervasives.compare (hash a) (hash b) in
     if res <> 0 then res else
       if eq1 a b then 0 else cmp a b
 
-(*
-let compare a b =
-  Trace.func "foo5" "Compare" (Pretty.pair pp pp) Pretty.number
-    (fun (a, b) -> compare a b) (a, b)
-*)
+  
 
 
 (** Some recognizers. *)
