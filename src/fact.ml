@@ -28,8 +28,12 @@ and cnstrnt = Term.t * Cnstrnt.t * justification option
 and rule = string 
 
 let mk_equal x y j =
-  let (x, y) = Term.orient (x, y) in
-  (x, y, j)
+  match x, y with
+    | Term.Var _, Term.App _ -> (x, y, j)     (*s Force variables on lhs. *)
+    | Term.App _, Term.Var _ -> (y, x, j)
+    | _ -> 
+	let (x, y) = Term.orient (x, y) in
+	  (x, y, j)
 
 let mk_diseq x y j =
   let (x, y) = Term.orient (x,y) in
@@ -61,5 +65,5 @@ and pp_diseq fmt d =
 
 and pp_cnstrnt fmt c = 
   let (x, i, _) = d_cnstrnt c in
-  Pretty.infix Term.pp "<>" Cnstrnt.pp fmt (x, i)
+  Pretty.infix Term.pp "in" Cnstrnt.pp fmt (x, i)
 
