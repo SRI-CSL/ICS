@@ -67,6 +67,10 @@ val eq : t -> t -> bool
 
 val cmp : t -> t -> t Binrel.t
 
+(*s Test for disjointness. *)
+
+val is_disjoint : t -> t -> bool
+
 (*s Test for emptyness, singleton, etc. *)
 
 val status : t -> Mpa.Q.t Status.t

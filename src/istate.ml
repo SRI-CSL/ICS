@@ -265,7 +265,7 @@ let partition () =
   Term.Map.fold
     (fun x ys acc ->
        (x, Term.Set.elements ys) :: acc)
-    (V.partition s.current.Context.v)
+    (V.partition s.current.Context.p.Partition.v)
     []
  
 (*s Equality/disequality test. *)
@@ -283,6 +283,4 @@ let is_int a =
 
 (*s Splitting. *)
 
-let split () =
-  let al = Context.split s.current in
-  List.fold_right Atom.Set.add al Atom.Set.empty
+let split () = Context.split s.current

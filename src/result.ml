@@ -27,7 +27,6 @@ type t =
   | Solution of (Term.t * Term.t) list
   | Context of Context.t
   | Process of Name.t Shostak.status
-  | Solve of Th.solvedform
   | Symtab of Symtab.t
   | Entry of Symtab.entry
   | Int of int
@@ -50,9 +49,6 @@ let output fmt = function
   | Process(Shostak.Valid) -> Format.fprintf fmt "Valid"
   | Process(Shostak.Inconsistent) -> Format.fprintf fmt "Unsat"
   | Process(Shostak.Satisfiable(n)) -> Format.fprintf fmt "Ok(%s)" (Name.to_string n)
-  | Solve(Th.Solved sl) -> Pretty.list (Pretty.eqn Term.pp) fmt sl
-  | Solve(Th.Unsat) -> Format.fprintf fmt "Unsat"
-  | Solve(Th.Unsolved) -> Format.fprintf fmt "Unsolved"
   | Symtab(sym) -> Symtab.pp fmt sym
   | Entry(e) -> Symtab.pp_entry fmt e
   | Int(i) -> Format.fprintf fmt "%d" i

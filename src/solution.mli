@@ -53,7 +53,6 @@ val inv : t -> Term.t -> Term.t
 val mem : t -> Term.t -> bool
 
 
-
 (*s [occurs s x] holds if either [mem s x] or if [x] is
  a variable in some [b] where [y = b] is in [s]. *)
 
@@ -67,18 +66,6 @@ val occurs : t -> Term.t -> bool
 val use : t -> Term.t -> Term.Set.t
 
 
-(*s [adduse x ys] explicitly manipulates the
- [use] structure so that [use s x] equals [ys].
- Use with caution! *)
-
-val adduse : Term.t -> Term.Set.t -> t -> t
-
-
-(*s [useinter s a] is the intersection of all [use s x] 
- such that [x] is a variable in [a]. *)
-
-val useinter : t -> Term.t -> Term.Set.t
-
 
 (*s The [empty] solution set *)
 
@@ -88,6 +75,10 @@ val empty : t
 (*s [is_empty s] holds iff [s] does not contain any equalities. *)
 
 val is_empty : t -> bool
+
+(*s Are the two solutions states identical. *)
+
+val unchanged : t -> t -> bool
 
 
 (*s [restrict s x] removes equalities [x = a] from [s]. *)
@@ -102,16 +93,15 @@ val restrict : Term.t -> t -> t
 
 val extend : Term.t -> t -> Term.t * t
 
+(*s [union (x, b) s] *)
+
+val union : Term.t * Term.t -> t -> t
 
 (*s [name e a] returns a variable [x] if there is
  a solution [x = a]. Otherwise, it creates a new name
  [x'] and installs a solution [x' = a] in [e]. *)
 
-type status =
-    | Name of Term.t
-    | Fresh of Term.t * t
-
-val name : Term.t -> t -> status
+val name : Term.t * t -> Term.t * t
 
 
 (*s [fuse norm v s sl] propagates the equalities in [sl] on the
@@ -127,8 +117,7 @@ val name : Term.t -> t -> status
   the module [V]. *)
 
 val fuse : ((Term.t -> Term.t) -> Term.t -> Term.t)
-             -> V.t * t * (Term.t * Term.t) list * V.focus
-               -> V.t * t * V.focus * Term.Set.t
+              -> Partition.t * t -> (Term.t * Term.t) list -> Partition.t * t
 
 
 (*s [compose norm v s sl] is a [fuse] step followed by
@@ -137,9 +126,14 @@ val fuse : ((Term.t -> Term.t) -> Term.t -> Term.t)
  a non-variable term, in [sl]. If [b] is a variable, then
  it is added to [v'] and [ch'] is extended accordingly. *)
 
-val compose : ((Term.t -> Term.t) -> Term.t -> Term.t)
-                -> V.t * t * (Term.t * Term.t) list * V.focus
-                 -> V.t * t * V.focus * Term.Set.t
+val compose :  ((Term.t -> Term.t) -> Term.t -> Term.t)
+                  -> Partition.t * t -> (Term.t * Term.t) list -> Partition.t * t
+
+(*s Normalize. *)
+
+val normalize : ((Term.t -> Term.t) -> Term.t -> Term.t) 
+                  -> Partition.t * t -> Partition.t * t
+
 
 (*s Pretty-printing. *)
 
@@ -148,3 +142,9 @@ val pp : t Pretty.printer
 (*s Instantiating lhs with canonical variables. *)
 
 val inst : V.t -> t -> t
+
+(*s Change sets. *)
+
+val changed : t -> Term.Set.t
+
+val reset : t -> t

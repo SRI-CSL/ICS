@@ -437,7 +437,8 @@ let _ = Callback.register "d_consistent" d_consistent
 let process = Shostak.process
 let _ = Callback.register "process" process   
 
-let split = Context.split 
+let split s = 
+  Atom.Set.elements (Context.split s) 
 let _ = Callback.register "split" split
 
 (*s Normalization functions *)

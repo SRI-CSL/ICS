@@ -297,7 +297,7 @@ command:
 				| None -> Result.Cnstrnt(None) }
 | DISEQ optname term        { Result.Terms(Istate.diseq $2 $3) }
 | SPLIT optname             { Result.Atoms(Istate.split()) }
-| SOLVE ith term EQUAL term { Result.Solve(Th.solve $2 ($3, $5)) }		
+| SOLVE ith term EQUAL term { failwith "to be done" }		
 | TRACE identlist           { Result.Unit(List.iter Trace.add $2) }
 | UNTRACE                   { Result.Unit(Trace.reset ()) }
 | help                      { Result.Unit($1) }

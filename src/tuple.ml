@@ -96,10 +96,12 @@ let sigma op l =
 let freshvars = ref Term.Set.empty
 let _ =  Tools.add_at_reset (fun () -> freshvars := Term.Set.empty)
 
-let mk_fresh () = 
-  let x = Term.mk_fresh_param "t" None in
-  freshvars := Term.Set.add x !freshvars;
-  x
+let mk_fresh = 
+  let name = Name.of_string "t" in
+  (fun () -> 
+     let x = Term.mk_fresh_var name None in
+     freshvars := Term.Set.add x !freshvars;
+     x)
   
 let is_fresh x =
   Term.Set.mem x !freshvars

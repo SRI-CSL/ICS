@@ -24,11 +24,20 @@ open Status
   The function is closed in that forall [x], [y] such that [x |-> {...,y,...} ]
   then also [y |-> {....,x,....}] *)
 
-type t = Term.Set.t Term.Map.t
+type t = {
+  d: Term.Set.t Term.Map.t;
+  changed : Fact.diseq list
+}
 
-let empty = Term.Map.empty
+let empty = {
+  d = Term.Map.empty;
+  changed = []
+}
 
-let deq_of s = s
+let unchanged s t =
+  s.d == t.d
+
+let deq_of s = s.d
 
 let to_list s =
   let eq (x1,y1) (x2,y2) =
@@ -42,7 +51,7 @@ let to_list s =
 	 (fun y acc ->
 	    if mem (x, y) acc then acc else (x, y) :: acc)
 	 ys acc)
-    s []
+    s.d []
 
 let pp fmt s = 
   let l = to_list s in
@@ -53,11 +62,22 @@ let pp fmt s =
     end
 
 
+(*s Changed. *)
+
+let is_changed s x = 
+  List.exists (fun d ->
+		 let (y, z,_) = Fact.d_diseq d in
+		 Term.eq x y || Term.eq x z) s.changed
+
+let changed s = s.changed
+
+let reset s = {s with changed = []}
+
+
 (*s All terms known to be disequal to [a]. *)
 
 let deq s a =
-  try Term.Map.find a s with Not_found -> Term.Set.empty
-
+  try Term.Map.find a s.d with Not_found -> Term.Set.empty
 
 (*s Check if two terms are known to be disequal. *)
 
@@ -65,39 +85,29 @@ let is_diseq s a b =
   Term.Set.mem b (deq s a)
 
 
-(*s Set of changed disequalities. *)
-
-module Pairs = Set.Make(
-  struct
-    type t = Term.t * Term.t
-    let compare = Pervasives.compare
-  end)
-
-type focus = Pairs.t
-
-module Focus = struct
-  let empty = Pairs.empty
-  let is_empty = Pairs.is_empty
-  let singleton = Pairs.singleton
-  let add = Pairs.add
-  let union = Pairs.union
-  let fold = Pairs.fold
-end
-
 (*s Adding a disequality over variables *)
 
-let add d s =
+let rec add d s =
   let (x,y,_) = Fact.d_diseq d in
   let xd = deq s x in
   let yd = deq s y in
   let xd' = Term.Set.add y xd in
   let yd' = Term.Set.add x yd in
   match xd == xd', yd == yd' with
-    | true, true -> (s, Focus.empty)
-    | true, false -> (Term.Map.add y yd' s, Focus.singleton (x,y))
-    | false, true -> (Term.Map.add x xd' s, Focus.singleton (x, y))
-    | false, false -> (Term.Map.add x xd' (Term.Map.add y yd' s),
-                       Focus.singleton (x, y))
+    | true, true -> s
+    | true, false ->
+	{s with 
+	   d = Term.Map.add y yd' s.d;
+	   changed = Fact.mk_diseq x y None :: s.changed }
+    | false, true -> 
+	{s with 
+	   d = Term.Map.add x xd' s.d;
+	   changed = Fact.mk_diseq x y None :: s.changed}
+    | false, false -> 
+	{s with 
+	   d = Term.Map.add x xd' (Term.Map.add y yd' s.d);
+           changed = Fact.mk_diseq x y None :: s.changed}
+
 
 
 (*s Propagating an equality between uninterpreted terms. *)
@@ -110,31 +120,24 @@ let merge e s =
   else
     let dab = Term.Set.union da db in
     if db == dab then
-      Term.Map.remove a s
+      {s with d = Term.Map.remove a s.d}
     else
-      let s' = Term.Map.remove a s in
-      Term.Map.add b dab s'
-
-
-(*s Removing disequalities for [a] by recursively 
- removing [a |-> {...,x,...}] and all [x |-> ...]. *)
-
-and remove a c (s, derived) =
-  Term.Set.fold 
-    (fun x (acc,derived) ->
-       (Term.Map.remove x acc, Atom.mk_in c x :: derived))
-    (deq s a)
-    (Term.Map.remove a s, derived)
-
+      let d' = Term.Map.remove a s.d in
+      {s with 
+	 d = Term.Map.add b dab d';
+	 changed = s.changed }
 
 (*s Instantiation. *)
 
 let inst f s =
-  Term.Map.fold
-    (fun x ys ->
-       let x' = f x in
-       assert(Term.is_var x');
-       let ys' = Term.Set.fold (fun y -> Term.Set.add (f y)) ys Term.Set.empty in
-       Term.Map.add x' ys')
-    s
-    Term.Map.empty
+  let d' = 
+    Term.Map.fold
+      (fun x ys ->
+	 let x' = f x in
+	 assert(Term.is_var x');
+	 let ys' = Term.Set.fold (fun y -> Term.Set.add (f y)) ys Term.Set.empty in
+	 Term.Map.add x' ys')
+      s.d
+      Term.Map.empty
+  in 
+  {s with d = d'}

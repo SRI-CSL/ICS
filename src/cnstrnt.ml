@@ -197,6 +197,8 @@ and analyze c =
       | Some(q) -> Binrel.Singleton(q)
       | None -> Binrel.Overlap(c)
 
+
+
 (*s Status. *)
 
 let status c =
@@ -206,6 +208,12 @@ let status c =
     match d_singleton c with
       | Some(q) -> Status.Singleton(q)
       | None -> Status.Other
+
+
+(*s Are [c] and [d] disjoint. *)
+
+let is_disjoint c d =
+  is_empty (inter c d)
 
 
 (*s Printing constraints. *)

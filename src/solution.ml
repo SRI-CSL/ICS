@@ -21,16 +21,21 @@ open Term
 type t = {
     find: Term.t Map.t;
     inv : Term.t Map.t;
-    use : Use.t
+    use : Use.t;
+    changed : Term.Set.t
 }
 
 let empty = {
   find = Map.empty;
   inv = Map.empty;
-  use = Use.empty
+  use = Use.empty;
+  changed = Term.Set.empty
 }
 
 let is_empty s = s.find = Map.empty
+
+let unchanged s t =
+  s.find == t.find
 
 (*s Fold over the [find] structure. *)
 
@@ -59,23 +64,6 @@ let mem s x =
    
 let use s = Use.find s.use
 
-let useinter s a =
-  let xs =
-    Term.fold 
-      (fun z acc -> 
-	 match acc with 
-	   | None -> Some(use s z)
-	   | Some(xs) -> Some(Set.inter (use s z) xs))
-      a None
-  in
-  match xs with None -> Set.empty | Some(xs) -> xs
-
-
-(*s [setuse s x ys] sets the [use] of [x] to [ys]. *)
-
-let adduse x ys s =
-  {s with use = Use.set x ys s.use}
-    
     
 (*s Does a variable occur in [s]. *)
 
@@ -86,131 +74,140 @@ let occurs s x =
 (*s [union x b s] adds new equality [x = b] to [s],
  possibly overwriting an equality [x = ...] *)
 
-let union x b s = 
+let union (x, b) s =  
   assert(is_var x);
-  let use' = 
-    try 
-      Use.remove x (Map.find x s.find) s.use 
-    with 
-	Not_found -> s.use 
-  in
-  {find = Map.add x b s.find;
-   inv = Map.add b x s.inv;
-   use = Use.add x b use'}
+  Trace.msg "s" "Union" (x, b) Term.pp_equal;
+  if Term.eq x b then 
+    s 
+  else
+    let use' = 
+      try 
+	Use.remove x (Map.find x s.find) s.use 
+      with 
+	  Not_found -> s.use 
+    in
+    {find = Map.add x b s.find;
+     inv = Map.add b x s.inv;
+     use = Use.add x b use';
+     changed = Set.add x s.changed}
 
 
 (*s Extend with binding [x = b], where [x] is fresh *)
 
 let extend b s = 
   let x = Term.mk_fresh_var (Name.of_string "v") None in
-  (x, union x b s)
+  (x, union (x, b) s)
 
 (*s Restrict domain. *)
 
 let restrict =
   fun x s ->
     try
-      let b = Map.find x s.find in 
+      let b = Map.find x s.find in  
+      Trace.msg "s" "Restrict" x Term.pp;
       {find = Map.remove x s.find;
        inv = Map.remove b s.inv;
-       use = Use.remove x b s.use}
+       use = Use.remove x b s.use;
+       changed = Set.remove x s.changed}
     with
 	Not_found -> s
+	    
+	    (*s [name e a] returns a variable [x] if there is
+	      a solution [x = a]. Otherwise, it creates a new name
+	      [x'] and installs a solution [x' = a] in [e]. *)
 
-(*s [name e a] returns a variable [x] if there is
- a solution [x = a]. Otherwise, it creates a new name
- [x'] and installs a solution [x' = a] in [e]. *)
-
-type status =
-    | Name of Term.t
-    | Fresh of Term.t * t
-
-let name b s =
+let name (b, s) =
   try
-    Name(inv s b)
+    (inv s b, s)
   with
-      Not_found ->
-	let (x',s') = extend b s in
-	Fresh(x',s')
-
-
-(*s Lookup in a list of solved form modulo variable equalities [v]. *)
-
-let lookup map v sl x =
-  let x' = V.find v x in
-  let rec scan = function
-    | [] -> x'
-    | (y, b) :: l ->
-	if Term.eq x' (V.find v y) 
-	then map (V.find v) b  (* make sure all variables are actually canonical *)
-	else  scan l
-  in
-  scan sl
-
-let norml map (v, sl) = 
-  map (lookup map v sl)
-	
+      Not_found -> extend b s
 
 (*s Fuse. *)
 
-let rec fuse map (v, s, sl, focus) =
-  Trace.msg "s" "Fuse" sl (Pretty.list Term.pp_equal);
-  Set.fold
-    (fun x (v, s, focus, ch) ->
-       Trace.msg "s" "Fuse" x Term.pp;
+let rec fuse map (p, s) r =
+  Trace.msg "s" "Fuse" r (Pretty.list Term.pp_equal);
+  let norm = map (fun x -> try Term.assq x r with Not_found -> x) in
+  let focus = 
+    List.fold_right
+      (fun (x, _) -> Set.union (use s x)) r Set.empty
+  in
+  Set.fold 
+    (fun x acc ->
        try
-	 let b = apply s x in 
-	 let b' = norml map (v, sl) b in
-	 Trace.msg "s" "Fuse.insert" (x, b') Term.pp_equal;
-	 insert (x, b') (v, s, focus, ch)
+	 update (x, norm (apply s x)) acc
        with
-	   Not_found -> (v, s, focus, ch))
-    (relevant v s sl)
-    (v, s, focus, Set.empty)
+	   Not_found -> acc)
+    focus
+    (p, s)
 
-and insert (x, b) (v, s, focus, ch) =
- if is_var b then
-   let e' = Fact.mk_equal x b None in
-   let (v', focus') = V.merge e' v in
-   let s' = restrict x s in
-   (v', s', V.Focus.union focus' focus, ch)
- else 
-   try
-     let x' = inv s b in
-     if Term.eq x x' then
-       (v, s, focus, ch)
-     else 
-       let e' = Fact.mk_equal x' x None in
-       let (v', focus') = V.merge e' v in
-       let s' = restrict x s in
-       (v', s', V.Focus.union focus' focus, ch)
-   with
-       Not_found ->
-	 let s' = union x b s in
-	 let ch' = Term.Set.add x ch in
-	 (v, s', focus, ch')
-
-and relevant v s sl = 
-  List.fold_right
-    (fun (x, _) -> Set.union (use s x))  
-    sl 
-    Set.empty
+and update (x, b) (p, s) =
+  assert(is_var x);
+  Trace.msg "s" "Update" (x, b) Term.pp_equal;
+  if Term.eq x b then
+    (p, restrict x s)
+  else if is_var b then
+    let e' = Fact.mk_equal x b None in
+    let p' = Partition.merge e' p in
+    let s' = 
+      try
+	let a = apply s b in
+	if b <<< x then
+	  restrict x s
+	else 
+	  union (x, a) (restrict b s)
+      with
+	  Not_found -> restrict x s 
+    in
+    (p', s')
+  else
+    try
+      let y = inv s b in
+      match Partition.is_equal p x y with
+	| Three.Yes -> 
+	    let s' = if y <<< x then restrict x s else union (x, b) (restrict y s) in
+	    (p, s')
+	| Three.No -> 
+	    raise Exc.Inconsistent
+	| Three.X ->
+	    let e' = Fact.mk_equal x y None in
+	    let p' = Partition.merge e' p in
+	    let s' = if y <<< x then restrict x s else union (x, b) (restrict y s) in
+	    (p', s')
+    with
+	Not_found ->
+	  let s' = union (x, b) s in
+	  (p, s')
 
 
 (*s Compose. *)
 
-let compose map (v, s, sl, focus) =
-  List.fold_right 
-    (fun (x, b) ->
-       let b' = map (V.find v) b in  (* make sure all variables are canonical. *)
-       insert (x, b'))
-    sl 
-    (fuse map (v, s, sl, focus))
+let compose map (v, s) r =
+  Trace.msg "s" "Compose" r (Pretty.list Term.pp_equal);
+  let (v', s') = fuse map (v, s) r in
+  List.fold_right update r (v', s')
+
+
+(*s Normalize. *)
+
+let normalize map (p, s) =
+  let v = p.Partition.v  in
+  let norm = map (V.find v) in
+  let s' = 
+    fold
+      (fun x b s ->
+	 let b' = norm b in
+	 if Term.eq b b' then
+	   s
+	 else 
+	   union (x, b') s)
+      s s
+  in
+  (p, s')
 
 (*s Pretty-printing. *)
 
 let pp fmt s =
-  let l = fold (fun x a l -> (x,a)::l) s [] in
+  let l = fold (fun x a l -> (x,a) :: l) s [] in
   Pretty.set (Pretty.eqn Term.pp) fmt l 
 
 
@@ -221,8 +218,13 @@ let inst v s =
     (fun x b s ->
        let x' = V.find v x in
        if Term.eq x x' then 
-	 s 
+	 s
        else 
-	 union x' b (restrict x s))
+	 union (x', b) (restrict x s))
     s s
        
+(*s changed. *)
+
+let changed s = s.changed
+
+let reset s = {s with changed = Set.empty}

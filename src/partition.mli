@@ -12,24 +12,66 @@
  * benefit corporation.
  * 
  * Author: Harald Ruess, N. Shankar
-i*)
+ i*)
 
-(*s Module [V]: Equalities and disequalities over variables. *)
+
+(*s Equalities and disequalities over variables and constraints on variables *)
 
 type t = {
-  v: V.t;
-  d : D.t;
-  vfocus : V.focus;
-  dfocus : D.focus
+  v : V.t;              (* Variable equalities. *)
+  d : D.t;              (* Variables disequalities. *)
+  c : C.t               (* Constraints. *)
 }
 
 val empty : t
+ 
+(*s Canonical variables module [s]. *)
 
-val is_confluent : t -> bool
+val v : t -> Term.t -> Term.t
 
-val find : t -> Term.t -> Term.t
+(*s All disequalities of some variable [x]. *)
+
 val deq : t -> Term.t -> Term.Set.t
 
-val is_equal : t -> Term.t -> Term.t -> Three.t
+(*s Constraint of [a] in [s]. *)
 
+val cnstrnt : t -> Term.t -> Cnstrnt.t
+
+
+(*s Pretty-printing. *)
+  
 val pp : t Pretty.printer
+
+
+
+
+(*s Equality test. *)
+
+val is_equal : t -> Term.t -> Term.t -> Three.t
+ 
+
+(*s Test for integerness. *)
+
+val is_int : t -> Term.t -> bool
+
+
+(* Merge a variable equality. *)
+
+val merge : Fact.equal -> t -> t
+
+(*s Add a constraint. *)
+
+val add : Fact.cnstrnt -> t -> t
+  
+(*s Add a disequality. *)
+
+val diseq : Fact.diseq -> t -> t
+ 
+(*s Test if states are unchanged. *)
+
+val unchanged : t -> t -> bool
+
+(*s Resetting the [changed] indices. *)
+
+val reset : t -> t
+ 

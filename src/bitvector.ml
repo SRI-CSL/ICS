@@ -79,14 +79,16 @@ let is_one a =
 let freshvars = ref Term.Map.empty
 let _ = Tools.add_at_reset (fun () -> freshvars := Term.Map.empty)
 
-let mk_fresh n =
-  assert (n >= 0);
-  if n = 0 then 
-    mk_eps
-  else 
-    let x = Term.mk_fresh_param "b" None in
-    freshvars := Term.Map.add x n !freshvars;
-    x
+let mk_fresh =
+  let name = Name.of_string "bv" in
+  fun n ->
+    assert (n >= 0);
+    if n = 0 then 
+      mk_eps
+    else 
+      let x = Term.mk_fresh_var name None in
+      freshvars := Term.Map.add x n !freshvars;
+      x
 
 let is_fresh a = Term.Map.mem a !freshvars
 

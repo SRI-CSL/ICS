@@ -31,10 +31,12 @@
 
 type t = {
   ctxt : Atom.Set.t;    (* Current context. *)
-  v : V.t;              (* Variable equalities. *)
-  d : D.t;              (* Variable disequalities. *)
-  u : U.t;              (* Congruence closure data structure. *)
-  i : Th.t              (* Interpreted theories. *)
+  p : Partition.t;      (* Variable partitioning. *)
+  u : Solution.t;       (* Congruence closure data structure. *)
+  a : Solution.t;       (* Arithmetic equality context. *)
+  t : Solution.t;       (* Tuple equality context. *)
+  bv : Solution.t;      (* Bitvector equality context. *)
+  labels : Term.Set.t
 }
 
 val empty : t
@@ -42,6 +44,7 @@ val empty : t
 (*s Pretty-printing the context of a state. *)
 
 val pp : t Pretty.printer
+
 
 (*s For an term [a] which is either uninterpreted or an interpreted
  constant, [type_of s a] returns the most refined type as obtained
@@ -80,28 +83,29 @@ val sigma : t -> Sym.t -> Term.t list -> Term.t
 
 (*s Merge variable equality. *)
 
-val merge : Fact.equal -> t -> t * Focus.t
+val merge : Fact.equal -> t -> t
 
 (*s Add a constraint. *)
 
-val add : Fact.cnstrnt -> t -> t * Focus.t
+val add : Fact.cnstrnt -> t -> t
 
 (*s Add a disequality. *)
 
-val diseq : Fact.diseq -> t -> t * Focus.t
+val diseq : Fact.diseq -> t -> t
 
 (*s Close. *)
 
-val close : t * Focus.t -> t * Focus.t
+val close : t  -> t
+
 
 (*s Extension. *)
 
-val extend : t -> Term.t -> t * Term.t
+val extend : t -> Term.t -> Term.t * t
 
 
 (*s List all constraints with finite extension. *)
 
-val split : t -> Atom.t list
+val split : t -> Atom.Set.t
 
 
 (*s Compressing the state. *)

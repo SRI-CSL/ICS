@@ -16,9 +16,12 @@ i*)
 
 type t = {
   find : Term.t Term.Map.t;
-  inv : Term.Set.t Term.Map.t
+  inv : Term.Set.t Term.Map.t;
+  changed : Term.Set.t
 }
 
+let unchanged s t =
+  s.find == t.find
 
 (*s Canonical representative of equivalence class containing [x] *)
 
@@ -36,7 +39,8 @@ let union x y s =
   let find' = Term.Map.add x y s.find in
   let invy = Term.Set.add x (try Term.Map.find y s.inv with Not_found -> Term.Set.empty) in
   let inv' = Term.Map.add y invy s.inv in
-  {s with find = find'; inv = inv'}
+  let changed' = Term.Set.add x s.changed in
+  {find = find'; inv = inv'; changed = changed'}
 
 
 (*s Canonical representative with dynamic path compression. *)
@@ -67,7 +71,8 @@ let eq s x y =
 
 let empty = {
   find = Term.Map.empty;
-  inv = Term.Map.empty
+  inv = Term.Map.empty;
+  changed = Term.Set.empty
 }
 
 let is_empty s = 
@@ -89,38 +94,7 @@ let fold s f x =
   in
   loop (find s x)
 
-(*s Only external variables. *)
 
-let external_of s =
-  Term.Map.fold 
-    (fun x y acc ->
-       if Term.is_fresh_var x && not(Term.is_fresh_var y) then
-	 acc
-       else 
-	 union x y acc)
-    s.find
-    empty
-
-
-(*s A representation of the set of variables whose [find] changes. *)
-
-type focus = (Term.t * t) list
-
-module Focus = struct
-  let empty = []
-
-  let is_empty = function [] -> true  | _ -> false
-
-  let singleton (x,v) = [(x, v)]
-
-  let add (x, v) focus = (x, v) :: focus
-
-  let union = (@)
-		     
-  let fold f =
-    List.fold_right
-      (fun (x, v) acc -> fold v f x acc)
-end
 
 (*s Adding a binding [a |-> b] to a context [s]. *)
 
@@ -128,9 +102,9 @@ let merge e s =
   let (x, y,_) = Fact.d_equal e in
   let x' = find s x and y' = find s y in
   if Term.eq x' y' then 
-    (s, Focus.empty)
+    s
   else
-    (union x' y' s, Focus.singleton (x', s))
+    union x' y' s
 
 
 (*s Extension of the equivalence class for [x]. *)
@@ -151,7 +125,7 @@ let iter s f x =
   loop (find s x)
 
 
-(*s Exists/For_all *)
+(*s Exists/Forall *)
 
 let exists s p x =
   let rec loop y =
@@ -174,6 +148,14 @@ let for_all s p x =
   in
   loop (find s x)
 
+(*s Changed. *)
+
+let is_changed s x = 
+  Term.Set.mem x s.changed
+
+let changed s = s.changed
+
+let reset s = {s with changed = Term.Set.empty}
 
 (*s Choose an element satisfying some property. *)
 
@@ -187,7 +169,6 @@ let choose s p x =
       Found(y) -> y
  
 
- 
 (*s Set of canonical representatives with non-trivial equivalence classes.
  These are the variables occurring in the codomain of [find] which are not
  themselves in the domain of [find]. *)
@@ -220,3 +201,18 @@ let pp fmt s =
     Pretty.string fmt "\nv:";
     Pretty.map Term.pp (Pretty.set Term.pp) fmt l
 
+
+
+(*s Only external variables. *)
+
+let external_of s =
+  Term.Map.fold 
+    (fun x y acc ->
+       if Term.is_fresh_var x && not(Term.is_fresh_var (find s y)) then
+	 acc
+       else if Term.is_fresh_var x && not(Term.eq y (find s y)) then
+	 acc
+       else 
+	 union x y acc)
+    s.find
+    empty

@@ -28,17 +28,14 @@ and cnstrnt = Term.t * Cnstrnt.t * justification option
 and rule = string 
 
 let mk_equal x y j =
-  assert(Term.is_var x && Term.is_var y);
   let (x, y) = Term.orient (x, y) in
   (x, y, j)
 
 let mk_diseq x y j =
-  assert(Term.is_var x && Term.is_var y);
   let (x, y) = Term.orient (x,y) in
   (x, y, j)
 
 let mk_cnstrnt x c j =
-  assert(Term.is_var x);
   (x, c, j)
 
 let d_equal e = e
@@ -49,9 +46,20 @@ let of_equal e = Equal(e)
 let of_diseq d = Diseq(d)
 let of_cnstrnt c = Cnstrnt(c)
 
-let pp fmt = function
+let rec pp fmt = function
   | Equal(x, y, _) ->  Pretty.infix Term.pp "=" Term.pp fmt (x, y)
   | Diseq(x, y, _) ->  Pretty.infix Term.pp "<>" Term.pp fmt (x, y)
   | Cnstrnt(x, i, _) ->  Pretty.infix Term.pp "in" Cnstrnt.pp fmt (x, i)
 
+and pp_equal fmt e = 
+  let (x, y, _) = d_equal e in
+  Pretty.infix Term.pp "=" Term.pp fmt (x, y)
+
+and pp_diseq fmt d = 
+  let (x, y, _) = d_diseq d in
+  Pretty.infix Term.pp "<>" Term.pp fmt (x, y)
+
+and pp_cnstrnt fmt c = 
+  let (x, i, _) = d_cnstrnt c in
+  Pretty.infix Term.pp "<>" Cnstrnt.pp fmt (x, i)
 

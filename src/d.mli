@@ -40,18 +40,9 @@ val is_diseq: t -> Term.t -> Term.t -> bool
 
 val empty : t
 
-(*s Set of changed disequalities. *)
+(*s Is state unchanged. *)
 
-type focus
-
-module Focus : sig
-  val empty : focus
-  val is_empty : focus -> bool
-  val singleton : Term.t * Term.t -> focus
-  val add : Term.t * Term.t -> focus -> focus
-  val union : focus -> focus -> focus
-  val fold : (Term.t * Term.t -> 'a -> 'a) -> focus -> 'a -> 'a
-end
+val unchanged : t -> t -> bool
 
 (*s [merge e s] merges a variable equality ['x = y'] *)
 
@@ -59,8 +50,16 @@ val merge : Fact.equal -> t -> t
 
 (*s [add (a,b) s] disequality [a <> b] to the disequality context [s]. *)
 
-val add : Fact.diseq -> t -> t * focus
+val add : Fact.diseq -> t -> t
 
 (*s Replace all [x |-> {x1,...,xn}] with [y |-> {y1,...,yn}] where [yi] is [find xi]. *)
 
 val inst : (Term.t -> Term.t) -> t -> t
+
+(*s [changed s] returns the set of variables [x] with a new
+ canonical representative, where 'new' is relative to the last
+ [reset s]. *)
+
+val changed : t -> Fact.diseq list
+
+val reset : t -> t
