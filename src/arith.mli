@@ -85,22 +85,14 @@ val is_diophantine: (Term.t -> bool) -> Term.t -> bool
       of [zsolve].
     *)
 
-val qsolve : Term.t option -> Term.eqn -> Term.eqn list
+val qsolve : Term.eqn -> Term.eqn option
     
 val zsolve : Term.eqn -> (Term.t list * Term.eqn list)
-
-	  
-    (*s Test if some term is trivially an integer. *)
-
-val is_integer: Term.t -> bool
 
     (*s Computes the gcd of two ordered power products. *)
 
 val gcd : Term.t list -> Term.t list -> Term.t list
 
-    (*s Destructure an arithmetic polynomial in constant and nonconstant part. *)
-
-val d_poly : Term.t -> Term.t * Mpa.Q.t
 
     (*s Normalized inequalities. *)
 

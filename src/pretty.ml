@@ -154,8 +154,10 @@ let pp fmt t =
 	  fprintf fmt "*";
 	  pp_term prec x;
 	  fprintf fmt "@]"
-      | Mult l ->
-	  list_sep (fun () -> pr " * ") (pp_term prec) l
+      | Mult l -> 
+          fprintf fmt "@[(";
+	  list_sep (fun () -> pr "*") (pp_term prec) l;
+          fprintf fmt ")@]"
       | Add l ->
 	  list_sep (fun () -> pr " + ") (pp_term prec) l
       | Div(x,y) ->

@@ -32,7 +32,13 @@ let arith_solve x s (a,b) =
     rho
   else
 i*)
-    Arith.qsolve x (a,b)
+  Trace.call 8 "Solve.arith" (a,b) Pretty.eqn; 
+  match Arith.qsolve (a,b) with
+    | Some(a',b') ->
+	Trace.exit 8 "Solve.arith" [a',b'] (Pretty.list Pretty.eqn);
+	[a',b']
+    | None ->
+	raise Exc.Inconsistent
 
 let solve x s e =
   let rec solvel rho el =
@@ -44,7 +50,7 @@ let solve x s e =
 	Trace.exit 5 "Solve(rec)" rho' Subst.pp;
 	rho'
 
-  and solve_equal rho (a1,a2) b el =              (*s Solve equations of the form [(a1 = a2) = b] *)
+  and solve_equal rho (a1,a2) b el = (*s Solve equations of the form [(a1 = a2) = b] *)
     match b.node with
       | Bool(True) ->
 	  solvel rho ((a1,a2) :: el)
@@ -68,7 +74,7 @@ let solve x s e =
       | _ ->
 	  solvel (Subst.add (b, Bool.equal(a1,a2)) rho) el
 
-  and solve_diseq rho (a,b) el =                (* Solve disequalities [a <> b]. *)
+  and solve_diseq rho (a,b) el =          (* Solve disequalities [a <> b]. *)
     match a.node, b.node with
       | Arith(Num q1), Arith(Num q2) ->
 	  if Mpa.Q.equal q1 q2 then
@@ -92,12 +98,16 @@ let solve x s e =
 	  false_solve rho b el
       | Equal(x,y) ->
 	  solve_equal rho (x,y) b el
+      | Ite({node=Bool(Equal(x,y))},{node=Bool(False)}, {node=Bool(True)})
+          when Bool.is_tt(b) ->
+          solve_diseq rho (x,y) el
+   
       | Ite _ ->
 	  let x = Bool.iff (hc(Bool(a))) b in
 	  let l = Bool.solve x in
 	  solvel rho (l @ el)
 
-  and true_solve rho b el =      (*s Solve equations of the form [true = b] *)  
+  and true_solve rho b el =      (*s Solve equations of the form [true = b] *) 
     match b.node with
       | Bool(True) -> 
 	  solvel rho el
@@ -267,8 +277,8 @@ and  unwind x (a,b) =
   else
     match b.node with
       | Arith(Multq _ | Add _) ->
-	  (match Arith.qsolve (Some x) (a,b) with
-	     | [a',b'] ->
+	  (match Arith.qsolve (a,b) with
+	     | Some(a',b') ->
 		 unwind x (a',b')
 	     | _ ->
 		 raise Not_found)

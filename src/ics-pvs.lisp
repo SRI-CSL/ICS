@@ -32,11 +32,20 @@
 				'ics-deregister-pointer)
     empty-state))
 
-(defun ics-canon (state pvs-expr)
-  (let* ((ics-expr (translate-to-ics pvs-expr))
-	 (ics-term (ics_can (unwrap state) (unwrap ics-expr))))
-    (prog1 (translate-from-ics ics-term)
-      (ics_deregister ics-term))))
+(defun ics-canon (state expr)
+  (let ((term (ics_can (unwrap state) (unwrap (translate-to-ics expr)))))
+    (prog1 (translate-from-ics term)
+      (ics_deregister term))))
+
+(defun ics-normalize (state expr)
+  (declare (ignore state))
+  (let ((term (unwrap (translate-to-ics expr))))
+    (prog1
+	(let ((*translate-fresh-vars* nil))
+	  (declare (special *translate-fresh-vars))
+	  (or (translate-from-ics term)
+	      expr))           ;; result contained fresh variables (should not happen) 
+      (ics_deregister term))))
 
 (defun ics-d-consistent (ics_value)
   (let ((new-state (wrap (ics_d_consistent ics_value))))
@@ -46,10 +55,62 @@
 (defun ics-deregister-pointer (pointer)
   (ics_deregister (unwrap pointer)))
 
-(defun ics-process (state term)
+(defvar *verbose* nil)
+
+(defmethod ics-process :around (state term)
+  (declare (special *verbose*))
+  (cond (*verbose*
+	 (format t "~%Process" (ics_term_pp (unwrap term)))
+	 (let ((status (call-next-method)))
+	   (cond ((ics_is_consistent status)
+		  (format t "~% --> Ok!"))
+		 ((ics_is_inconsistent status)
+		  (format t "~% --> Inconsistent!"))
+		 ((ics_is_redundant status)
+		  (format t "~% --> Redundant!")))
+	   status))
+	(t
+	 (call-next-method))))
+
+(defmethod ics-process (state term)
   (ics_process (unwrap state) (unwrap term)))
 
+(defun ics-display-state (state)
+  (ics_state_pp (unwrap state)))
 
+(defun ics-solution (state expr)
+  (assert (typep expr 'name-expr))
+  (let* ((term (translate-to-ics expr))
+	 (solution (ics_solution (unwrap state) (unwrap term))))
+    (when (ics_is_some solution)
+      (prog1
+	  (let ((*translate-fresh-vars* nil))
+	    (declare (special *translate-fresh-vars))
+	    (or (translate-from-ics term)
+		expr)          ;; result contained fresh variables  
+	    (ics_deregister ics-term))))))
+
+(defun ics-context (state)
+  (let ((eqns (ics_ctxt_of (unwrap state))))
+    (flet ((translate-eqns (lst)
+			   (if (holds (ics_is_nil lst)) nil
+			     (let* ((hd (ics_head lst))
+				    (lhs (ics_fst hd))
+				    (rhs (ics_snd hd)))
+			       (acons (translate-from-ics lhs)
+				      (translate-from-ics rhs)
+				      (translate-eqns (ics_tail lst)))))))
+      (translate-eqns eqns))))
+
+(defun ics-constraint (state expr)
+  (let* ((term (translate-to-ics expr))
+	 (cnstrnt (ics_cnstrnt (unwrap expr) (unwrap term))))
+    (prog1
+	(translate-cnstrnt-app-from-ics cnstrnt cnstrnt (unwrap term))
+      (ics_deregister term))))
+    
+	
+    
 ;; Translating from PVS expressions to ICS terms
 
 (defvar *pvs-to-ics-hash* (make-hash-table :hash-function 'pvs-sxhash :test 'tc-eq))
@@ -58,91 +119,98 @@
 (defun translate-to-ics (expr)
   (translate-to-ics* expr))
 
-(defmethod translate-to-ics* :around (ex)
-  (let ((hv (gethash ex *pvs-to-ics-hash*)))
+(defmethod translate-to-ics* :around (expr)
+  (let ((hv (gethash expr *pvs-to-ics-hash*)))
     (or hv
 	(let ((ics-pointer (wrap (call-next-method))))
-	  (unless (numberp ex)
+	  (unless (numberp expr)
 	    (excl:schedule-finalization ics-pointer 'ics-deregister-pointer)
-	    (unless (listp ex)
-	      (setf (gethash (ics_tag (unwrap ics-pointer)) *ics-to-pvs-hash*)
-		    ex)))
-	  (setf (gethash ex *pvs-to-ics-hash*) ics-pointer)))))
+	 ;   (unless (listp expr)
+	 ;     (setf (gethash (ics_tag (unwrap ics-pointer)) *ics-to-pvs-hash*)
+	 ;          expr))
+	    )
+	  (setf (gethash expr *pvs-to-ics-hash*) ics-pointer)))))
 
 
-(defmethod translate-to-ics* ((ex expr))
+(defmethod translate-to-ics* ((expr expr))
   (ics_mk_fresh "c"))
 
-(defmethod translate-to-ics* ((ex name-expr))
+(defmethod translate-to-ics* ((expr name-expr))
   (declare (special *true*))
   (declare (special *false*))
-  (cond ((tc-eq ex *true*)
+  (cond ((tc-eq expr *true*)
 	 (ics_mk_true))
-	((tc-eq ex *false*)
+	((tc-eq expr *false*)
 	 (ics_mk_false))
-	((empty-set? ex)
-	 (ics_mk_empty (tag-of-set-expr ex)))
-	((full-set? ex)
-	 (ics_mk_full (tag-of-set-expr ex)))
-	((zero-bv? ex)
-	 (ics_mk_bv_zero (width-of-fixed-bv ex)))
-	((one-bv? ex)
-	 (ics_mk_bv_one (width-of-fixed-bv ex)))
+	((empty-set? expr)
+	 (ics_mk_empty (tag-of-set-expr expr)))
+	((full-set? expr)
+	 (ics_mk_full (tag-of-set-expr expr)))
+	((zero-bv? expr)
+	 (ics_mk_bv_zero (width-of-fixed-bv expr)))
+	((one-bv? expr)
+	 (ics_mk_bv_one (width-of-fixed-bv expr)))
 	(t
-	 (ics_mk_var (unique-name ex)))))
+	 (ics_mk_var (unique-name expr)))))
 
-(defun unique-name (ex)
-  (string (id ex)))           ;; not quite right
+(defun unique-name (expr)
+  (string (id expr)))           ;; not quite right
 
 
-(defmethod translate-to-ics* ((ex number-expr))
-  (ics_mk_num (ics_num_of_string (format nil "~d" (number ex)))))
+(defmethod translate-to-ics* ((expr number-expr))
+  (ics_mk_num (ics_num_of_string (format nil "~d" (number expr)))))
 
 (defmethod translate-to-ics* ((num fixnum))
   num)
 
-(defmethod translate-to-ics* ((ex equation))
-  (ics_mk_equal (unwrap (translate-to-ics* (args1 ex)))
-		(unwrap (translate-to-ics* (args2 ex)))))
+(defmethod translate-to-ics* ((expr equation))
+  (ics_mk_equal (unwrap (translate-to-ics* (args1 expr)))
+		(unwrap (translate-to-ics* (args2 expr)))))
 
-(defmethod translate-to-ics* ((ex disequation))
-  (ics_mk_diseq (unwrap (translate-to-ics* (args1 ex)))
-		(unwrap (translate-to-ics* (args2 ex)))))
+(defmethod translate-to-ics* ((expr disequation))
+  (ics_mk_diseq (unwrap (translate-to-ics* (args1 expr)))
+		(unwrap (translate-to-ics* (args2 expr)))))
 
-(defmethod translate-to-ics* ((ex branch))
-  (ics_mk_cond (unwrap (translate-to-ics* (condition ex)))
-	       (unwrap (translate-to-ics* (then-part ex)))
-	       (unwrap (translate-to-ics* (else-part ex)))))
+(defmethod translate-to-ics* ((expr branch))
+  (ics_mk_cond (unwrap (translate-to-ics* (condition expr)))
+	       (unwrap (translate-to-ics* (then-part expr)))
+	       (unwrap (translate-to-ics* (else-part expr)))))
 
-(defmethod translate-to-ics* ((ex negation))
-  (cond ((equation? (args1 ex))
-	 (ics_mk_diseq (unwrap (translate-to-ics* (args1 (args1 ex))))
-		    (unwrap (translate-to-ics* (args2 (args1 ex))))))
-	((disequation? (args1 ex))
-	 (ics_mk_equal (unwrap (translate-to-ics* (args1 (args1 ex))))
-		    (unwrap (translate-to-ics* (args2 (args1 ex))))))
-	(t (call-next-method))))
+(defmethod translate-to-ics* ((expr negation))
+  (cond ((equation? (args1 expr))
+	 (ics_mk_diseq (unwrap (translate-to-ics* (args1 (args1 expr))))
+		    (unwrap (translate-to-ics* (args2 (args1 expr))))))
+	((disequation? (args1 expr))
+	 (ics_mk_equal (unwrap (translate-to-ics* (args1 (args1 expr))))
+		    (unwrap (translate-to-ics* (args2 (args1 expr))))))
+	(t
+	 (ics_mk_not (unwrap (translate-to-ics* (args1 expr)))))))
 
-(defmethod translate-ics* ((ex iff-or-boolean-equation))
-  (let ((lhs (unwrap (translate-to-ics* (args1 ex))))
-	(rhs (unwrap (translate-to-ics* (args2 ex)))))
+(defmethod translate-ics* ((expr iff-or-boolean-equation))
+  (let ((lhs (unwrap (translate-to-ics* (args1 expr))))
+	(rhs (unwrap (translate-to-ics* (args2 expr)))))
     (ics_mk_iff lhs rhs)))
 
-(defmethod translate-to-ics* ((ex implication))
-  (ics_mk_imp (unwrap (translate-to-ics* (args1 ex)))
-	      (unwrap (translate-to-ics* (args2 ex)))))
+(defmethod translate-to-ics* ((expr implication))
+  (ics_mk_imp (unwrap (translate-to-ics* (args1 expr)))
+	      (unwrap (translate-to-ics* (args2 expr)))))
 
-(defmethod translate-to-ics* ((ex conjunction))
-  (ics_mk_and (unwrap (translate-to-ics* (args1 ex)))
-	      (unwrap (translate-to-ics* (args2 ex)))))
+(defmethod translate-to-ics* ((expr conjunction))
+  (ics_mk_and (unwrap (translate-to-ics* (args1 expr)))
+	      (unwrap (translate-to-ics* (args2 expr)))))
 
-(defmethod translate-to-ics* ((ex disjunction))
-  (ics_mk_or (unwrap (translate-to-ics* (args1 ex)))
-	     (unwrap (translate-to-ics* (args2 ex)))))
+(defmethod translate-to-ics* ((expr disjunction))
+  (ics_mk_or (unwrap (translate-to-ics* (args1 expr)))
+	     (unwrap (translate-to-ics* (args2 expr)))))
 
 (defmethod translate-to-ics* ((ex application))
   (let ((op (operator ex)))
-    (cond ((tc-eq op (plus-operator))
+    (cond ((update-expr? op)
+	   (translate-to-ics*
+	    (make!-reduced-application
+	     (translate-update-to-if op)
+	     (args ex))))
+	  ((tc-eq op (plus-operator))
 	   (ics_mk_plus (ics_cons (unwrap (translate-to-ics* (args1 ex)))
 				  (ics_cons (unwrap (translate-to-ics* (args2 ex)))
 					    (ics_nil)))))
@@ -172,6 +240,9 @@
 		      (unwrap (translate-to-ics* (args2 ex)))))
 	  ((tc-eq op (integer_pred))
 	   (ics_mk_int (unwrap (translate-to-ics* (args1 ex)))))
+	  ((or (tc-eq op (real_pred))
+               (tc-eq op (rational_pred)))
+	   (ics_mk_real (unwrap (translate-to-ics* (args1 ex)))))
 	  ((union-set? op)
 	   (ics_mk_union (tag-of-set-expr ex)
 			 (unwrap (translate-to-ics* (args1 ex)))
@@ -272,7 +343,7 @@
 (defvar *ics-types-to-tags-hash* (make-hash-table :hash-function 'pvs-sxhash
 						  :test 'tc-eq))
 (defvar *ics-tags-to-types-hash* (make-hash-table :test 'eql))
-(defvar *ics-tags-to-types-counter* nil)
+(defvar *ics-tags-to-types-counter* 0)
 
 (defun tag-of-set-expr (ex)
   (let* ((type (find-supertype (type ex)))
@@ -293,11 +364,18 @@
 					(argument* ex)))))
       (translate-to-ics* reduced-ex))))
 
-(defmethod translate-to-ics* ((ex record-expr))
-  (break "to do"))
+(defmethod translate-to-ics* ((expr record-expr))
+  (let ((exprs (mapcar #'expression (sort-assignments (assignments expr)))))
+    (ics_mk_tuple (unwrap (translate-to-ics* exprs)))))
+
+(defun sort-assignments (assignments)
+  (sort (copy-list assignments)
+	#'string-lessp
+	:key #'(lambda (assignment)
+		 (id (caar (arguments assignment))))))
 
 (defmethod translate-to-ics* ((ex tuple-expr))
-  (ics_mk_tuple (car (translate-to-ics* (exprs ex)))))
+  (ics_mk_tuple (unwrap (translate-to-ics* (exprs ex)))))
 	
 (defmethod translate-to-ics* ((ex coercion))
   (with-slots (operator argument) ex
@@ -310,13 +388,13 @@
   (ics_nil))
 
 (defmethod translate-to-ics* ((l cons))
-  (ics_cons (car (translate-to-ics* (car l)))
-	    (car (translate-to-ics* (cdr l)))))
+  (ics_cons (unwrap (translate-to-ics* (car l)))
+	    (unwrap (translate-to-ics* (cdr l)))))
 
 (defmethod translate-to-ics* ((ex projection-application))
-  (ics_mk_proj (car (translate-to-ics* (1- (index ex))))
-	       (car (translate-to-ics* (width-of (type (argument ex)))))
-	       (car (translate-to-ics* (argument ex)))))
+  (ics_mk_proj (unwrap (translate-to-ics* (1- (index ex))))
+	       (unwrap (translate-to-ics* (width-of (type (argument ex)))))
+	       (unwrap (translate-to-ics* (argument ex)))))
 
 (defmethod translate-to-ics* ((ex field-application))
   (with-slots (id argument type) ex
@@ -324,126 +402,19 @@
 	   (sfields (sort-fields fields))
 	   (pos (position id sfields
 			  :test #'(lambda (x y) (eq x (id y))))))
-      (ics_mk_proj (car (translate-to-ics* pos))
-		   (car (translate-to-ics* (length fields)))
-		   (car (translate-to-ics* argument))))))
+      (ics_mk_proj (unwrap (translate-to-ics* pos))
+		   (unwrap (translate-to-ics* (length fields)))
+		   (unwrap (translate-to-ics* argument))))))
 
 (defmethod width-of ((type tupletype))
   (length (types type)))
 
 
+;; Translation back from ICS terms to PVS terms.
+;; If *translate-fresh-vars* is set to [nil], this function
+;; returns [nil] whenever the corresponding ics term contains fresh variables
 
-;;; Update expressions
-;;; Translate expressions of the form
-;;; A WITH [ (0) := 1 ],
-;;;    where A is an array of type int->int, into
-;;; (APPLY int ARRAYSTORE A 0 1)
-;;;
-;;; f WITH [ (0,0) := 0],
-;;;    where f is a function of type int,int->int into
-;;; (APPLY int UPDATE f (0 0) 0)
-;;;
-;;; g WITH [ (0) := h, (1) (x,y) := 0, (1) (x,y)' := 1 ]
-;;;    where g and h are functions of type
-;;;    T = [function[int -> function[state[T0],state[T0] -> int]]
-;;;
-;;; This generates the form
-;;;
-;;; (APPLY function[state[T0],state[T0] -> int]
-;;;        UPDATE
-;;;        (APPLY function[state[T0],state[T0] -> int]
-;;;               UPDATE
-;;;               (APPLY function[state[T0],state[T0] -> int]
-;;;                      UPDATE
-;;;                      g (0) h)
-;;;               (1) (APPLY int UPDATE g(1) (x y) 0))
-;;;        (1) (APPLY int UPDATE g(1) (x' y') 1))
-
-(defmethod translate-to-ics* ((expr update-expr))
-  (translate-assignments-ics (assignments expr)
-			     (car (translate-to-ics* (expression expr)))
-			     (type expr)))
-
-(defun translate-assignments-ics (assigns trbasis type)
-  (if assigns
-      (translate-assignments-ics
-       (cdr assigns)
-       (translate-assignment-ics (car assigns)
-				 trbasis type)
-       type)
-      trbasis))
-
-(defun translate-assignment-ics (assign trbasis type)
-  (translate-assign-args-ics
-   (arguments assign)
-   (expression assign)
-   trbasis
-   (find-supertype type)))
-
-(defun translate-assign-args-ics (args value trbasis type)
-  (if (null args) (translate-to-ics* value)
-      (let* ((sorted-fields (when (recordtype? type)
-			      (sort-fields (fields type))))
-	     (pos (typecase type
-		    (recordtype
-		     (car (translate-to-ics*
-			   (position (id (caar args)) sorted-fields
-				     :test #'eq :key #'id))))
-		    (tupletype
-		     (car (translate-to-ics* (1- (number (caar args))))))
-		    (t (if (singleton? (car args))
-			   (car (translate-to-ics* (caar args)))
-			   (ics_mk_tup (car (translate-to-ics* (car args))))))))
-	     (val (let* ((ntrbasis-type
-			  (find-supertype
-			   (typecase type
-			     (recordtype
-			      (type (find (id (caar args)) (fields type)
-					  :test #'eq :key #'id)))
-			     (tupletype
-			      (nth (1- (number (caar args)))
-				   (types type)))
-			     (t (range type)))))
-			 (ntrbasis
-			  (typecase type
-			    (recordtype
-			     (make-ics-field-application
-			      (mk-funtype type ntrbasis-type)
-			      (position (id (caar args)) sorted-fields
-					:test #'eq :key #'id)
-			      trbasis))
-			    (tupletype
-			     (make-ics-projection-application
-			      ntrbasis-type (number (caar args)) trbasis))
-			    (t (make-ics-assign-application
-				type
-				trbasis
-				(if (singleton? (car args))
-				    (car (translate-to-ics* (caar args)))
-				    (ics_mk_tup (car (translate-to-ics* (car args))))))))))
-		    (translate-assign-args (cdr args)
-					   value
-					   ntrbasis
-					   ntrbasis-type))))
-	(ics_mk_update trbasis pos val))))
-
-(defun make-ics-field-application (field-accessor-type fieldnum dc-expr)
-  (let ((pos (car (translate-to-ics* fieldnum)))
-	(len (length (types field-accessor-type))))
-    (ics_mk_proj pos len dc-expr)))
-
-(defun make-ics-projection-application (type number expr)
-  (let ((pos (car (translate-to-ics* (1- number))))
-	(len (length (types type))))
-    (ics_mk_proj pos len expr)))
-	    
-(defun make-ics-assign-application (fun-type expr args)
-  (declare (ignore fun-type))
-  (ics_mk_app expr args)) ; ???
-
-
-
-;; Translation back from ICS terms to PVS terms
+(defvar *translate-fresh-vars* nil)
 
 (defmacro holds (arg)
   `(plusp ,arg))
@@ -451,14 +422,14 @@
 (defun translate-from-ics (ptr)
   (let ((trm (if (consp ptr) (unwrap ptr) ptr)))
     (or
-     (gethash (ics_tag trm) *ics-to-pvs-hash*)   ;; cached translations (in particular contains all names)
+  ;   (gethash (ics_tag trm) *ics-to-pvs-hash*)   ;; cached translations (in particular contains all names)
      (cond 
       ((holds (ics_is_app trm))                  ;; uninterpreted function symbols
        (translate-app-from-ics trm))
       ((holds (ics_is_update trm))              ;; function updates
        (translate-update-from-ics trm))
-      ((holds (ics_is_cond trm))
-       (translate-cond-from-ics trm))
+;      ((holds (ics_is_cond trm))
+;       (translate-cond-from-ics trm))
       ((holds (ics_is_arith trm))               ;; arithmetic
        (translate-arith-from-ics trm))
       ((holds (ics_is_tuple trm))               ;; tuples
@@ -472,7 +443,8 @@
       ((holds (ics_is_bv trm))                   ;; bit vectors
        (translate-bv-from-ics trm))
       ((holds (ics_is_fresh trm))
-       (translate-fresh-from-ics trm))
+       (when *translate-fresh-vars*
+	 (translate-fresh-from-ics trm)))
       (t
        (error "ICS to PVS translation: shouldn't happen"))))))
 
@@ -555,8 +527,8 @@
 	 *true*)      
 	((holds (ics_is_false trm))
 	 *false*)
-	((holds (ics_is_diseq trm))
-	 (translate-equal-from-ics trm))
+;	((holds (ics_is_diseq trm))
+;	 (translate-equal-from-ics trm))
 	((holds (ics_is_equal trm))
 	 (translate-equal-from-ics trm))
 	((holds (ics_is_ite trm))
@@ -844,83 +816,17 @@
   (let* ((str (ics_d_var trm))
 	 (id (intern str))
 	 (type (type-of-fresh trm))
-	 (var (mk-new-param id type))
+	 (const (mk-new-const id type))
 	 (ptr (wrap trm)))
     (excl:schedule-finalization ptr 'ics-deregister-pointer)
-    (setf (gethash (ics_tag (unwrap ptr)) *ics-to-pvs-hash*) var)
-    (setf (gethash var *pvs-to-ics-hash*) ptr)
-    var))
+    (setf (gethash (ics_tag (unwrap ptr)) *ics-to-pvs-hash*) const)
+    (setf (gethash const *pvs-to-ics-hash*) ptr)
+    const))
 
 (defun type-of-fresh (trm)   ;; for now...
   *integer*)
 
-
-;; Generating a new Parameter
-
-(defvar *param-counter* 0)
-
-(defun mk-new-param (id type)
-  (multiple-value-bind (fresh new-counter)
-      (unique-id id #\! *param-counter* *current-context*)
-    (setf *param-counter* new-counter)
-    (mk-param fresh type)))
-
-(defun mk-param (id type)
-  (declare (special *current-context*))
-  (put-decl (make-instance 'param-const-decl       ; destructive update of current context
-                           'id id
-                           'type type
-                           'module (module *current-context*))
-            (declarations-hash *current-context*))
-  (let ((param (change-class (typecheck (pc-parse id 'expr)
-                                        :expected type
-                                        :context *current-context*)
-                             'param)))
-    param))
-
-
-;; Fresh identifier
-
-(defun unique-id (name ch counter context)
-  "Generating a fresh (relative to a context) identifier of the form 'name^ch^counter'"
-  (multiple-value-bind (id new-counter)
-      (generate-id name ch counter)
-    (if (declared? id context)
-        (unique-id name ch new-counter context)
-      (values id new-counter))))
-
-(defun generate-id (name ch counter)
-  (flet ((special-char-p (x)
-             (member x (list ch #\_))))
-    (let* ((str (string (op-to-id name)))
-           (pos (position-if #'special-char-p str :from-end T))
-           (prefix (subseq str 0 pos))
-           (suffix (when pos (subseq str (1+ pos))))
-           (prestr (if (and pos (every #'digit-char-p suffix))
-                          prefix
-                        str)))
-      (values (intern (format nil "~a~a~a" prestr ch counter))
-              (1+ counter)))))
-
-
-	     
-	
-	
-
-
-   
-	
-      
-
-
-
-
-
-
-
-
-
-
-
-
-
+(defun mk-new-const (id type)
+  "Generating a fresh constant and adding it to the current context"
+  (let ((fresh-id (new-sko-symbol id *current-context*)))
+    (makeskoconst fresh-id type *current-context*)))

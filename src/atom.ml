@@ -4,7 +4,15 @@ open Hashcons
 open Term
 (*i*)
 
-  
+let is_num a = 
+  match a.node with
+    | Arith(Num _) -> true
+    | _ -> false
+
+let d_num a =
+  match a.node with
+    | Arith(Num(q)) -> q
+    | _ -> assert false
 
 (*s Simplification of the disjunction of two atoms. *)
 
@@ -37,7 +45,10 @@ and disj_bool_bool a b =
     | Equal(x1,y1), Equal(x2,y2) ->
 	if x1 === x2 && y1 === y2 then
 	  Some(hc(Bool(a)))
-	else
+	else if x1 === x2 && is_num y1 && is_num y2 then
+	  let n1 = d_num y1 and n2 = d_num y2 in
+	  Some(Cnstrnt.app (Interval.union (Interval.singleton n1) (Interval.singleton n2)) x1)
+        else 
 	  None
     | Ite({node=Bool(Equal(x1,y1))},{node=Bool False},{node=Bool True}),
       Equal(x2,y2) ->
