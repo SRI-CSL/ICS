@@ -1,6 +1,6 @@
 \documentclass[12pt]{article}
 
-\usepackage{ocamlweb}
+\usepackage{ocamldoc}
 \usepackage{fullpage}
 \usepackage[latin1]{inputenc}
 \usepackage[T1]{fontenc}
@@ -11,6 +11,7 @@
 \usepackage{verbatim}
 \usepackage[chapter]{/homes/owre/tex/tocbibind}
 \usepackage[bookmarks=true,hyperindex=true,colorlinks=true,backref=true,pagebackref=true]{hyperref}
+\usepackage{pslatex}
 
 \newcommand{\replace}[2]{#1[#2]}
 \newcommand{\norm}[2]{\mathit{norm}(#1)(#2)}
@@ -28,8 +29,9 @@
 \newcommand{\cnstrnt}{\textit{cnstrnt}}
 \newcommand{\atom}{\textit{atom}}
 \newcommand{\prop}{\textit{proposition}}
+\newcommand{\name}{\textit{name}}
 
-\title{ICS Manual (Version 1.0)}
+\title{ICS Manual (Version 2.0)}
 
 \author{The ICS group\\[0.3em]
   {\small Computer Science Laboratory, SRI International} \\[-0.2em]
@@ -54,51 +56,36 @@ environments such as proof search or symbolic simulation.
 
 The theory decided by ICS is a quantifier-free,
 first-order theory of equality with terms built from
-  \begin{itemize}
-  \item uninterpreted function symbols,
-  \item arithmetic operators including inequalities and number predicates,
-  \item tupling operators and tuple projection,
-  \item S-expressions,
-  \item array lookup and update,
-  \item operators on fixed-sized bitvectors.
-  \end{itemize}
-This theory is particularly interesting for many applications in the realm
-of software and hardware verification.  Combinations of a multitude
-of datatypes occur naturally in system specifications and the use of
-uninterpreted function symbols has proven to be essential
+the combination of\\
+
+  \begin{tabular}{ll}
+  \texttt{U} & uninterpreted functions, \\
+  \texttt{LA} & linear arithmetic (real and integer),\\
+  \texttt{NL} & power products (nonlinear arithmetic),\\
+  \texttt{P} & products,\\
+  \texttt{COP} & coproducts (direct sums),\\
+  \texttt{ARR} & functional arrays,\\
+  \texttt{BV} & fixed-sized bitvectors,\\
+  \texttt{PSET} & propositional sets, and\\
+  \texttt{APP} & functional abstraction and application.\\
+  \end{tabular}
+
+\noindent
+This combination is particularly interesting for many applications in the 
+realm of software and hardware verification, since the combinations of a 
+multitude of datatypes occur naturally in system specifications and the 
+use of uninterpreted function symbols has proven to be essential
 for many real-world verifications.
 
-The core of ICS is a congruence closure procedure~\cite{RuessShankar2001,ShankarRuess2002}
+The core of ICS is a congruence closure procedure % ~\cite{RuessShankar2001,ShankarRuess2002}
 for the theory of equality and disequality with both uninterpreted and
 interpreted function symbols.  The concepts of canonization and solving
 have been extended to include inequalities over linear arithmetic
-terms. The theory supported by ICS currently includes:
-  \begin{itemize}
-  \item The usual propositional constants {\tt true}, {\tt false}.
-  \item Equality ({\tt =}) and disequality ({\tt /=})\@.
-  \item Rational constants and the arithmetic
-        operators {\tt +}, {\tt *}, {\tt -}\@;
-        multiplication is restricted to
-        multiplication by constants.
-        Arithmetic predicates include an integer test and
-        the usual inequalities {\tt <}, {\tt <=}, {\tt >}, {\tt >=}\@.
-  \item Lookup {\tt $a$[$x$]} and update {\tt $a$[$x$:=$t$]}
-        operations for arrays $a$\@.
-  \item Fixed-sized bitvectors including constants such as {\tt 0b101},
-        concatenation ({\tt conc[3,4]($b_1$,$b_2$)}),
-        extraction ({\tt $b$[$i$:$j$]}), bit-wise operations
-        like bit-wise conjunction  ({\tt $b_1$ \&\& $b_2$}),
-        and built-in arithmetic relations such as {\tt add($b_1$,$b_2$,$b$)}\@.
-        This latter constraint encodes the fact that the sum of the unsigned
-        interpretations of $b_1$ and $b_2$ equals the unsigned
-        interpretation of $b$.  Fixed-sized bitvectors are
-        decided using the techniques described in~\cite{Moeller98:FMCAD}\@.
-  \end{itemize}
-ICS is capable of deciding sequents such as
+terms.  ICS is capable of deciding sequents such as
   \begin{itemize}
   \item {\tt x+2 = y |- f(a[x:=3][y-2]) = f(y-x+1)}
   \item {\tt f(y-1)-1 = y+1, f(x)+1 = x-1, x+1 = y |- false}
-  \item {\tt f(f(x)-f(y)) /= f(z),  y <= x, y >= x+z, z >= 0 |- false}
+  \item {\tt f(f(x)-f(y)) <> f(z),  y <= x, y >= x+z, z > 0 |- false}
   \end{itemize}
 These formulas contain uninterpreted function symbols
 such as {\tt f} and interpreted symbols drawn from the theories of
@@ -123,410 +110,1036 @@ main algorithm work incrementally and the data
 structures for representing contexts are persistent,
 that is, operations on data structures do not alter the
 previous values of data and {\em undo} operations
-are therefore basically for free.
+are therefore for free.
 
-ICS is implemented in \textsf{Ocaml}~\cite{ObjectiveCaml},
-which offers satisfactory run-time performance,
-efficient garbage collection, and interfaces well with other
-languages like C\@.  The implementation of ICS is based on optimization
-techniques such as hash-consing~\cite{JCF2000}
-and efficient data structures like Patricia trees~\cite{OkasakiGill98}
-for representing sets and maps efficiently.
+ICS is implemented in \textsf{Ocaml} % ~\cite{ObjectiveCaml},
+which offers satisfactory run-time performance, efficient garbage collection, 
+and interfaces well with other languages such as C\@. 
 
 There is a well-defined API for manipulating ICS terms, asserting
 formulas to the current database, switching between databases,
-and functions for canonizing terms.
-% and there is a functional and an imperative API\@.
-This API is packaged as a C library, an \textsf{Ocaml} module,
-and a CommonLisp interface. The C library API, for example, has been
-used to connect ICS with PVS~\cite{PVS}\@, and both an interaction and
-a batch processing capability have been built using this API\@.
+and functions for canonizing terms.  This API is packaged as a 
+  \begin{itemize} 
+  \item a C library, 
+  \item an \textsf{Ocaml} library, and 
+  \item a CommonLisp interface.
+  \end{itemize}
+The C library API, for example, has been used to connect ICS with PVS\@, % ~\cite{PVS}\@, 
+and both an interaction and a batch processing capability have been built using 
+this API\@.
 
-Using ICS as the underlying decision procedure of PVS, we
-experience speed-ups of several orders of magnitude (compared
-with the PVS default decision procedures) for selected problems.
-and for typical problems we are usually able to process several
-thousand theorems every second.
 The efficiency and scalability of ICS in processing formulas,
 the richness of its API, and its ability for fast context-switching
-should make it possible to use it as a black box for discharging
+make it possible to use it as a black box for discharging
 verification conditions not only in a theorem proving context
 but also in a multitude of applications like static analysis,
 abstract interpretation, extended type checking,
 symbolic simulation, model checking, or compiler
 optimization.
 
+
 \subsection{Availability}
 
-For academic, non-commercial use ICS is available free of charge under a 
-license agreement with SRI.  ICS is also an integral part of PVS 3.0\@.
+For academic, non-commercial use ICS2.0 is available free of charge under a 
+license agreement 
+   \begin{center}
+   \url{http://ics.csl.sri.com/fm-license.pdf}
+   \end{center}
+with SRI.  ICS is also an integral part of PVS 310\@.
 The complete sources and documentation of ICS are available at
   \begin{center}
-  \url{www.icansolve.com}
+  \url{ics.csl.sri.com}
   \end{center}
-There one can also find the ICS license.
+Binaries for many popular hardware architectures and
+operating systems including Linux, Mac OSX, Solaris, 
+and Windows XP can also be found there.
 
 
 \subsection{Organization}
 
 This document describes the interfaces and implementation
-aspects of the ICS decision procedures.  The various modules of 
-the implementation are not presented in
-topological order with respect to their inter-dependencies, but
-rather in a more logical order. However, it may help to have in mind
-the graph of dependencies, which is the following:
+aspects of the ICS decision procedures.  
 
-%BEGIN LATEX
-\input{epsf}
-\epsfxsize=15cm
-\begin{center}
-\epsfbox{./dep.ps}
-\end{center}
-%END LATEX
-%HEVEA\imgsrc{./dep.gif}
+%The various modules of 
+%the implementation are not presented in
+%topological order with respect to their inter-dependencies, but
+%rather in a more logical order. However, it may help to have in mind
+%the graph of dependencies, which is the following:
+
+%\input{epsf}
+%\epsfxsize=15cm
+%\begin{center}
+%\epsfbox{./dep.ps}
+%\end{center}
 
 
 \section{Installation}\label{sec:installation}
 
+Before trying to compile ICS on your prefered hardware architecture and
+operating system one might try one of the ICS binaries provided in the
+download section at \url{ics.csl.sri.com}\@. Compilations should only
+be necessary for developers or if ICS is used on a ``nonstandard'' platform.
+
 \paragraph{Distribution.}
-The file \texttt{ics.tar.gz} can be downlowded from \url{www.icansolve.com}.
+The file \texttt{ics2.0.tar.gz} can be downlowded from \url{ics.csl.sri.com}.
 Unpack this file using
   \begin{verbatim}
-  > zcat ics.tar.gz | tar xvf -
+  > tar zxvf ics2.0.tar.gz
   \end{verbatim}
 This creates a directory \texttt{./ics} with the following files
-and directory.\\
+and subdirectories.\\
   \begin{tabular}{lcl}
    \texttt{Makefile.in}  & : & Template for generating \texttt{Makefile}.  \\
-   \texttt{fm-license.in} & : & Noncommercial license. \\
+   \texttt{fm-license.pdf} & : & Noncommercial license. \\
    \texttt{bin/} & : & Binaries \\
    \texttt{configure} & : & Configuration script \\
    \texttt{lib/} & : & Archives and shared object files  \\
-   \texttt{tests/} & : & Various benchmarks  \\
    \texttt{README} & : & Short installation guide  \\
-   \texttt{doc/} & : & Documentation \\
+   \texttt{doc/} & : & Documentation files \\
    \texttt{obj/} & : & Object files \\
-   \texttt{src/} & : & Source files \\
-   \texttt{ics/} & : & Shell script for invoking ICS interactor\\
+   \texttt{sat/} & : & Sources for propositional SAT solver (in C++) \\
+   \texttt{src/} & : & Source files for core ICS (in Ocaml and C) \\
+   \texttt{ics}  & : & Shell script for invoking ICS interactor \\
   \end{tabular}
 
-The latest version of ICS can be obtained by using the
-CVS checkout command
-  \begin{verbatim}
-  > cvs co ics -d $CVS_root
-  \end{verbatim} % $
-where \texttt{CVS\_root} is set to
-  \begin{verbatim}
-  /project/pvs2/cvsroot
-  \end{verbatim}
+% The latest version of ICS can be obtained by using the CVS 
+% checkout command
+%  \begin{verbatim}
+%  > cvs co ics -d $CVS_root
+%  \end{verbatim} % $
+% where \texttt{CVS\_root} is set to
+%  \begin{verbatim}
+%  /project/pvs2/cvsroot
+%  \end{verbatim}
 
-\paragraph{Requirements.}
-ICS is written mainly in Ocaml, and it uses uses arbitrary
+\paragraph{Installation Requirements.}
+ICS is written mainly in \textsf{Ocaml}, and it uses uses arbitrary
 precision rational numbers from the GNU multi-precision library (GMP)\@.
 To compile ICS one needs to install:
   \begin{itemize}
-  \item The \textsf{autoconf} package is freely available
-        at \url{http://www.gnu.org/software/autoconf/}\@.
-  \item \textsf{Ocaml} version 3.04 or later.
+  \item \textsf{Ocaml} version 3.06 or later.
         Freely available at \url{http://caml.inria.fr}\@.
-  \item \textsf{GNU MP} version 3.0 or later. This package is
+  \item \textsf{GNU MP} version 4.1 or later. This package is
         freely available at \url{http://www.swox.com/gmp/}\@.
   \end{itemize}
-So far, we have only compiled \textsf{ICS} on \textsf{Linux Redhat 6.0},
-but it should be possible to compile it on a wide range of
-machines and operating systems.
 
 \paragraph{Installation.}
-A configuration \texttt{./configure} is generated from
-\texttt{./configure.in} in the ICS home directory using
-  \begin{verbatim}
-  > autoconf
-  \end{verbatim}
+\begin{enumerate}
+\item
 The configuration script generates a \texttt{Makefile} from the
 \texttt{Makefile.in}. 
   \begin{verbatim}
-  > ./configure [--with-gmp=/path/to/gmp]
-  \end{verbatim}
-Then, {\tt make} compiles ICS on your machine.
+  > ./configure [--with-gmp=/path/to/gmp] [--prefix=/path/to/installation]
+  \end{verbatim} 
+The \texttt{prefix} option specifies the path for installing ICS binaries 
+(\texttt{prefix} defaults to \texttt{/usr/local/bin}\@. 
+The optional \texttt{with-gmp} option is used to specify the path to a 
+particular GMP library.  Configure tries to find an appropriate \texttt{gmp}
+package, but this automatic search is somewhat unreliable and might fail on 
+some computer systems.  In this case, you have to locate an 
+appropriate \texttt{gmp} and run configure with the \texttt{with-gmp} option.
+
+\item
+Now, {\tt make} compiles ICS on your machine.
   \begin{verbatim}
-  > make
+  > ./make
   \end{verbatim}
 Binaries are placed in \texttt{./bin/\$(ARCH)/} and
 the libraries in {\tt ./lib/\$(ARCH)/}, where \texttt{ARCH}
 is the architecture guessed by the configuration script.
+
+C compilers on some operating systems such as \texttt{gcc} on \texttt{OS X} 
+are not able to build dynamic libraries using the \texttt{-shared} option.  
+In these cases it is necessary to edit the generated \texttt{Makefile} and disable 
+the creation of \texttt{libics.so} manually.
+
+\item
 The build directory is {\tt ./obj/\$(ARCH)/}, and the generated
-binary and byte code are put in \texttt{./bin/\$(ARCH)/}.
-
-
+binary and byte code are put in \texttt{./bin/\$(ARCH)/}\@.
+The binaries are installed at the location specified by the \texttt{prefix}
+option to \texttt{configure} above using the following command.
+  \begin{verbatim}
+  > make install
+  \end{verbatim}
+\end{enumerate}
 
 
 \section{The ICS interactor}\label{sec:interactor}
 
-The interactor permits to process formulas interactively and to explore
-the database.  We give an overview of the capabilities of ICS
-using various little examples.
+The interactor permits processing formulas interactively and to 
+explore the database.  We give an overview of the capabilities 
+of ICS using various little examples.
 
 The interactor is started with \texttt{./ics} in the ICS home directory.
 \begin{verbatim}
-% ics
-ICS interpreter. Copyright (c) 2001 SRI International.
+> ics
+ICS 2.0 (Experimental, August 10 2003): Integrated Canonizer and Solver.
+Copyright (c) 2003 SRI International.
+Type 'help help.' for help about help, and 'Ctrl-d' to exit.
 
-> 
+ics> 
 \end{verbatim}
-The `\texttt{>}' is the prompt and ICS is ready to interpret your commands.
+The `\texttt{ics>}' is the prompt and ICS is ready to interpret your commands.
+All commands are terminated by a '\texttt{.}'. Help about available commands
+and the syntax of input is obtained using the \texttt{help} command.
 
+  \begin{tabular}{lcl}
+  \texttt{help}        & - & Display all commands \\
+  \texttt{help <term>} & - & Display definition of nonterminal {\tt <term>} \\
+  \texttt{help assert} & - & Display description of command \texttt{assert}\\
+  \end{tabular}
+
+
+\subsection{ICS in action}
+
+ICS can either be used in batch, interactive, or in server mode. 
+Here we demonstrate some of the capabilities of ICS using its 
+interactive mode. ICS maintains a {\em state} which can be
+manipulated and queried by a series of command.  Most 
+importantly, the {\tt assert} command extends the 
+current logical state with a new fact.  The following 
+command, for example, adds an equality over terms built
+from the the variable {\tt x} and the uninterpreted 
+function symbol {\tt f}\@.
+  \begin{verbatim}
+  ics> assert f(f(f(x))) = f(x).
+  :ok s1
+  \end{verbatim}
+It adds this fact to the current logical, which
+can be queried using the {\tt ctxt} command.
+  \begin{verbatim}
+  ics> ctxt.
+  :val {f(f(f(x))) = f(x)}
+  \end{verbatim}
+In addition, the {\tt assert} command generates a
+fresh name, here {\tt s1}, for the extended state
+and keeps this association in a symbol table.
+  \begin{verbatim}
+  ics> symtab.
+  :val empty |-> state({})
+          s1 |-> state({f(f(f(x))) = f(x)})
+  \end{verbatim}
+Now, asserting the equality {\tt f(f(f(x))) = f(x)} to
+the current logical state yields {\tt :valid}, since
+indeed this equality logically follows from the 
+previously asserted equality using congruence closure.
+  \begin{verbatim}
+  ics> assert f(f(f(f(f(x))))) = f(x).
+  :valid {f(x) = f(f(f(x)))}
+  \end{verbatim}
+In this case, the current state is unchanged. ICS also 
+returns a subset of the asserted equalities, the so-called 
+{\em justification}, from which the validity of the 
+asserted atom follows. Such a justification is not necessarily
+minimal.  The generation of dependencies can be disabled by using
+the {\tt -dependencies} flag when calling the ICS interactor.
+
+
+Validity of equalities is established in ICS using {\em canonization}\@.
+For example, canonizing the left-hand and the right-hand side
+of the equality above both yields  the (internally generated)
+variable {\tt v!1}\@.
+  \begin{verbatim}
+  ics> can f(x).
+  :term v!1
+  :justification {}
+  ics> can f(f(f(f(f(x))))).
+  :term v!1
+  :justification {f(x) = f(f(f(x)))}
+  \end{verbatim}
+The second result of {\tt can} is a justification for the equality
+between the argument and the resulting term.  Since the canonical forms of these 
+terms are identical in the current context, the equality {\tt f(f(f(x))) = f(x)} 
+holds indeed.  Simplification of atoms is performed using the {\tt simplify}
+command.
+  \begin{verbatim}
+  ics> simplify f(x) = f(f(f(f(f(x))))). 
+  :atom tt
+  :justification {f(x) = f(f(f(x)))}
+  \end{verbatim}
+
+Processing of new facts using {\tt assert} is done by building up
+an internal representation, which can be queried using the {\tt show}
+command.  The current state after processing {\tt f(f(f(x))) = f(x)},
+for example, is obtained by introducing names for all subterms in 
+this equality.
+  \begin{verbatim}
+  ics> show. 
+  :state 
+   v: [v!1 |-> {v!3}]
+   u: {v!1 = f(x), v!2 = f(v!1), v!3 = f(v!2)}
+  \end{verbatim}
+Thus, {\tt f(f(f(x)))} equals {\tt f(f(v!1))}, {\tt f(v!2)}, {\tt v!3},
+and, finally, {\tt v!1}\@. The {\tt v} part of the state above represents
+the variable equality {\tt v!1 = v!3} with {\tt v!1} the {\em canonical} 
+representative of the generated equivalence class, whereas the {\tt u}
+part consists of equalites {\tt x = f(...)} with {\tt x} a variable,
+and {\tt f(...)} a flat term with only variables as arguments. Notice
+that ICS does not keep the left-hand side of equations in {\tt u} in
+canonical form. Also, equations in the {\tt u} part are not necessarily
+in solved form, that is, an equation of the form {\tt x = f(x)} may be
+added.
+
+ICS supports also a number of interpreted theories in the combination
+with uninterpreted function symbols. Let's first reset the current
+context to the empty context.
+  \begin{verbatim}
+  ics> reset.
+  :unit
+  ics> assert z = f(x - y).
+  :ok s1
+  \end{verbatim}
+Here, {\tt x - y} is interpreted as the difference between {\tt x}
+and {\tt y} in the theory of {\em linear arithmetic}\@.  Besides the
+variable equalities {\tt v} and the set {\tt u} of uninterpreted equalities,
+the resulting logical state also contains a set {\tt a} of linear arithmetic 
+equalities.
+  \begin{verbatim}
+  ics> show.
+  :state
+    v:[z |-> {v!2}]
+    u: {v!2 = f(v!1)}
+    la: {v!1 = -1 * y + x}
+  \end{verbatim}
+Since the term {\tt f(x - y)} in the input equality contains both the
+uninterpreted function symbol {\tt f} and the interpreted function
+symbol {\tt -}, it is rewritten as {\tt f(v!1)} with {\tt v!1 = -y + x},
+with {\tt v!1} a fresh variable. In contrast to equalities in {\tt u},
+equality sets for interpreted theories are always in {\em solved} form, that is,
+a variable on the left-hand side does not occur on any right-hand side. 
+Now, {\tt x = z + y} is asserted to state {\tt s1} by solving it
+for the largest---in some given ordering---variable {\tt y}, and deducing
+that {\tt v!1} is equal to {\tt z}. Now, {\tt v!1} is replaced with
+{\tt z} in right-hand sides of {\tt u}, and, since the non-canonical
+{\tt v!1} does not occur in any of the equality sets anymore, the variable
+equality between {\tt v!1} and {\tt z} can safely been forgotten.
+  \begin{verbatim}
+  ics> assert x = z + y.
+  :ok s2
+  ics> show.
+  :state
+    v:[z |-> {v!2}] with: [z |-> real]
+    u: {v!2 = f(z)}
+    la: {y = x + -1 * z}
+  \end{verbatim}
+Asserting the disequality {\tt -y <> -(x - f(f(z))} yields unsatisfiability.
+  \begin{verbatim}
+  ics> assert -y <> -(x - f(f(z))).
+  :unsat {-1 * x + f(f(z)) <> -1 * y, x = y + z, z = f(-1 * y + x)}
+  \end{verbatim}
+That is, the conjunction of the facts in the current context with this
+disequality has been shown to be unsatisfiable.  The current state is unchanged 
+in this case. This inconsistency is detected by canonization, since the
+canonical forms of {\tt -y} and {\tt -(x - f(f(z)))} are identical in context {\tt s2}\@.
+   \begin{verbatim}
+   ics> can -y. 
+    :term -1 * x + z
+    :justification {x = y + z}
+   ics> can -(x - f(f(z))).
+    :term -1 * x + z
+    :justification {x = y + z, z = f(-1 * y + x)}
+   \end{verbatim}
+
+Besides arithmetic, ICS includes other theories
+such as the theory of products, functional arrays, coproducts,
+or bitvectors, and the combination of the theory of tuples and 
+coproducts is used to describe abstract datatypes such as binary trees.
+The following shows an example for the combination of linear arithmetic,
+the theory arrays with function update {\tt a[i:=x]} and lookup {\tt a[i]}, 
+and uninterpreted functions.
+  \begin{verbatim}
+   ics> reset.
+   :unit
+   ics> assert x+2=y.
+   :ok s1
+   ics> assert f(a[x:=3][y - 2]) = f(y - x +1).
+   :valid {y = 2 + x}
+  \end{verbatim}
+The next example demonstrates the combination of linear arithmetic
+with S-expressions built from the pairing function {\tt cons(.,.)} and 
+the first and second projection {\tt car(.)} and {\tt cdr(.)}, and 
+uninterpreted functions.
+   \begin{verbatim}
+   ics> reset.
+   :unit
+   ics> assert 2 * car(x) - 3 * cdr(x) = f(cdr(x)).
+   :ok s1
+   ics> assert f(cons(4 * car(x) - 2 * f(cdr(x)), y)) = f(cons(6 * cdr(x), y)).
+   :valid {-3 * cdr(x) + 2 * car(x) = f(cdr(x))}
+  \end{verbatim}
+Again, variables are introduced for abstracting terms and the state {\tt s1}
+also contains  an equality sets for the theory of products {\tt p}\@.
+  \begin{verbatim}
+  ics> show.
+   :state 
+     u: {v!3 = f(v!1)}
+     la: {v!3 = 2 * v!2 + -3 * v!1}
+     p: {v!1 = cdr(x), 
+     v!2 = car(x)}
+  \end{verbatim}
+
+So far, we have only dealt with equalities and disequalities, but
+constraints over inequalities with arithmetical operations appear in almost all
+verification conditions from simple sequential programs over reactive, real-time,
+and hybrid systems.  It is crucial to tightly integrate equality and inequality
+reasoning in that equalities are propagated to all known inequalities, and the
+inequality reasoner generates all possible equalities.  In ICS, we achieve
+such an efficient integration using slack variables to reduce problems about
+inequalities to equality reasoning and simple constraint propagation.
+For example, the equality {\tt x <= y + 2} is reduced to the equality
+{\tt x - y - 2 = k!1} with {\tt k!1} a newly generated, non-negative 
+{\em slack variable}\@.  This equality is solved for the largest variable {\tt y} 
+and asserted to the equality set {\tt a}\@.
+  \begin{verbatim}
+  ics> reset.
+  :unit
+  ics> assert x <= y + 2.
+  :ok s1
+  ics> show.
+  :state
+    la: {y = -2 + x + k!1}
+  \end{verbatim}
+Now, the inequality {\tt y <= z + 4} is rewritten as the nonnegativity
+constraint {\tt 6 + z + -1 * x + -1 * k!1 >= 0} and a new slack variable {\tt k!2}
+is introduced to express this constraint in terms of an equality, which is
+solved for the largest variable {\tt z}\@.
+  \begin{verbatim}
+  ics> assert y <= z + 4.
+  :ok s2
+  ics> show.
+   :state la: {y = -2 + x + k!1, z = -6 + x + k!2 + k!1}
+  \end{verbatim}
+The inequality {\tt z + 6 <= x} is reduced to the nonnegativity constraint
+{\tt 6 + z + -1 * x >= 0}, and {\tt 6 + z + -1 * x = k!3}, with {\tt k!3}
+and the equality is solved and merged into state {\tt s2} to obtain {\tt s3}\@.
+  \begin{verbatim}
+  ics> assert z + 6 <= x.
+  :ok s3
+  ics> show.
+  :state
+    la: {y = -2 + x + k!1, z = -6 + x + -1 * k!2}
+  \end{verbatim}
+In effect, the implied equalities {\tt x = y + 2} and {\tt x = z + 6}
+are respected by the canonizer.
+  \begin{verbatim}
+  ics> can x.
+  :val x
+  :justification {}
+
+  ics> can y + 2.
+  :val x
+  :justification {2 + y + -1 * x >= 0,  4 + z + -1 * y >= 0, -6 + -1 * z + x >= 0}
+
+  ics> can z + 6.
+  :val x
+  :justification {2 + y + -1 * x >= 0, 4 + z + -1 * y >= 0, -6 + -1 * z + x >= 0}
+  \end{verbatim} 
+
+One distinguishing feature of ICS is its management of dynamics contexts.
+In the example above, all intermediate states are maintained in a symbol
+table.
+  \begin{verbatim}
+  ics> symtab.
+   :symtab [
+      empty |-> []; 
+     s1 |-> [2 + y + -1 * x >= 0]; 
+     s2 |-> [4 + z + -1 * y >= 0; 2 + y + -1 * x >= 0]; 
+     s3 |-> [-6 + -1 * z + x >= 0; 4 + z + -1 * y >= 0; 2 + y + -1 * x >= 0]
+  ]
+  \end{verbatim}
+Most commands can access a state directly through its name in the symbol table.
+For example, the logical context of the second state is obtained using the command
+{\tt ctxt@s2}.
+  \begin{verbatim}
+  ics> ctxt@s2.
+  :val {-4 +  -1 * z +  y<=0,  -2 +  -1 * y +  x<=0}
+  \end{verbatim}
+Names are also used for asserting facts to specific contexts. The following
+command, for example, extends the state {\tt s3} with the disequality {\tt x <> 2}\@.
+  \begin{verbatim}
+  ics> assert@s3 x <> 2.
+  :ok s4
+  \end{verbatim}
+Now, {\tt s4} is the current state, but {\tt s3} can be restored to be the
+current state using
+  \begin{verbatim}
+  ics> restore s2.
+  \end{verbatim}
+Thus, the ICS interface includes the management of dynamic contexts, which
+is important for using it as a verification backend in symbolic simulation
+or proof search.  
+
+Dynamic contexts are also used in extending the core ICS
+as described above with a SAT solver for deciding the 
+satisfiability of Boolean combinations of equalities and inequalities.
+Such a decision procedure is available as the command {\tt sat}\@.
+Obviously, the following Boolean formula is unsatisfiable ({\tt |}
+denotes disjunction, {\tt \&} is conjunction, and brackets 
+{\tt [}, {\tt]} are used for grouping. 
+  \begin{verbatim}
+  ics> sat [x = 1 | x = 4] & x > 5.
+  :unsat
+  \end{verbatim}
+In case such a propositional formula is satisfiable, a conjunction of 
+atoms is returned for implicitly describing a {\em set of satisfying assignments}\@.
+  \begin{verbatim}
+  ics> sat [x = 1 | x = 2 | x = 3] & x > 1.
+  :sat s5 
+  :model [-1 + x > 0; x = 3]
+  \end{verbatim}
+Here, all assignments to {\tt x} satisfying both {\tt -1 + x > 0}
+and {\tt x = 3}, describe models for the input formula.  Here, there
+is obviously only one possible assignent, and the description is not minimal.
+In addition, a new context, of name {\tt s5}, is created for these set of assignments. 
+Using only propositional variables, the {\tt sat} command reduces to a Boolean
+satisfiability solver.
+  \begin{verbatim}
+  ics> sat p & [~p | r].
+  :sat s6 
+  :model [r |-> true;  p |-> true]
+  \end{verbatim}
 
 
 
 \subsection{The Command Language}
 
 The ICS command language realizes a {\em ask/tell} interface to
-a context consisting of known facts. When invoking the interactor, 
-this context is empty.
+a context consisting of known facts. Each command is followed by
+a '{\tt .}'\@.
 
-\paragraph{Asserting facts.}
+\paragraph{Asserting facts.}\label{cmd:assert}
   \begin{center}
-  \texttt{assert} \atom \texttt{.}
+  \texttt{assert [@<ident>] <atom>,...,<atom>}
   \end{center}
-An $\atom$ is asserted to the current context using the
-\texttt{assert} command. There are three possible outcomes:
+An \texttt {assert atm} adds the atom \texttt{atm} to the current context.
+There are three possible outcomes:
   \begin{enumerate}
   \item  $\atom$ is inconsistent with respect to the current context.
          In this case, \texttt{assert} leaves the current context
-         unchanged and outputs \texttt{Unsat.} on the standard
-         output.
+         unchanged and outputs \texttt{:unsat} on the standard
+         output. In addition, a {\em justification} in terms of an
+         inconsistent subset of the current context is output if
+         the generation of justifications is enabled. 
   \item  $\atom$ is valid in the current context. Again, the
-         the current context is left, and now \texttt{Valid.}
+         the current context is left, and now \texttt{:valid}
          is output.
-  \item  Otherwise, in case $\atom$ is satisfiable but not valid,
-         the context is modified to include new information obtained
-         from $\atom$.
-  \end{enumerate}
+  \item  Otherwise, in case $\atom$ has neither been shown to be valid
+         nor inconsistent in the current context, the current context is modified to 
+         include new information obtained from $\atom$.  In addition, a new name is 
+         generated for this context and a symbol table entry is added for this name.
+         The result is of the form \texttt{:ok si}\@. 
+   \end{enumerate}
+  Notice that the result \texttt{:ok} does not necessarily mean that the 
+  database is indeed consistent, since the language accepted by ICS is
+  undecidable.  As long as one restricts oneself to a decidable fragment
+  (such as the union of convex Shostak theories) of the ICS input 
+  language, \texttt{:ok} can be interpreted to mean {\em satisfiable}\@.
+  For nonconvex theories such as functional arrays and linear integer arithmetic,
+  the \texttt{split} command can be used for case splitting. 
+  In contrast, a result \texttt{:valid} indicates that the current
+  atom is indeed valid in the current context, and \texttt{:unsat} indicates
+  that the current context conjoined with the currently asserted atom is
+  indeed unsatisfiable.
+
+ \texttt {assert@s atm} works as explained above but the atom is asserted to
+ the context \texttt{s} in the current symbol table, and 
+ \texttt {assert@s atm1,...,atm} asserts the conjunction of atoms \texttt{atm1} to 
+ context \texttt{s}.
+
+\noindent
+{\em Examples:} Asserting the equalities \texttt{f(v) = v} and \texttt{f(u) = u - 1}
+yields new contexts of name \texttt{s1} and \texttt{s2}\@. Only after 
+asserting \texttt{u = v} is a contradiction detected.
+   \begin{verbatim}
+   ics> assert f(v) = v.
+   :ok s1
+   ics> assert f(u) = u - 1.
+   :ok s2
+   ics> assert u = v.
+   :unsat {v = f(v),  u = v, -1 + u = f(u)}
+   \end{verbatim}
+Names of context such as \texttt{s1} may also be used to address contexts in the
+symbol table as in \texttt{assert@s1} below.
+   \begin{verbatim}
+   ics> assert x = y.
+   :ok s1
+   ics> assert y = z.
+   :ok s2
+   ics> assert@s1 y = 2.
+   :ok s3
+   ics> symtab s3.
+   :state v:[x |-> {y}] la: {x = 2}
+   ics> ctxt.
+   :atoms [x = y;  y = 2]
+   \end{verbatim}
+
+\noindent
+{\em See Also:}  \texttt{symtab}\ref{cmd:symtab},
 
 
-\paragraph{Resetting.}
+\paragraph{Canonization.}\label{cmd:can}
   \begin{center}
-  \texttt{reset} \texttt{.}
+  \texttt{can <term>}
   \end{center}
-Reinitializes all internal data structures including
-setting the current logical context to the empty context.
+For a term \texttt{t}, \texttt{can t} returns a term,
+which is a {\em canonical} representative of the equivalence 
+class of \texttt{t} as induced by the atoms in the current 
+context. If the generation of dependencies is enabled, then also 
+a justification of the equality between \texttt{t} and \texttt{can t}
+is returned. There are no side effects.
 
-\paragraph{Clearing current logical context.}
+\noindent
+{\em See Also:}  \texttt{simplify}\ref{cmd:simplify}
+
+
+\paragraph{Simplification.}\label{cmd:simplify}
+  \begin{center}
+  \texttt{simplify <atom>}
+  \end{center}
+  \texttt{simplify a} returns an atom equivalent to \texttt{b} in the current
+  context. If proofmode is enabled, then, in addition, a justification
+  of this equivalence is returned.
+\noindent
+{\em See Also:}  \texttt{can}\ref{cmd:can}
+
+
+\paragraph{Logical Context.}\label{cmd:ctxt}
+  \begin{center}
+  \texttt{ctxt [@<ident>]}
+  \end{center}
+\texttt{ctxt} returns the set of atoms asserted in the current 
+ logical context, and \texttt{ctxt@s} returns the set of asserted
+ atoms in state 's' from the symbol table. These atoms are not 
+ necessarily in canonical form.
+
+
+\paragraph{Term Definition.}\label{cmd:def}
+  \begin{center}
+  \texttt{def <ident> := <term>}
+  \end{center}
+Extend the symbol table with a definition \texttt{<ident>} for term \texttt{<term>}.
+In such a context, variable \texttt{<ident>} is always macro-expanded 
+to \texttt{<term>}, but different occurrences of \term are structure-shared.
+Also, \texttt{<ident>} may occur in \texttt{<term>}, since the expansion
+is not performed recursively.
+
+\noindent
+{\em Examples:} \texttt{def x := y + z}
+
+
+\paragraph{Disequalities.}\label{cmd:diseq}
+  \begin{center}
+  \texttt{diseq [@<ident>]  <term>}
+  \end{center}
+Returns a list of variables known to be disequal to \texttt{<term>} in
+the context \texttt{<ident>} or the current context if \texttt{<ident>} 
+is not specified. In addition, in proof generation mode, justifications
+for each disequality are returned 
+
+\paragraph{Exit.}\label{cmd:exit}
+  \begin{center}
+  \texttt{exit}
+  \end{center}
+Exit the ICS interactor. Alternatively, \texttt{Ctrl-D} can
+be used.
+
+\paragraph{Clearing current logical context.}\label{cmd:forget}
   \begin{center}
   \texttt{forget} \texttt{.}
   \end{center}
 Resets the current logical context to the empty 
 context. In contrast to \texttt{reset}, all other
 ICS data structures are left unchanged.
+ 
+\noindent
+{\em Examples:}
+  \begin{verbatim}
+   ics> assert x = y.
+   :ok s1
+   ics> ctxt. 
+   :val {x = y}
+   ics> forget.
+   :unit
+   ics> ctxt.
+   :val {}
+  \end{verbatim}
 
+\noindent
+{\em See Also:} 
+   \texttt{reset}\ref{cmd:reset}, 
+   \texttt{symtab}\ref{cmd:symtab},
+   \texttt{forget}\ref{cmd:forget}
 
-\paragraph{Sigmatization.}
+\paragraph{Finds in solution sets.}\label{cmd:find}
   \begin{center}
-  \texttt{sigma} (\term | \atom) \texttt{.}
+  \texttt{find [@<ident>] <th> <term>}
   \end{center}
-Computes the normal form of a term or an atom using
-theory-specific canonizers for terms in interpreted
-theories and some builtin simplifications for 
-uninterpreted terms. This command leaves the 
-current state unchanged.
+If the equality \texttt{x = t} is, in the current context, in the equality set 
+for theory {\tt <th>}, say \texttt{a}, then \texttt{find a x} returns \texttt{t} 
+and otherwise \texttt{x}\@. The addressing \texttt{find@s1 a x} may
+be used to address the solution set for, say, the arithmetic theory in the 
+context \texttt{s1} in the symbol table.
 
-\paragraph{Canonization.}
+\noindent
+{\em See Also:} \texttt{inv}\ref{cmd:inv} 
+
+
+\paragraph{Help.}\label{cmd:help}
   \begin{center}
-  \texttt{can} (\term | \atom) \texttt{.}
+  \texttt{help [<command> | < <nonterminal> >]}
   \end{center}
-For a term \texttt{t}, \texttt{can t} returns a
-variable, which is a canonical representative of 
-\texttt{t}.
+Help about ICS interactor commands and syntactic categories.
 
-For an atom \texttt{a}, \texttt{can a} returns a semicanonical 
-form which reduces to the atom \texttt{True} if [a] can be shown
-to hold in the current context, and \texttt{False} if \texttt{a}
-can be shown to be inconsistent.  Otherwise, an atom
-[b] is returned which is equivalent to [a] in the current
-context.
+\noindent
+{\em Examples.}\\
+  \begin{tabular}{ll}
+  \texttt{help}        & Display all commands \\
+  \texttt{help help}   &  Display this message \\
+  \texttt{help <term>} &  Display definition of nonterminal \texttt{<term>} \\
+  \texttt{help assert} & "Display description of command \texttt{assert}  \\
+  \end{tabular}
 
-[can] might involve a state change in that renaming
-variables of the form \texttt{v!i} are generated and equalities
-\texttt{v!i = a'} for subterms of \texttt{a} are added to the
-logical context.
 
-\paragraph{Solving.}
+\paragraph{Inverse find in solution sets.}\label{cmd:inv}
   \begin{center}
-  \texttt{solve} (\texttt{a} | \texttt{t} \texttt{bv}) \term \texttt{=} \term  \texttt{.}
+  \texttt{inv [@<ident>] <th> <term>}
+  \end{center}
+If the equality \texttt{x = t} is, in the current context, in the specified solution set for the 
+specified equality theory, say \texttt{a}, then \texttt{inv a x} returns \texttt{t} and 
+otherwise \texttt{None}\@. The addressing \texttt{inv@s1 a x} may be used to address the 
+solution set for, say, the arithmetic theory in the context \texttt{s1} in the symbol table.
+
+\noindent
+{\em See Also:} \texttt{find}\ref{cmd:find} 
+
+
+\paragraph{Definition of Propositions.}\label{cmd:prop}
+  \begin{center}
+  \texttt{prop} <ident> := <prop>
+  \end{center}
+Extend the symbol table with a definition \var for the proposition \prop\@.
+In such a context, variable \var is always expanded to \prop but
+different occurrences of \prop are structure-shared. see also command \texttt{def}\@.
+This command fails if there is already a \var in the symbol table.
+
+
+\paragraph{Resetting.}\label{cmd:reset}
+  \begin{center}
+  \texttt{reset}
+  \end{center}
+Reinitializes all internal data structures including setting the current logical 
+context to the empty context and the symbol table is emptied out.
+
+
+\paragraph{Restoring logical contexts.}\label{cmd:restore}
+  \begin{center}
+  \texttt{restore <ident>}
+  \end{center}
+Updating the current logical state to be the state
+named by \texttt{ident} in the symbol table.
+
+\noindent
+{\em See Also:}  \texttt{symtab}\ref{cmd:symtab}
+
+
+\paragraph{Removing symbol table entries}\label{cmd:remove}
+  \begin{center}
+  \texttt{remove <ident>}
+  \end{center}
+Remove the symbol table entry corresponding to \texttt{<ident>}\@.
+
+\noindent
+{\em See Also:}  \texttt{symtab}\ref{cmd:symtab}
+
+
+
+\paragraph{Saving the current logical context.}\label{cmd:save}
+  \begin{center}
+  \texttt{save [<ident>]}
+  \end{center}
+Adding a symbol table entry \var for the current 
+logical state.
+
+\noindent
+{\em See Also:}  
+\texttt{symtab}\ref{cmd:symtab}, 
+\texttt{forget}\ref{cmd:forget},
+
+
+\paragraph{Satisfiability Solver.}\label{cmd:sat}
+  \begin{center}
+  \texttt{sat [@<ident>] <prop>}
+  \end{center}
+A satisfiability solver for propositional formulas over atoms. Returns
+\texttt{:unsat} if the formulas has been shown to be unsatisfiable or
+\texttt{:sat} together with an assignment to the Boolean variables and the
+truth values of the atoms in a satisfying assignment.  In addition, a name
+is added in the symbol table for the state corresponding to the conjunction of 
+the atoms in a satisfying assignment, but the current logical state is unchanged.
+
+{\bf Examples:} Literals might be just Boolean variables and the
+satisfibility of the Boolean probem (\texttt{|} is disjunction, \texttt{\&}
+is conjunction, \texttt{\#} is exclusive or, and \texttt{\~} is negation) is
+tested as follows.
+  \begin{verbatim}
+   ics> sat x | y | [z & ~x] # y.
+   :sat(s1) [x |-> true]
+   \end{verbatim}
+Notice that brackets \texttt{[} and \texttt{]} as in \texttt{[z \& \~x]} are used
+for structuring propositional formulas. The values for the variables \texttt{y} and
+\texttt{z} are {\em don't cares} and therefore not explicitly stated.
+In addition to Boolean formulas, the command \texttt{sat} also handles Boolean formulas
+over atomic constraints.
+   \begin{verbatim}
+   ics> sat x > y & [y = 2 # ~[x <> 3]].
+   :sat(s1) [-1 * y +  x>0;  y <> 2;  x = 3]
+   \end{verbatim}
+Now, each possible assignment to \texttt{x} and \texttt{y}, which satisfy the given
+constraints, is a candidate satisfying assignment of the input formula.
+
+
+\paragraph{Signature Declaration.}\label{cmd:sig}
+  \begin{center}
+  \texttt{sig <ident> : <sig>}
+  \end{center}
+Declare a variable \texttt{<ident>} to be interpreted over the 
+set of bitvectors of width \texttt{i} or the integers or the reals.
+For example, after declaring \texttt{sig x : int}, every occurrence
+of the variable \texttt{x} is interpreted to mean the variable 
+\texttt{x\{int\}}, that is the variable of name \texttt{x} with
+associated interpretation domain \texttt{int}\@.  Notice that ICS
+treats \texttt{y} and \texttt{y\{int\}} as different variables.
+Bitvector variables have to be declared before use, when using infix
+operators, since context information is used for inferring parameters 
+when applying infix bitvector operators.
+
+\paragraph{Sigmatization.}\label{cmd:sigma}
+  \begin{center}
+  \texttt{sigma <term>}
+  \end{center}
+Computes the normal form of a term using theory-specific canonizers for 
+terms in interpreted theories and some  builtin simplifications 
+for uninterpreted terms. This command leaves the current state unchanged.
+
+\noindent
+{\em See Also:}  
+\texttt{can}\ref{cmd:can},
+\texttt{simplify}\ref{cmd:simplify}
+
+
+\paragraph{Displaying the context.}\label{cmd:show}
+  \begin{center}
+  \texttt{show [@<ident>] [<th>]}
+  \end{center}
+Displays the current logical state which consists of a
+  \begin{description}
+  \item[Variable equalities.] The \texttt{v} part represents a set of
+       equalities over variables. For example
+	  \begin{verbatim}
+          v:[a |-> {a,  b};  x |-> {x,  y,  z}]
+          \end{verbatim}
+       says that \texttt{a} and \texttt{b} are equivalent
+       and that \texttt{x}, \texttt{y}, and \texttt{z}
+       are equivalent. The canonical representatives each the two non-trivial equivalence
+       classes are \texttt{a} and \texttt{x}\@.
+  \item[Variable disequalities.] The \texttt{d} part is just a conjunction of disequalities
+       over variables
+        \begin{verbatim}
+        d:[y <> x;  z <> y]
+        \end{verbatim}
+       The set of variables known to be disequal can also be obtained using the \texttt{diseq}
+       command.
+  \item[Variable constraints] are conjunctions are sign interpretations for internally 
+        generated slack variables. This information is used, for example, by the \texttt{sign}
+        command.
+  \item[Theory-specific solution sets.] A theory-specific solution set is a conjunction
+        of equalities \texttt{x = t} with \texttt{x} a variable and \texttt{t} a non-variable
+        term with function symbols in only one theory.  Variables in terms might also be
+        internally generated variables of the form \texttt{x!i}\@.
+        For all interpreted theories, the equations in a solved form are actually solved in that 
+        variables \texttt{x} on a rhs do not occur in any of the lhs. 
+        The solution sets can be queried with the \texttt{find}, \texttt{inv}, and the \texttt{use} command.
+  \item[Slack equalities.]
+         Are equalities between internally generated slack variables. These equalities can
+         not be manipulated or queried with any other command.
+  \end{description}
+
+\noindent
+{\em See Also:}  
+\texttt{ctxt}\ref{cmd:ctxt},
+
+
+\paragraph{Solving.}\label{cmd:solve}
+  \begin{center}
+  \texttt{solve <th> <term> = <term>} 
   \end{center}
 Theory-specific solver for input equality. Returns either a solved 
-list of equalities with variables on the lhs which is equivalent
-to the input equality or \texttt{Unsat.} if the input equality is
-unsatisfiable. There are solvers for linear arithmetic (\texttt{a}), 
-tuples (\texttt{t}), and bitvectors (\texttt{bv}).
+list of equalities with variables on the lhs which is, in the given theory,
+equivalent to the input equality or \texttt{:unsat} if the input equality is
+unsatisfiable. There are solvers for linear arithmetic (\texttt{la}), 
+tuples (\texttt{t}), bitvectors (\texttt{bv}), and propositional sets.
 
-\paragraph{Logical Context.}
-  \begin{center}
-  \texttt{ctxt}  \texttt{.}
-  \end{center}
-Return the set of atoms asserted in the current logical context.
-These atoms are not necessarily in canonical form.
+{\em Examples.} The first example demonstrates solving in the theory \texttt{la} of
+linear arithmetic.
+   \begin{verbatim}
+   ics> solve la x + 2 = y - 3.
+   :subst [y |-> 5 + x]
+   \end{verbatim}
+Solving in the theory \texttt{p} of pairs might introduce fresh variables such \texttt{t!2}
+below.
+   \begin{verbatim}
+   ics> solve p car(x) = cons(u, v).
+   :subst [x |-> cons(cons(u, v), cdr(x))]
+   \end{verbatim}
+The following illustrates solving in the theory of bitvectors.
+   \begin{verbatim}
+   ics> sig x2 : bitvector[2].
+   :unit
+   ics> sig x3 : bitvector[3].
+   :unit
+   ics> solve bv x2 ++ 0b10 = 0b10 ++ x2.
+   :val [x2 = 0b10]
+   ics> solve bv x3 ++ 0b10 = 0b10 ++ x3.
+   :unsat
+   \end{verbatim}
 
-\paragraph{Variable Partitioning.}
+\paragraph{Symbol Table.}\label{cmd:symtab}
   \begin{center}
-  \texttt{partition}  \texttt{.}
-  \end{center}
-Returns the set of all known equalities between variables.
-
-\paragraph{Solution sets.}
-  \begin{center}
-  \texttt{solution} (\texttt{u} | \texttt{a} | \texttt{t} \texttt{bv}) \texttt{.}
-  \end{center}
-Returns the solution set corresponding to the specified theory,
-which consists of a set of equalities \texttt{x = a} with \texttt{x}
-a variable and \texttt{a} a term built-up from variables and function
-symbols in the specified theory.  Variables on the rhs might either be
-external variables or fresh variables introduced by a theory-specific solver.
-For all interpreted theories, that is, for all theories except for the 
-uninterpreted theory \texttt{u}, the equations in a solved form are 
-actually solved in that variables \texttt{x} on a rhs do not occur in any 
-of the lhs. 
-
-\paragraph{Finds in solution sets.}
-  \begin{center}
-  \texttt{find} (\texttt{u} | \texttt{a} | \texttt{t} \texttt{bv}) \term \texttt{.}
-  \end{center}
-If \texttt{x = t} is in the specified solution set (see command \texttt{solution}),
-then \texttt{find . x} returns \texttt{t} and otherwise \texttt{x}.
-
-\paragraph{Inverse Finds in solution sets.}
-  \begin{center}
-  \texttt{find} (\texttt{u} | \texttt{a} | \texttt{t} \texttt{bv}) \term \texttt{.}
-  \end{center}
-If \texttt{x = t} is in the specified solution set (see command \texttt{solution}),
-then \texttt{inv . t} returns \texttt{x} and otherwise \texttt{Unsat.}\@.
-
-\paragraph{Comparison.}
-  \begin{center}
-  \term \texttt{<<} \term \texttt{.}
-  \end{center}
-Syntactic comparison of two terms. \texttt{s << t } returns 
-\texttt{Less} (\texttt{Equal}, \texttt{Greater}
-if \texttt{s} is less (equal, greater) than \texttt{t} according
-to the builtin term ordering.
-
-\paragraph{Arithmetic Constraints.}
-  \begin{center}
-  \texttt{cnstrnt} \term \texttt{.}
-  \end{center}
-Compute an arithmetic constraint for the argument term in
-the current context using abstract interpretation on intervals.
-Returns \texttt{None.} if no such constraint could be deduced.
-
-\paragraph{Disequalities.}
-  \begin{center}
-  \texttt{diseq} \term \texttt{.}
-  \end{center}
-Returns a list of variables known to be disequal in the
-current context.
-
-\paragraph{Displaying the context.}
-  \begin{center}
-  \texttt{show} \texttt{.}
-  \end{center}
-Displays the variable partitioning, theory-specific
-solution sets, and disequality information. See also the 
-commands \texttt{partition}, \texttt{solution}, and \texttt{diseq}\@.
-
-\paragraph{Term Definition.}
-  \begin{center}
-  \texttt{def} \var \texttt{:=} \term \texttt{.}
-  \end{center}
-Extend the symbol table with a definition \var for term \term\@.
-In such a context, variable \var is always expanded to \term.
-
-\paragraph{Type Definition.}
-  \begin{center}
-  \texttt{type} \var \texttt{:=} \cnstrnt \texttt{.}
-  \end{center}
-Extend the symbol table with a definition \var for the
-constraint \cnstrnt\@. In such a context, variable \var 
-can always be used instead of the corresponding constraint.
-
-\paragraph{Signature Declaration.}
-  \begin{center}
-  \texttt{sig} \var \texttt{:=} \texttt{bv[int]} \texttt{.}
-  \end{center}
-Declare a variable to be interpreted over the set of 
-bitvectors of width \texttt{int}. This context information
-is used for inferring parameters when applying infix bitvector
-operators.
-
-\paragraph{Symbol Table.}
-  \begin{center}
-  \texttt{symtab} \{\var\} \texttt{.}
+  \texttt{symtab [<ident>]}
   \end{center}
 \texttt{symtab} display the current symbol table, and
 \texttt{symtab}\ \var displays the symbol table entry
-for \var.
+associated with \var.  Such an entry might either be a logical
+context entry, a term definition, a definition of a proposition,
+or a signature entry for domain restrictions of variables.
 
-\paragraph{Saving the current logical context.}
+\noindent
+{\em Examples:}
+   \begin{verbatim}
+   ics> assert x = y.
+   :ok s1
+   ics> symtab.
+   :symtab
+      empty |-> []
+      s1 |-> [x = y]
+
+   ics> def x := y + z.
+   :unit
+   ics> prop z := a | b.
+   :unit
+   ics> symtab.
+    :symtab [
+      empty |-> []; 
+      x |-> z + y; 
+      s1 |-> [y = x]; 
+      z |-> a | b]
+  
+   ics> sig x : bitvector[2].
+   :error Name x already in table
+
+   ics> sig b : bitvector[2].
+   :unit
+   ics> sig q : int.
+   :unit
+   ics> symtab.
+   :symtab[
+     empty |-> []; 
+     x |-> z + y; 
+     s1 |-> [y = x]; 
+     z |-> a | b;  b |-> bitvector[2]; 
+     q |-> int]
+   \end{verbatim}
+
+
+\paragraph{Trace.}\label{cmd:trace}
   \begin{center}
-  \texttt{save} \{\var\} \texttt{.}
+  \texttt{trace <levels>} 
   \end{center}
-Adding a symbol table entry for the current logical state.
+Tracing facility is used mainly for debugging purposes.
+However, using \texttt{trace rule} might sometimes be
+useful to analyze which facts are internally being asserted 
+by ICS. Similarly, trace levels such as \texttt{v}, \texttt{d},
+\texttt{la}, can be used to trace updates on internal data 
+structures.
 
-\paragraph{Restoring logical contexts.}
+\noindent
+{\em See Also:}  
+\texttt{untrace}\ref{cmd:untrace},
+
+
+\paragraph{Disable tracing.}\label{cmd:untrace}
   \begin{center}
-  \texttt{restore} \{\var\} \texttt{.}
+  \texttt{untrace [<levels>]}
   \end{center}
-Updating the current logical state to be the state
-named by \var in the symbol table.
+Disable specified trace levels. If no trace levels are given,
+all tracing is disabled.
 
-\paragraph{Removing symbol table entries}
-  \begin{center}
-  \texttt{remove} \{\var\} \texttt{.}
-  \end{center}
-Remove the symbol table entry corresponding to \var.
-
-\paragraph{Verbose.}
-  \begin{center}
-  \texttt{verbose} \textit{int} \texttt{.}
-  \end{center}
-Determines the amount of trace information displayed on standard output.
-The larger the argument the more information is output.
-
-\paragraph{Garbage Collection.}
-  \begin{center}
-  \texttt{gc} \texttt{.}
-  \end{center}
-This command results in a logical context which is equivalent
-to the current one but redundant variables are eliminated.
-
-\paragraph{Debugging.}
-  \begin{center}
-  \texttt{drop} \texttt{.}
-  \end{center}
-The effect of this command is to fall back into the Ocaml
-interactor when running bytecode; otherwise ICS is terminated.
-This command is mainly for debugging purposes.
-
-\paragraph{Exiting ICS.}
-  \begin{center}
-  \texttt{exit} \texttt{.}
-  \end{center}
-Exit the ICS interactor. Alternatively, \texttt{Ctrl-D} can
-be used.
+\noindent
+{\em See Also:}  
+\texttt{trace}\ref{cmd:trace},
 
 
-\section{Application Programming Interface}\label{sec:api}
+
 
 Usually, the capabilites of ICS are not accessed through the interactor
 but rather through its application programming interface.  Currently,
-we support interfaces for C, Fortran, Lisp, and Ocaml.  We
-first describe the Ocaml interface, since the interfaces for the
-other programming languages are automatically generated from this one.
+we support interfaces for C, Fortran, Lisp, and Ocaml.  We first describe the Ocaml 
+interface, since the interfaces for the other programming languages are automatically 
+generated from this one.
 
-\subsection{Caml interface}
+% \section{Application Programming Interface}\label{sec:api}
+\input{api}\label{sec:api}
 
- \input{./literal/ics.mli}
+\section{Calling ICS from Ocaml}
 
-\subsection{C Interface}
+The following Ocaml program tries to asserts the trivial atom 
+{\tt 5 <= 4} to the empty context using the {\tt process} function
+in the interface and outputs the result to standard output.
+\begin{verbatim}
+open Ics
+
+let main () =
+  let c = context_empty () in
+  let a = 
+    atom_mk_le 
+      (term_mk_num (num_of_int 5)) (term_mk_num (num_of_int 4)) in
+  let s = process c a in
+  
+  begin if is_consistent s then
+    print_string "Consistent"
+  else if is_inconsistent s then
+    print_string "Inconsistent"
+  else if is_redundant s then
+    print_string "Redundant"
+  else
+    failwith "Error"
+  end;
+  print_newline ();
+  Pervasives.flush Pervasives.stdout ;;
+
+main () ;;
+\end{verbatim}
+
+Given that this program is stored in file {\tt test.ml}, it is compiled with
+\begin{verbatim}
+   $ ocamlopt -I <icspath>/lib/i686-pc-linux-gnu/ -c test.ml
+   $ ocamlopt -I <icspath>/lib/i686-pc-linux-gnu/ -o test unix.cmxa ics.cmxa test.cmx
+\end{verbatim}
+So the only things needed are to give the Ocaml compiler the path to the library
+{\tt -I <path>} and the linker the ICS library itself plus {\tt unix.cmxa} as 
+the Ocaml library {\tt unix} is used  by ICS. Notice that libraries for different
+platforms are distributed with ICS, and in the above we assume the 
+{\tt i686-pc-linux-gnu} architecture. The architecture name can also be obtained
+using {\tt config.guess}\@.
+
+Now, the {\tt test} program can be run to get the not too unexpected result.
+  \begin{verbatim}
+  $ ./test 
+  Inconsistent
+  \end{verbatim}
+
+
+\section{Calling ICS from C/C++}
 
 The API for the C programming language is generated automatically
 from the Ocaml API described above. The generated C file can be found in
@@ -559,6 +1172,13 @@ The handling of exceptions is determined by the function
 \texttt{ocaml\_error}, which has to be provided by the application
 programmer.
 
+Calls to the C functions in the interface must obey the typing 
+restrictions of Ocaml, otherwise the result is undefined (typically,
+the program crashes). For example, the function {\tt ics\_term\_cmp}
+may only be called with two arguments representing term values, since
+the signature of this function in the interface is given as 
+{\tt term -> term -> int}\@.
+
 When using {\tt C++} the following declarations are needed to
 use ICS.  First, declare a function {\tt ics\_caml\_startup} before
 including {\tt ics.h}.\footnote{Within the {\tt extern "C"} directive,
@@ -575,8 +1195,8 @@ such as the one below has to be provided.
 extern "C" {
 
 void ics_error(char * funname, char * message) {
-    cerr << "ICS error at " << funname << " : " << message << endl;
-    exit(1);
+   cerr << "ICS error at " << funname << " : " << message << endl;
+  exit(1);
 }
 }
 \end{verbatim}
@@ -594,8 +1214,7 @@ Figure~\ref{fig:hello-ics}. If this program is stored in a file
   g++ hello-ics.cpp -lics
   \end{verbatim}
 Notice that {\tt LD\_LIBRARY\_PATH} variable should be such that
-the shared object file {\tt libics.so} can be found in the linking
-stage.
+the ICS library {\tt libics.a} can be found in the linking stage.
 
 \begin{figure}[t]
 \begin{verbatim}
@@ -620,258 +1239,146 @@ void ics_error(char * funname, char * message) {
 \caption{Minimal setup for calling ICS.\label{fig:hello-ics}}
 \end{figure}
 
+Appendix~\ref{app:bakery} contains an implementation of a bounded
+model checker for the Bakery mutual exclusion protocol in {\tt C++}.
+Assuming that the name of the corresponding file is {\tt bakery.cpp},
+then this program can be compiled on a Linux platform using the 
+static library {\tt libics.a} with the following command:
+  \begin{verbatim}
+  g++ -o bakery -L $ICSPATH/lib/i686-pc-linux-gnu/ -I $ICSPATH/obj/i686-pc-linux-gnu/ -lics bakery.cpp
+  \end{verbatim}
+Here, {\tt ICSPATH} is assumed to be set to the the ICS home directory
+which contains ...
 
-\subsection{Lisp Interface}
+
+\section{Calling ICS from Lisp}
 
 The Lisp API for ICS builds on the C interface and uses the foreign
 function interface of Allegro Common Lisp 6.0.  For each function
 \texttt{xxx} in the API a foreign function declaration \texttt{ics\_xxx}
-is generated.  These definitions are collected in the file
- \begin{verbatim}
-  ./obj/$ARCH/ics.lisp
-  \end{verbatim}
-% $
-The Lisp interface ensures that the Lisp and the Ocaml garbage collector
-cooperate.
-
-\section{Data Structures}\label{sec:terms}
-
-Terms and atoms are the main syntactic categories of ICS,
-where atoms are equalities or disequalities over terms
-or interval constraints over terms.
-
-\subsection{Term data structure}\label{subsec:terms}
-
-A term is either a variable or an application of a function
-symbol to a list of terms. 
-
-\subsubsection{Function Symbols.}
-  \input{./literal/sym.mli}
-  \input{./literal/sym.ml}
-
-  \subsubsection{Variables.}
-  \input{./literal/var.mli}
-  \input{./literal/var.ml}
-
-
-  \subsubsection{Terms.}
-  \input{./literal/term.mli}
-  \input{./literal/term.ml}
-
-
- \subsection{Constraints}\label{sec:cnstrnts}
-  Constraints consists of an interval and a set of 
-  so-called exclusive numbers. 
-
- \subsubsection{Interval constraints}\label{subsec:interval}
-  \input{./literal/endpoint.mli}
-  \input{./literal/endpoint.ml}
-  \input{./literal/interval.mli}
-  \input{./literal/interval.ml}
-
- \subsubsection{Interval constraints with disequalities}\label{subsec:cnstrnts}
-  \input{./literal/cnstrnt.mli}
-  \input{./literal/cnstrnt.ml}
-
- \subsection{Atoms}\label{subsec:atoms}
-   An atom is either an equality over terms, a disequality
-   over terms, or a constraint for a term.
-   \input{./literal/atom.mli}
-   \input{./literal/atom.ml} 
-
-
-\section{Theories}\label{sec:theories}
-  ICS supports the theories of equality over uninterpreted
-  function symbols and a collection of interpreted theories
-  including arithmetic, tuples, and bitvectors.  For each
-  function symbol in interpreted theories there is corresponding
-  constructor function for building terms in a well-defined
-  canonical form.  In addition, for certain uninterpreted
-  function symbols there are builtin rewrite rules.  Solvers
-  are only defined for interpreted theory.
-
-\subsection{Theory of Uninterpreted Functions}\label{sec:uninterpreted}
-
-  For some uninterpreted function symbols, simplifying
-  rewrites are builtin into the canonization process.
-
-  \subsubsection{Uninterpreted Application}
-    \input{./literal/app.mli}
-    \input{./literal/app.ml}
-
-  \subsubsection{Builtin Simplifications}
-    \input{./literal/builtin.mli}
-    \input{./literal/builtin.ml}
-
-
- \subsection{Theory of Arithmetic}\label{subsec:arithmetic}
-
-    \input{./literal/arith.mli}
-    \input{./literal/arith.ml}
-
-
- \subsection{Theory of Tuple}\label{subsec:tuples}
-
-   \input{./literal/tuple.mli}
-
-   \input{./literal/tuple.ml}
-
-
- \subsection{Theory of Propositional Constants}\label{subsec:propositional}
-
- \input{./literal/boolean.mli}
-
- \input{./literal/boolean.ml}
-
-
- \subsection{Theory of Fixsized Bitvectors}\label{subsec:bv}
-  \input{./literal/bitvector.mli}
-  \input{./literal/bitvector.ml}
-
-
-\section{Congruence Closure}\label{sec:cc}
-
- \input{./literal/cc.mli}
- \input{./literal/cc.ml} 
-
-\section{Constraints on Variables}
-  \input{./literal/c.mli}
-  \input{./literal/c.ml}
-
-\section{Disequalities}
-  \input{./literal/d.mli}
-  \input{./literal/d.ml}
-
-
-
-\section{Interpreted Solutions Sets}\label{sec:cc}
-
- \input{./literal/th.mli}
- \input{./literal/th.ml}
- 
- \subsection{Arithmetic}
-  An arithmetic context consists of an arithmetic
-  solution set and constraints on slack variables.
-  \input{./literal/a.mli}
-  \input{./literal/a.ml}
-
- \subsection{Tuples}
-  \input{./literal/t.mli}
-  \input{./literal/t.ml}
-
- \subsection{Booleans}
-  \input{./literal/b.mli}
-  \input{./literal/b.ml}
-
- \subsection{Bitvectors}
-  \input{./literal/bv.mli}
-  \input{./literal/bv.ml}
-
- \subsection{Solution Sets}
-  \input{./literal/subst.mli}
-  \input{./literal/subst.ml}
-
-\section{Shostak's Combination}
-  \input{./literal/theories.mli}  
-  \input{./literal/theories.ml} 
-  \input{./literal/shostak.mli}  
-  \input{./literal/shostak.ml} 
-
-\section{Imperative Interface}
-  \input{./literal/istate.mli}  
-  \input{./literal/istate.ml} 
-  \input{./literal/symtab.mli}  
-  \input{./literal/symtab.ml}
-
-\section{Variable Equalities}
-  \input{./literal/veq.mli}  
-  \input{./literal/veq.ml} 
-  \input{./literal/veqs.mli}  
-  \input{./literal/veqs.ml} 
-
-
-\section{Tools and Support}\label{sec:misc}
-
-  \subsection{Tools}\label{subsec:tools}
-
-  This chapter describes the utility modules. The module \textit{Tools}
-  contained utility functions used in the implementation. The modules
-  \textit{Lexer} and \textit{Parser} provide parsers for terms,
-  equations, commands, etc. (we only give the interface for module
-  \textit{Lexer}). The module \textit{Test} is a tiny toplevel
-  to test the implementation. It allows the user to test the
-  canonization and solver functions, and the algorithm.
-
-  \input{./literal/tools.mli}
-  \input{./literal/tools.ml}
-
-  \subsection{Arbitrary Precision Arithmetic}\label{sec:apa}
-   \input{./literal/mpa.mli}
-   \input{./literal/mpa.ml}
-
-  \subsection{Extended Arbitrary Precision Arithmetic}\label{sec:apa}
-   \input{./literal/mpa.mli}
-   \input{./literal/mpa.ml}
-
-  \subsection{Pretty-Printer}\label{subsec:pretty}
-  \input{./literal/pretty.mli}
-  \input{./literal/pretty.ml}
-
-  \subsection{Exceptions}\label{subsec:exceptions}
-
-   \input{./literal/exc.mli}
-   \input{./literal/exc.ml}
-
-  \subsection{Binary Relations}\label{subsec:binrel}
-
-   \input{./literal/binrel.mli}
-   \input{./literal/binrel.ml}
-
-  \subsection{Hash Consing}\label{subsec:hashcons}
-
-  \input{./literal/hashcons.mli}
-  \input{./literal/hashcons.ml}
- 
-  \subsection{Tracing}\label{subsec:trace}
-
-   \input{./literal/trace.mli}
-   \input{./literal/trace.ml}
-
-\section{ICS Interactor}\label{sec:interpreter}
-  \input{./literal/main.ml}
-
-\section{Parsing}\label{sec:parsing}
-  \subsection{Lexer}\label{subsec:lexer}
- 
-  \verbatiminput{../src/lexer.mll}
-
-  \subsection{Parser}\label{subsec:parser}
- 
-  \verbatiminput{../src/parser.mly}
-
+is generated.  In order to use ICS in Lisp, the shared object file
+{\tt libicsall.so} has to be loaded followed by loading the foreign
+function interface.
+   \begin{verbatim}
+   > (load "./lib/i686-pc-linux-gnu/libicsall.so")
+    ; Foreign loading lib/i686-pc-linux-gnu/libicsall.so.
+   t
+   > (load "./include/ics.lisp")
+   t
+   \end{verbatim}
+Now, all the functions in the ICS interface are available in Lisp.
+It is the Lisp programmer's responsibility to call the ICS functions
+in a type-correct way. Calls to ICS functions violating the Ocaml
+type discipline may have fatal consequences for the Lisp image.
+The ICS data structures can be garbage collection using the Lisp
+garbage collector using finalization on wrappers of ICS pointers.
+In the following, the Allegro Lisp function 
+{\tt excl:schedule-finalization} directs the Lisp garbage collector
+to call {\tt wrap-free!} when garbage collecting the wrapper, and the
+function {\tt wrap-free!} calls the ICS deregistration function on
+the unwrapped ICS structure.
+\begin{verbatim}
+(defstruct (wrap
+	    (:predicate wrap?)
+	    (:constructor make-wrap (address))
+	    (:print-function
+	     (lambda (p s k)
+	       (declare (ignore k))
+               (format t "<#wrap: ~a>" (wrap-address p)))))
+  address)
+
+(defun wrap-finalize! (w)
+  (excl:schedule-finalization w 'wrap-free!))
+
+(defun wrap-free! (w)
+  (ics_deregister (unwrap w)))
+\end{verbatim}
+In this way it is ensured that the Lisp and the Ocaml garbage
+collector cooperate as long as every ICS wrapper has been finalized.
+A typical construction is demonstrated below.
+   \begin{verbatim}
+   (defun ics-empty-state ()
+      (let ((empty (make-wrap (ics_context_empty))))
+         (wrap-finalize! empty)
+          empty))
+   \end{verbatim}
+The empty ICS context is obtained using {\tt ics\_context\_empty},
+and the corresponding Lisp wrapper {\tt empty} is finalized before
+being returned by this function.
+
+ICS errors and exceptions are being handled through the Lisp
+exception mechanism, and ICS functions are interruptable using
+{\tt Ctrl-C Ctrl-C}\@.
+
+
+% \section{Data Structures}\label{sec:terms}
+
+%Terms and atoms are the main syntactic categories of ICS,
+%where atoms are equalities or disequalities over terms
+%or interval constraints over terms.
+%  \begin{itemize}
+%  \item A term is either a variable or an application of a function
+%        symbol to a list of terms.
+%  \item Constraints consists of an interval and a set of 
+%        so-called exclusive numbers.   
+%  \item An atom is either an equality over terms, a disequality
+%        over terms, or a constraint for a term.
+%  \end{itemize}
+
+
+%A partitioning {\tt (v, d)} is defined as the conjunction
+%of the variable equalities in {\tt v} and variable disequalities
+%in {\tt d}, where {\tt v} is of type {\tt V.t} and {\tt d} is of
+%type {\tt D.t}\@.
+
+%ICS supports the theories of equality over uninterpreted
+%function symbols and a collection of interpreted theories
+%including arithmetic, tuples, and bitvectors.  For each
+%function symbol in interpreted theories there is corresponding
+%constructor function for building terms in a well-defined
+%anonical form.  In addition, for certain uninterpreted
+%5function symbols there are builtin rewrite rules.  Solvers
+%are only defined for interpreted theory.
+
+%This chapter describes the utility modules. The module \textit{Tools}
+%contained utility functions used in the implementation. The modules
+%\textit{Lexer} and \textit{Parser} provide parsers for terms,
+%equations, commands, etc. (we only give the interface for module
+%\textit{Lexer}). The module \textit{Test} is a tiny toplevel
+%to test the implementation. It allows the user to test the
+%canonization and solver functions, and the algorithm.
 
 
 \vspace{10mm}
 {\bf Acknowledgements.}
 The algorithms and data structures underlying ICS have been
 developed by N. Shankar and Harald Rue{\ss}\@. The core ICS code is
-by  Harald Rue{\ss} and Jean-Christophe Filli{\^a}tre, and the Lisp
+by Harald Rue{\ss} and Jean-Christophe Filli{\^a}tre, and the Lisp
 interface has been developed by Sam Owre, Harald Rue{\ss}, and
 Jean-Christophe Filli{\^a}tre. The GMP ocaml interface was originally
 written by David Monniaux, and adjusted for use with \texttt{ocaml 3.00} by
-Jean-Christophe Filli{\^a}tre.
-
- This document has been automatically produced
-from the source code using the literate programming tool \textsf{ocamlweb}%
-\footnote{\textsf{Objective Caml} and
-  \textsf{ocamlweb} are both freely available, respectively at
-  \textsf{http://caml.inria.fr} and
-  \textsf{http://www.lri.fr/\~{}filliatr/ocamlweb}}.
+Jean-Christophe Filli{\^a}tre. Leonardo de Moura wrote the simulator
+in Appendix~\ref{app:bakery}\@.
 
 
 \bibliographystyle{alpha}
 \addcontentsline{toc}{section}{References}
 \bibliography{./biblio}
+
+\appendix
+
+\section{Bakery Mutual Exclusion Protocol}\label{app:bakery}
+
+The following program realizes a symbolic simulator
+for a simplified Bakery mutual exclusion protocol
+using the ICS interface to C.
+
+\verbatiminput{bakery.cpp}
+
+% \section{Yacc Input Grammar}\label{app:grammar}
+
+% \verbatiminput{../src/parser.mly}
+
 
 \end{document}
 

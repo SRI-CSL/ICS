@@ -350,14 +350,14 @@ $(DOCDIR)/api.tex: $(SRCDIR)/ics.mli
 	(cd $(OBJDIR); \
 	$(OCAMLDOC) -latex -noheader -notrailer -o ../../doc/api.tex ics.mli)
 
-# $(DOCDIR)/doc.pdf: $(DOCDIR)/dep.ps $(DOCDIR)/doc.tex
-# 	(cd $(DOCDIR); pdflatex ./doc.tex  && pdflatex ./doc.tex)
+$(DOCDIR)/doc.pdf: $(DOCDIR)/dep.ps $(DOCDIR)/doc.tex
+	(cd $(DOCDIR); pdflatex ./doc.tex  && pdflatex ./doc.tex)
 
-$(DOCDIR)/doc.pdf: $(DOCDIR)/doc.dvi
-	(cd $(DOCDIR);  \
-	dvips -Ppdf ./doc.dvi -o ./doc-tmp.ps; \
-	ps2pdf ./doc-tmp.ps ./doc.pdf; \
-        rm ./doc-tmp.ps)
+#$(DOCDIR)/doc.pdf: $(DOCDIR)/doc.dvi
+#	(cd $(DOCDIR);  \
+#	dvips -Ppdf ./doc.dvi -o ./doc-tmp.ps; \
+#	ps2pdf ./doc-tmp.ps ./doc.pdf; \
+#        rm ./doc-tmp.ps)
 
 
 $(DOCDIR)/doc.ps:  $(DOCDIR)/doc.dvi $(DOCDIR)/dep.ps $(DOCDIR)/doc.tex
