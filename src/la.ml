@@ -446,9 +446,7 @@ let protect (p, s) f a =
 
 
 (** Return a variable for a term [a], possibly extending [R]
-  with a fresh variable if [a] is not already a rhs of [T]. 
-  First, canonize to ensure that all dependent variables are 
-  removed (???) *)
+  with a fresh variable if [a] is not already a rhs of [T]. *)
 let name ((p, s) as cfg) a =
   try
     S.inv t s a
@@ -463,36 +461,45 @@ let fuse1 tag cfg e =
 	
 
 (** Composing a list of solved equalities into solution set for mode [m]. *)
-let fuse_in_r = ref Term.Set.empty
+let fuse_in_r = ref Term.Var.Map.empty
 
 let rec compose1 tag cfg e =
   match tag with
     | S.Left ->
 	S.compose r cfg [e] 
     | S.Right -> 
-	(* S.fuse r cfg [e];     (* to do: add lazy fusion for R. *) *)
 	lazy_fuse cfg e;
 	S.compose t cfg [e]
 
 and lazy_fuse cfg e =
-  let k = Fact.Equal.lhs_of e in
-    fuse_in_r := Term.Set.add k !fuse_in_r
+  let (k, a, _) = Fact.Equal.destruct e in
+    if Arith.is_num a || Term.is_var a then   (* eagerly fuse numeric constants and variables. *)
+      S.fuse r cfg [e]
+    else 
+      fuse_in_r := Term.Var.Map.add k e !fuse_in_r
 
-and complete_fuse_in_r ((_, s) as cfg) =
-  Term.Set.iter
-    (fun k ->
-       try
-	 let e = equality t s k in
-	   S.fuse r cfg [e]
-       with
-	   Not_found -> ())
+and complete_fuse_in_r ((_, s) as cfg) =  
+  Term.Var.Map.iter
+    (fun k e ->
+       Trace.msg "la" "Lazy Fuse" e Fact.Equal.pp;
+       S.fuse r cfg [e])
     !fuse_in_r
 
 let initialize () = 
-  fuse_in_r := Term.Set.empty
+  fuse_in_r := Term.Var.Map.empty
 
-let finalize cfg =
-  complete_fuse_in_r cfg
+let finalize c =
+  complete_fuse_in_r c
+
+let unwind_protect f c a =
+  initialize ();
+  try
+    f c a;
+    finalize c
+  with
+      exc -> 
+	finalize c;
+	raise exc
 	
 
 (** Process an equality [e].
@@ -527,9 +534,8 @@ let finalize cfg =
      eliminated or we are back to one of the previous cases.  Note that [|a'|] will never 
      go below [0] in this process. *)
 let rec merge cfg e =  
-  initialize ();
-  merge1 cfg e;
-  finalize cfg
+  unwind_protect 
+    merge1 cfg e
 
 and merge1 ((p, s) as cfg) e =
   let e = Fact.Equal.map (replace s) e in
@@ -674,12 +680,14 @@ and gomory_cut ((_, s) as cfg) e =
     process_nonneg1 cfg nn'
   
 (** Process a nonnegativity constraint [nn] of the form [a >= 0]. *)
-and process_nonneg ((_, s) as cfg) nn =  
-  initialize();
+and process_nonneg cfg nn =  
   Trace.msg "la" "Process" nn Fact.Nonneg.pp;
-  let nn = Fact.Nonneg.map (replace s) nn in
-    process_nonneg1 cfg nn;
-    finalize cfg
+  let process ((_, s) as cfg) nn = 
+    let nn = Fact.Nonneg.map (replace s) nn in
+      process_nonneg1 cfg nn
+  in
+    unwind_protect 
+      process cfg nn
 
 and process_nonneg1 ((_, s) as cfg) nn =
   let (a, rho) = Fact.Nonneg.destruct nn in          (* [rho |- a >= 0] *)
@@ -884,14 +892,16 @@ let rec is_nonpos cfg a =
     with
 	Jst.Inconsistent(rho) -> Some(rho)
 
-and process_pos ((_, s) as cfg) c =
-  initialize ();
-  let c = Fact.Pos.map (replace s) c in 
-    Trace.msg "la" "Process" c Fact.Pos.pp;
-    (let (a, rho) = Fact.Pos.destruct c in           (* [rho |- a >= 0] *)
+and process_pos cfg c =  
+  Trace.msg "la" "Process" c Fact.Pos.pp;
+  let process ((_, s) as cfg) c =
+    let c = Fact.Pos.map (replace s) c in 
+    let (a, rho) = Fact.Pos.destruct c in           (* [rho |- a >= 0] *)
       dismerge1 cfg (Fact.Diseq.make (a, Arith.mk_zero(), Jst.dep1 rho));
-      process_nonneg1 cfg (Fact.Nonneg.make (a, Jst.dep1 rho)));
-    finalize cfg
+      process_nonneg1 cfg (Fact.Nonneg.make (a, Jst.dep1 rho))
+  in
+    unwind_protect
+      process cfg c
      
 
 
@@ -949,13 +959,12 @@ and is_gt cfg (a, b) =
 (** Processing disequalities only deals with integer disequalities,
   which are maintained in the form [e <> n] where [n] is a natural 
   number. *) 
-and dismerge cfg d =
-  initialize ();
-  dismerge1 cfg d;
-  finalize cfg
+and dismerge cfg d = 
+  Trace.msg "la" "Process" d Fact.Diseq.pp;
+  unwind_protect
+    dismerge1 cfg d
 
 and dismerge1 ((p, s) as cfg) d =
-  Trace.msg "la" "Process" d Fact.Diseq.pp;
   let d = Fact.Diseq.map (replace s) d in    (* replace dependent variables. *)
     if !Arith.integer_solve && Fact.Diseq.is_diophantine d then
       process_diophantine_diseq cfg d

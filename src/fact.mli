@@ -87,6 +87,7 @@ module Diseq : sig
   val pp : t Pretty.printer
   val map : Jst.Eqtrans.t -> t -> t
   val to_var : (Th.t -> Jst.Eqtrans.t) -> t -> t
+  val both_sides : (Term.t -> bool) -> t -> bool
   val is_var : t -> bool
   val is_diophantine : t -> bool
   val d_diophantine : t -> Term.t * Mpa.Q.t * Jst.t

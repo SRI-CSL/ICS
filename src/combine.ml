@@ -221,7 +221,7 @@ let name (p, s) i a =
     | Shostak(SET) -> Pset.name (p, s.pset) a
     | Can(NL) -> Nl.name (p, s.nl) a
     | Shostak(APP) -> L.name (p, s.app) a
-    | Can(ARR) -> Arr.can (p, s.arr) a
+    | Can(ARR) -> Arr.name (p, s.arr) a
 
 
 
@@ -464,7 +464,7 @@ and process_equal th (p, s) e =
 	   | SET -> Pset.merge (p, s.pset) e)
     | Can(i) ->
 	(match i with
-	   | ARR -> Arr.process (p, s.arr) e
+	   | ARR -> Arr.process_equal (p, s.arr) e
 	   | NL ->  Nl.merge (p, s.nl) e)
 
 let process_nonneg (p, s) =
@@ -474,10 +474,12 @@ let process_pos (p, s) =
   La.process_pos (p, s.a) 
 
 let dismerge (p, s) d =
+  Trace.msg "foobar" "Dismerge" d Fact.Diseq.pp;
   if Fact.Diseq.is_diophantine d then
     La.dismerge (p, s.a) d
   else 
     let d = Fact.Diseq.to_var (name (p, s)) d in
+      Trace.msg "foobar" "Named" d Fact.Diseq.pp;
       Partition.dismerge p d;
       Arr.dismerge (p, s.arr) d;
       Bv.dismerge (p, s.bv) d
@@ -512,7 +514,9 @@ let propagate_nonneg cfg nn =
 let gc (p, s) =
   let filter x =  
     not (Th.exists 
-	   (fun i -> (Th.is_can i || Th.is_uninterpreted i) && 
+	   (fun i -> 
+	      (Th.is_can i || 
+	       Th.is_uninterpreted i) && 
 	      is_dependent s i x))
   in
     Partition.gc filter p

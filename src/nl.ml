@@ -95,11 +95,11 @@ let fold = Eqs.fold
 let is_dependent = Eqs.is_dependent
 let is_independent = Eqs.is_independent
 
+
 (** {i Lookup} of [a] in configuration [(v, s)]
   with [v] a set of variable equalities and [s] a flat array context.
-  - [C(x) = y]   if [x =v y] and [y] canonical,
-  - [C(x) = b']  if [y = b] in [s] with [x =V y], 
-                 [b = z*u], b' = C(z) * C(u)
+  - [C(x) = y]            if [x =v y] and [y] canonical,
+  - [C(x) = C(z) * C(u)]  if [y = z*u] in [s] with [x =V y], 
   - [C(a) = a]   otherwise. *)
 let rec lookup ((p, s) as c) a =
   if Term.is_app a then
@@ -116,6 +116,20 @@ let rec lookup ((p, s) as c) a =
 	  (Pprod.mk_mult z' u', Jst.dep3 rho tau sigma)
     with
 	Not_found -> Partition.find p a
+
+
+(** {i Replace} dependent variables in a term [a]. 
+  - [C[x] = C(x)]
+  - [C[a1*...*an] = C[a1]*...*C[an]]. *)
+and replace c a =
+  try
+    let (a1, a2) = Pprod.d_mult a in
+    let (b1, rho) = replace c a1
+    and (b2, tau) = replace c a2 in
+      if a1 == b1 && a2 == b2 then Jst.Eqtrans.id a else 
+	(Pprod.mk_mult b1 b2, Jst.dep2 rho tau)
+  with
+      Not_found -> lookup c a
 
 
 (** {i Inverse lookup} of [a] in configuration [(v, s)]
@@ -142,19 +156,6 @@ let rec abstract ((p, s) as c) a =
 	  with
 	      Not_found -> Jst.Eqtrans.id a)
 
-
-(** {i Replace} dependent variables in a term [a]. 
-  - [C[x] = C(x)]
-  - [C[a1*...*an] = C[a1]*...*C[an]]. *)
-and replace c a =
-  try
-    let (a1, a2) = Pprod.d_mult a in
-    let (b1, rho) = replace c a1
-    and (b2, tau) = replace c a2 in
-      if a1 == b1 && a2 == b2 then Jst.Eqtrans.id a else 
-	(Pprod.mk_mult b1 b2, Jst.dep2 rho tau)
-  with
-      Not_found -> lookup c a
 
 
 (** {i Canonization} with respect to a configuration [c]

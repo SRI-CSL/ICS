@@ -150,6 +150,8 @@ module Diseq = struct
 	    let (x, alpha) = term_to_var i a in
 	    let (y, beta) = term_to_var j b in
 	      (Atom.Diseq.make (x, y), Jst.dep3 rho alpha beta)
+
+  let both_sides p (d, _) = Atom.Diseq.both_sides p d
 		
   let d_diophantine (d, rho) =  
     let (a, b) = Atom.Diseq.destruct d in
