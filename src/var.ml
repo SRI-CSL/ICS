@@ -93,10 +93,6 @@ let mk_fresh x = function
       incr(k);
       Internal(x, !k)
 
-let mk_slack =
-  let slackname = Name.of_string "k" in
-    mk_fresh slackname
-
 let mk_free i = Bound(i)
 
 (*s Recognizers. *)
@@ -108,14 +104,6 @@ let is_free = function Bound _ -> true | _ -> false
 let d_free = function
   | Bound(i) -> i
   | _ -> assert false
-
-let is_slack =
-  let slackname = Name.of_string "k" in
-    function
-      | Internal(k, _) -> 
-	  Name.eq k slackname
-      | _ ->
-	  false
 
 (*s Printer. *)
 
