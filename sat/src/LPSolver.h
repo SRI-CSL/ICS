@@ -553,7 +553,22 @@ public:
 		return sign ? -v : v;
 	}
 
+	LPFormulaId uninterpreted_cannonical_formula(int * aux_assignments, LPFormulaId f) {
+		assert(f != 0);
+		bool sign = f < 0;
+		int v = aux_assignments[sign ? -f : f];
+		if (v == 0)
+			return f;
+		while (v < -1 || v > 1) {
+			f = sign ? -v : v;
+			sign = f < 0;
+			v = aux_assignments[sign ? -f : f];
+		}
+		return f;
+	}
+
 	LPFormulaId canonical_formula(LPFormulaId f) { return canonical_formula(assignments, f); }
+	LPFormulaId uninterpreted_cannonical_formula(LPFormulaId f) { return uninterpreted_cannonical_formula(assignments, f); }
 
 	// return 0, 1 or -1 (Unknown, True, or False)
 	LPFormulaId get_formula_value(LPFormulaId f) {

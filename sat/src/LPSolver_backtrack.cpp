@@ -89,7 +89,22 @@ bool LPSolver::backtrack(unsigned int num_levels)
 		return false;
 
 	decision_level -= num_levels;
-	
+
+//  	if (!to_process.is_empty()) {
+// 		bool found = false;
+//  		for (int i = 0; i < to_process.get_size(); i++) {
+//  			int var_idx = to_process.get(i);
+//  			int var_idx_level = internal_formulas[var_idx].decision_level;
+//  			if (var_idx_level < decision_level) {
+//  				cout << var_idx << ":" << var_idx_level << " ";
+//  				found = true;
+//  			}
+//  		}
+//  		if (found) {
+//  			cout << "after_branching = " << after_branching << " num_levels = " << num_levels << ", decision_level = " << decision_level << ", to_process.get_size() = " << to_process.get_size() << "\n";
+// 		}
+//  	}
+
 	num_backtracks++;
 	if (num_levels > 1)
 		num_non_chronological_backtracking++;

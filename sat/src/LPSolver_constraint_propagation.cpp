@@ -10,6 +10,10 @@
 
 #include"LPSolver.h"
 
+// #undef RULE_TRACE
+// #define RULE_TRACE(code) { code }
+// #define ctrace cout
+
 int LPSolver::propagate_rich_constraints() {
 	SOLVER_TRACE(ctrace << "propagating constraints...\n";);
 	assert(check_invariant());
@@ -137,6 +141,7 @@ int LPSolver::propagate_or_constraint_downward(const LPFormula * parent)
 		for (unsigned int i = 0; i < n; i++) {
 			ASSIGN(parent->get_argument(i), -1, parent_idx); 
 		}
+		RULE_OR_TRACE(); 
 	}
 	else {
 		// Rule: parent == -a_n --->  a_n == false, parent == true
@@ -151,6 +156,7 @@ int LPSolver::propagate_or_constraint_downward(const LPFormula * parent)
 				RULE_TRACE(ctrace << "  [down] or(a1,...,an) == -ai ---> ai == false, or(...) == true\n";);
 				RULE_OR_TRACE(); 
 				ASSIGN(can_arg, -1, parent_idx); can = 1; /* update "can" to reflect parent == true */ 
+				RULE_OR_TRACE(); 
 			}
 			else if (can_arg == 1) { all_children_are_false = false; is_target = false; }
 			else if (can_arg == -1) { /* do nothing */ }
@@ -171,10 +177,13 @@ int LPSolver::propagate_or_constraint_downward(const LPFormula * parent)
 								 if (get_formula_value(parent->get_argument(i)) != -1)
 									 assert(false);
 							 });
+			RULE_TRACE(ctrace << "  [down] a1 == false,...,an == false ---> or(...) == false\n";);
+			RULE_OR_TRACE(); 
 			ASSIGN(parent_idx, -1, parent_idx);
 //  			SOLVER_TRACE(ctrace << "  conflict detected in or-node, all children are false " << parent_idx << " [";
 //  									 formula_manager->dump_formula(ctrace, parent_idx);
 //  									 ctrace << "]\n";);
+			RULE_OR_TRACE(); 
 		}
 
 		// assert(IMPLY(all_children_are_false, !is_target));
@@ -200,6 +209,7 @@ int LPSolver::propagate_or_constraint_downward(const LPFormula * parent)
 			RULE_TRACE(ctrace << "  [down] UNIT, or(a1,...,an) == true, all but one ai is false ---> unknown ai == true\n";);
 			RULE_OR_TRACE(); 
 			ASSIGN(unknown_can, 1, parent_idx);
+			RULE_OR_TRACE(); 
 		}
 	}
 	
@@ -219,12 +229,14 @@ int LPSolver::propagate_iff_constraint_downward(const LPFormula * parent)
 		RULE_TRACE(ctrace << "  [down] iff(a,b) == true ---> a == b\n";);
 		RULE_IFF_TRACE();
 		ASSIGN(rhs, lhs, parent_idx); 
+		RULE_IFF_TRACE();
 	}
 	// Rule: parent == false ---> rhs == -lhs
 	else if (can == -1) { 
 		RULE_TRACE(ctrace << "  [down] iff(a,b) == false ---> a == -b\n";);
 		RULE_IFF_TRACE();
 		ASSIGN(rhs, -lhs, parent_idx); 
+		RULE_IFF_TRACE();
 	}
 	else {
 		int can_lhs = canonical_formula(lhs);
@@ -234,24 +246,28 @@ int LPSolver::propagate_iff_constraint_downward(const LPFormula * parent)
 			RULE_TRACE(ctrace << "  [down] iff(a,b) == a ---> b == true\n";);
 			RULE_IFF_TRACE();
 			ASSIGN(rhs, 1, parent_idx); 
+			RULE_IFF_TRACE();
 		}
 		// Rule: parent == -lhs ---> rhs == false
 		else if (can == -can_lhs) {	
 			RULE_TRACE(ctrace << "  [down] iff(a,b) == -a ---> b == false\n";);
 			RULE_IFF_TRACE();
 			ASSIGN(rhs, -1, parent_idx); 
+			RULE_IFF_TRACE();
 		}
 		// Rule: parent == rhs ---> lhs == true
 		else if (can == can_rhs) { 
 			RULE_TRACE(ctrace << "  [down] iff(a,b) == b ---> a == true\n";);
 			RULE_IFF_TRACE();
 			ASSIGN(lhs, 1, parent_idx); 
+			RULE_IFF_TRACE();
 		}
 		// Rule: parent == -rhs ---> lhs == false
 		else if (can == -can_rhs) { 
 			RULE_TRACE(ctrace << "  [down] iff(a,b) == -b ---> a == false\n";);
 			RULE_IFF_TRACE();
 			ASSIGN(lhs, -1, parent_idx); 
+			RULE_IFF_TRACE();
 		}
 	}
 
@@ -344,7 +360,8 @@ int LPSolver::propagate_or_constraint_upward(unsigned int formula_idx, const LPF
 	if (can_child == 1) { 
 		RULE_TRACE(ctrace << "  [up] a == true ---> or(...,a,...) == true\n";);
 		RULE_OR_TRACE();
-		ASSIGN  (parent_idx, 1, parent_idx);
+		ASSIGN(parent_idx, 1, parent_idx);
+		RULE_OR_TRACE(); 
 	}
 	// Rule: child_1 == false && ... && child_(i-1) == false && child_(i+1) == false && ... && child_n == false ---> parent == child_i
 	else if (can_child == -1) {
@@ -377,6 +394,7 @@ int LPSolver::propagate_or_constraint_upward(unsigned int formula_idx, const LPF
 			else {
 				ASSIGN(parent_idx, -1, parent_idx); // all children are equal to false, so the parent is also false!
 			}
+			RULE_OR_TRACE(); 
 		}
 	}
 	else {
@@ -392,6 +410,7 @@ int LPSolver::propagate_or_constraint_upward(unsigned int formula_idx, const LPF
 				RULE_TRACE(ctrace << "  [up] exists ai, aj such that ai = -aj ---> or(...,ai,...,aj,...) == true\n";);
 				RULE_OR_TRACE();
 				ASSIGN(parent_idx, 1, parent_idx);
+				RULE_OR_TRACE(); 
 				return 0;
 			}
 			else { 
@@ -403,6 +422,7 @@ int LPSolver::propagate_or_constraint_upward(unsigned int formula_idx, const LPF
 			RULE_TRACE(ctrace << "  [up] a1 == ... == an ---> or(a1,...,an) == a1\n";);
 			RULE_OR_TRACE();
 			ASSIGN(parent_idx, can_child, parent_idx);
+			RULE_OR_TRACE(); 
 		}
 	}
 	return 0;
@@ -427,24 +447,28 @@ int LPSolver::propagate_iff_constraint_upward(unsigned int formula_idx, const LP
 			RULE_TRACE(ctrace << "  [up] a == true ---> iff(a,b) == b\n";);
 			RULE_IFF_TRACE();
 			ASSIGN(parent_idx, rhs, parent_idx); 
+			RULE_IFF_TRACE();
 		}
 		// Rule: lhs == false ---> parent == -rhs
 		else if (can_lhs == -1) { 
 			RULE_TRACE(ctrace << "  [up] a == false ---> iff(a,b) == -b\n";);
 			RULE_IFF_TRACE();
 			ASSIGN(parent_idx, -rhs, parent_idx); 
+			RULE_IFF_TRACE();
 		}
 		// Rule: parent == lhs ---> rhs == true
 		else if (can_parent == can_lhs) { 
 			RULE_TRACE(ctrace << "  [up] iff(a,b) == a ---> b == true\n";);
 			RULE_IFF_TRACE();
 			ASSIGN(rhs, 1, parent_idx); 
+			RULE_IFF_TRACE();
 		}
 		// Rule: parent == -lhs ---> rhs == false
 		else if (can_parent == -can_lhs) { 
 			RULE_TRACE(ctrace << "  [up] iff(a,b) == -a ---> b == false\n";);
 			RULE_IFF_TRACE();
 			ASSIGN(rhs, -1, parent_idx); 
+			RULE_IFF_TRACE();
 		}
 	}
 	if (absolute(rhs) == formula_idx) {
@@ -454,24 +478,28 @@ int LPSolver::propagate_iff_constraint_upward(unsigned int formula_idx, const LP
 			RULE_TRACE(ctrace << "  [up] b == true ---> iff(a,b) == a\n";);
 			RULE_IFF_TRACE();
 			ASSIGN(parent_idx, lhs, parent_idx); 
+			RULE_IFF_TRACE();
 		}
 		// Rule: rhs == false ---> parent == -lhs
 		else if (can_rhs == -1) { 
 			RULE_TRACE(ctrace << "  [up] b == false ---> iff(a,b) == -a\n";);
 			RULE_IFF_TRACE();
 			ASSIGN(parent_idx, -lhs, parent_idx); 
+			RULE_IFF_TRACE();
 		}
 		// Rule: parent == rhs ---> lhs == true
 		else if (can_parent == can_rhs) { 
 			ASSIGN(lhs, 1, parent_idx); 
 			RULE_IFF_TRACE();
 			RULE_TRACE(ctrace << "  [up] iff(a,b) == b ---> a == true\n";);
+			RULE_IFF_TRACE();
 		}
 		// Rule: parent == -rhs ---> lhs == false
 		else if (can_parent == -can_rhs) { 
 			RULE_TRACE(ctrace << "  [up] iff(a,b) == -b ---> a == false\n";);
 			RULE_IFF_TRACE();
 			ASSIGN(lhs, -1, parent_idx); 
+			RULE_IFF_TRACE();
 		}
 	}
 	if (absolute(lhs) == formula_idx || absolute(rhs) == formula_idx) {
@@ -481,12 +509,14 @@ int LPSolver::propagate_iff_constraint_upward(unsigned int formula_idx, const LP
 			RULE_TRACE(ctrace << "  [up] a == b ---> iff(a,b) == true\n";);
 			RULE_IFF_TRACE();
 			ASSIGN(parent_idx, 1, parent_idx); 
+			RULE_IFF_TRACE();
 		}
 		// Rule: lhs == -rhs ---> parent == false
 		if (can_lhs == -can_rhs) { 
 			RULE_TRACE(ctrace << "  [up] a == -b ---> iff(a,b) == false\n";);
 			RULE_IFF_TRACE();
 			ASSIGN(parent_idx, -1, parent_idx); 
+			RULE_IFF_TRACE();
 		}
 	}
 	return 0;

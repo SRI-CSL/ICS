@@ -68,7 +68,12 @@ extern "C" {
 		return r;
 	}
 	LPFormulaId sat_mk_iff(LPFormulaId lhs, LPFormulaId rhs) {
-		return sat_formula_manager->create_iff(lhs, rhs);
+ 		DBG_CODE(cout << "sat_mk_iff\n";
+             cout << "args: " << lhs << ", " << rhs << endl;);
+		LPFormulaId result = sat_formula_manager->create_iff(lhs, rhs);
+		DBG_CODE (cout << " result  = " << result << endl;
+							cout<<"-----------------\n";);
+		return result;
 	}
 	LPFormulaId sat_mk_implies(LPFormulaId lhs, LPFormulaId rhs) {
 		return sat_formula_manager->create_implies(lhs, rhs);
@@ -79,12 +84,17 @@ extern "C" {
 	LPFormulaId sat_mk_not(LPFormulaId f) {
  		DBG_CODE(cout << ">>>>> mk_not\n";
  						 cout << "argument: " << f << endl;);
-		int r = sat_formula_manager->create_not(f);
- 		DBG_CODE(cout << "<<<<< result of mk_not = " << r << endl;);
-		return r;
+		LPFormulaId result = sat_formula_manager->create_not(f);
+ 		DBG_CODE(cout << "<<<<< result of mk_not = " << result << endl;);
+		return result;
 	}
 	LPFormulaId sat_mk_ite(LPFormulaId c, LPFormulaId t, LPFormulaId e) {
-		return sat_formula_manager->create_ite(c,t,e);
+ 		DBG_CODE(cout << "sat_mk_ite\n";
+             cout << "args: " << c << ", " << t << ", " << e << endl;);
+		LPFormulaId result = sat_formula_manager->create_ite(c,t,e);
+		DBG_CODE (cout << " result  = " << result << endl;
+							cout<<"-----------------\n";);
+		return result;
 	}
 	LPFormulaId sat_mk_atom(int a, int not_a) {
  		DBG_CODE(cout << "sat_mk_atom\n";
@@ -98,7 +108,13 @@ extern "C" {
 		return result;
 	}
 	LPFormulaId sat_mk_var(char * var) {
-		return sat_formula_manager->create_proposition(var);
+ 		DBG_CODE(cout << "sat_mk_var\n";
+		         cout << var << endl;
+             cout.flush(););
+		LPFormulaId result = sat_formula_manager->create_proposition(var);
+		DBG_CODE (cout << " result  = " << result << endl;
+							cout<<"-----------------\n";);
+    return result;
 	}
 	int sat_is_true(LPFormulaId f) {
 		return f == LPTrueId;
@@ -197,20 +213,20 @@ extern "C" {
 
   int ics_sat(LPFormulaId root_id, bool use_proof_objs) {
 
-//     DBG_CODE(cout << "working!!! root_id = " << root_id << "\n";
-// 						 sat_formula_manager->dump_formula(cout, root_id););
+     DBG_CODE(cout << "working!!! root_id = " << root_id << "\n";
+ 						 sat_formula_manager->dump_formula(cout, root_id););
 		// The following code is a hack to make the connection between ICS and SAT a little bit easier
-		// 		DBG_CODE(
-//  						 cout << "BEFORE NORMALIZATION:\n";
-//  						 cout << *sat_formula_manager;
-//  						 cout << endl << endl;
-// 						 );
+		 		DBG_CODE(
+  						 cout << "BEFORE NORMALIZATION:\n";
+  						 cout << *sat_formula_manager;
+  						 cout << endl << endl;
+ 						 );
 		root_id = sat_formula_manager->normalize_formula(root_id);
-// 		DBG_CODE(
-//  						 cout << "AFTER NORMALIZATION:\n";
-// 						 cout << *sat_formula_manager;
-//  						 cout << endl << endl;
-// 						 );
+ 		DBG_CODE(
+  						 cout << "AFTER NORMALIZATION:\n";
+							 cout << *sat_formula_manager;
+  						 cout << endl << endl;
+ 						 );
 
 		if (sat_solver != NULL) 
 			delete sat_solver;

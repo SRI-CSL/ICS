@@ -10,6 +10,10 @@
 
 #include"LPSolver.h"
 
+// #undef SOLVER_TRACE
+// #define SOLVER_TRACE(code) { code }
+// #define ctrace cout
+
 LPBranchReturnType LPSolver::branch_default()
 {
 	if (num_new_non_propositional_assignments > npc_threshold) {

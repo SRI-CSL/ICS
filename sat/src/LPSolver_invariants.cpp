@@ -7,7 +7,7 @@
    HISTORY
      demoura - May 6, 2002: Created.
 ***/
-
+// #undef NDEBUG
 #include "LPSolver.h"
 
 bool LPClause::check_invariant() const
