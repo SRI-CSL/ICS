@@ -21,6 +21,7 @@ module Eqs = Eqs.Close(Eqs.Make(
     let nickname = Th.to_string Th.nl
     let apply = Pprod.apply
     let disapply _ a = a
+    let is_infeasible _ _ = None
   end))
 
 type t = Eqs.t

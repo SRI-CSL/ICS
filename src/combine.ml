@@ -25,6 +25,7 @@ module U = Eqs.Close(Eqs.Make(
       | Term.App(f, yl) as a -> 
 	  let yl' = Term.mapl (apply (x, b)) yl in
 	    if yl == yl' then a else Term.App.mk_app f yl'
+    let is_infeasible _ _ = None
   end))
 
 (** {6 Product theory} *)
@@ -34,6 +35,7 @@ module P = Eqs.Close(Eqs.Make(
     let th = Th.p
     let nickname = Th.to_string Th.p
     let apply = Product.apply
+    let is_infeasible _ _ = None
   end))
 
 
@@ -44,6 +46,7 @@ module APP = Eqs.Close(Eqs.Make(
     let th = Th.app
     let nickname = Th.to_string Th.app
     let apply = Apply.apply
+    let is_infeasible _ _ = None
   end))
 
 

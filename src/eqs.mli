@@ -46,6 +46,7 @@ module type TH = sig
   val th : Th.t
   val nickname : string
   val apply : Term.Equal.t -> Term.t -> Term.t
+  val is_infeasible : Justification.Pred2.t
 end
 
 type effects = 
@@ -255,6 +256,9 @@ module MakeIndexCnstnt1(Th: TH)(Idx1: INDEX1)(C: CNSTNT): SET
   (* Same as {!MakeIndexCnstnt} but only one index. *)
 
 
+module MakeIndex1(Th: TH)(Idx1 : INDEX1): SET
+
+
 
 (** {6 Side-effect free equality sets} *)
 
@@ -307,8 +311,7 @@ module type EXT = sig
   val do_at_restrict : Partition.t * ext * t -> equality -> ext
 end
 
-module Extend(Set: SET)(Ext: EXT with type t = Set.t)
-: SET0 with type ext = Ext.ext
+module Extend(Set: SET)(Ext: EXT with type t = Set.t): SET0 with type ext = Ext.ext
 (** Add side effects [Ext] to obtain an equality set with no further side effects. *)
 
 
@@ -319,13 +322,6 @@ type tag = Left | Right
 
 val other : tag -> tag
 
-module type EFFECTS2 = sig
-  type left
-  type right
-
-  val do_at_update : tag -> Partition.t * left * right -> equality -> unit
-  val do_at_restrict : tag -> Partition.t * left * right -> equality -> unit
-end
 
 (** Combining two equality sets [Left] and [Right] and close with the
   specified effects. Most operators work component-wise and are parameterized
@@ -333,7 +329,7 @@ end
 module Union
   (Left: SET)
   (Right: SET)
-  (Effects2: EFFECTS2 with type left = Left.t with type right = Right.t) : 
+  (Cnstnt: CNSTNT) : 
 sig
   type t 
   val eq : t -> t -> bool
@@ -350,7 +346,7 @@ sig
   val inv :  tag -> t -> Justification.Eqtrans.t 
   val dep :  tag -> t -> Term.t -> Term.Set.t
   val index :  tag -> t -> int -> Term.Set.t
-  val cnstnt :  tag -> t -> Term.Set.t
+  val cnstnt :  t -> Term.Set.t
   module Dep : sig
     val iter :  tag -> t -> (Fact.Equal.t -> unit) -> Term.t -> unit 
     val fold :  tag -> t -> (Fact.Equal.t -> 'a -> 'a) -> Term.t -> 'a  -> 'a

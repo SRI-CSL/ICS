@@ -75,7 +75,7 @@ let args () =
         "Disables Solving for the integers"
       ]
       (fun f -> files := f :: !files)
-      "Usage: ics [args] <seqence-of-batch-files>";
+      "Usage: ics [args] file1 ... filen";
     List.rev !files
 
 

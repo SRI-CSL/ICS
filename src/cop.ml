@@ -19,6 +19,7 @@ module Cop = Eqs.Make(
     let th = Th.cop
     let nickname = Th.to_string Th.cop
     let apply = Coproduct.apply
+    let is_infeasible _ _ = None
   end)
 
 
