@@ -170,6 +170,7 @@ let update a c prf s =
 	     use = varfold (fun b -> Use.add a b) c use'}
       end 
 
+
 (** Restrict the map. *)
 let restrict a s =
   try
@@ -181,6 +182,7 @@ let restrict a s =
 	 use = varfold (fun b -> Use.remove a b) i s.use}
   with
       Not_found -> s
+
 
 (** Asserting an inequality *)
 let rec add l s =
@@ -285,13 +287,48 @@ and instantiate s x a =
     (use s x) 
     s	 
 
+(** Adding a domain constraint. *)
+
+let dom c s =
+  let (x, d, _) = Fact.d_dom c in
+    try
+      let (c, _) = apply s x in
+      let c' = Cnstrnt.add_dom d c in
+	if c == c' then 
+	  (Fact.Equalset.empty, s)
+	else
+	  begin
+	    eqs := Fact.Equalset.empty;
+	    let s' = update x c' None s in
+	      (!eqs, s')
+	  end
+    with
+	Not_found ->
+	  let s' = update x (Cnstrnt.mk_dom d) None s in
+	    (Fact.Equalset.empty, s')
+	  
+
 (** Propagate disequalities to the constraint part. The following
  is not complete and should be extended to all finite constraints,
  but the disequality sets might become rather large then. *)
 
 let diseq d s =
   Trace.msg "c1" "Diseq" d Fact.pp_diseq;
-  s
+  let (x, a, _) = Fact.d_diseq d in
+    try
+      let (c, _) = apply s x in
+      let c' = Cnstrnt.add_diseq a c in
+	if c == c' then
+	  (Fact.Equalset.empty, s)
+	else
+	  begin
+	    eqs := Fact.Equalset.empty;
+	    let s' = update x c' None s in
+	      (!eqs, s')
+	  end 
+    with
+	Not_found -> 
+	  (Fact.Equalset.empty, s)
 
 
 (** Finite ranges *)

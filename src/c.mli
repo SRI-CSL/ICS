@@ -66,6 +66,8 @@ val empty : t
 
 val add : Fact.less -> t -> Fact.Equalset.t * t
 
+val dom : Fact.dom -> t -> Fact.Equalset.t * t
+
 val merge : Fact.equal -> t -> Fact.Equalset.t * t
   (** Merge a variable equality [x = y] in the constraint map by
     adding [x in ij] for the canonical variable [x], where [x in i],
@@ -75,7 +77,7 @@ val merge : Fact.equal -> t -> Fact.Equalset.t * t
     keep the invariant that the best available constraint
     are always associated with canonical variables. *)
 
-val diseq : Fact.diseq -> t -> t
+val diseq : Fact.diseq -> t -> Fact.Equalset.t * t
   (** Propagate disequalities to the constraint part. *) 
 
 val changed : Term.Set.t ref

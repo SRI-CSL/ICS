@@ -368,7 +368,9 @@ let rec less c s =
 (** Add a domain constraint *)
 
 let dom d s =
-  failwith "dom: to do"
+  let (el', c') = C.dom d s.c in
+    s.c <- c';      
+    Fact.Equalset.fold (compose Th.la) el' s
 
 
 (** Garbage collection. Remove all variables [x] which are are scheduled
@@ -928,10 +930,12 @@ module Cnstrnt = struct
 	     Not_found -> s)
       ch s
 
+  and diseq ch s =
+    failwith "to do"
+
 end
 
 	
-		
 (** {6 Confluence} *)
 
 let maxclose = ref 20

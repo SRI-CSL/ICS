@@ -13,32 +13,42 @@
 
 (** Real number constraints.
 
-  A {b real number constraint} consists of an {i interval} [i] with an 
-  interpretation domain in {!Dom.t}, a lower and an upper endpoint
-  of type {!Endpoint.t}, and a set of rationals, the so-called 
-  {i exception set} [qs].  Each such constraint [c] {b denotes} a subset
-  of the real numbers, denoted by [C(c)], which is obtained by removing 
-  all rationals of the exception set [qs] from the denotation
-  [D(i)] of the interval [i] (see module [Interval]). 
+  A {b real number constraint} consists of 
+  - an interpretation domain in {!Dom.t} and
+  - a set of intervals.
+  Hereby, an {i interval} consists of a lower bound and an upper bound,
+  and a {i bound} is a pair [(alpha, a)], where [alpha] is a Boolean and
+  [a] is either a term of type {!Term.t} or a representation of positive
+  or negative infinity.  If [alpha] is [true] the bound is said to be
+  {i nonstrict} and otherwise it is {i strict}. 
+
+  A real number constraint [a in dom{(l1,u1),...,(ln,un)}] is equivalent
+  to [a in dom] conjoined with [a >(=) li] and [a <(=) ui] for [i = 1,...,n]. 
+  Here, we use strict inequalities (that is, [<] and [>]) iff the corresponding
+  bound [li] or [ui] is strict.
   
  @author Harald Ruess
 *)
 
 type t
 
+(** {6 Bounds} *)
+
 type bound = 
   | Posinf
   | Neginf
   | Bound of bool * Term.t
+      (** A bound is either a representation [Posinf] for positive
+        infinite, [Neginf] for negative infinite, or a pair [(alpha, a)] *)
 
 
 (** {6 Constructors} *)
 
 val mk_empty : t
-  (** Constraint with empty denotation. *)
+  (** The empty constraint. *)
 
 val mk_real : t
-  (** Constraint with the real number line as its denotation. *)
+  (** Real number constraint. *)
 
 val mk_int : t
   (** Constraint whose denotation are exactly the integers. *)
@@ -106,6 +116,7 @@ val pp : t Pretty.printer
 val add_lower : bool * Term.t -> t -> t
 val add_upper : bool * Term.t -> t -> t
 val add_dom : Dom.t -> t -> t
+val add_diseq : Term.t -> t -> t
 
 
 (** {6 Iterators} *)
@@ -144,4 +155,3 @@ val is_diophantine : (Term.t -> t) -> Term.t -> bool
 
 val occurs : Term.t -> t -> bool
   (** [occurs x c] holds iff variable [x] is a subterm of some bound in [c]. *)
- 

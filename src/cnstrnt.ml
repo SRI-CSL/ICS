@@ -542,12 +542,48 @@ let add_lower (beta, b) c =
        add_lower (beta, b) c)
     ((beta, b), c)
 
+exception Empty
+
 let add_dom dom c =
   try
-    let dom = Dom.inter dom c.dom in
-      make dom c.intervals
+    let dom' = Dom.inter dom c.dom in
+    let is' = 
+      if Dom.eq c.dom dom' then c.intervals else 
+	Intervals.map dom'
+	  (fun i ->
+	     let j = Interval.make dom' i in
+	       if Interval.is_empty j then 
+		 raise Empty
+	       else 
+		 j)
+	  c.intervals
+    in
+      make dom' is'
   with
-      Dom.Empty -> mk_empty
+    | Dom.Empty -> mk_empty
+    | Empty -> mk_empty
+
+let add_diseq a c =
+  try
+    let is' = 
+      Intervals.map c.dom
+	(function
+	   | Bound(true, b1), Bound(true, b2)
+	       when Term.eq b1 a && Term.eq b1 b2 
+		 -> raise Empty
+	   | Bound(true, b1), u
+	       when Term.eq b1 a 
+		 -> (Bound(false, b1), u)
+	   | l, Bound(true, b2)
+	       when Term.eq b2 a 
+		 -> (l, Bound(false, b2))
+	   | i -> 
+	       i)
+	c.intervals
+    in
+      make c.dom is'
+  with
+      Empty -> mk_empty
 	
 let exists p c = Intervals.Set.exists p c.intervals
   
