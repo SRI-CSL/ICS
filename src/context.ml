@@ -132,6 +132,8 @@ let apply i s = Solution.apply (eqs_of s i)
 
 let find i s = Solution.find (eqs_of s i)
 
+let replace i s = Solution.replace (v s) (eqs_of s i)
+
 let inv i s = Solution.inv (eqs_of s i)
 
 
@@ -507,13 +509,13 @@ let rec equality e s =
   let (a, b, _) = Fact.d_equal e in
     match a, b with
       | Var _, Var _ -> 
-	  merge e s 
+	  merge_v e s 
       | App(f, _), _ -> 
-	  compose (Th.of_sym f) e s
+	  merge_i (Th.of_sym f) e s
       | _, App(f, _) -> 
-	  compose (Th.of_sym f) e s
+	  merge_i (Th.of_sym f) e s
 
-and merge e s =
+and merge_v e s =
   let (x, y, prf) = Fact.d_equal e in
     match Partition.is_equal s.p x y with
       | Three.Yes -> 
@@ -528,15 +530,21 @@ and merge e s =
 	    let s'' = arrays_equal e s' in
 	      close ch' s''
 
+and merge_i i e s =
+  let (a, b, prf) = Fact.d_equal e in
+  let a' =  replace i s (find i s a)
+  and b' = replace i s (find i s b) in
+    if Term.eq a' b' then s else
+      begin
+	Trace.msg "rule" "Merge(i)" e Fact.pp_equal;
+	compose i s (Th.solve i (Fact.mk_equal a' b' None))
+      end 
+      
 (** Propagating a variable equality into all the other solution sets. *)
 and propagate e s =    
   let propagate_compose i e s =
-    if Solution.is_empty (eqs_of s i) then s else 
-      let (x, y, rho) = Fact.d_equal e in
-	if not(Set.is_empty (use i s x)) then
-	  fuse i e s
-	else 
-	  compose i e s
+    if Solution.is_empty (eqs_of s i) then s else
+      merge_i i e s
   in
     propagate_compose Th.la e
       (propagate_compose Th.p e
@@ -567,7 +575,7 @@ and arrays_equal e s =
 		      | App(Arrays(Update), [a2; i2; k2])
 			  when is_equal s2 x i2 = Three.Yes -> 
 			  let e' = Fact.mk_equal (v s2 z1) (v s2 k2) None in
-			    merge e' s2
+			    merge_v e' s2
 		      | _ -> s2)
 		 upd1 s1
 	   | _ -> s1)
@@ -589,7 +597,7 @@ and bvarith_equal e s =
 		  let ui = Bvarith.mk_unsigned bv in
 		  let (s', a') = Abstract.term la (s, ui) in
 		  let e' = Fact.mk_equal (v s' u) a' None in
-		    compose Th.la e' s'
+		    equality e' s'
 	      | _ ->
 		  s )
 	 with
@@ -609,7 +617,7 @@ and nonlin_equal e s =
 	     if Term.eq a b then s else 
 	       let (s', b') = Abstract.toplevel_term (s, b) in
 	       let e' = Fact.mk_equal (v s' x) b' None in
-		 merge e' s'
+		 merge_v e' s'
 	 with
 	     Not_found -> s)
       occs s
@@ -619,19 +627,13 @@ and nonlin_equal e s =
 
 and fuse i e s =   
   let (ch', es', si') = Solution.fuse i (eqs_of s i) [e] in
-  let s' = Fact.Equalset.fold merge es' s in
+  let s' = Fact.Equalset.fold merge_v es' s in
     update s' i si'
 
-and compose i e s =
-  Trace.msg "rule" "Compose" e Fact.pp_equal;
-  let (a, b, prf) = Fact.d_equal e in
-  let a' =  Solution.replace (v s) (eqs_of s i) a
-  and b' = Solution.replace (v s) (eqs_of s i) b in
-  let e' = Fact.mk_equal a' b' None in
-  let sl' = Th.solve i e' in
-  let s = if Th.eq i Th.la then List.fold_right slack sl' s else s in
-  let (ch', es', si') = Solution.compose i (eqs_of s i) sl' in
-  let s' =  Fact.Equalset.fold merge es' s in
+and compose i s r =
+  let s = if Th.eq i Th.la then List.fold_right slack r s else s in
+  let (ch', es', si') = Solution.compose i (eqs_of s i) r in
+  let s' =  Fact.Equalset.fold merge_v es' s in
   let s'' = update s' i si' in
   let s''' = 
     Set.fold
@@ -662,8 +664,6 @@ and refine c s =
   let (ch', p') = Partition.add c s.p in
     s.p <- p'; 
     close ch' s 
-
-
 
 
 
@@ -791,7 +791,7 @@ and arrays_diseq d s =
 			  when is_equal s2 i i' = Three.Yes ->
 			  let (s', z3) = name Th.arr (s2, Arr.mk_select a j) in
 			  let e' = Fact.mk_equal (v s2 z1) (v s2 z3) None in
-			    merge e' s'
+			    merge_v e' s'
 		      | _ -> s2)
 		 upd s1
 	   | _ -> s)    

@@ -403,9 +403,9 @@ module Assignment = struct
 
   let pp fmt rho =
     if rho.valuation <> [] then
-      Pretty.list (Pretty.assign Name.pp Pretty.bool) fmt rho.valuation;
+	Pretty.list' (Pretty.assign Name.pp Pretty.bool) fmt rho.valuation;
     if rho.literals <> [] then
-      Pretty.list Atom.pp fmt rho.literals
+      Pretty.list' Atom.pp fmt rho.literals
 
 end
 

@@ -44,6 +44,16 @@ let final_sep = ref false
 let list (pre,sep,post) pp fmt l =
   let rec iter = function
     | [] -> ()
+    | [x] -> pp fmt x
+    | x :: l -> pp fmt x; string fmt sep; Format.fprintf fmt " "; iter l
+  in
+  Format.fprintf fmt "@[%s" pre; 
+  iter l; 
+  Format.fprintf fmt "%s@]@?" post
+
+let list' (pre,sep,post) pp fmt l =
+  let rec iter = function
+    | [] -> ()
     | [x] -> pp fmt x; if !final_sep then string fmt sep
     | x :: l -> pp fmt x; string fmt sep; Format.fprintf fmt " "; iter l
   in
@@ -94,6 +104,8 @@ let map pp1 pp2 fmt =
 let tuple pp = list ("(", ", ", ")") pp
 
 let list pp = list ("[", "; ", "]") pp
+
+let list' pp = list' ("[", "; ", "]") pp
 
 let solution pp = list (eqn pp)
 

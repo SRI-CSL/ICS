@@ -51,7 +51,8 @@ let output fmt = function
   | Unit() -> Format.fprintf fmt ""
   | Bool(x) -> Format.fprintf fmt "%s" (if x then "true" else "false")
   | Solution(sl) -> Pretty.list (Pretty.eqn Term.pp) fmt sl
-  | Context(c) -> Context.pp fmt c
+  | Context(c) -> 
+      Context.pp fmt c
   | Process(status) -> Context.Status.pp Name.pp fmt status
   | Sat(None) -> Pretty.string fmt ":unsat"
   | Sat(Some(rho, n)) ->
