@@ -36,6 +36,8 @@ let equal_width_of a b =
    | None, None -> 
        raise (Invalid_argument (Term.to_string a ^ " not a bitvector."))
 
+let lastresult = ref(Result.Unit())
+
 %}
 
 %token DROP CAN ASSERT EXIT SAVE RESTORE REMOVE FORGET RESET SYMTAB SIG VALID UNSAT
@@ -103,7 +105,7 @@ let equal_width_of a b =
 %type <Atom.t> atomeof
 %type <Result.t> commands
 %type <Result.t> commandseof
-%type <Result.t> commandsequence
+%type <unit> commandsequence
 
 
 %start termeof
@@ -111,6 +113,8 @@ let equal_width_of a b =
 %start commands
 %start commandsequence
 %start commandseof
+
+
 
 %%
 
@@ -121,9 +125,9 @@ commandseof : command EOF    { $1 }
 commands : command DOT       { $1 }
 | EOF                        { raise End_of_file }
 
-commandsequence : command DOT    { $1 }
-| command DOT commandsequence    { $3 }
-| EOF                            { raise End_of_file }
+commandsequence :
+  command DOT commandsequence    {  lastresult := $1 }
+| command DOT EOF                { lastresult := $1; raise(Result.Result(!lastresult)) }
 
     
 int: 
@@ -267,7 +271,7 @@ propmode:  { Tools.mode := Tools.Prop }
 atommode:  { Tools.mode := Tools.Atom }
  */
 
-prop: topprop { $1 }
+prop:  topprop { $1 }
 
 propnegatable: negatable { $1 }
 

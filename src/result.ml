@@ -32,6 +32,9 @@ type t =
   | Int of int
   | String of string
 
+
+exception Result of t
+
 let output fmt = function
   | Term(t) -> Term.pp fmt t
   | Atom(a) -> Atom.pp fmt a

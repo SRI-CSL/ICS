@@ -35,4 +35,6 @@ type t =
   | Int of int
   | String of string
 
+exception Result of t
+
 val output : Format.formatter -> t -> unit

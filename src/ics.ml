@@ -794,32 +794,29 @@ let rec cmd_rep () =
 and cmd_batch () =
   let inch = Istate.inchannel() in
   let outch = Istate.outchannel() in
-  try
-    match Parser.commandsequence Lexer.token (Lexing.from_channel inch) with
-      | Result.Process(Context.Status.Inconsistent) ->
-	  raise Exc.Inconsistent
-      | result ->   (* be quiet (not any more) *)
-	  cmd_output outch result
-  with
-    | Invalid_argument str -> 
-	cmd_error outch str;
-	cmd_quit 3 outch
-    | Parsing.Parse_error -> 
-	let number =  string_of_int !Tools.linenumber in
-	  cmd_error outch ("Syntax error on line " ^ number);
-	  cmd_quit 2 outch
-    | End_of_file ->
-	cmd_quit 0 outch
-    | Sys.Break -> 
-	cmd_quit 1 outch
-    | Failure "drop" -> 
-	raise (Failure "drop")
-    | Exc.Inconsistent ->
-	Format.fprintf outch ":unsat\n@?";
-	cmd_quit (-1) outch
-    | exc -> 
-	cmd_error outch ("Exception " ^ (Printexc.to_string exc));
-	cmd_quit 4 outch
+    try
+      Parser.commandsequence Lexer.token (Lexing.from_channel inch)
+    with
+      | Result.Result(result) -> 
+	  cmd_output outch result;
+	  cmd_quit 0 outch
+      | Invalid_argument str ->
+	  cmd_error outch str;
+	  cmd_quit 3 outch
+      | Parsing.Parse_error -> 
+	  let number =  string_of_int !Tools.linenumber in
+	    cmd_error outch ("Syntax error on line " ^ number);
+	    cmd_quit 2 outch
+      | End_of_file ->
+	  cmd_quit 0 outch
+      | Sys.Break -> 
+	  cmd_quit 1 outch
+      | Exc.Inconsistent ->
+	  Format.fprintf outch ":unsat\n@?";
+	  cmd_quit (-1) outch
+      | exc -> 
+	  cmd_error outch ("Exception " ^ (Printexc.to_string exc));
+	  cmd_quit 4 outch
 
 
 
