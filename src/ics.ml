@@ -368,7 +368,6 @@ let _ = Callback.register "term_mk_select" term_mk_select
 let term_mk_div a b = Sig.div Context.empty (a, b)
 let _ = Callback.register "term_mk_div" term_mk_div
 
-
 let term_mk_apply = 
   Sig.apply Context.empty None
 let _ = Callback.register "term_mk_apply" term_mk_apply
@@ -673,7 +672,6 @@ let _ = Callback.register "value_of" value_of
 
 let sleep = Unix.sleep
 let _ = Callback.register "sleep" sleep
-	  
 	 
 (*s Multi-precision arithmetic.*)
 
