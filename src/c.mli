@@ -67,7 +67,7 @@ val diseq : Fact.diseq -> t -> t
 
 (*s Deduce constraints from new arithmetic equalities. *)
 
-val deduce : Term.t * Term.t -> t * D.t -> t
+val deduce : Term.t * Term.t -> t -> t
 
 (*s Split. *)
 
