@@ -22,6 +22,7 @@ open Mpa
 open Three
 (*i*)
 
+let nonlinear = ref false
 
 (*s Only interpreted find. *)
 
@@ -125,20 +126,20 @@ let rec can_t s a =
 	      canupdate s (can_t s x, can_t s y, can_t s z)
 	  | Uninterp(op), [x; y] when Name.eq Name.select op ->
 	      canselect s (can_t s x, can_t s y)
-	  | Uninterp(op), [x] when Name.eq Name.floor op ->
+	  | Uninterp(op), [x] when !nonlinear && Name.eq Name.floor op ->
 	      canfloor s (can_t s x)
-	  | Uninterp(op), xl when Name.eq Name.mult op ->
+	  | Uninterp(op), xl when !nonlinear && Name.eq Name.mult op ->
 	      let xl' = mapl (can_t s) xl in
 	      canmultl s xl'
-	  | Uninterp(op), [x; y] when Name.eq Name.div op ->
+	  | Uninterp(op), [x; y] when  !nonlinear && Name.eq Name.div op ->
 	      candiv s (can_t s x, can_t s y)
-	  | Uninterp(op), [x; y] when Name.eq Name.expt op ->
+	  | Uninterp(op), [x; y] when !nonlinear && Name.eq Name.expt op ->
 	      canexpt s (can_t s x) (can_t s y)
-	  | Uninterp(op), [x] when Name.eq Name.sin op ->
+	  | Uninterp(op), [x] when !nonlinear && Name.eq Name.sin op ->
 	      cansin s (can_t s x)
-	  | Uninterp(op), [x] when Name.eq Name.cos op ->
+	  | Uninterp(op), [x] when  !nonlinear && Name.eq Name.cos op ->
 	      cancos s (can_t s x)
-	  | Uninterp(op), [x] when Name.eq Name.unsigned op ->
+	  | Uninterp(op), [x] when !nonlinear && Name.eq Name.unsigned op ->
 	      canunsigned s (can_t s x)
 	  | Uninterp(op), _ -> 
 	      let al' = canl s U al in

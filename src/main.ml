@@ -100,7 +100,7 @@ let rec main () =
     (if !disable_compactify_flag then
        Context.compactify := false);
     (if !enable_nonlin_flag then
-       Simplify.nonlinear := true);
+       Shostak.nonlinear := true);
     Context.maxclose := !maxloops_flag;
     match !portnum_flag with
       | None ->   
