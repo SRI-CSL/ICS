@@ -37,6 +37,9 @@ let hash = function
 
 let rec eq a b =
   (hash a = hash b) &&    (* quick failure test *)
+  eq1 a b 
+
+and eq1 a b =
   match a, b with
     | True, True -> true
     | False, False -> true
@@ -47,8 +50,13 @@ let rec eq a b =
     | _ -> false
 
 let compare a b =
-  if eq a b then 0 else if hash a < hash b then -1 else 1
-
+ let ha = hash a and hb = hash b in
+   if ha = hb then
+     if eq1 a b then 0 else Pervasives.compare a b
+   else if ha < hb then
+     -1
+   else 
+     1
 
 let is_true = function True -> true | _ -> false
 
