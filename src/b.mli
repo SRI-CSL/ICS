@@ -55,5 +55,3 @@ val merge : Veq.t -> t -> (t * Veqs.t)
 (*s Extend. *)
 
 val extend : Term.t -> t -> Term.t * t
-
-

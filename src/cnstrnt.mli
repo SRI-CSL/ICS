@@ -32,6 +32,10 @@ val destruct : t -> Interval.t * Diseqs.t
 
 val dom_of : t -> Dom.t
 
+(*s Has finite extension. *)
+
+val is_finite : t -> bool
+
 (*s Derived Constructors. *)
 
 val mk_real : t

@@ -31,16 +31,26 @@ let empty = Map.empty
 
 let deq_of s = s
 
-let pp fmt s = 
-  let l = 
-    Term.Map.fold 
-      (fun x y acc -> (x,Term.Set.elements y) :: acc) 
-      s [] 
+let to_list s =
+  let eq (x1,y1) (x2,y2) =
+    (Term.eq x1 x2 && Term.eq y1 y2) ||
+    (Term.eq x1 y2 && Term.eq y1 x2)
   in
+  let mem (x,y) = List.exists (eq (x,y)) in
+  Term.Map.fold
+    (fun x ys acc ->
+       Term.Set.fold
+	 (fun y acc ->
+	    if mem (x, y) acc then acc else (x, y) :: acc)
+	 ys acc)
+    s []
+
+let pp fmt s = 
+  let l = to_list s in
   if l <> [] then
     begin
-      Format.fprintf fmt "d:";
-      Pretty.map Term.pp (Pretty.set Term.pp) fmt l
+      Format.fprintf fmt "\nd:";
+      Pretty.list Term.pp_diseq fmt l
     end
 
 (*s All terms known to be disequal to [a]. *)

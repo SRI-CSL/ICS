@@ -39,6 +39,10 @@ type t
 
 val partition : t -> Term.Set.t Term.Map.t
 
+(*s All known disequalities between variables. *)
+
+val diseqs : t -> Term.Set.t Term.Map.t
+
 (*s [find s x] returns [f(x1,...,xn)] if [x = f(x1,...,xn)] is in the
  solution set of [s]; otherwise [x] is returned *)
 
@@ -49,8 +53,6 @@ val find : t -> Term.t -> Term.t
  [f(x1,...,xn)] is an element of [use_of s] applied to [xi]. 
  In addition, if [x |-> y] is in [v_of s], then [use_of s] 
  applied to [x] is a subset of [use_of s] applied to [y]. *)
-
-val use_of : t -> Term.Set.t Term.Map.t
 
 val use : t -> Term.t -> Term.Set.t
 
@@ -73,6 +75,11 @@ val v : t -> Term.t -> Term.t
  representative of the class containing variable [x]. *)
 
 val veq : t -> Term.t -> Term.t -> bool
+
+
+(* check if two terms are known to be equal *)
+
+val is_equal : t -> Term.t -> Term.t -> Three.t
 
 
 (*s Accessors. [inv s a] returns a variable [x] if [a] is of the
@@ -100,6 +107,10 @@ val merge : Veq.t -> t -> (t * Veqs.t)
 
 val extend : Term.t -> t -> (Term.t * t)
 
+(*s Adding a disequality [x <> y] between variables. *)
+
+val diseq : Term.t * Term.t -> t -> (t * Veqs.t)
+
 (*s Instantiate all variables in bindings such as [f(x1,...,xn) |-> y]
  in [u_of s] with their canonical representatives, and delete all bindings 
  [l |-> _] in [v_of s] where [l] is a label term, that is, [l] satisfies
@@ -111,3 +122,8 @@ val compress : t -> t
 (*s Pretty-printing. *)
 
 val pp : t Pretty.printer
+
+
+(*s Splitting. *)
+
+val split : t -> Atom.t list

@@ -50,6 +50,10 @@ let is_empty (i,_) = Interval.is_empty i
 let is_full (i,qs) = 
   Interval.is_full i && Diseqs.is_empty qs
 
+let is_finite (i,_) =
+  let (d,l,h) = Interval.destructure i in
+  d = Dom.Int && Endpoint.is_q l && Endpoint.is_q h
+
 (*s Membership. *)
 
 let mem q (i,qs) =
