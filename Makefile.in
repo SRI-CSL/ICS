@@ -10,6 +10,7 @@ CC = @CC@
 CXX = @CXX@
 
 LIBGCCA = `@CC@ --print-libgcc`
+LIBCPP = `@CC@ --print-file-name=libstdc++.a`
 
 OCAMLC   = @OCAMLC@
 OCAMLLINK= @OCAMLMKTOP@
@@ -171,6 +172,7 @@ $(LIBDIR)/libics.so: $(OBJS)
 
 $(LIBDIR)/libics.a: $(OBJS)
 	$(LD) -r -o $@ $(OBJS) $(ICSAT) \
+        $(LIBCPP) \
 	$(OCAMLSTDLIB)/libunix.a \
 	--whole-archive $(LIBGMPA) $(LIBGCCA) --no-whole-archive \
 	$(OCAMLSTDLIB)/libasmrun.a
