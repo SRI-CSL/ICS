@@ -32,3 +32,7 @@ val is_uninterp : Term.t -> bool
  returns the uninterpreted function symbol and the argument list of [a]. *)
 
 val d_uninterp : Term.t -> Sym.t * Term.t list
+
+(*s Maps. *)
+
+val map : (Term.t -> Term.t) -> Term.t -> Term.t

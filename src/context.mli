@@ -33,7 +33,7 @@ type t
 
 val ctxt_of : t -> Atom.Set.t
 val p_of : t -> Partition.t
-val eqs_of : t -> Theories.t -> Solution.t
+val eqs_of : t -> Th.t -> Solution.t
 val upper_of : t -> int
 
 val v_of : t -> V.t
@@ -94,12 +94,12 @@ val choose : t -> (Term.t -> 'a option) -> Term.t -> 'a
 
 (*s Parameterized operators *)
 
-val mem : Theories.t -> t -> Term.t -> bool
-val apply : Theories.t -> t -> Term.t -> Term.t
-val find : Theories.t -> t -> Term.t -> Term.t
-val inv : Theories.t -> t -> Term.t -> Term.t
-val use : Theories.t -> t -> Term.t -> Term.Set.t
-val equality : Theories.t -> t -> Term.t -> Fact.equal
+val mem : Th.t -> t -> Term.t -> bool
+val apply : Th.t -> t -> Term.t -> Term.t
+val find : Th.t -> t -> Term.t -> Term.t
+val inv : Th.t -> t -> Term.t -> Term.t
+val use : Th.t -> t -> Term.t -> Term.Set.t
+val equality : Th.t -> t -> Term.t -> Fact.equal
 
 (*s [sigma] normal form. *)
 
@@ -107,20 +107,20 @@ val sigma : t -> Sym.t -> Term.t list -> Term.t
 
 (*s [solve i s (a, b)] applies solver for theory [i] on equality [a = b]. *)
 
-val solve : Theories.t -> t -> Fact.equal -> Fact.equal list
+val solve : Th.t -> t -> Fact.equal -> Fact.equal list
 
 (*s Updates. *)
 
 val extend : Atom.t -> t -> t
 
-val union : Theories.t -> Fact.equal -> t -> t
-val restrict : Theories.t -> Term.t -> t -> t
-val fuse : Theories.t -> Fact.equal -> t -> t
-val compose : Theories.t -> Fact.equal -> t -> t
+val union : Th.t -> Fact.equal -> t -> t
+val restrict : Th.t -> Term.t -> t -> t
+val fuse : Th.t -> Fact.equal -> t -> t
+val compose : Th.t -> Fact.equal -> t -> t
 
 val update: Partition.t -> t -> t
 
-val name : Theories.t -> t * Term.t -> t * Term.t
+val name : Th.t -> t * Term.t -> t * Term.t
 
 
 (*s List all constraints with finite extension. *)
@@ -137,7 +137,7 @@ module Changed : sig
   val in_d : t -> Term.Set.t
   val in_c : t -> Term.Set.t
 
-  val in_eqs : Theories.t -> t -> Term.Set.t
+  val in_eqs : Th.t -> t -> Term.Set.t
 
   val reset : unit -> unit
 

@@ -18,18 +18,6 @@
 (*s Module [Shostak]: Maintaining the logical context of decision procedures. *)
 
 
-(*s Canonization. *)
-
-val can_t : Context.t -> Term.t -> Term.t
-
-val nonlinear : bool ref
-
-val can : Context.t -> Atom.t -> Atom.t
-
-(*s Test for equality. *)
-
-val eq : Context.t -> Term.t -> Term.t -> bool
-
 (*s Processing *)
 
 type 'a status =
@@ -38,5 +26,6 @@ type 'a status =
   | Satisfiable of 'a
 
 val pp_status : 'a Pretty.printer -> 'a status Pretty.printer
+
 
 val process: Context.t -> Atom.t -> Context.t status

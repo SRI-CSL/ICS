@@ -42,3 +42,6 @@ val pp : t Pretty.printer
 val pp_equal : equal Pretty.printer
 val pp_diseq : diseq Pretty.printer
 val pp_cnstrnt : cnstrnt Pretty.printer
+
+
+module Equalset : (Set.S with type elt = equal)

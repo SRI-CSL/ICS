@@ -17,32 +17,12 @@
 
 (*s Module [Sig]: builtin simplification *)
 
-val sub : Context.t -> Term.t -> Term.t -> Term.t
-val multq : Context.t -> Mpa.Q.t -> Term.t -> Term.t
-val div : Context.t -> Term.t * Term.t -> Term.t
-val mult : Context.t -> Term.t * Term.t -> Term.t 
-val multl : Context.t -> Term.t list -> Term.t
-val expt : Context.t -> Term.t -> Term.t -> Term.t
-val update : Context.t -> Term.t * Term.t * Term.t -> Term.t
-val unsigned : Context.t -> Term.t -> Term.t
+val mk_mult : Term.t -> Term.t -> Term.t
 
-(* [i = j => select(update(a,i,x), j) = x]
-   [i <> j => select(update(a,i,x),j) = select(a,j)] *)
+val mk_multl : Term.t list -> Term.t
 
-val update : Context.t -> Term.t * Term.t * Term.t -> Term.t
-val select : Context.t -> Term.t * Term.t -> Term.t
+val mk_expt : int -> Term.t -> Term.t
 
+val mk_div : Term.t -> Term.t -> Term.t
 
-(*s [cancel s (a, b)] cancels a power products [a] and [b]. *)
-
-val cancel : Context.t -> Term.t * Term.t -> Term.t * Term.t
-
-(*s Applications. *)
-
-val apply : Context.t -> Sym.range -> Term.t -> Term.t -> Term.t
-
-val lambda : Context.t -> int -> Term.t -> Term.t
-
-(*s Sigma-normal forms. *)
-
-val sigma : Context.t -> Sym.builtin -> Term.t list -> Term.t
+val mk_inv : Term.t -> Term.t

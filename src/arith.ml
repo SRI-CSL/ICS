@@ -16,8 +16,8 @@
 
 (*i*)
 open Mpa
-open Term
 open Sym
+open Term
 (*i*)
 
 
@@ -89,6 +89,7 @@ let mk_num q = App(Arith(Num(q)), [])
 let mk_zero = mk_num(Q.zero)
 let mk_one = mk_num(Q.one)
 let mk_two = mk_num(Q.of_int 2)
+
 (*s Some normalization functions. *)
 
 let poly_of a =
@@ -167,8 +168,8 @@ and mk_add a b =
 	  else (* cmp > 0 *)
 	    m1 :: map2 f l1' l2
   in
-  let (q,l) = poly_of a in
-  let (p,m) = poly_of b in
+  let (q, l) = poly_of a in
+  let (p, m) = poly_of b in
   let c = of_poly (Q.add q p) (map2 Q.add l m) in
     Trace.exit "linarith" "Add" c Term.pp;
     c
@@ -219,15 +220,7 @@ let rec map f =
 	     let b = f a in
 	       Trace.msg "map" "Apply" (a, b) (Pretty.infix Term.pp " |-> " Term.pp);
 	       b)
-    
-(*s Replace [x] with [a] in [b]. *)
-
-let replace x a b =
-  map (fun y -> if Term.eq x y then a else y) b
-
-let replacel el =
-  map (fun x -> try Term.assq x el with Not_found -> x)
-
+ 
 
 
 (*s Interface for sigmatizing arithmetic terms. *)
@@ -268,7 +261,7 @@ let rec cnstrnt ctxt = function
 (*s Solving of an equality [a = b] in the rationals and the integers. 
   Solve for maximal monomial which satisfies predicate [pred]. *)
 
-let rec solve pred e =
+let rec solve_for pred e =
   let (a, b, _) = Fact.d_equal e in
   let (q,l) = poly_of (mk_sub a b) in
   if l = [] then
@@ -313,3 +306,38 @@ and destructure pred l =
 	   raise Not_found
    in
    loop [] l
+
+
+(*s Solver. *)
+
+let rec solve e =
+  try
+    solve_for not_is_slack_var e
+  with
+      Exc.Unsolved -> 
+	solve_for is_var e
+	
+and not_is_slack_var a =
+  match a with
+    | Var(x) when not(Var.is_slack x) -> true
+    | _ -> false
+	
+
+(*s Constraints. *)
+
+let tau c op al = 
+  try
+    (match op, al with
+       | Num(q), [] ->  
+	   Cnstrnt.mk_singleton q
+       | Multq(q), [x] -> 
+	   Cnstrnt.multq q (c x)
+       | Add, [x; y] ->
+	   Cnstrnt.add (c x) (c y)
+       | Add, _ -> 
+	   Cnstrnt.addl (List.map c al)
+       | _ -> 
+	   Cnstrnt.mk_real)
+  with
+      Not_found -> Cnstrnt.mk_real
+	

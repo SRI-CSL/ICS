@@ -19,17 +19,17 @@ open Term
 open Three
 open Mpa
 open Sym
-open Theories
+open Th
 (*i*)
 
 (*s Decision procedure state. *)
 
 
 type t = {
-  mutable ctxt : Atom.Set.t;   (* Current context. *)
-  mutable p : Partition.t;     (* Variable partitioning. *)
-  eqs : Solution.t Array.arr;  (* Theory-specific solution sets. *)
-  mutable upper : int;         (* Upper bound on fresh variable index. *)
+  mutable ctxt : Atom.Set.t;      (* Current context. *)
+  mutable p : Partition.t;        (* Variable partitioning. *)
+  eqs : Solution.t Th.Array.arr;  (* Theory-specific solution sets. *)
+  mutable upper : int;            (* Upper bound on fresh variable index. *)
 }
 
 let empty = {
@@ -109,31 +109,20 @@ let fold s f x = V.fold (v_of s) f (v s x)
 (*s Constraint of [a] in [s]. *)
 
 let cnstrnt s = 
-  let rec of_term a = 
-    match a with  
-      | Var _ -> c s (v s a)
-      | App(Arith(op), xl) -> of_arith op xl
-      | App(Builtin(op), xl) -> of_builtin op xl
-      | _ -> raise Not_found
-	  
-  and of_arith op al = 
-    match op, al with
-      | Num(q), [] ->  Cnstrnt.mk_singleton q
-      | Multq(q), [x] -> Cnstrnt.multq q (of_term x)
-      | Add, [x; y] -> Cnstrnt.add (of_term x) (of_term y)
-      | Add, _ -> Cnstrnt.addl (List.map of_term al)
-      | _ -> raise Not_found
-	  
-  and of_builtin op al =
-    match op, al with
-      | Mult, _ ->  Cnstrnt.multl (List.map of_term al)
-      | Unsigned, [_] -> Cnstrnt.mk_nat
-      | Expt, [x; _] when Arith.is_q Q.two x -> Cnstrnt.mk_ge Dom.Real Q.zero
-      | Div, [x; y] -> Cnstrnt.div (of_term x) (of_term  y)
-      | Apply(Some(i)), [_] -> i
-      | _ -> raise Not_found
+  let rec of_term = function
+    | (Var _ as a) -> 
+	c s (v s a)
+    | App(Arith(op), xl) ->
+	Arith.tau of_term op xl
+    | App(Pp(op), xl) -> 
+	Pp.tau of_term op xl
+    | App(Bvarith(op), xl) -> 
+	Bvarith.tau of_term op xl 
+    | _ -> 
+	raise Not_found
   in
-    of_term
+    Trace.func "context" "Cnstrnt" Term.pp Cnstrnt.pp
+      of_term
 
 
 (*s Choosing a variable. *)
@@ -170,19 +159,9 @@ let equality i s = Solution.equality (eqs_of s i)
 (*s Variable partitioning. *)
 
 let rec is_equal s x y =
-  let is_diseq_constants x y =       (* Disequality of arithmetic constants *)
-    try                              (* already tested via constraints. *)
-      let a = apply BV s x in
-	is_const a &&
-	let b = apply BV s y in
-	  is_const b &&
-	  not(Term.eq a b)
-    with
-	Not_found -> false
-  in
-    match Partition.is_equal s.p x y with
-      | Three.X when is_diseq_constants x y -> Three.No
-      | res -> res
+  match  Term.is_equal x y with
+    | Three.X -> Partition.is_equal s.p x y
+    | res -> res
 
 
 (*s [sigma]-normal forms. *)
@@ -190,48 +169,67 @@ let rec is_equal s x y =
 let sigma s f =
   match f with
     | Arith(op) -> Arith.sigma op
-    | Tuple(op) -> Tuple.sigma op
+    | Product(op) -> Tuple.sigma op
     | Bv(op) -> Bitvector.sigma op
     | Coproduct(op) -> Coproduct.sigma op
-    | _ -> mk_app f
+    | Apply(op) -> Apply.sigma op
+    | Pp(op) -> Pp.sigma op
+    | Arrays(op) -> Arr.sigma op
+    | Bvarith(op) -> Bvarith.sigma op
+    | Uninterp _ -> mk_app f
 
 
-(* Component-wise solver. *)
+(* Component-wise solver. Only defined for fully interpreted theories. *)
 
+let solve i _ = 
+  Trace.func "context" "solve" 
+    Fact.pp_equal
+    (Pretty.list Fact.pp_equal)
+    (Th.solve i)
+
+(* disable for now.
 let rec solve i s = 
   Trace.func "slv" "Solve" Fact.pp_equal (Pretty.list Fact.pp_equal)
-    (fun e -> match i with
-       | Theories.U -> [e]
-       | Theories.T -> Tuple.solve e
-       | Theories.BV ->  Bitvector.solve e 
-       | Theories.S -> Coproduct.solve e    
-       | Theories.A ->
-	   let is_var_on_rhs x = 
-	     is_var x &&  not(Set.is_empty (use A s x))
-	   and is_unconstrained_var x = 
-	     is_var x && not (C.mem x (c_of s))
-	   and is_unconstraining_var x = 
-	     is_var x &&
-	     try Cnstrnt.is_unbounded (c s x) with Not_found -> true
-	   in
-	   let asolve p e =    
-	     match Arith.solve p e with
-	       | Some(e') -> [e']
-	    | None -> []
-	   in
-	     try asolve is_var_on_rhs e
-	     with Exc.Unsolved ->
-	       try asolve is_unconstrained_var e
-	       with Exc.Unsolved ->
-		 try asolve is_unconstraining_var e
-		 with Exc.Unsolved ->
-		try asolve is_fresh_var e
-		with Exc.Unsolved -> 
-		  asolve is_var e)
+    (fun e ->
+       if Th.eq i Th.p then
+	 Tuple.solve e
+       else if Th.eq i Th.cop then
+	 Coproduct.solve e
+       else if Th.eq i Th.bv then
+	 Bitvector.solve e
+       else if Th.eq i Th.la then
+	 la_solve s e 
+       else
+	 [e])
+
+and la_solve s e =
+  let is_var_on_rhs x = 
+    is_var x &&  not(Set.is_empty (use Th.la s x))
+  and is_unconstrained_var x = 
+    is_var x && not (C.mem x (c_of s))
+  and is_unconstraining_var x = 
+    is_var x &&
+    try Cnstrnt.is_unbounded (c s x) with Not_found -> true
+  in
+  let asolve p e =    
+    match Arith.solve_for p e with
+      | Some(e') -> [e']
+      | None -> []
+  in
+    try asolve is_var_on_rhs e
+    with Exc.Unsolved ->
+      try asolve is_unconstrained_var e
+      with Exc.Unsolved ->
+	try asolve is_unconstraining_var e
+	with Exc.Unsolved ->
+	  try asolve is_fresh_var e
+	  with Exc.Unsolved -> asolve is_var e
+*)
 		  
 
 let fuse i e s =
   install s i (Solution.fuse i (s.p, eqs_of s i) [e])
+
 
 let rec compose i e s =
   try
@@ -259,13 +257,14 @@ let lookup s a =
     | Var _ ->
 	v s a
     | App(f, _) ->
-	let i = theory_of f in
+	let i = Th.of_sym f in
 	  try v s (inv i s a) with Not_found -> a
 
 
 (*s List all constraints with finite extension. *)
 
-let split s  =
+let split s  = C.split (c_of s)
+(*
   Solution.fold
     (fun _ (b,_) acc1 ->
        match b with
@@ -285,7 +284,7 @@ let split s  =
 	     upd1 acc1
 	 | _ -> acc1)
     (eqs_of s U)
-    (C.split (c_of s))
+*)
 
 
 
@@ -331,7 +330,7 @@ module Changed = struct
 	end 
     in
       ppset "v" v; ppset "d" d; ppset "c" c;
-      Array.iter (fun i -> ppset (Theories.to_string i)) e
+      Array.iter (fun i -> ppset (Th.to_string i)) e
  
 end
   

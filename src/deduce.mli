@@ -18,6 +18,6 @@
 
 val deduce : Fact.equal -> Context.t -> Context.t
 
-val of_builtin : Term.t -> Sym.builtin * Term.t list -> Context.t -> Context.t
-
+val of_pprod : Term.t -> Sym.pprod * Term.t list -> Context.t -> Context.t
+ 
 val of_linarith : Term.t -> Sym.arith * Term.t list -> Context.t -> Context.t

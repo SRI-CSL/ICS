@@ -17,7 +17,9 @@
 (*s Module [Coproduct]: canonizer and solver for the theory of tuples. *)
 
 val mk_inl : Term.t -> Term.t
+
 val mk_inr : Term.t -> Term.t
+
 val mk_outl : Term.t -> Term.t
 val mk_outr : Term.t -> Term.t
 

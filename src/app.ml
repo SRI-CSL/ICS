@@ -37,3 +37,14 @@ let d_uninterp a =
   assert(is_uninterp a);
   let f,l = Term.destruct a in
   (f, l)
+
+
+(*s Theory-specific normalization. *)
+
+let map ctxt a =
+  match a with
+    | Var _ -> ctxt(a)
+    | App(f, l) ->  
+	let l' = mapl ctxt l in
+	  if l == l' then a else 
+	    mk_app f l'

@@ -110,12 +110,6 @@ val sigma : Sym.arith -> Term.t list -> Term.t
 val map: (Term.t -> Term.t) -> Term.t -> Term.t
 
 
-(*s [replace x a b] replaces [x] by [a] in [b]. *)
-
-val replace : Term.t -> Term.t -> Term.t -> Term.t
-
-val replacel : (Term.t * Term.t) list -> Term.t -> Term.t
-
 (*s  [solve x (a,b)] solves the equation [a = b] over the rationals.
   If this equation is inconsistent, then it raises [Exc.Inconsistent].
   In case the equation holds trivially it returns the empty solution [None]. 
@@ -126,8 +120,9 @@ val replacel : (Term.t * Term.t) list -> Term.t -> Term.t
   and [qsolve] chooses to solve for the largest power product according to the 
   term ordering [<<<]. *)
 
-val solve : (Term.t -> bool) -> Fact.equal -> Fact.equal option
+val solve_for : (Term.t -> bool) -> Fact.equal -> Fact.equal option
 
+val solve : Fact.equal -> Fact.equal option
 
 (*s Abstract interpretation in the domain of constraints. Given 
  a context [f], which associates uninterpreted subterms of [a]
@@ -138,4 +133,5 @@ val solve : (Term.t -> bool) -> Fact.equal -> Fact.equal option
  May raise the exception [Not_found], when some uninterpreted 
  subterm of [a] is not in the domain of [f]. *) 
 
-val cnstrnt : (Term.t -> Cnstrnt.t) -> (Term.t -> Cnstrnt.t)
+val tau : (Term.t -> Cnstrnt.t) -> Sym.arith -> Term.t list -> Cnstrnt.t
+

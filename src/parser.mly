@@ -127,19 +127,19 @@ name: IDENT            { Name.of_string $1 }
 
 funsym: 
   name                                   { Sym.Uninterp($1) }
-| PLUS                                   { Sym.add }
-| TIMES                                  { Sym.mult }
-| DIVIDE                                 { Sym.div }
-| TUPLE                                  { Sym.product }
-| UNSIGNED                               { Sym.unsigned }
-| PROJ LBRA INTCONST COMMA INTCONST RBRA { Sym.Tuple(Sym.Proj($3, $5)) }
-| CONS                                   { Sym.product  }
-| CAR                                    { Sym.car }
-| CDR                                    { Sym.cdr }
+| PLUS                                   { Sym.Arith(Sym.Add) }
+| TIMES                                  { Sym.Pp(Sym.Mult) }
+| EXPT LBRA INTCONST RBRA                { Sym.Pp(Sym.Expt($3)) }
+| TUPLE                                  { Sym.Product(Sym.Tuple) }
+| UNSIGNED                               { Sym.Bvarith(Sym.Unsigned) }
+| PROJ LBRA INTCONST COMMA INTCONST RBRA { Sym.Product(Sym.Proj($3, $5)) }
+| CONS                                   { Sym.Product(Sym.Tuple)  }
+| CAR                                    { Sym.Product(Sym.Proj(0, 2)) }
+| CDR                                    { Sym.Product(Sym.Proj(1, 2)) }
 | CONC LBRA INTCONST COMMA INTCONST RBRA               { Sym.Bv(Sym.Conc($3, $5)) }
 | SUB LBRA INTCONST COMMA INTCONST COMMA INTCONST RBRA { Sym.Bv(Sym.Sub($3, $5, $7)) }
 | BWITE LBRA INTCONST RBRA                             { Sym.Bv(Sym.Bitwise($3)) }
-| APPLY range                            { Sym.apply $2 }
+| APPLY range                            { Sym.Apply(Sym.Funapp($2)) }
 ;
 
 range:                              { None }
@@ -195,9 +195,9 @@ arith:
 | term PLUS term                { Arith.mk_add $1 $3 }
 | term MINUS term               { Arith.mk_sub $1 $3 }
 | MINUS term %prec prec_unary   { Arith.mk_neg $2 }
-| term TIMES term               { Sig.mult (Istate.current()) ($1, $3) }
-| term DIVIDE term              { Sig.div (Istate.current()) ($1, $3) }
-| term EXPT term                { Sig.expt (Istate.current()) $3 $1 }
+| term TIMES term               { Sig.mk_mult $1 $3 }
+| term DIVIDE term              { Sig.mk_div $1 $3 }
+| term EXPT INTCONST            { Sig.mk_expt $3 $1 }
 ;
 
 coproduct:
@@ -210,8 +210,8 @@ coproduct:
 
 
 array:
-  term LBRA term ASSIGN term RBRA { Sig.update (Istate.current()) ($1, $3, $5) }
-| term LBRA term RBRA        { Sig.select (Istate.current()) ($1, $3) } 
+  term LBRA term ASSIGN term RBRA { Arr.mk_update $1 $3 $5 }
+| term LBRA term RBRA        { Arr.mk_select $1 $3 }
 ;
 
 
@@ -361,7 +361,7 @@ identlist :
 | identlist COMMA IDENT     { $3 :: $1 }
 
 		
-th: IDENT  { Theories.of_string $1 } /* may raise [Invalid_argument]. */
+th: IDENT  { failwith "to do" } /* may raise [Invalid_argument]. */
 
 help:
   HELP                      { Help.on_help () }
