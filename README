@@ -1,5 +1,5 @@
-ICS: Integrated Canonizer and Solver
-====================================
+ICS 1.1: Integrated Canonizer and Solver
+========================================
 
 Decision procedure for the combination of theories
 based on Shostak's procedure. See also:
@@ -54,5 +54,14 @@ Sam Owre, and N. Shankar.
 
 GMP ocaml interface was originally written by David Monniaux, 
 and patched for ocaml 3.00 by Jean-Christophe Filliâtre.
+
+Changes: 
+--------
+
+Version 1.1 
+  - more efficient inequality reasoning
+  - support for extensional arrays
+  - updated list solver
+
 
 
