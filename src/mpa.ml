@@ -25,7 +25,9 @@ module Z = struct
   type t = Z.t
 
   let of_int = Z.from_int
+  let zero = of_int 0
   let one = of_int 1
+  let two = of_int 2
   let add = Z.add
   let sub = Z.sub
   let succ a = add a one
@@ -54,10 +56,13 @@ module Q = struct
   
   type t = Q.t
 
-  let zero = Q.from_ints 0 1
-  let one = Q.from_ints 1 1
   let of_int n = Q.from_ints n 1
   let of_ints = Q.from_ints
+
+  let zero = of_int 0
+  let one = of_int 1
+  let two = of_int 2
+  let negone = of_int (-1)
 
   let add = Q.add
   let sub = Q.sub
