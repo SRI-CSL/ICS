@@ -228,7 +228,7 @@ let rec pp fmt a =
 	      Pretty.infixl pp " * " fmt xl
 	  | _ -> 
 	      Sym.pp fmt f; 
-	      Tools.ppl ("(", ", ", ")") pp fmt l)
+	      Pretty.tuple pp fmt l)
 
 and pp_arith fmt op l = 
   match op, l with
