@@ -95,7 +95,6 @@ let rec equal p q =
      | _ -> 
 	 false)
 
-let eq = (==)
 
 let is_true = function
   | True -> true
@@ -107,15 +106,16 @@ let mk_true =
 let mk_false = 
   False
 
-let mk_var n = 
-  let table = Name.Hash.create 57 in 
+let mk_var = 
+  let table = Name.Hash.create 23 in 
   let _ = Tools.add_at_reset (fun () -> Name.Hash.clear table) in
-    try
-      Name.Hash.find table n
-    with
-	Not_found -> 
-	  let x = Var(n) in
-	    Name.Hash.add table n x; x
+    fun n ->
+      try
+	Name.Hash.find table n
+      with
+	  Not_found -> 
+	    let x = Var(n) in
+	      Name.Hash.add table n x; x
 
 let mk_poslit = 
   let module Table = Hashtbl.Make(
@@ -125,7 +125,7 @@ let mk_poslit =
       let hash = Atom.index_of
     end)
   in
-  let memo = Table.create 57 in
+  let memo = Table.create 23 in
   let _ = Tools.add_at_reset (fun () -> Table.clear memo) in
     fun a -> 
       try
@@ -147,7 +147,7 @@ let mk_neglit =
       let hash = Atom.index_of
     end)
   in
-  let memo = Table.create 57 in
+  let memo = Table.create 23 in
   let _ = Tools.add_at_reset (fun () -> Table.clear memo) in
     fun a -> 
       try
@@ -161,11 +161,11 @@ let mk_neg =
   let module Table = Hashtbl.Make(
     struct
       type t = prp
-      let equal = eq
+      let equal = (==)
       let hash = hash
     end)
   in
-  let memo = Table.create 57 in
+  let memo = Table.create 23 in
   let _ = Tools.add_at_reset (fun () -> Table.clear memo) in
     fun p -> 
       try
@@ -197,111 +197,87 @@ let mk_neg =
 	    in
 	      Table.add memo p np; np
 
-exception Valid
-let mk_disj = 
-  let sort = 
-    let cmp p q = 
-      Pervasives.compare (hash p) (hash q) 
-    in
-      List.sort cmp 
-  in
-  let simplify pl = 
-    try
-      let res = ref [] in
-      let todo = Stack.create () in
-      let rec process_disj_children = function   
-	| [] -> ()                 
-	| True :: _ ->
-	    raise Valid
-	| False :: pl -> 
-	    process_disj_children pl
-	| ((Disj(_, _) as p) :: pl) -> 
-	    Stack.push p todo;
-	    process_disj_children pl
-	| p :: pl ->
-	    res := p :: !res;
-	    process_disj_children pl 
-      in
-      let rec process_todo () =
-	try
-	  let p = Stack.pop todo in
-	    assert(is_disj p);
-	    process_disj_children (d_disj p);
-	    process_todo ()
-	with
-	    Stack.Empty ->   
-	      let pl = (* sort *) !res in
-	      let hsh = (List.fold_left (fun h p -> h + hash p) 1 pl) land 0x3FFFFFFF in
-		Disj(pl, hsh)
-      in
-	process_disj_children pl;
-	process_todo ()
-    with
-	Valid -> mk_true
+let mk_disj2 = 
+  let simplified p q =
+    match p, q with
+      | True, _ -> True
+      | _, True -> True
+      | False, _ -> q
+      | _, False -> p
+      | Disj(pl, phsh), Disj(ql, qhsh) -> 
+	  let hsh = (phsh + qhsh) land 0x3FFFFFFF in
+	    Disj(pl @ ql, hsh)
+      | Disj(pl, phsh), _ -> 
+	  let hsh = (phsh + hash q) land 0x3FFFFFFF in
+	    Disj(q :: pl, hsh)
+      | _, Disj(ql, qhsh) -> 
+	  let hsh = (qhsh + hash p) land 0x3FFFFFFF in
+	    Disj(p :: ql, hsh)
+      | _ ->
+	  let hsh = (hash p + hash q) land 0x3FFFFFFF in
+	    Disj([p; q], hsh)
   in
   let module Table = Hashtbl.Make(
     struct
-      type t = prp list
-      let equal pl ql =
-	try List.for_all2 eq pl ql with Invalid_argument _ -> false
-      let hash pl =
-	(List.fold_left (fun h p -> h + hash p) 1 pl) land 0x3FFFFFFF
+      type t = prp * prp
+      let equal (p1, q1) (p2, q2) =
+	p1 == p2 && q1 == q2
+      let hash (p, q) =
+	(hash p + hash q) land 0x3FFFFFFF
     end)
   in
-  let memo = Table.create 5 in
+  let memo = Table.create 23 in
   let _ = Tools.add_at_reset (fun () -> Table.clear memo) in
-    fun pl -> 
-      try
-	Table.find memo pl
-      with
-	  Not_found -> 
-	 (*    let disj = simplify pl in *)  (* removed because too time-consuming. *)
-	    let disj =
-	      let pl = sort pl in
-	      let hsh = (List.fold_left (fun h p -> h + hash p) 1 pl) land 0x3FFFFFFF in
-		Disj(pl, hsh)
-            in
-	      Table.add memo pl disj; disj
+    fun p q -> 
+      if p == q then p else 
+	let ((p, q) as pq) = if hash p <= hash q then (p, q) else (q, p) in
+	  try
+	    Table.find memo pq
+	  with
+	      Not_found -> 
+		let disj = simplified p q in
+		  Table.add memo pq disj; disj
 
-let mk_conj =
-  let rec simplify acc = function  (* don't call simplification! *)
-    | [] -> acc                    (* (see above) *)
-    | True :: pl -> simplify acc pl
-    | False :: _ -> [False]
-    | p :: pl -> simplify (p :: acc) pl  
-  in
+let mk_conj2 = 
   let module Table = Hashtbl.Make(
     struct
-      type t = prp list
-      let equal pl ql =
-	try List.for_all2 eq pl ql with Invalid_argument _ -> false
-      let hash = function
-	| [p1; p2] -> (hash p1 + hash p2) land 0x3FFFFFFF
-	| [p1; p2; p3] -> (hash p1 + hash p2 + hash p3) land 0x3FFFFFFF
-	| pl -> (List.fold_left (fun h p -> h + hash p) 1 pl) land 0x3FFFFFFF
+      type t = prp * prp
+      let equal (p1, q1) (p2, q2) =
+	p1 == p2 && q1 == q2
+      let hash (p, q) =
+	(hash p + hash q) land 0x3FFFFFFF
     end)
   in
-  let memo = Table.create 57 in
+  let memo = Table.create 23 in
   let _ = Tools.add_at_reset (fun () -> Table.clear memo) in
-    fun pl -> 
-      try
-	Table.find memo pl
-      with
-	  Not_found -> 
-	    let conj = match pl with
-	      | [] -> True
-	      | [p] -> p	
-	      | pl ->
-		  mk_neg (mk_disj (List.map mk_neg pl))
-	    in
-	      Table.add memo pl conj; conj
+    fun p q -> 
+      if p == q then p else 
+	let ((p, q) as pq) = if hash p <= hash q then (p, q) else (q, p) in
+	  try
+	    Table.find memo pq
+	  with
+	      Not_found -> 
+		let conj = mk_neg (mk_disj2 (mk_neg p) (mk_neg q)) in
+		  Table.add memo pq conj; conj
+		    
+let rec mk_disj = function
+  | [] -> mk_false
+  | [p] -> p
+  | p :: pl -> mk_disj2 p (mk_disj pl)
+
+let rec mk_conj = function
+  | [] -> mk_true
+  | [p] -> p
+  | p :: pl -> mk_conj2 p (mk_conj pl)
+
+
 
 let mk_iff =
   let module Table = Hashtbl.Make(
     struct
       type t = prp * prp
       let equal (p1, q1) (p2, q2) = 
-	eq p1 p2 && eq q1 q2
+	p1 == p2 && q1 == q2
       let hash (p, q) = (hash p + hash q) land 0x3FFFFFFF
     end)
  in
@@ -321,7 +297,7 @@ let mk_iff =
 		     | True -> p
 		     | False -> mk_neg p
 		     | _ -> 
-			 if eq p q then True else
+			 if p == q then True else
 			   let hsh = (hash p + hash q) land 0x3FFFFFFF in
 			     Iff(p, q, hsh))
 	    in
@@ -332,7 +308,7 @@ let mk_ite =
     struct
       type t = prp * prp * prp
       let equal (p1, q1, r1) (p2, q2, r2) = 
-	eq p1 p2 && eq q1 q2 && eq r1 r2
+	p1 == p2 && q1 == q2 && r1 == r2
       let hash (p, q, r) =
 	(hash p + hash q + hash r) land 0x3FFFFFFF
     end)
@@ -349,7 +325,7 @@ let mk_ite =
 		| True -> q
 		| False -> r
 		| _ -> 
-		    if eq q r then q else
+		    if q == r then q else
 		      let hsh = (hash p + hash q + hash r) land 0x3FFFFFFF in
 			Ite(p, q, r, hsh)
 	      in
@@ -511,7 +487,7 @@ let is_model_of propval atomval =
  let module Table = Hashtbl.Make(
    struct
      type t = prp
-     let equal = eq
+     let equal = (==)
      let hash = hash
    end)
  in
@@ -564,7 +540,7 @@ let to_prop p =
   let module Table = Hashtbl.Make(
     struct
       type t = prp
-      let equal = eq
+      let equal = (==)
       let hash = hash
     end)
   in
