@@ -316,7 +316,7 @@ let classify i =
 	(match Extq.sign b with
 	   | Zero -> Z
 	   | Pos -> P0
-	   | Neg -> assert false)
+	   | Neg -> assert false)  (* both_sides_div_pos_lt2 triggers this *)
     | Pos ->
 	P1
     | Neg ->
