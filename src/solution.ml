@@ -55,10 +55,14 @@ let pp fmt s =
   Pretty.list (Pretty.eqn Term.pp) fmt (to_list s) 
 
 let apply s x =
-  Map.find x s.find
+  match x with
+    | App _ -> raise Not_found    (* Invariant: only variables in domain of [s]. *)
+    | _ -> Map.find x s.find
 
 let find s x = 
-  try Map.find x s.find with Not_found -> x
+  match x with
+    | App _ -> x
+    | _ -> (try Map.find x s.find with Not_found -> x)
 
 let inv s a = Map.find a s.inv
     
@@ -78,7 +82,7 @@ let occurs s x =
 
 let union (x, b) s =  
   assert(is_var x);
-  Trace.msg "s" "Union" (x, b) Term.pp_equal;
+  Trace.msg "s" "Update" (x, b) Term.pp_equal;
   if Term.eq x b then 
     s 
   else
@@ -127,7 +131,6 @@ let name (b, s) =
 (*s Fuse. *)
 
 let rec fuse map (p, s) r =
-  Trace.msg "s" "Fuse" r (Pretty.list Term.pp_equal);
   let norm = 
     map (fun x -> try Term.assq x r with Not_found -> x) 
   in
@@ -139,8 +142,8 @@ let rec fuse map (p, s) r =
   Set.fold 
     (fun x acc ->
        try
-	 let b = norm (apply s x) in
-	 update (x, b) acc
+	 let b = apply s x in
+	 update (x, norm b) acc
        with
 	   Not_found -> acc)
     focus
@@ -148,7 +151,6 @@ let rec fuse map (p, s) r =
 
 and update (x, b) (p, s) =
   assert(is_var x);
-  Trace.msg "s" "Update" (x, b) Term.pp_equal;
   if Term.eq x b then
     (p, restrict x s)
   else if is_var b then
@@ -170,26 +172,26 @@ and update (x, b) (p, s) =
   else
     try
       let y = inv s b in
-      let e' = Fact.mk_equal x y None in
-      let p' = Partition.merge e' p in
-      let s' = 
-	if y <<< x then 
-	  restrict x s 
-	else 
-	  let s' = restrict y s in
-	  union (x, b) s'
-      in
-      (p', s')
+	if Term.eq x y then (p, s) else 
+	  let e' = Fact.mk_equal x y None in
+	  let p' = Partition.merge e' p in
+	  let s' = 
+	    if y <<< x then 
+	      restrict x s 
+	    else 
+	      let s' = restrict y s in
+		union (x, b) s'
+	  in
+	    (p', s')
     with
 	Not_found ->
 	  let s' = union (x, b) s in
-	  (p, s')
+	    (p, s')
 
 
 (*s Composition. *)
 
 let compose map (v, s) r =
-  Trace.msg "s" "Compose" r (Pretty.list Term.pp_equal);
   let (v', s') = fuse map (v, s) r in
   List.fold_right update r (v', s')
 
@@ -198,18 +200,7 @@ let compose map (v, s) r =
 
 let changed s = s.changed
 
-let reset s = {s with changed = Set.empty}
-
-
-(* Make sure that rhs are canonical. *)
-
-let instantiate p =
-  Set.fold 
-    (fun x s -> 
-       try
-	 let b = apply s x in
-	 let y = Partition.v p x in
-	 union (y, b) (restrict x s)
-       with
-	   Not_found -> s)
+let reset s = 
+  if Set.is_empty s.changed then s else 
+    {s with changed = Set.empty}
 
