@@ -4,8 +4,8 @@ open Mpa
 open Term
 (*i*)
 
-val lt : term -> term -> term
-val le : term -> term -> term
+val lt : term * term -> term
+val le : term * term -> term
 
 (*s {\bf Inequalities.} The type [t] implements a set of
     inequalities.  The functions [add_lt], [add_le], etc. insert a new
