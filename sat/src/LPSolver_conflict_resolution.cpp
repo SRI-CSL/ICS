@@ -358,6 +358,30 @@ bool LPSolver::conflict_resolution_first_uip()
 void LPSolver::explain_ics_inconsistency(unsigned int f_idx)
 {
 	clock_t start = clock();	
+
+	if (ics_interface.use_ics_explain()) {
+  	if (ics_interface.is_explained()) {
+	  	pair<int *,int> explanation = ics_interface.explain();
+		  int * atom_array = explanation.first;
+		  int array_len = explanation.second;
+			new_conflict_point.reset();
+      // cout << "ICS explanation: \n";
+		  for(int i = 0; i < array_len; i++) {
+		  	// cout << "assert "; cout.flush();
+			  // icsat_atom_pp(atom_array[i]);
+			  // cout << ".\n";
+			  // cout.flush();
+			  // cout << "id = " << ics_interface.get_formula_id_of_atom_id(atom_array[i]) << "\n";
+        new_conflict_point.push(ics_interface.get_formula_id_of_atom_id(atom_array[i]));
+		  }
+			return;
+	  }
+	  else {
+	  	cerr << "Error: there isn't an explanation in ICS...\n";
+		  exit(-1);
+	  }
+	}
+		
 	
 	num_ics_detected_inconsistencies++;
 
@@ -490,18 +514,21 @@ void LPSolver::explain_ics_inconsistency(unsigned int f_idx)
 			cached.push(to_do.low_level_get(i));
 	}
 	
-	SOLVER_EXPLAIN_TRACE(ctrace << "  explain function resul:\n";
+	SOLVER_EXPLAIN_TRACE(
+	{
+                       cout << "  explain function resul:\n";
 											 unsigned int n = cached.get_size();
 											 for (unsigned int i = 0; i < n; i++) {
-												 ctrace << "    ";
-												 formula_manager->dump_formula(ctrace, cached.get(i));
-												 ctrace << " = " << get_formula_value(cached.get(i)) << ", decision-level = " << 
+												 cout << "    ";
+												 formula_manager->dump_formula(cout, cached.get(i));
+												 cout << " = " << get_formula_value(cached.get(i)) << ", decision-level = " << 
 													 internal_formulas[cached.get(i)].decision_level << endl;
 											 }
-											 ctrace << "    highest decision-level = " << highest_decision_level << endl;
-											 ctrace << "    current decision-level = " << decision_level << endl;
-											 ctrace << "    number of atoms: " << cached.get_size() << endl;
-											 );
+											 cout << "    highest decision-level = " << highest_decision_level << endl;
+											 cout << "    current decision-level = " << decision_level << endl;
+											 cout << "    number of atoms: " << cached.get_size() << endl;
+	}
+	);
 
 
 	clock_t end = clock();	
@@ -514,6 +541,7 @@ void LPSolver::explain_ics_inconsistency(unsigned int f_idx)
 	for (unsigned int i = 0; i < n; i++) {
 		unsigned int var_idx = cached.get(i);
 		int val = get_formula_value(var_idx);
+		// cout << "---idx: " << (val < 0 ? -((int)var_idx) : ((int)var_idx)) << endl;
 		new_conflict_point.push(val < 0 ? -var_idx : var_idx);
 	}
 

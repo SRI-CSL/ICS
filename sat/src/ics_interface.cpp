@@ -13,11 +13,12 @@
 
 #define ICS_VERBOSE_LEVEL 0
 
-ICSInterface::ICSInterface(LPFormulaManager * manager)
+ICSInterface::ICSInterface(LPFormulaManager * manager, bool ics_explanations)
 {
 	formula_manager = manager;
 	ics_elapsed = 0.0;
 	num_calls = 0;
+	use_ics_explanations = ics_explanations;
 }
 
 void ICSInterface::reset()
@@ -44,6 +45,12 @@ void ICSInterface::pop()
 void ICSInterface::set_formula(unsigned int f_idx)
 {
 	formulas.insert(f_idx);
+  if (use_ics_explanations) {
+		int pos_atom = formula_manager->get_formula(f_idx)->get_atom();
+		int neg_atom = formula_manager->get_formula(f_idx)->get_not_atom();
+		atom_to_formula_id[pos_atom] = f_idx;	
+		atom_to_formula_id[neg_atom] = -f_idx;
+	}
 }
 
 extern double SAT_associated_formulas_time;
@@ -53,6 +60,8 @@ void ICSInterface::compute_associated_formulas_info()
 // 	cout << " Atom(0) =  "; cout.flush(); icsat_atom_pp(0); cout << endl;
 // 	cout << " Atom(1) =  "; cout.flush(); icsat_atom_pp(1); cout << endl;
 // 	cout << " Atom(2) =  "; cout.flush(); icsat_atom_pp(2); cout << endl;
+	if (!use_ics_explanations) {
+
 
 	clock_t start = clock();
 	FormulaIdSet::const_iterator it1 = formulas.begin();
@@ -96,6 +105,9 @@ void ICSInterface::compute_associated_formulas_info()
 
 	clock_t end = clock();
 	SAT_associated_formulas_time = ((double) (end - start)) / CLOCKS_PER_SEC;		
+	}
+	else
+		SAT_associated_formulas_time = 0.0;
 }
 
 bool ICSInterface::assert_formula(LPFormulaId f, bool in_scratch) {
@@ -149,3 +161,29 @@ void ICSInterface::dump_ics_formula(LPFormulaId f_id)
 	cout << "TO DO (dump_ics_formula): print the ICS atom\n";
 }
 
+bool ICSInterface::is_explained()
+{
+	return icsat_is_explained();
+}
+
+pair<int *,int> ICSInterface::explain()
+{
+	static int * result = NULL;
+	static int result_size = -1;
+	value atom_list = icsat_explain();
+	int len = icsat_length(atom_list);
+	if (len > result_size) {
+		if (result_size > 0)
+			delete result;
+		result = new int[len * 2];
+		result_size = len * 2;
+	}
+	int i = 0;
+	while (!icsat_is_nil(atom_list)) {
+		assert(i < len);
+		result[i] = icsat_head(atom_list);
+		i++;
+		atom_list = icsat_tail(atom_list);
+	}
+	return pair<int*,int>(result, len);
+}

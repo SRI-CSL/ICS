@@ -25,6 +25,7 @@
 
 typedef hash_set<unsigned int> FormulaIdSet;
 typedef hash_map<unsigned int, vector<unsigned int> > FormulaIdMapping;
+typedef hash_map<int, int> ICSAtomToFormulaId;
 
 class ICSInterface {
  	LPFormulaManager * formula_manager;
@@ -32,11 +33,14 @@ class ICSInterface {
  	double ics_elapsed;
  	unsigned int num_calls;
 
+	bool use_ics_explanations;
+
 	FormulaIdSet formulas;
 	FormulaIdMapping associated_formulas;
+	ICSAtomToFormulaId atom_to_formula_id;
 
  public:
- 	ICSInterface(LPFormulaManager *);
+ 	ICSInterface(LPFormulaManager *, bool ics_explanations);
 	~ICSInterface() {}
  	void set_formula(unsigned int f_idx);
 	void compute_associated_formulas_info();
@@ -56,6 +60,12 @@ class ICSInterface {
  	vector<unsigned int> & get_associated_formulas(unsigned int f_idx) { return associated_formulas[f_idx]; }
  	bool assert_formula_in_scratch_state(LPFormulaId f) { return assert_formula(f, true); }
  	void dump_ics_formula(LPFormulaId f_id);
+	bool use_ics_explain() { return use_ics_explanations; }
+  LPFormulaId get_formula_id_of_atom_id(int atom) { return atom_to_formula_id[atom]; }
+
+	bool is_explained();
+	pair<int *,int> explain();
+
 };
 
 

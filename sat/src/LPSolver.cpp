@@ -36,12 +36,14 @@ bool LPClause::subsumes(LPClause * c) const {
 	}
 }
 
+#define USE_PROOF_OBJECTS true
+
 LPSolver::LPSolver(LPFormulaManager * f_manager, unsigned int initial_capacity, unsigned int initial_number_of_clauses,
 									 unsigned initial_number_of_literals):
 	trail_stack(f_manager->get_num_formulas()),
 	backtrack_point_stack(f_manager->get_num_formulas()),
 	clauses(initial_number_of_clauses),
-	ics_interface(f_manager)
+	ics_interface(f_manager, USE_PROOF_OBJECTS)
 {
 	formula_manager = f_manager;
 	num_formulas = formula_manager->get_num_formulas();
