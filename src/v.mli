@@ -25,6 +25,7 @@ type t
 
 val partition : t -> Term.Set.t Term.Map.t
 
+
 (*s [find s x] returns the canonical representative of [x]
  with respect ot the partitioning of the variables in [s].
  In addition, [find'] performs dynamic path compression as
@@ -34,15 +35,25 @@ val find : t -> Term.t -> Term.t
 
 val find' : t -> Term.t -> t * Term.t
 
-(*s [changed s] returns the set of variables [x] with a new
- canonical representative, where 'new' is relative to the last
- [reset s]. *)
+val justification : t -> Term.t -> Term.t * Fact.justification option
 
-val changed : t -> Term.Set.t
+val equality : t -> Term.t -> Fact.equal
 
-val reset : t -> t
+
+(*s The set of changed [x] in domain. *)
+
+val changed : Term.Set.t ref
+
+
+(*s Set of removable variables. *)
+
+val removable : Term.Set.t ref
+
+
+(*s Equality test. *)
 
 val eq : t -> t -> bool
+
 
 (*s [is_equal s x y] holds if and only if [x] and [y] are
  in the same equivalence class modulo [s]. *)
@@ -65,8 +76,6 @@ val merge : Fact.equal -> t -> t
 
 val restrict : Term.t -> t -> t
 
-val removable : t -> Term.Set.t
-
 
 (*s Pretty-printing. *)
 
@@ -82,17 +91,18 @@ val fold : t -> (Term.t -> 'a -> 'a) -> Term.t -> 'a -> 'a
 
 val iter : t -> (Term.t -> unit) -> Term.t -> unit
 
+
 (*s [exists s p x] holds if [p y] holds for some [y] congruent
  to [x] modulo [s]. *)
 
-
 val exists : t -> (Term.t -> bool) -> Term.t -> bool
+
 
 (*s [for_all s p x] holds if [p y] holds for all [y] congruent
  to [x] modulo [s]. *)
 
-
 val for_all : t -> (Term.t -> bool) -> Term.t -> bool
+
 
 (*s [choose s p x] chooses a [y] which is congruent to [x] modulo [s]
   which satisfies [p]. If there is no such [y], the exception [Not_found]
