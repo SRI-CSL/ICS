@@ -31,6 +31,20 @@ AC_SUBST(ICSPATH)
 
 dnl Check for programs
 
+AC_PROG_CC
+AC_PROG_CPP
+AC_PROG_CXX
+AC_PROG_MAKE_SET
+AC_PROG_RANLIB
+AC_CHECK_PROG(AR, ar, ar) 
+# are on AIX needs to know the object file format
+case "$target" in
+  powerpc64*-*-aix*)
+    AR="$AR -X 64"
+    ;;
+esac   
+
+
 dnl Check for OCaml programs
 AC_CHECK_PROG(OCAMLC,ocamlc,ocamlc,no)
 if test "$OCAMLC" = no ; then
@@ -137,7 +151,8 @@ fi
 
 dnl Finally create all the generated files
 AC_SUBST(GMPPATH)
-AC_OUTPUT(Makefile chameleon/Makefile ics)
+dnl AC_OUTPUT(Makefile chameleon/Makefile ics)
+AC_OUTPUT(Makefile chameleon/Makefile ics sat/Makefile sat/src/Makefile)
 
 chmod a+x ics
 

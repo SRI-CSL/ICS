@@ -98,7 +98,22 @@ int icsat_assert(value x1) {
   CAMLreturn(Int_val(callback(*closure, x1)));
 }
 
-/* Atoms. *)
+
+void icsat_reset_scratch_context() {
+  CAMLparam0();
+  static value * closure = NULL;
+  if (closure == NULL) { closure = caml_named_value("reset_scratch_context"); }
+  callback(*closure, Val_unit);
+  CAMLreturn0;
+}
+
+void icsat_add_scratch_context(int x1) {
+  static value * closure = NULL;
+  if (closure == NULL) { closure = caml_named_value("add_scratch_context"); }
+  callback(*closure, Val_int(x1));
+}
+
+/* Atoms. */
 
 int icsat_is_connected(value x1, value x2) {
   CAMLparam2(x1, x2);
