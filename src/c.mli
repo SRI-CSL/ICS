@@ -20,19 +20,19 @@ open Term
 
 type t 
 
-val cnstrnts : t -> Cnstrnt.t Map.t
+val cnstrnts : t -> (Cnstrnt.t * Fact.justification option) Var.Map.t
+
+val to_list : t -> (Var.t * Cnstrnt.t) list
 
 val apply : t -> Term.t -> Cnstrnt.t
 
 val find : t -> Term.t -> Cnstrnt.t
 
+val justification : t -> Term.t -> Cnstrnt.t * Fact.justification option
+
+val to_fact : t -> Term.t -> Fact.cnstrnt
+
 val mem : Term.t -> t -> bool
-
-val singletons : t -> Term.Set.t
-
-(*s Constraint for an arithmetic term. *)
-
-val cnstrnt : t -> Term.t -> Cnstrnt.t
 
 (*s Empty constraint map. *)
 
@@ -43,6 +43,10 @@ val eq : t -> t -> bool
 (*s Add a new constraint. *)
 
 val add : Fact.cnstrnt -> t -> t
+
+(*s Changed. *)
+
+val changed : Set.t ref
 
 (*s Merge a variable equality [x = y] in the constraint map by
  adding [x in ij] for the canonical variable [x], where [x in i],
@@ -63,13 +67,6 @@ val merge : Fact.equal -> t -> t
 val diseq : Fact.diseq -> t -> t
 
 
-(*s Cnstrnts from terms. Raises [Not_found] when unconstrained. *)
-
-val of_term : V.t * t -> Term.t -> Cnstrnt.t
-
-val of_arith : V.t * t -> Sym.arith -> Term.t list -> Cnstrnt.t
-
-val of_builtin : V.t * t -> Sym.builtin -> Term.t list -> Cnstrnt.t
 
 (*s Split. *)
 
@@ -78,12 +75,3 @@ val split : t -> Atom.Set.t
 (*s Pretty-printing. *)
 
 val pp : t Pretty.printer
-
-
-(*s [changed s] returns the set of variables [x] with a new
- canonical representative, where 'new' is relative to the last
- [reset s]. *)
-
-val changed : t -> Term.Set.t
-
-val reset : t -> t
