@@ -338,7 +338,7 @@ let rec addl = function
   | c :: cl -> add c (addl cl)
 
 let multq q ((i,qs) as c) =
-  if Mpa.Q.equal Mpa.Q.zero q then 
+  if Mpa.Q.equal Mpa.Q.one q then 
     make (i, qs)
   else if Mpa.Q.equal Mpa.Q.zero q then
     mk_zero
