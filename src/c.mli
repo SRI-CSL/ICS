@@ -19,26 +19,18 @@
 type t
   (** A constraint context consists of a conjunction of constraints
     of the form [x in i], where [x] is a term variable and [i] is
-    a constraint of type {!Cnstrnt.t}. *)
+    a constraint of type {!Interval.t}. *)
   
 
 (** {6 Accessors} *)
 
-val cnstrnts : t -> (Cnstrnt.t * Fact.justification option) Term.Map.t
+val cnstrnts : t -> (Interval.t * Fact.justification option) Term.Map.t
   (** [cnstrnts s] returns a map with bindings [x |-> (i, prf)] iff
     [x in i] is stored in [s] with justification [prf]. *)
 
-val apply : t -> Term.t -> Cnstrnt.t * Fact.justification option
+val apply : t -> Term.t -> Interval.t * Fact.justification option
   (** [apply s x] returns [i] if [x in i] is in [s]. Otherwise,
     [Not_found] is raised. *)
-
-val use : t -> Term.t -> Term.Set.t
-  (** [y] is in [use s x] iff [apply s y] is a constraint [c] such
-    that variable [x] occurs in one of the term bounds of [c]. *)
-
-val cnstrnt : t -> Term.t -> Fact.cnstrnt
-  (** [to_fact s x] returns a constraint fact [c] for [x in i]
-    if [apply s x] equals [i]; otherwise, [Not_found] is raised. *)
 
 
 (** {6 Predicates} *)
@@ -46,17 +38,8 @@ val cnstrnt : t -> Term.t -> Fact.cnstrnt
 val mem : Term.t -> t -> bool
   (** [mem x s] holds iff [x] is constraint in [s]. *)
 
-
 val eq : t -> t -> bool
   (** [eq s t] when [s] and [t] are physically equal. *)
-
-
-val holds : t -> Term.t * bool -> Three.t
-  (** [holds s (a, alpha)] is 
-    - [Three.Yes] if [a <(=) 0] is valid in [s]
-    - [Three.No] if [a <(=) 0] is inconsistent with [s]
-    - [Three.X] otherwise 
-  *)
 
 
 (** {6 Context manipulations} *)
@@ -64,11 +47,9 @@ val holds : t -> Term.t * bool -> Three.t
 val empty : t 
   (** Empty constraint context. *)
 
-val add : Fact.less -> t -> Fact.Equalset.t * t
+val add : Fact.cnstrnt -> t -> Term.Set.t * Fact.equal option * t
 
-val dom : Fact.dom -> t -> Fact.Equalset.t * t
-
-val merge : Fact.equal -> t -> Fact.Equalset.t * t
+val merge : Fact.equal -> t -> Term.Set.t * Fact.equal option * t
   (** Merge a variable equality [x = y] in the constraint map by
     adding [x in ij] for the canonical variable [x], where [x in i],
     [y in j] are in the constraint map and [ij] is the intersection of
@@ -77,17 +58,25 @@ val merge : Fact.equal -> t -> Fact.Equalset.t * t
     keep the invariant that the best available constraint
     are always associated with canonical variables. *)
 
-val diseq : Fact.diseq -> t -> Fact.Equalset.t * t
+val diseq : Fact.diseq -> t -> Term.Set.t * Fact.equal option * t
   (** Propagate disequalities to the constraint part. *) 
-
-val changed : Term.Set.t ref
-  (** This global variable contains all variables [x] for which
-    a constraint has been assigned. *)
 
 
 (** {6 Split predicates} *)
 
-val split : t -> Atom.Set.t
+val split : t -> Fact.cnstrnt list
+
+
+(** {6 Interval interpretation} *)
+
+val of_term : t -> Term.t -> Interval.t
+
+val holds : t -> (Term.t * Interval.t) -> Three.t
+
+
+(** {6 Predicates} *)
+
+val is_diophantine : t -> Term.t -> bool
 
 
 (** {6 Pretty-printing} *)

@@ -333,7 +333,3 @@ let div (pp, qq) =
   with
       Not_found -> None
 
-
-(** {6 Constraint } *)
-
-let cnstrnt f a = Cnstrnt.mk_real

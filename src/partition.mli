@@ -26,39 +26,27 @@
 type t
   (** Type [t] for representing a partitioning. *)
 
+val eq : t -> t -> bool
+  (** [eq s t] holds if the respective equality, disequality, and constraint parts
+    are identical, that is, stored in the same memory location. *)
+
 
 (** {6 Accessors} *)
 
 val v_of : t -> V.t
 val d_of : t -> D.t
+val c_of : t -> C.t
 
-val v : t -> Term.t -> Term.t
+val v : t -> Term.t -> Term.t * Fact.justification option
   (** [v s x] returns the canonical representative of the equivalence
     class in the partitioning [s] containing the variable [x]. *)
 
-val deq : t -> Term.t -> Term.Set.t
+val d : t -> Term.t -> (Term.t * Fact.justification option) list 
   (** [deq s x] returns the set of all variable [y] disequal to [x] as stored
     in the variable disequality part [d] of the partitioning [s].  Disequalities as
     obtained from the constraint part [c] are not necessarily included. *)
 
-val equality : t -> Term.t -> Fact.equal
-
-val disequalities : t -> Term.t -> Fact.diseq list
-
-
-(** {6 Destructive Updates} *)
-
-val update_v : t -> V.t -> t
-  (** [update_v s v] updates the [v] part of the partitioning [s] if it
-    is different from [s.v]. *)
-
-val update_d : t -> D.t -> t
-
-val copy : t -> t
-  (** [copy p] does a shallow copying of [p]. Should be called before
-    calling any of the above update functions to protect [p] from
-    destructive updates. *)
-
+val c : t -> Term.t -> Interval.t * Fact.justification option
 
 (** {6 Recognizers} *)
 
@@ -75,29 +63,42 @@ val is_equal : t -> Term.t -> Term.t -> Three.t
 val pp : t Pretty.printer
 
 
+(** {6 Changed Sets} *)
+
+
+type changed = {chv: Term.Set.t; chd: Term.Set.t; chc: Term.Set.t}
+
+val is_unchanged : changed -> bool
+
+
 (** {6 Constructors} *)
 
 val empty : t
   (** The [empty] partition. *)
 
-val merge : Fact.equal -> t -> t
+val merge : Fact.equal -> t -> changed * Fact.Equalset.t * t
   (** [merge e s] adds a new variable equality [e] of the form [x = y] into
     the partition [s]. If [x] is already equal to [y] modulo [s], then [s]
     is unchanged; if [x] and [y] are disequal, then the exception [Exc.Inconsistent]
     is raised; otherwise, the equality [x = y] is added to [s] to obtain [s'] such
     that [v s' x] is identical to [v s' y]. *)
 
-val restrict : Term.Set.t -> t -> t
-  (** [remove s] removes all internal variables which are not canonical. *)
- 
-
-val diseq : Fact.diseq -> t -> t
+val diseq : Fact.diseq -> t -> changed * Fact.Equalset.t * t
   (** [diseq d s] adds a disequality of the form [x <> y] to [s]. If [x = y] is
     already known in [s], that is, if [is_equal s x y] yields [Three.Yes], then
     an exception [Exc.Inconsistent] is raised; if [is_equal s x y] equals [Three.No]
     the result is unchanged; otherwise, [x <> y] is added using [D.add]. *)
 
+val add : Fact.cnstrnt -> t -> changed * Fact.Equalset.t * t
+  (** Adding a constraint. *)
 
-val eq : t -> t -> bool
-  (** [eq s t] holds if the respective equality, disequality, and constraint parts
-    are identical, that is, stored in the same memory location. *)
+val gc: (Term.t -> bool) -> t -> t
+  (** [gc s] removes all internal variables which are not canonical. *)
+
+
+(** {6 Destructive Updates} *)
+
+val copy : t -> t
+  (** [copy p] does a shallow copying of [p]. Should be called before
+    calling any of the above update functions to protect [p] from
+    destructive updates. *)

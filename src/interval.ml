@@ -13,16 +13,15 @@
 
 open Mpa
 open Sign
-open Endpoint
 
 
-type t = tnode
-
-and tnode = {
+type t = {
   dom : Dom.t;
-  lo : Endpoint.t;
-  hi : Endpoint.t
+  lo : (bool * Q.t) option;     (* A rational [q] or negative infinity. *)
+  hi : (Q.t * bool) option      (* A rational [q] or positive infinity. *)
 }
+
+and low = (bool * Q.t) 
 
 (** {6 Accessors} *)
 
@@ -30,512 +29,411 @@ let dom i = i.dom
 let lo i = i.lo
 let hi i = i.hi
 
-let destructure i = (i.dom,i.lo,i.hi)
+let destructure i = (i.dom, i.lo, i.hi)
 
-(** {6 Equality} *)
+
+(** {6 Pretty-printing} *)
+
+let pp fmt i =
+  Dom.pp fmt i.dom;
+  if not(i.lo = None && i.hi = None) then
+    begin
+      (match i.lo with
+	 | None -> Pretty.string fmt "(-inf"
+	 | Some(alpha, q) -> Pretty.string fmt (if alpha then "[" else "("); Q.pp fmt q);
+      Pretty.string fmt ",";
+      (match i.hi with
+	 | None -> Pretty.string fmt "inf)"
+	 | Some(q, beta) ->  Q.pp fmt q; Pretty.string fmt (if beta then "]" else ")"))
+    end
+
+(** {6 Equality and Subsumption} *)
 
 let eq i j =
   Dom.eq i.dom j.dom &&
-  Endpoint.eq i.lo j.lo &&
-  Endpoint.eq i.hi j.hi
+  (match i.lo,  j.lo with
+    | None, None -> true
+    | Some(alpha, q), Some(beta, p) -> alpha = beta && Q.equal q p 
+    | _ -> false) &&
+  (match i.hi, j.hi with
+     | None, None -> true
+     | Some(q, alpha), Some(p, beta) -> alpha = beta && Q.equal q p
+     | _ -> false)
 
 
 (** {6 Constructors} *)
 
-let mk_empty =
-  let z = Endpoint.strict Mpa.Q.zero in
-  {dom = Dom.Real; lo = z; hi = z}
+let mk_empty = { dom = Dom.Real; lo = Some(false, Q.zero); hi = Some(Q.zero, false) }
 
-let rec make (d,lo,hi) =
-  match d with
-    | Dom.Int -> makeint lo hi
-    | Dom.Real -> makereal lo hi
-    | Dom.Nonint -> makenonint lo hi
+let mk_real = { dom = Dom.Real; lo = None; hi = None }
 
-and makenonint lo hi =
-  let (a,l) = Endpoint.destruct lo
-  and (b,k) = Endpoint.destruct hi 
-  in
-  let ((a',_) as lo') = 
-    match Extq.destruct a with
-      | Extq.Inject u when l && Q.is_integer u -> (a, false)
-      | _ -> lo
-  and ((b',_) as hi')  = 
-    match Extq.destruct b with
-      | Extq.Inject u when k && Q.is_integer u -> (b, false)
-      | _ -> hi
-  in
-  if Extq.lt b' a' then
-    mk_empty
-  else
-    {dom = Dom.Nonint; lo = lo'; hi = hi'}
+let mk_int = { dom = Dom.Int; lo = None; hi = None }
 
-    
-and makereal lo hi = 
-  let (a,l) = Endpoint.destruct lo 
-  and (b,k) = Endpoint.destruct hi 
-  in
-  let is_empty = 
-    match Extq.destruct a, Extq.destruct b with
-      | Extq.Inject u, Extq.Inject v ->
-	  (match Q.cmp u v with
-	     | Q.Greater -> true
-	     | Q.Equal -> not(l && k)
-	     | Q.Less -> false)
-      | Extq.Neginf, Extq.Neginf -> true
-      | Extq.Posinf, _ -> true
-      | _ -> false
-  in
-  if is_empty then
-    mk_empty 
-  else
-    {dom = Dom.Real; lo = lo; hi = hi}
-    
-and makeint lo hi = 
-  let (a,l) = Endpoint.destruct lo 
-  and (b,k) = Endpoint.destruct hi 
-  in
-  let ((a',_) as lo') = 
-    match Extq.destruct a with
-      | Extq.Inject u when not(l && Q.is_integer u) ->
-	  (Extq.of_q(Q.of_z(Q.floor(Q.add u Q.one))), true)
-      | _ ->
-	  lo
-  and ((b',_) as hi')  = 
-    match Extq.destruct b with
-      | Extq.Inject u when not(k && Q.is_integer u) ->
-	  (Extq.of_q(Q.of_z(Q.ceil(Q.sub u Q.one))), true)
-      | _ ->
-	  hi
-  in
-  if Extq.lt b' a' then
-    mk_empty
-  else
-    {dom = Dom.Int; lo = lo'; hi = hi'}
+let mk_nat = { dom = Dom.Int; lo = Some(true, Q.zero); hi = None }
 
-let mk_dom d = make (d, Endpoint.neginf, Endpoint.posinf)
+let mk_pos =  { dom = Dom.Real; lo = Some(false, Q.zero); hi = None }
 
-let mk_real = make (Dom.Real, Endpoint.neginf, Endpoint.posinf)
-let mk_int = make (Dom.Int, Endpoint.neginf, Endpoint.posinf)
-let mk_nonint = make (Dom.Nonint, Endpoint.neginf, Endpoint.posinf)
+let mk_nonneg = { dom = Dom.Real; lo = Some(true, Q.zero); hi = None }
+
+let mk_neg = { dom = Dom.Real; lo = None; hi = Some(Q.zero, false) }
+
+let mk_nonpos = { dom = Dom.Real; lo = None; hi = Some(Q.zero, true) }
 
 
-let mk_singleton q = 
-  let bnd = Endpoint.nonstrict q in
-  make (Dom.of_q q, bnd, bnd)
+let mk_dom = function
+  | Dom.Real -> mk_real
+  | Dom.Int -> mk_int
+
+let mk_singleton q = { dom = Dom.of_q q; lo = Some(true, q); hi = Some(q, true) }
 
 let mk_zero = mk_singleton Q.zero
-
-let mk_inf d (alpha, q) = 
-  make (d, Endpoint.make (Extq.of_q q, alpha), Endpoint.posinf)
-
-let mk_sup d (p, beta) = 
-  make (d, Endpoint.neginf, Endpoint.make (Extq.of_q p, beta))
+let mk_one = mk_singleton Q.one
  
-let mk_supinf d (alpha, q) (p, beta) = 
-  make (d, Endpoint.make (Extq.of_q q, alpha), 
-	   Endpoint.make (Extq.of_q p, beta))
- 
-
-
+let rec make (d, lo, hi) =
+  let lower (alpha, q) =    (* normalized lower bound *)
+    match d with
+      | Dom.Int when not(alpha && Q.is_integer q) -> 
+	  (true, Q.of_z(Q.floor(Q.add q Q.one)))
+      | _ -> 
+	  (alpha, q)
+  and upper (p, beta) =   (* normalized upper bound *)
+    match d with
+      | Dom.Int when not(beta && Q.is_integer p) -> 
+	  (Q.of_z(Q.ceil(Q.sub p Q.one)), true)
+      | _ -> 
+	  (p, beta)
+  in
+    match lo, hi with
+      | None, None -> 
+	  mk_dom d
+      | None, Some(p, beta) -> 
+	  let (p', beta') = upper (p, beta) in
+	  { dom = d; lo = None; hi = Some(p', beta') }
+      | Some(alpha, q), None ->
+	  let (alpha', q') = lower (alpha, q) in
+	  { dom = d; lo = Some(alpha', q'); hi = None }
+      | Some(alpha, q), Some(p, beta) ->
+	  let (alpha', q') = lower (alpha, q)
+	  and (p', beta') = upper (p, beta) in
+	    if alpha' && beta' && Q.gt q' p' then
+	      mk_empty
+	    else if not(alpha' && beta') && Q.ge q' p' then
+	      mk_empty
+	    else 
+	      { dom = d; lo = Some(alpha', q'); hi = Some(p', beta') }
 
 (** {6 Recognizers} *)
 
-let is_empty i = eq i mk_empty
+let is_empty i = (i == mk_empty)
 
-let is_full i = eq i mk_real
+let is_full i = (i == mk_real)
 
 let d_singleton i =
-  let (a,l) = Endpoint.destruct i.lo
-  and (b,k) = Endpoint.destruct i.hi 
-  in
-  if l && k && Extq.eq a b then
-    Extq.to_q a
-  else 
-    None
+  match i.lo, i.hi with
+    | Some(true, q), Some(p, true) 
+	when Q.equal q p -> Some(q)
+    | _ ->
+	None
 
-let is_zero i = (eq i mk_zero)
+type status =
+  | Empty
+  | Full
+  | Singleton of Mpa.Q.t
+  | Other
 
-(** {6 Accessors} *)
+let status i =
+  if is_empty i then Empty
+  else if is_full i then Full
+  else match d_singleton i with
+    | Some(q) -> Singleton(q)
+    | None -> Other
 
-let rational_endpoints i =
-  let (a,_) = Endpoint.destruct i.lo 
-  and (b,_) = Endpoint.destruct i.hi
-  in
-  match Extq.to_q a, Extq.to_q b with
-    | Some(q), Some(p) -> Some(q,p)
-    | _ -> None
 
 (** {6 Membership test} *)
 
 let mem q i =
   Dom.mem q i.dom &&
-  let (a,alpha) = Endpoint.destruct i.lo in
-  let (b,beta) = Endpoint.destruct i.hi in
-  match Extq.destruct a with
-    | Extq.Inject u ->
-	(match Extq.destruct b with
-	   | Extq.Inject v ->
-	       (match alpha, beta with
-		  | true, true -> Q.le u q && Q.le q v
-		  | true, false -> Q.le u q && Q.lt q v
-		  | false, true ->  Q.lt u q && Q.le q v
-		  | false, false -> Q.lt u q && Q.lt q v)
-	   | Extq.Posinf ->
-	       (match alpha with
-		  | true -> Q.le u q
-		  | false -> Q.lt u q)
-	   | Extq.Neginf ->
-	       false)
-    | Extq.Neginf ->
-	(match Extq.destruct b with
-	   | Extq.Inject v ->
-	       (match beta with
-		  | true -> Q.le q v
-		  | false -> Q.lt q v)
-	   | Extq.Posinf ->
-	       true
-	   | Extq.Neginf ->
-	       false)
-    | Extq.Posinf ->
-	false
+  (match i.lo with
+     | None -> true
+     | Some(alpha, l) -> 
+	 if alpha then Q.ge q l else Q.gt q l) &&
+  (match i.hi with
+     | None -> true
+     | Some(h, beta) -> 
+	 if beta then Q.le q h else Q.lt q h)
 
-(** {6 Pretty-printing} *)
+let is_sub i j =
+  Dom.sub i.dom j.dom &&
+  (match i.lo, j.lo with  (* [i.lo >= j.lo] *)
+     | None, None -> true
+     | None, Some _ -> false
+     | Some _, None -> true
+     | Some(true, q), Some(false, p) -> Q.gt q p
+     | Some(_, q), Some(_, p) -> Q.ge q p) &&
+  (match i.hi, j.hi with  (* [i.hi >= j.hi] *)
+     | None, None -> true
+     | None, Some _ -> false
+     | Some _, None -> true
+     | Some(q, false), Some(p, true) -> Q.lt q p
+     | Some(q, _), Some(p, _) -> Q.le q p)
 
-let pp fmt i =
-  let (a,alpha) = Endpoint.destruct i.lo in
-  let (b,beta) = Endpoint.destruct i.hi in
-    if Extq.destruct a = Extq.Neginf &&
-       Extq.destruct b = Extq.Posinf && 
-       Endpoint.is_strict i.lo &&
-       Endpoint.is_strict i.hi 
-    then
-      Dom.pp fmt i.dom
-    else
-      begin
-	Format.fprintf fmt "";
-	Dom.pp fmt i.dom;
-	Format.fprintf fmt "%s" (if alpha && Extq.is_q a then "[" else "(");
-	Extq.pp fmt a;
-	Format.fprintf fmt "..";
-	Extq.pp fmt b;
-	Format.fprintf fmt "%s" (if beta && Extq.is_q b then "]" else ")")
-      end
+let is_sub i j =
+  Trace.call "foo" "is_sub" (i, j) (Pretty.pair pp pp);
+  let res = is_sub i j in
+    Trace.exit "foo" "is_sub" res Pretty.bool;
+    res
+
+let is_disjoint i j = 
+  (match i.hi, j.lo with  (* [i.hi < j.lo] *)
+     | Some(q, true), Some(true, p) -> Q.lt q p
+     | Some(q, _), Some(_, p) -> Q.le q p
+     | _ -> false)
+  || 
+  (match j.hi, i.lo with  (* [j.hi > i.lo] *)
+     | Some(q, true), Some(true, p) -> Q.lt q p
+     | Some(q, _), Some(_, p) -> Q.le q p
+     | _ -> false)
+
+let is_disjoint i j =
+  Trace.call "foo" "is_disjoint" (i, j) (Pretty.pair pp pp);
+  let res = is_disjoint i j in
+    Trace.exit "foo" "is_disjoint" res Pretty.bool;
+    res
 
 
-(* {6 Connectives} *)
-
-let mu a c alpha gamma =
-  match Extq.cmp a c with
-    | Q.Less -> alpha
-    | Q.Equal -> alpha && gamma
-    | Q.Greater -> gamma
-
-let nu a c alpha gamma =
-  match Extq.cmp a c with
-    | Q.Less -> alpha
-    | Q.Equal -> alpha || gamma
-    | Q.Greater -> gamma
+(* {6 Intersection} *)
 
 let inter i j =
-  let (a,alpha) = Endpoint.destruct i.lo
-  and (b,beta) = Endpoint.destruct i.hi
-  and (c,gamma) = Endpoint.destruct j.lo 
-  and (d,delta) = Endpoint.destruct j.hi
-  in  
-  try
-    let d' = Dom.inter i.dom j.dom in
-    let lo' = Endpoint.make (Extq.max a c, mu a c gamma alpha) in
-    let hi' = Endpoint.make (Extq.min b d, mu b d beta delta) in
-    make (d',lo',hi')
-  with
-      Dom.Empty -> mk_empty
-     
-
-let union i j =
-  let (a,alpha) = Endpoint.destruct i.lo
-  and (b,beta) = Endpoint.destruct i.hi
-  and (c,gamma) = Endpoint.destruct j.lo 
-  and (d,delta) = Endpoint.destruct j.hi
+  let low_eq = function            
+    | (None, None) -> true
+    | (Some(alpha, p), Some(beta, q)) -> alpha = beta && Q.equal q p
+    | _ -> false
+  and high_eq = function
+    | (None, None) -> true
+    | (Some(p, gamma), Some(q, delta)) -> gamma = delta && Q.equal q p
+    | _ -> false
   in
-  let d' = Dom.union i.dom j.dom
-  and lo' = Endpoint.make (Extq.min a c, mu a c alpha gamma)
-  and hi' = Endpoint.make (Extq.max b d, mu b d delta beta)
+  let d = Dom.inter i.dom j.dom 
+  and l = 
+    match i.lo, j.lo with   (* Maximum of lower bounds *)
+      | None, None -> None
+      | None, Some _ -> j.lo
+      | Some _, None -> i.lo
+      | Some(alpha, q), Some(beta, p) ->
+	  let res = Q.compare q p in
+	    if res = 0 then
+	      Some(alpha && beta, q)
+	    else if res < 0 then
+	      j.lo
+	    else (* [q > p] *)
+	      i.lo
+  and h = 
+    match i.hi, j.hi with   (* Minimum of upper bounds *)
+      | None, None -> None
+      | None, Some _ -> j.hi
+      | Some _, None -> i.hi
+      | Some(q, gamma), Some(p, delta) -> 
+	  let res = Q.compare q p in
+	    if res = 0 then
+	      Some(q, gamma && delta)
+	    else if res < 0 then
+	      i.hi
+	    else (* [q > p] *)
+	      j.hi
   in
-  make (d', lo', hi')
+    make (d, l, h)
 
+let inter i j =
+  Trace.call "i" "Inter" (i, j)  (Pretty.pair pp pp);
+  let k = inter i j in
+    Trace.exit "i" "Inter" k pp;
+    k
 
+let complement i =
+  if i.dom <> Dom.Real then
+    raise (Invalid_argument "interval not complementable")
+  else
+    match i.lo, i.hi with
+      | None, None -> mk_empty
+      | None, Some(p, beta) -> 
+	  { dom = Dom.Real; lo = Some(not beta, p); hi = None }
+      | Some(alpha, q), None -> 
+	  { dom = Dom.Real; lo = None; hi = Some(q, not alpha) }
+      | _ ->
+	  raise (Invalid_argument "interval not complementable")
+
+let is_complementable i = 
+  match i.lo, i.hi with
+    | Some _, Some _ -> false
+    | _ -> true
+
+	
 (** {6 Interval Arithmetic} *)
-
-(* The implementation of interval arithmetic 
- operations follows the tables given in ``Interval Arithmetic: 
- from Principles to Implementation'' by Hickey, Ju, and Emden in the 
- Journal of ACM, 2002. *)
-
 
 (** Adding two intervals *)
 let rec add i j =
-  let (a,alpha) = Endpoint.destruct i.lo
-  and (b,beta) = Endpoint.destruct i.hi
-  and (c,gamma) = Endpoint.destruct j.lo 
-  and (d,delta) = Endpoint.destruct j.hi
+  let dom = Dom.union i.dom j.dom
+  and lo = 
+    match i.lo, j.lo with
+      | None, _ -> None       
+      | _, None -> None         
+      | Some(alpha, q), Some(beta, p) -> Some(alpha && beta, Q.add q p)
+  and hi = 
+    match i.hi, j.hi with
+      | None, _ -> None       
+      | _, None -> None         
+      | Some(q, alpha), Some(p, beta) -> Some(Q.add q p, alpha && beta)
   in
-  let d' = add_dom i.dom j.dom
-  and lo' = Endpoint.make (Extq.add a c, alpha && gamma)
-  and hi' = Endpoint.make (Extq.add b d, beta && delta)
-  in
-  make (d',lo',hi')
+    make (dom, lo, hi)
 
-and add_dom d1 d2 =
-  match d1, d2 with
-    | Dom.Real, _ -> Dom.Real
-    | _, Dom.Real -> Dom.Real
-    | Dom.Int, Dom.Int -> Dom.Int
-    | Dom.Int, Dom.Nonint -> Dom.Nonint
-    | Dom.Nonint, Dom.Nonint -> Dom.Real  (* overapproximation. *)
-    | Dom.Nonint, Dom.Int -> Dom.Nonint
+let rec addl = function
+  | [] -> mk_zero
+  | [i] -> i
+  | [i; j] -> add i j
+  | i :: il -> add i (addl il)
 
 
+(** Subtraction of intervals *)
+let rec sub i j =
+  let dom = Dom.union i.dom j.dom
+  and lo =
+    match i.lo, j.hi with    (* [i.lo - j.hi] *)
+      | None, _ -> None    
+      | _, None -> None           
+      | Some(alpha, q), Some(p, beta) -> Some(alpha && beta, Q.sub q p)
+  and hi =
+    match i.hi, j.lo with    (* [i.hi - j.lo] *)
+      | None, _ -> None 
+      | _, None -> None              
+      | Some(q, gamma), Some(delta, p) -> Some(Q.sub q p, gamma && delta)
+  in 
+    make (dom, lo, hi)
+
+      
 (** Shifting by a rational. *)
 let addq q i =
-  if Q.is_zero q then i else 
-    let d' = 
-      match i.dom with
-	| Dom.Real -> Dom.Real
-	| Dom.Int -> if Q.is_integer q then Dom.Int else Dom.Nonint
-	| Dom.Nonint -> if Q.is_integer q then Dom.Nonint else Dom.Real
-    and (a, alpha) = 
-      Endpoint.destruct i.lo in
-    let lo' = 
-      match Extq.destruct a with
-	| Extq.Inject(p) -> Endpoint.make (Extq.of_q (Q.add q p), alpha)
-	| _ -> i.lo
-    and (b, beta) = 
-      Endpoint.destruct i.hi in
-    let hi' = 
-      match Extq.destruct b with
-	| Extq.Inject(p) -> Endpoint.make (Extq.of_q (Q.add q p), beta)
-	| _ -> i.hi
-    in
-      make (d', lo', hi')
+  add (mk_singleton q) i
 
 
-
-(** Classification of intervals according to the signs of endpoints. *)
-  
-type classification = 
-  | M                 (** [(a,b)] in [M] iff [a < 0 < b]. *)
-  | Z                 (** [(0,0)] is only interval in [Z]. *)
-  | P0                (** [(0,b)] in [P0] iff [b > 0]. *)
-  | P1                (** [(a,b)] in [P1] iff [0 < a <= b]. *)
-  | N0                (** [(a,0)] in [N0] iff [a < 0]. *)
-  | N1                (** [(a,b)] in [N1] iff [a <= b < 0]. *)
-
-
-let classify i =
-  let (a,alpha) = Endpoint.destruct i.lo
-  and (b,beta) = Endpoint.destruct i.hi
-  in
-  match Extq.sign a with
-    | Zero ->
-	(match Extq.sign b with
-	   | Zero -> Z
-	   | Pos -> P0
-	   | Neg -> assert false)
-    | Pos ->
-	P1
-    | Neg ->
-	(match Extq.sign b with
-	   | Zero -> N0
-	   | Neg -> N1
-	   | Pos -> M)
-
-(** Multiplying two intervals *)
-let rec mult i j =
-  let dom = mult_dom i.dom j.dom 
-  and (a,alpha) = Endpoint.destruct i.lo
-  and (b,beta) = Endpoint.destruct i.hi
-  and (c,gamma) = Endpoint.destruct j.lo 
-  and (d,delta) = Endpoint.destruct j.hi
-  in
-  let kind a c l k =
-    (l && k) || 
-    (l && (Extq.is_zero a)) || 
-    (k && (Extq.is_zero c))
-  in
-  let ( * ) = Extq.mult in
-  let make lo hi = make (dom, lo, hi) in
-  match classify i, classify j with
-    | (P0 | P1), (P0 | P1) ->
-	make (a * c, kind a c alpha gamma) (b * d, kind b d beta delta)
-    | (P0 | P1), M ->
-	make (b * c, kind b c beta gamma) (b * d, kind b d beta delta)
-    | (P0 | P1), (N0 | N1) ->
-	make (b * c, kind b c beta gamma) (a * d, kind a d alpha delta)
-    | M, (P0 | P1) ->
-	make (a * d, kind a d alpha delta) (b * d, kind b d beta delta)
-    | M, M ->
-	union
-	  (make (a * d, kind a d alpha delta) (b * d, kind b d beta delta))
-	  (make (b * c, kind b c beta gamma) (a * c, kind a c alpha gamma))
-    | M, (N0 | N1) ->
-	make (b * c, kind b c beta gamma) (a * c, kind a c alpha gamma)
-    | (N0 | N1), (P0 | P1) ->
-	make (a * d, kind a d alpha delta) (b * c, kind b c beta gamma)
-    | (N0 | N1), M ->
-	make (a * d, kind a d alpha delta) (a * c, kind a c alpha gamma)
-    | (N0 | N1), (N0 | N1) ->
-	make (b * d, kind b d beta delta) (a * c, kind a c alpha gamma)
-    | Z, (P0 | P1 | M | N0 | N1) ->
-	mk_zero
-    | (P0 | P1 | M | N0 | N1 | Z), Z ->
-	mk_zero
-
-and mult_dom d1 d2 =
-  match d1, d2 with
-    | Dom.Int, Dom.Int -> Dom.Int
-    | _ -> Dom.Real         (* Overapproximation *)
-
-
-(** Multiplying an interval with a rational *)
-let multq q i = 
-  if Q.is_one q then
+(** Multiply by a rational. *)
+let multq q i =
+  if Q.is_zero q then
+    mk_zero
+  else if Q.is_one q then
     i
-  else if Endpoint.eq i.lo Endpoint.neginf && Endpoint.eq i.hi Endpoint.posinf then 
-    if Q.is_integer q then i else make (Dom.Real, i.lo, i.hi)
   else 
-    mult (mk_singleton q) i
+    let dom = match i.dom with
+      | Dom.Real -> Dom.Real
+      | Dom.Int -> if Q.is_integer q then Dom.Int else Dom.Real
+    and (lo, hi) = 
+      match i.lo, i.hi with    (* [min(q * i.lo, q * i.hi),max(q * i.lo, q * i.hi)] *)
+	| None, None  ->
+	    (None, None)
+	| None, Some(p, beta) -> (* [min(q * -inf, q * p),max(q * -inf, q * p)] *)
+            if Q.is_pos q then 
+	      (None, Some(Q.mult q p, beta))
+	    else 
+	      (Some(beta, Q.mult q p), None)
+	| Some(alpha, l), None ->  (* [min(q * l, q * inf), max(q * l, q * inf)] *)
+	    if Q.is_pos q then
+	      (Some(alpha, Q.mult q l), None)
+	    else 
+	      (None, Some(Q.mult q l, alpha))
+	| Some(alpha, l), Some(h, beta) ->  (* [min(q * l, q * h), max(q * l, q * h)] *)
+	    let ql = Q.mult q l and qh = Q.mult q h in
+	    let (alpha', l') = if Q.le ql qh then (alpha, ql) else (beta, qh)
+            and (beta', h') = if Q.le ql qh then (beta, qh) else (alpha, ql) in 
+	      (Some(alpha', l'), Some(h', beta'))
+	    in
+      make (dom, lo, hi)
+
+let multq q i = 
+  Trace.call "foo" "Multq" (q, i) (Pretty.pair Mpa.Q.pp pp);
+  let res = multq q i in
+    Trace.exit "foo" "Multq" res pp;
+    res
 
 
-(** Interval Subtraction *)
-let subtract i j =
-  add i (multq (Mpa.Q.minus Q.one) j)
-	
+(** Multiplying intervals. *)
 
-(** Interval Division. *)
-let div i j =
-  let dom = Dom.Real
-  and (a,alpha) = Endpoint.destruct i.lo
-  and (b,beta) = Endpoint.destruct i.hi
-  and (c,gamma) = Endpoint.destruct j.lo 
-  and (d,delta) = Endpoint.destruct j.hi
-  in
-  let make lo hi = make (Dom.Real, lo, hi) in
-  let kind a c alpha gamma =
-    (alpha && gamma) || (alpha && (Extq.is_zero a)) || (gamma && (Extq.is_zero c))
-  in
-  let ( / ) = Extq.div in
-  match classify i, classify j with
-    | (P0 | P1), P1 ->
-	make (a / d, kind a d alpha delta) (b / c, kind b c beta gamma)
-    | (P0 | P1), P0 ->
-	make (a / d, kind a d alpha delta) posinf
-    | (P0 | P1), M ->
-	union
-	  (make neginf (a / c, kind a c alpha gamma))
-	  (make (a / d, kind a d alpha delta) posinf)
-    | (P0 | P1), N0 ->
-	make neginf (a / c, kind a c alpha gamma)
-    | (P0 | P1), N1 ->
-	make (b / d, kind b d beta delta) (a / c, kind a c alpha gamma)
-    | M, P1 ->
-	make (a / c, kind a c alpha gamma) (b / c, kind b c beta gamma)
-    | M, (P0 | M | N0) ->
-	make  neginf posinf
-    | M, N1 ->
-	make (b / d, kind b d beta delta) (a / d, kind a d alpha delta)
-    | (N0 | N1), P1 ->
-	make (a / c, kind a c alpha gamma) (b / d, kind b d beta delta)
-    | (N0 | N1), P0 ->
-	make neginf (b / d, kind b d beta delta)
-    | (N0 | N1), M ->
-	union
-	  (make neginf (b / d, kind b d beta delta))
-	  (make (b / c, kind b c beta gamma) posinf)
-    | (N0 | N1), N0 ->
-	make (b / c, kind b c beta gamma) posinf
-    | (N0 | N1), N1 ->
-	make (b / c, kind b c beta gamma) (a / d, kind a d alpha delta)
-    | Z, (P0 | P1 | M | N0 | N1) ->
-	mk_zero
-    | _, Z ->
-	mk_empty
 
-let nonneg = make (Dom.Real, Endpoint.nonstrict Q.zero, Endpoint.posinf)
 
-let expt n l =
+let mult i j =
+  if is_empty i || is_empty j then
+    mk_empty
+  else
+    match d_singleton i, d_singleton j with
+      | Some(q), Some(p) ->
+	  mk_singleton (Q.mult q p)
+      | Some(q), None -> 
+	  multq q j
+      | None, Some(p) -> 
+	  multq p i
+      | None, None -> 
+	  let d = Dom.union i.dom j.dom in
+	  let (lo, hi) =     (*[min(i.lo*j.lo,i.lo*j.hi,i.hi*j.lo,i.hi*j.hi), max(...)]*)
+	    match i.lo, i.hi, j.lo, j.hi with
+	      | None, None, _, _ ->  (* [(-inf,inf) * j = (-inf, inf)] *)
+		  (None, None)
+	      | _, _, None, None ->  (* [i * (-inf,inf) = (-inf, inf)] *)
+		  (None, None)
+	      | None, Some(q, alpha), None, Some(p, beta) -> (* [(-inf,q}*(-inf,p} = {q*p,inf) if q,p<=0 *)
+		  if Q.le q Q.zero && Q.le p Q.zero then
+		    (Some(alpha && beta, Q.mult q p), None)
+		  else 
+		    (None, None)
+	      | Some(alpha1,q1), None, Some(alpha2,q2), None ->
+		  if Q.ge q1 Q.zero && Q.ge q2 Q.zero then (* {q1,inf)*{q2,inf)={q1*q2,inf) if q1,q2>=0 *)
+		    (Some(alpha1 && alpha2, Q.mult q1 q2), None)
+		  else 
+		    (None, None)
+	      | None, Some(p, beta), Some(alpha, q), None -> (* [(-inf,p}*{q,inf) = (-inf,q*p} if p<=0<=q*)
+		  if Q.le p Q.zero && Q.le Q.zero p then
+		    (None, Some(Q.mult q p, alpha && beta))
+		  else 
+		    (None, None)
+	      | Some(alpha, q), None, None, Some(p, beta) -> (* [{q,inf)*(-inf,p} =(-inf,q*p} if p<=0<=q*)
+		  if Q.le p Q.zero && Q.le Q.zero p then
+		    (None, Some(Q.mult q p, alpha && beta))
+		  else 
+		    (None, None)
+	      | Some(alpha1, q1), Some(p1, beta1), Some(alpha2, q2), Some(p2, beta2) ->
+		  (None, None)
+	      | _ ->  (* to do *)
+		  (None, None)
+	  in
+	    make (d, lo, hi)
+  
+
+let rec multl = function
+  | [] -> mk_one
+  | [i] -> i
+  | [i; j] -> mult i j
+  | i :: il -> mult i (multl il)
+    
+
+(** Exponentiation of an interval. *)
+let expt n i =
   let rec loop = function
     | 0 -> mk_singleton Q.one
-    | n -> mult l (loop (n - 1))
+    | n -> mult i (loop (n - 1))
   in
-  let c = loop n in
-  if n mod 2 = 0 then
-    inter c nonneg
-  else 
-    c
+  let j = loop n in
+    if n mod 2 = 0 then inter j mk_nonneg else j
 
-(** Comparing two intervals. *)
-let sub i j =
-  let lo_ge (a,alpha) (c, gamma) =
-    match Extq.cmp a c with
-      | Mpa.Q.Less -> false  
-      | Mpa.Q.Greater -> true
-      | Mpa.Q.Equal -> not alpha || gamma
-  in
-  let hi_le (b,beta) (d, delta) =
-    match Extq.cmp b d with
-      | Mpa.Q.Less -> true
-      | Mpa.Q.Greater -> false
-      | Mpa.Q.Equal -> not beta || delta
-  in
-  Dom.sub i.dom j.dom &&
-  lo_ge (Endpoint.destruct i.lo) (Endpoint.destruct j.lo) &&
-  hi_le (Endpoint.destruct i.hi) (Endpoint.destruct j.hi)
  
-
-(** Test for disjointness of intervals. *)
-let disjoint i j =
-  let (b,beta) = Endpoint.destruct i.hi 
-  and (c,gamma) = Endpoint.destruct j.lo in
-  match Extq.cmp b c with
-    | Mpa.Q.Less -> true
-    | Mpa.Q.Equal -> not (beta && gamma)
-    | Mpa.Q.Greater ->
-	let (d,delta) = Endpoint.destruct j.hi 
-	and (a,alpha) = Endpoint.destruct i.lo in
-	(match Extq.cmp d a with
-	   | Mpa.Q.Less -> true
-	   | Mpa.Q.Equal -> not (delta && alpha)
-	   | Mpa.Q.Greater -> false)
+(** Inverse of an Interval *)
+let inv i =
+  match i.lo, i.hi with
+    | Some(alpha, l), Some(h, beta)
+	when Q.is_pos l || Q.is_neg h ->
+	let lo = Some(beta, Q.inv h) and hi = Some(Q.inv l, alpha) in
+	  make (Dom.Real, lo, hi)
+    | _ -> 
+	mk_real
 
 
-(** Comparison of two intervals. *)     
-let rec cmp i j =
-  if eq i j then 
-    Binrel.Same
-  else if sub i j then
-    Binrel.Sub
-  else if sub j i then
-    Binrel.Super
-  else 
-    let (b,beta) = Endpoint.destruct i.hi 
-    and (c,gamma) = Endpoint.destruct j.lo in
-    match Extq.cmp b c with
-      | Q.Less -> Binrel.Disjoint
-      | Q.Equal when beta && gamma -> Binrel.Singleton (to_q b)
-      | Q.Equal -> Binrel.Disjoint
-      | Q.Greater ->
-	  let (d,delta) = Endpoint.destruct j.hi
-	  and (a,alpha) = Endpoint.destruct i.lo in
-	  (match Extq.cmp d a with
-	     | Q.Less -> Binrel.Disjoint
-	     | Q.Equal when delta && alpha -> Binrel.Singleton (to_q a)
-	     | Q.Equal -> Binrel.Disjoint
-	     | Q.Greater -> Binrel.Overlap (inter i j))
-
-and to_q x = 
-  assert(Extq.is_q x);
-  match Extq.to_q x with
-    | Some(q) -> q
-    | None -> assert false
+(** Division of interverals. *)
+let div i j =
+  mult i (inv j)
 

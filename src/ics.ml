@@ -24,10 +24,6 @@ let init (n, pp, eot, inch, outch) =
     Sys.catch_break true                 (** raise [Sys.Break] exception upon *)
                                          (** user interrupt. *)
 
-let set_maxloops n =
-  Context.maxclose := n
-let _ = Callback.register "set_maxloops" set_maxloops
-
 
 let do_at_exit () = Tools.do_at_exit ()
 let _ = Callback.register "do_at_exit" do_at_exit
@@ -72,7 +68,7 @@ let _ = Callback.register "name_eq" name_eq
 
 (** Constrains. *)
 
-type cnstrnt = Cnstrnt.t
+type cnstrnt = Interval.t
 
 (** Theories. *)
 
@@ -451,23 +447,20 @@ let _ = Callback.register "atom_mk_true" atom_mk_true
 let atom_mk_false () = Atom.mk_false
 let _ = Callback.register "atom_mk_false" atom_mk_false
 
-let atom_mk_in a d = 
-  Atom.mk_in (a, d)
+let atom_mk_in a i = Atom.mk_in (a, i)
 let _ = Callback.register "atom_mk_in" atom_mk_in
 
-let atom_mk_real a = Atom.mk_in (a, Dom.Real)
+let atom_mk_real a = Atom.mk_in (a, Interval.mk_real)
 let _ = Callback.register "atom_mk_real" atom_mk_real
 
-let atom_mk_int a = Atom.mk_in (a, Dom.Int)
+let atom_mk_int a = Atom.mk_in (a, Interval.mk_int)
 let _ = Callback.register "atom_mk_int" atom_mk_int
 
-let atom_mk_nonint a = Atom.mk_in (a, Dom.Nonint)
-let _ = Callback.register "atom_mk_nonint" atom_mk_nonint
 
-let atom_mk_lt a b = Atom.mk_less (Arith.mk_sub a b, false)
+let atom_mk_lt a b = Atom.mk_in (Arith.mk_sub a b, Interval.mk_neg)
 let _ = Callback.register "atom_mk_lt"  atom_mk_lt
 
-let atom_mk_le a b = Atom.mk_less (Arith.mk_sub a b, true)
+let atom_mk_le a b = Atom.mk_in (Arith.mk_sub a b, Interval.mk_nonpos)
 let _ = Callback.register "atom_mk_le"  atom_mk_le
 
 let atom_mk_gt a b = atom_mk_lt b a
@@ -833,7 +826,8 @@ and cmd_output fmt result =
 	 Format.fprintf fmt ":sat( ";
 	 Name.pp fmt n;
 	 Format.fprintf fmt ") ";
-         Prop.Assignment.pp fmt rho
+         Prop.Assignment.pp fmt rho;
+	 Format.fprintf fmt "@?"
      | Result.Unit() ->
 	 Format.fprintf fmt ":unit@?"
      | Result.Bool(true) ->

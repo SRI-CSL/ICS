@@ -21,9 +21,6 @@ open Status
 
 type t = Term.Set.t Term.Map.t
 
-
-let changed = ref Term.Set.empty 
-
 let empty = Term.Map.empty
 
 let eq s t = (s == t)
@@ -75,19 +72,18 @@ let rec add d s =
   let yd' = Term.Set.add x yd in
   match xd == xd', yd == yd' with
     | true, true -> 
-	s
+	(Term.Set.empty, s)
     | true, false ->
 	Trace.msg "d" "Update" (x, y) Term.pp_diseq;
-	changed := Term.Set.add y !changed; 
-	Term.Map.add y yd' s
+	(Term.Set.singleton y, Term.Map.add y yd' s)
     | false, true -> 
 	Trace.msg "d" "Update" (x, y) Term.pp_diseq;
-	changed := Term.Set.add x !changed;
-	Term.Map.add x xd' s
+	(Term.Set.singleton x, Term.Map.add x xd' s)
     | false, false -> 
 	Trace.msg "d" "Update" (x, y) Term.pp_diseq;
-	changed := Term.Set.add x (Term.Set.add y !changed);
-	Term.Map.add x xd' (Term.Map.add y yd' s)
+	let ch' = Term.Set.add x (Term.Set.singleton y) in
+	let s' = Term.Map.add x xd' (Term.Map.add y yd' s) in
+	  (ch', s')
 
 
 (** Propagating an equality between variables. *)
@@ -100,19 +96,17 @@ let merge e s =
   else
     let dab = Term.Set.union da db in
     if db == dab then
-      Term.Map.remove a s
+      (Term.Set.empty, Term.Map.remove a s)
     else
-      begin
-	changed := Term.Set.add b !changed;
-	Term.Map.add b dab (Term.Map.remove a s)
-      end 
-
+      let ch' = Term.Set.singleton b in
+      let s' = Term.Map.add b dab (Term.Map.remove a s) in
+	(ch', s')
 
 (** Return disequalities for [x]. *)
 
-let disequalities s x =
+let d s x =
   Term.Set.fold
     (fun y acc -> 
-       (Fact.mk_diseq x y None) :: acc)
+       (y, None) :: acc)
     (deq s x)
     []

@@ -119,5 +119,3 @@ val denumerator : Term.t -> Term.t
 
 val destruct : Term.t -> Term.t * int
 
-
-val cnstrnt : (Term.t -> Cnstrnt.t) -> Term.t -> Cnstrnt.t

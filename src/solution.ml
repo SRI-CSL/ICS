@@ -93,7 +93,6 @@ let equality s x =
     Fact.mk_equal x a prf
 
 
-
 let inv s a = Map.find a s.inv
     
 let mem s x = 
@@ -201,82 +200,100 @@ and eqs = ref []
 
 (** Fuse. *)
 
-let rec fuse i (p, s) r = 
-  Trace.msg (Th.to_string i) "Fuse" r (Pretty.list Fact.pp_equal);
-  Set.fold 
-    (fun x acc ->
-       try
-	 let (b, prf) = justification s x in     (* [prf |- x = b]. *)
-	   Trace.msg "foo3" "Fuse" (x, b) (Pretty.pair Term.pp Term.pp);
-	 let (b', prfs) = norm i r b in          (* [prfs |- b = b']. *)
-	 let e' = Fact.mk_equal x b' (Fact.mk_rule "trans" (prf :: prfs)) in
-	   update i e' acc
-       with
-	   Not_found -> acc)
-    (dom s r)
-    (p, s)
+let rec fuse i s r =  
+  Trace.msg (Th.to_string i) "Compose" r (Pretty.list Fact.pp_equal);
+  let dom =
+    List.fold_right
+      (fun e ->
+	 let (x, _, _) = Fact.d_equal e in
+	   Set.union (use s x))
+      r Set.empty
+  in
+  let eqs = ref Fact.Equalset.empty in
+  let changed = ref Term.Set.empty in
+  let s' = 
+    Set.fold 
+      (fun x acc ->
+	 try
+	   let (b, prf) = justification s x in     (* [prf |- x = b]. *)
+	   let (b', prfs) = norm i r b in          (* [prfs |- b = b']. *)
+	   let e' = Fact.mk_equal x b' (Fact.mk_rule "trans" (prf :: prfs)) in
+	     if is_var b' then 
+	       begin
+		 eqs := Fact.Equalset.add e' !eqs;
+		 restrict i x acc
+	       end 
+	     else 
+	       update (changed, eqs) i e' acc
+	 with
+	     Not_found -> acc)
+      dom s
+  in 
+    (!changed, !eqs, s')
 
-and dom s r = 
-  List.fold_right
-    (fun e ->
-       let (x, _, _) = Fact.d_equal e in
-	 Set.union (use s x))
-    r Set.empty
 
-and update i e (p, s) =
-  let (x, b, prf1) = Fact.d_equal e in            (* [prf1 |- x = b]. *)
-    assert(is_var x);
+
+and update (changed, eqs) i e s =
+  let  vareq e s = 
+    let (x, y, prf1) = Fact.d_equal e in          (* [prf1 |- x = y]. *)
+      eqs := Fact.Equalset.add e !eqs;
+      try
+	let (a, prf2) = justification s y in       (* [ prf2 |- y = a]. *)
+	  if y <<< x then
+	    restrict i x s
+	  else 
+	    let e' = Fact.mk_equal x a (Fact.mk_rule "trans" [prf1; prf2]) in
+	    let s' = restrict i y s in 
+	      changed := Term.Set.add x !changed;
+	      union i e' s'
+      with
+	  Not_found -> 
+	    restrict i x s
+  in
+  let (x, b, prf1) = Fact.d_equal e in           (* [prf1 |- x = b]. *)
     if Term.eq x b then
-      (p, restrict i x s)
+      restrict i x s
     else if is_var b then
-      vareq i e (p, s)
+      vareq e s
     else
       try
 	let y = inv s b in 
-	  if Term.eq x y then (p, s) else 
+	  if Term.eq x y then s else 
 	    let e' = Fact.mk_equal x y None in
-	    let (_, p') = Partition.merge e' p in
-	    let s' = 
+	      eqs := Fact.Equalset.add e' !eqs;
 	      if y <<< x then 
 		restrict i x s 
 	      else 
 		let s' = restrict i y s in
-		  union i e s'
-	    in
-	      (p', s')
+		  begin
+		    changed := Term.Set.add x !changed;
+		    union i e s'
+		  end
       with
-	  Not_found ->
-	    let s' = union i e s in
-	      (p, s')
-		
-and vareq i e (p, s) = 
-  let (x, y, prf1) = Fact.d_equal e in          (* [prf1 |- x = y]. *)
-  let (_, p') = Partition.merge e p in
-  let s' = 
-    try
-      let (a, prf2) = justification s y in       (* [ prf2 |- y = a]. *)
-	if y <<< x then
-	  restrict i x s
-	else 
-	  let e' = Fact.mk_equal x a (Fact.mk_rule "trans" [prf1; prf2]) in
-	  let s' = restrict i y s in
-	    union i e' s'
-    with
-	Not_found -> 
-	  restrict i x s 
-  in
-    (p', s')
+	  Not_found -> 
+	    changed := Term.Set.add x !changed;
+	    union i e s
 
 
 
 (** Composition. *)
 
-let compose i (p, s) r =
-  Trace.call (Th.to_string i) "Compose" r (Pretty.list Fact.pp_equal);
-  let (p', s') = fuse i (p, s) r in
-  let (p'', s'') = List.fold_right (update i) r (p', s') in
-    Trace.exit (Th.to_string i) "Compose" () Pretty.unit;
-    (p'', s'')
+let compose i s r =
+  Trace.msg (Th.to_string i) "Compose" r (Pretty.list Fact.pp_equal);
+  let (changed', eqs', s') = fuse i s r in
+  let changed = ref changed' in
+  let eqs = ref eqs' in
+  let s'' = List.fold_right (update (changed, eqs) i) r s' 
+  in
+    (!changed, !eqs, s'')
+
+
+
+
+
+
+
+
 
 
 

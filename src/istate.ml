@@ -218,12 +218,15 @@ let diseq n a =
   try
     Context.d s a'
   with
-      Not_found -> Term.Set.empty
+      Not_found -> []
 
 let cnstrnt n a =
   let s = get_context n in
   let a' = Context.Can.term s a in
-  Context.cnstrnt s a'
+    try
+      Some(Context.cnstrnt s a')
+    with
+	Not_found -> None
 
 (** Applying maps. *)
 
@@ -240,14 +243,6 @@ let solution n i =
     (Context.eqs_of (get_context n) i)
     []
 
-(** Variable partitioning. *)
-
-let partition () = 
-  Term.Map.fold
-    (fun x ys acc ->
-       (x, Term.Set.elements ys) :: acc)
-    (V.partition (Context.v_of s.current))
-    []
 
 (** Solver. *)
 

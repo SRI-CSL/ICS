@@ -15,12 +15,9 @@ open Term
 
 type t = {
   find : (Term.t * Fact.justification option) Map.t;
-  inv : Set.t Map.t
+  inv : Set.t Map.t; 
+  removable: Term.Set.t
 }
-
-
-let changed = ref Term.Set.empty
-let removable = ref Term.Set.empty
 
 let eq s t =
   s.find == t.find
@@ -28,24 +25,22 @@ let eq s t =
 
 let apply s = function
   | App _ -> raise Not_found  (* only variables in domain. *)
-  | x -> fst(Map.find x s.find)
+  | x -> Map.find x s.find
 
 
 let find s x =
   let rec loop x =
     try 
-      let y = apply s x in
+      let (y, _) = apply s x in
 	if Term.eq x y then y else loop y
     with 
 	Not_found -> x
   in
-    loop x
+    (loop x, None)
 
-let justification s x = 
-  (find s x, None)
 
 let equality s x =
-  let (y, prf) = justification s x in
+  let (y, prf) = find s x in
     Fact.mk_equal x y prf
 
 
@@ -54,25 +49,26 @@ let inv s x =
     | App _ -> raise Not_found
     | _ -> Map.find x s.inv
 
+let removable s = s.removable
+
 
 let union x y prf s = 
   Trace.msg "v" "Union" (x, y) Term.pp_equal;
-    changed := Set.add x !changed;
-    if is_fresh_var x then
-      removable := Set.add x !removable;
-    let invy = 
-      Set.add x 
-	(try Map.find y s.inv with Not_found -> Set.empty)
-    in
-      {find = Map.add x (y, prf) s.find;
-       inv = Map.add y invy s.inv}
+  let invy = 
+    Set.add x 
+      (try Map.find y s.inv with Not_found -> Set.empty)
+  in
+    {find = Map.add x (y, prf) s.find;
+     inv = Map.add y invy s.inv;
+     removable = if is_fresh_var x then Set.add x s.removable else s.removable}
 
 
+(*
 let restrict x s =
   try
-    let y = apply s x in                     (* [prf |- x = y]. *)
+    let (y, prf) = apply s x in              (* [prf |- x = y]. *)
       Trace.msg "v" "Restrict" x pp;
-      let  y = find s y in               (* now get canonical [y]. *)
+      let  (y, _) = find s y in              (* now get canonical [y]. *)
       let find' =
 	let newfind = Map.remove x s.find in (* remove [x |-> y]. *)
 	  try
@@ -96,40 +92,26 @@ let restrict x s =
 	  with
 	      Not_found -> newinv
       in
-	changed := Set.remove x !changed;
-	removable := Set.remove x !removable;
-	{find = find'; inv = inv'}
+	{find = find'; inv = inv'; removable = Set.remove x s.removable}
   with
       Not_found -> s
+*)
 
+let gc f s = s
 
-(** Canonical representative with dynamic path compression. *)
-let find' s x =
-  let rec loop acc x =
-    try
-      let y = fst(Map.find x s.find) in
-      if Term.eq x y then
-	(acc, y)
-      else 
-	loop (x :: acc)  y
-    with
-	Not_found -> (acc, x)
-  in
-  let (xl, y) = loop [] x in
-  let s' = List.fold_right (fun x -> union x y None) xl s in
-  (s', y)
 
 (** Variable equality modulo [s]. *)
 let is_equal s x y = 
-  let x' = find s x 
-  and y' = find s y in
+  let (x', _) = find s x 
+  and (y', _) = find s y in
     Term.eq x' y'
 
 
 (** The empty context. *)
 let empty = {
   find = Map.empty;
-  inv = Map.empty
+  inv = Map.empty;
+  removable = Term.Set.empty
 }
 
 let is_empty s = (s.find == Map.empty)
@@ -146,26 +128,26 @@ let fold s f x =
     with
 	Not_found -> acc'
   in
-  let y = find s x in
+  let (y, _) = find s x in
     loop y
-
 
 
 (** Adding a binding [a |-> b] to a context [s]. *)
 let merge e s =
   let (x, y, prf) = Fact.d_equal e in   (* [prf |- x = y] *)
-  let (x', prf1) = justification s x in (* [prf1 |- x = x']. *)
-  let (y', prf2) = justification s y in (* [prf2 |- y = y']. *)
+  let (x', prf1) = find s x in          (* [prf1 |- x = x']. *)
+  let (y', prf2) = find s y in          (* [prf2 |- y = y']. *)
   let (x', y') = Term.orient (x', y') in
     if Term.eq x' y' then 
-      s
+      (Term.Set.empty, s)
     else
       let prf' = Fact.mk_rule "trans" [prf; prf1; prf2] in
-	union x' y' prf' s
+	(Term.Set.singleton x', union x' y' prf' s)
 
 
 (** Extension of the equivalence class for [x]. *)
-let ext s x = fold s Set.add x Set.empty
+let ext s x = 
+  fold s Set.add x Set.empty
 
 
 (** Iteration. *)
@@ -178,7 +160,7 @@ let iter s f x =
     with
 	Not_found -> ()
   in
-  let y = find s x in
+  let (y, _) = find s x in
     loop y
 
 
@@ -190,7 +172,7 @@ let exists s p x =
     with
 	Not_found -> false
   in
-  let y = find s x in
+  let (y, _) = find s x in
     loop y
 
 
@@ -202,7 +184,7 @@ let for_all s p x =
     with
 	Not_found -> true
   in
-  let y = find s x in
+  let (y, _) = find s x in
     loop y
 
 

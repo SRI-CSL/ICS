@@ -17,12 +17,16 @@ open Format
 type t = 
   | External of Name.t
   | Fresh of Name.t * int
+  | Slack of int
   | Bound of int
 
 let name_of = function
   | External(n) -> n
   | Fresh(n, i) ->  
       let str = Format.sprintf "%s!%d" (Name.to_string n) i in
+	Name.of_string str
+  | Slack(i) ->
+      let str = Format.sprintf "k!%d" i in
 	Name.of_string str
   | Bound(n) ->
       let str = Format.sprintf "!%d" n in
@@ -36,6 +40,8 @@ let eq x y =
 	Name.eq n m && i = j
     | Bound(n), Bound(m) ->
 	n = m
+    | Slack(i), Slack(j) ->
+	i = j
     | _ -> 
 	false
 
@@ -43,15 +49,16 @@ let cmp x y =
   match x, y with
     | External _, Fresh _ -> -1
     | Fresh _, External _ -> 1
-    | External(n), External(m) -> 
-	Name.cmp n m
+    | External(n), External(m) -> Name.cmp n m
     | Fresh(n, i), Fresh(m, j) -> 
 	let c1 = Name.cmp n m in
 	if c1 != 0 then c1 else Pervasives.compare i j
-    | Bound(n), Bound(m) ->
-	Pervasives.compare n m
-    | _ ->
-	Pervasives.compare x y
+    | Slack(i), Slack(j) ->  (* newer slack vars are smaller *)
+	-(Pervasives.compare i j)
+    | Slack _, _ -> -1
+    | _, Slack _ -> 1
+    | Bound(n), Bound(m) -> Pervasives.compare n m
+    | _ -> Pervasives.compare x y
 
 let (<<<) x y = (cmp x y <= 0)
 
@@ -62,6 +69,8 @@ let hash = function
       (5 + Hashtbl.hash n + i) land 0x3FFFFFFF
   | Bound(i) ->
       (7 + i) land 0x3FFFFFFF
+  | Slack(i) ->
+      (11 + i) land 0x3FFFFFFF
      
 
 (** {6 Sets and maps of terms} *)
@@ -97,11 +106,20 @@ let mk_fresh x = function
 
 let mk_free i = Bound(i)
 
+let mk_slack = function
+  | Some(k) -> 
+      Slack(k)
+  | None ->
+      incr(k);
+      Slack(!k)
+
 (** {6 Recognizers} *)
 
 let is_var = function External _ -> true | _ -> false
 let is_fresh = function Fresh _ -> true | _ -> false
 let is_free = function Bound _ -> true | _ -> false
+let is_slack = function Slack _ -> true | _ -> false
+
 
 let d_free = function
   | Bound(i) -> i

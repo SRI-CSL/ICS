@@ -551,51 +551,27 @@ and deduce_la e s =
   let is_full (_, x) = 
     try Interval.is_full (c s x) with Not_found -> true
   in
-  let infer x q0 ml = (* infer from [x = q0 + ml] *)
-    match ml with
-      | [(q1, x1); (q2, x2)] ->  (* case: [x = q0+q1*x1+q2*x2] *)
-	  let c = Fact.mk_cnstrnt x 
-		    (interval q0 [(q1, x1); (q2, x2)]) None
-	  and c1 = Fact.mk_cnstrnt x1 
-		     (interval (Q.minus (Q.div q0 q1)) [(Q.minus (Q.div q2 q1), x2); (Q.inv q1, x)]) None
-	  and c2 = Fact.mk_cnstrnt x2
-		     (interval (Q.minus (Q.div q0 q2)) [(Q.minus (Q.div q1 q2), x1); (Q.inv q2, x)]) None
-	  in
-	    add c (add c1 (add c2 s))			 
-      | [(q1, x1); (q2, x2); (q3, x3)] ->  (* case: [x = q0+q1*x1+q2*x2+q3*x3]*)
-	  let c = Fact.mk_cnstrnt x
-		    (interval q0 [(q1, x1); (q2, x2); (q3, x3)]) None
-	  and c1 = Fact.mk_cnstrnt x1 
-		     (interval 
-			(Q.minus (Q.div q0 q1)) 
-			[(Q.minus (Q.div q2 q1), x2);
-			 (Q.minus (Q.div q3 q1), x3);
-			 (Q.inv q1, x)]) 
-		     None
-	  and c2 = Fact.mk_cnstrnt x2
-		     (interval 
-			(Q.minus (Q.div q0 q2)) 
-			[(Q.minus (Q.div q1 q2), x1); 
-			 (Q.minus (Q.div q3 q2), x3); 
-			 (Q.inv q2, x)]) 
-		     None
-	  and c3 = Fact.mk_cnstrnt x3
-		     (interval 
-			(Q.minus (Q.div q0 q2)) 
-			[(Q.minus (Q.div q1 q3), x1); 
-			 (Q.minus (Q.div q2 q3), x2); 
-			 (Q.inv q3, x)]) 
-		     None
-	  in
-	    add c (add c1 (add c2 (add c3 s)))
-      | _ ->  (* incompleteness *)
-	  let a = Arith.of_list q0 ml in
-	  let c = Fact.mk_cnstrnt x (cnstrnt s a) None in
-	    add c s
+  let infer (q, al, bl) s = (* infer from [0 = q + al + bl] *)
+    let rec loop pre s = function
+      | [] -> s
+      | (p, x) :: post' ->        (* [x = 1/p * (q + pre + post)] *)
+	  (let s' = 
+	     (try
+		let b = Arith.mk_multq (Q.inv p) (Arith.of_list q (pre @ post')) in
+		let i = c s x in
+		let c = Fact.mk_cnstrnt b i None in
+		  add c s
+	      with
+		  Not_found -> s)
+	   in
+	   let pre' = pre @ [(p, x)] in
+	     loop pre' s' post')
+    in
+      loop al s bl
   in
   let (x, a, prf) = Fact.d_equal e in
     match Arith.to_list a with
-      | (q0, []) ->                    (* case: [x = q] *)
+      | (q0, []) ->                    (* case: [x = q0] *)
 	  let i = Interval.mk_singleton q0 in
 	  let c = Fact.mk_cnstrnt x i None in
 	    add c s
@@ -604,19 +580,11 @@ and deduce_la e s =
 	  and c1 = Fact.mk_cnstrnt x1 (interval (Q.minus (Q.div q0 q1)) [(Q.inv q1, x)]) None in
 	    add c (add c1 s)
       | (q0, ml) ->                          (* case: [x = q0 + ml] *)
-	  let ml' = (Q.negone, x) :: ml in   (* thus [0 = q0 - x + ml] *)
-	    (match List.partition is_full ((Q.negone, x) :: ml) with
-	       | _, [] ->              (* subcase: all monomials unbound. *)
-		   s
-	       | [], _ ->              (* subcase: all monomials bound. *)
-		   infer x q0 ml
-	       | ml1, ml2 ->           (* subcase: [0=q0+ml1+ml2], [ml1] unbound, [ml2] bound *)
-		   let c = Fact.mk_cnstrnt
-			     (Arith.of_list Q.zero ml1)
-			     (Interval.multq Q.negone (interval q0 ml2))
-			     None
-		   in
-		     add c s)
+	  let ml' = (Q.negone, x) :: ml in   (* [0 = q0 + ml1 + ml2] *)
+	  let (ml1, ml2) = List.partition is_full ml' in
+	  let c = Fact.mk_cnstrnt (Arith.of_list Q.zero ml1) (interval q0 ml2) None in
+	  let s' = add c s in
+	    infer (q0, ml1, ml2) s'
    
 (* Return a name for a nonvariable term. *)
 

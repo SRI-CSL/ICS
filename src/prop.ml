@@ -312,35 +312,47 @@ let _ = Callback.register "prop_atom_pp" atom_pp
 
 let stack = Stack.create()
 
-let initial = ref Context.empty
+let initial = ref (Context.empty, [])
 
 let stack_reset () =   (* reinitialize to starting state *)
   Stack.clear stack;  
   Stack.push !initial stack
 let _ = Callback.register "prop_reset" stack_reset
 
-let dup () = Stack.push (Stack.top stack) stack
+let dup () = 
+  let (s, al) = Stack.top stack in
+    Stack.push (s, []) stack
 let _ = Callback.register "prop_dup" dup
 
-let push s = Stack.push s stack
+let push (s, al) = Stack.push (s, al) stack
 
 let pop () = 
   let _ = Stack.pop stack in ()
 let _ = Callback.register "prop_pop" pop
 
-let top () = Stack.top stack
+let top () = 
+  let (s, _) = Stack.top stack in
+    s
 let _ = Callback.register "prop_top" top
 
 let stackpp () =
-  Stack.iter (Context.pp Format.std_formatter) stack
+  Stack.iter (fun (s, _) -> Context.pp Format.std_formatter s) stack
 let _ = Callback.register "prop_stackpp" stackpp
 
 let add i =
   let a = id_to_atom i in
-  match Context.add (top()) a with
-    | Context.Status.Valid -> 1
-    | Context.Status.Inconsistent -> 0
-    | Context.Status.Ok(s) -> (pop (); push s; 1)
+    Trace.call "rule" "Add" a Atom.pp;
+    let result = match Context.add (top()) a with
+      | Context.Status.Valid -> 1
+      | Context.Status.Inconsistent -> 0
+      | Context.Status.Ok(s) -> 
+	  (let (_, al) = Stack.pop stack in
+	     push (s, a :: al);
+	     1)
+    in
+      Trace.call "rule" "Add" result Pretty.number;
+      result
+
 let _ = Callback.register "prop_add" add
 
 
@@ -368,8 +380,8 @@ external icsat_sat : prop -> bool = "icsat_sat"
 let init s = 
   icsat_initialize();    (* Initialize SAT solver *)
   Stack.clear stack;     (* Initialize stack *)
-  Stack.push s stack;
-  initial := s;          (* Initial context *)
+  Stack.push (s, []) stack;
+  initial := (s, []);    (* Initial context *)
   scratch := s;          (* Initialize scratch area *)
   id := 0;               (* Initialize translation to props *)
   Atomtbl.clear atomtbl;
@@ -401,8 +413,11 @@ let rec sat s p =
   try
     init s;
     let result = 
-      if icsat_sat (to_prop p) then 
-	Some(assignment (), top())
+      if icsat_sat (to_prop p) then
+	begin
+	  debug();
+	  Some(assignment (), top())
+	end 
       else 
 	None
     in
@@ -414,6 +429,20 @@ let rec sat s p =
       exc ->
 	finalize ();
 	raise exc
+
+and debug () =
+  let fmt = Format.std_formatter in
+  let bl = ref [] in
+    Stack.iter
+      (fun (s, al) -> bl := (List.rev al) @ !bl)    
+      stack;
+    List.iter 
+      (fun a -> 
+	 Pretty.string fmt "assert ";
+         Atom.pp fmt a; 
+	 Pretty.string fmt ".\n")
+      !bl
+
         
 and assignment () =
   let valuation =

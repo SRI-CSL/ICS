@@ -26,8 +26,7 @@ type t =
   | True
   | Equal of Term.t * Term.t           (* represents [a = b]. *)
   | Diseq of Term.t * Term.t           (* represents [a <> b]. *)
-  | Less of Term.t * bool              (* represents [a < 0] or [a <= 0]. *)
-  | In of Term.t * Dom.t               (* represents [a in d]. *)
+  | In of Term.t * Interval.t          (* represents [a in d]. *)
   | False
 
 val eq : t -> t -> bool
@@ -43,9 +42,7 @@ val mk_equal : Term.t * Term.t -> t
 
 val mk_diseq : Term.t * Term.t -> t
 
-val mk_less :  Term.t * bool -> t
-
-val mk_in : Term.t * Dom.t -> t
+val mk_in : Term.t * Interval.t -> t
 
 (** {6 Negations of atoms} *)
 

@@ -75,6 +75,8 @@ val mk_fresh : Name.t -> int option -> t
   constructs a fresh variable with associated name ["n!i"]; there are no
   side effects on {!Var.k}. *)
 
+val mk_slack : int option -> t
+
 val mk_free : int -> t
 (** [mk_free i] constructs a free variable with associated name [!i]. *)
 
@@ -90,6 +92,7 @@ val is_fresh : t -> bool
 val is_free : t -> bool
 (** [is_free x] holds iff [x] is a free variable. *)
 
+val is_slack : t -> bool
 
 (** {6 Destructors} *)
 

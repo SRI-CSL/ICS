@@ -24,6 +24,20 @@ type t
     in the same equivalence class induced by [s]. *)
 
 
+(** {6 Accessors} *)
+
+val apply : t -> Term.t -> Term.t * Fact.justification option
+
+val find : t -> Term.t -> Term.t * Fact.justification option
+  (** [find s x] returns the canonical representative of [x]
+    of the equivalence class in [s] containing [x]. The canonical
+    representative is the smallest variable in this class according
+    to the variable ordering {!Var.cmp}. *)
+  
+val equality : t -> Term.t -> Fact.equal
+  (** [equality s x] returns an equality [e] between [x] and [find s x]. *)
+
+
 (** {6 Recognizers} *)
 
 val is_equal : t -> Term.t -> Term.t -> bool
@@ -31,55 +45,24 @@ val is_equal : t -> Term.t -> Term.t -> bool
     in the same equivalence class modulo [s]. *)
 
 
-
-(** {6 Accessors} *)
-
-val partition : t -> Term.Set.t Term.Map.t
-  (** [partition s] returns a partitioning of the set of variables
-    in the form of a map with a domain consisting of canonical
-    representatives and the corresponding equivalence class in
-    the codomain. It does only list non-singleton equivalence classes. *)
-
-val find : t -> Term.t -> Term.t
-  (** [find s x] returns the canonical representative of [x]
-    of the equivalence class in [s] containing [x]. The canonical
-    representative is the smallest variable in this class according
-    to the variable ordering {!Var.cmp}. *)
-  
-val find' : t -> Term.t -> t * Term.t
-  (** In addition to [find],  [find'] performs dynamic path compression as
-    a side effect. *)
-  
-val justification : t -> Term.t -> Term.t * Fact.justification option
-  (** [justification s x] returns [find s x] together with a justification
-    for the equalty [x = find s x]. *)
-  
-val equality : t -> Term.t -> Fact.equal
-  (** [equality s x] returns an equality [e] of the form [x = find s x]. *)
-
-
-
 (** {6 Manipulating contexts} *)
 
 val empty : t
   (** The empty variable context. *)
 
-val merge : Fact.equal -> t -> t
+val merge : Fact.equal -> t -> Term.Set.t * t
   (** Adding a variable equality [x = y] to a context [s].
     As a side effect, [x] is added to the global variable {!V.changed}.
     In addition, every non-external variable [v] which is canoncal in
-    [s] but not in [merge e s], is added to {!V.removable}. *)
+    [s] but not in [merge e s], is added to {removabl se}. *)
 
-val restrict : Term.t -> t -> t
-  (** [restrict x s] removes occurrences of [x] from [s].
-    Should only be called for [x] in [removable s]. *)
+val gc : (Term.t -> bool) -> t -> t
+  (** [gc filter s] removes variables [x] in [removable s],
+    if the test [filter x] succeeds. *)
 
-val changed : Term.Set.t ref
-  (** The set of changed [x] in domain. *)
-
-val removable : Term.Set.t ref
-  (** Set of removable variables. In particular, all variables in
-    this set are internal variables. *)
+val removable : t -> Term.Set.t
+  (** Set of removable variables. All variables in
+    [removable s] are internal, noncanonical variables. *)
 
 
 (** {6 Equality} *)
@@ -90,14 +73,12 @@ val eq : t -> t -> bool
     logically equivalent. *)
 
 
-
 (** {6 Pretty-printing} *)
 
 val pp : t Pretty.printer
 
 
 (** {6 Iterators} *)
-
 
 val fold : t -> (Term.t -> 'a -> 'a) -> Term.t -> 'a -> 'a
   (** Folding over the members of a specific equivalence class. *)

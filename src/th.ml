@@ -24,7 +24,7 @@ let of_int i = i
 let to_int i = i
 
 
-let names = ["u"; "la"; "p"; "bv"; "cop"; "nl"; "app"; "arr"; "bva"]
+let names = ["u"; "a"; "p"; "bv"; "cop"; "nl"; "app"; "arr"; "bva"]
 
 let num_of_theories = List.length names
 
@@ -100,9 +100,6 @@ module Array = struct
   let fold_left = Array.fold_left
   let fold_right = Array.fold_right
 
-  let to_list a = failwith "to do"
-    
-
   let of_list = Array.of_list
 
   exception No
@@ -127,8 +124,6 @@ module Array = struct
     with
 	No -> false
 	
-  let pp p fmt a =
-    Pretty.map pp p fmt (to_list a)
 
 end
 
@@ -150,6 +145,21 @@ let maps =
     a
 
 let map = Array.get maps
+
+
+(** [sigma]-normal forms. *)
+
+let sigma f =
+  match f with
+    | Sym.Arith(op) -> Arith.sigma op
+    | Sym.Product(op) -> Tuple.sigma op
+    | Sym.Bv(op) -> Bitvector.sigma op
+    | Sym.Coproduct(op) -> Coproduct.sigma op
+    | Sym.Fun(op) -> Apply.sigma op
+    | Sym.Pp(op) -> Pp.sigma op
+    | Sym.Arrays(op) -> Arr.sigma op
+    | Sym.Bvarith(op) -> Bvarith.sigma op
+    | Sym.Uninterp _ -> Term.mk_app f
 
 
 (** Theory-specific solver *)

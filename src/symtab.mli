@@ -21,7 +21,7 @@
 type entry = 
   | Def of defn
   | Arity of int
-  | Type of Cnstrnt.t
+  | Type of Interval.t
   | State of Context.t
 
 and defn = 

@@ -77,14 +77,16 @@ val cnstrnt_of : t -> Term.t -> Fact.cnstrnt
 val deqs_of : t -> Term.t -> Fact.diseq list
   (** [diseqs_of s x] returns the set of known disequalities for [x] *)
 
+(*
 val equality : Th.t -> t -> Term.t -> Fact.equal
   (** [equality th s x] returns a fact for the equality [x = a],
     if in [s]; otherwise [Not_found] is raised. *)
+*)
 
 val pp : t Pretty.printer
   (** Pretty-printing the context of a state. *)
 
-val cnstrnt : t -> Term.t -> Cnstrnt.t
+val cnstrnt : t -> Term.t -> Interval.t
 
 val is_int : t -> Term.t -> bool
 
@@ -92,11 +94,11 @@ val v : t -> Term.t -> Term.t
   (** [v s x] returns the canonical variable in [s] of the equivalence 
     class containing [x]. *)
 
-val d : t -> Term.t -> Term.Set.t
+val d : t -> Term.t -> Term.t list
   (** [d s x] returns the set of variable terms known to be disequal
     in the partitioning of [s]. *)
 
-val c : t -> Term.t -> Cnstrnt.t
+val c : t -> Term.t -> Interval.t
   (** [c s x] looks up a constraint for [x] in the partitioning part
     of [s]. If no such constraint is known, [Not_found] is raised. *)
 
@@ -151,9 +153,6 @@ val add : t -> Atom.t -> t Status.t
     - [Satisfiable(s')] otherwise. 
     
     In the latter case, [s'] is a logical state equivalent to [s] conjoined with [a]. *)
-
-
-val maxclose : int ref
 
 
 val split : t -> Atom.Set.t

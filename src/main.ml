@@ -26,7 +26,6 @@ let disable_usage_flag = ref false
 let disable_pretty_print_flag = ref false
 let end_of_transmission = ref ""
 let disable_compactify_flag = ref false
-let maxloops_flag = ref !Context.maxclose
 let portnum_flag = ref None
 
 
@@ -56,7 +55,7 @@ and usage () =
   if not(!disable_usage_flag) then
     begin
       Format.eprintf "ICS: Integrated Canonizer and Solver.";
-      Format.eprintf "\nCopyright (c) 2001,2002 SRI International.";
+      Format.eprintf "\nCopyright (c) 2003 SRI International.";
       Format.eprintf "\nType 'help.' for help about help, and 'Ctrl-d' to exit.@."
     end
 
@@ -113,8 +112,6 @@ let args () =
 	"Disable compactification";
         "-eot", Arg.String (fun str -> end_of_transmission := str), 
 	"Print string argument after each transmission";
-	"-maxloops", Arg.Int (fun n -> maxloops_flag := n), 
-	"Upper bound on loops";
         "-server", Arg.Int (fun portnum -> portnum_flag := Some(portnum)), 
 	"Run in server mode";
 	"-verbose", Arg.Unit (fun () -> Prop.set_verbose true),
@@ -141,7 +138,6 @@ let args () =
 let rec main () =
   try
     let l = args () in
-      Context.maxclose := !maxloops_flag;
       (match !portnum_flag with
 	| None ->   
 	    (match l with
@@ -149,12 +145,14 @@ let rec main () =
 	       | l -> batch l)
 	| Some(portnum) ->
 	    server portnum);
-      Ics.do_at_exit()
+      Ics.do_at_exit();
+      exit 0
   with
       exc ->
 	Ics.do_at_exit();
-	raise exc
-
+	Format.eprintf "%s@." (Printexc.to_string exc);
+	exit (-1)
+	  
 let _ = Printexc.catch main ()
 
 

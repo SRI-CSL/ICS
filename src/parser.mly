@@ -38,6 +38,8 @@ let equal_width_of a b =
 
 let lastresult = ref(Result.Unit())
 
+let name_of_slack = Name.of_string "k"
+
 %}
 
 %token DROP CAN ASSERT EXIT SAVE RESTORE REMOVE FORGET RESET SYMTAB SIG VALID UNSAT
@@ -192,7 +194,11 @@ var:
 	  with
 	      Not_found -> Term.mk_var $1 }
 | FRESH  { let (x,k) = $1 in 
-	   Term.mk_fresh_var (Name.of_string x) (Some(k)) }
+	   let n = Name.of_string x in
+	     if Name.eq n name_of_slack then
+	       Term.mk_slack(Some(k))
+	     else 
+	       Term.mk_fresh_var n (Some(k)) }
 | FREE   { Term.Var(Var.mk_free $1) }
 ;
 
@@ -267,17 +273,13 @@ bv:
 | term BWIFF term     { Bitvector.mk_bwiff (equal_width_of $1 $3) $1 $3 }
 ;
 
-/*
-propmode:  { Tools.mode := Tools.Prop }
-atommode:  { Tools.mode := Tools.Atom }
- */
-
 prop:  topprop { $1 }
 
 propnegatable: negatable { $1 }
 
 topprop:
-  LBRA prop RBRA                { $2 } 
+  LPAR prop RPAR                { $2 } 
+| LBRA prop RBRA                { $2 } 
 | name                            { try
 				      match Symtab.lookup $1 (Istate.symtab()) with
 					| Symtab.Def(Symtab.Prop(p)) -> p
@@ -299,21 +301,45 @@ negatable:
 | TT                       { Atom.mk_true }
 | term EQUAL term          { Atom.mk_equal($1, $3)}
 | term DISEQ term          { Atom.mk_diseq($1, $3) }
-| term LESS term           { Atom.mk_less(Arith.mk_sub $1 $3, false) }
-| term GREATER term        { Atom.mk_less(Arith.mk_sub $3 $1, false) }
-| term LESSOREQUAL term    { Atom.mk_less(Arith.mk_sub $1 $3, true) }
-| term GREATEROREQUAL term { Atom.mk_less(Arith.mk_sub $3 $1, true) }
+| term LESS term           { Atom.mk_in(Arith.mk_sub $1 $3, Interval.mk_neg) }
+| term GREATER term        { Atom.mk_in(Arith.mk_sub $1 $3, Interval.mk_pos) }
+| term LESSOREQUAL term    { Atom.mk_in(Arith.mk_sub $1 $3, Interval.mk_nonpos) }
+| term GREATEROREQUAL term { Atom.mk_in(Arith.mk_sub $1 $3, Interval.mk_nonneg) }
 
 atom:
-  negatable                { $1 }
-| term IN dom              { Atom.mk_in ($1, $3) }
+  negatable          { $1 }
+| term IN cnstrnt    { Atom.mk_in ($1, $3) }
 ;
 
-dom:
-  INT    { Dom.Int }
-| REAL   { Dom.Real }
-| NONINT { Dom.Nonint }
+cnstrnt:
+  interval     { $1 }
+| name         { match Istate.type_of $1 with
+		   | Some(c) -> c
+		   | None ->
+		       let str = Name.to_string $1 in
+			 raise (Invalid_argument ("No type definition for " ^ str)) }
 ;
+
+interval: 
+  INT                                     { Interval.mk_int }
+| REAL                                    { Interval.mk_real }
+| INT leftendpoint COMMA rightendpoint    { Interval.make (Dom.Int, $2, $4) }
+| REAL leftendpoint COMMA rightendpoint   { Interval.make (Dom.Real, $2, $4) }
+| leftendpoint COMMA rightendpoint        { Interval.make (Dom.Real, $1, $3) }
+;
+
+leftendpoint:
+  LPAR NEGINF     { None }
+| LPAR rat        { Some(false, $2) }
+| LBRA rat        { Some(true, $2) }
+;
+
+rightendpoint:
+  INF RPAR          { None }
+| rat RPAR          { Some($1, false) }
+| rat RBRA          { Some($1, true) }
+;
+
 
 termlist:             { [] }
 | term                { [$1] }
@@ -355,7 +381,7 @@ command:
 | USE optname th term       { Result.Terms(Istate.use $2 $3 $4) }
 | SOLUTION optname th       { Result.Solution(Istate.solution $2 $3) }
 | CNSTRNT optname term      { Result.Cnstrnt(Istate.cnstrnt $2 $3) }
-| DISEQ optname term        { Result.Terms(Istate.diseq $2 $3) }
+/* | DISEQ optname term        { Result.Terms(Istate.diseq $2 $3) } */
 | SPLIT optname             { Result.Atoms(Istate.split()) }
 | SOLVE th term EQUAL term  { Result.Solution(Istate.solve $2 ($3, $5)) }		
 | TRACE identlist           { Result.Unit(List.iter Trace.add $2) }

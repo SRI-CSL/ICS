@@ -17,158 +17,107 @@ open Term
 open Sym
 open Mpa
 
-type t = {
-  c: (Cnstrnt.t * Fact.justification option) Term.Map.t;
-  use : Use.t;
-}
+type t = (Interval.t * Fact.justification option) Term.Map.t
 
-let empty = {
-  c = Term.Map.empty;
-  use = Use.empty
-}
+let empty = Term.Map.empty
 
-let eq s t = (s.c == t.c)
+let eq s t = (s == t)
 
-let cnstrnts s = s.c
+let cnstrnts s = s
 
 let to_list s =
   Term.Map.fold 
     (fun x (i, _) acc -> (x, i) :: acc) 
-    s.c []
+    s []
 
 let pp fmt s =
   let l = to_list s in
     if l <> [] then
       begin
 	Format.fprintf fmt "\nc:";
-	Pretty.map Term.pp Cnstrnt.pp fmt l
+	Pretty.map Term.pp Interval.pp fmt l
       end
 
 let changed = ref Set.empty
 
-let apply s a = Term.Map.find a s.c
-
-let use s = Use.find s.use
+let apply s a = Term.Map.find a s
 
 let cnstrnt s x =
   let (i, prf) = apply s x in
     Fact.mk_cnstrnt x i prf
 
-let mem a s = Term.Map.mem a s.c
+let mem a s = Term.Map.mem a s
 
 
 (** {6 Abstract interpretation} *)
 
 let of_term s a =
-  try
-    let lookup s x = fst(apply s x) in
-      Cnstrnt.of_term (lookup s) a
-  with
-      Not_found -> Cnstrnt.mk_real
+  let lookup x = fst(apply s x) in
+  let rec term a =
+    match a with
+      | Term.App(Arith(op), xl) -> 
+	  arith op xl
+      | Term.App(Pp(op), xl) -> 
+	  pprod op xl
+      | Term.App(Bvarith(op), [x]) -> 
+	  bvarith op x
+      | Term.App(Fun(Apply(Some(d))), [_]) -> 
+	  Interval.mk_dom d
+      | _ -> 
+	  lookup a
+  and arith op al = 
+    try
+      match op, al with
+	| Num(q), [] -> 
+	    Interval.mk_singleton q
+	| Multq(q), [x] -> 
+	    Interval.multq q (term x)
+	| Add, [x; y] -> 
+	    Interval.add (term x) (term y)
+	| Add, xl -> 
+	    Interval.addl (List.map term xl)
+	| _ -> 
+	    assert false
+      with
+	  Not_found -> Interval.mk_real
+  and bvarith op a =
+    match op with
+      | Unsigned -> Interval.mk_nat
+  and pprod op al =
+    try
+      match op, al with
+	| Expt(n), [x] -> 
+	    Interval.expt n (try term x with Not_found -> Interval.mk_real)
+	| Mult, [] -> 
+	    Interval.mk_one
+	| Mult, [x] -> 
+	    term x
+	| Mult, [x; y] -> 
+	    Interval.mult (term x) (term y)
+	| Mult, xl -> 
+	    Interval.multl (List.map term xl)
+	| _ -> 
+	    assert false
+      with
+	  Not_found -> Interval.mk_real
+  in
+    term a
 
 let of_term s =
-  Trace.func "foo" "of_term" Term.pp Cnstrnt.pp (of_term s)
+  Trace.func "foo" "C.of_term" Term.pp Interval.pp (of_term s)
 
-let of_addl s a =
-  try
-    let lookup s x = fst(apply s x) in
-      Cnstrnt.of_addl (lookup s) a
-  with
-      Not_found -> Cnstrnt.mk_real
-
-
-(** {6 Constructors} *)
-
-let mk_less s (a, beta, b) =
-  Fact.mk_less (Arith.mk_sub a b, beta) None
-
-let mk_greater s (a, beta, b) =
-  Fact.mk_less (Arith.mk_sub b a, beta) None
-
-
-(** {6 Predicates} *)
-
-let rec is_less s (a, alpha) = 
-  Trace.msg "foo" "is_less" a Term.pp;
-  match a with
-    | App(Arith(Num(q)), []) ->
-	if alpha then Q.le q Q.zero else Q.lt q Q.zero
-    | _ ->
-	(Cnstrnt.exists_upper 
-	   (fun (beta, u) -> 
-	      is_less s (u, alpha && beta)) 
-	   (of_term s a))
-
-let rec is_greater s (a, alpha) =  
-  Trace.msg "foo" "is_greater" a Term.pp;
-  match a with
-    | App(Arith(Num(q)), []) ->
-	if alpha then Q.ge q Q.zero else Q.gt q Q.zero
-    | _ ->
-	(Cnstrnt.exists_lower
-	   (fun (beta, l) -> 
-	      is_greater s (l, alpha && beta)) 
-	   (of_term s a))
-
-let holds s (a, alpha) =
-  if is_less s (a, alpha) then
-    Three.Yes
-  else if is_greater s (a, not alpha) then
-    Three.No
+(** [update x i s] updates the constraint map with the constraint [x in i]
+   and modifies the use lists accordingly. As a side-effect, {!C.changed} 
+  is updated. *)
+let update a i prf s =
+  Trace.msg "c" "Update" (a, i) (Pretty.infix Term.pp " in " Interval.pp);
+  if Interval.is_empty i then
+    raise Exc.Inconsistent
   else 
-    Three.X
-
-let holds s =
-  Trace.func "foo2" "Holds" (Pretty.pair Term.pp Pretty.bool) Three.pp (holds s)
-
-
-(** {6 Updating of datastructures} *)
-
-let varfold f =
-  let rec termfold acc = function
-    | ((Var _) as x) -> f x acc
-    | App(_, al) -> List.fold_left termfold acc al
-  in 
-  let boundfold acc = function
-    | Cnstrnt.Neginf -> acc
-    | Cnstrnt.Posinf -> acc
-    | Cnstrnt.Bound(_, a) -> termfold acc a
-  in
-    Cnstrnt.fold
-      (fun (l, u) acc -> 
-	 boundfold (boundfold acc l) u)
-       
-
-(** [update x c s] updates the constraint map with the constraint [x in c]
-   and modifies the use lists accordingly. In addition, all implied 
-   inequalities are added. As a side-effect, {!C.changed} is updated. *)
-
-let eqs = ref Fact.Equalset.empty
-
-let update a c prf s =
-  Trace.msg "c" "Update" (a, c) (Pretty.infix Term.pp " in " Cnstrnt.pp);
-  let (bs, c) = Cnstrnt.d_equalities c in
-    if Cnstrnt.is_empty c then
-      raise Exc.Inconsistent
-    else 
-      begin
-	changed := Term.Set.add a !changed;
-	Term.Set.iter
-	  (fun b ->
-	     let e = Fact.mk_equal a b None in
-	       eqs := Fact.Equalset.add e !eqs)
-	  bs;
-	let use' =
-	  try
-	    let (d,_) = apply s a in
-	      varfold (Use.remove a) d s.use
-	  with
-	      Not_found -> s.use
-	in
-	  {s with 
-	     c = Term.Map.add a (c, prf) s.c;
-	     use = varfold (fun b -> Use.add a b) c use'}
-      end 
+    begin
+      changed := Term.Set.add a !changed;
+      Term.Map.add a (i, prf) s
+    end 
 
 
 (** Restrict the map. *)
@@ -177,161 +126,153 @@ let restrict a s =
     let (i, _) = apply s a in
       Trace.msg "c" "Restrict" a Term.pp;
       changed := Term.Set.remove a !changed;
-      {s with 
-	 c = Term.Map.remove a s.c;
-	 use = varfold (fun b -> Use.remove a b) i s.use}
+      Term.Map.remove a s
   with
       Not_found -> s
 
 
 (** Asserting an inequality *)
-let rec add l s =
-  eqs := Fact.Equalset.empty;
-  let s' = addl [l] s in
-    (!eqs, s')
+let rec add c s =
+  changed := Term.Set.empty;
+  let (e', s') = add1 c s in
+    (!changed, e', s')
+
+and add1 c s =
+  Trace.msg "c1" "Add(c)" c Fact.pp_cnstrnt;
+  let (x, i, rho) = Fact.d_cnstrnt c in
+    try
+      let (j, sigma) = apply s x in
+	if Interval.is_sub j i then
+	  (None, s)
+	else
+	  let ij = Interval.inter i j in
+	    match Interval.d_singleton ij with
+	      | Some(q) ->
+		   let e' = Fact.mk_equal x (Arith.mk_num q) None 
+		   and s' = restrict x s in
+		     (Some(e'), s')
+	      | None ->
+		  (None, update x ij None s)
+    with
+	Not_found -> 
+	  (match Interval.d_singleton i with
+	     | Some(q) -> 
+		 let e' = Fact.mk_equal x (Arith.mk_num q) None in
+		   (Some(e'), s)
+	     | None ->
+		 (None, update x i rho s))
 
 
-and addl ineqs s =
-  match ineqs with
-    | [] -> s
-    | ineq :: ineqs' ->
-	let s' = add1 ineq s in
-	  addl ineqs' s'
-
-and add1 ineq s =
-  Trace.msg "c'" "Add" ineq Fact.pp_less;
-  match Ineq.solve ineq with
-    | Ineq.True -> 
-	s
-    | Ineq.Less(x, beta, b) ->
-	(try
-	   let (c, _) = apply s x in
-	   let c' = Cnstrnt.add_upper (beta, b) c in
-	     if c == c' then s else 
-	       let s' = update x c' None s in
-	       let ineqs' =      (* derived *)
-		 Cnstrnt.fold_lower 
-		   (fun (gamma, l) acc ->
-		      let ineq = mk_less s (l, gamma && beta, b) in 
-			ineq :: acc)
-		   c' []
-	       in
-		 addl ineqs' s'
-	 with
-	     Not_found ->
-	       let c = Cnstrnt.mk_less Dom.Real (b, beta) in
-		 update x c None s)
-    | Ineq.Greater(x, alpha, a) -> 
-	(try
-	   let (c, _) = apply s x in
-	   let c' = Cnstrnt.add_lower (alpha, a) c in
-	     if c == c' then s else 
-	       let s' = update x c' None s in
-	       let ineqs' =      (* derived *)
-		 Cnstrnt.fold_upper 
-		   (fun (gamma, u) acc ->
-		      let ineq = mk_less s (a, gamma && alpha, u) in 
-			ineq :: acc)
-		   c' []
-	       in
-		 addl ineqs' s'
-	 with
-	     Not_found ->
-	       let c = Cnstrnt.mk_greater Dom.Real (alpha, a) in
-		 update x c None s)
-
-
-(** Propagating an equality. *)
-let rec merge e s =
-  eqs := Fact.Equalset.empty;
-  let s' = merge1 e s in
-    (!eqs, s')
+(** Propagating a variable equality. *)
+let rec merge c s =
+  changed := Term.Set.empty;
+  let (e', s') = merge1 c s in
+    (!changed, e', s')
 
 and merge1 e s =
-  let (x, a, _) = Fact.d_equal e in
+  Trace.msg "c1" "Merge(c)" e Fact.pp_equal;
+  let (x, y, _) = Fact.d_equal e in
     try
-      let (c, _) = apply s x in
+      let (i, _) = apply s x in
 	(try
-	   let (d, _) = apply s a in
-	   let cd = Cnstrnt.inter c d in
-	     update x cd  None (restrict a s)
+	   let (j, _) = apply s y in
+	   let ij = Interval.inter i j in
+	     (match Interval.d_singleton ij with
+		| Some(q) -> 
+		    let e' = Fact.mk_equal y (Arith.mk_num q) None in
+		    let s' = restrict x (restrict y s) in
+		      (Some e', s')
+		| _ ->
+		    let s' = update y ij None (restrict x s) in
+		      (None, s'))
 	 with
 	     Not_found -> 
-	       let ineqs' = 
-		 Cnstrnt.fold_lower
-		   (fun (alpha, l) acc ->
-		      mk_less s (l, alpha, a) :: acc)
-		   c []
-	       in
-	       let ineqs'' = 
-		 Cnstrnt.fold_upper
-		   (fun (beta, u) acc ->
-		      mk_less s (a, beta, u) :: acc)
-		   c ineqs'
-	       in
-	       let s' = instantiate s x a in
-		 addl ineqs'' s')
+	       (None, update y i None s))
     with
-	Not_found ->
-	  instantiate s x a
+	Not_found -> 
+	  (None, s)
 
-and instantiate s x a =
-  Set.fold
-    (fun y s ->
-       try
-	 let (c, _) = apply s y in
-	 let c' = Cnstrnt.replace x a c in
-	   update y c' None (restrict y s)
-       with
-	   Not_found -> s)
-    (use s x) 
-    s	 
-
-(** Adding a domain constraint. *)
-
-let dom c s =
-  let (x, d, _) = Fact.d_dom c in
-    try
-      let (c, _) = apply s x in
-      let c' = Cnstrnt.add_dom d c in
-	if c == c' then 
-	  (Fact.Equalset.empty, s)
-	else
-	  begin
-	    eqs := Fact.Equalset.empty;
-	    let s' = update x c' None s in
-	      (!eqs, s')
-	  end
-    with
-	Not_found ->
-	  let s' = update x (Cnstrnt.mk_dom d) None s in
-	    (Fact.Equalset.empty, s')
-	  
 
 (** Propagate disequalities to the constraint part. The following
  is not complete and should be extended to all finite constraints,
  but the disequality sets might become rather large then. *)
 
-let diseq d s =
-  Trace.msg "c1" "Diseq" d Fact.pp_diseq;
+let rec diseq d s =
+  changed := Term.Set.empty;
+  let (e', s') = diseq1 d s in
+    (!changed, e', s')
+
+and diseq1 d s =
   let (x, a, _) = Fact.d_diseq d in
-    try
-      let (c, _) = apply s x in
-      let c' = Cnstrnt.add_diseq a c in
-	if c == c' then
-	  (Fact.Equalset.empty, s)
-	else
-	  begin
-	    eqs := Fact.Equalset.empty;
-	    let s' = update x c' None s in
-	      (!eqs, s')
-	  end 
-    with
-	Not_found -> 
-	  (Fact.Equalset.empty, s)
+  try
+    let (i, _) = apply s x in
+      (match Arith.d_num a with
+	| None -> 
+	    (None, s)
+	| Some(q) -> 
+	    (match Interval.lo i, Interval.hi i with
+	       | lo, Some(h, true) when Q.equal q h ->
+		   let j = Interval.make (Interval.dom i, lo, Some(h,false)) in
+		     (match Interval.d_singleton j with
+			| Some(q) -> 
+			    let e = Fact.mk_equal x (Arith.mk_num q) None in
+			      (Some(e), restrict x s)
+			| None -> 
+			    (None, update x j None s))
+	       | Some(true, l), hi when Q.equal q l ->
+		   let j = Interval.make (Interval.dom i, Some(false,l), hi) in
+		     (match Interval.d_singleton j with
+			| Some(q) -> 
+			    let e = Fact.mk_equal x (Arith.mk_num q) None in
+			      (Some(e), restrict x s)
+			| None -> 
+			    (None, update x j None s))
+	       | _ ->
+		   (None, s)))	   
+  with
+      Not_found -> 
+	(None, s)
+	  
+
+(** {6 Predicates} *)
+
+let holds s (a, i) = 
+  try
+    let j = of_term s a in
+      if Interval.is_disjoint i j then
+	Three.No
+      else if Interval.is_sub j i then
+	Three.Yes
+      else 
+	Three.X
+  with
+      Not_found -> Three.X
+
+
+let rec is_diophantine s a =
+  try
+    let rec loop = function
+      | Term.App(Arith(Num(_)), []) -> 
+	  true
+      | Term.App(Arith(Multq(_)), [x]) -> 
+	  loop x
+      | Term.App(Arith(Add), xl) -> 
+	  List.for_all loop xl
+      | a -> 
+	  let (i, _) = apply s a in
+	    Dom.eq (Interval.dom i) Dom.Int
+    in 
+      loop a
+  with
+      Not_found -> false
 
 
 (** Finite ranges *)
 
 let split s = 
   failwith "split: to do"
+
+
+
+
+

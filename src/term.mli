@@ -50,6 +50,8 @@ val mk_fresh_var : Name.t -> int option -> t
     {!Var.k} is incremented. [mk_fresh_var n Some(k)] simply constructs
     a variable of name [n] and index [k]. *)
 
+val mk_slack : int option -> t
+
 
 (** {6 Recognizers} *)
 
@@ -71,6 +73,7 @@ val is_fresh_var : t -> bool
   (** [is_fresh_var a] holds if [a] is a variable and if it is
     of category 'fresh' (see module {!Var}). *)
 
+val is_slack : t -> bool
 
 (** {6 Destructors} *)
 

@@ -75,6 +75,9 @@ module Q : sig
   val of_int : int -> t
   val of_ints : int -> int -> t
 
+  val min : t -> t -> t
+  val max : t -> t -> t
+
   val add : t -> t -> t
   val sub : t -> t -> t
   val minus : t -> t

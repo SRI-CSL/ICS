@@ -130,6 +130,7 @@ let of_mono q x =
 	  mk_app (multq q) [x]
 
 
+
 (** {6 Constructors} *)
 
 let rec mk_multq q a =
@@ -211,6 +212,21 @@ and mk_sub a b =
 and mk_linear (p, a) (q, b) =
   mk_add (mk_multq p a) (mk_multq q b)
 
+(** Normalization *)
+
+let to_list a =
+  let (p, al) = poly_of a in
+  let ql = List.map mono_of al in
+    (p, ql)
+
+let of_list p ml =
+  let rec loop acc = function
+    | [] -> acc
+    | (q, x) :: ml -> 
+	let acc' = mk_add (mk_multq q x) acc in
+	  loop acc' ml
+  in
+    loop (mk_num p) ml
 
 (** Mapping a term transformer [f] over [a]. *)
 let rec map f a =
@@ -409,14 +425,14 @@ module Euclid = Euclid.Make(
 let rec zsolve (a, b) = 
   let (q, ml) = poly_of (mk_sub a b) in   (* [q + ml = 0] *)
     if ml = [] then
-      if Q.is_zero q then [] else raise(Exc.Inconsistent)
+      if Q.is_zero q then [], [] else raise(Exc.Inconsistent)
     else
       let (cl, xl) = vectorize ml in     (* [cl * xl = ml] in vector notation *)
 	match Euclid.solve cl (Q.minus q) with
 	  | None -> raise Exc.Inconsistent
 	  | Some(d, pl) -> 
-	      let gl = general cl (d, pl) in
-		List.combine xl gl
+	      let (kl, gl) = general cl (d, pl) in
+		(kl, List.combine xl gl)
 	     
 and vectorize ml =
   let rec loop (ql, xl) = function
@@ -438,17 +454,19 @@ and vectorize ml =
   any basis of the vector space of solutions [xl] of the 
   equation [al * xl = 0] would be appropriate. *)
 and general al (d, pl) =
+  let fl = ref [] in
   let rec loop al zl =
     match al, zl with
       | [_], [_] -> zl
       | a0 :: ((a1 :: al'') as al'),  z0 :: z1 :: zl'' ->
           let k = mk_fresh () in
-          let e0 = mk_add z0 (mk_multq (Q.div a1 d) k) in
-          let e1 = mk_add z1 (mk_multq (Q.div (Q.minus a0) d) k) in
-            e0 :: loop al' (e1 :: zl'')
+	    fl := k :: !fl;
+            let e0 = mk_add z0 (mk_multq (Q.div a1 d) k) in
+            let e1 = mk_add z1 (mk_multq (Q.div (Q.minus a0) d) k) in
+              e0 :: loop al' (e1 :: zl'')
       | _ -> assert false
   in
-    loop al (List.map mk_num pl)
+    (!fl, loop al (List.map mk_num pl))
 
 
 

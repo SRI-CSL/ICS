@@ -20,8 +20,7 @@ type t =
   | True
   | Equal of Term.t * Term.t           (* represents [a = b]. *)
   | Diseq of Term.t * Term.t           (* represents [a <> b]. *)
-  | Less of Term.t * bool              (* represents [a < 0] or [a <= 0]. *)
-  | In of Term.t * Dom.t               (* represents [a in d] *)
+  | In of Term.t * Interval.t          (* represents [a in d] *)
   | False
 
 let eq a b =
@@ -34,10 +33,8 @@ let eq a b =
 	Term.eq a1 a2 && Term.eq b1 b2
     | Diseq(a1, b1), Diseq(a2, b2) -> 
 	Term.eq a1 a2 && Term.eq b1 b2
-    | Less(a1, alpha1), Less(a2, alpha2) -> 
-	Term.eq a1 a2 && alpha1 = alpha2
     | In(a1, d1), In(a2, d2) -> 
-	Term.eq a1 a2 && Dom.eq d1 d2
+	Term.eq a1 a2 && Interval.eq d1 d2
     | _ -> 
 	false
 
@@ -86,31 +83,31 @@ let rec mk_diseq (a, b) =
   else
     Diseq(a, b)
 	  
-
-let mk_less (a, alpha) =
-  match Arith.d_num a with
-    | Some(q) ->
-	if alpha then
-	  if Q.le q Q.zero then True else False
-	else
-	  if Q.lt q Q.zero then True else False
-    | None ->
-	Less(a, alpha)
-    
-let mk_in (a, d) =
-  match Arith.d_num a with
-    | Some(q) -> 
-	if Q.is_integer q then
-	  (match d with
-	     | (Dom.Int | Dom.Real) -> True
-	     | Dom.Nonint -> False)
-	else 
-	  (match d with
-	     | (Dom.Nonint | Dom.Real) -> True
-	     | Dom.Int -> False)
-    | _ ->
-	In(a, d)
   
+let mk_in (a, i) =
+  if Interval.is_empty i then
+    False
+  else match Arith.linearize a with
+    | Arith.Const(q) -> 
+	if Interval.mem q i then True else False
+    | Arith.Linear(p, q, x, b) ->   (* [p + q * x + b in i] *)
+	assert(not(Q.is_zero q));
+	if Q.is_pos q then          (* [x + 1/q * b in 1/q*(-p + i) ] *)
+	  let a' = Arith.mk_add x (Arith.mk_multq (Q.inv q) b)
+	  and i' = Interval.multq (Q.inv q) (Interval.addq (Q.minus p) i) in
+	    In(a', i')
+	else 
+	(*  try
+	    let ci = Interval.complement i in
+	    let a' = Arith.mk_add x (Arith.mk_multq (Q.inv q) b)
+	    and i' = Interval.multq (Q.inv q) (Interval.addq (Q.minus p) ci) in
+	      In(a', i') 
+	  with
+	      Invalid_argument _ -> *)
+		let a' = Arith.mk_add (Arith.mk_multq q x) b
+		and i' = Interval.addq (Q.minus p) i in
+		  In(a', i')
+	
 
 (** {6 Pretty-printing} *)
 
@@ -127,18 +124,19 @@ let pp fmt = function
       Term.pp fmt a;
       Pretty.string fmt " <> ";
       Term.pp fmt b
-  | Less(a, kind) ->
-      Term.pp fmt a;
-      Pretty.string fmt (if kind then " <= 0 " else " < 0 ")
-  | In(a, d) ->
+  | In(a, i) ->
       Term.pp fmt a;
       Pretty.string fmt " in ";
-      Dom.pp fmt d
+      Interval.pp fmt i
+
+let mk_in =
+  Trace.func "foo" "Atom.mk_in" (Pretty.pair Term.pp Interval.pp) pp mk_in
+  
 
 (** {6 Negations of atoms} *)
 
 let is_negatable = function
-  | In _ -> false
+  | In(_, i) -> Interval.is_complementable i
   | _ -> true
 
 let negate = function
@@ -146,10 +144,11 @@ let negate = function
   | False -> mk_true
   | Equal(a, b) -> mk_diseq (a, b)
   | Diseq(a, b) -> mk_equal (a, b)
-  | Less(a, kind) -> mk_less (Arith.mk_multq Q.negone a, not kind)
-  | a -> 
+  | In(a, i) when Interval.is_complementable i ->
+      mk_in (a, Interval.complement i)
+  | (In(x, i) as a) ->
       let str = Pretty.to_string pp a in
-      raise (Invalid_argument ("Atom " ^ str ^ " not negatable."))
+	raise (Invalid_argument ("Atom " ^ str ^ " not negatable."))
 
 let _ = Callback.register "atom_negate" negate
 
@@ -161,7 +160,6 @@ let vars_of = function
   | False -> Term.Set.empty
   | Equal(a, b) -> Term.Set.union (Term.vars_of a) (Term.vars_of b)
   | Diseq(a, b) -> Term.Set.union (Term.vars_of a) (Term.vars_of b)
-  | Less(a, _) -> Term.vars_of a
   | In(a, _) -> Term.vars_of a
 
 let list_of_vars a = 
@@ -177,7 +175,6 @@ let occurs x a =
       | False -> false
       | Equal(s, t) -> term_occurs s || term_occurs t
       | Diseq(s, t) -> term_occurs s || term_occurs t
-      | Less(s, _) -> term_occurs s
       | In(s, _) -> term_occurs s
 
 let is_connected a b =
@@ -193,5 +190,4 @@ let is_connected a b =
       | False -> false
       | Equal(s, t) -> terms_is_connected (s, t)
       | Diseq(s, t) -> terms_is_connected (s, t)
-      | Less(s, _) -> term_is_connected s
       | In(s, _) -> term_is_connected s

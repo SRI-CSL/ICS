@@ -36,15 +36,6 @@
 *)
  
 
-
-(** {6 Control flags} *)
-
-val set_maxloops : int -> unit
-  (** [set_maxloops n] determines an upper number of loops in
-    the main ICS loop. [n < 0] determines that there is no such
-    bound; this is also the default. *)
-
-
 (** {6 Channels} *)
 
 type inchannel = in_channel
@@ -716,7 +707,7 @@ val atom_to_string : atom -> string
       
 val atom_mk_equal  : term -> term -> atom
 val atom_mk_diseq  : term -> term -> atom
-val atom_mk_in  : term -> dom -> atom
+val atom_mk_in  : term -> cnstrnt -> atom
 val atom_mk_true : unit -> atom
 val atom_mk_false : unit -> atom
 
@@ -740,7 +731,6 @@ val atoms_to_list : atoms -> atom list
 
 val atom_mk_real : term -> atom
 val atom_mk_int : term -> atom
-val atom_mk_nonint : term -> atom
     
 val atom_mk_lt : term -> term -> atom
 val atom_mk_le : term -> term -> atom

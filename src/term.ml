@@ -60,8 +60,14 @@ let mk_num =
 
 let mk_fresh_var x k = Var(Var.mk_fresh x k)
 
+let mk_slack k = Var(Var.mk_slack k)
+
 let is_fresh_var = function
   | Var(x) -> Var.is_fresh x
+  | _ -> false
+
+let is_slack = function
+  | Var(x) -> Var.is_slack x
   | _ -> false
 
 

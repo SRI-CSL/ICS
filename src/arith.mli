@@ -142,6 +142,10 @@ val monomials : Term.t -> Term.t list
   (** [monomials a] yiels a list of monomials [ml] such that [mk_addl ml]
     equal [a]. *)
 
+val to_list : Term.t -> Mpa.Q.t * (Mpa.Q.t * Term.t) list
+
+val of_list :  Mpa.Q.t -> (Mpa.Q.t * Term.t) list -> Term.t
+
 val destructure : Term.t -> Mpa.Q.t * Term.t * Term.t
   (** Destructure a monomial into the a triple [(q, x, m)] such
     that [q * x] is the largest monomial ([x] is the largest variable in the
@@ -206,7 +210,7 @@ val qsolve : Term.t * Term.t -> (Term.t * Term.t) option
     already contained in [e], and [t] is a linear arithmetic term 
     not containing [x]. *)
   
-val zsolve : Term.t * Term.t  -> (Term.t * Term.t) list
+val zsolve : Term.t * Term.t  -> Term.t list * (Term.t * Term.t) list
   (** Solution for a linear diophantine equation. The result is
     a list of equalities of the form [x = t], where [x] is a variable
     contained in [e], and [t] does not contain any variable in [e].

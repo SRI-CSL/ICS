@@ -14,7 +14,7 @@
 type entry = 
   | Def of defn
   | Arity of int
-  | Type of Cnstrnt.t
+  | Type of Interval.t
   | State of Context.t
 
 and defn = 
@@ -64,7 +64,7 @@ and pp_entry fmt e =
     | Def(Term(x)) -> pr "@[def("; Term.pp fmt x; pr ")@]"
     | Def(Prop(x)) -> pr "@[def("; Prop.pp fmt x; pr ")@]"
     | Arity(a) -> pr "@[sig("; Format.fprintf fmt "%d" a; pr ")@]"
-    | Type(c) -> pr "@[type("; Cnstrnt.pp fmt c; pr ")@]"
+    | Type(c) -> pr "@[type("; Interval.pp fmt c; pr ")@]"
     | State(s) -> 
 	pr "@[state(";
 	Pretty.set Atom.pp fmt (Atom.Set.elements (Context.ctxt_of s));

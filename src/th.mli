@@ -75,6 +75,8 @@ val of_sym : Sym.t -> t
 val map : t -> (Term.t -> Term.t) -> Term.t -> Term.t
   (** Theory-specific map function. *)
 
+val sigma : Sym.t -> Term.t list -> Term.t
+  (** Theory-specific sigmatizer. *)
 
 val solve : t -> Fact.equal -> Fact.equal list
   (** Theory-specific solvers *)
@@ -102,9 +104,5 @@ module Array : sig
   val for_all : ('a -> bool) -> 'a arr -> bool
 
   val for_all2 : ('a ->'b -> bool) -> 'a arr -> 'b arr -> bool
-
-  val to_list : 'a arr -> (t * 'a) list
-
-  val pp : 'a Pretty.printer -> 'a arr Pretty.printer
 
 end

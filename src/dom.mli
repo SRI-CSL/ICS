@@ -12,14 +12,12 @@
  *)
 
 (** Various subdomains of numbers. The symbol [Real] {b denotes} the 
-  set of real numbers, [Int] all integers, and [Nonint] all 
-  non-integer reals.
+  set of real numbers, [Int] all integers/
 
-  @author Ritvik Sahajpa
   @author Harald Ruess
 *)
 
-type t = Int | Nonint | Real 
+type t = Int | Real 
 
 
 (** {6 Relations} *)
@@ -53,17 +51,14 @@ val union : t -> t -> t
 
 val inter : t -> t -> t
  (** [inter d1 d2] returns [d] iff the denotation of [d] is the 
-   nonempty intersection of the denotations of [d1] and [d2].
-   If this intersection is empty, then {!Dom.Empty} is raised. *)
-
-exception Empty
+   nonempty intersection of the denotations of [d1] and [d2]. *)
 
 
 (** {6 Rationals} *)
 
 val of_q : Mpa.Q.t -> t
   (** [of_q q] returns [Int] if the rational [q] is 
-    an integer and [Nonint] otherwise. *)
+    an integer, and [Real] otherwise. *)
 
 val mem : Mpa.Q.t -> t -> bool
   (** [mem q d] tests if the rational [q] is an element of

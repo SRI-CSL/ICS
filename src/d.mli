@@ -20,9 +20,13 @@
 type t
   (** Elements of type {!D.t} represent sets of variable disequalities. *)
 
-
 val pp : t Pretty.printer
-  (** Pretty-printing *)
+  (** Pretty-printing. *)
+
+val eq : t -> t -> bool
+  (** [eq s t] holds iff [s] and [t] are physically equal.
+    If [eq s t] equals [false], then it is not necessarily
+    true that [s] and [t] are not logically equivalent. *)
 
 
 (** {6 Accessors} *)
@@ -35,13 +39,9 @@ val deq_of : t -> Term.Set.t Term.Map.t
     bindings returned by [deq] are closed in that forall [x], [y] 
     such that [x |-> {...,y,...} ] then also [y |-> {....,x,....}] *)
 
-val deq : t -> Term.t -> Term.Set.t
-  (** [deq s a] just returns the binding for [a] in [deq_of s]. *)
-
-val disequalities : t -> Term.t -> Fact.diseq list
-  (** [disequalities s x] returns the maximal set of 
-    disequalites [di] of the form [x <> y] such that
-    [x <> y] is represented in [s]. *)
+val d : t -> Term.t -> (Term.t * Fact.justification option) list
+  (** [disequalities s x] returns the maximal set of  disequalites [di] 
+    of the form [x <> y] such that [x <> y] is represented in [s]. *)
 
 
 (** {6 Recognizers} *)
@@ -52,28 +52,17 @@ val is_diseq: t -> Term.t -> Term.t -> bool
 
 (** {6 Constructors} *)
 
-
 val empty : t
   (** The empty disequality context. *)
-
-val eq : t -> t -> bool
-  (** [eq s t] holds iff [s] and [t] are physically equal.
-    If [eq s t] equals [false], then it is not necessarily
-    true that [s] and [t] are not logically equivalent. *)
  
-val merge : Fact.equal -> t -> t
+val merge : Fact.equal -> t -> Term.Set.t * t
   (** [merge e s] propagates an equality [e] of the form [x = y]
     into the disequality context by computing a new disequality
     context which is equal to [s] except that every [x] has been
     replaced by [y]. Raises {!Exc.Inconsistent} if [x <> y] is
     already in [s]. *)
 
-val add : Fact.diseq -> t -> t
+val add : Fact.diseq -> t -> Term.Set.t * t
   (** [add d s] adds a disequality [d] of the form
     [x <> y] to the disequality context [s]. As a side
     effect, both [x] and [y] are added to the set {!D.changed}. *)
-
-val changed : Term.Set.t ref
-  (** Global variable for keeping track of changes in disequality
-    contexts. Updated by {!D.add} and {!D.changed}. *)
-
