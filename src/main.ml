@@ -77,7 +77,7 @@ and batch l =
 	 Tools.linenumber := 1;
 	 while true do
 	   prompt ();
-	   Ics.cmd_batch ()
+	   Ics.cmd_rep ()
 	 done)
     l;
   Ics.flush();
