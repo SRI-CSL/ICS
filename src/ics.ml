@@ -589,7 +589,10 @@ let _ = Callback.register "prop_d_neg" prop_d_neg
 
 type assignment = Prop.Assignment.t
 
-let sat = Prop.sat
+let sat s p =
+  match Prop.sat s p with
+    | None -> None
+    | Some(rho, _) -> Some(rho)
 let _ = Callback.register "sat" sat
 
 
@@ -826,8 +829,11 @@ and cmd_output fmt result =
 	 Context.Status.pp Name.pp fmt status
      | Result.Sat(None) ->
 	 Format.fprintf fmt ":unsat@?"
-     | Result.Sat(Some(rho)) ->
-	 Format.fprintf fmt ":sat "; Prop.Assignment.pp fmt rho
+     | Result.Sat(Some(rho, n)) ->
+	 Format.fprintf fmt ":sat( ";
+	 Name.pp fmt n;
+	 Format.fprintf fmt ") ";
+         Prop.Assignment.pp fmt rho
      | Result.Unit() ->
 	 Format.fprintf fmt ":unit@?"
      | Result.Bool(true) ->

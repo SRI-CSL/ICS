@@ -276,7 +276,14 @@ let is_int a =
 (** Sat solver *)
 
 let sat p =
-  Prop.sat s.current p
+  match Prop.sat s.current p with
+    | None -> 
+	None
+    | Some(rho, s') -> 
+	let n = fresh_state_name () in
+	  s.symtab <- Symtab.add n (Symtab.State(s')) s.symtab;
+	  Some(rho, n)
+	
 
 (** Splitting. *)
 

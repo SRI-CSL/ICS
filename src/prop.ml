@@ -404,7 +404,7 @@ let rec sat s p =
     init s;
     let result = 
       if icsat_sat (to_prop p) then 
-	Some(assignment ())
+	Some(assignment (), top())
       else 
 	None
     in

@@ -28,7 +28,7 @@ type t =
   | Process of Name.t Context.Status.t
   | Symtab of Symtab.t
   | Entry of Symtab.entry
-  | Sat of Prop.Assignment.t option
+  | Sat of (Prop.Assignment.t * Name.t) option
   | Int of int
   | String of string
 
@@ -50,9 +50,15 @@ let output fmt = function
   | Context(c) -> Context.pp fmt c
   | Process(status) -> Context.Status.pp Name.pp fmt status
   | Sat(None) -> Pretty.string fmt ":unsat"
-  | Sat(Some(rho)) -> Pretty.string fmt ":sat "; Prop.Assignment.pp fmt rho
+  | Sat(Some(rho, n)) ->
+      Pretty.string fmt ":sat "; Prop.Assignment.pp fmt rho;
   | Symtab(sym) -> Symtab.pp fmt sym
   | Entry(e) -> Symtab.pp_entry fmt e
   | Int(i) -> Format.fprintf fmt "%d" i
   | String(s) -> Format.fprintf fmt "%s" s
+
+
+
+
+
 

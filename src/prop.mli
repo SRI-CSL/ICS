@@ -69,5 +69,5 @@ module Assignment : sig
 
 end
 
-val sat : Context.t -> t -> Assignment.t option
+val sat : Context.t -> t -> (Assignment.t * Context.t) option
 
