@@ -1,5 +1,4 @@
-
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -10,18 +9,17 @@
  * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
- * 
- * Author: Jean-Christophe Filliatre, Harald Ruess
- i*)
+ *)
 
-(*s Module [Lexer]: Lexical analysis for ICS syntactic categories such as terms. *)
+(** Lexical analysis for ICS syntactic categories such as terms.
+  @author Jean-Christophe Filliatre
+  @author Harald Ruess
+*)
 
-(*i*)
 {
 open Parser
-(*i*)
 
-(*s A lexer for terms. *)
+(** A lexer for terms. *)
 
 let keyword =
   let kw_table = Hashtbl.create 31 in
@@ -53,9 +51,7 @@ let keyword =
   fun s ->
     try Hashtbl.find kw_table s with Not_found -> IDENT s
 
-(*i*)
 }
-(*i*)
 
 let ident = ['A'-'Z' 'a'-'z'] ['A'-'Z' 'a'-'z' '\'' '_' '0'-'9']*
 
