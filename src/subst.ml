@@ -191,6 +191,23 @@ module Make(Th: INTERP) = struct
    (s', veqs')
 
 
+(*s Propagate equalities [a = ...] for [a] a parameter only occuring lhs. *)
+
+(* to do
+ let rec propagate s sl = 
+   let rec propagate1 (a, b) ((s, veqs) as acc) =
+     if eq a b then
+       acc
+     else 
+       Set.fold                        
+	 (fun x ((s,_) as acc) -> 
+	    propagate1 (x, norml sl (find s x)) acc)
+	 (use s a)
+	 (step1 (a, b) acc)
+   in
+   List.fold_right compose1 sl (s, Veqs.empty)
+ *)
+
 (*s Instantiation of variables [x] in [s] with [f x]. *)
 
   let inst f s =

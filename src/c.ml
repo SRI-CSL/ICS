@@ -165,7 +165,6 @@ and update k c (b, bs) s =        (* add [k |-> (c, add(t,ts))], where *)
      use = add_use k b s.use}
 
 
-
 (*
 
 (*s [remove x s] physically removes [x] from the [find] map and
@@ -341,35 +340,5 @@ and add_symbolic x (c, a) (s, eqs) =
   (s'', eqs')
  
 
-(*s Merging an equality between constraints. *)
-
-let propagate (k, b) s =
-  (s, [])
-(*
-  match cnstrnt s k, cnstrnt s b with
-    | Some(ck), Some(cb) ->
-	(match Cnstrnt.cmp ck cb with
-	   | Binrel.Disjoint ->
-	       raise Exc.Inconsistent 
-	   | (Binrel.Super | Binrel.Same) ->
-	       let (sa', veqs') = A.propagate s.a [(k, b)] in
-	       let (sc', eqs') = C.restrict (k,b) (s.c, []) in  (* what about eqs' *)
-	       ({s with a = sa'; c = sc'}, veqs', [k, cb])
-	   | Binrel.Sub ->
-	       let (sa', veqs') = A.propagate s.a [(k, b)] in
-	       let (sc', eqs') = C.restrict (k,b) (s.c, []) in
-	       ({s with a = sa'; c = sc'}, veqs', [(b, ck)])
-	   | Binrel.Singleton(q) ->
-	       let n = Arith.mk_num q in
-	       let (sa', veqs') = A.propagate s.a [k, n] in
-	       let (sc', eqs') = C.restrict (k,n) (s.c, []) in
-	       ({s with a = sa'; c = sc'}, veqs', [])
-	   | Binrel.Overlap(ckb) ->
-	       let (sa', veqs') = A.propagate s.a [(k, b)] in
-	       let (sc', eqs') = C.restrict (k,b) (s.c, []) in
-	       ({s with a = sa'; c = sc'}, veqs', [(b, ckb)]))
-    | _ ->
-	(s, [])
-*)
 
 *)
