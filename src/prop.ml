@@ -341,7 +341,7 @@ let stackpp () =
   Stack.iter (fun (s, _) -> Context.pp Format.std_formatter s) stack
 let _ = Callback.register "prop_stackpp" stackpp
 
-let explained = ref true
+let explained = ref false
 let explanation = ref []
 
 let is_explained () = !explained
@@ -358,24 +358,24 @@ let add i =
       | Context.Status.Valid _ -> 
 	  (let (s, al) = Stack.pop stack in
 	     push (s, a :: al);
+	     explained := false;
 	     1)
       | Context.Status.Inconsistent(rho) ->
 	  (try
 	     let axms = Justification.axioms_of rho in
-	       Format.printf "\n EXPLAIN ";
-	       Pretty.set Atom.pp Format.std_formatter (Atom.Set.elements axms);
-	       let ids = Atom.Set.fold (fun a acc -> atom_to_id a :: acc) axms [] in
-		 explained := true;
-		 explanation := ids;
-		 0
+	     let ids = Atom.Set.fold (fun a acc -> atom_to_id a :: acc) axms [] in
+	       explained := true;
+	       explanation := ids;
+	       0
 	   with
 	       Not_found -> 
-		 Format.eprintf "Warning: no explanation for ICSAT";
+		 Format.eprintf "Warning: no explanation generated";
 		 explained := false;
 		 0)
       | Context.Status.Ok(s) -> 
 	  (let (_, al) = Stack.pop stack in
 	     push (s, a :: al);
+	     explained := false;
 	     1)
     in
       Trace.call "rule" "Add" result Pretty.number;
