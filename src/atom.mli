@@ -18,27 +18,22 @@
 
 type t  =
   | True
-  | Equal of Term.t * Term.t
-  | Diseq of Term.t * Term.t
-  | In of Cnstrnt.t * Term.t
+  | Equal of Fact.equal
+  | Diseq of Fact.diseq
+  | In of Fact.cnstrnt
   | False
 
-val eq : t -> t -> bool
 
 (*s Constructors. *)
 
 val mk_true : unit -> t
 val mk_false : unit -> t
 
-val mk_equal : Term.t -> Term.t -> t
+val mk_equal : Fact.equal -> t
 
-val mk_diseq : Term.t -> Term.t -> t
+val mk_diseq : Fact.diseq -> t
 
-val mk_in : Cnstrnt.t -> Term.t -> t
-
-(*s Mapping over atoms and applying [f] to terms. *)
-
-val map : (Term.t -> Term.t) -> t -> t
+val mk_in : Fact.cnstrnt -> t
 
 
 (*s Pretty-printing. *)

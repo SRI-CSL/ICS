@@ -28,9 +28,9 @@ let list (pre,sep,post) pp fmt l =
     | [x] -> pp fmt x
     | x :: l -> pp fmt x; string fmt sep; Format.fprintf fmt " "; iter l
   in
-  Format.fprintf fmt "%s" pre; 
+  Format.fprintf fmt "@[%s" pre; 
   iter l; 
-  Format.fprintf fmt "%s" post
+  Format.fprintf fmt "%s@]@?" post
 
 let pair pp1 pp2 fmt (a,b) =
   Format.fprintf fmt "(";
@@ -54,9 +54,11 @@ let infixl pp op =
 let set pp fmt = list ("{", ", ", "}") pp fmt
 
 let assign pp1 pp2 fmt (x,a) =
+  Format.fprintf fmt "@[";
   pp1 fmt x; 
   string fmt " |-> "; 
-  pp2 fmt a
+  pp2 fmt a;
+  Format.fprintf fmt "@]"
 
 let map pp1 pp2 fmt =
   list ("[", "; ", "]") (assign pp1 pp2) fmt

@@ -136,8 +136,8 @@ let nl () = Format.fprintf s.outchannel "\n"
 (*s Context. *)
 
 let ctxt_of = function
-  | None -> s.current.Context.ctxt
-  | Some(n) -> (context_of n).Context.ctxt
+  | None -> Context.ctxt_of s.current
+  | Some(n) -> Context.ctxt_of (context_of n)
 
 (*s Canonization w.r.t current state. *)
 
@@ -151,16 +151,19 @@ let sigma f l =
   Context.sigma s.current f l
 
 
-let abstract_term p = 
+let abstract_term p = failwith "to do" 
+  (*
   let (s', p') = Shostak.abstract_toplevel_term s.current p in
     s.current <- s';
     p'
+  *)
 
-
-let abstract_atom a = 
+let abstract_atom a = failwith "to do"
+(*
   let (s', a') = Shostak.abstract s.current a in
     s.current <- s';
     a'
+*)
 
 (*s Create a fresh name for a state. *)
 
@@ -230,7 +233,7 @@ let diseq n a =
   let s = get_context n in
   let a' = Shostak.can_t s a in
   try
-    Context.deq s a'
+    Context.d s a'
   with
       Not_found -> Term.Set.empty
 
@@ -246,16 +249,16 @@ let cnstrnt n a =
 (*s Applying maps. *)
 
 
-let find n e = Context.find e (get_context n)
-let inv n e = Context.inv e (get_context n)
-let use n e = Context.use e (get_context n)
+let find n i = Context.find i (get_context n)
+let inv n i = Context.inv i (get_context n)
+let use n i = Context.use i (get_context n)
 
 (*s Solution sets. *)
 
-let solution n e = 
+let solution n i = 
   Solution.fold
-    (fun x a acc -> (x, a) :: acc)
-    (Context.solutions e (get_context n))
+    (fun x (a, _) acc -> (x, a) :: acc)
+    (Context.eqs_of (get_context n) i)
     []
 
 (*s Variable partitioning. *)
@@ -264,25 +267,21 @@ let partition () =
   Term.Map.fold
     (fun x ys acc ->
        (x, Term.Set.elements ys) :: acc)
-    (V.partition s.current.Context.p.Partition.v)
+    (V.partition (Context.v_of s.current))
     []
 
 (*s Solver. *)
 
-let solve i (a, b) =
+let solve i (a, b) = 
+  failwith "to do"
+
+(*
   try
-    match i with
-      | Sym.T -> Tuple.solve (a, b)
-      | Sym.BV -> Bitvector.solve (a, b)
-      | Sym.A -> 
-	  (match Arith.solve_for Term.is_var (a, b) with
-	     | None -> []
-	     | Some(x, b') -> [(x, b')])
-      | _ -> 
-	  raise(Invalid_argument("No interpreted theory of name " ^ (Sym.name_of_theory i)))
-    with
-      | Exc.Inconsistent -> raise(Invalid_argument("Unsat"))
-      |	Exc.Unsolved -> raise(Invalid_argument("Unsolvable"))
+    Context.solve i (s.current.p.Partition.c, s.current.a) (a, b)
+  with
+    | Exc.Inconsistent -> raise(Invalid_argument("Unsat"))
+    |	Exc.Unsolved -> raise(Invalid_argument("Unsolvable"))
+*)
  
 (*s Equality/disequality test. *)
 

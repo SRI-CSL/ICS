@@ -126,7 +126,7 @@ val replacel : (Term.t * Term.t) list -> Term.t -> Term.t
   and [qsolve] chooses to solve for the largest power product according to the 
   term ordering [<<<]. *)
 
-val solve_for : (Term.t -> bool) -> Term.t * Term.t -> (Term.t * Term.t) option
+val solve : (Term.t -> bool) -> Fact.equal -> Fact.equal option
 
 
 (*s Abstract interpretation in the domain of constraints. Given 
@@ -139,9 +139,3 @@ val solve_for : (Term.t -> bool) -> Term.t * Term.t -> (Term.t * Term.t) option
  subterm of [a] is not in the domain of [f]. *) 
 
 val cnstrnt : (Term.t -> Cnstrnt.t) -> (Term.t -> Cnstrnt.t)
-
-(*s Split a term into the part with constraints and the unconstraint part.
- Also, return the constraint for the term with a constraint. *)
-
-val split: (Term.t -> Cnstrnt.t) -> Term.t 
-             -> (Term.t * Cnstrnt.t) option * Term.t option

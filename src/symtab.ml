@@ -62,5 +62,5 @@ and pp_entry fmt e =
     | Type(c) -> pr "@[type("; Cnstrnt.pp fmt c; pr ")@]"
     | State(s) -> 
 	pr "@[state(";
-	Pretty.set Atom.pp fmt (Atom.Set.elements s.Context.ctxt);
+	Pretty.set Atom.pp fmt (Atom.Set.elements (Context.ctxt_of s));
 	pr ")@]"

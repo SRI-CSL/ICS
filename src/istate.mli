@@ -100,17 +100,17 @@ val forget : unit -> unit
 
 (*s Applying maps. *)
 
-val find : Name.t option -> Sym.theories -> Term.t -> Term.t
-val inv : Name.t option -> Sym.theories -> Term.t -> Term.t
-val use : Name.t option -> Sym.theories -> Term.t -> Term.Set.t
+val find : Name.t option -> Theories.t -> Term.t -> Term.t
+val inv : Name.t option -> Theories.t -> Term.t -> Term.t
+val use : Name.t option -> Theories.t -> Term.t -> Term.Set.t
 
 (*s Solution set for equality theories. *)
 
-val solution: Name.t option -> Sym.theories -> (Term.t * Term.t) list
+val solution: Name.t option -> Theories.t -> (Term.t * Term.t) list
 
 (*s Solver. *)
 
-val solve : Sym.theories ->  (Term.t * Term.t) -> (Term.t * Term.t) list
+val solve : Theories.t ->  (Term.t * Term.t) -> (Term.t * Term.t) list
 
 (*s Variable partitioning. *)
 

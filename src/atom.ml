@@ -23,23 +23,12 @@ open Sym
 
 type t =
   | True
-  | Equal of Term.t * Term.t
-  | Diseq of Term.t * Term.t
-  | In of Cnstrnt.t * Term.t
+  | Equal of Fact.equal
+  | Diseq of Fact.diseq
+  | In of Fact.cnstrnt
   | False
 
-let eq a b =
-  match a, b with
-    | True, True -> true  
-    | False, False -> true
-    | Equal(x1,y1), Equal(x2, y2) ->  (* equalities are ordered. *)
-	Term.eq x1 x2 && Term.eq y1 y2
-    | Diseq(x1, y1), Diseq(x2, y2) ->
-	Term.eq x1 x2 && Term.eq y1 y2
-    | In(c1, x1), In(c2, x2) -> 
-	Term.eq x1 x2 && Cnstrnt.eq c1 c2
-    | _ -> 
-	false
+
 
 (*s Constructors. *)
 
@@ -47,57 +36,70 @@ let mk_true () = True
 
 let mk_false () = False
 
-let mk_equal a b =
-  if Term.eq a b then 
-    mk_true()
-  else if Term.is_interp_const a && Term.is_interp_const b then
-    mk_false()
-  else
-    let a',b' = Term.orient (a, b) in
-    Equal(a',b')       (* Larger Term on rhs *)
+let mk_equal e =
+  let (a, b, _) = Fact.d_equal e in
+    if Term.eq a b then 
+      mk_true()
+    else if Term.is_interp_const a && Term.is_interp_const b then
+      mk_false()
+    else
+      Equal(Fact.mk_equal a b None)     (* Larger Term on rhs *)
 
-let mk_in c a =
+let rec mk_in c =
+  let (a, c, _) = Fact.d_cnstrnt c in
   if Cnstrnt.is_empty c then
     False
   else 
     match Cnstrnt.d_singleton c with
     | Some(q) ->
-	mk_equal a (Arith.mk_num q)
+	mk_equal (Fact.mk_equal a (Arith.mk_num q) None)
     | None -> 
-	In(c, a)
+	(match a with
+	   | Term.App(Sym.Arith(Sym.Num(q)), []) -> 
+	       if Cnstrnt.mem q c then True else raise Exc.Inconsistent
+	   | _ ->
+	       let (a', c') = normalize (a, c) in
+		 In(Fact.mk_cnstrnt a' c' None))
 
-let rec mk_diseq a b =
-  if Term.eq a b then 
-    mk_false()
-  else if Term.is_interp_const a && Term.is_interp_const b then
-    mk_true()
-  else if Term.eq a (Boolean.mk_true()) then
-    mk_equal b (Boolean.mk_false())
-  else if Term.eq a (Boolean.mk_false()) then
-    mk_equal b (Boolean.mk_true())
-  else if Term.eq b (Boolean.mk_true()) then
-    mk_equal a (Boolean.mk_false())
-  else if Term.eq b (Boolean.mk_false()) then
-    mk_equal a (Boolean.mk_true())
-  else
-    match Arith.d_num a, Arith.d_num b with
-      | Some(q), _ -> 
-	  mk_in (Cnstrnt.mk_diseq q) b
-      | _, Some(p) -> 
-	  mk_in (Cnstrnt.mk_diseq p) a
-      | None, None -> 
-	  let a',b' = Term.orient(a, b) in
-	  Diseq(a',b')
-
-(*s Transforming terms in an atom *)
-
-let map f a =
+and normalize (a, c) =
   match a with
-    | True -> True
-    | Equal(x,y) -> mk_equal (f x) (f y)
-    | Diseq(x,y) -> mk_diseq (f x) (f y)
-    | In(c,x) -> mk_in c (f x)
-    | False -> False
+    | Term.App(Arith(Multq(q)), [x]) when not(Mpa.Q.is_zero q) ->
+	(x, Cnstrnt.multq (Mpa.Q.inv q) c)
+    | Term.App(Arith(Add), m1 :: m2 :: ml) ->
+	(match m1, m2 with
+	   | Term.App(Arith(Sym.Num(q)), []), 
+	     Term.App(Arith(Multq(p)), [x])
+	       when not(Mpa.Q.is_zero p) ->   (* [q + p*x +ml in c] iff *)
+	       let pinv = Mpa.Q.inv p in      (* [x + 1/p * ml in 1/ p * (c - q)] *)
+	       let c' = Cnstrnt.multq pinv (Cnstrnt.addq (Q.minus q) c) in
+	       let a' = Arith.mk_add x (Arith.mk_multq pinv (Arith.mk_addl ml)) in
+		 (a', c')
+	   | _ -> (a, c))
+    | _ -> (a, c)
+
+let rec mk_diseq d =
+  let (a, b, _) = Fact.d_diseq d in
+    if Term.eq a b then 
+      mk_false()
+    else if Term.is_interp_const a && Term.is_interp_const b then
+      mk_true()
+    else if Term.eq a (Boolean.mk_true()) then
+      mk_equal(Fact.mk_equal b (Boolean.mk_false()) None)
+    else if Term.eq a (Boolean.mk_false()) then
+      mk_equal(Fact.mk_equal b (Boolean.mk_true()) None)
+    else if Term.eq b (Boolean.mk_true()) then
+      mk_equal(Fact.mk_equal a (Boolean.mk_false()) None)
+    else if Term.eq b (Boolean.mk_false()) then
+      mk_equal(Fact.mk_equal a (Boolean.mk_true()) None)
+    else
+      match Arith.d_num a, Arith.d_num b with
+	| Some(q), _ -> 
+	    mk_in(Fact.mk_cnstrnt b (Cnstrnt.mk_diseq q) None)
+	| _, Some(p) -> 
+	    mk_in(Fact.mk_cnstrnt a (Cnstrnt.mk_diseq p) None)
+	| None, None -> 
+	    Diseq(Fact.mk_diseq a b None)
+
 
 (*s Constructing inequalities. *)
 
@@ -107,7 +109,7 @@ let rec mk_lt a b =
 and mk_le a b =
   lower (Q.le, Cnstrnt.mk_le Dom.Real, Cnstrnt.mk_ge Dom.Real) (a,b)
 
-and lower (f,less,greater) (a,b) =
+and lower (f,less, greater) (a,b) =
   let (q, ml) = Arith.poly_of (Arith.mk_sub a b) in 
   match ml with
     | [] ->                                  
@@ -119,7 +121,7 @@ and lower (f,less,greater) (a,b) =
 	let c = rel (Q.minus (Q.div q p)) in
 	let ml' = List.map (Arith.mk_multq (Q.inv p)) ml in
 	let a = Arith.of_poly Q.zero ml' in
-	mk_in c (Arith.mk_add x a)
+	  mk_in (Fact.mk_cnstrnt (Arith.mk_add x a) c None)
 
 
 
@@ -128,9 +130,9 @@ and lower (f,less,greater) (a,b) =
 let pp fmt = function
   | True -> Pretty.string fmt "True"
   | False -> Pretty.string fmt "False"
-  | Equal(x,y) -> Term.pp_equal fmt (x,y)
-  | Diseq(x,y) -> Term.pp_diseq fmt (x,y)
-  | In(c,x) -> Term.pp_in fmt (x,c)
+  | Equal(e) -> Fact.pp_equal fmt e
+  | Diseq(d) -> Fact.pp_diseq fmt d
+  | In(c) -> Fact.pp_cnstrnt fmt c
 
 (*s Set of atoms. *)
 
@@ -140,6 +142,6 @@ module Set = Set.Make(
   struct
     type t = atom
     let compare a b =
-      if eq a b then 0 else Pervasives.compare a b
+      if a = b then 0 else Pervasives.compare a b
   end)
 

@@ -27,3 +27,9 @@ val call : level -> string -> 'a -> 'a Pretty.printer -> unit
 val exit : level -> string -> 'a -> 'a Pretty.printer -> unit
 
 val msg : level -> string -> 'a -> 'a Pretty.printer -> unit
+
+val func : level -> string -> 'a Pretty.printer -> 'b Pretty.printer
+             -> ('a -> 'b) -> 'a -> 'b
+
+val proc : level -> string -> 'a Pretty.printer
+             -> ('a -> unit) -> 'a -> unit

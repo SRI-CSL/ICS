@@ -18,7 +18,7 @@
 open Term
 open Three
 open Sym
-open Partition
+open Context
 (*i*)
 
 (*s Selectors. *)
@@ -27,7 +27,7 @@ let d_update a = match a with
   | App(Builtin(Update), [b; i; x]) -> (b, i, x)
   | _ -> raise Not_found
 
-and d_select a = match a with 
+let d_select a = match a with 
   | App(Builtin(Select), [a; i]) -> (a, i)
   | _ -> raise Not_found
 
@@ -37,38 +37,25 @@ and d_select a = match a with
  and [upd1 == z2 mod s], [x == i2 mod s], [y == j1 mod s] deduce
  that [z1 = k2]. *)
 
-let rec propagate e =
+let propagate e s =
   let (x, y, _) = Fact.d_equal e in
-    from_eq (x, y)
-
-and from_eq (x, y) (p, u) =
-  let p' = 
     Set.fold
-      (fun z1 p1 -> 
-	 try
-	   let (upd1, j1) = d_select (Solution.apply u z1) in
-	     if not(V.is_equal p1.v y j1) then
-	       p1
-	     else 
-	       V.fold p1.v
-		 (fun z2 p2  -> 
-		    try
-		      let (a2, i2, k2) = d_update (Solution.apply u z2) in
-			if V.is_equal p2.v x i2 then
-			  let e' = Fact.mk_equal (v p2 z1) (v p2 k2) None in
-			    Partition.merge e' p2
-			else
-			  p2
-		    with
-			Not_found -> p2)
-		 (v p1 upd1)
-		 p1
-	 with
-	     Not_found -> p1)
-      (Solution.use u x)
-      p
-  in
-    (p', u)
+      (fun z1 s1 -> 
+	 match apply Theories.U s1 z1 with 
+	   | App(Builtin(Select), [upd1; j1])
+	       when is_equal s1 y j1 = Three.Yes ->
+	       fold s1
+		 (fun z2 s2  -> 
+		    match apply Theories.U s2 z2 with 
+		      | App(Builtin(Update), [a2; i2; k2])
+			  when is_equal s2 x i2 = Three.Yes -> 
+			  let e' = Fact.mk_equal (v s2 z1) (v s2 k2) None in
+			    update (Partition.merge e' (p_of s2)) s2
+		      | _ -> s2)
+		 upd1 s1
+	   | _ -> s1)
+      (use Theories.U s x)
+      s
 
 
 (*s Propagating a disequalities.
@@ -77,41 +64,24 @@ and from_eq (x, y) (p, u) =
  [i = i'], [j = j'], [upd = z2], it follows that
  [z1 = z3], where [z3 = select(a,j)]. *)
 
-let rec diseq d (p, u) =
-  let (x, y, _) = Fact.d_diseq d in
-    from_diseq (x, y)
-      (from_diseq (y, x) (p, u))
-
-and from_diseq (i, j) ((p, u) as s) =
+let rec diseq d s =
+  let (i, j, _) = Fact.d_diseq d in
   Set.fold
-   (fun z1 ((p1, u1) as s1) -> 
-      try
-	let (upd, j') = d_select (Solution.apply u1 z1) in 
-	  if not(V.is_equal p1.v j j') then
-	    s1
-	  else 
-	  V.fold p1.v
-	    (fun z2 ((p2, u2) as s2) ->
-	       try
-		let (a, i', x) = d_update (Solution.apply u z2) in
-		  if not(V.is_equal p2.v i i') then
-		    s2
-		  else 
-		    let x = Term.mk_app Sym.select [a;j] in
-		      try
-			let z3 = Solution.inv u2 x in 
-			let e' = Fact.mk_equal (v p2 z1) (v p2 z3) None in
-			  (Partition.merge e' p2, u2)
-		      with
-			  Not_found ->
-			    let z3 = Term.mk_fresh_var (Name.of_string "v") None in
-			    let e3 = Fact.mk_equal (v p2 z1) (v p2 z3) None in
-			      (Partition.merge e3 p2, Solution.union (z3, x) u2)
-		      with
-			  Not_found -> s2)
-	    (v p1 upd)
-	    s1
-      with
-	  Not_found -> s1)
-    (Solution.use u j)
+   (fun z1 s1 -> 
+      match apply Theories.U s1 z1 with
+	| App(Builtin(Select), [upd; j']) 
+	    when is_equal s1 j j' = Three.Yes ->
+	    fold s 
+	      (fun z2 s2 ->
+		 match apply Theories.U s2 z2 with
+		   | App(Builtin(Update), [a; i'; _])
+		       when is_equal s2 i i' = Three.Yes ->
+		       let (s', z3) = name Theories.U  (s, Term.mk_app Sym.select [a; j]) in
+		       let e' = Fact.mk_equal (v s2 z1) (v s2 z3) None in
+		       let p' = Partition.merge e' (p_of s2) in
+			 update p' s'
+		   | _ -> s2)
+	      upd s1
+	| _ -> s)    
+    (use Theories.U s j)
     s

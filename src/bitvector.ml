@@ -69,10 +69,9 @@ let is_one a =
     | _ -> false
 
 
-(*s Creating fresh bitvector variables. *)
-
-let freshvars = ref Term.Map.empty
-let _ = Tools.add_at_reset (fun () -> freshvars := Term.Map.empty)
+(*s Creating fresh bitvector variables for solver. 
+ The index variable are always reset to the current value
+ when solver is called. *)
 
 let mk_fresh =
   let name = Name.of_string "bv" in
@@ -81,21 +80,13 @@ let mk_fresh =
     if n = 0 then 
       mk_eps
     else 
-      let x = Term.mk_fresh_var name None in
-      freshvars := Term.Map.add x n !freshvars;
-      x
-
-let is_fresh a = Term.Map.mem a !freshvars
+	Var(Var.mk_fresh name None)
 
 (*s Bitvector symbols *)
 
 let width a =
-  try
-    Some(Term.Map.find a !freshvars)
-  with
-      Not_found ->
-	if Term.is_var a then None else
-	  Sym.width (Term.sym_of a)
+  if Term.is_var a then None else
+    Sym.width (Term.sym_of a)
 
 
 let iter f a =
@@ -458,14 +449,14 @@ and solve_bitwise n (a,b) =
  the rhs of [sl]. It also makes sure that fresh variables [a] are never
  added to [sl] but only propagated. *)
 
-let rec add a b (el,sl) =
+let rec add a b (el, sl) =
   assert(not(is_interp a));
   if Term.eq a b then 
-    (el,sl)
+    (el, sl)
   else if inconsistent a b then
     raise Exc.Inconsistent
   else 
-    match is_fresh a, is_fresh b with 
+    match Term.is_fresh_var a, Term.is_fresh_var b with 
       | false, false ->
 	  (inste el a b, (a,b) :: insts sl a b)
       | true, true -> 
@@ -496,14 +487,16 @@ and apply1 a x b =      (* substitute [x] by [b] in [a]. *)
 (*s Toplevel solver. *)
 
 let rec solve e =
-  solvel ([e], [])
+  let (a, b, _) = Fact.d_equal e in
+  let sl = solvel ([(a, b)], []) in
+    List.map (fun (x, b) -> Fact.mk_equal x b None) sl
   
 and solvel (el,sl) =
   match el with
     | [] -> sl
-    | (a,b) :: el when Term.eq a b ->
+    | (a, b) :: el when Term.eq a b ->
 	solvel (el,sl)
-    | (a,b) :: el ->
+    | (a, b) :: el ->
 	(match d_interp a, d_interp b  with   
 	   | None, Some _ when not(occurs a b) ->      (* Check if solved. *)
 	       solvel (add a b (el,sl))
@@ -538,7 +531,7 @@ and solvel (el,sl) =
 			  b (mk_fresh (n-j-1)) in
 	       solvel (add x b' (el,sl))
 	   | _ ->
-	       let a,b = Term.orient(a,b) in
+	       let a, b = Term.orient(a,b) in
 	       solvel (add a b (el,sl)))
 
 and solve_sub_sub x n i j k l =
