@@ -292,18 +292,27 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
 
    (** {6 Iterators} *)
 
-   module Dep = struct
+   module Dep = struct 
+
+     let iter s f y = 
+       let xs = dep s y in
+       let apply_to x =             (* [s] might have changed. *)
+	 try f (equality s x) with Not_found -> () 
+       in
+	 Term.Var.Set.iter apply_to (dep s y)
+
      let apply_to_e s f x = 
        let e = 
 	 try 
 	   equality s x
 	 with 
 	     Not_found -> 
+	       pp_index := true;
+	       pp Format.err_formatter s;
 	       failwith ("Overapproximating dependency for: " ^ (Term.to_string x))
        in
 	 f e
-                        
-     let iter s f y = Term.Var.Set.iter (apply_to_e s f) (dep s y)
+                                          
      let fold s f y = Term.Var.Set.fold (apply_to_e s f) (dep s y) 
      let for_all s p y = Term.Var.Set.for_all (apply_to_e s p) (dep s y)
      let exists s p y = Term.Var.Set.exists (apply_to_e s p) (dep s y)
