@@ -100,23 +100,15 @@ let sigma op l =
 
 (*s Fresh variables. *)
 
-let freshvars = ref Term.Set.empty
-let _ =  Tools.add_at_reset (fun () -> freshvars := Term.Set.empty)
-
-let mk_fresh = 
+let mk_fresh =
   let name = Name.of_string "t" in
-  (fun () -> 
-     let x = Term.mk_fresh_var name None in
-     freshvars := Term.Set.add x !freshvars;
-     x)
-  
-let is_fresh x =
-  Term.Set.mem x !freshvars
+    fun () -> Var(Var.mk_fresh name None)
 
 (*s Solving tuples. *) 
 
-let rec solve (a, b) =
-  solvel [(a, b)] []
+let rec solve e =
+  let (a, b, _) = Fact.d_equal e in
+    solvel [(a, b)] []
 
 and solvel el sl =
   match el with
@@ -131,7 +123,8 @@ and solve1 (a, b) el sl =
     solvevar (b, a) el sl
   else match a with
     | App(Tuple(Proj(i, n)), [x]) -> 
-	solvel (proj_solve i n x b :: el) sl
+	let e' = proj_solve i n x b in
+	solvel (e' :: el) sl
     | App(Tuple(Product), xl) ->
 	solvel (tuple_solve xl b el) sl 
     | _ -> 
@@ -167,19 +160,28 @@ and proj_solve i n s t =
   let rec args j acc =
     if j = -1 then acc
     else
-      let a = if i = j then t else mk_fresh () in (* fresh var equals [mk_proj j n s] *)
-      args (j - 1) (a :: acc)
+      let a = 
+	if i = j then 
+	  t 
+	else 
+	    mk_fresh()
+      in  (* fresh var equals [mk_proj j n s] *)
+	args (j - 1) (a :: acc)
   in
-  (s, mk_tuple (args (n - 1) []))
+    (s, mk_tuple (args (n - 1) []))
 
-and add (a, b) el =
+and add (a, b) sl =
   if Term.eq a b then 
-    el
+    sl
   else
-    (a, b) :: (substl a b el)
+    let e = Fact.mk_equal a b None in  (* does not swap terms *)
+      e :: (substl a b sl)             (* since [a] and [b] are oriented *)
 
 and substl a b = 
-  List.map (fun (x, y) -> (x, subst1 y a b))
+  List.map 
+    (fun e -> 
+       let (x, y, _) = Fact.d_equal e in
+	 Fact.mk_equal x (subst1 y a b) None)
 
 and subst1 a x b =      (* substitute [x] by [b] in [a]. *)
   map (fun y -> if Term.eq x y then b else y) a

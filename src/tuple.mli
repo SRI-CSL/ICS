@@ -76,9 +76,4 @@ val map: (Term.t -> Term.t) -> Term.t -> Term.t
   where [xi] are uninterpreted in the tuple theory and the [ei] are canonized.
   The [ei] may also contain fresh variables. *)
 
-val solve : Term.t * Term.t -> (Term.t * Term.t) list
-
-
-(*s Test if argument variable has been introduced by tuple solver. *)
-
-val is_fresh : Term.t -> bool
+val solve : Fact.equal -> Fact.equal list
