@@ -1,5 +1,4 @@
 
-
 (*i
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
@@ -30,6 +29,8 @@ val option : 'a printer -> 'a option printer
 val list : 'a printer -> 'a list printer
 
 val pair : 'a printer -> 'b printer -> ('a * 'b) printer
+
+val triple : 'a printer -> 'b printer -> 'c printer -> ('a * 'b * 'c) printer
 
 val tuple : 'a printer -> 'a list printer
 

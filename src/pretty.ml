@@ -51,6 +51,15 @@ let pair pp1 pp2 fmt (a,b) =
   pp2 fmt b;
   Format.fprintf fmt ")@?"
 
+let triple pp1 pp2 pp3 fmt (a,b,c) =
+  Format.fprintf fmt "(";
+  pp1 fmt a;
+  string fmt ",";
+  pp2 fmt b;
+  string fmt ",";
+  pp3 fmt c;
+  Format.fprintf fmt ")@?"
+
 let infix pp1 op pp2 fmt (a,b) =
   Format.fprintf fmt ""; 
   pp1 fmt a; 
