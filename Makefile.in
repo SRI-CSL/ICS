@@ -146,6 +146,10 @@ SRCMLI = $(addprefix $(SRCDIR)/,$(CMO:.cmo=.mli))
 
 ICSAT= $(SATDIR)/lib/$(ARCH)/icsat.a
 
+CMXA = unix.cmxa \
+       nums.cmxa 
+
+CMA = $(CMXA:.cmxa=.cma)
 
 ### Top level ###
 
@@ -177,7 +181,7 @@ TOPCMX = $(TOPCMO:.cmo=.cmx)
 
 ifeq ($(MAKELEVEL),1)
 $(BINDIR)/ics: $(COBJS) $(TOPCMI) $(TOPCMX) $(ICSAT)
-	$(OCAMLOPT) -cc $(CXX) $(OFLAGS) -o $@ unix.cmxa $(TOPCMX) $(COBJS) -ccopt "$(MINUS_L_LIBS)" $(LIBS) \
+	$(OCAMLOPT) -cc $(CXX) $(OFLAGS) -o $@ $(CMXA) $(TOPCMX) $(COBJS) -ccopt "$(MINUS_L_LIBS)" $(LIBS) \
         $(ICSAT)  -ccopt "-lstdc++"
 else
 ics: $(OBJDIR) # $(ICSAT)
@@ -186,7 +190,7 @@ endif
 
 ifeq ($(MAKELEVEL),1)
 $(BINDIR)/ics.byte: $(COBJS) $(TOPCMI) $(TOPCMO)
-	$(OCAMLLINK) -cc $(CXX) -g -custom -o $@ unix.cma $(TOPCMO) \
+	$(OCAMLLINK) -cc $(CXX) -g -custom -o $@ $(CMA) $(TOPCMO) \
                     $(COBJS) $(LIBS) $(ICSAT)
 else
 ics.byte: $(OBJDIR)
@@ -195,7 +199,7 @@ endif
 
 
 ics_all.o: $(CMX)
-	$(OCAMLOPT) -output-obj -o $@ unix.cmxa $(CMX)
+	$(OCAMLOPT) -output-obj -o $@ $(CMXA) $(CMX)
 
 
 $(LIBDIR)/libics.a: $(OBJS)
@@ -207,7 +211,7 @@ $(LIBDIR)/libics.a: $(OBJS)
 
 $(LIBDIR)/ics.cmxa: $(OBJS) $(ICSAT) $(LISPERROROBJ)
 	(cd $(OBJDIR); \
-	 $(OCAMLMKLIB) -custom -linkall -o ics unix.cma $(OBJS) $(OBJDIR)/$(CMX) $(SATDIR)/obj/$(ARCH)/*.o \
+	 $(OCAMLMKLIB) -custom -linkall -o ics $(CMXA) $(OBJS) $(OBJDIR)/$(CMX) $(SATDIR)/obj/$(ARCH)/*.o \
 	               $(LIBS_WITH_CCLIB) $(MINUS_L_LIBS_WITH_CCLIB) -cclib -licsat -cclib $(LIBCPP); \
          cp ics.cmxa ics.cmi ics.a $(LIBDIR); \
 	 cp $(ICSAT) $(LIBDIR)/libicsat.a)
