@@ -1390,6 +1390,7 @@ void LPSolver::update_heuristics_info()
 
 bool LPSolver::process_complex_constraints()
 {
+	num_new_non_propositional_assignments = 0; // reset the number of complex assignments
 	if (branching_mode == LP_ACTIVATION_MODE)
 		return true; // this function is only used in the LP_ASSIGNMENT_MODE and LP_VAR_ASSIGNMENT_MODE
 
@@ -1479,8 +1480,6 @@ bool LPSolver::process_complex_constraints()
 			}
 		}
 	}
-
-	num_new_non_propositional_assignments = 0; // reset the number of complex assignments
 
 	remove_marks_from_tmp_queue();
 	return true;
