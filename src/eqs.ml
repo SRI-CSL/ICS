@@ -267,8 +267,8 @@ module Make(Th: TH): SET = struct
 	 | None ->
 	     (try                  (* restrict, then update. *)
 		let (b', rho') = apply s x in 
-		  (* s.dep <- Use.remove_but b x b' s.dep; *)  (* this needs to be fixed. *)
-		  s.dep <- Use.remove x b' s.dep;
+		  s.dep <- Use.remove_but b x b' s.dep;  (* this needs to be fixed. *)
+		  (* s.dep <- Use.remove x b' s.dep; *)
 		  s.dep <- Use.add x b s.dep; 
 		  !do_restrict (x, b, rho');
 		  s.find <- Term.Map.add x (b, rho) s.find;
