@@ -215,6 +215,15 @@ and arith_fme e s =
       | _ ->
 	  s 
 
+(** FME:
+     - From [u = a], [v = b] in [Th.la], [u in i], [v in j] in [c],
+       and [q * a = b] one may conclude 
+       [u in 1/q * j] and [v in [q * i]
+     - From [u = q * x + a'], [v = p * x + b'] in [Th.la]
+       and [u in i], [v in j] in [c] one can conclude
+       [p * a' - q * b' in p * i - q * j]
+*)
+
 and fme u a s =                    (* [u = a]. *)
   Trace.msg "rule" "Fme" (u, a) Term.pp_equal;
   try
