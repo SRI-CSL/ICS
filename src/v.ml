@@ -46,7 +46,8 @@ let find s x =
   let rec loop x (y, rho) =            (* [rho |- x = y] *)
     try 
       let (z, sigma) = apply s y in    (* [sigma |- y = z] *)
-	assert(not(Term.eq y z));
+	Trace.msg "v'" "find" (y, z) (Pretty.pair Term.pp Term.pp);
+	(* assert(not(Term.eq y z)); *)
 	let tau = Justification.trans (x, y, z) rho sigma in
 	  loop x (z, tau)
     with 
