@@ -71,6 +71,10 @@ val c : t -> Term.t -> Cnstrnt.t
 
 val fold : t -> (Term.t -> 'a -> 'a) -> Term.t -> 'a -> 'a
 
+(*s Folding over the use list. *)
+
+val folduse : Th.t -> Term.t -> (Term.t * Term.t -> t -> t) -> t -> t
+
 
 (*s [lookup s a] returns, if possible, a canonical variable equal to [a]. *)
 
