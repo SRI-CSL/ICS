@@ -1,5 +1,5 @@
 
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -12,14 +12,14 @@
  * benefit corporation.
  * 
  * Author: Jean-Christophe Filliatre, Harald Ruess
- i*)
+ *)
 
-(*s Multi-precision arithmetic. The purpose of this module is to
+(** Multi-precision arithmetic. The purpose of this module is to
   abstract the necessary arithmetic functions of any multi-precision
   package such as Ocaml's bignums, GNU MP etc in order to switch
   easily between packages. *)
 
-(*s Multi-precision integers. *)
+(** {6 iterators} *)
 
 module Z : sig
 
@@ -53,7 +53,7 @@ module Z : sig
   val pp : Format.formatter -> t -> unit
 end
 
-(*s Multi-precision rationals. *)
+(** {6 iterators} *)
 
 module Q : sig
 

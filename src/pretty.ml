@@ -16,11 +16,23 @@
 
 type 'a printer = Format.formatter -> 'a -> unit
 
+let unit fmt () =
+  Format.fprintf fmt "()"
+
 let string fmt str =
   Format.fprintf fmt "%s" str
 
 let number fmt i =
   Format.fprintf fmt "%d" i
+
+let option pp fmt = function
+  | None -> 
+      Format.fprintf fmt "None"
+  | Some(x) -> 
+      Format.fprintf fmt "Some(";
+      pp fmt x;
+      Format.fprintf fmt ")"
+  
 
 let list (pre,sep,post) pp fmt l =
   let rec iter = function
