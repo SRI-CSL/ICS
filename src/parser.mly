@@ -297,6 +297,7 @@ bv:
 
 prop:
   LPAR prop RPAR                  { $2 }
+| LBRA prop LBRA                  { $2 }
 | name                            { try Istate.prop_of $1 with Not_found -> Prop.mk_var $1 }
 | atom                            { Prop.mk_poslit $1 }
 | prop CONJ prop                  { Prop.mk_conj [$1; $3] }
