@@ -513,10 +513,10 @@ let _ = Callback.register "term_is_false" term_is_false
 
 type prop = Prop.t
  
-let prop_mk_true = Prop.mk_true
+let prop_mk_true () = Prop.mk_true
 let _ = Callback.register "prop_mk_true" prop_mk_true
 
-let prop_mk_false = Prop.mk_false
+let prop_mk_false () = Prop.mk_false
 let _ = Callback.register "prop_mk_false" prop_mk_false
 
 let prop_mk_var = Prop.mk_var
@@ -543,6 +543,7 @@ let _ = Callback.register "prop_mk_iff" prop_mk_iff
 let prop_mk_neg = Prop.mk_neg
 let _ = Callback.register "prop_mk_neg" prop_mk_neg
 
+(*
 let prop_is_true = Prop.is_true
 let _ = Callback.register "prop_is_true" prop_is_true
 
@@ -584,6 +585,7 @@ let _ = Callback.register "prop_d_iff" prop_d_iff
 
 let prop_d_neg = Prop.d_neg
 let _ = Callback.register "prop_d_neg" prop_d_neg
+*)
 
 
 

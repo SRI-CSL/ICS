@@ -11,50 +11,66 @@
  * benefit corporation.
  *)
 
+type t =
+  | True
+  | False
+  | Var of Name.t
+  | Atom of Atom.t
+  | Disj of t list
+  | Iff of t * t
+  | Ite of t * t * t
+  | Neg of t
 
-type t
+let mk_true = True
+let mk_false = False
+let mk_var n = Var(n)
+let mk_poslit a = Atom(a)
+let mk_neglit a = Atom(Atom.negate a)
+let mk_disj pl = Disj(pl)
+let mk_iff p q = Iff(p, q)
+let mk_ite p q r = Ite(p, q, r)
+let mk_neg p = Neg(p)
+let mk_conj pl = mk_neg (mk_disj (List.map mk_neg pl))
+
+
+
+(** {6 Translations to/from ICSAT propositions} *)
+
+type prop
 
 external icsat_initialize : unit -> unit = "icsat_initialize"
 external icsat_finalize : unit -> unit = "icsat_finalize"
 
-external icsat_mk_true : unit -> t = "icsat_mk_true"
-external icsat_mk_false : unit -> t = "icsat_mk_false"
-external icsat_mk_var : string -> t = "icsat_mk_var"
-external icsat_mk_atom : int -> int -> t = "icsat_mk_atom"
+external icsat_mk_true : unit -> prop = "icsat_mk_true"
+external icsat_mk_false : unit -> prop = "icsat_mk_false"
+external icsat_mk_var : string -> prop = "icsat_mk_var"
+external icsat_mk_atom : int -> int -> prop = "icsat_mk_atom"
 
-external icsat_mk_or : t list -> t = "icsat_mk_or"
-external icsat_mk_and : t list -> t = "icsat_mk_and"
-external icsat_mk_iff : t -> t -> t = "icsat_mk_iff"
-external icsat_mk_implies : t -> t -> t = "icsat_mk_implies"
-external icsat_mk_xor : t -> t -> t = "icsat_mk_xor"
-external icsat_mk_not : t -> t = "icsat_mk_not"
-external icsat_mk_ite : t -> t -> t -> t = "icsat_mk_ite"
+external icsat_mk_or : prop list -> prop = "icsat_mk_or"
+external icsat_mk_and : prop list -> prop = "icsat_mk_and"
+external icsat_mk_iff : prop -> prop -> prop = "icsat_mk_iff"
+external icsat_mk_implies : prop -> prop -> prop = "icsat_mk_implies"
+external icsat_mk_xor : prop -> prop -> prop = "icsat_mk_xor"
+external icsat_mk_not : prop -> prop = "icsat_mk_not"
+external icsat_mk_ite : prop -> prop -> prop -> prop = "icsat_mk_ite"
 
-external icsat_is_true : t -> bool = "icsat_is_true"
-external icsat_is_false : t -> bool = "icsat_is_false"
-external icsat_is_not : t -> bool = "icsat_is_not"
-external icsat_is_or : t -> bool = "icsat_is_or"
-external icsat_is_iff : t -> bool = "icsat_is_iff"
-external icsat_is_ite : t -> bool = "icsat_is_ite"
-external icsat_is_var : t -> bool = "icsat_is_var"
-external icsat_is_atom : t -> bool = "icsat_is_atom"
+external icsat_is_true : prop -> bool = "icsat_is_true"
+external icsat_is_false : prop -> bool = "icsat_is_false"
+external icsat_is_not : prop -> bool = "icsat_is_not"
+external icsat_is_or : prop -> bool = "icsat_is_or"
+external icsat_is_iff : prop -> bool = "icsat_is_iff"
+external icsat_is_ite : prop -> bool = "icsat_is_ite"
+external icsat_is_var : prop -> bool = "icsat_is_var"
+external icsat_is_atom : prop -> bool = "icsat_is_atom"
 
-external icsat_d_var : t -> string = "icsat_d_var"
-external icsat_d_atom : t -> int = "icsat_d_atom"
-external icsat_d_not : t -> t = "icsat_d_not"
-external icsat_num_arguments : t -> int = "icsat_num_arguments"
-external icsat_get_argument : t -> int -> t = "icsat_get_argument"
+external icsat_d_var : prop -> string = "icsat_d_var"
+external icsat_d_atom : prop -> int = "icsat_d_atom"
+external icsat_d_not : prop -> prop = "icsat_d_not"
+external icsat_num_arguments : prop -> int = "icsat_num_arguments"
+external icsat_get_argument : prop -> int -> prop = "icsat_get_argument"
 
-let _ = icsat_initialize()  (* Initialize SAT solver *)
 
-let mk_true = icsat_mk_true
-let mk_false = icsat_mk_false
-
-let mk_var str = icsat_mk_var (Name.to_string str)
-
-let mk_disj = icsat_mk_or
-
-(** Translating between Atoms and ids *)
+(** Translating to and from propositions *)
 
 module Atomtbl = Hashtbl.Make(
   struct
@@ -75,7 +91,7 @@ let id = ref 0
 let atomtbl = Atomtbl.create 17
 let inttbl = Inttbl.create 17
 
-let reset () = 
+let reset () =
   id := 0; 
   Atomtbl.clear atomtbl;
   Inttbl.clear inttbl
@@ -99,47 +115,50 @@ let id_to_atom i =
   with
       Not_found -> failwith "Fatal error: no atom for ICSAT identifier"
 
-let mk_poslit a =   
-  assert(Atom.is_negatable a);
-  let b = Atom.negate a in
-  let i = atom_to_id a in
-  let j = atom_to_id b in
-    icsat_mk_atom i j
+let rec to_prop = function
+  | True -> 
+      icsat_mk_true()
+  | False -> 
+      icsat_mk_false()
+  | Var(x) -> 
+      icsat_mk_var (Name.to_string x)
+  | Atom(a) -> 
+      assert(Atom.is_negatable a);
+      let b = Atom.negate a in
+      let i = atom_to_id a in
+      let j = atom_to_id b in
+	icsat_mk_atom i j
+  | Disj(pl) ->
+      icsat_mk_or (List.map to_prop pl)
+  | Iff(p, q) ->
+      icsat_mk_iff (to_prop p) (to_prop q)
+  | Ite(p, q, r) ->
+      icsat_mk_ite (to_prop p) (to_prop q) (to_prop r)
+  | Neg(p) ->
+      icsat_mk_not (to_prop p)
 
-let mk_neglit a = 
-  mk_poslit (Atom.negate a)
+let rec of_prop p =
+  if icsat_is_true p then
+    mk_true
+  else if icsat_is_false p then
+    mk_false
+  else if icsat_is_var p then
+    mk_var (Name.of_string (icsat_d_var p))
+  else if icsat_is_not p then
+    mk_neg (of_prop p)
+  else if icsat_is_or p then
+    mk_disj (List.map of_prop (d_disj p))
+  else if icsat_is_ite p then
+    mk_ite (of_prop (icsat_get_argument p 0))
+           (of_prop (icsat_get_argument p 1))
+           (of_prop (icsat_get_argument p 2))
+  else if icsat_is_iff p then
+    mk_iff (of_prop (icsat_get_argument p 0))
+           (of_prop (icsat_get_argument p 1))
+  else 
+    failwith "Fatal error: unknown ICSAT proposition"
 
-let mk_iff = icsat_mk_iff
-  
-let mk_neg = icsat_mk_not
-
-let mk_conj = icsat_mk_and
-
-let mk_ite = icsat_mk_ite
-
-let is_true = icsat_is_true
-let is_false = icsat_is_false
-
-let is_atom = icsat_is_atom
-let is_neg = icsat_is_not
-
-let is_disj = icsat_is_or
-let is_ite =  icsat_is_ite
-let is_iff = icsat_is_iff
-
-let is_var = icsat_is_var
-
-let d_var p =
-  let str = icsat_d_var p in
-    Name.of_string str
-
-let d_atom p =
-  let i = icsat_d_atom p in
-    id_to_atom i
-
-let d_neg = icsat_d_not
-
-let d_disj p = 
+and d_disj p = 
   let n = icsat_num_arguments p in
   let args = ref [] in
     for i = 0 to n - 1 do
@@ -147,13 +166,8 @@ let d_disj p =
     done;
     !args
 
-let d_ite p =
-  (icsat_get_argument p 0, icsat_get_argument p 1, icsat_get_argument p 2)
-
-let d_iff p = 
-  (icsat_get_argument p 0, icsat_get_argument p 1)
-
-(** Lists *)
+  
+(** {6 Lists} *)
 
 let is_nil = function [] -> true | _ -> false
 let _ = Callback.register "prop_is_nil" is_nil
@@ -168,13 +182,9 @@ let length = List.length
 let _ = Callback.register "prop_length" length
 
 
-(** Stack *)
+(** {6 Stack} *)
 
 let stack = Stack.create()
-
-let init s = 
-  Stack.clear stack;
-  Stack.push s stack
 
 let initial = ref Context.empty
 
@@ -207,51 +217,65 @@ let _ = Callback.register "prop_add" add
 
 let scratch = ref Context.empty 
 
-let prop_assert_in_scratch_context a =
-  match Context.add !scratch a with
-    | Context.Status.Valid -> 1
-    | Context.Status.Inconsistent -> 0
-    | Context.Status.Ok(s) -> (scratch := s; 1)
+let reset_scratch_context () =
+  scratch := Context.empty
+let _ = Callback.register "reset_scratch_context" reset_scratch_context
 
+let add_scratch_context i =
+  let a = id_to_atom i in
+    match Context.add !scratch a with
+      | Context.Status.Valid -> 1
+      | Context.Status.Inconsistent -> 0
+      | Context.Status.Ok(s) -> (scratch := s; 1)
+let _ = Callback.register "add_scratch_context" add_scratch_context
 
 
 (** Calling external SAT solver *)
 
-external icsat : t -> bool = "icsat_sat"
+external icsat_sat : t -> bool = "icsat_sat"
+
+let init s = 
+  icsat_initialize();    (* Initialize SAT solver *)
+  Stack.clear stack;     (* Initialize stack *)
+  Stack.push s stack;
+  initial := s;          (* Initial context *)
+  scratch := s;          (* Initialize scratch area *)
+  id := 0;               (* Initialize translation to props *)
+  Atomtbl.clear atomtbl;
+  Inttbl.clear inttbl
+
+let finalize () =
+  icsat_finalize ()
 
 let rec sat s p =
   try
-    init s;       (* Initialize stack *)
-    initial := s; (* Initial context *)
-    scratch := s; (* Initialize scratch area *)
+    init s;
     let result = 
-      if not(icsat p) then
-	None
-      else 
+      if icsat_sat p then 
 	Some(assignment p Atom.Set.empty)
+      else 
+	None
     in
-      reset ();
+      finalize();
       result
   with
       exc ->
-	reset ();
+	finalize ();
 	raise exc
-    
-    
-and assignment p acc =
-  if is_true p || is_false p || is_var p then acc
-  else if is_atom p then
-    let a = d_atom p in
-      Atom.Set.add a acc    (* how to test for assignment? *)
-  else if is_neg p then
-    assignment (d_neg p) acc
-  else if is_disj p then
-    List.fold_right assignment (d_disj p) acc
-  else if is_ite p then
-    let (q1, q2, q3) = d_ite p in
-      assignment q1 (assignment q2 (assignment q3 acc))
-  else if is_iff p then
-    let (q1, q2) = d_iff p in
-      assignment q1 (assignment q2 acc)
-  else
-    failwith "Fatal error: unknown ICSAT proposition"
+        
+and assignment p acc = 
+  match p with
+    | True -> acc
+    | False -> acc
+    | Var _ -> acc
+    | Atom(a) -> 
+	let i = atom_to_id a in
+	  Atom.Set.add a acc
+    | Disj(pl) ->
+	List.fold_right assignment pl acc
+    | Iff(p, q) -> 
+	assignment p (assignment q acc)
+    | Ite(p, q, r) -> 
+	assignment p (assignment q (assignment r acc))
+    | Neg(p) ->
+	assignment p acc

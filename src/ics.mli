@@ -763,6 +763,7 @@ val prop_mk_disj : prop list -> prop
 val prop_mk_iff : prop -> prop ->prop
 val prop_mk_neg : prop -> prop
 
+(*
 val prop_is_true : prop -> bool
 val prop_is_false : prop -> bool
 val prop_is_var : prop -> bool
@@ -778,6 +779,7 @@ val prop_d_ite : prop -> prop * prop * prop
 val prop_d_disj : prop -> prop list
 val prop_d_iff : prop -> prop * prop
 val prop_d_neg : prop -> prop
+*)
 
 
 (** {6 Solutions sets} *)
