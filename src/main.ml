@@ -11,7 +11,7 @@
  * benefit corporation.
  *)
 
-let version = "ICS 2.0 (Experimental, July 15 2003)" 
+let version = "ICS 2.0 (Experimental, August 10 2003)" 
 
 (** ICS command line interpreter. *)
 
@@ -33,11 +33,11 @@ let args () =
 	"-profiles", Arg.Set Tools.profiling,          
 	"Print profiles";
 	"-index", Arg.Set Eqs.pp_index,          
-	"Print indices";
+	"Print internal indices";
 	"-prompt", Arg.String Ics.set_prompt,
 	"Set prompt";
-        "-pp", set_false Ics.set_pretty,
-	"Disable Pretty-Printing of terms";	
+        "-pp", Arg.String Ics.set_pretty,
+	"Pretty-printing mode ([mixfix | prefix | sexpr]) ";	
 	"-nohelp", Arg.Clear Istate.help_enabled,
 	"Disable help feature";
 	"-print_consistent_context", Arg.Unit(fun() -> Prop.print_consistent_context := true),
@@ -48,12 +48,12 @@ let args () =
         "Display version number";
         "-compactify",  set_true Ics.set_compactify,
 	"Disable compactification in SAT solver";
-        "-expensive_simplify", Arg.Clear Context.cheap,
+        "-expensive_simplify", Arg.Clear Combine.cheap,
 	"Expensive but more complete simplification";
 	"-dependencies", Arg.Unit(fun () -> Ics.set_proofmode "dep"),
 	"Enable dependency generation";
 	"-proofmode", Arg.String(Ics.set_proofmode),
-	"Set proofmode to [Yes | No | Dep]";
+	"Set proofmode to [No | Dep]";
         "-eot", Arg.String Ics.set_eot, 
 	"Print string argument after each transmission";
         "-server", Arg.Int (fun portnum -> portnum_flag := Some(portnum)), 
@@ -76,10 +76,10 @@ let args () =
         "Number of refinement steps in SAT solver";
         "-statistics", set_true Ics.set_statistic,
         "Print statistics for SAT solver";
-        "-footprint", set_true Ics.set_footprint,
-        "Traces generated facts on stderr";
 	"-integersolve", set_false Ics.set_integer_solve,
         "Disables Solving for the integers";
+	"-crossmultiply", set_true Ics.set_crossmultiply,
+        "Enables crossmultiplication";
 	"-gc_space_overhead",  Arg.Int(Ics.set_gc_space_overhead),
         "GC will work more if [space_overhead] is smaller (default 80)";
 	"-gc_max_overhead", Arg.Int(Ics.set_gc_max_overhead),
@@ -114,13 +114,19 @@ and batch names =
 
 and batch1 name =
   let inch = Ics.inchannel_of_string name in
+  let exit_code = 
     if !timing_flag then
       let start = (Unix.times()).Unix.tms_utime in
-	Ics.cmd_batch (inch);
-	let time = (Unix.times()).Unix.tms_utime -. start in
-	  Format.eprintf "\n%s processed in %f seconds.@." name time
+      let code = Ics.cmd_batch (inch) in
+      let time = (Unix.times()).Unix.tms_utime -. start in
+	Format.eprintf "\n%s processed in %f seconds.@." name time;
+	code
     else 
       Ics.cmd_batch (inch)
+  in
+    if exit_code <> 0 then
+      exit exit_code
+    
 
 (** {6 Server Mode} *)
 
