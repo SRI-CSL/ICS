@@ -15,8 +15,9 @@ To compile ICS, you need to install first:
 Installation:
 -------------
 
-./configure
-make
+autoconf	[to create configure from configure.in]
+./configure     [creates the Makefile etc from XXX.in]
+make		[builds ICS]
 
 Binaries will be in ./bin/$(ARCH)/ 
 Libraries in ./lib/$(ARCH)/
