@@ -12,5 +12,5 @@
  *)
 
 let date = "@ICSVERSION@"
-let version = Format.sprintf "ICS 2.0 (beta, %s)" date
+let version = Format.sprintf "ICS 2.0 (%s)" date
 let debug = @DEBUG@

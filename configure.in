@@ -266,8 +266,6 @@ else
 fi				
 
 dnl Finally create all the generated files
-AC_SUBST(GMPPATH)
-dnl AC_OUTPUT(Makefile chameleon/Makefile ics)
 AC_OUTPUT(Makefile chameleon/Makefile ics sat/Makefile sat/src/Makefile src/version.ml)
 
 chmod a+x ics
