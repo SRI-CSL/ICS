@@ -160,7 +160,7 @@ class LPSolver {
 
 	LPFormulaId root_formula_id;
 
-	// LPFormulaManager * formula_manager;
+	LPFormulaManager * formula_manager;
 
 	LPTrailStack trail_stack;
 	LPActivationTrailStack activation_trail_stack;
@@ -272,8 +272,8 @@ private:
 	unsigned int num_new_non_propositional_assignments;
 	bool polarity_optimization;
 	bool implication_graph_optimization;
-	// bool lookahead_optimization;
-	// unsigned int lookahead_relevance;
+	bool lookahead_optimization;
+	unsigned int lookahead_relevance;
 	bool experimental_heuristics;
 
 	ICSInterface ics_interface;
@@ -286,7 +286,7 @@ private:
 	double constraint_propagation_time;
 	double polarity_optimization_time;
 	double implication_graph_optimization_time;
-	// double lookahead_optimization_time;
+	double lookahead_optimization_time;
 
 	unsigned int num_subsumed_clauses;
 	unsigned int num_backtracks;
@@ -301,7 +301,7 @@ private:
 	unsigned int num_generated_conflict_clauses_smaller_than_100; // interval (50, 100]
 	unsigned int num_generated_conflict_clauses_larger_than_100; // interval (100, ..)
 	unsigned int num_implication_graph_optimization_assignments;
-	// unsigned int num_lookahead_optimization_assignments; 
+	unsigned int num_lookahead_optimization_assignments; 
 
 	// This flag is used to implement a little optimization.
 	// It is used to decide how we should compute the decision_level of an assigned formula
@@ -595,17 +595,17 @@ public:
  		return f_idx;
 	}
 protected:
-// 	int propagate_rich_constraints();
-// 	int propagate_logic_constraint_downward(const LPFormula * formula);
-// 	int propagate_or_constraint_downward(const LPFormula * formula);
-// 	int propagate_iff_constraint_downward(const LPFormula * formula);
-// 	int propagate_ite_constraint_downward(const LPFormula * formula);
-// 	int propagate_exists_constraint_downward(const LPFormula * formula);
-// 	int propagate_logic_constraint_upward(unsigned int formula_idx, unsigned int occurrence_idx, bool negative_occurrence);
-// 	int propagate_or_constraint_upward(unsigned int formula_idx, const LPFormula * parent, bool negative_occurrence);
-// 	int propagate_iff_constraint_upward(unsigned int formula_idx, const LPFormula * parent);
-// 	int propagate_ite_constraint_upward(unsigned int formula_idx, const LPFormula * parent);
-// 	int propagate_exists_constraint_upward(unsigned int formula_idx, const LPFormula * parent);
+ 	int propagate_rich_constraints();
+ 	int propagate_logic_constraint_downward(const LPFormula * formula);
+ 	int propagate_or_constraint_downward(const LPFormula * formula);
+ 	int propagate_iff_constraint_downward(const LPFormula * formula);
+ 	int propagate_ite_constraint_downward(const LPFormula * formula);
+ 	int propagate_exists_constraint_downward(const LPFormula * formula);
+ 	int propagate_logic_constraint_upward(unsigned int formula_idx, unsigned int occurrence_idx, bool negative_occurrence);
+ 	int propagate_or_constraint_upward(unsigned int formula_idx, const LPFormula * parent, bool negative_occurrence);
+ 	int propagate_iff_constraint_upward(unsigned int formula_idx, const LPFormula * parent);
+ 	int propagate_ite_constraint_upward(unsigned int formula_idx, const LPFormula * parent);
+ 	int propagate_exists_constraint_upward(unsigned int formula_idx, const LPFormula * parent);
 	int propagate_clausal_constraints();
 	int propagate_clausal_constraints(unsigned int formula_idx);
 	int propagate_clausal_constraints(unsigned int formula_idx, LPClauseVector & v);
@@ -640,9 +640,9 @@ protected:
 	//
 	// Lookahead optimization
 	//
-	// 	void compute_lookahead_intersection(int * assignments1, int * assignments2, int * result_assignments);
-	// 	void consume_intersection(int * intersection);
-	// 	bool apply_lookahead_optimization();
+	void compute_lookahead_intersection(int * assignments1, int * assignments2, int * result_assignments);
+	void consume_intersection(int * intersection);
+	bool apply_lookahead_optimization();
 	//
 	// End of lookahead optimization
 	//
@@ -675,9 +675,9 @@ public:
 	void disable_polarity_optimization() { enable_polarity_optimization(false); }
 	void enable_implication_graph_optimization(bool flag = true) { implication_graph_optimization = flag; }
 	void disable_implication_graph_optimization() { enable_implication_graph_optimization(false); }
-	// void enable_lookahead_optimization(bool flag = true) { lookahead_optimization = flag; }
-	// void disable_lookahead_optimization() { enable_lookahead_optimization(false); }
-	// void set_lookahead_relevance(unsigned int r) { lookahead_relevance = r; }
+	void enable_lookahead_optimization(bool flag = true) { lookahead_optimization = flag; }
+	void disable_lookahead_optimization() { enable_lookahead_optimization(false); }
+	void set_lookahead_relevance(unsigned int r) { lookahead_relevance = r; }
 	void enable_experimental_heuristics(bool flag = true) { experimental_heuristics = flag; }
 	void disable_experimental_heuristics() { enable_experimental_heuristics(false); }
 	//
@@ -831,6 +831,8 @@ public:
 	//
 
 };
+
+extern LPSolver * sat_solver;
 
 inline ostream & operator << (ostream & target, LPSolver & s) {
 	s.dump_internal_info(target);

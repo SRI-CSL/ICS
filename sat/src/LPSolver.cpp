@@ -85,6 +85,7 @@ LPSolver::LPSolver(LPFormulaManager * f_manager, unsigned int initial_capacity, 
 
 LPSolver::~LPSolver()
 {
+	DBG_CODE(cout << "Destroying LPSolver\n";);
 	delete[] literals;
 	delete_dynamic_arrays();
 }
@@ -710,6 +711,8 @@ void LPSolver::setup_ics(unsigned int f_idx)
 			assert(false);
 		}
 	}
+
+	ics_interface.compute_associated_formulas_info();
 }
 
 bool LPSolver::is_satisfiable(LPFormulaId f)
@@ -749,12 +752,12 @@ bool LPSolver::is_satisfiable(LPFormulaId f)
 	if (verbose)
 		cout << "    propagating extended constraints...\n";
 
-	// if (propagate_rich_constraints() != 0) {
-	// an inconsistency was detected...
-	//	clock_t end = clock();
-	//	preproc_time = ((double) (end - start)) / CLOCKS_PER_SEC;
-	//	return false; /* formula is not satisfiable */
-	// }
+	if (propagate_rich_constraints() != 0) {
+		// an inconsistency was detected...
+		clock_t end = clock();
+		preproc_time = ((double) (end - start)) / CLOCKS_PER_SEC;
+		return false; /* formula is not satisfiable */
+	}
 
 	if (lookahead_optimization) {
 		if (!apply_lookahead_optimization()) {

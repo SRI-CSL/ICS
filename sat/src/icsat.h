@@ -23,9 +23,9 @@ extern "C" {
 	int icsat_assert(value f); /* returns 0 if unsatisfiable, 1 if satisfiable */
 	
 	void icsat_reset_scratch_context();
-	int icsat_assert_in_scratch_context(value f);
+	int icsat_add_scratch_context(value f);
 
-	int icsat_atoms_connected(value f1, value f2);
+	int icsat_is_connected(int f1, int f2);
 }
 
 #endif
