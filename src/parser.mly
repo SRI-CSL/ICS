@@ -273,13 +273,13 @@ boolean:
 
 
 atom:
-  term EQUAL term                   { Atom.mk_equal (Fact.mk_equal $1 $3 None)}
-| term DISEQ term                   { Atom.mk_diseq (Fact.mk_diseq $1 $3 None) }
-| term LESS term                    { Atom.mk_lt $1 $3 }
-| term GREATER term                 { Atom.mk_lt $3 $1 }
-| term LESSOREQUAL term             { Atom.mk_le $1 $3 }
-| term GREATEROREQUAL term          { Atom.mk_le $3 $1 }
-| term IN cnstrnt                   { Atom.mk_in (Fact.mk_cnstrnt $1 $3 None) }
+  term EQUAL term         { Atom.mk_equal(Fact.mk_equal $1 $3 Fact.mk_axiom)}
+| term DISEQ term         { Atom.mk_diseq(Fact.mk_diseq $1 $3 Fact.mk_axiom) }
+| term LESS term          { Atom.mk_in(Fact.mk_cnstrnt (Arith.mk_sub $1 $3) (Cnstrnt.mk_neg Dom.Real) Fact.mk_axiom) }
+| term GREATER term       { Atom.mk_in(Fact.mk_cnstrnt (Arith.mk_sub $3 $1) (Cnstrnt.mk_neg Dom.Real) Fact.mk_axiom) }
+| term LESSOREQUAL term   { Atom.mk_in(Fact.mk_cnstrnt (Arith.mk_sub $1 $3) (Cnstrnt.mk_nonpos Dom.Real) Fact.mk_axiom) }
+| term GREATEROREQUAL term{ Atom.mk_in(Fact.mk_cnstrnt (Arith.mk_sub $3 $1) (Cnstrnt.mk_nonpos Dom.Real) Fact.mk_axiom)}
+| term IN cnstrnt         { Atom.mk_in (Fact.mk_cnstrnt $1 $3 Fact.mk_axiom) }
 ;
 
 
