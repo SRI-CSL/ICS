@@ -137,7 +137,7 @@ let union i e s =
 (*s Extend with binding [x = b], where [x] is fresh *)
 
 let extend i b s = 
-  let x = Term.mk_fresh_var (Name.of_string "s") None in
+  let x = Term.mk_fresh_var (Name.of_string "v") None in
   let e = Fact.mk_equal x b (Fact.mk_rule "extend" []) in
     Trace.msg (to_string i) "Extend" e Fact.pp_equal;
     (x, union i e s)
