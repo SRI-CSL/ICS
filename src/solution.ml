@@ -354,7 +354,7 @@ module Make(Ext: EXT): (SET with type ext = Ext.t) = struct
      variable partitioning [p]. *)
    let rec update (p, s) ((x, b, rho) as e) = (* [rho |- x = b]. *)
      assert(Term.is_var x);  (* allow for equalities [x = y] with [y] internal. *)
-     if Term.is_var b && not(is_fresh b) then
+     if Term.is_var b (* && not(is_fresh b) *) then
        begin
 	 Partition.merge p e;
 	 restrict s x
