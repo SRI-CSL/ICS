@@ -74,8 +74,9 @@ CMO = sign.cmo three.cmo \
       bitvector.cmo \
       app.cmo \
       atom.cmo \
+      use.cmo \
       subst.cmo \
-      c.cmo \
+      symbolic.cmo c.cmo \
       a.cmo \
       t.cmo \
       bv.cmo \
