@@ -354,10 +354,17 @@ let rec map f a =
 	   | Num _, [] -> a
 	   | Mult, [x;y] -> 
 	       (match d_num x with
-		  | Some(q) -> mk_multq q (map f y)
+		  | Some(q) -> 
+		      let y' = map f y in
+		      if Term.eq y y' then a else mk_multq q y'
 		  | None -> mk_multl (Term.mapl (map f) l))
 	   | Mult, l -> mk_multl (Term.mapl (map f) l)
-	   | Add, [x;y] -> mk_add (map f x) (map f y)
+	   | Add, [x;y] -> 
+	       let x' = map f x and y' = map f y in
+	       if Term.eq x x' && Term.eq y y' then
+		 a
+	       else 
+		 mk_add x' y'
 	   | Add, l -> mk_addl (Term.mapl (map f) l)
 	   | Expt(n), [x] -> mk_expt n (map f x)
 	   | _ -> assert false)
@@ -419,7 +426,6 @@ let rec sigma op l =
 (*s Abstract interpretation in the domain of constraints. *)
 
 let rec cnstrnt ctxt a =
-  Trace.msg "arith" "Arith.Cnstrnt" a Term.pp;
   match d_interp a with
     | Some(op, l) -> 
 	let c = 
@@ -436,8 +442,8 @@ let rec cnstrnt ctxt a =
 	in
 	(try 
 	  Cnstrnt.inter (ctxt a) c
-	with
-	    Not_found -> c)
+	 with
+	     Not_found -> c)
     | _ ->
 	ctxt a
 
@@ -484,6 +490,8 @@ let rec solve_for pred (a,b) =
   let orient x b =
   if is_interp b then
     (x, b)
+  else if is_var b then
+    Term.orient (x, b)
   else if x <<< b && pred b then
     (b, x)
   else 
@@ -587,4 +595,4 @@ let normalize (a, i) =
       | One(q, p, x) ->          
 	  (x, norm q p)
       | Many(q, p, x, y) -> 
-	  (mk_add x y, norm q p)
+	  (mk_add x (mk_multq (Mpa.Q.inv p) y), norm q p)
