@@ -28,7 +28,7 @@ val abstract : Context.t -> Atom.t -> Context.t * Atom.t
 val can_t : Context.t -> Term.t -> Term.t
 
 val candiv : Context.t -> Term.t * Term.t -> Term.t
-val canmult : Context.t -> Term.t * Term.t -> Term.t
+val canmult : Context.t -> Term.t * Term.t -> Term.tcd 
 val canexpt : Context.t -> Term.t -> Term.t -> Term.t
 val canupdate : Context.t -> Term.t * Term.t * Term.t -> Term.t
 val canselect : Context.t -> Term.t * Term.t -> Term.t
