@@ -202,12 +202,12 @@ module Out = struct
  let split sl =
     if !batch then nothing () else 
       let fmt = !outchannel in
-	if sl = [] then
+	if Combine.Split.is_empty sl then
 	  Format.fprintf fmt ":none"
 	else
 	  begin
 	    Format.fprintf fmt ":splits ";
-	    Pretty.list Combine.Split.pp fmt sl
+	    Combine.Split.pp fmt sl
 	  end;
 	Format.fprintf fmt "@?"
 
