@@ -56,11 +56,21 @@ let find s x =
     loop x (Justification.Eqtrans.id x)
 
 let inv s x = 
-  match x with
-    | App _ -> raise Not_found
-    | _ -> Map.find x s.inv
+  try
+    (match x with
+       | App _ -> raise Not_found
+       | _ -> Map.find x s.inv)
+  with
+      Not_found -> Term.Set.empty
 
 let removable s = s.removable
+
+let is_canonical s x = 
+  try
+    let (y, _) = apply s x in
+      Term.eq x y
+  with
+      Not_found -> true
 
 
 (** {6 Basic Data Manipulations} *)
@@ -68,50 +78,43 @@ let removable s = s.removable
 let union (x, y, rho) s = 
   Trace.msg "v" "Union" (x, y) Term.Equal.pp;
   assert(not(Term.eq x y));
-  let invy = 
-    Set.add x 
-      (try Map.find y s.inv with Not_found -> Set.empty)
-  in
-    {find = Map.add x (y, rho) s.find;
-     inv = Map.add y invy s.inv;
-     removable = if Term.Var.is_internal x then Set.add x s.removable else s.removable}
+  {find = Map.add x (y, rho) s.find;
+   inv = Map.add y (Set.add x (inv s y)) s.inv;
+   removable = if Term.Var.is_internal x then Set.add x s.removable else s.removable}
 
-
-let restrict x s =
+(** Remove a binding [x |-> y] *)
+let remove x s =
   try
-    let (y', rho) = apply s x in                  (* [rho |- x = y']. *)
-      Trace.msg "v" "Restrict" x Term.pp;
-      let  (y, sigma) = find s y' in              (* sigma |- y' = y *)
-      let find' =
-	let newfind = Map.remove x s.find in      (* remove [x |-> y]. *)
-	  try
-	    let invx = inv s x in                 (* for all [z |-> x], set [z |-> y]. *)
-	    let rhosigma = Justification.trans (x, y', y) rho sigma in 
-	      Set.fold                            (* [rhosigma |- x = y] *) 
-		(fun z ->
-		   let (_, theta) = apply s z in  (* [theta |- z = x] *)
-		     Map.add z (y, Justification.trans (z, x, y) theta rhosigma))
-		invx
-		newfind
-	  with
-	      Not_found -> newfind
+    let (y, rho) = apply s x in
+      Trace.msg "v" "Remove" (x, y) Term.Equal.pp;
+      let find' = Term.Map.remove x s.find in
+      let invy' = Term.Set.remove x (inv s y) in
+      let inv' = 
+	if Term.Set.is_empty invy' then 
+	  Term.Map.remove y s.inv
+	else 
+	  Term.Map.add y invy' s.inv
       in
-      let inv' =
-	let newinv = Map.remove x s.inv in  (* remove the inverse of [x]. *)
-	  try 
-	    let invy = inv s y in           (* remove [x] from the inverse of [y]. *)
-	    let invy' = Set.remove x invy in
-	      if Set.is_empty invy' then 
-		Map.remove y newinv
-	      else 
-		Map.add y invy' newinv
-	  with
-	      Not_found -> newinv
-      in
-	{find = find'; inv = inv'; removable = Set.remove x s.removable}
+	{find = find'; 
+	 inv = inv'; 
+	 removable = Term.Set.remove x s.removable}
   with
       Not_found -> s
+    
 
+(** For [zi |-> x |-> y |-> ... |-> y'] set [zi |-> y'] and remove [x]. *)
+let restrict x s =
+  assert(Term.Set.mem x s.removable);
+  if is_canonical s x then s else
+    let s' =
+      Term.Set.fold
+	(fun z acc ->
+	   let (z', tau') = find s z in  (* change [z |-> x] to [z |-> z'] *)
+	     union (z, z', tau') (remove z acc))
+	(inv s x) s
+    in
+      remove x s'   (* now, break the link [x |-> y]. *)
+ 
 
 (** {6 Variable equality modulo [s]} *)
 
