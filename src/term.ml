@@ -8,11 +8,10 @@ open Bitv
 (*s Implementation of terms and functions over terms. \label{implterms}
     The datatypes for terms have been discussed in \fullrefsec{typeterms}. *)
 
-type sort = Int | Real
-  
-type cnstrnt = Pos | Neg | Nonneg | Nonpos
 
-type variable = string * sort option * cnstrnt option
+type cnstrnt = Int | Real | Pos | Neg | Nonneg | Nonpos
+
+type variable = string
 
 type tag = int
 
@@ -20,20 +19,15 @@ type term_node =
   | Var of variable
   | App of term * term list
   | Update of term * term * term
+  | Equal of term * term
+  | Cnstrnt of cnstrnt * term
   | Arith of arith
   | Tuple of tuple
-  | Atom of atom
   | Bool of prop
   | Set of set
   | Bv of bv
         
 and term = term_node hashed
-
-and atom =
-  | Equal of term * term
-  | Le of term * term
-  | Lt of term * term
-  | Integer of term     
 
 and arith =
   | Num of Q.t
@@ -81,22 +75,15 @@ module HashTerm = Hashcons.Make(
     type t = term_node
     let equal t1 t2 =
       match t1, t2 with
-	| Var (x1,typ1,sgn1), Var (x2,typ2,sgn2) -> 
-	    x1 == x2 && typ1 = typ2 && sgn1 = sgn2
+	| Var (x1), Var (x2) -> 
+	    x1 == x2
 	| App (s1,l1), App (s2,l2) ->
 	    s1 == s2 &&
             (try List.for_all2 (==) l1 l2 with Invalid_argument _ -> false)
-	| Atom a1, Atom a2 ->
-	    (match a1, a2 with
-	       | Equal (s1,t1), Equal (s2,t2) ->
+	| Equal (s1, t1), Equal (s2,t2) ->
 		   s1 == s2 && t1 == t2
-	       | Le (s1,t1), Le (s2,t2) ->
-		   s1 == s2 && t1 == t2
-	       | Lt (s1,t1), Le (s2,t2) ->
-		   s1 == s2 && t1 == t2
-	       | Integer s1, Integer s2 ->
-		   s1 == s2
-	       | _ -> false)
+	| Cnstrnt (c1, t1), Cnstrnt (c2, t2) ->
+		   t1 == t2 && c1 = c2
 	| Arith a1, Arith a2 ->
 	    (match a1, a2 with
 	       | Num(q1), Num(q2) ->
@@ -175,13 +162,12 @@ module HashTerm = Hashcons.Make(
 	     | Extr((_,b),i,j) -> (i + j + b.tag) land 0x3FFFFFFF
 	     | Conc l -> (List.fold_left (fun h (_,a) -> h+a.tag) 1 l) land 0x3FFFFFFF
 	     | BvIte((_,a),(_,b),(_,c)) -> (a.tag + b.tag + c.tag) land 0x3FFFFFFF)
-      | Atom a ->
-	  (match a with
-	     | Integer(t) -> 5 + t.tag  + 1 land 0x3FFFFFFF
-	     | Equal(s,t) -> (17 + s.tag + t.tag) land 0x3FFFFFFF
-	     | Le(s,t) -> (19 + s.tag + t.tag) land 0x3FFFFFFF
-	     | Lt(s,t) -> (23 + s.tag + t.tag) land 0x3FFFFFFF)   
-      | x -> Hashtbl.hash x
+      | Equal(s,t) ->
+	  (5 + s.tag + t.tag) land 0x3FFFFFFF
+      | Cnstrnt(_,t) ->
+	  (7 + t.tag) land 0x3FFFFFFF
+      | x ->
+	  Hashtbl.hash x
   end)
 
 let hc : term_node -> term =
@@ -273,8 +259,6 @@ let rec cmp x y = Cmp.generic
 	 cmp_prop_node t1 t2
      | Bv b1, Bv b2   ->
 	 cmp_bv b1 b2
-     | Atom(Integer t1), Atom(Integer t2) ->
-	 cmp t1 t2
      | _ -> assert false) x.node y.node
 
 and cmp_arith a1 a2 = Cmp.generic
@@ -343,7 +327,7 @@ let is_uninterpreted =
     match x.node with
       | Var _
       | App _
-      | Atom(Integer _) ->
+      | Cnstrnt _ ->
 	  true
       | Arith (Times (_::_::_ as l)) ->         (* nonlinear *)
 	  List.for_all is_uninterp l
@@ -351,6 +335,7 @@ let is_uninterpreted =
 	  false
   in
   cache 10007 is_uninterp
+
 
 let is_const t =
   match t.node with

@@ -11,10 +11,9 @@
 %}
 
 %token CAN SOLVE ASSERT FIND CHECK LIFT USE UNIVERSE SIGMA VERBOSE RESET DROP NORM COMPARE
-%token POLARITY
+%token POLARITY TYP
 
-%token INT POSINT NEGINT NNINT NPINT;
-%token REAL POSREAL NEGREAL NNREAL NPREAL
+%token INT REAL POS NEG NONNEG NONPOS
 
 %token <string> IDENT
 %token <string> CONST
@@ -63,6 +62,7 @@ term:
 | CONST                               { num (num_of_string $1) }
 | var LPAR term_comma_list RPAR       { app $1 $3 }
 | IF term THEN term ELSE term FI      { ite $2 $4 $6 }
+| cnstrnt                             { $1 }
 | prop                                { $1 }
 | arith                               { $1 }
 | tuple                               { $1 }
@@ -76,18 +76,17 @@ ident: IDENT { $1 }
 
 var:
   ident              { var $1 }
-| IDENT CONV INT     { int_var $1 }
-| IDENT CONV POSINT  { posint_var $1 }
-| IDENT CONV NEGINT  { negint_var $1 }
-| IDENT CONV NNINT   { nnint_var $1 }
-| IDENT CONV NPINT   { npint_var $1 }
-| IDENT CONV REAL    { real_var $1 }
-| IDENT CONV POSREAL { posreal_var $1 }
-| IDENT CONV NEGREAL { negreal_var $1 }
-| IDENT CONV NNREAL  { nnreal_var $1 }
-| IDENT CONV NPREAL  { npreal_var $1 }
 ;
 
+cnstrnt:
+  INT LPAR term RPAR     { is_int $3 }
+| REAL LPAR term RPAR    { is_real $3 }
+| POS LPAR term RPAR     { is_pos $3 }
+| NEG LPAR term RPAR     { is_neg $3 }
+| NONPOS LPAR term RPAR  { is_nonpos $3 }
+| NONNEG LPAR term RPAR  { is_nonneg $3 }
+;     
+      
 arith: 
   term PLUS   term                  { plus2 $1 $3 }
 | term MINUS  term                  { minus $1 $3 }
@@ -138,7 +137,6 @@ atom:
 | term GREATER term                 { gt $1 $3 }
 | term LESSOREQUAL term             { le $1 $3 }
 | term GREATEROREQUAL term          { ge $1 $3 }
-| INTEGER_PRED LPAR term RPAR       { integer_pred $3 }
 | term IN term                      { mem $1 $3 }
 | term NOTIN term                   { neg (mem $1 $3) }
 ;
@@ -147,19 +145,14 @@ prop:
   TRUE                              { ptrue() }
 | FALSE                             { pfalse() }
 | atom                              { $1 }
-| term AND term                     { $1 & $3 }
-| term OR term                      { $1 || $3 }
+| term AND term                     { conj $1 $3 }
+| term OR term                      { disj $1 $3 }
 | term XOR term                     { xor $1 $3 }
-| term IMPLIES term                 { $1 => $3 }
-| term IFF term                     { $1 <=> $3 }
+| term IMPLIES term                 { imp $1 $3 }
+| term IFF term                     { iff $1 $3 }
 | NOT term %prec prec_unary         { neg $2 }
 ;       
 
-fol:
-  term                                    { $1 }
-| FORALL LPAR ident_comma_list RPAR fol   { forall $3 $5 }
-| EXISTS LPAR ident_comma_list RPAR fol   { exists $3 $5 }
-;
 
 width: CONST { int_of_string $1 } 
 
@@ -199,6 +192,7 @@ command:
 | FIND optterm   DOT   { Cmd.find $2 }
 | SIGMA term     DOT   { Cmd.sigma $2 }
 | POLARITY term  DOT   { Cmd.polarity $2 }
+| TYP term  DOT        { Cmd.typ $2 }   
 | VERBOSE CONST  DOT   { Cmd.verbose (int_of_string $2) }
 | RESET          DOT   { Cmd.reset () }
 | DROP           DOT   { Cmd.drop () }

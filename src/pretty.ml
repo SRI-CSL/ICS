@@ -17,6 +17,15 @@ let rec list_sep sep f = function
 
 let list f = list_sep (fun () -> Format.print_string ", ") f
 
+let pp_cnstrnt = function
+  | Int -> printf "Int"
+  | Real -> printf "Real"
+  | Pos -> printf "Pos"
+  | Neg -> printf "Neg"
+  | Nonneg -> printf "Nonneg"
+  | Nonpos -> printf "Nonpos"
+
+
 (*s For the printing function, we take into account the usual
     precedence rules (i.e. * binds tighter than +) to avoid
     printing unnecessary parentheses. To this end, we maintain
@@ -98,19 +107,8 @@ let rec pp_prop prec p = match p with
       printf ".@ ";
       pp_term prec p
 
-and pp_var = function
-  | x,None,None -> print_string x
-  | x,Some(Int),None -> printf "("; print_string x; printf ":: int)"    
-  | x,Some(Int),Some(Pos) -> printf "("; print_string x; printf ":: posint)"
-  | x,Some(Int),Some(Neg) -> printf "("; print_string x; printf ":: negint)"
-  | x,Some(Int),Some(Nonneg) -> printf "("; print_string x; printf ":: nnint)"
-  | x,Some(Int),Some(Nonpos) -> printf "("; print_string x; printf ":: npint)"
-  | x,Some(Real),None -> printf "("; print_string x; printf ":: real)"    
-  | x,Some(Real),Some(Pos) -> printf "("; print_string x; printf ":: posreal)"
-  | x,Some(Real),Some(Neg) -> printf "("; print_string x; printf ":: negreal)"
-  | x,Some(Real),Some(Nonneg) -> printf "("; print_string x; printf ":: nnreal)"
-  | x,Some(Real),Some(Nonpos) -> printf "("; print_string x; printf ":: npreal)"     
-  | _ -> assert false
+and pp_var x =
+  print_string x
     
 and pp_tuple prec t = match t with
   | Tup l -> 
@@ -180,7 +178,7 @@ and pp_term prec t =
       printf " := ";
       pp_term prec v;
       printf "]@]"
-  | Atom(Equal (t1,t2)) ->
+  | Equal (t1,t2) ->
       printf "@[<hv 1>";
       lpar prec 2;
       pp_term 2 t1;
@@ -188,21 +186,12 @@ and pp_term prec t =
       pp_term 2 t2;
       rpar prec 2;
       printf "@]"
-  | Atom(Le (t1,t2)) ->
+  | Cnstrnt (c,t) ->
       printf "@[<hv 1>";
-      lpar prec 2;
-      pp_term 2 t1;
-      printf " <= ";
-      pp_term 2 t2;
-      rpar prec 2;
-      printf "@]"
-  | Atom(Lt (t1,t2)) ->
-      printf "@[<hv 1>";
-      lpar prec 2;
-      pp_term 2 t1;
-      printf " < ";
-      pp_term 2 t2;
-      rpar prec 2;
+      pp_cnstrnt c;
+      printf "(";
+      pp_term 2 t;
+      printf ")";
       printf "@]"
   | Arith a -> 
       pp_arith prec a
@@ -214,10 +203,6 @@ and pp_term prec t =
       pp_prop prec p
   | Bv b ->
       pp_bv prec b
-  | Atom(Integer(t)) ->
-      printf "@[<hv 1>intp(";
-      pp_term prec t;
-      printf ")@]"
 
 and pp_arith prec a =
   match a with
@@ -225,7 +210,6 @@ and pp_arith prec a =
   | Times l -> pp_times prec l
   | Plus l -> pp_plus prec l
  
-
 and pp_plus prec l =
   assert (List.length l > 1);
   list_sep (fun () -> printf " + ") (pp_term prec) l

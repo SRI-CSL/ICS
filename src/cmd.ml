@@ -91,6 +91,10 @@ let use = function
 let polarity t =
   Ics.polarity !current t
 
+let typ t =
+  Ics.typ !current t
+    
+
 let universe = function
   | Some(t) -> 
       if universe !current t then

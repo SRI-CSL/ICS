@@ -51,7 +51,7 @@ module BDD = Bdd.Make(
       match p.node with
 	| Bool (Ite (a,b,c)) -> Some(a, b, c)
 	| _ -> None
-    let fresh _ = (Var.fresh ("z",None,None) [])
+    let fresh _ = (Var.fresh "z" [])
 		    
   end)
        

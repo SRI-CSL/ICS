@@ -111,7 +111,7 @@ module Bvbdd = Bdd.Make(
     let is_low = function {node=Const b} -> Bitv.all_zeros b | _ -> false
     let is_ite = function {node=Ite _} -> true | _ -> false 
     let destructure_ite = function {node=Ite(x,y,z)} -> Some(x,y,z) | _ -> None 
-    let fresh n = mk_sub (Var.fresh ("b",None,None) []) n 0 (n-1)
+    let fresh n = mk_sub (Var.fresh "b" []) n 0 (n-1)
   end)
 
 let mk_apply b1 b2 b3 =
@@ -137,7 +137,7 @@ let inj n x =
   atom (mk_sub x n 0 (n-1))
 
 let fresh n =
-  inj n (Var.fresh ("b",None,None) [])
+  inj n (Var.fresh "b" [])
 
   
 			   

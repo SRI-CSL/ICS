@@ -1,3 +1,4 @@
+
 (*i*)
 open Tools
 open Hashcons
@@ -190,7 +191,7 @@ module Euclid = Euclid.Make(
   struct
     type t = term
     let num = num
-    let fresh () = Var.fresh ("k",Some(Int),None) []
+    let fresh () = Var.fresh "k" []    (* eigentlich integer cnstrnt *)
     let ( + ) = (fun x y -> add2 (x,y))
     let ( - ) = (fun x y -> sub (x,y))
     let ( * ) = (fun x y -> mult2 (x,y))

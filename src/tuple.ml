@@ -58,7 +58,7 @@ let proj_solve i n s t =
   let rec args j acc =
     if j = -1 then acc
     else
-      let a = if i = j then t else Var.fresh ("p",None,None) [] in
+      let a = if i = j then t else Var.fresh "p" [] in
       args (j - 1) (a :: acc)
   in
   add (s, tuple (args (n - 1) [])) []

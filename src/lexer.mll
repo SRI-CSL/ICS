@@ -14,10 +14,10 @@ let keyword =
     [ "can", CAN; "sigma", SIGMA; "solve", SOLVE; "reset", RESET;
       "drop", DROP; "assert", ASSERT; "find", FIND; "universe", UNIVERSE; "use", USE;
       "check", CHECK; "verbose", VERBOSE; "norm", NORM; "compare", COMPARE;
-      "polarity", POLARITY;
+      "sign", POLARITY; "typ", TYP;
       "proj", PROJ; "floor", FLOOR;
-      "int", INT; "posint", POSINT; "negint", NEGINT; "nnint", NNINT; "npint", NPINT;
-      "real", REAL; "posreal", POSREAL; "negreal", NEGREAL; "nnreal", NNREAL; "npreal", NPREAL;
+      "int", INT; "real", REAL; "neg", NEG; "nonneg", NONNEG; "pos", POS;
+      "nonpos", NONPOS;
       "in", IN; "notin", NOTIN; "compl", COMPL; "inter", INTER; "union", UNION;
       "diff", DIFF; "symdiff", SYMDIFF; "empty", EMPTY; "full", FULL;
       "unsigned", UNSIGNED;
@@ -35,7 +35,7 @@ let keyword =
 
 (*s The lexer it-self is quite simple. *)
 
-let ident = ['A'-'Z' 'a'-'z' '_'] ['A'-'Z' 'a'-'z' '_' '\'' '0'-'9']*
+let ident = ['A'-'Z' 'a'-'z'] ['A'-'Z' 'a'-'z' '_' '\'' '0'-'9']*
 
 let space = [' ' '\t' '\r' '\n']
 

@@ -10,16 +10,12 @@ type q
 
 val var : string -> term
 
-val int_var : string -> term
-val posint_var : string -> term
-val negint_var : string -> term
-val nnint_var : string -> term
-val npint_var : string -> term
-val real_var : string -> term
-val posreal_var : string -> term
-val negreal_var : string -> term
-val nnreal_var : string -> term
-val npreal_var : string -> term
+val is_int : term -> term
+val is_real : term -> term
+val is_pos : term -> term
+val is_neg : term -> term
+val is_nonpos : term -> term
+val is_nonneg : term -> term
     
 val app : term -> term list -> term
     
@@ -49,15 +45,13 @@ val mem    : term -> term -> term
 val ptrue  : unit -> term
 val pfalse : unit -> term
 val ite    : term -> term -> term -> term
-val forall : string list -> term -> term
-val exists : string list -> term -> term
 
-val neg    : term -> term
-val (&)    : term -> term -> term
-val (||)   : term -> term -> term
-val xor    : term -> term -> term
-val (=>)   : term -> term -> term
-val (<=>)  : term -> term -> term
+val neg : term -> term
+val conj : term -> term -> term
+val disj : term -> term -> term
+val xor : term -> term -> term
+val imp : term -> term -> term
+val iff : term -> term -> term
 
 val empty_set : int -> term
 val full_set  : int -> term
@@ -98,8 +92,6 @@ val is_update : term -> bool
 val is_ptrue  : term -> bool
 val is_pfalse : term -> bool
 val is_equal  : term -> bool
-val is_lt     : term -> bool
-val is_le     : term -> bool
 
 val is_empty_set : term -> bool
 val is_full_set  : term -> bool
@@ -158,6 +150,9 @@ val norm : state -> term -> term
 val canon : state -> term -> term
 
 val polarity : state -> term -> unit
+    
+val typ : state -> term -> unit
+    
 
 (*s {\bf Controls.} The following functions are provided to control
     the implementation of the decision procedure.  [reset] clears the

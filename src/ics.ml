@@ -9,18 +9,22 @@ open Term
   
 type term = Term.term
 
-let var x = Var.var (x,None,None)
+let var x = Var.var x
 
-let int_var x = Var.var (x,Some(Int),None)
-let posint_var x = Var.var (x,Some(Int),Some(Pos))
-let negint_var x = Var.var (x,Some(Int),Some(Neg))
-let nnint_var x = Var.var (x,Some(Int),Some(Nonneg))
-let npint_var x = Var.var (x,Some(Int),Some(Nonpos))
-let real_var x = Var.var (x,Some(Real),None)
-let posreal_var x = Var.var (x,Some(Real),Some(Pos))
-let negreal_var x = Var.var (x,Some(Real),Some(Neg))
-let nnreal_var x = Var.var (x,Some(Real),Some(Nonneg))
-let npreal_var x = Var.var (x,Some(Real),Some(Nonpos))
+let is_int x = Atom.cnstrnt (Int,x)
+let is_real x = Atom.cnstrnt (Real,x)
+let is_pos x = Atom.cnstrnt (Pos,x)
+let is_neg x = Atom.cnstrnt (Neg,x)
+let is_nonneg x = Atom.cnstrnt (Nonneg,x)
+let is_nonpos x = Atom.cnstrnt (Nonpos,x)
+
+let _ = Callback.register "is_int" is_int
+let _ = Callback.register "is_real" is_real
+let _ = Callback.register "is_pos" is_pos
+let _ = Callback.register "is_neg" is_neg
+let _ = Callback.register "is_nonneg" is_nonneg
+let _ = Callback.register "is_nonpos" is_nonpos
+
 		         
 let app = Arrays.app
 
@@ -78,29 +82,26 @@ let _ = Callback.register "unsigned" unsigned
 let ptrue () = Bool.tt
 let pfalse () = Bool.ff
 let ite = Bool.ite
-let forall xl  = failwith "to do"
-let exists xl = failwith "to do"
+	    
 let _ = Callback.register "ptrue" ptrue
 let _ = Callback.register "pfalse" pfalse
 let _ = Callback.register "ite" ite
-let _ = Callback.register "forall" forall
-let _ = Callback.register "exists" exists
 
 (* Derived term constructors for prop *)
 
-let neg   = Bool.neg
-let (&)   = Bool.conj
-let (||)  = Bool.disj
-let xor   = Bool.xor
-let (=>)  = Bool.imp
-let (<=>) = Bool.iff      
+let neg = Bool.neg
+let conj = Bool.conj
+let disj = Bool.disj
+let xor = Bool.xor
+let imp = Bool.imp
+let iff = Bool.iff      
 
 let _ = Callback.register "neg" neg
-let _ = Callback.register "and" (&)
-let _ = Callback.register "or" (||)
+let _ = Callback.register "conj" conj
+let _ = Callback.register "disj" disj
 let _ = Callback.register "xor" xor
-let _ = Callback.register "implies" (=>)
-let _ = Callback.register "equiv" (<=>)
+let _ = Callback.register "imp" imp
+let _ = Callback.register "iff" iff
 
 let empty_set = Sets.empty
 let full_set = Sets.full
@@ -155,10 +156,10 @@ let _ = Callback.register "bv_and" bv_and
 let _ = Callback.register "bv_or" bv_or
 let _ = Callback.register "bv_xor" bv_xor  
 
-let fresh l = Var.fresh ("c",None,None) l
+let fresh l = Var.fresh "c" l
 let _ = Callback.register "fresh" fresh
 
-let new_var s = Var.create (s,None,None)
+let new_var s = Var.create s
 let _ = Callback.register "new_var" new_var
 
 let tag t = t.tag
@@ -191,17 +192,13 @@ let propify f = function {node = Bool x } -> f x | _ -> false
 let is_ptrue  = propify (function True -> true | _ -> false)
 let is_pfalse = propify (function False -> true | _ -> false)
 let is_ite    = propify (function Ite _ -> true | _ -> false)
-let is_equal  = function {node=Atom(Equal _)} -> true | _ -> false
-let is_lt x    = true (* failwith "to do" *)
-let is_le x    = true (* failwith "to do" *)
+let is_equal  = function {node=Equal _} -> true | _ -> false
 
 let _ = Callback.register "is_ptrue" is_ptrue
 let _ = Callback.register "is_pfalse" is_pfalse
 let _ = Callback.register "is_ite" is_ite
 let _ = Callback.register "is_equal" is_equal
-let _ = Callback.register "is_lt" is_lt
-let _ = Callback.register "is_le" is_le
-
+	  
 let setify f = function {node = Set x } -> f x | _ -> false
 
 let is_empty_set = setify (function Empty _ -> true | _ -> false)
@@ -328,14 +325,23 @@ let sigma st t = t
 let solve _ = Solve.solve None
 
 let polarity st t =
-  match Sign.sign t with
+  match Sign.sign st t with
     | Sign.Nonpos -> Format.printf "Nonpos"
-    | Sign. Neg -> Format.printf "Neg"
+    | Sign.Neg -> Format.printf "Neg"
     | Sign.Zero -> Format.printf "Zero"
     | Sign.Pos -> Format.printf "Pos"
     | Sign.Nonneg -> Format.printf "Nonneg"
     | Sign.T -> Format.printf "Unconstrained"
     | Sign.F -> Format.printf "Inconsistent"
+
+let typ st t =
+  match Typ.typ st t with
+    | Typ.Int -> Format.printf "Int"
+    | Typ.Real -> Format.printf "Real"
+    | Typ.Nonint -> Format.printf "Nonint"
+    | Typ.Nonreal -> Format.printf "Nonreal"
+    | Typ.T -> Format.printf "Unconstrained"
+    | _ -> assert false
 
 (*s Reset. *)
 

@@ -16,13 +16,14 @@ let rec eq (a,b) =
     Bool.ff
   else
     match a.node,b.node with
-      | Bool(Ite(a1,a2,a3)), _ ->
-	  Bool.ite a1 (eq (a2,b)) (eq (a3,b))
-      | _, Bool(Ite(b1,b2,b3)) ->
-	  Bool.ite b1 (eq (a,b2)) (eq (a,b3))
+      | Bool(Ite(x,y,z)), _ ->
+	  Bool.ite x (eq (y,b)) (eq (z,b))
+      | _, Bool(Ite(x,y,z)) ->
+	  Bool.ite x (eq (a,y)) (eq (a,z))
+      | (Cnstrnt _ | Equal _), (Cnstrnt _ | Equal _) ->
+	  Bool.iff a b
       | _ ->
-          hc (Atom(Equal(a,b)))
- 
+          hc (Equal(a,b))
 
 (*s Disequalities [a <> b] are encoded as [~(a = b)]. *)
 
@@ -30,25 +31,35 @@ let deq (a,b) = Bool.neg (eq (a,b))
  
 let is_deq a =
   match a.node with
-    | Bool (Ite({node=Atom(Equal _)},
+    | Bool (Ite({node=Equal _},
 		    {node=Bool False},
 		    {node=Bool True})) -> true
     | _ -> false
 
 let destructure_deq a =
   match a.node with
-    | Bool (Ite({node=Atom(Equal (x,y))},
+    | Bool (Ite({node=Equal (x,y)},
 		{node=Bool False},
 		{node=Bool True})) -> Some(x,y)
     | _ -> None
 
 
+let cnstrnt (c,t) =
+  match t.node with
+    | Arith(Times({node = Arith (Num q)} :: l)) when Q.equal q (Q.minus Q.one) ->
+	(match c with
+	   | Pos -> hc (Cnstrnt (Neg, Arith.mult l))
+	   | Neg -> hc (Cnstrnt (Pos, Arith.mult l))
+	   | Nonneg -> hc (Cnstrnt (Nonpos, Arith.mult l))
+	   | Nonpos -> hc (Cnstrnt (Nonneg, Arith.mult l))
+	   | _ -> hc (Cnstrnt(c,t)))
+    | _ ->
+	hc (Cnstrnt(c,t))
 					      
 (*s Constructor for integer constraint *)
 
 let rec is_integer t =
   match t.node with
-    | Var (_,Some(Int),_) -> true
     | Arith a ->
 	(match a with
 	   | Num q -> Q.is_integer q
@@ -57,13 +68,30 @@ let rec is_integer t =
     | _ -> false
 
 let int t =
-  if is_integer t then Bool.tt
-  else if Term.is_const t then
-    match t.node with
-      | Arith (Num q) when Q.is_integer q -> Bool.tt
-      | _ -> Bool.ff
-  else
-    hc (Atom(Integer(t)))
+  match t.node with
+    | Bv _ | Set _ | Tuple _ | Set _ | Equal _ | Cnstrnt _ ->
+	Bool.ff
+    | _ -> 
+	if is_integer t then Bool.tt
+	else if Term.is_const t then
+	  match t.node with
+	    | Arith (Num q) when Q.is_integer q -> Bool.tt
+	    | _ -> Bool.ff
+	else
+	  cnstrnt (Int, t)
+
+let real t =
+  match t.node with
+    | Bv _ | Set _ | Tuple _ | Set _ | Equal _ | Cnstrnt _ ->
+	Bool.ff
+    | _ ->
+	cnstrnt (Real, t)
+
+let is_atom t =
+  match t.node with
+    | Cnstrnt _
+    | Equal _ -> true
+    | _ -> false
       
 (* Inequalities *)
 
@@ -72,12 +100,7 @@ let le (x,y) =
     Bool.tt
   else
     let p = Arith.sub (y,x) in
-    if Sign.is_nonneg p then
-      Bool.tt
-    else if Sign.is_neg p then 
-      Bool.ff
-  else
-    Term.hc (Atom(Le(x,y)))
+    cnstrnt (Nonneg, p)
 
       
 let lt (x,y) =
@@ -85,12 +108,7 @@ let lt (x,y) =
     le (Arith.incr x, y)
   else
     let p = Arith.sub (y,x) in
-    if Sign.is_pos p then
-      Bool.tt
-    else if Sign.is_neg p then
-      Bool.ff
-    else
-      Term.hc (Atom(Lt(x,y)))
+    cnstrnt (Pos, p)
 
 let pos x = lt (Arith.num Q.zero, x)
 let neg x = lt (x,Arith.num Q.zero)
@@ -98,25 +116,28 @@ let neg x = lt (x,Arith.num Q.zero)
 let nonneg x = le (Arith.num Q.zero, x)
 let nonpos x = le (x, Arith.num Q.zero)
 		 
-
-	
 (* Solving *)
 
 let solve ((a,b) as e) =
   match a.node, b.node with
-    | Atom(Equal(x,y)), Bool(True) ->
-	[x,y]       
-    | Atom(Le(x1,x2)), Bool(True) ->
-	let c = Var.create ("z", Some Real, Some Nonneg) in  (* x1 <= x2  --> x1 = x2-c, c >= 0 *)
-	[x1,Arith.sub (x2,c)]
-    | Atom(Le(x1,x2)), Bool(False) ->          (* x1 > x2 --> x1 = x2 + c, c > 0 *)
-	let c = Var.create ("z", Some Real, Some Pos) in
-	[x1, Arith.add2 (x2,c)]
-    | Atom(Lt(x1,x2)), Bool(True) ->           (* x1 < x2  --> x1 = x2-c, c > 0 *)
-	let c = Var.create ("z", Some Real, Some Pos) in
-	[x1,Arith.sub (x2,c)]
-    | Atom(Lt(x1,x2)), Bool(False) ->          (* x1 >= x2 --> x1 = x2 + c, c >= 0 *)
-	let c = Var.create ("z", Some Real, Some Nonneg) in
-	[x1, Arith.add2 (x2,c)]
+    | Equal(x,y), Bool(True) ->
+	[x,y]
+    | Cnstrnt(_, {node=Var _}), Bool(True) ->
+	[e]
+    | Cnstrnt(Pos,x), Bool(True) ->
+	let k = Var.create "z" in
+	[x, k; pos k, Bool.tt]
+    | Cnstrnt(Neg,x), Bool(True) ->
+	let k = Var.create "z" in
+	[x, k; neg k, Bool.tt]
+    | Cnstrnt(Nonneg,x), Bool(True) ->
+	let k = Var.create "z" in
+	[x, k; nonneg k, Bool.tt]
+    | Cnstrnt(Nonpos,x), Bool(True) ->
+	let k = Var.create "z" in
+	[x, k; nonpos k, Bool.tt]
     | _ ->
 	[e]
+
+
+

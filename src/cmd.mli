@@ -20,3 +20,4 @@ val can : term -> unit
 val norm : term -> unit
 val check : term -> unit
 val polarity : term -> unit
+val typ : term -> unit

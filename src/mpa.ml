@@ -49,7 +49,8 @@ module Q = struct
   let compare = Q.cmp
   let equal = Q.equal
   let is_zero x = Q.equal zero x
-  let is_one x = Q.equal one x	    
+  let is_one x = Q.equal one x
+  let is_negone x = Q.equal (Q.neg one) x
   let lt x y = Q.cmp x y < 0
   let le x y = Q.cmp x y <= 0
   let gt x y = Q.cmp x y > 0

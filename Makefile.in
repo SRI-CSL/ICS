@@ -51,11 +51,11 @@ CMO = cmp.cmo hashcons.cmo hasht.cmo ptset.cmo \
       ptmap.cmo tools.cmo seqs.cmo \
       gmp.cmo mpa.cmo bitv.cmo exc.cmo term.cmo var.cmo \
       tset.cmo tmap.cmo pretty.cmo bdd.cmo \
-      euclid.cmo poly.cmo bool.cmo arith.cmo sign.cmo \
+      euclid.cmo poly.cmo bool.cmo arith.cmo \
       atom.cmo prop.cmo state.cmo \
       tuple.cmo arrays.cmo conc.cmo bv.cmo \
       sets.cmo morphisms.cmo solve.cmo \
-      process.cmo can.cmo dp.cmo ics.cmo
+      sign.cmo typ.cmo process.cmo can.cmo dp.cmo ics.cmo
 
 CMI = $(CMO:.cmo=.cmi)
 
@@ -312,7 +312,7 @@ lexer.ml:  lexer.mll
 parser.mli parser.ml: parser.mly
 
 # Dependencies
-.depend: $(SRC)
+.depend:   # $(SRC)
 	$(OCAMLDEP) *.mli *.ml > .depend
 
 

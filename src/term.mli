@@ -7,11 +7,9 @@ open Bitv
 
 (*s Types of terms.  *)
 
-type sort = Int | Real
+type cnstrnt = Int | Real | Pos | Neg | Nonneg | Nonpos
 
-type cnstrnt = Pos | Neg | Nonneg | Nonpos
-
-type variable = string * sort option * cnstrnt option
+type variable = string
 
 type tag = int
 
@@ -22,18 +20,13 @@ and term_node =
   | Var of variable
   | App of term * term list
   | Update of term * term * term
+  | Equal of term * term
+  | Cnstrnt of cnstrnt * term
   | Arith of arith
   | Tuple of tuple
-  | Atom of atom
   | Bool of prop
   | Set of set
   | Bv of bv
-
-and atom =
-  | Equal of term * term
-  | Le of term * term
-  | Lt of term * term
-  | Integer of term
       
 and arith =
   | Num of Q.t

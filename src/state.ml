@@ -14,7 +14,7 @@ open Term
 
 type t = { 
   mutable find: term Tmap.t;
-  mutable use : Tset.t Tmap.t     (* map from terms to set of terms *)
+  mutable use : Tset.t Tmap.t;      (* map from terms to set of terms *)
 }
  
 (*s [empty] is the empty set. [add_id a s] adds the mapping [a=a] in [s] 
@@ -29,7 +29,7 @@ let empty = {
 
 let copy s = {
   find = s.find;
-  use = s.use;
+  use = s.use
 }
 
 let mem s x =
@@ -52,9 +52,10 @@ let find s =
   in
   loop
 
+
 (*s Use structure *)
     
-let rec use s x =
+let use s x =
   try Tmap.find x s.use with Not_found -> Tset.empty
 
 let adduse s x y =
@@ -70,8 +71,8 @@ let subterm_close s t =
       | App(u,vl) ->
 	  iter u; adduse s u t;
 	  List.iter (fun v -> iter v; adduse s v t) vl
-      | Atom(Integer(u)) ->
-	  iter u; adduse s u t
+      | Cnstrnt(c,u) ->
+	  iter u; adduse s u t;
       | Update(u,v,w) ->
 	  iter u; adduse s u t;
 	  iter v; adduse s v t;
@@ -111,15 +112,9 @@ let subterm_close s t =
 		 iter u; adduse s u t;
 		 iter v; adduse s v t;
 		 iter w; adduse s w t)
-      | Atom(Equal(u,v)) ->
+      | Equal(u,v) ->
 	  iter u; adduse s u t;
 	  iter v; adduse s v t
-      | Atom(Le(u,v)) ->
-	  iter u; adduse s u t;
-	  iter v; adduse s v t
-      | Atom(Lt(u,v)) ->
-	  iter u; adduse s u t;
-	  iter v; adduse s v t    
       end
   in
   iter t
@@ -170,28 +165,61 @@ let subterm_close1 s t =
 		 iter u; adduse s u t;
 		 iter v; adduse s v t;
 		 iter w; adduse s w t)
-      | Atom(Equal(u,v)) ->
+      | Equal(u,v) ->
 	  iter u; adduse s u t;
 	  iter v; adduse s v t
-      | Atom(Le(u,v)) ->
-	  iter u; adduse s u t;
-	  iter v; adduse s v t
-      | Atom(Lt(u,v)) ->
-	  iter u; adduse s u t;
-	  iter v; adduse s v t    
       | _ -> assert false
       end
   in
   iter t
 
 let update s x y =
-  assert (not (x == y)); (* && not(is_const x)); *)
+  assert (not (x == y));
   let y' = find s x in
   if not(y == y') then
     begin
-      s.find <- Tmap.add x y s.find;     
+      s.find <- Tmap.add x y s.find;
       s.use <- Tmap.add y (Tset.union (use s x) (use s y)) s.use
     end
+
+let is_int s t =
+  let f = function {node=Cnstrnt(Int,x)} -> t == find s x | _ -> false in
+  try
+    find s (Tset.choose f (use s t)) == Bool.tt
+  with
+      Not_found -> false
+
+let is_real s t =
+  find s (Atom.real t) == Bool.tt
+
+let is_pos s t =
+  let f = function {node=Cnstrnt((Pos | Nonneg),x)} -> t == find s x | _ -> false in
+  try
+    find s (Tset.choose f (use s t)) == Bool.tt
+  with
+      Not_found -> false
+			  
+let is_neg s t =
+  let f = function {node=Cnstrnt((Neg | Nonpos),x)} -> t == find s x | _ -> false in
+  try
+    find s (Tset.choose f (use s t)) == Bool.tt
+  with
+      Not_found -> false 
+
+let is_nonneg s t =
+  let f = function {node=Cnstrnt(Nonneg,b)} -> t == find s b | _ -> false in
+  try
+    find s (Tset.choose f (use s t)) == Bool.tt
+  with
+      Not_found -> false     
+
+let is_nonpos s t =
+  let f = function {node=Cnstrnt(Nonpos,b)} -> t == find s b | _ -> false in
+  try
+    find s (Tset.choose f (use s t))== Bool.tt
+  with
+      Not_found -> false
+		     
   
 (*s Pretty-printing *)
 
