@@ -540,55 +540,56 @@ and process_solved ((p, s) as cfg) e =
 
 and process_solved_restricted ((p, s) as cfg) e =
   assert(is_restricted_equality e);
-  try
-    compose1 t cfg 
-      (try_isolate_unbounded s e)
-  with
-      Not_found -> 
-	let (diff, rho) = mk_diff e in                   (* [rho |- diff = 0] *)
-	  assert(Mpa.Q.is_nonpos (Arith.constant_of diff));
-	  let (k, tau) = mk_zero_slack diff rho in       (* [tau |- k = diff] *)
-	    add_to_t cfg (Fact.Equal.make (k, diff, tau)); 
-	    if Fact.Equal.is_diophantine e then
-	      gomory_cut cfg e;  
-	    Trace.msg "foo3" "After add_to_t" () Pretty.unit;
-	    (try
-	       let (a', rho') = S.apply t s k in         (* [rho' |- k = a'] *)
-	       let e' = Fact.Equal.make (k, a', rho') in
-	       Trace.msg "foo3" "ZeroSlack" e' Fact.Equal.pp;
-	       let cmp = Mpa.Q.compare (Arith.constant_of a') Mpa.Q.zero in
-		 if cmp < 0 then                 (* I. [|a'| < 0] *)
+  if is_lhs_unbounded s e then
+    compose1 t cfg e
+  else 
+    try
+      compose1 t cfg 
+	(try_isolate_rhs_unbounded s e)
+    with
+	Not_found -> 
+	  let (diff, rho) = mk_diff e in                   (* [rho |- diff = 0] *)
+	    assert(Mpa.Q.is_nonpos (Arith.constant_of diff));
+	    let (k, tau) = mk_zero_slack diff rho in       (* [tau |- k = diff] *)
+	      add_to_t cfg (Fact.Equal.make (k, diff, tau)); 
+	      if Fact.Equal.is_diophantine e then
+		gomory_cut cfg e;
+	      (try
+		 let (a', rho') = S.apply t s k in         (* [rho' |- k = a'] *)
+		 let e' = Fact.Equal.make (k, a', rho') in
+		 let cmp = Mpa.Q.compare (Arith.constant_of a') Mpa.Q.zero in
+		   if cmp < 0 then                 (* I. [|a'| < 0] *)
 		   inconsistent 
 		     (Justification.dependencies [rho])
-		 else if cmp = 0 then            (* II. [|a'| = 0] *)
-		   (try 
-		      compose1 t cfg 
-			(isolate (choose a') e') 
+		   else if cmp = 0 then            (* II. [|a'| = 0] *)
+		     (try 
+			compose1 t cfg 
+			  (isolate (choose a') e') 
 		    with 
 			Not_found -> ())  (* skip *)
-		 else                            (* III. [|a'| > 0] *)
-		   if Arith.Monomials.Neg.is_empty a' then
-		     inconsistent 
-		       (Justification.dependencies [rho])
-		   else 
-		     (try
-			let y = choose_negvar_with_no_smaller_gain s a' in
-			  pivot cfg y;
-			  let sigma =Justification.trans(k,diff,Arith.mk_zero) rho tau in
-			    compose1 t cfg 
-			      (Fact.Equal.make (k, Arith.mk_zero, sigma))
-		      with
-			  Not_found -> 
-			    assert(not(Arith.Monomials.Neg.is_empty a'));
-			    pivot cfg (choose_neg_least a');
-			    process_solved_restricted cfg 
-			      (Fact.Equal.map_rhs (replace s) e'))
-	     with           
-		 Not_found ->  (* [k] is not a dependent variable *)
-		   let sigma = Justification.trans (k, diff, Arith.mk_zero) rho tau in
-		     compose1 t cfg 
-		       (Fact.Equal.make (k, Arith.mk_zero, sigma)));
-	    infer cfg
+		   else                            (* III. [|a'| > 0] *)
+		     if Arith.Monomials.Neg.is_empty a' then
+		       inconsistent 
+			 (Justification.dependencies [rho])
+		     else 
+		       (try
+			  let y = choose_negvar_with_no_smaller_gain s a' in
+			    pivot cfg y;
+			    let sigma =Justification.trans(k,diff,Arith.mk_zero) rho tau in
+			      compose1 t cfg 
+				(Fact.Equal.make (k, Arith.mk_zero, sigma))
+			with
+			    Not_found -> 
+			      assert(not(Arith.Monomials.Neg.is_empty a'));
+			      pivot cfg (choose_neg_least a');
+			      process_solved_restricted cfg 
+				(Fact.Equal.map_rhs (replace s) e'))
+	       with           
+		   Not_found ->  (* [k] is not a dependent variable *)
+		     let sigma = Justification.trans (k, diff, Arith.mk_zero) rho tau in
+		       compose1 t cfg 
+			 (Fact.Equal.make (k, Arith.mk_zero, sigma)));
+	      infer cfg
 
 (* If [a'] contains negative variables, then we see 
    if there is a negative variable [y] in [a'] such that the 
@@ -648,7 +649,7 @@ and process_nonneg1 ((_, s) as cfg) nn =
 		Not_found ->
 		  (try
 		     compose1 t cfg 
-		       (try_isolate_unbounded s e)
+		       (try_isolate_rhs_unbounded s e)
 		   with
 		       Not_found -> 
 			 add_to_t cfg e;
@@ -668,7 +669,7 @@ and add_to_t ((_, s) as cfg) e =
 	raise(Justification.Inconsistent(rho))
       else
 	try
-	  let e' = try_isolate_unbounded s e in                  (* k = a == y = b *)   
+	  let e' = try_isolate_rhs_unbounded s e in                  (* k = a == y = b *)   
 	  let (y, b, _) = Fact.Equal.destruct e' in
 	    if Term.Var.is_zero_slack k then
 	      let rho' = Justification.dependencies [rho] in     (* [rho' |- k = 0] *)
@@ -695,7 +696,7 @@ and add_to_t ((_, s) as cfg) e =
 
 (** [x = a == y = a'] with [y] unbounded in [s]; 
   otherwise [Not_found] is raised. *)
-and try_isolate_unbounded s e =
+and try_isolate_rhs_unbounded s e =
   let is_unb (_, x) =  is_unbounded s x in
   let a = Fact.Equal.rhs_of e in
     if Mpa.Q.is_nonpos (Arith.constant_of a) then
@@ -704,6 +705,14 @@ and try_isolate_unbounded s e =
     else 
       raise Not_found
 
+(** [e] is of the form [k = a] with [k] unbounded and [|a|]
+  positive and [a-] is empty. *)
+and is_lhs_unbounded s e =
+  let (x, a, _) = Fact.Equal.destruct e in
+    is_unbounded s x
+    && Mpa.Q.is_nonneg (Arith.constant_of a)
+    && Arith.Monomials.Neg.is_empty a     
+      
 
 and pivot ((_, s) as cfg) y =
   assert(not(is_unbounded s y));
