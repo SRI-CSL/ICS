@@ -639,40 +639,24 @@ module Can = struct
   and less s (x, beta, b) =   (* [x <(=) b] *)
     let x = can s x
     and b = fnd Th.la s (can s b) in (* use arithmetic interp if possible *)
-      try                           
-	let c = c s x in
-	let d = Cnstrnt.mk_less Dom.Real (b, beta) in
-	  (match Cnstrnt.cmp c d with
-	     | Cnstrnt.Super -> 
-		 Atom.mk_less (x, beta, b)
-	     | (Cnstrnt.Sub | Cnstrnt.Same) ->
-		 Atom.mk_true
-	     | Cnstrnt.Disjoint ->
-		 Atom.mk_false
-	     | Cnstrnt.Overlap ->
-		 Atom.mk_less (x, beta, b))
-      with
-	  Not_found ->
-	    Atom.mk_less (x, beta, b)
+    let ineq = Arith.mk_less (x, beta, b) in
+      if C.holds s.c ineq then
+	Atom.mk_true
+      else if C.holds s.c (Arith.negate ineq) then
+	Atom.mk_false
+      else 
+	Atom.of_ineq ineq
 	    
   and greater s (x, alpha, a) =  (* [x >(=) a] *)
     let x = can s x
     and a =  fnd Th.la s (can s a) in
-      try                           
-	let c = c s x in
-	let d = Cnstrnt.mk_greater Dom.Real (alpha, a) in
-	  (match Cnstrnt.cmp c d with
-	     | Cnstrnt.Super -> 
-		 Atom.mk_greater (x, alpha, a)
-	     | (Cnstrnt.Sub | Cnstrnt.Same) ->
-		 Atom.mk_true
-	     | Cnstrnt.Disjoint ->
-		 Atom.mk_false
-	     | Cnstrnt.Overlap ->
-		 Atom.mk_greater (x, alpha, a))
-      with
-	  Not_found ->
-	    Atom.mk_greater (x, alpha, a)
+    let ineq = Arith.mk_greater (x, alpha, a) in
+      if C.holds s.c ineq then
+	Atom.mk_true
+      else if C.holds s.c (Arith.negate ineq) then
+	Atom.mk_false
+      else 
+	Atom.of_ineq ineq
 
   and cnstrnt s (a, d) =
     let a = can s a in

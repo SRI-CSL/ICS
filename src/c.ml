@@ -61,6 +61,8 @@ let mem a s =
     | Var(x) -> Var.Map.mem x s.c
     | App _ -> false
 
+(** {6 Abstract interpretation} *)
+
 let of_term s =
  let lookup s x = fst(apply s x) in
    Cnstrnt.of_term (lookup s)
@@ -69,12 +71,56 @@ let of_addl s =
   let lookup s x = fst(apply s x) in
     Cnstrnt.of_addl (lookup s)
 
+(** {6 Predicates} *)
+
+let rec holds s = function
+  | Arith.True -> true
+  | Arith.False -> false
+  | Arith.Less(x, alpha, a) ->     (* [x <(=) a] *)
+      (try 
+	 let (c, _) = apply s x in
+	   Cnstrnt.exists_high 
+	     (function
+		| Cnstrnt.High.Posinf -> 
+		    false
+		| Cnstrnt.High.Bound(u, beta) ->        
+		    (Arith.less (u, alpha && beta, a)) ||    (* [x <(=) u], [u <(=) a] *)             
+	            (Cnstrnt.exists_high 
+		       (function
+			  | Cnstrnt.High.Posinf -> 
+			      false
+			  | Cnstrnt.High.Bound(u', gamma) -> (* [x <(=) u], [u <(=) u'], [u' <(=) a] *)
+			      Arith.less (u', alpha && beta && gamma, a))
+		       (of_term s u)))
+	     c
+       with
+	   Not_found -> false)
+  | Arith.Greater(x, alpha, a) ->     (* [x >(=) a] *)
+      (try 
+	 let (c, _) = apply s x in
+	   Cnstrnt.exists_low
+	     (function
+		| Cnstrnt.Low.Neginf -> 
+		    false
+		| Cnstrnt.Low.Bound(beta, l) -> 
+		    (Arith.greater (l, alpha && beta, a)) ||  (* [x >(=) l], [l >(=) a] *)
+	            (Cnstrnt.exists_low
+		       (function
+			  | Cnstrnt.Low.Neginf -> 
+			      false
+			  | Cnstrnt.Low.Bound(gamma, l') ->  (* [x >(=) l], [l >(=) l'], [l' >(=) a] *)
+			      Arith.greater (l', alpha && beta && gamma, a))
+		       (of_term s l)))
+	     c
+       with
+	   Not_found -> false)
+
+
+(** {6 Updating of datastructures} *)
 
 (** [update x c s] updates the constraint map with the constraint [x in c] and modifies
   the use lists accordingly. In addition, all implied inequalities are added. As a 
   side-effect, {!C.changed} is updated. *)
-
-
 let update a c prf s =
   match a with
     | Var(x) ->

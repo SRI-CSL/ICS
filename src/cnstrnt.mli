@@ -24,7 +24,6 @@
  @author Harald Ruess
 *)
 
-
 type t
 
 module Low : sig 
@@ -33,6 +32,9 @@ module Low : sig
     | Neginf 
     | Bound of bool * Term.t
 
+  val eq : t -> t -> bool
+  val le : t -> t -> bool
+
 end
 
 module High : sig
@@ -40,6 +42,9 @@ module High : sig
   type t =
     | Posinf
     | Bound of Term.t * bool
+
+  val eq : t -> t -> bool
+  val gt : t -> t -> bool
 
 end
 
@@ -166,6 +171,12 @@ val pp : t Pretty.printer
 val fold : (Low.t * High.t -> 'a -> 'a) -> t -> 'a -> 'a
   (** Fold over all intervals *)
 
+val exists : (Low.t * High.t -> bool) -> t -> bool
+
+val exists_low : (Low.t -> bool) -> t -> bool
+val exists_high : (High.t -> bool) -> t -> bool
+
+
 val varfold : (Term.t -> 'a -> 'a) -> t -> 'a -> 'a
   (** Folding over all variables. *)
 
@@ -173,15 +184,6 @@ val replace : Term.t -> Term.t -> t -> t
   (** [replace x a c] replaces all occurrences of [x] in [c] by [a]. *)
 
 (** {6 Constraint abstraction} *)
-
-val add : t -> t -> t
-val addq : Mpa.Q.t -> t -> t
-val multq : Mpa.Q.t -> t -> t
-val subtract : t -> t -> t
-val mult : t -> t -> t
-val multl : t list -> t
-val expt : int -> t -> t
-val div : t -> t -> t
 
 val of_term : (Term.t -> t) -> Term.t -> t
 
@@ -203,7 +205,7 @@ val is_diophantine : (Term.t -> t) -> Term.t -> bool
   (** [is_diophantine c a] holds if all variables in the linear 
     arithmetic term [a] are interpreted over the integers, that is,
     if [c(x)] yields a subconstraint of {!Cnstrnt.int}. *)
-  
-val lower_is_subsumed : bool * Term.t -> t -> bool
+ 
+val implies_upper : t -> (Term.t * bool) -> Three.t
 
-val upper_is_subsumed : Term.t * bool -> t -> bool
+val implies_lower : t -> (bool * Term.t) -> Three.t

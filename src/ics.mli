@@ -748,39 +748,6 @@ val atom_mk_gt : term -> term -> atom
 val atom_mk_ge : term -> term -> atom
 
 
-(** {6 Propositions} *)
-
-type prop
- 
-val prop_mk_true : unit -> prop
-val prop_mk_false : unit -> prop
-val prop_mk_var : name -> prop
-val prop_mk_poslit : Atom.t -> prop
-val prop_mk_neglit : Atom.t -> prop
-val prop_mk_ite : prop -> prop -> prop -> prop
-val prop_mk_conj : prop list -> prop
-val prop_mk_disj : prop list -> prop
-val prop_mk_iff : prop -> prop ->prop
-val prop_mk_neg : prop -> prop
-
-(*
-val prop_is_true : prop -> bool
-val prop_is_false : prop -> bool
-val prop_is_var : prop -> bool
-val prop_is_atom : prop -> bool
-val prop_is_ite : prop -> bool
-val prop_is_disj : prop -> bool
-val prop_is_iff : prop -> bool
-val prop_is_neg : prop -> bool
-
-val prop_d_var : prop -> name
-val prop_d_atom : prop -> atom
-val prop_d_ite : prop -> prop * prop * prop
-val prop_d_disj : prop -> prop list
-val prop_d_iff : prop -> prop * prop
-val prop_d_neg : prop -> prop
-*)
-
 
 (** {6 Solutions sets} *)
 
@@ -865,9 +832,6 @@ val process : context -> atom -> status
     the responsibility of the application programmer to perform these splits;
     see also {!Ics.split}. *)
 
-val sat : context -> prop -> atoms option
-  (** Satisfiability check. *)
-
 val split : context -> atom list
   (** Suggesting case splits. *)
 
@@ -885,6 +849,44 @@ val cnstrnt : context -> term -> cnstrnt
     computes an arithmetic constraint for [a] in [s] using constraint 
     information in [s] and abstraction interval interpretation.
     If no such constraint can be deduced, [None] is returned. *)
+
+
+
+(** {6 Propositions} *)
+
+type prop
+ 
+val prop_mk_true : unit -> prop
+val prop_mk_false : unit -> prop
+val prop_mk_var : name -> prop
+val prop_mk_poslit : Atom.t -> prop
+val prop_mk_neglit : Atom.t -> prop
+val prop_mk_ite : prop -> prop -> prop -> prop
+val prop_mk_conj : prop list -> prop
+val prop_mk_disj : prop list -> prop
+val prop_mk_iff : prop -> prop ->prop
+val prop_mk_neg : prop -> prop
+
+val sat : context -> prop -> atoms option
+
+(*
+val prop_is_true : prop -> bool
+val prop_is_false : prop -> bool
+val prop_is_var : prop -> bool
+val prop_is_atom : prop -> bool
+val prop_is_ite : prop -> bool
+val prop_is_disj : prop -> bool
+val prop_is_iff : prop -> bool
+val prop_is_neg : prop -> bool
+
+val prop_d_var : prop -> name
+val prop_d_atom : prop -> atom
+val prop_d_ite : prop -> prop * prop * prop
+val prop_d_disj : prop -> prop list
+val prop_d_iff : prop -> prop * prop
+val prop_d_neg : prop -> prop
+*)
+
 
 
 (** {6 Commands} *)

@@ -587,6 +587,10 @@ let prop_d_neg = Prop.d_neg
 let _ = Callback.register "prop_d_neg" prop_d_neg
 *)
 
+type assignment = Atom.Set.t
+
+let sat = Prop.sat
+let _ = Callback.register "sat" sat
 
 
 (** Nonlinear terms. *)
@@ -755,14 +759,11 @@ let split s =
   Atom.Set.elements (Context.split s) 
 let _ = Callback.register "split" split
 
-let sat = Prop.sat
-let _ = Callback.register "sat" sat
 
 (** Normalization functions *)
 
 let can = Context.Can.atom
 let _ = Callback.register "can" can
-
 
 let read_from_channel ch = 
   Parser.commands Lexer.token (Lexing.from_channel ch)

@@ -50,6 +50,8 @@ val mk_greater :  Term.t * bool * Term.t -> t
 
 val mk_in : Term.t * Dom.t -> t
 
+val of_ineq : Arith.ineq -> t
+
 (** {6 Negations of atoms} *)
 
 val is_negatable : t -> bool

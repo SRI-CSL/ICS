@@ -49,6 +49,8 @@ val mem : Term.t -> t -> bool
 val eq : t -> t -> bool
   (** [eq s t] when [s] and [t] are physically equal. *)
 
+val holds : t -> Arith.ineq -> bool
+
 
 (** {6 Context manipulations} *)
 

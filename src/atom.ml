@@ -120,7 +120,7 @@ let pp fmt = function
       Term.pp fmt b
   | Diseq(a, b) -> 
       Term.pp fmt a;
-      Pretty.string fmt " = ";
+      Pretty.string fmt " <> ";
       Term.pp fmt b
   | Less(a, kind, b) ->
       Term.pp fmt a;
@@ -155,6 +155,12 @@ let negate = function
       raise (Invalid_argument ("Atom " ^ str ^ " not negatable."))
 
 let _ = Callback.register "atom_negate" negate
+
+let of_ineq = function
+  | Arith.True -> True
+  | Arith.False -> False
+  | Arith.Less(x, alpha, a) -> Less(x, alpha, a)
+  | Arith.Greater(x, alpha, a) -> Greater(x, alpha, a)
 
 
 (** {6 Miscellaneous} *)

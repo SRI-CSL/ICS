@@ -529,6 +529,12 @@ let mk_le a b = mk_less (a, true, b)
 let mk_gt a b = mk_less (b, false, a)
 let mk_ge a b = mk_less (b, true, a)
 
+let negate = function
+  | True -> False
+  | False -> True
+  | Less(x, kind, a) -> Greater(x, not kind, a)
+  | Greater(x, kind, a) -> Less(x, not kind, a)
+
 let pp_ineq fmt = function
   | True -> Pretty.string fmt "True"
   | False -> Pretty.string fmt "False"
@@ -541,3 +547,20 @@ let pp_ineq fmt = function
       Pretty.string fmt (if kind then " >= " else " > ");
       Term.pp fmt b
 
+
+(** {6 Term comparison} *)
+
+let le a b =
+  let (q, ml) = poly_of a 
+  and (p, nl) = poly_of b in
+    Term.eql ml nl && Q.le q p
+
+let lt a b =
+  let (q, ml) = poly_of a 
+  and (p, nl) = poly_of b in
+    Term.eql ml nl && Q.lt q p
+
+let less (a, alpha, b) =
+  if alpha then le a b else lt a b
+
+let greater (a, alpha, b) = failwith "to do"

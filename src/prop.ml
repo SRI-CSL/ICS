@@ -58,7 +58,7 @@ let rec apply rho q =
 
 (** {6 Translations to/from ICSAT propositions} *)
 
-type prop
+type prop = int
 
 external icsat_initialize : unit -> unit = "icsat_initialize"
 external icsat_finalize : unit -> unit = "icsat_finalize"
@@ -124,7 +124,7 @@ let id = ref 0
 let atomtbl = Atomtbl.create 17
 let inttbl = Inttbl.create 17
 
-
+let idtbl = Atomtbl.create 17   (* internal [id] of ICSAT of an atom. *)
 
 let atom_to_id a =
   try
@@ -142,6 +142,16 @@ let id_to_atom i =
     Inttbl.find inttbl i
   with
       Not_found -> failwith "Fatal error: no atom for ICSAT identifier"
+
+let atom_to_icsat_id a =
+  try
+    Atomtbl.find idtbl a
+  with
+      Not_found -> failwith "ICSAT: no such id"
+
+let var_to_icsat_id x =
+  icsat_mk_var (Name.to_string x)
+
 
 let to_prop p =
   let rec translate rho p =
@@ -161,7 +171,10 @@ let to_prop p =
 	  let b = Atom.negate a in
 	  let i = atom_to_id a in
 	  let j = atom_to_id b in
-	    icsat_mk_atom i j
+	  let id = icsat_mk_atom i j in
+	    Trace.msg "foo6" "Idtbl.add" (a, id) (Pretty.pair Atom.pp Pretty.number);
+	    Atomtbl.add idtbl a id;
+	    id
       | Let(x, p, q) ->
 	  (match p with
 	     | Var _ ->
@@ -318,13 +331,15 @@ and assignment p acc =
   match apply [] p with
     | True -> acc
     | False -> acc
-    | Var _ -> acc
+    | Var _ ->
+	acc
     | Atom(a) -> 
-	let i = atom_to_id a in
-	  (match icsat_get_assignment i with
-	     | (-1) -> Atom.Set.add (Atom.negate a) acc  (* unsat *)
+	let id = atom_to_icsat_id a in
+	  Trace.msg "foo5" "Atom" (id, a) (Pretty.pair Pretty.number Atom.pp);
+	  (match icsat_get_assignment id with
+	     | (-1) -> Atom.Set.add (Atom.negate a) acc  (* false *)
 	     | 0 -> acc                                  (* don't care *)
-	     | 1 -> Atom.Set.add a acc                   (* valid *)
+	     | 1 -> Atom.Set.add a acc                   (* true *)
 	     | _ -> failwith "ICSAT: invalid return value of icsat_get_assignment")
     | Disj(pl) ->
 	List.fold_right assignment pl acc
