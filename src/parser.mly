@@ -118,7 +118,7 @@ name: IDENT            { Name.of_string $1 }
 
 term:
   var              { $1 }
-| freshvar         { $1 }
+| fresh            { $1 }
 | app              { $1 }
 | arith            { $1 }
 | tuple            { $1 }
@@ -137,7 +137,9 @@ var: name  { try
 		   Not_found -> Term.mk_var $1 }
 ;
 
-freshvar : FRESH { let (x,k) = $1 in Term.mk_fresh (Name.of_string x) (Some(k)) }
+fresh : 
+  FRESH            { let (x,k) = $1 in Term.mk_fresh_var (Name.of_string x) (Some(k)) }
+| FRESH LPAR RPAR  { let (x,k) = $1 in Term.mk_fresh_param x (Some(k)) }
 
 
 app: name LPAR termlist RPAR       { Istate.sigma (Sym.mk_uninterp $1) $3 }
@@ -231,11 +233,12 @@ cnstrnt:
 ;
 
 interval: 
-  INT                                  { Interval.mk_int }
-| REAL                                 { Interval.mk_real }
-| INT leftendpoint DDOT rightendpoint  { Interval.make (Dom.Int, $2, $4) }
-| REAL leftendpoint DDOT rightendpoint { Interval.make (Dom.Real, $2, $4) }
-| leftendpoint DDOT rightendpoint      { Interval.make (Dom.Real, $1, $3) }
+  INT                                    { Interval.mk_int }
+| REAL                                   { Interval.mk_real }
+| NONINT leftendpoint DDOT rightendpoint { Interval.make (Dom.Nonint, $2, $4) }
+| INT leftendpoint DDOT rightendpoint    { Interval.make (Dom.Int, $2, $4) }
+| REAL leftendpoint DDOT rightendpoint   { Interval.make (Dom.Real, $2, $4) }
+| leftendpoint DDOT rightendpoint        { Interval.make (Dom.Real, $1, $3) }
 ;
 
 leftendpoint:
@@ -292,7 +295,7 @@ command:
 		 	      with Not_found -> pr "Undef." }
 | USE th term               { Pretty.set Term.pp  (out()) (Term.Set.elements (Istate.use $2 $3)) }
 | SOLUTION th               { Pretty.solution Term.pp (out()) (Istate.solution $2) }
-| PARTITION                 { Pretty.solution Term.pp (out()) (Istate.partition ()) }
+| PARTITION                 { Pretty.map Term.pp (Pretty.set Term.pp) (out()) (Istate.partition ()) }
 | CNSTRNT term              { match Istate.cnstrnt $2 with
 				| Some(c) -> Cnstrnt.pp (out()) c
 				| None -> Pretty.string (out()) "None." }

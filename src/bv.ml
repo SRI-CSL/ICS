@@ -25,7 +25,6 @@ open Term
 module BV = Subst.Make(
   struct
     let name = "BV"
-    let is_external x = is_var x && not(Bitvector.is_fresh x)
     let fold = Bitvector.fold
     let map = Bitvector.map
   end)

@@ -47,6 +47,15 @@ val full : t
 
 val pp : t Pretty.printer
 
+(*s Status of symbolic constraint. Either empty, full, singleton or other. *)
+
+val status : t -> Mpa.Q.t Status.t
+
+
+(*s [occurs x s] holds if [x] occurs uninterpreted in [s]. *)
+
+val occurs : Term.t -> t -> bool
+
 
 (*s [meaning f s] computes an explicit constraint by instantiating
  all symbolic constraints in [s] using the context information [f]. *)
@@ -59,3 +68,9 @@ val meaning : (Term.t -> t) -> t -> Cnstrnt.t
  case [f] raises [Not_found], [Cnstrnt.mk_real] is returned. *)
 
 val cnstrnt : (Term.t -> t) -> Term.t -> Cnstrnt.t
+
+(*s [replace x a s] replaces [x] in the symbolic part of constraints
+ with [a] and propagates symbolic constraints which become explicit
+ in the process of replacement by conjoining them to the explicit part. *)
+
+val replace : Term.t -> Term.t -> t -> t

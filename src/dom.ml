@@ -14,7 +14,7 @@
  * Authors: Ritvik Sahajpa, Harald Ruess
  i*)
 
-type t = Int | Real
+type t = Int | Nonint | Real
 
 let eq d1 d2 = (d1 = d2)
 
@@ -23,43 +23,64 @@ let eq d1 d2 = (d1 = d2)
 let union d1 d2 =
   match d1, d2 with
     | Int, Int -> Int
+    | Nonint, Nonint -> Nonint
     | _ -> Real
 
 (*s Intersection of two domains *)
 
+exception Empty
+
 let inter d1 d2 =
   match d1, d2 with
     | Real, Real -> Real
-    | _ -> Int
+    | Int, Nonint -> raise Empty
+    | Nonint, Int -> raise Empty
+    | Int, _ -> Int
+    | _, Int -> Int
+    | Nonint, _ -> Nonint
+    | _, Nonint -> Nonint
 
 (*s Testing for disjointness. *)
 
-let disjoint d1 d2 = false
+let disjoint d1 d2 =
+  match d1, d2 with
+    | Int, Nonint -> true
+    | Nonint, Int -> true
+    | _ -> false
 
 (*s Testing for subdomains. *)
 
 let sub d1 d2 =
   match d1, d2 with
-    | Real, Int -> false
-    | _ -> true
+    | _, Real -> true
+    | Int, Int -> true
+    | Nonint, Nonint -> true
+    | _ -> false
 
 let cmp d1 d2 = 
   match d1, d2 with
     | Int, Int -> Binrel.Same
     | Int, Real -> Binrel.Sub
+    | Int, Nonint -> Binrel.Disjoint
     | Real, Int -> Binrel.Super
     | Real, Real -> Binrel.Same
+    | Real, Nonint -> Binrel.Super
+    | Nonint, Nonint -> Binrel.Same
+    | Nonint, Real -> Binrel.Sub
+    | Nonint, Int -> Binrel.Disjoint
 
 let of_q q =
-  if Mpa.Q.is_integer q then Int else Real
+  if Mpa.Q.is_integer q then Int else Nonint
 
 let mem q = function
   | Real -> true
+  | Nonint -> not (Mpa.Q.is_integer q)
   | Int -> Mpa.Q.is_integer q
 
 let pp fmt d =
   let s = match d with
     | Real -> "real"
     | Int -> "int"
+    | Nonint -> "nonint"
   in
   Format.fprintf fmt "%s" s

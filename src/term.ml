@@ -38,16 +38,19 @@ let rec eq a b =
 (*s Constructors. *)
 
 let mk_var x = Var(Var.mk_var x)
-let mk_fresh x k = Var(Var.mk_fresh x k)
+
 let mk_const f = App(f,[])
 let mk_app f l = App(f,l)
+
+let mk_fresh_var x k = Var(Var.mk_fresh x k)
+
+let mk_fresh_param x k = App(Sym.mk_fresh x k, [])
+
 
 (*s Recognizers. *)
 
 let is_var = function Var _ -> true | _ -> false
 let is_app = function App _ -> true | _ -> false
-
-let is_fresh = function Var(x) -> Var.is_fresh x | _ -> false
 let is_const = function App(_,[]) -> true | _ -> false
 
 
@@ -161,6 +164,12 @@ let rec iter f a  =
 
 let rec for_all p a  =
   p a && (is_var a || List.for_all (for_all p) (args_of a))
+
+
+let rec subterm a b  =
+  eq a b ||
+  (not(is_var b) ||
+   List.exists (subterm a) (args_of b))
 
 
 (*s Printer. *)

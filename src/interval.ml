@@ -63,6 +63,26 @@ let rec make (d,lo,hi) =
   match d with
     | Dom.Int -> makeint lo hi
     | Dom.Real -> makereal lo hi
+    | Dom.Nonint -> makenonint lo hi
+
+and makenonint lo hi =  (* to do *)
+  let (a,l) = Endpoint.destruct lo
+  and (b,k) = Endpoint.destruct hi 
+  in
+  let ((a',_) as lo') = 
+    match Extq.destruct a with
+      | Extq.Inject u when l && Q.is_integer u -> (a, false)
+      | _ -> lo
+  and ((b',_) as hi')  = 
+    match Extq.destruct b with
+      | Extq.Inject u when k && Q.is_integer u -> (b, false)
+      | _ -> hi
+  in
+  if Extq.lt b' a' then
+    mk_empty
+  else
+    {dom = Dom.Nonint; lo = lo'; hi = hi'}
+
     
 and makereal lo hi = 
   let (a,l) = Endpoint.destruct lo 
@@ -105,6 +125,7 @@ and makeint lo hi =
     mk_empty
   else
     {dom = Dom.Int; lo = lo'; hi = hi'}
+
 
 
 (*s Derived constructors. *)
@@ -214,10 +235,13 @@ let inter i j =
   and (c,gamma) = Endpoint.destruct j.lo 
   and (d,delta) = Endpoint.destruct j.hi
   in  
-  let d' = Dom.inter i.dom j.dom in
-  let lo' = Endpoint.make (Extq.max a c, mu a c gamma alpha) in
-  let hi' = Endpoint.make (Extq.min b d, mu b d beta delta) in
-  make (d',lo',hi')
+  try
+    let d' = Dom.inter i.dom j.dom in
+    let lo' = Endpoint.make (Extq.max a c, mu a c gamma alpha) in
+    let hi' = Endpoint.make (Extq.min b d, mu b d beta delta) in
+    make (d',lo',hi')
+  with
+      Dom.Empty -> mk_empty
      
 
 let union i j =
@@ -241,17 +265,26 @@ let union i j =
 
 (*s Addition and Subtraction. *)
 
-let add i j =
+let rec add i j =
   let (a,alpha) = Endpoint.destruct i.lo
   and (b,beta) = Endpoint.destruct i.hi
   and (c,gamma) = Endpoint.destruct j.lo 
   and (d,delta) = Endpoint.destruct j.hi
   in
-  let d' = Dom.union i.dom j.dom
+  let d' = add_dom i.dom j.dom
   and lo' = Endpoint.make (Extq.add a c, alpha && gamma)
   and hi' = Endpoint.make (Extq.add b d, beta && delta)
   in
   make (d',lo',hi')
+
+and add_dom d1 d2 =
+  match d1, d2 with
+    | Dom.Real, _ -> Dom.Real
+    | _, Dom.Real -> Dom.Real
+    | Dom.Int, Dom.Int -> Dom.Int
+    | Dom.Int, Dom.Nonint -> Dom.Nonint
+    | Dom.Nonint, Dom.Nonint -> Dom.Nonint
+    | Dom.Nonint, Dom.Int -> Dom.Nonint
 
 
 (*s Classification of intervals according to the signs of endpoints. *)

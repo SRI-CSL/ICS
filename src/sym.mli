@@ -133,3 +133,8 @@ val is_interpreted_const : t -> bool
 (*s Width of a bitvector symbol. *)
 
 val width : t -> int option
+
+(*s [mk_fresh x] creates a fresh function symbol of name [x!k], where [k]
+ is some integer. *)
+
+val mk_fresh : string -> int option -> t

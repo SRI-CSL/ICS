@@ -17,45 +17,45 @@
 
 (*s Set of variable equalities encoded as a list. *)
 
-type t = Veq.t list
+module Set = Set.Make(
+  struct
+    type t = Veq.t
+    let compare = Veq.cmp
+  end)
 
-let empty = []
+type t = Set.t
 
-let is_empty el = (el = [])
+let empty = Set.empty
 
-let destruct = function
-  | e :: el -> (e,el)
-  | _ -> assert false
+let is_empty = Set.is_empty
 
-let singleton e = [e]
+let destruct es = 
+  try
+    let e = Set.choose es in
+    (e, Set.remove e es)
+  with
+      Not_found -> assert false
 
-let add x y el = 
+let singleton = Set.singleton
+
+let add x y es = 
   assert(Term.is_var x && Term.is_var y);
-  Veq.make x y :: el
+  Set.add (Veq.make x y) es
 
-let mem e = List.exists (Veq.eq e)
+let mem = Set.mem
 
-let remove e el =
-  if mem e el then 
-    List.fold_right 
-      (fun e' acc ->
-	 if Veq.eq e e' then acc else e' :: acc)
-      el
-      []
-  else 
-    el
-  
+let remove = Set.remove
+ 
+let union = Set.union
 
-let union = (@)
+let fold f =
+ Set.fold
+   (fun e ->
+      let (x,y) = Veq.destruct e in
+      f x y)
 
-let fold f = 
-  List.fold_right
-    (fun e ->
-       let (x,y) = Veq.destruct e in
-       f x y)
+let to_list es = 
+  List.map Veq.destruct (Set.elements es)
 
-let to_list =
-  List.map Veq.destruct
-
-let pp fmt =
-  Pretty.list Veq.pp fmt
+let pp fmt es =
+  Pretty.list Veq.pp fmt (Set.elements es)

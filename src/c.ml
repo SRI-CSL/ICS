@@ -19,46 +19,77 @@ open Mpa
 open Term
 (*i*)
 
-(*s Constraint context as a map of term variables to constraints. *)
+
+(*s Slack variables *)
+
+let slacks = ref Term.Set.empty
+let _ = Tools.add_at_reset (fun () -> slacks := Term.Set.empty)
+
+let is_slack x = Term.Set.mem x !slacks
+
+let mk_slack =
+  fun () -> 
+    let k = Term.mk_fresh_param "k" None in
+    Trace.msg 10 "Slack" k Term.pp;
+    slacks := Term.Set.add k !slacks;
+    k
+
+(*s Constraint context. *)
 
 type t = {
-  find : Symbolic.t Term.Map.t;
-  use : Use.t;
+  cnstrnt : (Cnstrnt.t * Set.t) Map.t;
+  use : Use.t
 }
 
-let apply s x = Term.Map.find x s.find
+let empty = {
+  cnstrnt = Map.empty;
+  use = Use.empty
+}
 
-let find s x = 
-  try Term.Map.find x s.find with Not_found -> Symbolic.full
+let is_empty s = (s.cnstrnt == Map.empty)
+
+let mem x s = Map.mem x s.cnstrnt
 
 let use s = Use.find s.use
 
-(*s Check if [x] is in the domain. *)
+(*s Compute constraint for an arithmetic term. All
+ undeclared variables are implicitly assumed to be real-valued. *)
 
-let dom x s = Term.Map.mem x s.find
+let rec cnstrnt s a = 
+  cnstrnt_of_term s a
 
+and cnstrnt_of_term s a =
+  match Arith.d_interp a with
+    | Some(Sym.Num(q), []) -> 
+	Cnstrnt.mk_singleton q
+    | Some(Sym.Mult, l) -> 
+	Cnstrnt.multl (List.map (cnstrnt_of_term s) l)
+    | Some(Sym.Add, l) -> 
+	Cnstrnt.addl (List.map (cnstrnt_of_term s) l)
+    | Some(Sym.Expt(n), [x]) -> 
+	Cnstrnt.expt n (cnstrnt_of_term s x)
+    | _ ->
+	cnstrnt_of_var s a
 
-(*s Check if [x] is either in the domain or a subterm of an implicit constraint. *)
+and cnstrnt_of_var s x =
+  try
+    let (c, ts) = Term.Map.find x s.cnstrnt in
+    cnstrnt_of_terms s ts c
+  with
+      Not_found ->
+	Cnstrnt.mk_real
 
-let mem x s =
-  dom x s ||
-  not(Term.Set.is_empty (use s x))
-
-
-(*s [meaning s sc] instantiates the symbolic constraint [sc] in context [s]. *)
-
-let meaning s = Symbolic.meaning (apply s)
-
-
-(*s [cnstrnt s a] computes best constraint for [a] in [s]. *)
-
-let cnstrnt s = Symbolic.cnstrnt (apply s)
+and cnstrnt_of_terms s =
+  Term.Set.fold
+    (fun t c ->
+       let d = cnstrnt_of_term s t in
+       Cnstrnt.inter c d)
 
 
 (*s Constraints as a list. *)
 
 let to_list s =
-  Term.Map.fold (fun x sc acc -> (x, meaning s sc) :: acc) s.find []
+  Term.Map.fold (fun x _ acc -> (x, cnstrnt s x) :: acc) s.cnstrnt []
 
 
 (*s Pretty-printing. *)
@@ -67,41 +98,133 @@ let rec pp fmt s =
   Pretty.list Term.pp_in fmt (to_list s)
 
 
-(*s The empty constraint map. *)
+(*s Use structure manipulations. *)
 
-let empty = {
-  find = Term.Map.empty;
-  use = Use.empty
-}
+let remove_use x a = Use.remove Arith.fold x a
+let add_use x a = Use.add Arith.fold x a
 
 
-(*s Test for emptyness. *)
+(*s Extend domain of constraint map. *)
 
-let is_empty s = (s == empty)
-
-
-(*s Extend domain. *)
-
-let extend (x,d) s =
-  assert(not(mem x s));
-  Trace.msg 6 "Extend(c)" (x,d) Term.pp_in;
-  if Cnstrnt.is_empty d then
+let extend c s =
+  if Cnstrnt.is_empty c then
     raise Exc.Inconsistent
-  else
-    {s with find = Term.Map.add x (Symbolic.of_cnstrnt d) s.find}
+  else 
+    let k = mk_slack () in
+    Trace.msg 6 "Extend(c)" (k,c) Term.pp_in;
+    let s' = {s with cnstrnt = Map.add k (c, Set.empty) s.cnstrnt} in
+    (k, s')
 
-(*s Restrict domain. *)
 
-let restrict x s =
+(*s Restricting domain. *)
+
+let restrict k s =
   try
-    let symbolic = Symbolic.symbolic (apply s x) in
-    Trace.msg 6 "Restrict(c)" x Term.pp;
-    let find' = Term.Map.remove x s.find
-    and use' =  List.fold_right (fun (_,a) -> Use.remove Arith.fold x a) symbolic s.use
-    in
-    {s with find = find'; use = use'}
+    let (_, ts) = Map.find k s.cnstrnt in
+    let cnstrnt' = Map.remove k s.cnstrnt in
+    let use' = Set.fold (remove_use k) ts s.use in
+    {s with cnstrnt = cnstrnt'; use = use'}
   with
       Not_found -> s
+
+(*s Adding an equality (k,b) to [s]. *)
+
+let rec merge (k,b) s =
+  Trace.msg 6 "Merge(c)" (k,b) pp_equal;
+  let d = cnstrnt s b in
+  try
+    let (c, bs) = Term.Map.find k s.cnstrnt in
+    match Cnstrnt.cmp c d with
+      | Binrel.Disjoint ->
+	  raise Exc.Inconsistent
+      | Binrel.Singleton(q) ->
+	  if Set.is_empty bs then   (* not propagated yet. *)
+	    (restrict k s, [(k, Arith.mk_num q)])
+	  else 
+	    let c' = Cnstrnt.mk_singleton q in
+	    let s' = {s with cnstrnt = Term.Map.add k (c', bs) s.cnstrnt} in
+	    (s', [])
+      | (Binrel.Same | Binrel.Sub) ->
+	  let s' = update k c (b, bs) s in
+	  (s', [])
+      | Binrel.Super ->
+	  let s' = update k d (b, bs) s in
+	  (s', [])
+      | Binrel.Overlap(cd) ->
+	  let s' = update k cd (b, bs) s in
+	  (s', [])
+  with
+      Not_found ->
+	let s' = update k d (b, Set.empty) s in
+	(s', [])
+	  
+and update k c (b, bs) s =        (* add [k |-> (c, add(t,ts))], where *)
+  let bs' = Set.add b bs in       (* [t] is a new equality term. *)
+  {s with 
+     cnstrnt = Term.Map.add k (c, bs') s.cnstrnt;
+     use = add_use k b s.use}
+
+
+
+(*
+
+(*s [remove x s] physically removes [x] from the [find] map and
+ updates the [use] lists accordingly. *)
+
+let remove x s =
+  try
+    let c = apply s x in
+    {s with find = Term.Map.remove x s.find; use = remove_use x c s.use}
+  with
+      Not_found -> s
+
+
+(*s [update x c s] installs the new constraint [x in c] by overwriting the
+ [find] constraint and updating the use lists accordingly. *)
+
+let update x c s =
+  let find' = Term.Map.add x c s.find in
+  let use' = 
+    try
+      let d = Term.Map.find x s.find in
+      add_use x c (remove_use x d s.use)
+    with
+	Not_found ->
+	  add_use x c s.use
+  in
+  {s with find = find'; use = use'}
+
+
+(*s Instantiate [x] in symbolic constraints with [b] in [s]. *)
+
+let rec instantiate (x, b) (s, eqs) =
+  Term.Set.fold
+    (fun y (s, eqs) ->
+       try
+	 let c = apply s y in
+	 let c' = Symbolic.replace x b c in
+	 match Symbolic.status c' with
+	   | Status.Empty ->
+	       raise Exc.Inconsistent
+	   | Status.Singleton(q) ->
+	       let n = Arith.mk_num q in
+	       let (s', eqs') = restrict (y, n) (s, eqs) in
+	       (s', (y, n) :: eqs')
+	   | _ ->
+	       (update y c' s, eqs)
+       with
+	   Not_found -> (s, eqs))
+    (use s x)
+    (s, eqs)
+
+
+(*s Remove [x] from domain of cnstrnt assignments and replace every [x]
+ with [b] in the symbolic constraints in which [x] occurs. *)
+
+and restrict (x,b) (s, eqs) =
+  let s' = remove x s in
+  instantiate (x,b) (s', eqs)
+
 
 (*s Updating constraint information. *)
 
@@ -128,11 +251,13 @@ and derive x (s, eqs) =         (* to do: recursive updates. *)
 	 raise Exc.Inconsistent
        else match Cnstrnt.d_singleton c with
 	 | Some(q) ->
-	     (restrict y s, (y, Arith.mk_num q) :: eqs)
+	     let n = Arith.mk_num q in
+	     restrict (y,n) (s, (y, n) :: eqs)
 	 | None -> 
 	     (s, eqs))
     (use s x)
     (s, eqs)
+
 
 (*s Adding a new symbolic constraint. *)
 
@@ -171,7 +296,8 @@ let rec add (a,c) s =
     raise Exc.Inconsistent
   else match Cnstrnt.d_singleton c with
     | Some(q) ->
-	(restrict a s, [(a, Arith.mk_num q)])
+	let n = Arith.mk_num q in
+	restrict (a,n) (s, [(a,n)])
     | None ->
 	(match Arith.decompose a with     
 	   | Arith.Const(q) ->              (* Case: [a = q] *)
@@ -180,11 +306,13 @@ let rec add (a,c) s =
 	       else 
 		 raise Exc.Inconsistent
 	   | Arith.One(q, p, x) ->          (* Case: [q + p * x in c] *)
-	       let c' = normalize q p c in  (* iff [x in 1/p * (c - q)] *) 
+	       let c' = normalize q p c in  (* iff [x in 1/p * (c - q)] *)  
+	       Trace.msg 6 "Explicit(c)" (a,c) pp_in;
 	       add_explicit x c' (s, [])
 	   | Arith.Many(q, p, x, y) ->      (* Case: [q + p * x + y in c] *)
 	       let c' = normalize q p c in  (* iff [x in ((1/p * (c - q)) - cnstrnt(1/p * y)] *)
-	       let y' = Arith.mk_multq (Q.inv p) y in
+	       let y' = Arith.mk_multq (Q.inv p) y in  
+	       Trace.msg 0 "Symbolic(c)" (a,c) pp_in;
 	       add_symbolic x (c', y') (s, []))
 	
 and add_explicit x c (s, eqs) =            (* add an explicit constraint [x in c]. *)
@@ -198,7 +326,8 @@ and add_explicit x c (s, eqs) =            (* add an explicit constraint [x in c
       | Binrel.Sub ->
 	  update_explicit x c (s, eqs)
       | Binrel.Singleton(q) ->
-	  (restrict x s, (x, Arith.mk_num q) :: eqs)
+	  let n = Arith.mk_num q in
+	  restrict (x,n) (s, (x, n) :: eqs)
       | Binrel.Overlap(cd) ->
 	  update_explicit x cd (s, eqs)
   with
@@ -211,3 +340,36 @@ and add_symbolic x (c, a) (s, eqs) =
   let s'' = extend_symbolic x (c,a) s in
   (s'', eqs')
  
+
+(*s Merging an equality between constraints. *)
+
+let propagate (k, b) s =
+  (s, [])
+(*
+  match cnstrnt s k, cnstrnt s b with
+    | Some(ck), Some(cb) ->
+	(match Cnstrnt.cmp ck cb with
+	   | Binrel.Disjoint ->
+	       raise Exc.Inconsistent 
+	   | (Binrel.Super | Binrel.Same) ->
+	       let (sa', veqs') = A.propagate s.a [(k, b)] in
+	       let (sc', eqs') = C.restrict (k,b) (s.c, []) in  (* what about eqs' *)
+	       ({s with a = sa'; c = sc'}, veqs', [k, cb])
+	   | Binrel.Sub ->
+	       let (sa', veqs') = A.propagate s.a [(k, b)] in
+	       let (sc', eqs') = C.restrict (k,b) (s.c, []) in
+	       ({s with a = sa'; c = sc'}, veqs', [(b, ck)])
+	   | Binrel.Singleton(q) ->
+	       let n = Arith.mk_num q in
+	       let (sa', veqs') = A.propagate s.a [k, n] in
+	       let (sc', eqs') = C.restrict (k,n) (s.c, []) in
+	       ({s with a = sa'; c = sc'}, veqs', [])
+	   | Binrel.Overlap(ckb) ->
+	       let (sa', veqs') = A.propagate s.a [(k, b)] in
+	       let (sc', eqs') = C.restrict (k,b) (s.c, []) in
+	       ({s with a = sa'; c = sc'}, veqs', [(b, ckb)]))
+    | _ ->
+	(s, [])
+*)
+
+*)

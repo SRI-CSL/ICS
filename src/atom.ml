@@ -15,7 +15,6 @@
  i*)
 
 (*i*)
-open Hashcons
 open Mpa
 open Status
 open Binrel

@@ -73,7 +73,6 @@ let rec equal s t =
 	Name.eq x y
     | _ ->
 	false
-  
 
 and interp_equal sym1 sym2 =
   match sym1, sym2 with
@@ -118,8 +117,7 @@ module Sym = Hashcons.Make(        (*s Hashconsing of symbols *)
     let hash = Hashtbl.hash
   end)
 
-let ht = Sym.create tablesize
-let _ = Tools.add_at_reset (fun () -> Sym.clear ht)
+let ht = Sym.create tablesize      (* do not reset! *)
 
 let make = Sym.hashcons ht
 
@@ -281,13 +279,27 @@ and width_bv b =
 	assert(n >= 0);
 	n
 
+(*s Fresh uninterpreted symbols. *)
 
+let k = ref 0
+let _ = Tools.add_at_reset (fun () -> k := 0)
 
+let rec mk_fresh str = function
+  | Some(k) ->
+      mk_uninterp (name_of_fresh str k)
+  | None ->
+      mk_really_fresh str
+      
+and mk_really_fresh str =
+  incr(k);
+  let sym = Uninterp(name_of_fresh str !k) in
+  if Sym.mem ht sym then
+    mk_really_fresh str  (* terminating, since [k] is increased as a side effect. *)
+  else 
+    make sym
 
-
-
-
-
+and name_of_fresh str k = 
+  Name.of_string (str ^ "!" ^ (string_of_int k))
 
 
 

@@ -16,7 +16,6 @@
 
 (*i*)
 open Term
-open Hashcons
 (*i*)
 
 let sigma f l =

@@ -31,7 +31,29 @@ type t = {
   use : Set.t Map.t
 }
 
-let partition s = s.v
+let partition s = 
+  Term.Map.fold
+    (fun x y acc -> (* [y] is ``more'' canonical than [x]. *)
+       try
+	 let xs = Term.Map.find x acc in
+	 try
+	   let ys = Term.Map.find y acc in
+	   Term.Map.add y (Term.Set.add y (Term.Set.union xs ys)) (Term.Map.remove x acc)
+	 with
+	     Not_found ->
+	       Term.Map.add y (Term.Set.add y (Term.Set.add x xs)) (Term.Map.remove x acc)
+       with
+	   Not_found ->
+	     try
+	       let ys = Term.Map.find y acc in
+	       Term.Map.add y (Term.Set.add y (Term.Set.add x ys)) acc
+	     with
+		 Not_found ->
+		   Term.Map.add y (Term.Set.add y (Term.Set.singleton x)) acc)
+    s.v
+    Term.Map.empty
+
+
 let use_of s = s.use
 
 let find s x = 
@@ -277,7 +299,7 @@ let _ = Tools.add_at_reset (fun () -> labels := Set.empty)
 let mk_label = 
   let name = Name.of_string "v" in
   fun () -> 
-    let v = mk_fresh name None in
+    let v = mk_fresh_var name None in
     labels := Set.add v !labels;
     v
 
@@ -325,8 +347,14 @@ let pp fmt s =
   if not(Map.empty == s.v) then
     begin
       Pretty.string fmt "v:"; 
-      let ps = Term.Map.fold (fun x y acc -> (x,y) :: acc) (partition s) [] in
-      Pretty.solution Term.pp fmt ps;
+      let ps = 
+	Term.Map.fold 
+	  (fun x ys acc -> 
+	     (x, Term.Set.elements ys) :: acc) 
+	  (partition s) 
+	  [] 
+      in
+      Pretty.map Term.pp (Pretty.set Term.pp) fmt ps;
       Pretty.string fmt "\n"
     end;
   if not(Map.empty == s.inv) then

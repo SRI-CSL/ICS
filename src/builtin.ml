@@ -15,7 +15,6 @@
  i*)
 
 (*i*)
-open Hashcons
 open Term
 open Mpa
 (*i*)

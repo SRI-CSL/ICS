@@ -20,6 +20,8 @@ val make : Term.t -> Term.t -> t
 
 val eq : t -> t -> bool
 
+val cmp : t -> t -> int
+
 val destruct : t -> Term.t * Term.t
 
 val pp : t Pretty.printer

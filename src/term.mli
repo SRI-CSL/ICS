@@ -51,9 +51,11 @@ type t
 (*s Constructing and destructing terms *)
 
 val mk_var : Name.t -> t
-val mk_fresh : Name.t -> int option -> t
 val mk_const : Sym.t -> t
 val mk_app : Sym.t -> t list -> t
+
+val mk_fresh_var : Name.t -> int option -> t
+val mk_fresh_param : string -> int option -> t
 
 val name_of : t -> Name.t
 
@@ -79,7 +81,7 @@ val is_const : t -> bool
 
 val is_var : t -> bool
 val is_app : t -> bool
-val is_fresh : t -> bool
+
 
 val is_interp_const : t -> bool
  
@@ -101,6 +103,10 @@ val iter : (t -> unit) -> t -> unit
 (*s Predicate holds for all subterms. *)
 
 val for_all : (t -> bool) -> t -> bool
+
+(*s [subterm a b] holds if [a] is a subterm of [b]. *)
+
+val subterm : t -> t -> bool
 
     
 (*s Mapping over list of terms. Avoids unnecessary consing. *)

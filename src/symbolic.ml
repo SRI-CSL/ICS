@@ -54,6 +54,21 @@ and pp_implicit fmt =
     " inter "
     fmt
 
+(*s Status. *)
+
+let status s =
+  if Cnstrnt.is_empty s.explicit then
+    Status.Empty
+  else
+    match Cnstrnt.d_singleton s.explicit with
+      | Some(q) -> 
+	  Status.Singleton(q)
+      | None ->
+	  if Cnstrnt.is_full s.explicit && s.symbolic = [] then
+	    Status.Full
+	  else
+	    Status.Other
+
 (*s Meaning of a symbolic constraint is obtained by
  instantiating all symbolic constraints with explicit constraints. *)
 
@@ -96,4 +111,33 @@ and cnstrnt f a =
     cnstrnt_of_term a
   with
       Not_found -> Cnstrnt.mk_real
+
+(*s [occurs x s] holds if [x] occurs uninterpreted in s. *)
+
+let occurs x s =
+  List.exists (fun (_,a) -> Term.subterm x a) s.symbolic
+
+(*s Replace [x] by [b] in constraint and take care of symbolic constraints
+ which become explicit in the process. *)
+
+let replace x b s =
+  if not(occurs x s) then
+    s
+  else 
+    let repl a = Arith.replace x b a in
+    let (e', sl') = 
+      List.fold_right
+	(fun (c,a) ((e, sl) as acc) ->
+	   let a' = repl a in
+	   match Arith.d_num a' with
+	     | Some(q) ->
+		 let e' = Cnstrnt.subtract e (Cnstrnt.mk_singleton q) in
+		 (Cnstrnt.inter c e, sl)
+	     | None ->
+		 (e, (c, a') :: sl))
+	s.symbolic
+	(s.explicit, [])
+    in
+    make (e', sl')
+
 

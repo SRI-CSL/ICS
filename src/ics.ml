@@ -16,7 +16,6 @@
 
 (*i*)
 open Format
-open Hashcons
 open Sym
 open Term
 (*i*)

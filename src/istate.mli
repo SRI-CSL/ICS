@@ -96,7 +96,7 @@ val solution: Theories.t -> (Term.t * Term.t) list
 
 (*s Variable partitioning. *)
 
-val partition: unit -> (Term.t * Term.t) list
+val partition: unit -> (Term.t * Term.t list) list
 
 (*s Disequalities. *)
 

@@ -194,8 +194,8 @@ let solution e = Context.solution e s.current
 
 let partition () = 
   Term.Map.fold
-    (fun x y acc ->
-       (x,y) :: acc)
+    (fun x ys acc ->
+       (x, Term.Set.elements ys) :: acc)
     (Context.partition s.current)
     []
  

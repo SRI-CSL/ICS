@@ -70,8 +70,7 @@ let sigma f l =
 let solve i e =
   match i with
     | A ->
-	let p x = not (A.is_slack x) in
-	(match Arith.solve p e with 
+	(match Arith.solve Term.is_var e with 
 	   | None -> [] 
 	   | Some(x,b) -> [(x,b)])
     | T -> Tuple.solve e
@@ -154,4 +153,4 @@ let add (x,c) s =
   let (a',es') = A.add (x,c) s.a in
   mergel es' {s with a = a'} es'
 
-let cnstrnt s = A.cnstrnt s.a
+let cnstrnt s = A.to_cnstrnt s.a

@@ -18,7 +18,7 @@
  of the real numbers, [Int] all integers.  There is a reflexive subdomain 
  ordering [<] with [Int < Real] *)
 
-type t = Int | Real
+type t = Int | Nonint | Real 
 
 (*s Equality on domains. *)
 
@@ -32,6 +32,8 @@ val union : t -> t -> t
 
 (*s [inter d1 d2] returns [d] iff the domain of [d] is the intersection 
  of the domains of [d1] and [d2]. *)
+
+exception Empty
 
 val inter : t -> t -> t
 
