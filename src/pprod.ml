@@ -17,23 +17,30 @@ open Sym
 
 
 let d_interp = function
-  | Term.App(Sym.Pp(op), al) -> (op, al)
-  | _ -> raise Not_found
+  | Term.App(sym, al, _) -> 
+      (Sym.Pprod.get sym, al)
+  | _ -> 
+      raise Not_found
+
+
+let d_expt = function
+  | Term.App(sym, [a], _) -> 
+      let n = Sym.Pprod.d_expt sym in
+	(n, a)
+  | _ ->
+      raise Not_found
+
+let d_mult = function
+  | Term.App(sym, al, _) 
+      when Sym.eq sym Sym.Pprod.mult -> al
+  | _ -> 
+      raise Not_found
 
 
 (** {6 Recognizers.} *)
 
-let rec is_interp a =
-  is_expt a || is_mult a
-  
-and is_expt = function
-  | Term.App(Pp(Expt(_)), [x]) -> Term.is_var x
-  | _ -> false
-
-and is_mult = function
-  | Term.App(Pp(Mult), xl) ->
-      (List.for_all (fun x -> is_expt x || Term.is_var x) xl)
-  | _ -> false
+let is_interp a =
+  try Sym.theory_of (Term.App.sym_of a) = Th.nl with Not_found -> false
 
 let rec is_diophantine a =
   try
@@ -50,13 +57,16 @@ let rec is_diophantine a =
 (** {6 Iterators} *)
 
 let rec fold f a e =
-  match a with
-    | Term.App(Pp(Mult), xl) ->
-	List.fold_right (fold f) xl e
-    | Term.App(Pp(Expt(n)), [x]) ->
-	f x n e
-    | _ ->
-	f a 1 e
+  try
+    match d_interp a with
+      | Mult, xl ->
+	  List.fold_right (fold f) xl e
+      | Expt(n), [x] ->
+	  f x n e
+      | _ ->
+	  f a 1 e
+    with
+	Not_found -> f a 1 e
 
 let rec iter f a =
   try
@@ -78,7 +88,8 @@ let mk_one =
   Term.App.mk_app Sym.Pprod.mult []
 
 let is_one = function
-  | Term.App(Pp(Mult), []) -> true
+  | Term.App(sym, [], _) 
+      when Sym.eq Sym.Pprod.mult sym -> true
   | _ -> false
 
 let rec mk_expt n a = 
@@ -152,10 +163,12 @@ and cmp1 (x, n) (y, m) =
     if res = 0 then Pervasives.compare n m else res
 
 and destruct a =
-  match a with
-    | Term.App(Pp(Expt(n)), [x]) -> (x, n)
-    | _ -> (a, 1)
-
+  try
+    let (n, x) = d_expt a in
+      (x, n)
+  with
+      Not_found -> (a, 1)
+ 
 
 and insert x n bl =
   merge [mk_expt n x] bl
@@ -227,10 +240,7 @@ let apply (x, b) =
 
 (** Normalize a power product to a list. *)
 let to_list a =
-  match a with
-    | Term.App(Pp(Mult), xl) -> xl
-    | _ -> [a]
-
+  try d_mult a with Not_found -> [a]
 
 let of_list pl =
   List.fold_right
@@ -400,9 +410,12 @@ let partition p a =
 (** {6 Abstract constraint interpretatiosn} *)
 
 let dom lookup op al =
-  let product = function
-    | Term.App(Pp(Expt(n)), [a]) -> Dom.expt n (lookup a)
-    | a -> lookup a
+  let product a =
+    try
+      let (n, x) = d_expt a in
+	Dom.expt n (lookup x)
+    with
+	Not_found -> lookup a
   in
   try
     (match op, al with
@@ -416,9 +429,8 @@ let dom lookup op al =
       Not_found -> Dom.Real
 
 let rec dom_of = function
-  | Term.Var(x) -> 
+  | Term.Var(x, _) -> 
       Var.dom_of x
-  | Term.App(Pp(op), al) ->
-      dom dom_of op al
-  | _ -> 
-      raise Not_found
+  | Term.App(sym, al, _) ->
+      let op = Sym.Pprod.get sym in
+	dom dom_of op al
