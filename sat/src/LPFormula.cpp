@@ -244,7 +244,7 @@ LPFormulaId LPFormulaManager::create_atom(int a, int not_a)
 }
 
 LPFormulaId LPFormulaManager::create_or(unsigned int num_args, LPFormulaId * args)
-{
+{	
 	DBG_CODE(cout << "   create or\n";
 					 cout << "num_args = " << num_args << endl;
 					 for (int i = 0; i < num_args; i++)
@@ -277,6 +277,10 @@ LPFormulaId LPFormulaManager::create_or(unsigned int num_args, LPFormulaId * arg
 	args = aux_args;
 	num_args = real_number_of_args;
 	DBG_CODE(cout << "num_args = " << num_args << endl;);
+
+	if (real_number_of_args > 512)
+		cout << "Creating or " << real_number_of_args << endl;
+
 	
 	sortFn(args, num_args);
 
@@ -356,20 +360,18 @@ LPFormulaId LPFormulaManager::create_and(unsigned int num_args, LPFormulaId * ar
 
 void LPFormulaManager::dump_mem_info()
 {
-#ifdef TRACING
-	ctrace << "[memory] Formula manager memory info: " << endl;
-	ctrace << "  formula array size: " << num_formulas << endl;
-	ctrace << "  next_formula_id: " << next_formula_id << endl;
-	ctrace << "  argument array size: " << num_arguments << endl;
-	ctrace << "  next_argument_pos: " << next_argument_pos << endl;
-	ctrace << "  variable array size: " << num_variables << endl;
-	ctrace << "  next_variable_pos: " << next_variable_pos << endl;
-	ctrace << "  pool size: " << formula_pool.size() << endl;
-	ctrace << "  pool max size: " << formula_pool.max_size() << endl;
-	ctrace << "  memory consumed: " << ((sizeof(LPFormula) * num_formulas +
-																		 sizeof(LPFormulaId) * num_arguments +
-																		 sizeof(LPTermId) * num_variables) / 1024) << " Kb\n";
-#endif
+	cout << "[memory] Formula manager memory info: " << endl;
+	cout << "  formula array size: " << num_formulas << endl;
+	cout << "  argument array size: " << num_arguments << endl;
+	cout << "  pool size: " << formula_pool.size() << endl;
+	// cout << "  pool max size: " << formula_pool.max_size() << endl;
+	cout << "  memory consumed: " << ((sizeof(LPFormula) * num_formulas +
+																		 sizeof(LPFormulaId) * num_arguments) / 1024) << " Kb\n";
+}
+
+LPFormulaId LPFormulaManager::normalize_formula(LPFormulaId f_id)
+{
+
 }
 
 
