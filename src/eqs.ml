@@ -300,8 +300,8 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
 	 | None ->
 	     (try                  (* restrict, then update. *)
 		let (b', rho') = apply s x in 
-		  s.dep <- Use.remove_but b x b' s.dep;  (* this needs to be fixed. *)
-		  (* s.dep <- Use.remove x b' s.dep; *)
+		  s.dep <- Use.remove_but b x b' s.dep; 
+		  (* s.dep <- Use.remove x b' s.dep; *)  
 		  s.dep <- Use.add x b s.dep; 
 		  s.ext <- Ext.do_at_restrict (p, s.ext) (x, b, rho');
 		  s.find <- Term.Map.add x (b, rho) s.find;

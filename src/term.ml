@@ -325,10 +325,6 @@ let is_equal a b =
 	  when Th.of_sym c = Th.of_sym d -> Three.No
       | _ -> Three.X
 
-let is_equal a b =
-  Trace.func "foo" "Term.is_equal" (Pretty.pair pp pp) Pretty.three
-    (fun (a, b) -> is_equal a b) (a, b)
-
 (** Mapping over list of terms. Avoids unnecessary consing. *)
 let rec mapl f l =
   match l with
@@ -405,13 +401,10 @@ and cmpl l m =
   in
   loop 0 l m
 
-
-
 let (<<<) a b = (cmp a b <= 0)
 
 let orient ((a, b) as e) =
   if cmp a b >= 0 then e else (b, a)
-
 
 
 (** {6 Sets and maps of terms.} *)

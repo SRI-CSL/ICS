@@ -396,7 +396,6 @@ let mk_pos is_pos (a, rho) =
     | X -> 
 	make (Atom.Pos(a), rho)
 
-
 let map (is_equal, is_nonneg, is_pos) f ((atm, rho) as fct) =
   match atm with
     | Atom.True -> 
@@ -406,31 +405,43 @@ let map (is_equal, is_nonneg, is_pos) f ((atm, rho) as fct) =
     | Atom.Equal(a, b) ->
 	let (a', b', rho') = Equal.map f (a, b, rho) in
 	  if a == a' && b == b' then fct else
-	    (match Term.is_equal a' b' with
-	       | Three.Yes -> mk_true rho'
-	       | Three.No -> mk_false rho'
-	       | Three.X -> mk_equal is_equal (a', b', rho'))
+	    (match is_equal a' b' with
+	       | Justification.Three.Yes(tau') ->  
+		   mk_true(Justification.dependencies [rho'; tau'])
+	       | Justification.Three.No(tau') -> 
+		   mk_false(Justification.dependencies [rho'; tau'])
+	       | Justification.Three.X -> 
+		   mk_equal is_equal (a', b', rho'))
     | Atom.Diseq(a, b) ->
 	let (a', b', rho') = Diseq.map f (a, b, rho) in
 	  if a == a' && b == b' then fct else 
-	    (match Term.is_equal a' b' with
-	       | Three.Yes -> mk_false rho'
-	       | Three.No -> mk_true rho'
-	       | Three.X -> mk_diseq is_equal (a', b', rho'))
+	    (match is_equal a' b' with
+	       | Justification.Three.Yes(tau') -> 
+		   mk_false(Justification.dependencies [rho'; tau'])
+	       | Justification.Three.No(tau') -> 
+		   mk_true(Justification.dependencies [rho'; tau'])
+	       | Justification.Three.X -> 
+		   mk_diseq is_equal (a', b', rho'))
     | Atom.Nonneg(a) ->
 	let (a', rho') = Nonneg.map f (a, rho) in
 	  if a == a' then fct else
-	    (match Arith.is_nonneg a' with
-	      | Three.Yes ->  mk_true rho'
-	      | Three.No -> mk_false rho'
-	      | Three.X -> mk_nonneg is_nonneg (a', rho'))
+	    (match is_nonneg a' with
+	      | Justification.Three.Yes(tau') ->  
+		  mk_true(Justification.dependencies [rho'; tau'])
+	      | Justification.Three.No(tau') -> 
+		  mk_false(Justification.dependencies [rho'; tau'])
+	      | Justification.Three.X -> 
+		  mk_nonneg is_nonneg (a', rho'))
     | Atom.Pos(a) ->
 	let (a', rho') = Pos.map f (a, rho) in
 	  if a == a' then fct else
-	    (match Arith.is_pos a' with
-	       | Three.Yes -> mk_true rho'
-	       | Three.No -> mk_false rho'
-	       | Three.X -> mk_pos is_pos (a', rho'))
+	    (match is_pos a' with
+	       | Justification.Three.Yes(tau') -> 
+		   mk_true(Justification.dependencies [rho'; tau'])
+	       | Justification.Three.No(tau') -> 
+		   mk_false(Justification.dependencies [rho'; tau'])
+	       | Justification.Three.X -> 
+		   mk_pos is_pos (a', rho'))
 	    
 
 (** {6 Set of facts} *)

@@ -45,6 +45,8 @@ let args () =
         "Display version number";
         "-compactify",  set_true Ics.set_compactify,
 	"Disable compactification in SAT solver";
+        "-expensive_simplify", Arg.Clear Context.cheap,
+	"Expensive but more complete simplification";
 	"-dependencies", Arg.Unit(fun()-> Justification.proofmode := Justification.Mode.Dep),
 	"Enable dependency generation";
         "-eot", Arg.String Ics.set_eot, 
