@@ -93,7 +93,7 @@ dnl AC_CHECK_LIB(gmp,__gmpz_cmp, , AC_MSG_WARN(Potential problem with GMP librar
 AC_MSG_NOTICE(Trying to find a usable libgmp.a)
    
 if test -z "$with_gmp"; then
-   gmplibs=`ld --verbose | grep SEARCH_DIR | sed -e 's,SEARCH_DIR(,,g' -e 's,);,,g'`
+   gmplibs=`ld --verbose | grep SEARCH_DIR | sed -e 's,SEARCH_DIR(\"\?,,g' -e 's,\"\?);,,g'`
 else
    gmplibs=$with_gmp/lib
 fi
