@@ -103,9 +103,10 @@ SRC = $(addprefix $(SRCDIR)/,$(CMO:.cmo=.ml))
 
 .PHONY : all all-chdir
 all: $(OBJDIR) $(LIBDIR) $(BINDIR)
+	make -C chameleon all
 	$(MAKE) -C $(OBJDIR) -f ../../Makefile all-chdir
 
-all-chdir: ics $(LIBDIR)/libics.so $(LIBDIR)/libics.a ics.byte
+all-chdir: $(BINDIR)/ics $(LIBDIR)/libics.so $(LIBDIR)/libics.a $(BINDIR)/ics.byte
 	@echo 
 	@echo ICS Build complete
 	@echo 
@@ -117,21 +118,19 @@ TOPCMI = $(CMI)
 TOPCMX = $(TOPCMO:.cmo=.cmx)
 
 ifeq ($(MAKELEVEL),1)
-ics: $(COBJS) $(TOPCMI) $(TOPCMX)
-	$(OCAMLOPT) $(OFLAGS) -o $(BINDIR)/$@ unix.cmxa $(TOPCMX) \
+$(BINDIR)/ics: $(COBJS) $(TOPCMI) $(TOPCMX)
+	$(OCAMLOPT) $(OFLAGS) -o $@ unix.cmxa $(TOPCMX) \
                     $(COBJS) $(LIBS)
 else
-.PHONY: ics
 ics: $(OBJDIR)
 	make -C $(OBJDIR) -f ../../Makefile ics
 endif
 
 ifeq ($(MAKELEVEL),1)
-ics.byte: $(COBJS) $(TOPCMI) $(TOPCMO)
-	$(OCAMLLINK) -g -custom -o $(BINDIR)/$@ unix.cma $(TOPCMO) \
+$(BINDIR)/ics.byte: $(COBJS) $(TOPCMI) $(TOPCMO)
+	$(OCAMLLINK) -g -custom -o $@ unix.cma $(TOPCMO) \
                     $(COBJS) $(LIBS)
 else
-.PHONY: ics.byte
 ics.byte: $(OBJDIR)
 	make -C $(OBJDIR) -f ../../Makefile ics.byte
 endif
@@ -155,7 +154,7 @@ $(LIBDIR)/libics.a: $(OBJS) # $(LISPOBJS)
 	cp $(OCAMLSTDLIB)/libasmrun.a $(LIBDIR)/libics.a
 	ar r $(LIBDIR)/libics.a $(OBJS)
 
-ics_stub.c ics.h ics.lisp: ics.ml ics.mli ../../chameleon/$(ARCH)/chameleon
+ics_stub.c ics.h ics.lisp: ics.ml ics.mli
 	../../chameleon/$(ARCH)/chameleon ics.ml
 
 ics.fasl: ics.lisp
@@ -163,11 +162,6 @@ ics.fasl: ics.lisp
 	(compile-file "ics.lisp") (excl:exit))'
 
 GENERATED = lexer.ml parser.mli parser.ml
-
-### Chameleon
-
-../../chameleon/$(ARCH)/chameleon:
-	make -C ../../chameleon all
 
 ### Directories
 
