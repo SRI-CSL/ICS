@@ -53,6 +53,8 @@ let reset () = (levels := Levels.empty)
 
 let add l = (levels := Levels.add l !levels)
 
+let _ = add "foo"
+
 let remove l = (levels := Levels.remove l !levels)
 
 let get () = Levels.elements !levels
