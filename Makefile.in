@@ -59,7 +59,7 @@ endif
 INCLUDE =
 CFLAGS = 
 BFLAGS = -g $(INCLUDE)
-OFLAGS = $(INCLUDE) -compact -inline 3 -noassert -unsafe
+OFLAGS = $(INCLUDE) # -compact -inline 3 -noassert -unsafe
 LIBS = $(LIBGMPA)
 
 # Object files
@@ -67,6 +67,8 @@ LIBS = $(LIBGMPA)
 COBJS = mlgmp41.o ocaml-signals.o icsat.o
 
 CMO = three.cmo \
+      dynarray.cmo \
+      ptset.cmo ptmap.cmo rbset.cmo \
       gmp41.cmo mpa.cmo \
       tools.cmo \
       pretty.cmo \
@@ -401,6 +403,7 @@ uninstall:
 lexer.ml:  lexer.mll
 parser.mli parser.ml: parser.mly
 
+  
 # Dependencies
 .depend: $(SRC)
 	$(OCAMLDEP) *.mli *.ml main.ml > .depend
