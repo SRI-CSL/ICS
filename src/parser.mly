@@ -58,7 +58,7 @@ let equal_width_of a b =
 %token ALBRA ACLBRA CLBRA
 
 %token LPAR RPAR LBRA RBRA LCUR RCUR UNDERSCORE KLAMMERAFFE
-%token COLON COMMA DOT DDOT ASSIGN UNION TO ENDMARKER
+%token COLON COMMA DOT DDOT ASSIGN UNION TO ENDMARKER BACKSLASH
 
 %token <string> BVCONST 
 %token <string * int> FRESH
@@ -68,7 +68,8 @@ let equal_width_of a b =
 %token EQUAL DISEQ
 %token TRUE FALSE
 %token PLUS MINUS TIMES DIVIDE EXPT
-%token LESS GREATER LESSOREQUAL GREATEROREQUAL
+%token LESS GREATER LESSOREQUAL GREATEROREQUAL  
+%token FLOOR CEILING SIN COS UNSIGNED 
 %token WITH CONS CAR CDR NIL
 %token DISJ XOR IMPL BIIMPL CONJ NEG
 %token PROJ
@@ -77,8 +78,9 @@ let equal_width_of a b =
 %left BIIMPL CONJ
 %nonassoc EQUAL DISEQ LESS GREATER LESSOREQUAL GREATEROREQUAL
 %left UNION
-%left MINUS PLUS
-%left TIMES DIVIDE
+%left MINUS PLUS 
+%left DIVIDE
+%left TIMES
 %right EXPT
 %right BVCONC
 %right BWOR BWXOR BWIMP
@@ -121,14 +123,19 @@ name: IDENT            { Name.of_string $1 }
 
 funsym: 
   name                                   { Sym.Uninterp($1) }
-| PLUS                                   { Sym.Arith(Sym.Add) }
-| TIMES                                  { Sym.Uninterp(Name.of_string "mult") }
-| DIVIDE                                 { Sym.Uninterp(Name.of_string "div") }
-| TUPLE                                  { Sym.Tuple(Sym.Product) }
+| PLUS                                   { Sym.add }
+| TIMES                                  { Sym.mult }
+| DIVIDE                                 { Sym.div }
+| TUPLE                                  { Sym.product }
+| FLOOR                                  { Sym.floor }
+| CEILING                                { Sym.ceiling }
+| SIN                                    { Sym.sin }
+| COS                                    { Sym.cos }
+| UNSIGNED                               { Sym.unsigned }
 | PROJ LBRA INTCONST COMMA INTCONST RBRA { Sym.Tuple(Sym.Proj($3, $5)) }
-| CONS                                   { Sym.Tuple(Sym.Product)  }
-| CAR                                    { Sym.Tuple(Sym.Proj(0, 2)) }
-| CDR                                    { Sym.Tuple(Sym.Proj(1, 2)) }
+| CONS                                   { Sym.product  }
+| CAR                                    { Sym.car }
+| CDR                                    { Sym.cdr }
 | CONC LBRA INTCONST COMMA INTCONST RBRA               { Sym.Bv(Sym.Conc($3, $5)) }
 | SUB LBRA INTCONST COMMA INTCONST COMMA INTCONST RBRA { Sym.Bv(Sym.Sub($3, $5, $7)) }
 | BWITE LBRA INTCONST RBRA                             { Sym.Bv(Sym.Bitwise($3)) }
@@ -171,18 +178,18 @@ app:
 | constsym                      { Istate.sigma $1 [] }
      
 arith:
-| term PLUS term                   { Arith.mk_add $1 $3 }
-| term MINUS term                  { Arith.mk_sub $1 $3 }
-| MINUS term %prec prec_unary      { Arith.mk_neg $2 }
-| term TIMES term               { Shostak.canmult (Istate.current()) ($1, $3) }
-| term DIVIDE term              { Shostak.candiv (Istate.current()) ($1, $3) }
-| term EXPT term                { Shostak.canexpt (Istate.current()) $3 $1}
+| term PLUS term                { Arith.mk_add $1 $3 }
+| term MINUS term               { Arith.mk_sub $1 $3 }
+| MINUS term %prec prec_unary   { Arith.mk_neg $2 }
+| term TIMES term               { Sig.mult (Istate.current()) ($1, $3) }
+| term DIVIDE term              { Sig.div (Istate.current()) ($1, $3) }
+| term EXPT term                { Sig.expt (Istate.current()) $3 $1}
 ;
 
 
 array:
-  term LBRA term ASSIGN term RBRA { Shostak.canupdate (Istate.current()) ($1, $3, $5) }
-| term LBRA term RBRA        { Shostak.canselect (Istate.current()) ($1, $3) } 
+  term LBRA term ASSIGN term RBRA { Sig.update (Istate.current()) ($1, $3, $5) }
+| term LBRA term RBRA        { Sig.select (Istate.current()) ($1, $3) } 
 ;
 
 
@@ -236,17 +243,27 @@ atom:
 
 
 cnstrnt:
-| interval          { Cnstrnt.of_interval $1 }
-| name              { match Istate.type_of $1 with
-			| Some(c) -> c
-			| None ->
+| interval optdiseqs { Cnstrnt.make ($1, $2) }
+| name               { match Istate.type_of $1 with
+			 | Some(c) -> c
+			 | None ->
 			    let str = Name.to_string $1 in
 			    raise (Invalid_argument ("No type definition for " ^ str)) }
 ;
 
+optdiseqs:                   { Cnstrnt.Diseqs.empty }
+| BACKSLASH LCUR diseqs RCUR { $3 }
+;
+
+diseqs: rat          { Cnstrnt.Diseqs.singleton $1 }     
+| diseqs COMMA rat   { Cnstrnt.Diseqs.add $3 $1 }
+
+
+
 interval: 
   INT                                    { Interval.mk_int }
 | REAL                                   { Interval.mk_real }
+| NONINT                                 { Interval.mk_nonint }
 | NONINT leftendpoint DDOT rightendpoint { Interval.make (Dom.Nonint, $2, $4) }
 | INT leftendpoint DDOT rightendpoint    { Interval.make (Dom.Int, $2, $4) }
 | REAL leftendpoint DDOT rightendpoint   { Interval.make (Dom.Real, $2, $4) }
