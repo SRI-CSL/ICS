@@ -210,9 +210,10 @@ val do_simplify : Atom.t -> unit
   
 (** {6 Processing} *)
 
-val do_process : Name.t option * Atom.t -> unit
+val do_process1 : Name.t option * Atom.t -> unit
   (** Adding a new fact *)
 
+val do_process : Name.t option * Atom.t list -> unit
 
 val do_valid : Name.t option * Atom.t list -> unit
   (** Checking for validity. *)

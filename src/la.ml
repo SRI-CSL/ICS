@@ -401,11 +401,13 @@ let fold f s e =
 (** [is_num s q x] holds if [x = q] in s. *)
 let is_num s q x =
   try
-    let (a, _) = apply s x in
+    let (a, rho) = apply s x in
     let p = Arith.d_num a in
-      Mpa.Q.equal q p 
+      if Mpa.Q.equal q p then Some(rho) else None
   with
-      Not_found -> false
+      Not_found -> None
+
+let is_zero s = is_num s Mpa.Q.zero
 
 (* Return [(q, rho)] such that [rho |- x = q] or raise [Not_found]. *)
 let d_num s x =
@@ -884,13 +886,16 @@ and dismerge ((p, s) as cfg) d =
 
 (** Nondiophantine disequalities are variable-abstracted
   and added to the disequalities in the variable partitioning. *)
-and process_nondiophantine_diseq ((p, _) as cfg) d =
+and process_nondiophantine_diseq ((p, s) as cfg) d =
     let d' = Fact.Diseq.map (name cfg) d in
       assert(Fact.Diseq.is_var d');
-      Partition.dismerge p d'
-(*   add -x <> 0 for x <> 0
-      let (a', b', _) = Fact.Diseq.destruct d in
-*)
+      Partition.dismerge p d';                     (* now, add -x <> 0 for x <> 0 *)
+      let (x, y, rho) = Fact.Diseq.destruct d' in  (* [rho |- x <> y] *)
+	match is_zero s x with
+	  | Some(tau) ->                           (* [tau |- x = 0] *)
+	      ()
+	  | None -> 
+	      ()
 	
 (** Whenever we add [e<>n], we calculate the largest contiguous segment [N] 
   containing [n] such that [e<>m] for [m] in [N], then with 
@@ -1138,6 +1143,9 @@ module Finite = struct
 	of_vars cfg xs
     in
       fold of_equal s Term.Var.Map.empty
+
+  let split ((_, s) as cfg) =
+    raise Not_found  (* to do *)
 	
 end 
 

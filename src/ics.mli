@@ -54,6 +54,7 @@ val set_proofmode : string -> unit
 val set_gc_mode : string -> unit
 val set_gc_space_overhead : int -> unit
 val set_gc_max_overhead : int -> unit
+val set_reduce_explanation: bool -> unit
 
 
 (** {6 Channels} *)

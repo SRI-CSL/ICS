@@ -102,12 +102,12 @@ end
 (** {6 Atoms} *)
 
 type atom =
-  | True
+  | TT
   | Equal of Term.t * Term.t
   | Diseq of Term.t * Term.t
   | Nonneg of Term.t
   | Pos of Term.t
-  | False
+  | FF
 
 type t
 

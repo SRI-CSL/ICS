@@ -201,6 +201,8 @@ module Finite : sig
   (** [of_config (p, s)] returns a map of finite domain
     interpretations for all variables in [s] with a 
     finite interpretation. *)
+
+  val split : config -> t
 	
 end 
 

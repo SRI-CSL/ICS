@@ -222,9 +222,9 @@ let mk_holds atm = (atm, Jst.dep0)
       
 let rec map (is_equal, is_nonneg, is_pos) f atm =
   match Atom.atom_of atm with
-    | Atom.True -> 
+    | Atom.TT -> 
 	mk_holds atm
-    | Atom.False -> 
+    | Atom.FF -> 
 	mk_holds atm
     | Atom.Equal(a, b) -> 
 	let (a', alpha) = f a and (b', beta) = f b in

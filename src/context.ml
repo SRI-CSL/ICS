@@ -119,8 +119,8 @@ let config_of s = (s.p, s.eqs)
 (** Processing a fact. *)
 let rec process s ((atm, rho) as fct) =
   match Atom.atom_of atm with
-    | Atom.True -> ()
-    | Atom.False -> 
+    | Atom.TT -> ()
+    | Atom.FF -> 
 	raise(Jst.Inconsistent(rho))
     | Atom.Equal(a, b) -> 
 	let e = Fact.Equal.make (a, b, rho) in
@@ -219,18 +219,18 @@ let add s atm =
       Status.Inconsistent(Jst.dep2 rho' (Jst.axiom atm))
     else 
       (try
-	 Fact.Eqs.clear();                  (* Clearing out stacks. *)
+	 Fact.Eqs.clear();             (* Clearing out stacks. *)
 	 Fact.Diseqs.clear();
 	 Fact.Nonnegs.clear();
-	 Term.Var.k := s.upper;             (* Install fresh variable index *)
-	 let s = copy s in                  (* Protect state against updates *)
+	 Term.Var.k := s.upper;        (* Install fresh variable index *)
+	 let s = copy s in             (* Protect state against updates *)
 	 let (atm'', rho'') = abstract s atm' in
 	 let fct'' = (atm'', Jst.dep3 rho' rho'' (Jst.axiom atm)) in
 	   process s fct''; 
            close_star s;
 	   normalize s;   
-	   s.ctxt <- atm :: s.ctxt;         (* Update context. *)
-	   s.upper <- !Term.Var.k;          (* Install variable counter in state. *)
+	   s.ctxt <- atm :: s.ctxt;    (* Update context. *)
+	   s.upper <- !Term.Var.k;     (* Install variable counter in state. *)
 	   Status.Ok(s)
 	 with
 	   | Jst.Inconsistent(rho) ->         
@@ -277,5 +277,27 @@ let is_valid =
   in
     loop
 
-
-
+(* to do... *)
+let rec check s =
+  try
+    (match Combine.split (s.p, s.eqs) with
+       | Combine.Split.Finint(fin) -> 
+	   invalid_arg "to do"
+       | Combine.Split.Equal(i, j) -> 
+	   let e = Atom.mk_equal (i, j)
+	   and d = Atom.mk_diseq (i, j) in
+             (match add s e with
+		| Status.Valid _ -> true
+		| Status.Inconsistent _ ->
+		    (match add s d with
+		       | Status.Valid _ -> true
+		       | Status.Inconsistent _ -> false
+		       | Status.Ok(s') -> check s')
+		| Status.Ok(s') ->
+		    check s' || 
+		    (match add s d with
+		       | Status.Valid _ -> true
+		       | Status.Inconsistent _ -> false
+		       | Status.Ok(s'') -> check s'')))
+  with
+      Not_found -> true

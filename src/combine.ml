@@ -162,7 +162,7 @@ let inv (p, s) a =
     | Shostak(SET) -> Pset.inv s.pset a
     | Can(NL) -> Nl.inv s.nl a
     | Can(APP) -> L.inv s.app a
-    | Can(ARR) -> Arr.inv s.arr a
+    | Can(ARR) -> Arr.uninterp (p, s.arr) a
 
 let dep s = function
   | Uninterpreted -> U.dep s.u
@@ -198,6 +198,7 @@ let interp (p, s) i a =
     | Shostak(COP) -> Cop.apply s.cop a 
     | Shostak(SET) -> Pset.apply s.pset a 
     | Can(NL) -> Nl.interp (p, s.nl) a
+    | Can(ARR) -> Arr.interp (p, s.arr) a
     | _ -> Partition.choose p (apply s i) a
 
 
@@ -431,7 +432,7 @@ and abstract_term ((p, s) as cfg) a =
 	    else 
 	      sigma cfg f bl 
 	  in
-	    if i = Th.u || i <> j then
+	    if i = Th.u || i = Th.arr || i <> j then
 	      let (x, tau) = name cfg j c in  (* [tau |- x = c] *)
 	      let sigma = Jst.dep3 tau rho rhos in
 		(x, sigma)                    (* [sigma |- x = a] *)
@@ -537,25 +538,21 @@ let minimize (p, s) = La.lower (p, s.a)
 
 module Split = struct
 
-  type t = {
-    finint: La.Finite.t Term.Var.Map.t;
-    arridx: Term.Set2.t
-  }
+  type t = 
+    | Finint of La.Finite.t
+    | Equal of Term.t * Term.t
 
-  let is_empty spl =
-    Term.Set2.is_empty spl.arridx &&
-    Term.Var.Map.empty == spl.finint
 
-  let pp fmt spl =
-    if not(spl.finint == Term.Var.Map.empty) then
-      (let l = Term.Var.Map.fold (fun x fin acc -> (x, fin) :: acc) spl.finint [] in
-	 Pretty.map Term.pp La.Finite.pp fmt l);
-    if not(Term.Set2.is_empty spl.arridx) then
-      Pretty.set Term.Equal.pp fmt (Term.Set2.elements spl.arridx)
+  let pp fmt = function
+    | Finint(fin) -> La.Finite.pp fmt fin
+    | Equal(i, j) -> Term.Equal.pp fmt (i, j)
 
 end 
 
-let split (p, s) = {
-  Split.finint = La.Finite.of_config (p, s.a);
-  Split.arridx = Arr.splits (p, s.arr)
-}
+let split (p, s) =
+  try
+    let (i, j) = Arr.split (p, s.arr) in
+      Split.Equal(i, j)
+  with
+      Not_found -> 
+	Split.Finint(La.Finite.split (p, s.a))

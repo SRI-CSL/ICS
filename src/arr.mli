@@ -63,6 +63,14 @@ val is_independent : t -> Term.t -> bool
     [x = a] in [s]. *)
 
 
+type config = Partition.t * t
+    (** A {i configuration} consists of a pair [(p, s)] with
+      [p] a partitioning and [s] an array equality set. *)
+
+val interp : config -> Jst.Eqtrans.t
+val uninterp : config -> Jst.Eqtrans.t
+
+
 (** {6 Iterators} *)
 
 val fold : (Term.t -> Term.t * Jst.t -> 'a -> 'a) -> t -> 'a -> 'a
@@ -79,9 +87,6 @@ val copy : t -> t
     sets. The function [copy s] can be used to protect state [s]
     against these updates. *)
 
-type config = Partition.t * t
-    (** A {i configuration} consists of a pair [(p, s)] with
-      [p] a partitioning and [s] an array equality set. *)
     
 val name : config -> Jst.Eqtrans.t
   (** [name (p, s) a] returns a canonical variable [x] 
@@ -118,8 +123,8 @@ val dismerge : config -> Fact.Diseq.t -> unit
    in general to detect every inconsistency. *)
 
 
-val splits : config -> Term.Set2.t
-  (** [splits (p, s)] generates the case splits necessary
+val split : config -> Term.t * Term.t
+  (** [split (p, s)] generates a case splits necessary
     to make the procedure complete for the theory of arrays. 
     Here, a pair of variables [(i, j)] represents a case split
     on [i = j] or [i <> j]. *)

@@ -45,8 +45,8 @@ let mk_false = False
 let mk_var n = Var(n)
 let mk_poslit a =
   match Atom.atom_of a with
-    | Atom.True -> True
-    | Atom.False -> False
+    | Atom.TT -> True
+    | Atom.FF -> False
     | _ ->  Atom(a)
 let mk_neglit a = mk_poslit (Atom.negate a)
 let mk_disj pl = Disj(pl)
@@ -113,7 +113,6 @@ external icsat_get_assignment : int -> int = "icsat_get_assignment"
 
 external icsat_print_statistics : unit -> unit = "icsat_print_statistics"
 
-
 (** Parameter settings for SAT solver *)
 
 external set_verbose : bool -> unit = "icsat_set_verbose"
@@ -131,6 +130,8 @@ let validate_explanations = ref false
 let set_validate b =
   validate_explanations := b;
   set_validate_counter_example b
+
+let reduce_explanation = ref false
 
 
 (** {6 Translating to and from propositions} *)
@@ -312,21 +313,38 @@ module Explanation = struct
     let l = to_list () in
       Context.is_inconsistent s l
 
+  let rec semantic_reduce hyps =
+    match Context.addl Context.empty (Atom.Set.elements hyps) with
+      | Context.Status.Inconsistent(rho) ->
+	  (try
+	     let hyps' = Jst.axioms_of rho in
+	       if 3 * (Atom.Set.cardinal hyps') < 2 * (Atom.Set.cardinal hyps) then
+		 semantic_reduce hyps'
+	       else 
+		 hyps' 
+	   with
+	       Not_found -> hyps)
+      | _ -> 
+	  hyps
+
   let install hyps =
-    explained := true;
-    assert(Stack.is_empty explanation);
-    Atom.Set.iter
-      (fun a -> 
-	 let i =  Atom.index_of a in
-	 Stack.push i explanation)
-      hyps;
-    if !validate_explanations then
-      if not(is_inconsistent Context.empty) then
-	begin
-	  Format.eprintf "\n Suspicious explanation:";
-          pp Format.err_formatter ();
-	  Format.eprintf "@."
-	end 
+    let hyps =
+      if !reduce_explanation then semantic_reduce hyps else hyps
+    in
+      explained := true;
+      assert(Stack.is_empty explanation);
+      Atom.Set.iter
+	(fun a -> 
+	   let i =  Atom.index_of a in
+	     Stack.push i explanation)
+	hyps;
+      if !validate_explanations then
+	if not(is_inconsistent Context.empty) then
+	  begin
+	    Format.eprintf "\n Suspicious explanation:";
+            pp Format.err_formatter ();
+	    Format.eprintf "@."
+	  end 
 	
 
   let noinstall () =
@@ -395,18 +413,27 @@ let _ = Callback.register "add_scratch_context" add_scratch_context
 
 external icsat_sat : prop -> bool -> bool = "icsat_sat"
 
+let used = ref false
+
 let initialize s = 
-  Explanation.reset();   (* Initialize explanation mechanism *)
-  icsat_initialize();    (* Initialize SAT solver *)
-  Stack.clear stack;     (* Initialize stack *)
-  Stack.push (s, []) stack;
-  initial := (s, []);    (* Initial context *)
-  scratch := s;          (* Initialize scratch area *)
-  atom_to_id_tbl :=  Atom.Map.empty;
-  Name.Hash.clear vartbl
+  if !used then
+    invalid_arg "SAT solver already in use"
+  else 
+    begin
+      used := true;
+      Explanation.reset();   (* Initialize explanation mechanism *)
+      icsat_initialize();    (* Initialize SAT solver *)
+      Stack.clear stack;     (* Initialize stack *)
+      Stack.push (s, []) stack;
+      initial := (s, []);    (* Initial context *)
+      scratch := s;          (* Initialize scratch area *)
+      atom_to_id_tbl :=  Atom.Map.empty;
+      Name.Hash.clear vartbl
+    end 
 
 let finalize () =
-  icsat_finalize ()
+  icsat_finalize ();
+  used := false
 
 let statistics = ref false
 
@@ -428,7 +455,7 @@ end
 let rec sat s p =
   try
     initialize s;
-    let result = 
+    let result =
       let mode = Jst.Mode.get() != Jst.Mode.No in
 	if icsat_sat (to_prop p) mode then
 	  begin

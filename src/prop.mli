@@ -70,6 +70,7 @@ val set_clause_relevance : int -> unit
 val set_cleanup_period : int -> unit 
 val set_num_refinements : int -> unit
 val statistics : bool ref
+val reduce_explanation : bool ref
 
 module Assignment : sig
 
@@ -83,4 +84,5 @@ module Assignment : sig
 end
 
 val sat : Context.t -> t -> (Assignment.t * Context.t) option
+  (** might fail if already in use. *)
 

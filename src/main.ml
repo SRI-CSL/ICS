@@ -74,6 +74,8 @@ let args () =
         "Number of refinement steps in SAT solver";
         "-statistics", set_true Ics.set_statistic,
         "Print statistics for SAT solver";
+	"-reduce_explanation", set_true Ics.set_reduce_explanation,
+        "Try to further reduce explanations in SAT solving";
 	"-integersolve", set_false Ics.set_integer_solve,
         "Disables Solving for the integers";
 	"-crossmultiply", set_true Ics.set_crossmultiply,

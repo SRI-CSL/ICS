@@ -156,12 +156,12 @@ end
 
 
 type atom =
-  | True
+  | TT
   | Equal of Term.t * Term.t
   | Diseq of Term.t * Term.t
   | Nonneg of Term.t
   | Pos of Term.t
-  | False
+  | FF
 
 and t = atom * int
 
@@ -171,10 +171,12 @@ let index_of (_, i) = i
 
 (** {6 Pretty-printing} *)
 
-let pp fmt (atm, _) =   (* this causes an occasional segmentation fault (why???) *)
+let is_false = function FF, _ -> true | _ -> false
+
+let pp fmt (atm, i) =   (* this causes an occasional segmentation fault (why???) *)
   match atm with 
-    | True -> Pretty.string fmt "True"
-    | False -> () (* Pretty.string fmt "False" *)
+    | TT -> Pretty.string fmt "TT"
+    | FF -> () (* Pretty.string fmt "FF" *)
     | Equal(a, b) -> Equal.pp fmt (a, b)
     | Diseq(a, b) -> Diseq.pp fmt (a, b)
     | Nonneg(a) -> Nonneg.pp fmt a
@@ -192,57 +194,50 @@ module AtomTbl = Hashtbl.Make(
     type t = atom
     let equal a b = 
       match a, b with
-	| True, True -> true
-	| False, False -> true
+	| TT, TT -> true
+	| FF, FF -> true
 	| Equal(a1, b1), Equal(a2, b2) -> Term.eq a1 a2 && Term.eq b1 b2
 	| Diseq(a1, b1), Diseq(a2, b2) -> Term.eq a1 a2 && Term.eq b1 b2
 	| Nonneg(a), Nonneg(b) -> Term.eq a b
 	| Pos(a), Pos(b) -> Term.eq a b
 	| _ -> false
     let hash = function
-      | True -> 0
+      | TT -> 0
       | Equal(a, b) -> (17 + Term.hash a + Term.hash b) land 0x3FFFFFFF
       | Diseq(a, b) -> (631 + Term.hash a + Term.hash b) land 0x3FFFFFFF
       | Nonneg(a) -> Term.hash a
       | Pos(a) -> Term.hash a
-      | False -> 1
+      | FF -> 1
   end)
   
 let heap = AtomTbl.create 117
-let index = Array.make 20000 (Obj.magic 0)
+let index = Dynarray.make 2000  (* (Obj.magic 0) *)
 let max = ref 0
-  
-let genidx () =
-  if !max >= 20000 then
-    invalid_arg "Atom table: memory bound reached";
-  let idx  = !max in
-    assert(!max < max_int);
-    incr max;
-    idx
 
-let mk_true = (True, 0)
-let mk_false = (False, 1)
+let mk_true = (TT, 0)
+let mk_false = (FF, 1)
 
 let of_atom a =
   try
     AtomTbl.find heap a
   with
       Not_found ->
-	let i = genidx() in
+	let i = Dynarray.length index in
 	let ai = (a, i) in
-	  AtomTbl.add heap a ai;   
-	  Array.set index i ai;
+	  AtomTbl.add heap a ai;
+	  Dynarray.add index ai;
+	  assert(Dynarray.get index i == ai);
 	  ai
 
-let of_index i = Array.get index i
+let of_index i = Dynarray.get index i
 
 
-(** [0] and [1] are reserved for [True], [False]. Then
+(** [0] and [1] are reserved for [TT], [FF]. Then
   initialize and register initialization for resetting. *)
 let initialize () = 
   max := 2;
-  AtomTbl.add heap True mk_true;
-  AtomTbl.add heap False mk_false
+  AtomTbl.add heap TT mk_true;
+  AtomTbl.add heap FF mk_false
 
 
 let _ = initialize ()
@@ -253,9 +248,9 @@ let equal (_, i) (_, j) = (i == j)
 let compare (_, i) (_, j) = 
   if i < j then -1 else if i == j then 0 else 1
   
-let is_true = function True, _ -> true | _ -> false
+let is_true = function TT, _ -> true | _ -> false
 
-let is_false = function False, _ -> true | _ -> false
+let is_false = function FF, _ -> true | _ -> false
 
 let of_equal (a, b) = of_atom(Equal(a, b))
 let of_diseq (a, b) = of_atom(Diseq(a, b))
@@ -312,12 +307,12 @@ let mk_lt (a, b) = mk_pos (Arith.mk_sub b a)     (* [a < b] iff [b - a > 0] *)
 
 let is_pure i (a, _) =
   match a with 
-    | True -> true
+    | TT -> true
     | Equal(a, b) -> Term.is_pure i a && Term.is_pure i b 
     | Diseq(a, b) -> Term.is_pure i a && Term.is_pure i b 
     | Nonneg(a) -> Term.is_pure i a
     | Pos(a) -> Term.is_pure i a
-    | False -> true
+    | FF -> true
 
 
 
@@ -327,8 +322,8 @@ let is_negatable _ = true
 
 let negate (a, _) =
   match a with
-    | True -> mk_false
-    | False -> mk_true
+    | TT -> mk_false
+    | FF -> mk_true
     | Equal(a, b) -> mk_diseq (a, b)
     | Diseq(a, b) -> mk_equal (a, b)
     | Nonneg(a) -> mk_pos (Arith.mk_neg a)  (* [not(a >= 0)] iff [-a > 0] *)
@@ -340,8 +335,8 @@ let negate (a, _) =
 
 let vars_of (a, _) =
   match a with 
-    | True -> Term.Var.Set.empty
-    | False -> Term.Var.Set.empty
+    | TT -> Term.Var.Set.empty
+    | FF -> Term.Var.Set.empty
     | Equal(a, b) -> Equal.vars_of (a, b)
     | Diseq(a, b) -> Diseq.vars_of (a, b)
     | Nonneg(a) -> Term.vars_of a
@@ -357,8 +352,8 @@ let occurs ((x, a) as p) =
     | Term.App(_, sl, _) -> List.exists term_occurs sl
   in
     match a with
-      | True -> false
-      | False -> false
+      | TT -> false
+      | FF -> false
       | Equal(a, b) -> term_occurs a || term_occurs b
       | Diseq(a, b) -> term_occurs a || term_occurs b
       | Nonneg(a) -> term_occurs a
@@ -370,8 +365,8 @@ let is_connected (a, _) (b, _) =
     | Term.App(_, sl, _) -> List.exists term_is_connected sl
   in
     match a with
-      | True -> false
-      | False -> false
+      | TT -> false
+      | FF -> false
       | Equal(a, b) -> term_is_connected a || term_is_connected b
       | Diseq(a, b) -> term_is_connected a || term_is_connected b
       | Nonneg(a) -> term_is_connected a

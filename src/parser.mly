@@ -313,7 +313,8 @@ signature:
 command:
   CAN term                  { Istate.do_can $2 }
 | SIMPLIFY atom             { Istate.do_simplify $2 }
-| ASSERT optname atom       { Istate.do_process ($2, $3) }
+| ASSERT optname atom       { Istate.do_process1 ($2, $3) }
+| ASSERT optname atom COMMA atomlist { Istate.do_process ($2, $3 :: $5) }
 | DEF name ASSIGN term      { Istate.do_def ($2, (Symtab.Term($4))) }
 | PROP name ASSIGN prop     { Istate.do_prop ($2, $4) }
 | SIG name COLON cnstrnt    { Istate.do_typ ([$2], $4) }

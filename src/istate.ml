@@ -185,18 +185,6 @@ module Out = struct
 	  end ;
 	Format.fprintf fmt "@?"
 
- let split sl =
-    if !batch then nothing () else 
-      let fmt = !outchannel in
-	if Combine.Split.is_empty sl then
-	  Format.fprintf fmt ":none"
-	else
-	  begin
-	    Format.fprintf fmt ":splits ";
-	    Combine.Split.pp fmt sl
-	  end;
-	Format.fprintf fmt "@?"
-
   let dom (d, rho) =
     if !batch then nothing () else 
       let fmt = !outchannel in
@@ -880,7 +868,7 @@ let do_untrace =
 
 (** Adding a new fact *)
 
-let do_process = 
+let do_process1 = 
   Command.register "assert"
     (fun (n, a) ->
        let t = get_context n in
@@ -894,7 +882,7 @@ let do_process =
 		 Out.unsat rho;
 		 if !batch then raise End_of_file else ()
 	       end)
-    {args = "[@<ident>]  <atom>";
+    {args = "[@<ident>]  <atom>,...,<atom>";
      short = "Add an atom to a context"; 
      description = "
          An <atom> is asserted to the specified context. If <ident> 
@@ -919,6 +907,19 @@ let do_process =
        ics> assert u = v.
        :unsat", "The conjunction of these three assertions is inconsistent"]; 
      seealso = ""}
+
+let do_process (n, al) =
+  let t = get_context n in
+    match Context.addl t al with  (* Update state and install new name in symbol table *)
+      | Context.Status.Ok(t') -> 
+	  current := t';
+	  let n = save_state None in Out.ok n
+      | Context.Status.Valid(rho) ->  Out.valid rho
+      | Context.Status.Inconsistent(rho) ->
+	  begin
+	    Out.unsat rho;
+	    if !batch then raise End_of_file else ()
+	  end
 
 
 let do_valid =
@@ -1051,7 +1052,13 @@ let do_split =
   Command.register "split"
     (fun n ->
        let s = get_context n in
-	 Out.split (Combine.split (Context.config_of s)))
+	 (try
+	    let spl = Combine.split (Context.config_of s) in
+	     Combine.Split.pp !outchannel spl
+	  with
+	      Not_found -> 
+		Format.fprintf !outchannel ":none");
+	 Format.fprintf !outchannel "@?")
     {args = "[@<ident>]";
      short = "Suggested case splits."; 
      description = "" ; 
