@@ -85,7 +85,7 @@ and floor s a =
   if is_int s a then
     a
   else 
-    match Solution.find s.a a with
+    match finda s a with
       | App(Arith(Num(q)), []) when Q.is_integer q ->
 	  a
       | App(Arith(Multq(q)), [x]) when Q.is_integer q && is_int s x ->
@@ -111,8 +111,8 @@ and ceiling s a =    (* [ceiling(x) = -floor(-x)] *)
 	  (lookup s (Arith.mk_neg a))))
 
 and add s a b =
-  let a' = Solution.find s.a a 
-  and b' = Solution.find s.a b in
+  let a' = finda s a 
+  and b' = finda s b in
   lookup s (Arith.mk_add a' b')
 
 and sub s a b =
@@ -133,7 +133,7 @@ and zero s = lookup s Arith.mk_zero
 
 and multq s q a =
   Trace.msg "rewrite" "Multq" a Term.pp;
-  lookup s (Arith.mk_multq q (Solution.find s.a a))
+  lookup s (Arith.mk_multq q (finda s a))
 
 and mult s (a, b) = 
   Trace.msg "rewrite" "Mult" (a, b) (Pretty.pair Term.pp Term.pp);
@@ -169,12 +169,12 @@ and mult s (a, b) =
     if Term.eq a b then                                (* [ a * a --> a^2] *)
       expt s (num s (Q.of_int 2)) a 
     else
-      let a' = Solution.find s.a a and b' = Solution.find s.a b in
+      let a' = finda s a and b' = finda s b in
 	match a' with
 	  | App(Builtin(Div), [a1; a2]) ->      (* [(a1 / a2) * b = (a1 * b) / a2] *) 
 	      div s (mult s (a1, b), a2)
 	  | _ ->
-	      (match b with
+	      (match b' with
 		 | App(Builtin(Div), [b1; b2]) ->     (* [a * (b1 / b2) = (a * b1) / b2] *)
 		     div s (mult s (a, b1), b2)
 		 | _ -> 
@@ -182,14 +182,18 @@ and mult s (a, b) =
 			| App(Arith(Num(q)), []), App(Arith(Num(p)), []) ->
 			    num s (Q.mult q p)
 			| _, App(Arith(Num(p)), []) ->
-			    multq s p a
+			    multq s p a'
 			| App(Arith(Num(q)), []), _ -> 
-			    multq s q b
+			    multq s q b'
+			| App(Arith(Multq(q)), [x]), _ ->
+			    multq s q (mult s (x, b'))
+			| _, App(Arith(Multq(p)), [y]) ->
+			    multq s p (mult s (y, a'))
 			| App(Arith(Add), xl), _ ->    (* [(x1+...+xn) * b = x1*b+...+xn*b] *)
-			    let xl' = mapl (fun x -> Solution.find s.a (mult s (x, b))) xl in
+			    let xl' = mapl (fun x -> finda s (mult s (x, b))) xl in
 			      lookup s (Arith.mk_addl xl')
 			| _,  App(Arith(Add), yl) ->   (* [a * (y1+...+yn) = y1*a+...+yn*a] *)
-			    let yl' = mapl (fun y -> Solution.find s.a (mult s (y, a))) yl in
+			    let yl' = mapl (fun y -> finda s (mult s (y, a))) yl in
 			      lookup s (Arith.mk_addl yl')
 			| App(Builtin(Mult), xl), App(Builtin(Mult), yl) ->
 			    of_list (multl xl yl)
@@ -205,9 +209,23 @@ and mult s (a, b) =
 			    expt s (Arith.mk_incr n) x
 			| _, App(Builtin(Expt), [m; y])
 			    when Term.eq y a ->                 (* [ y * y^m --> y^(m+1)] *)
-			    expt s (Arith.mk_incr (Solution.find s.a m)) y
+			    expt s (Arith.mk_incr (finda s m)) y
 			| _ ->
 			    of_list (multl [a] [b])))
+
+and finda s a =
+  try
+    Solution.apply s.a a
+  with
+      Not_found ->
+	try
+	  let b = Solution.apply s.u a in
+	  match b with
+	    | App(f, _) when Sym.is_nonlin f -> b
+	    | _ ->  a
+	  with
+	      Not_found -> a
+	    
   
 
 and multl s al =
@@ -220,7 +238,7 @@ and multl s al =
 
 and expt s n a =
   Trace.msg "rewrite" "Expt" (n, a) (Pretty.pair Term.pp Term.pp);
-  let n' = Solution.find s.a n and a' = Solution.find s.a a in
+  let n' = finda s n and a' = finda s a in
     match n', a' with
       | App(Arith(Num(q)), []), _ when Q.is_zero q ->  (* [x^0 = 1] *)
 	  one s
@@ -232,7 +250,7 @@ and expt s n a =
 	  else
 	    lookup s (Term.mk_app Sym.expt [n; a])
       | _, App(Builtin(Expt), [m; x]) ->               (* [(x^m)^n = x^(m+n) ] *)
-	  expt s (lookup s (Arith.mk_add n' (Solution.find s.a m))) x
+	  expt s (lookup s (Arith.mk_add n' (finda s m))) x
       | _, App(Builtin(Mult), xl) ->      (* [(x1 *...* xk)^n = x1^n *...xk^n] *)
 	  multl s (mapl (expt s n) xl)
       | _, App(Builtin(Div), [x; y]) ->             (* [(x / y)^n = x^n / y^n] *)
@@ -246,7 +264,7 @@ and expt s n a =
 
 and inv s a = 
   Trace.msg "rewrite" "Inv" a Term.pp;
-  match Solution.find s.a a with
+  match finda s a with
     | App(Arith(Num(q)), []) when not(Q.is_zero q) ->
 	num s (Q.inv q)
     | App(Builtin(Div), [a1; a2]) ->      
@@ -278,16 +296,50 @@ and div s (a, b) =
 		multq s q (cancelled_div (x, b))
 
   and cancelled_div (a, b) =
-    let product_of a = match a with
-      | App(Builtin(Mult), xl) -> xl
-      | _ -> [a]
-    in
-    let al = product_of a in
-    let bl = product_of b in
-      let (a', b') = cancel (one s, one s) (al, bl) in
-	lookup s (mk_app Sym.div [a'; b'])
-	
-  and cancel ((acc1, acc2) as acc) =
+      let (a', b') = cancel s (a, b) in
+	lookup s (mk_app Sym.div [a'; b'])	  
+  in  
+    match finda s a, finda s b with
+      | a, App(Arith(Num(q)), []) when Q.is_one q ->
+	  a
+      | a, App(Arith(Num(q)), []) when not(Q.is_zero q) ->
+	  multq s (Q.inv q) a
+      | App(Builtin(Div), [a1; a2]), b ->
+	  div s (a1, mult s (a2, b))
+      | a, App(Builtin(Div), [b1; b2]) ->
+	  mult s (a, div s (b2, b1))
+      | a, App(Arith(Multq(p)), [y]) ->
+	  if Q.is_zero p then
+	    lookup s (Term.mk_app Sym.div [a; zero s])
+	  else 
+	    multq s (Q.inv p) (div s (a, y))
+      | App(Arith(Multq(q)), [x]), b -> 
+	  multq s q (div s (x, b))
+      | a, b ->
+	  let ml = Arith.monomials a in
+	    addl s (mapl (fun m -> divm (m, b)) ml)
+ 
+
+and sin s a =
+  Trace.msg "rewrite" "Sin" a Term.pp;
+  match finda s a with
+    | App(Arith(Add), [x; y]) ->
+	let a = mult s (sin s x, cos s y) in
+	let b = mult s (cos s x, sin s y) in
+	  add s a b
+    | _ ->
+	lookup s (Term.mk_app Sym.sin [a])
+
+and cos s a = 
+  Trace.msg "rewrite" "Cos" a Term.pp;
+  lookup s (Term.mk_app Sym.cos [a])
+
+and cancel s (a, b) =
+  let product_of = function
+    | App(Builtin(Mult), xl) -> xl
+    | a -> [a]
+  in
+  let rec loop ((acc1, acc2) as acc) =
     function
     | [], [] -> 
 	acc
@@ -309,36 +361,32 @@ and div s (a, b) =
 		  let k = num s (Q.sub n m) in
 		    (mult s (expt s k x, acc1), acc2)
 	    in
-	      cancel acc' (al, bl)
+	      loop acc' (al, bl)
 	  else if compare > 0 then 
-	    cancel (acc1, mult s (b, acc2)) (l1, bl)
+	    loop (acc1, mult s (b, acc2)) (l1, bl)
 	  else (* compare < 0 *)
-	    cancel (mult s (a, acc1), acc2) (al, l2)	  
-  in  
-    match Solution.find s.a a, Solution.find s.a b with
-      | a, App(Arith(Num(q)), []) when Q.is_one q ->
-	  a
-      | a, App(Arith(Num(q)), []) when not(Q.is_zero q) ->
-	  multq s (Q.inv q) a
-      | App(Builtin(Div), [a1; a2]), b ->
-	  div s (a1, mult s (a2, b))
-      | a, App(Builtin(Div), [b1; b2]) ->
-	  mult s (a, div s (b2, b1))
-      | a, b ->
-	  let ml = Arith.monomials a in
-	    addl s (mapl (fun m -> divm (m, b)) ml)
- 
+	    loop (mult s (a, acc1), acc2) (al, l2)
+  in
+    loop (one s, one s) (product_of a, product_of b)
 
-and sin s a =
-  Trace.msg "rewrite" "Sin" a Term.pp;
-  match Solution.find s.a a with
-    | App(Arith(Add), [x; y]) ->
-	let a = mult s (sin s x, cos s y) in
-	let b = mult s (cos s x, sin s y) in
-	  add s a b
-    | _ ->
-	lookup s (Term.mk_app Sym.sin [a])
+let apply s r a al =
+  lookup s (mk_app (Sym.apply r) (a :: al))
 
-and cos s a = 
-  Trace.msg "rewrite" "Cos" a Term.pp;
-  lookup s (Term.mk_app Sym.cos [a])
+let lambda s x a =
+  lookup s (mk_app (Sym.Builtin(Sym.Lambda(x))) [a])
+
+
+let sigma s f l =
+  match f, l with
+    | Unsigned, [x] -> unsigned s x
+    | Select, [x; y] -> select s (x, y)
+    | Update, [x; y; z] -> update s (x, y, z)
+    | Sin, [x] -> sin s x
+    | Cos, [x] -> cos s x
+    | Floor, [x] -> floor s x
+    | Mult, xl -> multl s xl
+    | Div, [x; y] -> div s (x, y)
+    | Expt, [x; y] -> expt s x y
+    | Apply(r), x :: xl -> apply s r x xl
+    | Lambda(x), [y] -> lambda s x y
+    | _ -> mk_app (Builtin(f)) l
