@@ -217,18 +217,19 @@ end
 
 (** [R.t] represents solution sets of the form [x = a], where [x] is
   unrestricted, and [a] is an arithmetic term. *)
-module R: Eqs.SET = Eqs.Make(
-  struct
-    let th = Th.a
-    let nickname = Th.to_string Th.a
-    let apply = Arith.apply
-    let is_infeasible = is_infeasible
-  end)
+module R: Eqs.SET0 = 
+  Eqs.Make0(
+    struct
+      let th = Th.a
+      let nickname = Th.to_string Th.a
+      let apply = Arith.apply
+      let is_infeasible = is_infeasible
+    end)
 
 
 (** Specification for an index for the variable [x] such that
   [x = a] with [|a| = 0]. *)
-module ZeroIdx: Eqs.INDEX1 = struct
+module ZeroIdx: Eqs.INDEX = struct
   let name = "zero"
   let holds a = Mpa.Q.is_zero(Arith.constant_of a)
 end
@@ -238,8 +239,8 @@ end
   variable [k] and terms [a] containing only slack variables.  
   We maintain an index [zero t] such that [k] is in [zero t] iff 
   [k = a] with  constant summand of [a] is  [0]. *)
-module T: Eqs.SET = 
-  Eqs.MakeIndex1
+module T: (Eqs.SET with type ext = Term.Set.t) = 
+  Eqs.MakeIndex
     (struct
        let th = Th.a
        let nickname = "t"
@@ -251,7 +252,7 @@ module T: Eqs.SET =
 
 (** Combined solution set [S = (R; T)]. *)
 module S = 
-  Eqs.Union(R)(T)(QIdx)
+  Eqs.Union(R)(T)(Eqs.Cnstnt2Ext(QIdx))
 
 type t = S.t
 
@@ -263,8 +264,8 @@ let is_empty = S.is_empty
 
 
 (** Accessing modes. *)
-let r = Eqs.Left
-let t = Eqs.Right
+let r = S.Left
+let t = S.Right
 
 
 let is_dependent s x =
@@ -281,7 +282,9 @@ module Zero = struct
 
   (** [zero t] returns the set of [x] with [x = a] in [t] such that
     the constant monomial of [a] is [0]. *)
-  let get s = S.index t s 0
+  let get s = 
+    let (_, _, zero) = S.ext s in
+      zero
  
   (** Apply [f e] to all equalities [k = a] in [t] such that [|a| = 0]. *)
   let iter s f =
@@ -421,12 +424,13 @@ let d_num s x =
   let p = Arith.d_num a in
     (p, rho)
 
-(** Test if [x] and [q] are known to be disequal. *)
-let is_num_diseq (_, s) x q =
+(** Test if [a] and [q] are known to be disequal. *)
+let is_num_diseq (_, s) a q =
   try
-    let (p, rho) = d_num s x in
+    let (a', tau) = replace s a in
+    let (p, rho) = d_num s a' in
       if not(Mpa.Q.equal q p) then
-	Some(rho)
+	Some(Justification.dependencies [rho; tau])
       else 
 	None
   with
@@ -461,17 +465,17 @@ let name cfg =
 let fuse1 tag cfg e =
   Trace.msg "la" "Fuse" e Fact.Equal.pp;
   match tag with
-    | Eqs.Left -> S.fuse r cfg [e] 
-    | Eqs.Right -> S.fuse t cfg [e]
+    | S.Left -> S.fuse r cfg [e] 
+    | S.Right -> S.fuse t cfg [e]
 	
 
 (** Composing a list of solved equalities into solution set for mode [m]. *)
 let compose1 tag cfg e =
   Trace.msg "la" "Compose" e Fact.Equal.pp;
   match tag with
-    | Eqs.Left ->
+    | S.Left ->
 	S.compose r cfg [e] 
-    | Eqs.Right -> 
+    | S.Right -> 
 	S.fuse r cfg [e];     (* to do: add lazy fusion for R. *)
 	S.compose t cfg [e]
 	
@@ -544,13 +548,14 @@ and process_solved_restricted ((p, s) as cfg) e =
 	  let (k, tau) = mk_zero_slack diff rho in       (* [tau |- k = diff] *)
 	    add_to_t cfg (Fact.Equal.make (k, diff, tau)); 
 	    if Fact.Equal.is_diophantine e then
-	      gomery_cut cfg e;  
-	    infer cfg;
+	      gomory_cut cfg e;  
+	    Trace.msg "foo3" "After add_to_t" () Pretty.unit;
 	    (try
 	       let (a', rho') = S.apply t s k in         (* [rho' |- k = a'] *)
 	       let e' = Fact.Equal.make (k, a', rho') in
+	       Trace.msg "foo3" "ZeroSlack" e' Fact.Equal.pp;
 	       let cmp = Mpa.Q.compare (Arith.constant_of a') Mpa.Q.zero in
-		 if cmp < 0 then                 (* I. [|a'| > 0] *)
+		 if cmp < 0 then                 (* I. [|a'| < 0] *)
 		   inconsistent 
 		     (Justification.dependencies [rho])
 		 else if cmp = 0 then            (* II. [|a'| = 0] *)
@@ -559,7 +564,7 @@ and process_solved_restricted ((p, s) as cfg) e =
 			(isolate (choose a') e') 
 		    with 
 			Not_found -> ())  (* skip *)
-		 else                            (* III. [a0' > 0] *)
+		 else                            (* III. [|a'| > 0] *)
 		   if Arith.Monomials.Neg.is_empty a' then
 		     inconsistent 
 		       (Justification.dependencies [rho])
@@ -580,7 +585,8 @@ and process_solved_restricted ((p, s) as cfg) e =
 		 Not_found ->  (* [k] is not a dependent variable *)
 		   let sigma = Justification.trans (k, diff, Arith.mk_zero) rho tau in
 		     compose1 t cfg 
-		       (Fact.Equal.make (k, Arith.mk_zero, tau)))
+		       (Fact.Equal.make (k, Arith.mk_zero, sigma)));
+	    infer cfg
 
 (* If [a'] contains negative variables, then we see 
    if there is a negative variable [y] in [a'] such that the 
@@ -604,7 +610,7 @@ and choose_negvar_with_no_smaller_gain s a' =
   integer and the rhs is a non-negative integer (since all the fracs are
   non-negative and [def(b) > -1]).  So, we have to add the inequality that
   [-def(b) + Sigma_i frac(ci)*xi >= 0], proceed. *)
-and gomery_cut ((_, s) as cfg) e =
+and gomory_cut ((_, s) as cfg) e =
   assert(is_restricted_equality e);
   let (x, a, rho) = Fact.Equal.destruct e in (* [rho |- x = a]. *)
   let (b, ml) = Arith.destruct a in
@@ -645,7 +651,7 @@ and process_nonneg1 ((_, s) as cfg) nn =
 		       Not_found -> 
 			 add_to_t cfg e;
 			 if Fact.Equal.is_diophantine e then
-			   gomery_cut cfg e;
+			   gomory_cut cfg e;
 			 infer cfg)
 	
 	      
@@ -957,7 +963,7 @@ and case_process_ge cfg =
 	 protect cfg process_nonneg nn)
   
 and contiguous_diseq_segment ((p, s) as cfg) (e, n) = 
-  Trace.call "la" "Contigous" (e, n) (Pretty.pair Term.pp Mpa.Q.pp);
+  Trace.call "la" "Contiguous" (e, n) (Pretty.pair Term.pp Mpa.Q.pp);
   let taus = ref [] in
   let rec upper max =                           (* [rho |- e <> n] *)
     let max' = Q.add max Q.one in
@@ -988,7 +994,7 @@ and contiguous_diseq_segment ((p, s) as cfg) (e, n) =
   monomials in the canonical form [a'] of [a].  It returns either 
   - [(b, rho') such that [b+] is empty and [rho' |- a = b], or
   - raises [Unbounded] if [a] is unbounded. *)
-let rec maximize ((p, s) as cfg) a =
+let rec upper ((p, s) as cfg) a =
   let rec max_term a (b, rho) =                (* [rho |- b = a] *)
     if Term.is_var a then
       max_var a (b, rho)
@@ -1029,7 +1035,7 @@ let rec maximize ((p, s) as cfg) a =
 (** Update [s] such that [x] is a dependent variable whenever
   this variable occurs in [s] *)
 and make_dependent ((_, s) as cfg) x =
-  assert(is_restricted_var x);
+ (*  assert(is_restricted_var x); *)
   try
     let e = S.Dep.choose t s x in     (* choose [y = a] such that [x] occurs in [a], *)
       compose1 t cfg (isolate x e)    (* and solve [y = a] for [x]. *)
@@ -1038,21 +1044,21 @@ and make_dependent ((_, s) as cfg) x =
 	
 
 (** Either return a term of the form [q - a-] or raise [Unbounded]. *)
-let minimize cfg a = 
-  let (b, rho) = maximize cfg (Arith.mk_neg a) in
+let lower cfg a = 
+  let (b, rho) = upper cfg (Arith.mk_neg a) in
     (Arith.mk_neg b, rho)
 
 
 (** Returns an upper bound or raises [Unbounded]. *)
 let sup cfg a =
-  let (b, rho) = maximize cfg a in
+  let (b, rho) = upper cfg a in
     assert(Arith.Monomials.Pos.is_empty b);
     (Arith.constant_of b, rho)
 
 
 (** Returns a lower bound or raises [Unbounded]. *)
 let inf cfg a =
-  let (b, rho) = minimize cfg a in
+  let (b, rho) = lower cfg a in
     assert(Arith.Monomials.Neg.is_empty b);
     (Arith.constant_of b, rho) 
 
@@ -1143,14 +1149,9 @@ module Finite = struct
 end 
 
 
-(*
+(** {6 Model Generation} *)
 
-(**  [interp (d, s) x] returns either 
-  - [(q, true)] if [q] is a nonstrict upper bound,
-  - [(q, false)] if [q] is a strict upper bound, or
-  - raise [Unbounded], if [x] is unbounded. 
-
-  If [x] is a slack variable, we make [x] a dependent variable and maximize
+(** If [x] is a slack variable, we make [x] a dependent variable and maximize
   [find t x].  If [find t x] is unbounded, we return infinity.  
   If [x] is a nonslack, then we make [x] dependent in R, decompose
   [find r x] into [w + u], where the variables in [w] are restricted and 
@@ -1158,55 +1159,77 @@ end
   [a] + [u].   If there are any numeric disequalities [x<>ni], then we 
   pick the largest compatible [ni].  If this coincides with [x], then 
   we choose, [x - epsilon] as the value for [x].  *)
+  
+type mode = Max | Min
 
-let rec interpretation (d, s) x =
-  if is_restricted x then
-    let (m, alpha) = 
-      interp_of_restricted (d, s) x
-    in
-      (Arith.mk_num m, alpha)
-  else 
-    let (m, a, alpha) = 
-      interp_of_unrestricted (d, s) x
-    in
-      (Arith.mk_addq m a, alpha)
-
-and interp_of_restricted (d, s) k =
-  make_dependent s k;           (* make [k] a dependent variable. *)
-  let (b, _) = T.find s.t k in
-  let m = maximizes b in
-    (m, true)
-
-and interp_of_unrestricted (d, s) x = 
-  make_dependent s x;        (* make [x] a dependent variable. *)
-  let (b, _) = R.find s.r x in       (* [x = b] *)
-  let (n, w, u) =                    (* [b = n + w + u] *)
-    Arith.partition (fun (_, y) -> is_restricted y) b 
-  in
-  let m = Q.add n (maximizes w) in
-    (m, u, true)
-
-*)
-
-let interpretation_of (d, s) x =
-  failwith "interpretation_of : to do" 
-(*
+let rec model ((_, s) as cfg) xl =
   try
-    (match interpretation (d, s) x with
-       | m, true -> m
-       | m, false -> Arith.mk_sub m Arith.mk_eps)
+    Format.eprintf "\nWarning: model generation is work in progress...";
+    let s = S.copy s in             (* protect state against updates. *)
+    let m = ref Term.Map.empty in
+      List.iter
+	(fun (x, mode) -> 
+	   let a = interpretation_of cfg (x, mode) in
+	     m := Term.Map.add x a !m;
+	     let e = Fact.Equal.make (x, a, Justification.dependencies []) in 
+	       process_equal cfg e)
+	xl;
+      !m
   with
-      Unbounded -> Arith.mk_inf
-*)
+      Justification.Inconsistent _ ->
+	failwith "Inconsistency detected in model generation"
 
-let model ((_, s) as cfg) xs =
-  let s = S.copy s in         (* protect state against updates. *)
-  let m = ref Term.Map.empty in
-    Term.Set.iter
-      (fun x ->
-	 let a = interpretation_of cfg x in
-	   m := Term.Map.add x a !m;
-	   let e = Fact.Equal.make (x, a, Justification.dependencies []) in 
-	     compose1 t cfg e)
-      xs;
-    !m
+and interpretation_of ((p, _) as cfg) (x, mode) =
+  let q = interpretation cfg (x, mode) in
+      q                                        (* disequalities: to do *)
+
+and interpretation cfg (x, mode) =
+  if is_restricted x then
+    interp_of_restricted cfg (x, mode)
+  else 
+    interp_of_unrestricted cfg (x, mode)
+      
+and interp_of_restricted ((_, s) as cfg) (k, mode) =
+  make_dependent cfg k;           (* make [k] a dependent variable. *)
+  let (b, _) = S.find t s k in
+    match mode with
+      | None -> 
+	  Arith.mk_num (Arith.constant_of b)
+      | Some(Max) -> 
+	  (try
+	     let (b', _) = upper cfg b in
+	       Arith.mk_num (Arith.constant_of b')
+	   with
+	       Not_found -> Arith.mk_posinf)
+      | Some(Min) -> 
+	  (try
+	     let (b', _) =  lower cfg b in
+	       Arith.mk_num (Arith.constant_of b')
+	   with
+	       Not_found -> Arith.mk_neginf)
+
+    
+and interp_of_unrestricted ((_, s) as cfg) (x, mode) = 
+  let is_restricted_monomial (_, y) = is_restricted_var y in
+    make_dependent cfg x;              (* make [x] a dependent variable. *)
+    let (b, _) = S.find r s x in       (* [x = b] *)
+    let (n, w, u) = Arith.Monomials.partition is_restricted_monomial b in
+      match mode with
+	| None -> 
+	    Arith.mk_num (Q.add n (Arith.constant_of w))
+	| Some(Max) ->
+	    (try 
+	       let (w', _) = upper cfg w in
+		 Arith.mk_num (Q.add n (Arith.constant_of w'))
+	     with
+		 Not_found -> Arith.mk_posinf)
+      | Some(Min) -> 
+	  (try
+	     let (w', _) = lower cfg w in
+	     Arith.mk_num (Q.add n (Arith.constant_of w'))
+	   with
+	       Not_found -> Arith.mk_neginf)
+  
+
+
+
