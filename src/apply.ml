@@ -19,16 +19,37 @@ open Sym
 
 type norm = Sym.t -> Term.t list -> Term.t
 
+(** {6 Destructors} *)
+
+let d_interp a =
+  match a with
+   | Term.App(Sym.Fun(op), al) -> (op, al)
+   | _ -> raise Not_found
+
+let d_abs a =
+  match a with 
+   | Term.App(Sym.Fun(Abs), [a1]) -> a1
+   | _ -> raise Not_found
+
+let d_apply a =
+  match a with
+    | Term.App(Sym.Fun(Apply(r)), [a; b]) -> (r, a, b)
+    | _ -> raise Not_found
+
+
+(** {6 Constructors} *)
+
 let mk_abs a = 
   Term.App.mk_app Sym.Fun.abs [a]
 
 let rec mk_apply sigma r a b =
-  match a with
-    | Term.App(Fun(Abs), [x]) -> 
-	byValue sigma (subst sigma x b 0)
-    | _ ->
+  try
+    let x = d_abs a in
+      byValue sigma (subst sigma x b 0)
+  with
+      Not_found ->
 	Term.App.mk_app (Sym.Fun.apply r) [a; b]
-
+	
 
 (** evaluation, not affecting function bodies *)
 and eval sigma =
@@ -50,13 +71,13 @@ and eval sigma =
 
 (** normalization using call-by-value*)
 and byValue sigma a = 
-  let rec  bodies = function
-    | Term.App(Fun(Abs), [x]) -> 
-	Term.App.mk_app Sym.Fun.abs [byValue sigma x]
-    | Term.App(Fun(Apply(r)), xl) -> 
-	Term.App.mk_app (Sym.Fun.apply r) (Term.mapl bodies xl)
-    | a -> 
-	a
+  let rec bodies a =
+    match a with
+      | Term.App(Fun(Abs), [x]) -> 
+	  Term.App.mk_app Sym.Fun.abs [byValue sigma x]
+      | Term.App(Fun(Apply(r)), xl) -> 
+	  Term.App.mk_app (Sym.Fun.apply r) (Term.mapl bodies xl)
+      | _ -> a
   in
     bodies (eval sigma a)
 
@@ -145,18 +166,26 @@ let sigma op al =
 	assert false
 
 let rec map f a =
-  match a with
-    | Term.App(Fun(Apply(r)), [x; y]) ->
-	let x' = map f x and y' = map f y in
-	  if x == x' && y == y' then a else
-	    mk_apply Term.App.mk_app r x' y'
-    | Term.App(Fun(Abs), [x]) ->
-	let x' = map f x in
-	  if x == x' then a else 
-	    mk_abs x'
-    | _ ->
-	f a
+  try
+    (match d_interp a with
+       | Apply(r), [x; y] ->
+	   let x' = map f x and y' = map f y in
+	     if x == x' && y == y' then a else
+	       mk_apply Term.App.mk_app r x' y'
+       | Abs, [x] ->
+	   let x' = map f x in
+	     if x == x' then a else 
+	       mk_abs x'
+       | _ ->
+	   f a)
+  with
+      Not_found -> f a
 
 (** Replacing a variable with a term. *)
 let apply (x, b) = 
   map (fun y -> if Term.eq x y then b else y)
+
+
+
+
+

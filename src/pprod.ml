@@ -35,13 +35,17 @@ and is_mult = function
       (List.for_all (fun x -> is_expt x || Term.is_var x) xl)
   | _ -> false
 
-let rec is_diophantine = function
-  | Term.App(Pp(Mult), xl) ->
-      List.for_all is_diophantine xl
-  | Term.App(Pp(Expt(n)), [x]) when n >= 0 ->
-      is_diophantine x
-  | a -> 
-      Term.Var.is_int a
+let rec is_diophantine a =
+  try
+    match d_interp a with
+      | Mult, xl ->
+	  List.for_all is_diophantine xl
+      | Expt(n), [x] when n >= 0 ->
+	  is_diophantine x
+      | _ -> 
+	  Term.Var.is_int a
+    with
+	Not_found -> Term.Var.is_int a
 
 (** {6 Iterators} *)
 
@@ -55,13 +59,16 @@ let rec fold f a e =
 	f a 1 e
 
 let rec iter f a =
-  match a with
-    | Term.App(Pp(Mult), xl) ->
-	List.iter (iter f) xl
-    | Term.App(Pp(Expt(n)), [x]) ->
-	f x n
-    | _ ->
-	f a 1
+  try
+    match d_interp a with
+      | Mult, xl ->
+	  List.iter (iter f) xl
+      | Expt(n), [x] ->
+	  f x n
+      | _ ->
+	  f a 1
+    with
+	Not_found -> f a 1
 
 
 
@@ -80,52 +87,65 @@ let rec mk_expt n a =
   else if n = 1 then                (* [a^1 = a] *)
     a
   else 
-    match a with
-      | Term.App(Pp(Expt(m)), [x]) ->    (* [x^m^n = x^(m * n)] *)
-	  mk_expt (m * n) x
-      | Term.App(Pp(Mult), []) ->        (* [1^n = 1] *)
-	  mk_one
-      | Term.App(Pp(Mult), [x]) -> 
-	  Term.App.mk_app (Sym.Pprod.expt n) [x]
-      | Term.App(Pp(Mult), xl) ->        (* [(x1*...*xk)^n = x1^n*...*...xk^n] *)
-	  mk_multl (Term.mapl (mk_expt n) xl)
-      | _ ->
-	  Term.App.mk_app (Sym.Pprod.expt n) [a]
+    try
+      match d_interp a with
+	| Expt(m), [x] ->    (* [x^m^n = x^(m * n)] *)
+	    mk_expt (m * n) x
+	| Mult, [] ->        (* [1^n = 1] *)
+	    mk_one
+	| Mult, [x] -> 
+	    Term.App.mk_app (Sym.Pprod.expt n) [x]
+	| Mult, xl ->        (* [(x1*...*xk)^n = x1^n*...*...xk^n] *)
+	    mk_multl (Term.mapl (mk_expt n) xl)
+	| _ ->
+	    Term.App.mk_app (Sym.Pprod.expt n) [a]
+      with
+	  Not_found ->  
+	    Term.App.mk_app (Sym.Pprod.expt n) [a]
       
 and mk_multl al =
   List.fold_left mk_mult mk_one al
 
 and mk_mult a b =
-  match a with
-    | Term.App(Pp(Expt(n)), [x]) ->
-	mk_mult_with_expt x n b
-    | Term.App(Pp(Mult), []) ->
-	b
-    | Term.App(Pp(Mult), xl) ->
-	mk_mult_with_pp xl b
-    | _ ->
-	mk_mult_with_expt a 1 b
+  try
+    match d_interp a with
+      | Expt(n), [x] ->
+	  mk_mult_with_expt x n b
+      | Mult, [] ->
+	  b
+      | Mult, xl ->
+	  mk_mult_with_pp xl b
+      | _ ->
+	  mk_mult_with_expt a 1 b
+    with
+	Not_found -> mk_mult_with_expt a 1 b
 
 and mk_mult_with_expt x n b =
-  match b with
-    | Term.App(Pp(Expt(m)), [y]) 
-	when Term.eq x y ->  (* [x^n * x*m = x^(n + m)] *)
-	mk_expt (n + m) x
-    | Term.App(Pp(Mult), []) ->   (* [x^n * 1 = x^n] *)
-	mk_expt n x
-    | Term.App(Pp(Mult), yl) -> (* [x^n * (y1 * ... * yk) = (y1*...x^n...*yk)] *)
-	insert x n yl
-    | _ ->
-	insert x n [b]
+  try
+    match d_interp b with
+      | Expt(m), [y]
+	  when Term.eq x y ->  (* [x^n * x*m = x^(n + m)] *)
+	  mk_expt (n + m) x
+      | Mult, [] ->            (* [x^n * 1 = x^n] *)
+	  mk_expt n x
+      | Mult, yl ->            (* [x^n * (y1 * ... * yk) = (y1*...x^n...*yk)] *)
+	  insert x n yl
+      | _ ->
+	  insert x n [b]
+    with
+	Not_found -> insert x n [b]
 
 and mk_mult_with_pp xl b =
-  match b with
-    | Term.App(Pp(Expt(m)), [y]) -> (* [(x1*...*xk) * y^m = (x1*...y^m*...*xk)] *)
-	insert y m xl
-    | Term.App(Pp(Mult), yl) ->
-	merge yl xl 
-    | _ ->
-	insert b 1 xl
+  try
+    match d_interp b with
+      | Expt(m), [y] -> (* [(x1*...*xk) * y^m = (x1*...y^m*...*xk)] *)
+	  insert y m xl
+      | Mult, yl ->
+	  merge yl xl 
+      | _ ->
+	  insert b 1 xl
+    with
+	Not_found ->  insert b 1 xl
 
 and cmp1 (x, n) (y, m) =
   let res = Term.cmp x y in
@@ -180,18 +200,21 @@ let sigma op l =
     | _ -> assert false
 
 
-let rec map f a =   
-  match a with
-    | Term.App(Pp(Expt(n)), [x]) -> 
-	let x' = map f x in 
-	  if x == x' then a else 
-	    mk_expt n x'
-    | Term.App(Pp(Mult), xl) ->
-	let xl' = Term.mapl (map f) xl in
-	  if xl' == xl then a else 
-	    mk_multl xl'
-    | _ ->
-	f a
+let rec map f a = 
+  try
+    match d_interp a with
+      | Expt(n), [x] -> 
+	  let x' = map f x in 
+	    if x == x' then a else 
+	      mk_expt n x'
+      | Mult, xl ->
+	  let xl' = Term.mapl (map f) xl in
+	    if xl' == xl then a else 
+	      mk_multl xl'
+      | _ ->
+	  f a
+    with
+	Not_found -> f a
 
 
 (** Replacing a variable with a term. *)
