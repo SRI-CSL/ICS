@@ -84,7 +84,7 @@ let rec cmp a b =
     | Var _, App _ -> -1
     | App _, Var _ -> 1
     | Var(x), Var(y) -> Var.cmp x y
-    | App(f,l), App(g,m) ->
+    | App(f, l), App(g, m) ->
 	let c1 = Sym.cmp f g in
 	if c1 != 0 then c1 else cmpl l m
  
@@ -164,83 +164,66 @@ let rec iter f a  =
     List.iter (iter f) (args_of a)
 
 let rec for_all p a  =
-  p a && (is_var a || List.for_all (for_all p) (args_of a))
+  p a && 
+  match a with
+    | Var _ -> true
+    | App(_, l) -> List.for_all (for_all p) l
 
 
 let rec subterm a b  =
   eq a b ||
-  (not(is_var b) &&
-   List.exists (subterm a) (args_of b))
+  match b with
+    | Var _ -> false
+    | App(_, l) -> List.exists (subterm a) (args_of b)
 
 let occurs x b = subterm x b
 
 
 (*s Printer. *)
 
-let pretty = ref true 
-
-let set_pretty_print pp =
-  pretty := pp
+let pretty = ref true
 
 let rec pp fmt a =
+  let str = Pretty.string fmt in
+  let term = pp fmt in
+  let args =  Pretty.tuple pp fmt in
+  let app f l = Sym.pp fmt f; Pretty.tuple pp fmt l in
+  let infixl x = Pretty.infixl pp x fmt in
   match a with
-    | Var(x) -> 
-	Var.pp fmt x
+    | Var(x) -> Var.pp fmt x
+    | App(f, l) when not(!pretty) -> app f l
     | App(f, l) ->
 	(match f, l with
-	   | Arith(op), l -> 
-	       pp_arith fmt op l
-	   | Tuple(Proj(0,2)), [x] -> 
-	       Pretty.string fmt "car("; 
-	       pp fmt x;
-	       Pretty.string fmt ")"
-	   | Tuple(Proj(1,2)), [x] -> 
-	       Pretty.string fmt "cdr("; 
-	       pp fmt x;
-	       Pretty.string fmt ")"
-	  | Tuple(Product), [x; y] -> 
-	      Pretty.string fmt "cons("; 
-	      pp fmt x; 
-	      Pretty.string fmt ", ";
-	      pp fmt y;
-	      Pretty.string fmt ")"
-	  | Bv(Const(b)), [] -> 
-	      Format.fprintf fmt "0b%s" (Bitv.to_string b)
-	  | Bv(Conc _), l -> 
-	      Pretty.infixl pp " ++ " fmt l
-	  | Bv(Sub(_,i,j)), [x] -> 
-	      (pp fmt x; Format.fprintf fmt "[%d:%d]" i j)
-	  | Uninterp(f), [x;y;z] when Name.eq f Name.update ->
-	      pp fmt x; 
-	      Pretty.string fmt "[";
-	      pp fmt y; 
-	      Pretty.string fmt " := ";
-	      pp fmt z;
-	      Pretty.string fmt "]"
-	  | Uninterp(f), [x; y] when Name.eq f Name.select ->
-	      pp fmt x;
-	      Pretty.string fmt "[";
-	      pp fmt y;
-	      Pretty.string fmt "]"
-	  | Uninterp(f), [x; y] when Name.eq f Name.div ->
-	      pp fmt x; Pretty.string fmt " / "; pp fmt y
-	  | Uninterp(f), xl when Name.eq f Name.mult ->
-	      Pretty.infixl pp " * " fmt xl
-	  | _ -> 
-	      Sym.pp fmt f; 
-	      Pretty.tuple pp fmt l)
-
-and pp_arith fmt op l = 
-  match op, l with
-    | Num q, [] -> 
-	Mpa.Q.pp fmt q
-    | Add, _ -> 
-	Pretty.infixl pp " + " fmt l
-    | Multq(q), [x] ->
-	Pretty.infix Mpa.Q.pp "*" pp fmt (q, x)
-    | _ ->
-	assert false
-   
+	   | Arith(Num q), [] -> 
+	       Mpa.Q.pp fmt q
+	   | Arith(Add), _ -> 
+	       infixl " + " l
+	   | Arith(Multq(q)) , [x] -> 
+	       Pretty.infix Mpa.Q.pp "*" pp fmt (q, x)
+	   | Tuple(Proj(0,2)), [_] -> 
+	       str "car"; args l
+	   | Tuple(Proj(1,2)), [_] -> 
+	       str "cdr"; args l
+	   | Tuple(Product), [_; _] -> 
+	       str "cons"; args l
+	   | Bv(Const(b)), [] -> 
+	       str ("0b" ^ Bitv.to_string b)
+	   | Bv(Conc _), l -> 
+	       infixl " ++ " l
+	   | Bv(Sub(_,i,j)), [x] ->
+	       term x; Format.fprintf fmt "[%d:%d]" i j
+	   | Builtin(Update), [x;y;z] ->
+	       term x; str "["; term y; str " := "; term z; str "]"
+	   | Builtin(Select), [x; y] ->
+	       term x; str "["; term y; str "]"
+	   | Builtin(Div), [_; _] ->
+	       str "("; infixl " / " l; str ")";
+	   | Builtin(Mult), _ ->
+	       infixl " * " l
+	   | Builtin(Expt), [x; y] ->
+	       Pretty.infix pp "^" pp fmt (y, x)
+	   | _ -> 
+	       app f l)
 
 let to_string = 
   Pretty.to_string pp
@@ -273,3 +256,6 @@ module Map = Map.Make(
     type t = trm
     let compare = cmp
   end)
+
+
+

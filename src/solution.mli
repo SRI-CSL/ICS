@@ -113,7 +113,6 @@ val union : Term.t * Term.t -> t -> t
 
 val name : Term.t * t -> Term.t * t
 
-
 (*s [fuse norm (p, s) r] propagates the equalities in [r] on 
   the right-hand side of equalities in [s]. The return value [(p', s')] consists 
   of an extension of the partition [p] with newly generated variable equalities
@@ -156,10 +155,3 @@ val changed : t -> Term.Set.t
 
 val reset : t -> t
 
-
-(*s [instantiate p xs s] replaces [x = b] in [s] with [y = b], if
- [x] is in [xs] and [y] is the canonical representative of [x] w.r.t to
- the partition [p]. *)
-
-val instantiate : Partition.t -> Term.Set.t -> t -> t
-  

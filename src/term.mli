@@ -127,7 +127,7 @@ val assq : t -> (t * 'a) list -> 'a
 
 (*s Printer. *)
 
-val set_pretty_print : bool -> unit
+val pretty : bool ref
 
 val pp : Format.formatter -> t -> unit
 

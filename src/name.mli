@@ -34,16 +34,3 @@ module Map : (Map.S with type key = t)
 
 val pp_map: (Format.formatter -> 'a -> unit)
                -> Format.formatter -> 'a Map.t -> unit
-
-(*s Names of builtin function symbols. *)
-
-val select : t
-val update : t
-val unsigned : t
-val div : t
-val mult : t
-val expt : t
-val floor : t
-val ceiling : t
-val sin : t
-val cos : t

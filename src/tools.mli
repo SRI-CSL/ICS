@@ -46,21 +46,3 @@ val utime : ('a -> 'b) -> 'a -> 'b * float
  the argument [str] is usually just the name of the function. *)
 
 val profile : string -> ('a -> 'b) -> ('a -> 'b)
-
-
-(*s Type for comparison. More readable than the convential [-1], [0], and [1]
-  results of comparisons. *)
-
-type cmp = Less | Equal | Greater
-
-
-(*s Mapping over list of terms. Avoids unnecessary consing. *)
-
-val mapl : ('a -> 'a) -> 'a list -> 'a list
-
-
-(*s Printing a list. *)
-
-val ppl : string * string * string 
-            -> (Format.formatter -> 'a -> unit)
-               -> Format.formatter -> 'a list -> unit 

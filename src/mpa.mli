@@ -25,6 +25,10 @@ module Z : sig
 
   type t
 
+  val zero : t
+  val one : t
+  val two : t
+
   val add : t -> t -> t
   val sub : t -> t -> t
   val succ : t -> t
@@ -55,8 +59,10 @@ module Q : sig
 
   type t
 
+  val negone : t
   val zero : t
   val one : t
+  val two : t
   val is_zero : t -> bool
   val is_one : t -> bool
   val is_negone : t -> bool
