@@ -411,9 +411,8 @@ let rec solve p e =
   sl
 
 and solve1 p (a,b) =
-  let pred x =                       (* solve for maximal monomial. *)
-     is_var x &&                     (* which is linear and satisfies [p] *)
-     p x
+  let pred x = p x                     (* solve for maximal monomial. *)
+                                      (* which is linear and satisfies [p] *)
   in   
   let orient x b =
   if is_interp b then
