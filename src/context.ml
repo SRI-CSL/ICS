@@ -244,31 +244,59 @@ and u_prop (x, y) s =
   {s with p = p'; u = u'}
   
 
-and tuple_prop (x, y) s = 
-  let a = norm (s.p, s.t) x in
-  let b = norm (s.p, s.t) y in 
-   if Term.eq a b then
-     s
-   else 
-     let r = Tuple.solve (a, b) in
-     let (p', t') = Solution.compose Tuple.map (s.p, s.t) r in
-     {s with p = p'; t = t'}
+and tuple_prop (x, y) s =
+  Trace.msg "t" "Prop" (x, y) Term.pp_equal;
+  let fuse (x, y) s = 
+    Trace.msg "t" "Fuse" (x, y) Term.pp_equal;
+    let (p', t') = Solution.compose Tuple.map (s.p, s.t) [(x, y)] in
+    {s with t = t'; p = p'}
+  in
+  let compose (a, b) s =
+    Trace.msg "t" "Compose" (a, b) Term.pp_equal;
+    let (p', t') = Solution.compose Arith.map (s.p, s.t) (Tuple.solve (a, b)) in
+    {s with t = t'; p = p'}
+  in
+  if not(Set.is_empty (Solution.use s.t x)) then   (* [x] occurs on rhs. *)
+    fuse (x, y) s
+  else
+    try
+      let a = Solution.apply s.t x in
+      try
+	let b = Solution.apply s.t y in
+	if Term.eq a b then s else compose (a, b) s
+      with
+	    Not_found ->
+	      let s' = {s with t = (Solution.restrict x s.t)} in
+	      compose (y, a) s'
+    with
+	Not_found -> s
 
-and norm (p, e) a = 
-  try 
-    Solution.apply e a 
-  with 
-      Not_found -> V.find p.Partition.v a
-
-and bv_prop (x, y) s =
-  let a = Solution.find s.bv x in
-  let b = Solution.find s.bv y in 
-  if Term.eq a b then
-    s
-  else 
-    let r = Bitvector.solve (a, b) in
-    let (p', bv') = Solution.compose Bitvector.map (s.p, s.bv) r in
-    {s with p = p'; bv = bv'}
+and bv_prop (x, y) s = 
+  Trace.msg "bv" "Prop" (x, y) Term.pp_equal;
+  let fuse (x, y) s =  
+    Trace.msg "bv" "Fuse" (x, y) Term.pp_equal;
+    let (p', bv') = Solution.compose Bitvector.map (s.p, s.bv) [(x, y)] in
+    {s with bv = bv'; p = p'}
+  in
+  let compose (a, b) s =   
+    Trace.msg "bv" "Compose" (a, b) Term.pp_equal;
+    let (p', bv') = Solution.compose Arith.map (s.p, s.bv) (Bitvector.solve (a, b)) in
+    {s with bv = bv'; p = p'}
+  in
+  if not(Set.is_empty (Solution.use s.bv x)) then   (* [x] occurs on rhs. *)
+    fuse (x, y) s
+  else
+    try
+      let a = Solution.apply s.bv x in
+      try
+	let b = Solution.apply s.bv y in
+	if Term.eq a b then s else compose (a, b) s
+      with
+	    Not_found ->
+	      let s' = {s with bv = (Solution.restrict x s.bv)} in
+	      compose (y, a) s'
+    with
+	Not_found -> s
 
 and arith_prop (x, y) s =
   Trace.msg "a" "Prop" (x, y) Term.pp_equal;
