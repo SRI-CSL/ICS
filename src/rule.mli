@@ -18,31 +18,45 @@
 (*s Module [Rule]: encoding of logical rules for manipulating contexts. *)
 
 
+type rule = Context.t -> Context.t
+
+type 'a transform = Context.t * 'a -> Context.t * 'a
+
+
 (*s Merge variable equality. *)
 
-val merge : Fact.equal -> Context.t -> Context.t
+val merge : Fact.equal -> rule
 
 
 (*s Add a constraint. *)
 
-val add : Fact.cnstrnt -> Context.t -> Context.t
+val add : Fact.cnstrnt -> rule
 
 
 (*s Add a disequality. *)
 
-val diseq : Fact.diseq -> Context.t -> Context.t
+val diseq : Fact.diseq -> rule
+
+(*s Abstract. *)
+
+val abstract_equal : Fact.equal transform
+val abstract_diseq : Fact.diseq transform
+val abstract_cnstrnt : Fact.cnstrnt transform
 
 
 (*s Tactics. *)
 
-val propagate : Fact.equal -> Context.t -> Context.t
+val prop: Fact.equal -> rule
 
-val arith : Fact.equal -> Context.t -> Context.t
+val arith : Fact.equal -> rule
 
 
 (*s Close. *)
 
-val close : Context.t  -> Context.t
+val close : rule
 
 val maxclose : int ref
+
+
+
 
