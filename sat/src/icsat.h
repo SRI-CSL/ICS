@@ -26,6 +26,8 @@ extern "C" {
 	int icsat_add_scratch_context(value f);
 
 	int icsat_is_connected(int f1, int f2);
+	void icsat_atom_pp(int x1);
+	void icsat_stackpp();
 }
 
 #endif

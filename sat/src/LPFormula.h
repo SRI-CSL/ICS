@@ -132,6 +132,7 @@ class LPFormulaManager {
 	}
 	void expand_argument_array() { 
 		MEM_TRACE(ctrace << "[memory] expanding argument array, num_arguments = " << num_arguments << endl;);
+		// cout << "[memory] expanding argument array, num_arguments = " << num_arguments << endl;
 		LPFormulaId * old = arguments;
 		expand_array(arguments, num_arguments); 
 		int delta = arguments - old;
@@ -197,6 +198,10 @@ public:
 
 	void dump_mem_info();
 
+	LPFormulaId normalize_formula(LPFormulaId f_id);
+	
+private:
+	LPFormulaId normalize_formula_aux(LPFormulaId f_id, unsigned int * cache);
 };
 
 ostream& operator<<(ostream& target, const LPFormulaManager & m);

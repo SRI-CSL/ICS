@@ -478,6 +478,7 @@ LPClause * LPSolver::add_clause(LPFormulaId * lits, unsigned int num_lits)
 	unsigned int j = 0;
 	for (unsigned int i = 0; i < num_lits; i++) {
 		LPFormulaId curr = get_eq_class_root(lits[i]);
+
 		unsigned int curr_idx = absolute(curr);
 		assert(assignments[curr_idx] == 1 || assignments[curr_idx] == -1 || assignments[curr_idx] == 0);
 		if ((added_literals[curr_idx] > 0 && curr < 0) || 
@@ -490,7 +491,7 @@ LPClause * LPSolver::add_clause(LPFormulaId * lits, unsigned int num_lits)
 			lits[j++] = curr;
 		}
 	}
-	
+
 	num_lits = j;
 
 	// reset added_literals

@@ -179,11 +179,26 @@ extern "C" {
 		if (SAT_implication_graph_optimization)
 			cout << "  number of assignments produced by implication graph optimization: " 
 					 << sat_solver->get_num_implication_graph_optimization_assignments() << endl;
+		sat_formula_manager->dump_mem_info();
 	}
 
   int ics_sat(LPFormulaId root_id) {
+
     DBG_CODE(cout << "working!!! root_id = " << root_id << "\n";
 						 sat_formula_manager->dump_formula(cout, root_id););
+		// The following code is a hack to make the connection between ICS and SAT a little bit easier
+		DBG_CODE(
+						 cout << "BEFORE NORMALIZATION:\n";
+						 sat_formula_manager->dump_formula(cout, root_id);
+						 cout << endl << endl;
+						 );
+		root_id = sat_formula_manager->normalize_formula(root_id);
+		DBG_CODE(
+						 cout << "AFTER NORMALIZATION:\n";
+						 sat_formula_manager->dump_formula(cout, root_id);
+						 cout << endl << endl;
+						 );
+
 		if (sat_solver != NULL) 
 			delete sat_solver;
 		sat_solver = new LPSolver(sat_formula_manager);

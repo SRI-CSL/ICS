@@ -10,6 +10,8 @@
 
 #include<assert.h>
 #include"LPFormula.h"
+#include"queue.h"
+#include"growable-vector.h"
 
 bool LPFormulaIdEqualTo::operator()(LPFormulaId id1, LPFormulaId id2) const {
 	const LPFormula * obj1 = manager->get_formula(id1);
@@ -254,33 +256,11 @@ LPFormulaId LPFormulaManager::create_or(unsigned int num_args, LPFormulaId * arg
 
 	LPFormulaId * aux_args = &(arguments[next_argument_pos]);
 
-	// expand arguments
-	unsigned int real_number_of_args = 0;
 	for (unsigned int i = 0; i < num_args; i ++) {
-		LPFormulaId curr_arg = args[i];
-		const LPFormula * curr_arg_formula = get_formula(curr_arg);
-		if (curr_arg_formula->is_or() && is_positive(curr_arg)) {
-			if (create_space_for_new_arguments(real_number_of_args + curr_arg_formula->get_num_arguments()))
-				aux_args = &(arguments[next_argument_pos]);
-			memcpy(&(aux_args[real_number_of_args]), 
-						 curr_arg_formula->get_arguments(), 
-						 curr_arg_formula->get_num_arguments() * sizeof(LPFormulaId));
-			real_number_of_args += curr_arg_formula->get_num_arguments();
-		}
-		else {
-			if (create_space_for_new_arguments(real_number_of_args + 1))
-				aux_args = &(arguments[next_argument_pos]);
-			aux_args[real_number_of_args] = curr_arg;
-			real_number_of_args++;
-		}
+		aux_args[i] = args[i];
 	}
+
 	args = aux_args;
-	num_args = real_number_of_args;
-	DBG_CODE(cout << "num_args = " << num_args << endl;);
-
-	if (real_number_of_args > 512)
-		cout << "Creating or " << real_number_of_args << endl;
-
 	
 	sortFn(args, num_args);
 
@@ -362,7 +342,9 @@ void LPFormulaManager::dump_mem_info()
 {
 	cout << "[memory] Formula manager memory info: " << endl;
 	cout << "  formula array size: " << num_formulas << endl;
+	cout << "  number of formulas: " << (next_formula_id - 1) << endl;
 	cout << "  argument array size: " << num_arguments << endl;
+	cout << "  number of arguments: " << (next_argument_pos - 1) << endl;
 	cout << "  pool size: " << formula_pool.size() << endl;
 	// cout << "  pool max size: " << formula_pool.max_size() << endl;
 	cout << "  memory consumed: " << ((sizeof(LPFormula) * num_formulas +
@@ -371,9 +353,85 @@ void LPFormulaManager::dump_mem_info()
 
 LPFormulaId LPFormulaManager::normalize_formula(LPFormulaId f_id)
 {
+	unsigned int * cache;
+	cache = new unsigned int[num_formulas];
+	memset(cache, 0, sizeof(unsigned int) * num_formulas);
 
+	LPFormulaId new_f_id = normalize_formula_aux(f_id, cache);
+
+	delete[] cache;
+
+	return new_f_id;
 }
 
+LPFormulaId LPFormulaManager::normalize_formula_aux(LPFormulaId f_id, unsigned int * cache)
+{
+	if (f_id == LPTrueId || f_id == LPFalseId)
+		return f_id;
+
+	const LPFormula * f = get_formula(f_id);
+	if (f->is_atomic())
+		return f_id;
+
+	bool sign = f_id < 0;
+	unsigned int f_idx = absolute(f_id);
+	
+	// value was already computed
+	if (cache[f_idx] != 0) 
+		return sign ? -cache[f_idx] : cache[f_idx];
+
+	assert(f->is_boolean_op());
+
+	if (f->is_ite()) {
+		LPFormulaId n_c = normalize_formula_aux(f->get_cond(), cache);
+		LPFormulaId n_t = normalize_formula_aux(f->get_then(), cache);
+		LPFormulaId n_e = normalize_formula_aux(f->get_else(), cache);
+		LPFormulaId new_ite = create_ite(n_c, n_t, n_e);
+		assert(new_ite > 0);
+		cache[f_idx] = absolute(new_ite);
+		return sign ? -new_ite : new_ite;
+	}
+	else if (f->is_iff()) {
+		LPFormulaId n_l = normalize_formula_aux(f->get_iff_lhs(), cache);
+		LPFormulaId n_r = normalize_formula_aux(f->get_iff_rhs(), cache);
+		LPFormulaId new_iff = create_iff(n_l, n_r);
+		assert(new_iff > 0);
+		cache[f_idx] = absolute(new_iff);
+		return sign ? -new_iff : new_iff;
+	}
+	else {
+		assert(f->is_or());
+		growable_vector<LPFormulaId> n_args; // cannot be static because of the recursive calls
+		static queue<LPFormulaId> to_do; // can be static, the variable is dead when the recursive call is performed.
+		to_do.reset();
+		int num_arguments = f->get_num_arguments();
+		for(int i = 0; i < num_arguments; i++)
+			to_do.push(f->get_argument(i));
+		while (!to_do.is_empty()) {
+			LPFormulaId curr = to_do.pop();
+			if (curr < 0)
+				n_args.push(curr);
+			else {
+				const LPFormula * curr_f = get_formula(curr);
+				if (!curr_f->is_or())
+					n_args.push(curr);
+				else {
+					int num_curr_args = curr_f->get_num_arguments();
+					for (int i = 0; i < num_curr_args; i++)
+						to_do.push(curr_f->get_argument(i));
+				}
+			}
+		}
+		// normalize args
+		for (int i = 0; i < n_args.get_size(); i++)
+			n_args.set(i, normalize_formula_aux(n_args.get(i), cache));
+		// create a new OR
+		LPFormulaId new_or = create_or(n_args.get_size(), n_args.get_contents());
+		assert(new_or > 0);
+		cache[f_idx] = absolute(new_or);
+		return sign ? -new_or : new_or;
+	}
+}
 
 ostream& operator<<(ostream& target, const LPFormulaManager & m)
 {
