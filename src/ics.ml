@@ -699,6 +699,9 @@ type justification = Jst.t
 let justification_pp = Jst.pp Format.std_formatter
 let _ = Callback.register "justification_pp" justification_pp
 
+let justification_to_axioms jst = Atom.Set.elements (Jst.axioms_of jst)
+let _ = Callback.register "justification_to_axioms" justification_to_axioms
+
 
 (** {6 Logical contexts} *)
 
@@ -763,17 +766,26 @@ let is_inconsistent = function
   | _ -> false
 let _ = Callback.register "is_inconsistent" is_inconsistent  
 
-let d_consistent r =
-  match r with
-    | Context.Status.Ok s -> s
-    | _ -> (context_empty())
-         (* failwith "Ics.d_consistent: fatal error" *)
+let d_consistent = function
+  | Context.Status.Ok s -> s
+  | _ -> (context_empty())
+
+let d_inconsistent = function
+  | Context.Status.Inconsistent(rho) -> rho
+  | _ -> invalid_arg "Ics.d_inconsistent: fatal error"
+
+let d_redundant = function
+  | Context.Status.Valid(rho) -> rho
+  | _ -> invalid_arg "Ics.d_valid"
+
 	
 let _ = Callback.register "d_consistent" d_consistent 
+let _ = Callback.register "d_inconsistent" d_inconsistent 
 
 let process = Context.add
-let _ = Callback.register "process" process   
 
+let _ = Callback.register "process" process 
+  
 let split s = failwith "split: to do"
 let _ = Callback.register "split" split
 
