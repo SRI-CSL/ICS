@@ -1,5 +1,5 @@
 
-(*
+(*i
  * ICS - Integrated Canonizer and Solver
  * Copyright (C) 2001-2004 SRI International
  *
@@ -10,7 +10,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * ICS License for more details.
- *)
+ i*)
 
 (*s Sets implemented as Patricia trees. *)
 
@@ -30,6 +30,7 @@ val union : 'a t -> 'a t -> 'a t
 val cardinal : 'a t -> int
 val iter : ('a hashed -> unit) -> 'a t -> unit
 val fold : ('a hashed -> 'b -> 'b) -> 'a t -> 'b -> 'b
+val map : ('a hashed -> 'b hashed) -> 'a t -> 'b t
 val inter : 'a t -> 'a t -> 'a t
 val exists : ('a hashed -> bool) -> 'a t -> bool
 val for_all : ('a hashed -> bool) -> 'a t -> bool

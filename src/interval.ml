@@ -9,7 +9,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * ICS License for more details.
- *)
+ i*)
 
 (*i*)
 open Mpa
@@ -206,6 +206,9 @@ let full  = [Real,Neginf,Posinf]
 let int   = [Int,Neginf,Posinf]
 let real  = full
 let nonint =  ([NonintReal,Neginf,Posinf])
+
+let inj i = [i]
+	
 			      
 let oo dom p q =
   let i = interval dom (Low(Strict,p)) (High(Strict,q)) in
@@ -265,7 +268,7 @@ let is_real l =
 let is_int l =
   List.for_all (fun (dom,_,_) -> dom = Int) l
 		 
-let is_nonint l =
+let is_nonintreal l =
   List.for_all (fun (dom,_,_) -> dom = NonintReal) l
 		       
 	

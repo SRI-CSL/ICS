@@ -1,3 +1,17 @@
+
+(*i
+ * ICS - Integrated Canonizer and Solver
+ * Copyright (C) 2001-2004 SRI International
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the ICS license as published at www.icansolve.com
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * ICS License for more details.
+ i*)
+
 (*i*)
 open Tools
 open Hashcons
@@ -21,22 +35,26 @@ let zero  = num Q.zero
 let one  = num Q.one
 
 let is_one = function
-  | {node=Arith (Num q)} when Q.equal q Q.one -> true
+  | {node=Arith(Num q)} when Q.equal q Q.one -> true
   | _ -> false
 
 let is_zero = function
-  | {node=Arith (Num q)} when Q.is_zero q -> true
+  | {node=Arith(Num q)} when Q.is_zero q -> true
   | _ -> false
 
 (*s Building products and sums. *)
 	
-let mk_multq q x =
+let rec mk_multq q a =
   if Q.is_zero q then
     zero
   else if Q.is_one q then
-    x
+    a
   else
-    hc(Arith(Multq(q,x)))
+    match a.node with
+      | Bool(Ite(x,y,z)) ->
+	  Bool.ite x (mk_multq q y) (mk_multq q z)
+      | _ ->
+	  hc(Arith(Multq(q,a)))
       
 let mk_mult = function
   | [] -> hc(Arith(Num(Q.one)))
@@ -129,33 +147,44 @@ let addq q  = mapq (Q.add q)
 		
 (*s Adding Polynomials *)
 
-let add2 (t1,t2) = of_poly (Poly.add2 (to_poly t1) (to_poly t2))
+let add2 =
+  Bool.binary_lift_ite
+    (fun (t1,t2) -> of_poly(Poly.add2 (to_poly t1) (to_poly t2)))
 
 let addl tl =
-  of_poly (Poly.add (List.map to_poly tl))
+  of_poly(Poly.add(List.map to_poly tl))
   
-let add = (* Tools.profile "Add" (cachel 107 addl) *) addl
+let add = (* Tools.profile "Add" (cachel 107 addl) *)
+  Bool.nary_lift_ite addl
 
-let incr t = add2 (t, one)
+let incr t = add2(t,one)
   
-let sub (t1,t2) =
-  of_poly (Poly.sub (to_poly t1) (to_poly t2))
+let sub =
+  Bool.binary_lift_ite
+    (fun (t1,t2) ->  of_poly (Poly.sub (to_poly t1) (to_poly t2)))
 
-let mult2 (t1,t2) =
-  of_poly (Poly.mult2 (to_poly t1) (to_poly t2))
+let mult2 =
+  Bool.binary_lift_ite
+    (fun (t1,t2) -> of_poly(Poly.mult2 (to_poly t1) (to_poly t2)))
 
 let multl tl =
   of_poly (Poly.mult (List.map to_poly tl))
 
-let mult = (* Tools.profile "Mult" (cachel 107 multl) *) multl
+let mult = (* Tools.profile "Mult" (cachel 107 multl) *)
+  Bool.nary_lift_ite multl
 
 	     
 (*s Division of polynomials. Rather incomplete. *)
 
-let div2 (t1,t2) =
-  match t2.node with
-    | Arith(Num q) when not(Q.is_zero q) -> divq q t1
-    | _ -> hc (Arith(Div(t1,t2)))
+let div2 =
+  Bool.binary_lift_ite
+    (fun (t1,t2) ->
+       match t2.node with
+	 | Arith(Num q)
+	     when not(Q.is_zero q) ->
+	       divq q t1
+	 | _ ->
+	     hc(Arith(Div(t1,t2))))
 	  
 (*s Test for arithmetic constant. *)
 
@@ -241,9 +270,11 @@ let lt (x,y) =
   else
     let (p',q') = normalize p in
     if Q.ge (Poly.leading p') Q.zero then
-      Cnstrnt.app (Cnstrnt.lt Interval.Real (Q.minus q')) (of_poly p')
+      Term.mem (of_poly p')
+	(Cnstrnt.lt Interval.Real (Q.minus q'))
     else
-      Cnstrnt.app (Cnstrnt.gt Interval.Real q') (of_poly (Poly.neg p'))
+      Term.mem (of_poly (Poly.neg p'))
+	(Cnstrnt.gt Interval.Real q')
 
 let le (x,y) =
   let p = Poly.sub (to_poly x) (to_poly y) in
@@ -255,13 +286,24 @@ let le (x,y) =
   else
     let (p',q') = normalize p in
     if Q.ge (Poly.leading p') Q.zero then
-      Cnstrnt.app (Cnstrnt.le Interval.Real (Q.minus q')) (of_poly p')
+      Term.mem (of_poly p')
+	(Cnstrnt.le Interval.Real (Q.minus q'))
     else
-      Cnstrnt.app (Cnstrnt.ge Interval.Real q') (of_poly (Poly.neg p'))
+      Term.mem (of_poly (Poly.neg p'))
+	(Cnstrnt.ge Interval.Real q')
       
       
 (*s Constructor for domain constraints *)
 
-let int a = Cnstrnt.app Cnstrnt.int a
+let int a = Term.mem a Cnstrnt.int
     
-let real a = Cnstrnt.app Cnstrnt.real a
+let real a = Term.mem a Cnstrnt.real
+
+
+
+
+
+
+
+
+

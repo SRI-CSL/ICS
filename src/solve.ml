@@ -1,7 +1,23 @@
+
 (*i*)
 open Term
 open Hashcons
 (*i*)
+
+let is_solvable a =
+  match a.node with
+    | Var _
+    | App _
+    | Update _
+    | Bool(Equal _)
+    | Arith(Mult _) 
+    | Arith(Div _)
+    | Bv(BvToNat _)
+    | Set(Finite _)
+    | Set(Cnstrnt _) ->
+	true
+    | _ ->
+	false
 
 let arith_solve x s (a,b) =
   let is_int a =
@@ -9,10 +25,9 @@ let arith_solve x s (a,b) =
   in
   if Arith.is_diophantine is_int a && Arith.is_diophantine is_int b then
     let (kl,rho) = Arith.zsolve (a,b) in
-    rho @ (List.map (fun k -> (Cnstrnt.app Cnstrnt.int k, Bool.tt ())) kl)
+    rho @ (List.map (fun k -> (Term.mem k Cnstrnt.int, Bool.tt ())) kl)
   else
     Arith.qsolve x (a,b)
-
 
 let set_solve s e =
   match Sets.solve 0 e with
@@ -24,15 +39,17 @@ let tuple_solve s e =
     | Some l -> l
     | None -> raise(Exc.Inconsistent "Tuple solver")
 
-let bv_solve s e =
-  match Bv.solve e with
+let bv_solve s a =
+  match Bv.solve a with
     | Some l -> l
-    | None -> raise(Exc.Inconsistent "Tuple solver")
+    | None -> raise(Exc.Inconsistent "Bitvector solver")  
 
-let bool_ite_solve e =
-  match Bool.solve e with
-    | Some l -> l
-    | None -> raise(Exc.Inconsistent "Bool solver")
+let bool_ite_solve a =
+  match Bool.solve a with
+    | Some l ->
+	l
+    | None ->
+	raise(Exc.Inconsistent "Bool solver")
   
 
 let solve x s e =
@@ -51,13 +68,17 @@ let solve x s e =
 	  solvel rho ((a1,a2) :: el)
       | Bool(False) ->
 	  solve_diseq rho (a1,a2) el
-      | Bool(Equal(b1,b2)) ->                     (*s to do: check for trivial inconsistencies etc. *)
+      | Bool(Equal(b1,b2)) ->
+	  if Cnstrnt.is_disjoint (State.cnstrnt s b1) (State.cnstrnt s b2) then
+	    raise(Exc.Inconsistent "");
 	  let rho' = Subst.add (Bool.equal a1 a2) b rho in
 	  solvel rho' el
       | Bool(Ite _) ->
 	  let a = Bool.equal a1 a2 in
 	  if Term.occurs_interpreted a b then
-	    solvel rho (bool_ite_solve (a,b) @ el)
+	    let x = Bool.iff a b in
+	    let l = bool_ite_solve x in
+	    solvel rho (l @ el)
 	  else
 	    solvel (Subst.add a b rho) el
       | _ ->
@@ -71,19 +92,26 @@ let solve x s e =
 	  else
 	    solvel rho el
       | Arith(Num q1), _ -> 
-	  solvel (Subst.add (Cnstrnt.app (Cnstrnt.diseq q1) b) (Bool.tt()) rho) el
+	  solvel (Subst.add (Term.mem b (Cnstrnt.diseq q1)) (Bool.tt()) rho) el
       | _, Arith(Num q2) -> 
-	  solvel (Subst.add (Cnstrnt.app (Cnstrnt.diseq q2) a) (Bool.tt()) rho) el
+	  solvel (Subst.add (Term.mem a (Cnstrnt.diseq q2)) (Bool.tt()) rho) el
       | _ ->
 	  solvel (Subst.add (Bool.equal a b) (Bool.ff()) rho) el
 
   and bool_solve rho (a,b) el =
     match a with
-      | True -> true_solve rho b el
-      | False -> false_solve rho b el
-      | Equal(x,y) -> solve_equal rho (x,y) b el
-      | Ite _ -> solvel rho (bool_ite_solve (hc(Bool(a)),b) @ el)
-      | _ -> assert false
+      | True ->
+	  true_solve rho b el
+      | False ->
+	  false_solve rho b el
+      | Equal(x,y) ->
+	  solve_equal rho (x,y) b el
+      | Ite _ ->
+	  let x = Bool.iff (hc(Bool(a))) b in
+	  let l = bool_ite_solve x in
+	  solvel rho (l @ el)
+      | _ ->
+	  assert false
 
   and true_solve rho b el =      (*s Solve equations of the form [true = b] *)  
     match b.node with
@@ -94,7 +122,7 @@ let solve x s e =
       | Bool(Equal(x,y)) ->
 	  solvel rho ((x,y) :: el)
       | Bool(Ite _) ->
-	  solvel rho (bool_ite_solve(b,Bool.tt()) @ el)
+	  solvel rho (bool_ite_solve b @ el)
       | App({node=Set(Cnstrnt(c))}, [x]) ->
 	  cnstrnt_solve rho c x el
       | _ ->
@@ -111,7 +139,8 @@ let solve x s e =
       | App({node=Set(Cnstrnt(c))}, [x]) ->
 	  cnstrnt_solve rho (Cnstrnt.compl c) x el
       | Bool(Ite _) ->
-	   solvel rho (bool_ite_solve(b,Bool.ff()) @ el)
+	  let x = Bool.neg b in
+	  solvel rho (bool_ite_solve x @ el)
       | _ ->
 	  solvel (Subst.add b (Bool.ff()) rho) el 
 	
@@ -121,15 +150,19 @@ let solve x s e =
 	  let k = Var.create "z" in
 	  (match Arith.qsolve None (k,x) with
 	     | [(a,b)] -> 
-		 solvel (Subst.add a b (Subst.add (Cnstrnt.app c k) (Bool.tt()) rho)) el
+		 solvel (Subst.add a b (Subst.add (Term.mem k c) (Bool.tt()) rho)) el
 	     | _ -> assert false)
       | _ ->
-	  solvel (Subst.add (Cnstrnt.app c x) (Bool.tt()) rho) el
+	  solvel (Subst.add (Term.mem x c) (Bool.tt()) rho) el
     
   and solve1 rho (a,b) el =
 	let a' = Subst.norm rho a and b' = Subst.norm rho b in
 	if a' === b' then
 	  solvel rho el
+	else if is_ground a' && is_ground b' then
+	  raise(Exc.Inconsistent "Inconsistent ground terms")
+	else if is_solvable a' && not(Term.occurs_interpreted a' b') then
+	  solvel (Subst.add a' b' rho) el
 	else match a'.node,b'.node with
 	  | Bool x, _ ->
 	      bool_solve rho (x,b) el
@@ -139,8 +172,6 @@ let solve x s e =
 	      if u === v && i === j then
 		solvel rho ((s,t) :: el)
 	      else
-		solvel (Subst.add a' b' rho) el
-	  | (Var _ | App _ | Update _ | Arith(Mult _) | Arith(Div _) | Bv(BvToNat _) | Set(Finite _) | Set(Cnstrnt _)) , _  when not(Term.occurs_interpreted a' b') ->
 		solvel (Subst.add a' b' rho) el
 	  | Arith(Num _ | Multq _ | Add _), _ ->
 	      solvel rho (arith_solve x s (a,b) @ el)
@@ -158,7 +189,8 @@ let solve x s e =
 	      solvel rho (bv_solve s (a,b) @ el)
 	  | _, Bv _ ->
 	      solvel rho (bv_solve s (b,a) @ el)
-	  | _ -> assert false
+	  | _ ->
+	      failwith "Incompleteness in solver; to be fixed in ICS 1.1"
 		
   in
   solvel Subst.empty [e]
@@ -174,13 +206,3 @@ let solve x s ((a,b) as e) =
       Exc.Inconsistent str ->
 	Trace.exc 3 "Solve" e Pretty.eqn;
 	raise (Exc.Inconsistent str)
-
-
-
-
-
-
-
-
-
-

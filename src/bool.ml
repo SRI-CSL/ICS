@@ -1,5 +1,5 @@
 
-(*
+(*i
  * ICS - Integrated Canonizer and Solver
  * Copyright (C) 2001-2004 SRI International
  *
@@ -10,7 +10,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * ICS License for more details.
- *)
+ i*)
 
 
 (*i*)
@@ -21,8 +21,8 @@ open Hashcons
 
 (* Propositional constants *)
 
-let tt () = hc(Bool True)
-let ff () = hc(Bool False)
+let tt () = hc(Bool(True))
+let ff () = hc(Bool(False))
 
 	      
 (*s Exactly one of the recognizers [is_tt a], [is_ff a], [is_ite a]
@@ -38,8 +38,7 @@ let is_ite t =
   match t.node with 
     | Bool Ite _ -> true 
     | _ -> false
-
-	  
+ 
 (*s Destructuring of conditional terms. *)
 
 let d_ite a =
@@ -48,142 +47,11 @@ let d_ite a =
     | _ -> assert false  
 
 
-	  
-(*s Simplification of the disjunction of two atoms. *)
-
-let rec union a b =
-  match a.node, b.node with
-    | Bool True, _ ->
-	Some(tt())
-    | _, Bool True ->
-	Some(tt())
-    | Bool False, _ ->
-	Some(b)
-    | _, Bool False ->
-	Some(a)
-    | Bool(Equal(x1,y1)),
-      Bool(Equal(x2,y2)) ->
-	if x1 === x2 && y1 === y2 then
-	  Some(a)
-	else
-	  None
-    | Bool(Ite({node=Bool(Equal(x1,y1))},{node=Bool False},{node=Bool True})),
-      Bool(Equal(x2,y2)) ->
-	union_diseq_equal (x1,y1) (x2,y2)
-    | Bool(Equal(x1,y1)),
-      Bool(Ite({node=Bool(Equal(x2,y2))},{node=Bool False},{node=Bool True})) ->
-	union_diseq_equal (x2,y2) (x1,y1)
-    | Bool(Equal(x1,y1)),
-      App({node=Set(Cnstrnt(c2))},[x2]) ->
-	union_equal_app (x1,y1) (c2,x2)
-    | App({node=Set(Cnstrnt(c1))},[x1]),
-      Bool(Equal(x2,y2)) ->
-	union_equal_app (x2,y2) (c1,x1)  
-    | _ ->
-	None
-
-and union_diseq_equal (x1,y1) (x2,y2) =
-  if (x1 === x2 && y1 === y2) || (x1 === y2 && y1 === x2) then
-    Some(tt())
-  else
-    None
-
-and union_equal_app (x1,y1) (c2,x2) =
-  if x1 === x2 && Cnstrnt.mem y1 c2 then
-    Some(tt())
-  else
-    None
-
-      
-(* Simplification of the conjunction of two atoms. *)
-    
-let inter_equal_equal (x1,y1) (x2,y2) =
-  if x1 === x2 then
-    (match y1.node, y2.node with
-       | Arith(Num q1), Arith(Num q2) when not(Mpa.Q.equal q1 q2) -> Some(ff())
-       | _ -> None)
-  else if y1 === y2 then
-    (match x1.node, x2.node with
-       | Arith(Num q1), Arith(Num q2) when not(Mpa.Q.equal q1 q2) -> Some(ff())
-       | _ -> None)
-  else
-    None
-
-let inter_equal_app (x1,y1) (c2,x2) =
-  if x1 === x2 then
-    if Cnstrnt.mem y1 c2 then Some(hc(Bool(Equal(x1,y1)))) else None
-  else if y1 === x2 then
-    if Cnstrnt.mem x1 c2 then Some(hc(Bool(Equal(x1,y1)))) else None
-  else
-    None
-
-let inter_diseq_equal (x1,y1) (x2,y2) =
-  if x1 === x2  then
-    if y1 === y2 then
-      Some(ff())
-    else if is_const y1 && is_const y2 then
-      Some(hc(Bool(Equal(x2,y2))))
-    else
-      None
-  else if y1 === y2 then
-    if x1 === x2 then
-      Some(ff())
-    else if is_const x1 && is_const x2 then
-      Some(hc(Bool(Equal(x2,y2))))
-    else
-      None
-  else
-    None
-
-
-let inter a b =                   (* intersection of [a] and [b] *)
-  if a === b then
-    Some(a)
-  else
-    match a.node, b.node with
-      | Bool(True), _ -> Some(b)
-      | _, Bool(True) -> Some(a)
-      | Bool(False), _ -> Some(ff())
-      | _, Bool(False) -> Some(ff())   
-      | App({node=Set(Cnstrnt(c1))},[x1]), App({node=Set(Cnstrnt(c2))},[x2]) when x1 === x2 ->
-	  Some(Cnstrnt.app (Cnstrnt.inter c1 c2) x1)
-      | Bool(Equal(x1,y1)), Bool(Equal(x2,y2)) ->
-	  inter_equal_equal (x1,y1) (x2,y2)
-      | Bool(Ite({node=Bool(Equal(x1,y1))},{node=Bool False},{node=Bool True})),  Bool(Equal(x2,y2)) ->
-	  inter_diseq_equal (x1,y1) (x2,y2)
-      | Bool(Equal(x1,y1)), Bool(Ite({node=Bool(Equal(x2,y2))},{node=Bool False},{node=Bool True})) ->
-	  inter_diseq_equal (x2,y2) (x1,y1)    
-      | Bool(Equal(x1,y1)), App({node=Set(Cnstrnt(c2))},[x2]) ->
-	  inter_equal_app (x1,y1) (c2,x2)
-      | App({node=Set(Cnstrnt(c1))},[x1]), Bool(Equal(x2,y2)) ->
-	  inter_equal_app (x2,y2) (c1,x1)
-      | _ ->
-	  None   
-
-let compl a =
-  match a.node with
-    | Bool(True) ->
-	Some(ff())
-    | Bool(False) ->
-	Some(tt())
-    | Bool(Equal(x,y)) ->
-	Some(hc(Bool(Ite(hc(Bool(Equal(x,y))),ff(),tt()))))
-    | Bool(Ite(x,{node=Bool False}, {node=Bool True})) ->
-	Some(x)
-    | App({node=Set(Cnstrnt(c))},[x]) ->
-	Some(Cnstrnt.app (Cnstrnt.compl c) x)
-    | _ ->
-	None
-
-let compl_inter a c =                 (* intersection of [not(a)] and [c] *)
-  match compl a with
-    | None -> None
-    | Some(a') -> inter a' c
 
 let ite a b c =                      (*s ite(a,b,c) *)
-  match inter a b, compl_inter a c with
+  match Atom.conj a b, Atom.neg_conj a c with
     | Some(x), Some(y) ->
-	(match union x y with
+	(match Atom.disj x y with
 	   | Some(z) -> z
 	   | None -> hc(Bool(Ite(x,tt(),y))))
     | _ ->
@@ -254,8 +122,8 @@ let exists xl p = hc (Bool(Exists (xl, p)))
 let solve_eqn (s1,s2) = BDD.solve () (iff s1 s2)
 let solve_deq (s1,s2) = BDD.solve () (xor s1 s2)
 
-let solve (a,b) =
-  BDD.solve () (iff a b)
+let solve a =
+  BDD.solve () a
 
     
 (*s infer new boolean equalities based on the fact that
@@ -277,9 +145,23 @@ let rec equal a b =
     ff()
   else
     match a.node, b.node with
-      | Bool(Ite _), _ | _, Bool(Ite _) ->
-	  iff a b
-      | _ ->  hc(Bool(Equal(a,b)))
+      | Bool(Ite(x,y,z)), _ ->
+	  ite x (equal y b) (equal z b)
+      | _, Bool(Ite(x,y,z)) ->
+	  ite x (equal a y) (equal a z)
+      | Bool(Equal(x,y)), Bool(True) ->
+	  equal x y
+      | Bool(True), Bool(Equal(x,y)) ->
+	  equal x y
+      | App({node=Update(x,i,u)},[j]), _ ->
+	  ite (equal i j) (equal u b) (equal (hc(App(x,[j]))) b)
+      | _, App({node=Update(x,i,u)},[j]) ->
+	  ite (equal i j) (equal a u) (equal a (hc(App(x,[j]))))  
+      | _ ->
+	  if Term.cmp a b <= 0 then
+	    hc(Bool(Equal(a,b)))
+	  else
+	    hc(Bool(Equal(b,a)))
 
 let is_equal a =
   match a.node with
@@ -289,7 +171,7 @@ let is_equal a =
 let d_equal a =
   match a.node with
     | Bool(Equal(a,b)) -> (a,b)
-    | _ -> raise (Invalid_argument "Bool.d_diseq: Not an equality.")
+    | _ -> raise(Invalid_argument "Bool.d_diseq: Not an equality.")
 
 	  
 (*s Disequalities [a <> b] are encoded as [~(a = b)]. *)
@@ -304,13 +186,62 @@ let is_diseq a =
 
 let d_diseq a =
   match a.node with
-    | Bool (Ite({node=Bool(Equal(x,y))},
-		{node=Bool False},
-		{node=Bool True})) -> (x,y)
-    | _ -> raise (Invalid_argument "Bool.d_diseq: Not a disequality.")
+    | Bool(Ite({node=Bool(Equal(x,y))},
+	       {node=Bool False},
+	       {node=Bool True})) ->
+	(x,y)
+    | _ ->
+	raise (Invalid_argument "Bool.d_diseq: Not a disequality.")
 
 
 
+ (*s Lifting conditionals. *)
+
+let rec unary_lift_ite f a =
+  match a.node with
+    | Bool(Ite(x,y,z)) ->
+	ite x (unary_lift_ite f y) (unary_lift_ite f z)
+    | _ ->
+	f a
+
+let rec binary_lift_ite f (a,b) =
+  match a.node, b.node with
+    | Bool(Ite(x1,y1,z1)), _ ->
+	ite x1 (binary_lift_ite f (y1,b)) (binary_lift_ite f (z1,b))
+    | _, Bool(Ite(x2,y2,z2)) ->
+	ite x2 (binary_lift_ite f (a,y2)) (binary_lift_ite f (a,z2))  
+    | _ ->
+	f (a,b)  
+
+let rec ternary_lift_ite f (a,b,c) =
+  match a.node, b.node, c.node with
+    | Bool(Ite(x1,y1,z1)), _, _ ->
+	ite x1 (ternary_lift_ite f (y1,b,c)) (ternary_lift_ite f (z1,b,c))
+    | _, Bool(Ite(x2,y2,z2)), _ ->
+	ite x2 (ternary_lift_ite f (a,y2,c)) (ternary_lift_ite f (a,z2,c))
+    | _, _, Bool(Ite(x3,y3,z3)) ->
+	ite x3 (ternary_lift_ite f (a,b,y3)) (ternary_lift_ite f (a,b,z3))
+    | _ ->
+	f (a,b,c)  
+
+let d_list_ite l =
+  let rec loop acc = function
+    | [] -> None
+    | a :: l ->
+	(match a.node with
+	   | Bool(Ite(x,y,z)) ->
+	       Some(List.rev acc, (x,y,z), l)
+	   | _ ->
+	       loop (a :: acc) l)
+  in
+  loop [] l
+
+let rec nary_lift_ite f l =
+  match d_list_ite l with
+    | Some(l1,(x,y,z),l2) ->
+	ite x (nary_lift_ite f (l1 @ [y] @ l2)) (nary_lift_ite f (l1 @ [z] @ l2))
+    | None ->
+	f l
 
 
 

@@ -54,10 +54,10 @@ CMO = cmp.cmo gmp.cmo mpa.cmo \
       ptset.cmo ptmap.cmo \
       tools.cmo binrel.cmo \
       trace.cmo \
-      interval.cmo \
+      interval.cmo cnstrnt.cmo \
       bitv.cmo term.cmo exc.cmo\
-      cnstrnt.cmo var.cmo bdd.cmo \
-      euclid.cmo poly.cmo sets.cmo bool.cmo conc.cmo bv.cmo pretty.cmo arith.cmo \
+      var.cmo bdd.cmo \
+      euclid.cmo poly.cmo  atom.cmo bool.cmo sets.cmo conc.cmo bv.cmo pretty.cmo arith.cmo \
       tuple.cmo app.cmo \
       funsym.cmo subst.cmo \
       state.cmo solve.cmo process.cmo can.cmo ics.cmo
@@ -198,12 +198,12 @@ benchmarks: $(BINDIR)/ics
 	time -f "user = %U system = %S" $(BINDIR)/ics tests/bench/$$f > /dev/null;\
 	done
 
-PROFFILE = tests/bench/linsys-010
+PROFFILE = tests/bench/linsys-100
 
 profile:
 	make clean
 	make OFLAGS=-p ics
-	$(BINDIR)/ics $(PROFFILE)
+	./ics $(PROFFILE)
 	gprof $(BINDIR)/ics gmon.out > profile.out
 
 CPROFFILE = tests/bench/trans-1000
@@ -213,64 +213,59 @@ cprofile:
 	$(BINDIR)/ics.byte $(CPROFFILE)
 	$(MAKE) process.prof
 
-### Manual
+### User Manual
 
 manual: $(DOCDIR)/manual.ps.gz $(DOCDIR)/manual.pdf  $(DOCDIR)/manual.html
 	cp $(DOCDIR)/manual.ps.gz $(DOCDIR)/manual.pdf  $(DOCDIR)/manual.html $(WEBHOME)
 
 $(DOCDIR)/manual.dvi: $(DOCDIR)/manual.tex
-	(cd $(DOCDIR); (latex ./manual.tex  && latex ./manual.tex))
+	(cd $(DOCDIR); latex ./manual.tex  && latex ./manual.tex)
+
+$(DOCDIR)/manual.pdf: $(DOCDIR)/manual.tex
+	(cd $(DOCDIR); pdflatex ./manual.tex && pdflatex ./manual.tex)
 
 $(DOCDIR)/manual.ps:  $(DOCDIR)/manual.dvi
 
 $(DOCDIR)/manual.ps.gz:  $(DOCDIR)/manual.ps
 	gzip -f $(DOCDIR)/manual.ps
 
-$(DOCDIR)/manual.pdf:  $(DOCDIR)/manual.tex
-
 $(DOCDIR)/manual.html: $(DOCDIR)/manual.tex
-	$(HEVEA) $(OCAMLWEBSTY) $(DOCDIR)/manual.tex -o $(DOCDIR)/manual.html
+	(cd $(DOCDIR); $(HEVEA) $(OCAMLWEBSTY) ./manual.tex -o ./manual.html)
 
 
 ### Documention
 
-OCAMLWEBARGS = \
-	$(DOCDIR)/intro.tex \
-               $(DOCDIR)/ics.tex \
-                  $(SRCDIR)/ics.mli \
-               $(DOCDIR)/terms.tex \
-                  $(SRCDIR)/term.mli \
-               $(DOCDIR)/algo.tex \
-                  $(SRCDIR)/process.mli $(SRCDIR)/process.ml \
-                  $(SRCDIR)/poly.mli $(SRCDIR)/poly.ml \
-                  $(SRCDIR)/state.mli $(SRCDIR)/state.ml \
-                  $(SRCDIR)/cmd.mli $(SRCDIR)/cmd.ml \
-               $(DOCDIR)/theo.tex \
-                  $(SRCDIR)/term.ml $(SRCDIR)/arith.mli \
-                  $(SRCDIR)/tuple.mli $(SRCDIR)/tuple.ml \
-                  $(SRCDIR)/arrays.mli $(SRCDIR)/arrays.ml \
-               $(DOCDIR)/misc.tex \
-                  $(SRCDIR)/tools.mli \
-                  $(SRCDIR)/main.ml
+LITERAL = $(addprefix $(DOCDIR)/literal/,$(CMO:.cmo=.ml.tex)) \
+          $(addprefix $(DOCDIR)/literal/,$(CMO:.cmo=.mli.tex)) \
+          $(DOCDIR)/literal/cmd.mli.tex \
+          $(DOCDIR)/literal/cmd.ml.tex \
+          $(DOCDIR)/literal/main.ml.tex \
+
+$(DOCDIR)/literal/%.ml.tex: $(SRCDIR)/%.ml
+	$(OCAMLWEB) --no-preamble --no-index --impl $< -o $(DOCDIR)/literal/$(@F)
+
+$(DOCDIR)/literal/%.mli.tex: $(SRCDIR)/%.mli
+	$(OCAMLWEB) --no-preamble --no-index --intf $< -o $(DOCDIR)/literal/$(@F)
 
 doc:  $(DOCDIR)/doc.ps.gz $(DOCDIR)/doc.pdf $(DOCDIR)/doc.html
 	cp $(DOCDIR)/doc.ps.gz $(DOCDIR)/doc.pdf $(DOCDIR)/doc.html $(WEBHOME)
 
-$(DOCDIR)/doc.dvi: $(DOCDIR)/doc.tex  $(DOCDIR)/dep.ps
-	(cd $(DOCDIR); (latex ./doc.tex  && latex ./doc.tex))
+$(DOCDIR)/doc.dvi: $(LITERAL)  $(DOCDIR)/dep.ps
+	(cd $(DOCDIR); latex ./doc.tex  && latex ./doc.tex)
+
+$(DOCDIR)/doc.pdf: $(LITERAL)  $(DOCDIR)/dep.ps
+	(cd $(DOCDIR); pdflatex ./doc.tex  && pdflatex ./doc.tex)
 
 $(DOCDIR)/doc.ps:  $(DOCDIR)/doc.dvi  $(DOCDIR)/dep.ps
+	(cd $(DOCDIR); dvips ./doc.dvi -o doc.ps)
 
 $(DOCDIR)/doc.ps.gz:  $(DOCDIR)/doc.ps
 	gzip -f $(DOCDIR)/doc.ps
 
-$(DOCDIR)/doc.pdf:  $(DOCDIR)/doc.tex
+$(DOCDIR)/doc.pdf:  $(LITERAL) $(DOCDIR)/dep.ps
 
-$(DOCDIR)/doc.tex: $(OCAMLWEBARGS) Makefile
-	$(OCAMLWEB) --no-preamble -o $(DOCDIR)/doc-input.tex $(OCAMLWEBARGS)
-
-$(DOCDIR)/doc.html: $(DOCDIR)/doc.tex
-	$(HEVEA) $(OCAMLWEBSTY) $(DOCDIR)/doc.tex -o $(DOCDIR)/doc.html
+$(DOCDIR)/doc.html: $(DOCDIR)/doc.tex $(LITERAL) $(DOCDIR)/dep.gif
+	(cd $(DOCDIR); $(HEVEA) $(OCAMLWEBSTY) ./doc.tex -o ./doc.html)
 
 $(DOCDIR)/dep.ps: $(SRC)
 	$(OCAMLDEP) -native $(SRC) | ocamldot -lr | dot -Tps > $(DOCDIR)/dep.ps
@@ -341,7 +336,9 @@ tags:
 clean::
 	rm -f $(BINDIR)/ics $(BINDIR)/ics.byte 
 	rm -rf $(OBJDIR) $(LIBDIR)
+	rm -rf $(DOCDIR)/*.aux  $(DOCDIR)/*.toc  $(DOCDIR)/*.bbl $(DOCDIR)/*.log $(DOCDIR)/*.haux $(DOCDIR)/*.dvi
 	make -C chameleon clean
+	rm -rf $(DOCDIR)/doc/literal/*.tex
 
 distclean:: clean
 	rm -f config.cache config.log confdefs.h config.status

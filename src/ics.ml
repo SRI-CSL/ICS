@@ -236,29 +236,30 @@ let _ = Callback.register "subst_norm" subst_norm
 		     
 type cnstrnt = Cnstrnt.t
 		     
-let cnstrnt_lt q = Cnstrnt.lt Interval.Real q
-let cnstrnt_le q = Cnstrnt.le Interval.Real q
-let cnstrnt_ge q = Cnstrnt.ge Interval.Real q
-let cnstrnt_gt q = Cnstrnt.gt Interval.Real q
+let cnstrnt_lt d q = Cnstrnt.lt d q
+let cnstrnt_le d q = Cnstrnt.le d q
+let cnstrnt_ge d q = Cnstrnt.ge d q
+let cnstrnt_gt d q = Cnstrnt.gt d q
 
 let cnstrnt_int = Cnstrnt.int
 let cnstrnt_real = Cnstrnt.real
+   
 
-let cnstrnt_openopen p q = Cnstrnt.oo Interval.Real p q
-let cnstrnt_openclosed p q = Cnstrnt.oc Interval.Real p q
-let cnstrnt_closedopen p q = Cnstrnt.co Interval.Real p q
-let cnstrnt_closedclosed p q = Cnstrnt.cc Interval.Real p q
+let cnstrnt_openopen d p q = Cnstrnt.oo d p q
+let cnstrnt_openclosed d p q = Cnstrnt.oc d p q
+let cnstrnt_closedopen d p q = Cnstrnt.co d p q
+let cnstrnt_closedclosed d p q = Cnstrnt.cc d p q
 
-let cnstrnt_app = Cnstrnt.app
+let cnstrnt_app c a = Term.mem a c
 
 let cnstrnt_pp c =
   Pretty.cnstrnt Format.std_formatter c;
   Format.pp_print_flush Format.std_formatter ()
   		 
-let mk_pos = Cnstrnt.app (Cnstrnt.gt Interval.Real Mpa.Q.zero)
-let mk_neg = Cnstrnt.app (Cnstrnt.lt Interval.Real Mpa.Q.zero)
-let mk_nonneg = Cnstrnt.app (Cnstrnt.ge Interval.Real Mpa.Q.zero)
-let mk_nonpos = Cnstrnt.app (Cnstrnt.le Interval.Real Mpa.Q.zero)
+let mk_pos a = Term.mem a (Cnstrnt.gt Interval.Real Mpa.Q.zero)
+let mk_neg a = Term.mem a (Cnstrnt.lt Interval.Real Mpa.Q.zero)
+let mk_nonneg a = Term.mem a (Cnstrnt.ge Interval.Real Mpa.Q.zero)
+let mk_nonpos a = Term.mem a (Cnstrnt.le Interval.Real Mpa.Q.zero)
 
 let _ = Callback.register "cnstrnt_lt" cnstrnt_lt
 let _ = Callback.register "cnstrnt_le" cnstrnt_le
@@ -275,6 +276,184 @@ let _ = Callback.register "mk_neg" mk_neg
 let _ = Callback.register "mk_nonneg" mk_nonneg
 let _ = Callback.register "mk_nonpos" mk_nonpos
 
+	 (*s [low_bound] is the type of lower bounds in intervals and they are
+      either negative infinity, or a rational number together with a strictness attribute.
+      The recognizers [low_bound_is_strict]
+      and [low_bound_is_nonstrict] are only defined when [low_bound_is_neginf] does
+      not hold. In these cases, one can access the lower bound using [low_bound_value] . *)
+  
+type low_bound = Interval.low
+
+let low_bound_neginf () = Interval.Neginf
+let low_bound_strict q = Interval.Low(Interval.Strict,q)
+let low_bound_nonstrict q = Interval.Low(Interval.Nonstrict,q)	    
+
+let low_bound_is_neginf = function
+  | Interval.Neginf -> true
+  | _ -> false
+	
+let low_bound_is_strict = function
+  | Interval.Low(Interval.Strict,_) -> true
+  | _ -> false
+	
+let low_bound_is_nonstrict = function
+  | Interval.Low(Interval.Nonstrict,_) -> true
+  | _ -> false
+		   
+let low_bound_value = function
+  | Interval.Low(_,q) -> q
+  | _ -> assert false
+
+let _ = Callback.register "low_bound_neginf" low_bound_neginf
+let _ = Callback.register "low_bound_strict" low_bound_strict
+let _ = Callback.register "low_bound_nonstrict" low_bound_nonstrict 
+let _ = Callback.register "low_bound_is_neginf" low_bound_is_neginf
+let _ = Callback.register "low_bound_is_strict" low_bound_is_strict
+let _ = Callback.register "low_bound_is_nonstrict" low_bound_is_nonstrict
+let _ = Callback.register "low_bound_value" low_bound_value
+  
+	  
+
+    (*s [high_bound] is the type of upper bounds in interlets and they are
+      either positive infinity, or a rational number together with a strictness attribute.
+      The recognizers [high_bound_is_strict]
+      and [high_bound_is_nonstrict] are only defined when [high_bound_is_posinf] does
+      not hold. In these cases, one can access the lower bound using [high_bound_letue] . *)
+  
+
+type high_bound = Interval.high
+		    
+let high_bound_posinf () = Interval.Posinf
+let high_bound_strict q = Interval.High(Interval.Strict,q)
+let high_bound_nonstrict q = Interval.High(Interval.Nonstrict,q)	    
+
+
+let high_bound_is_posinf = function
+  | Interval.Posinf -> true
+  | _ -> false
+	
+let high_bound_is_strict = function
+  | Interval.High(Interval.Strict,_) -> true
+  | _ -> false
+	
+let high_bound_is_nonstrict = function
+  | Interval.High(Interval.Nonstrict,_) -> true
+  | _ -> false
+		   
+let high_bound_value = function
+  | Interval.High(_,q) -> q
+  | _ -> assert false
+
+let _ = Callback.register "high_bound_posinf" high_bound_posinf
+let _ = Callback.register "high_bound_strict" high_bound_strict
+let _ = Callback.register "high_bound_nonstrict" high_bound_nonstrict 	
+let _ = Callback.register "high_bound_is_posinf" high_bound_is_posinf
+let _ = Callback.register "high_bound_is_strict" high_bound_is_strict
+let _ = Callback.register "high_bound_is_nonstrict" high_bound_is_nonstrict
+let _ = Callback.register "high_bound_value" high_bound_value
+  
+
+    (*s Intervals are interpreted either over the reals, the integers, or the reals without
+      the integers. *)
+   
+type interval_domain = Interval.domain
+
+let interval_domain_real () = Interval.Real
+let interval_domain_int () = Interval.Int
+let interval_domain_nonintreal () = Interval.NonintReal
+					
+
+let interval_domain_is_real d = (d = Interval.Int)
+let interval_domain_is_int d = (d = Interval.Real)
+let interval_domain_is_nonintreal d = (d = Interval.NonintReal)
+
+					
+let _ = Callback.register "interval_domain_real" interval_domain_real
+let _ = Callback.register "interval_domain_int" interval_domain_int
+let _ = Callback.register "interval_domain_nonintreal" interval_domain_nonintreal
+let _ = Callback.register "interval_domain_is_real" interval_domain_is_real
+let _ = Callback.register "interval_domain_is_int" interval_domain_is_int
+let _ = Callback.register "interval_domain_is_nonintreal" interval_domain_is_nonintreal
+
+    (*s A singleton constraint is either a Boolean constraint, a predicate constraint,
+      a cartesian constraint, a bitvector constraint, any other nonaritmetic constraint,
+      or an arithmetic constraint. Exactly one of the accessors below holds for each
+      singleton constraints. Whenever [cnstrnt1_is_arith c1] holds, the corresponding
+      interval can be obtained using [cnstrnt1_d_arith]. *)
+   
+type cnstrnt1 = Cnstrnt.cnstrnt
+
+let cnstrnt1_boolean () = Cnstrnt.Nonarith(Boolean)
+let cnstrnt1_predicate () = Cnstrnt.Nonarith(Predicate)
+let cnstrnt1_cartesian () = Cnstrnt.Nonarith(Cartesian)
+let cnstrnt1_bitvector () = Cnstrnt.Nonarith(Bitvector)
+let cnstrnt1_other () = Cnstrnt.Nonarith(Other)
+let cnstrnt1_arith (d,l,h) = Cnstrnt.Arith(d,l,h)
+			    
+let cnstrnt1_is_boolean = function
+  | Cnstrnt.Nonarith(Boolean) -> true
+  | _ -> false
+	
+let cnstrnt1_is_predicate = function
+  | Cnstrnt.Nonarith(Predicate) -> true
+  | _ -> false
+
+let cnstrnt1_is_cartesian = function
+  | Cnstrnt.Nonarith(Cartesian) -> true
+  | _ -> false
+	
+let cnstrnt1_is_bitvector = function
+  | Cnstrnt.Nonarith(Bitvector) -> true
+  | _ -> false
+
+let cnstrnt1_is_other = function
+  | Cnstrnt.Nonarith(Other) -> true
+  | _ -> false
+
+let cnstrnt1_is_arith = function
+  | Cnstrnt.Arith _ -> true
+  | _ -> false
+
+let cnstrnt1_d_arith = function
+  | Cnstrnt.Arith(d,l,h) -> (d,l,h)
+  | _ -> assert false
+
+let _ = Callback.register "cnstrnt1_boolean" cnstrnt1_boolean
+let _ = Callback.register "cnstrnt1_predicate" cnstrnt1_predicate
+let _ = Callback.register "cnstrnt1_cartesian" cnstrnt1_cartesian
+let _ = Callback.register "cnstrnt1_bitvector" cnstrnt1_bitvector
+let _ = Callback.register "cnstrnt1_other" cnstrnt1_other
+let _ = Callback.register "cnstrnt1_arith" cnstrnt1_arith
+let _ = Callback.register "cnstrnt1_is_boolean" cnstrnt1_is_boolean
+let _ = Callback.register "cnstrnt1_is_predicate" cnstrnt1_is_predicate
+let _ = Callback.register "cnstrnt1_is_cartesian" cnstrnt1_is_cartesian
+let _ = Callback.register "cnstrnt1_is_bitvector" cnstrnt1_is_bitvector
+let _ = Callback.register "cnstrnt1_is_other" cnstrnt1_is_other
+let _ = Callback.register "cnstrnt1_is_arith" cnstrnt1_is_arith
+let _ = Callback.register "cnstrnt1_d_arith" cnstrnt1_d_arith
+  
+	  
+      (*s Listify constraints as the disjunction of singleton constraints. *)
+
+let cnstrnt_to_list = Cnstrnt.to_list
+let cnstrnt_of_list = Cnstrnt.of_list
+
+let _ = Callback.register "cnstrnt_to_list" cnstrnt_to_list
+let _ = Callback.register "cnstrnt_of_list" cnstrnt_of_list
+
+let cnstrnt_boolean = Cnstrnt.sort Boolean
+let cnstrnt_predicate = Cnstrnt.sort Predicate
+let cnstrnt_bitvector = Cnstrnt.sort Bitvector
+let cnstrnt_cartesian = Cnstrnt.sort Cartesian
+let cnstrnt_other = Cnstrnt.sort Other
+
+let _ = Callback.register "cnstrnt_boolean" cnstrnt_boolean
+let _ = Callback.register "cnstrnt_predicate" cnstrnt_predicate
+let _ = Callback.register "cnstrnt_bitvector" cnstrnt_bitvector
+let _ = Callback.register "cnstrnt_cartesian" cnstrnt_cartesian
+let _ = Callback.register "cnstrnt_other" cnstrnt_other  
+      
+(*s Sets. *)
 
 let mk_empty = Sets.empty
 let mk_full = Sets.full
@@ -289,7 +468,7 @@ let mk_seteq = Sets.equal
 
 let mk_finite = Sets.finite
 
-let mk_cnstrnt = Cnstrnt.make
+let mk_cnstrnt = Sets.cnstrnt
 	
 let _ = Callback.register "mk_empty" mk_empty
 let _ = Callback.register "mk_full" mk_full
@@ -570,7 +749,8 @@ let _ = Callback.register "set_verbose" set_verbose
 module Tmap = Term.Map
 
 type state = State.t
-       
+
+let state_eq = (==)
 
 let init () = State.empty
 
@@ -599,6 +779,7 @@ let uninterp st a =
 	Set.to_list ts
     | _ -> assert false
 
+let _ = Callback.register "state_eq" state_eq  
 let _ = Callback.register "ctxt_of" ctxt_of
 let _ = Callback.register "ext_of" ext_of
 let _ = Callback.register "find_of" find_of  

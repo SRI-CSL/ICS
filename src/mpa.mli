@@ -10,7 +10,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * ICS License for more details.
- *)
+ i*)
 
 (*s Multi-precision arithmetic. The purpose of this module is to
   abstract the necessary arithmetic functions of any multi-precision

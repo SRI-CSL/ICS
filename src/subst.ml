@@ -1,4 +1,17 @@
 
+(*i
+ * ICS - Integrated Canonizer and Solver
+ * Copyright (C) 2001-2004 SRI International
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the ICS license as published at www.icansolve.com
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * ICS License for more details.
+ i*)
+
 (*i*)
 open Term
 open Hashcons
@@ -27,11 +40,11 @@ let of_list l =
 let to_list l =
   Map.fold (fun x a acc -> (x,a) :: acc) l [] 
 
-let iter f rho =
-  Map.iter (fun x y -> f (x,y)) rho
+let iter f =
+  Map.iter (fun x y -> f(x,y))
 
-let fold f rho a =
-  Map.fold (fun x y acc -> f (x,y) acc) rho a
+let fold f =
+  Map.fold (fun x y -> f(x,y))
     
 let dom s =
   Map.fold (fun x _ acc -> Term.Set.add x acc) s Term.Set.empty
@@ -40,18 +53,18 @@ let pp fmt rho =
   let pp_binding (x,a) =
     Format.fprintf fmt "@[";
     Pretty.term fmt x;
-    Format.fprintf fmt " |-> ";
+    Format.fprintf fmt "@ |->@ ";
     Pretty.term fmt a;
     Format.fprintf fmt "@]";
   in
   let rec pp_bindings = function
     | [] -> ()
     | [b] -> pp_binding b
-    | b :: l -> pp_binding b; Format.fprintf fmt ",@ "; pp_bindings l
+    | b :: l -> pp_binding b; Format.fprintf fmt ",@."; pp_bindings l
   in
-  Format.fprintf fmt "@[[";
+  Format.fprintf fmt "@[";
   pp_bindings (to_list rho);
-  Format.fprintf fmt "]@]"
+  Format.fprintf fmt "@]"
  
 
 (*s {\bf Norm.} This operation, written \replace{S}{a}, applies [S]
@@ -67,76 +80,64 @@ let pp fmt rho =
 *)
 
 let norm s a =
-  let eq_lists l1 l2 =
-    try List.for_all2 (fun x y -> x === y) l1 l2 with Invalid_argument _ -> false
-  in
   let rec repl t =
     (match t.node with
       | Var _ | App _ ->                   (* "completely uninterpreted" *)
 	  find s t
       | Update(x,y,z) ->
-	  let x' = repl x and y' = repl y and z' = repl z in
-	  if x' === x && y' === y && z' === z then t
-	  else App.update x' y' z'
+	  hom3 t (fun (x,y,z) -> App.update x y z) repl (x,y,z)
       | Set s ->
 	  (match s with
-	     | Full _ | Empty _ -> t
-	     | Cnstrnt _ -> t
+	     | Full _ | Empty _ | Cnstrnt _ ->
+		 t
 	     | Finite s ->
-		 let s' = Ptset.fold (fun x acc -> Ptset.add (repl x) acc) s Ptset.empty in
-		 if Ptset.equal s s' then t else Sets.finite s'
+		 homs t Sets.finite repl s 
 	     | SetIte(tg,x,y,z) ->
-		  let x' = repl x and y' = repl y and z' = repl z in
-		  if x' === x && y' === y && z' === z then t else Sets.ite tg x' y' z')
+		 hom3 t (fun (x,y,z) -> Sets.ite tg x y z) repl (x,y,z))
       | Bool b ->
 	  (match b with
-	     | True | False -> t
+	     | True | False ->
+		 t
 	     | Equal(x,y) ->
-		  let x' = repl x and y' = repl y in
-		  if x' === x && y' === y then t else Bool.equal x' y'
+		 hom2 t (fun (x,y) -> Bool.equal x y) repl (x,y)
 	     | Ite(x,y,z) ->
-		 let x' = repl x and y' = repl y and z' = repl z in
-		 if x' === x && y' === y && z' === z then t else Bool.ite x' y' z'
-	     | _ -> assert false)
+		 hom3 t (fun (x,y,z) -> Bool.ite x y z) repl (x,y,z)
+	     | _ ->
+		 assert false)
       | Arith a ->
 	  (match a with
-	     | Num _ -> t
+	     | Num _ ->
+		 t
 	     | Add l ->
-		 let l' = List.map repl l in
-		 if eq_lists l l' then t else Arith.add l'
+		 homl t Arith.add repl l
 	     | Multq(q,x) ->
-		 let x' = repl x in
-		 if x === x' then t else Arith.multq q x'
+		 hom1 t (Arith.multq q) repl x
 	     | Mult l ->
-		 let l' = List.map repl l in
-		 if eq_lists l l' then t else Arith.mult l'
+		 homl t Arith.mult repl l
 	     | Div(x,y) ->
-		 let x' = repl x and y' = repl y in
-		 if x' === x && y' === y then t else Arith.div2(x',y'))
+		 hom2 t Arith.div2 repl (x,y))
       | Bv b ->
 	  (match b with
-	     | Const _ -> t
+	     | Const _ ->
+		 t
 	     | Extr((n,x),i,j) ->
-		 let x' = repl x in
-		 if x === x' then t else Bv.sub n i j x'
+		 hom1 t (Bv.sub n i j) repl x
 	     | BvToNat x ->
-		 let x' = repl x in
-		 if x === x' then t else Bv.bv2nat 42 x'
+		 hom1 t (Bv.bv2nat 42) repl x
 	     | Conc l ->
 		 Bv.conc (List.map (fun (n,t) -> (n, repl t)) l)
 	     | BvIte((n,x),(_,y),(_,z)) ->
-		 let x' = repl x and y' = repl y and z' = repl z in
-		 if x' === x && y' === y && z' === z then t else Bv.ite n x' y' z')
+		 hom3 t (fun (x,y,z) -> Bv.ite n x y z) repl (x,y,z))
       | Tuple tp ->
 	  (match tp with
 	     | Proj(i,j,x) ->
-		 let x' = repl x in
-		 if x' === x then t else Tuple.proj i j x'
+		 hom1 t (Tuple.proj i j) repl x
 	     | Tup l ->
-		 let l' = List.map repl l in
-		 if eq_lists l l' then t else  Tuple.tuple l'))
+		 homl t Tuple.tuple repl l))
   in
   repl a
+
+
 
 
 

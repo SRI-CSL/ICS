@@ -297,24 +297,112 @@ val terms_choose : terms -> term * terms
     *)
 
 type cnstrnt
-    
-val cnstrnt_lt : q -> cnstrnt
-val cnstrnt_le : q -> cnstrnt
-val cnstrnt_ge : q -> cnstrnt
-val cnstrnt_gt : q -> cnstrnt
-
-val cnstrnt_int : cnstrnt
-val cnstrnt_real : cnstrnt
-
-val cnstrnt_openopen : q -> q -> cnstrnt
-val cnstrnt_openclosed : q -> q -> cnstrnt
-val cnstrnt_closedopen : q -> q -> cnstrnt
-val cnstrnt_closedclosed : q -> q -> cnstrnt
 
 val cnstrnt_app : cnstrnt -> term -> term
 
 val cnstrnt_pp : cnstrnt -> unit
-      
+
+    (*s [low_bound] is the type of lower bounds in intervals and they are
+      either negative infinity, or a rational number together with a strictness attribute.
+      The recognizers [low_bound_is_strict]
+      and [low_bound_is_nonstrict] are only defined when [low_bound_is_neginf] does
+      not hold. In these cases, one can access the lower bound using [low_bound_value] . *)
+  
+type low_bound
+
+val low_bound_neginf : unit -> low_bound
+val low_bound_strict : q -> low_bound
+val low_bound_nonstrict : q -> low_bound
+   
+
+val low_bound_is_neginf : low_bound -> bool
+val low_bound_is_strict : low_bound -> bool
+val low_bound_is_nonstrict : low_bound -> bool
+val low_bound_value : low_bound -> q
+
+    (*s [high_bound] is the type of upper bounds in intervals and they are
+      either positive infinity, or a rational number together with a strictness attribute.
+      The recognizers [high_bound_is_strict]
+      and [high_bound_is_nonstrict] are only defined when [high_bound_is_posinf] does
+      not hold. In these cases, one can access the lower bound using [high_bound_value] . *)
+  
+
+type high_bound
+
+val high_bound_posinf : unit -> high_bound
+val high_bound_strict : q -> high_bound
+val high_bound_nonstrict : q -> high_bound
+ 
+  
+val high_bound_is_posinf : high_bound -> bool
+val high_bound_is_strict : high_bound -> bool
+val high_bound_is_nonstrict : high_bound -> bool
+val high_bound_value : high_bound -> q
+
+    (*s Intervals are interpreted either over the reals, the integers, or the reals without
+      the integers. *)
+   
+type interval_domain
+
+val interval_domain_int: unit -> interval_domain
+val interval_domain_real: unit -> interval_domain
+val interval_domain_nonintreal: unit -> interval_domain
+
+val interval_domain_is_real : interval_domain -> bool
+val interval_domain_is_int : interval_domain -> bool
+val interval_domain_is_nonintreal : interval_domain -> bool
+
+    (*s A singleton constraint is either a Boolean constraint, a predicate constraint,
+      a cartesian constraint, a bitvector constraint, any other nonaritmetic constraint,
+      or an arithmetic constraint. Exactly one of the accessors below holds for each
+      singleton constraints. Whenever [cnstrnt1_is_arith c1] holds, the corresponding
+      interval can be obtained using [cnstrnt1_d_arith]. *)
+   
+type cnstrnt1
+
+val cnstrnt1_boolean : unit -> cnstrnt1
+val cnstrnt1_predicate : unit -> cnstrnt1
+val cnstrnt1_cartesian : unit -> cnstrnt1
+val cnstrnt1_bitvector : unit -> cnstrnt1
+val cnstrnt1_other : unit -> cnstrnt1
+val cnstrnt1_arith : interval_domain * low_bound * high_bound -> cnstrnt1
+
+  
+val cnstrnt1_is_boolean : cnstrnt1 -> bool
+val cnstrnt1_is_predicate : cnstrnt1 -> bool   
+val cnstrnt1_is_cartesian : cnstrnt1 -> bool   
+val cnstrnt1_is_bitvector : cnstrnt1 -> bool   
+val cnstrnt1_is_other : cnstrnt1 -> bool
+val cnstrnt1_is_arith : cnstrnt1 -> bool
+
+val cnstrnt1_d_arith : cnstrnt1 -> interval_domain * low_bound * high_bound
+
+      (*s Listify constraints as the disjunction of singleton constraints. *)
+
+val cnstrnt_to_list : cnstrnt -> cnstrnt1 list
+val cnstrnt_of_list : cnstrnt1 list -> cnstrnt
+
+    (*s Constraint constructors. *)
+        
+val cnstrnt_lt : interval_domain -> q -> cnstrnt
+val cnstrnt_le : interval_domain -> q -> cnstrnt
+val cnstrnt_ge : interval_domain -> q -> cnstrnt
+val cnstrnt_gt : interval_domain -> q -> cnstrnt
+
+val cnstrnt_int : cnstrnt
+val cnstrnt_real : cnstrnt
+val cnstrnt_boolean : cnstrnt
+val cnstrnt_predicate : cnstrnt
+val cnstrnt_bitvector : cnstrnt
+val cnstrnt_cartesian : cnstrnt
+val cnstrnt_other : cnstrnt
+
+val cnstrnt_openopen : interval_domain -> q -> q -> cnstrnt
+val cnstrnt_openclosed : interval_domain -> q -> q -> cnstrnt
+val cnstrnt_closedopen : interval_domain -> q -> q -> cnstrnt
+val cnstrnt_closedclosed : interval_domain -> q -> q -> cnstrnt
+
+     
    
     (*s Sets are build from the empty set [mk_empty] and the
       full set [mk_full], and the usual set operators. Actually,
@@ -409,10 +497,12 @@ val eqn_pp : term * term -> unit
   is built using the [init] operator. The canonical
   representative of a term in a given context is determined by
   [find]. [pp_find] prints the finite, non-identical part of the context
-  on standard output.
+  on standard output. [state_eq] tests if two states are identical.
 *)
 
 type state = State.t
+
+val state_eq : state -> state -> bool
  
 val init : unit -> state
 val find : state -> term -> term

@@ -1,3 +1,4 @@
+
 (*i
  * ICS - Integrated Canonizer and Solver
  * Copyright (C) 2001-2004 SRI International
@@ -9,7 +10,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * ICS License for more details.
- *)
+ i*)
 
 (*s Terms are the basic data structures of ICS. *)
 
@@ -18,29 +19,15 @@ open Hashcons
 open Bitv
 (*i*)
 
-
-  (*s Constraints. Terms are partitioned into nonreals and reals. A nonreal term
-    is either boolean, a set of predicate, a tuple term (cartesian), a bitvector,
-    or another nonreal term (other). Now, a constraint is either the unconstraining
-    [Top], the inconsistent constraint [Bot], or it is of the form [Sub(s,i)] where
-    [s] is the set of possible nonreal constraints, and [i] is a specification of
-    a subset of reals.
-  *)
-
-type nonreal =
+type sort =        (* nonarithmetic sorts. *)
   | Boolean
   | Predicate
   | Cartesian
   | Bitvector
   | Other
 
-module Nonreals: (Set.S with type elt = nonreal) 
+module Cnstrnt: (Cnstrnt.C with type sort = sort)
 
-type cnstrnt =
-  | Top
-  | Sub of Nonreals.t * Interval.t
-  | Bot
-  
       (*s Terms.  A term is either a variable [Var(s)], where the name [s] is a string, an
 	application [App(f,l)] of a `function symbol' to a list of arguments, an update
 	expression [Update(a,i,v)], or a term interpreted in one of the theories of linear
@@ -109,7 +96,7 @@ and set =
   | Empty of tag
   | Full of tag
   | Finite of terms
-  | Cnstrnt of cnstrnt
+  | Cnstrnt of Cnstrnt.t
   | SetIte of tag * t * t * t
 
       (*s A tuple term is either a tuple [Tup(l)] or the [i]-th projection [Proj(i,n,_)]
@@ -176,8 +163,6 @@ val is_const : t -> bool
         considered to be uninterpreted, and all other terms are interpreted. *)
 
 val is_uninterpreted : t -> bool
-
-val iter_uninterpreted : (t -> unit) -> t -> unit
 
     (*s [occurs_interpreted a b] tests if term [a] occurs interpreted in [b]; in
       particular, this test fails if [a] is a subterm of an uninterpreted term. *)
@@ -328,17 +313,49 @@ module Map : sig
 	in the domain of [m] such that [y] equals [find x m]. The
 	order of bindings in the result is undefined. *)
   val to_list : 'a t -> (term * 'a) list
+
 end
 
+  (*s Some constructors and recognizers for constants. *)
+
+val tt : unit -> t
+val ff : unit -> t
+    
+val is_tt : t -> bool
+val is_ff : t -> bool
+
+    
+     
+  (*s Abstract interpretation of an arithmetic term with [Cnstrnts.t] as
+    abstract domain. [cnstrnt f a] first checks if the context [f]
+    contains a declaration or not not. In the first case, this
+    constraint is returned. Otherwise, when [f] throws the exception
+    [Not_found] then it computes a most refined constrained by traversing
+    arithmetic terms *)
+
+val cnstrnt : (t -> Cnstrnt.t) -> t -> Cnstrnt.t
+
+  (*s Application of a constraints to a term. The following simplifications
+    are used.\\
+    \begin{tabular}{lcll}
+    [app c a] & = & ff() & if [is_empty c] \\
+    [app c a] & = & ff() & if [is_ground c] and not [mem a c] \\
+    [app c a] & = & tt() & if [is_full c] \\
+    [app c a] & = & tt() & if [mem a c] \\
+    \end{tabular} *)
+   
+val mem : t -> Cnstrnt.t -> t
 
 
+(*s Homomorphism [hom a op f (b1,b2,...)] on terms. [f] is applied to arguments [bi],
+    if [bi] equals [f(bi)] for all [i], then the original term [a]
+    is returned, otherwise a new term is constructed using [op]. *)
 
+val hom1 : t -> (t -> t) -> (t -> t) -> t -> t
+val hom2 : t -> (t * t -> t) -> (t -> t) -> t * t -> t
+val hom3 : t -> (t * t * t -> t) -> (t -> t) -> t * t * t -> t
+val homl : t -> (t list -> t) -> (t -> t) -> t list -> t
+val homs : t -> (terms -> t) -> (t -> t) -> terms -> t    
 
-
-
-
-
-
-
-
+    
 

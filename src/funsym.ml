@@ -6,6 +6,7 @@ open Hashcons
 
 type tnode =
   | Uninterp of Term.t
+  | Update
   | Equal
   | Mult
   | Div
@@ -26,6 +27,7 @@ module Hash = Hashcons.Make(
 	| _ -> false
     let hash = function
       | Uninterp x -> Hashtbl.hash x
+      | Update -> 2
       | Equal -> 3
       | Mult -> 5
       | Div -> 7
@@ -38,6 +40,7 @@ let hc : tnode -> t =
   Hash.hashcons ht
 
 let uninterp t = hc (Uninterp t)
+let update () = hc Update
 let equal () = hc Equal
 let mult () = hc Mult
 let div () = hc Div
@@ -46,16 +49,19 @@ let div () = hc Div
 
 let of_term t =
   match t.node with
-    | Term.App(t,_) -> Some (uninterp t)
-    | Term.Bool(Term.Equal _) -> Some (equal ())
-    | Term.Arith(Term.Mult _) -> Some (mult ())
-    | Term.Arith(Term.Div _) -> Some (div ())
+    | Term.App(t,_) -> Some(uninterp t)
+    | Term.Update _ -> Some(update())
+    | Term.Bool(Term.Equal _) -> Some(equal ())
+    | Term.Arith(Term.Mult _) -> Some(mult ())
+    | Term.Arith(Term.Div _) -> Some(div ())
     | _ -> None
 
 let pp fmt f =
   match f.node with
   | Uninterp(t) ->
       Format.fprintf fmt "@[Uninterp("; Pretty.term fmt t; Format.fprintf fmt ")@]"
+  | Update ->
+      Format.fprintf fmt "Update"
   | Equal ->
       Format.fprintf fmt "Equal"
   | Mult ->

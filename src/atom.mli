@@ -12,14 +12,13 @@
  * ICS License for more details.
  i*)
 
+(*s Module [Atom]: Simplification of connectives on atoms. *)
 
-(*s Module [Pretty]: Pretty-printing of basic data structures. *)
 
-type 'a  printer = Format.formatter -> 'a -> unit
+val conj : Term.t -> Term.t -> Term.t option
 
-val list : 'a printer -> 'a list printer
-val term : Term.t printer
-val eqn : (Term.t * Term.t) printer
-val cnstrnt : Term.Cnstrnt.t printer
-val tset : Term.terms printer
-val tmap : 'a printer -> 'a Term.Map.t printer
+val disj : Term.t -> Term.t -> Term.t option
+
+val neg : Term.t -> Term.t option
+
+val neg_conj : Term.t -> Term.t -> Term.t option

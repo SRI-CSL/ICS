@@ -9,7 +9,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * ICS License for more details.
- *)
+ i*)
 
 (*s The module [Interval] realizes a lattice of certain subsets
   of the real numbers described by unions of intervals. *)
@@ -47,10 +47,12 @@ val cc : domain -> Q.t -> Q.t -> t
     (*s [lt d q] constructs the interval [(-inf,q)] interpreted over the domain [d],
         where [-inf] is the symbol for 'minus infinity'. Similarly, for the constructors
         less or equal' [le], 'greater than' [gt], and 'greater or equal' [ge]. *)
+    
 val lt : domain -> Q.t -> t
 val le : domain -> Q.t -> t
 val gt : domain -> Q.t -> t
 val ge : domain -> Q.t -> t
+
 
     (*s The set of integers. *)
 val int : t
@@ -72,10 +74,12 @@ val diseq : Q.t -> t
         is the set of real numbers, [is_int s] holds iff [s] denotes the
         integers, and [is_singleton s] holds iff the denotation of [s] is
         singleton. *)
+    
 val is_empty : t -> bool
 val is_full : t -> bool
 val is_int : t -> bool
 val is_real : t -> bool
+val is_nonintreal : t -> bool
 val is_singleton : t -> bool
 
     (*s Get the value of a singleton constraint. Throws [Invalid_argument] if
@@ -132,12 +136,9 @@ type high =
 
 type interval = domain * low * high
   
-
 val to_list: t -> interval list
 
-
-
-
+val inj : interval -> t
 
 
 

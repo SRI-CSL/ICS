@@ -7,37 +7,31 @@ open Format
 (*i*)
 
 (*s Constraints. *)
-
-
-type nonreal =
+  
+type sort =        (* nonarithmetic sorts. *)
   | Boolean
   | Predicate
   | Cartesian
   | Bitvector
   | Other
+      
+module Nonreals = Set.Make(
+  struct
+    type t = sort
+    let compare = compare
+  end)
 
-module Nonreals =
-  Set.Make(
-    struct
-      type t = nonreal
-      let compare = compare
-    end)
+module Cnstrnt = Cnstrnt.Make(
+  struct
+    type t = sort
+    let eq = (=)
+    let enum = [Boolean; Predicate; Cartesian; Bitvector; Other]
+  end)
 
-type cnstrnt =
-  | Top
-  | Sub of Nonreals.t * Interval.t
-  | Bot
+type cnstrnt = Cnstrnt.t
+		 
 
-let cnstrnt_eq c1 c2 =
-  match c1, c2 with
-    | Sub(s1,i1), Sub(s2,i2) ->
-	Nonreals.equal s1 s2 && Interval.eq i1 i2
-    | _ ->
-	c1 = c2
-
-(*s Implementation of terms and functions over terms. \label{implterms}
-    The datatypes for terms have been discussed in \fullrefsec{typeterms}. *)
-
+(*s Implementation of terms and functions over terms. *)
  
 type variable = string
 
@@ -148,7 +142,7 @@ module HashTerm = Hashcons.Make(
 	       | Full t1, Full t2 ->
 		   t1 = t2
 	       | Cnstrnt (c1), Cnstrnt (c2) ->
-		   cnstrnt_eq c1 c2  
+		   Cnstrnt.eq c1 c2  
 	       | Finite s1, Finite s2 ->
 		   Ptset.equal s1 s2
 	       | _ -> false)	    
@@ -397,6 +391,23 @@ let is_const t =
     | Bv (Const _) -> true
     | _ -> false
 
+(*s Some constants. *)
+
+let tt () = hc(Bool(True))
+let ff () = hc(Bool(False))
+
+(*s Some recognizers for constants. *)
+
+let is_tt a =
+  match a.node with
+    | Bool(True) -> true
+    | _ -> false
+
+let is_ff a =
+  match a.node with
+    | Bool(False)-> true
+    | _ -> false
+
 (*s Sets of terms *)
 	
 exception SFound of term
@@ -559,43 +570,128 @@ let is_uninterpreted a =
     | Set(Cnstrnt _) -> true
     | _ -> false
 
-let iter_uninterpreted f a =
-   let rec loop t =
-    match t.node with
-      | Var _ | App _ | Set(Cnstrnt _) ->
-	  f t
-      | Update(x,y,z) -> loop x; loop y; loop z
-      | Arith(Mult l) -> List.iter loop l
-      | Arith(Div(x,y))  -> loop x; loop y
-      | Bv(BvToNat x) -> loop x;
-      | Bool(Equal(x,y)) -> loop x; loop y
-      | Set s ->
-	  (match s with
-	     | SetIte(_,x,y,z) -> loop x; loop y; loop z
-	     | Finite(s) -> Set.iter loop s
-	     | _ -> ())
-      | Bool b ->
-	  (match b with
-	     | Ite(x,y,z) -> loop x; loop y; loop z
-	     | _ -> ())
-      | Arith a ->
-	  (match a with
-	     | Add l -> List.iter loop l
-	     | Multq(_,x) -> loop x
-             | Num _ -> ()
-	     | _ -> assert false)
-      | Bv b ->
-	  (match b with
-	     | Const _ -> ()
-	     | Extr((_,x),_,_) -> loop x
-	     | Conc l -> List.iter (fun (_,x) -> loop x) l
-	     | BvIte((n,x),(_,y),(_,z)) -> loop x; loop y; loop z
-	     | _ -> assert false)
-      | Tuple tp ->
-	  (match tp with
-	     | Proj(_,_,x) -> loop x
-	     | Tup l -> List.iter loop l)
-   in   loop a
+	  
+	  
+    (*s Computing the best constraint, given a context of constraint declarations. *)
+
+let is_predicate c =
+  Cnstrnt.is_sort Predicate c
+
+let cnstrnt ctxt a =
+  let rec cnstrnt_of_term a =
+    try
+      ctxt a
+    with
+	Not_found ->
+	  (match a.node with
+	     | Arith x ->
+		 (match x with
+		   | Num q -> cnstrnt_of_num q
+		   | Multq(q,x) -> Cnstrnt.mult (cnstrnt_of_num q) (cnstrnt_of_term x)
+		   | Mult l -> cnstrnt_of_mult l
+		   | Add l -> cnstrnt_of_add l
+		   | Div(x,y) -> cnstrnt_of_div x y)
+	     | App(f,_) when is_predicate(cnstrnt_of_term f) ->
+		 Cnstrnt.sort Boolean
+	     | Bool _ ->
+		 Cnstrnt.sort Boolean
+	     | Set _  ->
+	         Cnstrnt.sort Predicate
+	     | Tuple _ ->
+	         Cnstrnt.sort Cartesian
+	     | Bv(BvToNat _) ->
+		 Cnstrnt.int
+	     | Bv _  ->
+		 Cnstrnt.sort Bitvector
+	     | _ ->
+		 Cnstrnt.top)
+
+  and cnstrnt_of_num q =
+    Cnstrnt.singleton q
+
+  and cnstrnt_of_mult l =
+    match l with
+      | [] -> Cnstrnt.singleton Q.one
+      | [x] -> cnstrnt_of_term x
+      | x :: l -> Cnstrnt.mult (cnstrnt_of_term x) (cnstrnt_of_mult l)
+
+  and cnstrnt_of_add l =
+    match l with
+      | [] -> Cnstrnt.singleton Q.zero
+      | [x] -> cnstrnt_of_term x
+      | x :: l -> Cnstrnt.add (cnstrnt_of_term x) (cnstrnt_of_add l)
+
+  and cnstrnt_of_div a b =
+    Cnstrnt.real
+  in
+  cnstrnt_of_term a
+
+
+  (*s [mem a c] holds iff term [a] is known to be a member of constraint [c]. *)
+
+let sort_of a =
+  match a.node with
+    | Bool _ -> Some(Boolean)
+    | Tuple _ -> Some(Cartesian)
+    | Set _ -> Some(Predicate)
+    | Bv _ -> Some(Bitvector)
+    | _ -> None
+
+let num_of a =
+  match a.node with
+    | Arith(Num q) -> Some(q)
+    | _ -> None
+  
+let mem_of =
+  Cnstrnt.mem sort_of num_of
+
+	    
+   (*s Applying a constraint to a term. *)
+
+let mem a c =
+  if Cnstrnt.is_bot c then
+    ff()
+  else if Cnstrnt.is_top c then
+    tt()
+  else if mem_of a c then
+    tt()
+  else if is_ground a then
+    ff()
+  else
+    hc(App(hc(Set(Cnstrnt(c))),[a]))
+
+      
+  (*s Homomorphismus on terms. [f] is applied to arguments [bi],
+    if [bi] equals [f(bi)] for all [i], then the original term [a]
+    is returned, otherwise a new term is constructed using [op]. *)
+
+let hom1 a op f b =
+  let b' = f b in
+  if b' === b then a else op b'
+
+let hom2 a op f (b1,b2) =
+  let b1' = f b1 and b2' = f b2 in
+  if b1' === b1 && b2' === b2 then a else op(b1',b2')
+
+let hom3 a op f (b1,b2,b3) =
+  let b1' = f b1 and b2' = f b2 and b3' = f b3 in
+  if b1' === b1 && b2' === b2 && b3' === b3 then a else op(b1',b2',b3')
+
+let list_eq l1 l2 =
+  try
+    List.for_all2 (===) l1 l2
+  with
+      Invalid_argument _ -> false
+
+let homl a op f l =
+  let l' = List.map f l in
+  if list_eq l l' then a else op l'
+    
+let homs a op f s =
+  let s' = Set.map f s in
+  if Set.sub s s' && Set.sub s' s then a else op s'
+   
+       
 
 
 

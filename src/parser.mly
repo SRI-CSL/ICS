@@ -1,4 +1,17 @@
-/* A parser for terms. */
+/*
+ * ICS - Integrated Canonizer and Solver
+ * Copyright (C) 2001-2004 SRI International
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the ICS license as published at www.icansolve.com
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * ICS License for more details.
+ */
+
+/*s Module [Parser]: parser for ICS command interpreter. */
 
 %{
   open Mpa
@@ -30,7 +43,7 @@
 %token CAN SIMP SOLVE FOR ASSERT FIND CHECK LIFT USE EXT UNINTERP SIGMA VERBOSE RESET DROP NORM CMP CTXT
 %token CNSTRNT HELP COMMANDS SYNTAX
 
-%token INT REAL POS NEG NONNEG NONPOS
+%token INT REAL NONINTREAL BOOLEAN PREDICATE CARTESIAN BITVECTOR OTHER POS NEG NONNEG NONPOS
 
 %token <string> IDENT
 %token <int> INTCONST
@@ -141,19 +154,31 @@ terms:                { Ics.terms_empty() }
 cnstrnt:
   INT                               { Ics.cnstrnt_int }
 | REAL                              { Ics.cnstrnt_real }
+| BOOLEAN                           { Ics.cnstrnt_boolean }
+| PREDICATE                         { Ics.cnstrnt_predicate }
+| CARTESIAN                         { Ics.cnstrnt_cartesian }
+| BITVECTOR                         { Ics.cnstrnt_bitvector}
+| OTHER                             { Ics.cnstrnt_other }
 | interval                          { $1 }
+;
 
 
 interval:
-  LPAR DOTDOT const RBRA          { Ics.cnstrnt_le $3 }
-| LPAR DOTDOT const RPAR          { Ics.cnstrnt_lt $3 }
-| LPAR const DOTDOT const RPAR    { Ics.cnstrnt_openopen $2 $4 }
-| LPAR const DOTDOT const RBRA    { Ics.cnstrnt_openclosed $2 $4 }
-| LBRA const DOTDOT const RBRA    { Ics.cnstrnt_closedclosed $2 $4 }
-| LBRA const DOTDOT const RPAR    { Ics.cnstrnt_closedopen $2 $4 }
-| LBRA const DOTDOT  RPAR         { Ics.cnstrnt_ge $2 }
-| LPAR const DOTDOT  RPAR         { Ics.cnstrnt_gt $2 }
-;      
+  domain LPAR DOTDOT const RBRA          { Ics.cnstrnt_le $1 $4 }
+| domain LPAR DOTDOT const RPAR          { Ics.cnstrnt_lt $1 $4 }
+| domain LPAR const DOTDOT const RPAR    { Ics.cnstrnt_openopen $1 $3 $5 }
+| domain LPAR const DOTDOT const RBRA    { Ics.cnstrnt_openclosed $1 $3 $5 }
+| domain LBRA const DOTDOT const RBRA    { Ics.cnstrnt_closedclosed $1 $3 $5 }
+| domain LBRA const DOTDOT const RPAR    { Ics.cnstrnt_closedopen $1 $3 $5 }
+| domain LBRA const DOTDOT  RPAR         { Ics.cnstrnt_ge $1 $3 }
+| domain LPAR const DOTDOT  RPAR         { Ics.cnstrnt_gt $1 $3 }
+;
+
+domain:
+| REAL            { Ics.interval_domain_real() }
+| INT             { Ics.interval_domain_int() }
+| NONINTREAL      { Ics.interval_domain_nonintreal() }
+;  
 
 prop: 
   TRUE                              { Ics.mk_true() }

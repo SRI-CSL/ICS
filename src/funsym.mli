@@ -18,9 +18,10 @@ open Term
 type t = tnode Hashcons.hashed
 and tnode
 
-val uninterp :  Term.t -> t        
+val uninterp :  Term.t -> t
+val update : unit -> t
 val equal : unit -> t
-val mult : unit -> t
+val mult : unit -> t 
 val div : unit -> t
    
 val of_term: Term.t -> t option

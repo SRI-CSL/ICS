@@ -1,4 +1,17 @@
 
+(*i
+ * ICS - Integrated Canonizer and Solver
+ * Copyright (C) 2001-2004 SRI International
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the ICS license as published at www.icansolve.com
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * ICS License for more details.
+ i*)
+
 (*i*)
 open Hashcons
 open Mpa
@@ -24,35 +37,46 @@ let rec list_sep sep f = function
 	
 
 		 (*s Pretty-printing constraints. *)
+
+let pp_low fmt = function
+  | Interval.Neginf -> Format.fprintf fmt "( "
+  | Interval.Low(k,q) -> Format.fprintf fmt "%s" (if k = Interval.Strict then "(" else "["); Q.pp fmt q
+
+let pp_high fmt = function
+  | Interval.Posinf -> Format.fprintf fmt " )"
+  | Interval.High(k,q) -> Q.pp fmt q; Format.fprintf fmt "%s" (if k = Interval.Strict then ")" else "]")
+
+let pp_interval fmt (dom,i,j) =
+  let domstr = match dom with Interval.Real -> "" | Interval.Int -> "int" | Interval.NonintReal -> "nonintreal" in
+  Format.fprintf fmt "@[%s" domstr; 
+  pp_low fmt i;
+  Format.fprintf fmt "..";
+  pp_high fmt j;
+  Format.fprintf fmt "@]"
 	
-let rec pp_cnstrnt prec fmt = function
-  | Top ->
-      Format.fprintf fmt "full"
-  | Bot ->
-      Format.fprintf fmt "empty"
-  | Sub(s,i) when Nonreals.is_empty s ->
-      Interval.pp fmt i
-  | Sub(s,i) when Interval.is_empty i ->
-      pp_nonreals fmt s
-  | Sub(s,i) ->
-      Format.fprintf fmt "@[";
-      pp_nonreals fmt s;
-      Format.fprintf fmt "@ union@ ";
-      Format.fprintf fmt "@]"
+let rec pp_cnstrnt prec fmt c =
+  if Cnstrnt.is_top c then
+    Format.fprintf fmt "top"
+  else if Cnstrnt.is_bot c then
+    Format.fprintf fmt "bot"
+  else
+    let l = Cnstrnt.to_list c in
+    list_sep
+      (fun () -> Format.fprintf fmt "@ union@ ")
+      (function
+	 | Cnstrnt.Nonarith s ->
+	     (match s with
+		| Boolean -> Format.fprintf fmt "boolean"
+		| Predicate -> Format.fprintf fmt "predicate"
+		| Cartesian -> Format.fprintf fmt "cartesian"
+		| Bitvector -> Format.fprintf fmt "bitvector"
+		| Other -> Format.fprintf fmt "other")
+	 | Cnstrnt.Arith(d,l,h) ->
+	     pp_interval fmt (d,l,h))
+      l
+   
 
-and pp_nonreals fmt s =
-  let l = Nonreals.fold (fun x acc -> x :: acc) s [] in
-  list_sep (fun () -> Format.fprintf fmt "@ union@ ") (pp_nonreal fmt) l
-
-and pp_nonreal fmt = function
-  | Boolean -> Format.fprintf fmt "boolean"
-  | Predicate -> Format.fprintf fmt "predicate"
-  | Cartesian -> Format.fprintf fmt "cartesian"
-  | Bitvector -> Format.fprintf fmt "bitvector"
-  | Other -> Format.fprintf fmt "other"   
-	    
-
-(*s For the printing function, we take into account the usual
+(*i For the printing function, we take into account the usual
     precedence rules (i.e. * binds tighter than +) to avoid
     printing unnecessary parentheses. To this end, we maintain
     the current operator precedence and print parentheses
@@ -69,7 +93,7 @@ and pp_nonreal fmt = function
       6  '-' '+'
       7  '*' '/'
       8 '~' 'compl'
-  *)
+  i*)
 
 let pp fmt t =
   let pr = fprintf fmt in
@@ -81,14 +105,14 @@ let pp fmt t =
 	  pp_var x
       | App ({node=Set _} as s,[x]) ->
 	  pp_term prec x; pr "@ in@ "; pp_set prec s
-      | App ({node=Update _} as a,[x]) ->
-	  pp_set prec a; pr "["; pp_term prec x; pr "]"
+      | App ({node=Update(x,y,z)},xl) ->
+	  pp_update prec (x,y,z); pr "["; pp_terml xl; pr "]"
       | App (f, []) ->
 	  pp_term prec f
       | App (f,l) ->
 	  pr "@["; pp_term prec f; pr "("; pp_terml l; pr ")@]"
       | Update (a,i,v) ->
-	  pr "@["; pp_term prec a; pr "["; pp_term prec i; pr " := "; pp_term prec v; pr "]@]"  
+	  pp_update prec (a,i,v)
       | Arith a -> 
 	  pp_arith prec a
       | Tuple t ->
@@ -107,6 +131,9 @@ let pp fmt t =
     | [x]  -> pp_var x
     | x::l -> pp_var x; pr ", "; pp_varl l
     | []   -> ()
+
+  and pp_update prec (a,i,v) =
+    pr "@["; pp_term prec a; pr "["; pp_term prec i; pr " := "; pp_term prec v; pr "]@]" 
 
   and pp_tuple prec t =
     match t with
@@ -158,13 +185,13 @@ let pp fmt t =
   and pp_bv prec b =
     match b.node with
       | Bv(Const c) -> 
-	  Format.fprintf fmt "%s" (Bitv.to_string c)
+	  Format.fprintf fmt "0b%s" (Bitv.to_string c)
       | Bv(BvToNat x) ->
 	  fprintf fmt "@[bv2nat("; pp_term 0 x;  fprintf fmt ")@]"
       | Bv(Conc l) ->
 	  list_sep (fun () -> pr " ++ ") pp_fixed l
       | Bv(Extr((n,x),i,j)) ->
-	    fprintf fmt "@[extr[%d,%d](" i j; pp_fixed (n,x); fprintf fmt ")@]"
+	    fprintf fmt "@[extr[%d:%d](" i j; pp_fixed (n,x); fprintf fmt ")@]"
       | _ ->
 	  if Bv.is_neg b then
 	    begin
@@ -180,7 +207,7 @@ let pp fmt t =
 	    pp_ite "bvite" (pp_term 0) (x,y,z)
 	    
   and pp_fixed (n,x) =
-      pp_term 0 x; fprintf fmt "@[[%d]]" n
+      pp_term 0 x; fprintf fmt "@[[%d]@]" n
 
   and pp_set prec s =
     match s.node with

@@ -1,19 +1,22 @@
 
+(*i
+ * ICS - Integrated Canonizer and Solver
+ * Copyright (C) 2001-2004 SRI International
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the ICS license as published at www.icansolve.com
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * ICS License for more details.
+ i*)
+
 (*i*)
 open Hashcons
 open Term
 open Subst
 (*i*)
-
-(*s We have the following databases:
-    \begin{description}
-    \item[find]: returns find for any variable/uninterp term (vterm).
-    \item[use]: maps vterms to rhs terms in find that contain them interpreted.s
-    \item[ext]: maps rhs to the set of lhs with rhs as find.
-    \item[uninterp]: maps uninterp function symbols to
-                     uninterpreted terms in the domain.
-    \end{description}
- *)
 
 type t = {
   mutable ctxt: Term.eqn list;
@@ -91,7 +94,7 @@ let inv s a =
   try
     Term.Map.find a s.inv
   with
-      Not_found -> (Term.Set.empty,Cnstrnt.full)
+      Not_found -> (Term.Set.empty,Cnstrnt.top)
     
 let ext s a =
  (* assert (find s a === a); *)
@@ -105,7 +108,7 @@ let cnstrnt s a =
   let from_ctxt x =
     let (_,c) = Term.Map.find (find s x) s.inv in c
   in
-  Cnstrnt.cnstrnt from_ctxt a  
+  Term.cnstrnt from_ctxt a  
       
 let use s a =
   try
@@ -143,7 +146,8 @@ let rec add_eqn s c (a,b) =
   s.inv <- Term.Map.add b (Term.Set.add a (ext s b), c) s.inv;
   s.find <- Subst.add a b s.find;
   add_use s b;
-  add_funsym s a
+  add_funsym s a;
+  add_funsyms s b        (* Add uninterpreted subterms of b which occur interpreted in b. *)
 
 and update_old s c a =
   try
@@ -164,33 +168,130 @@ and update_old s c a =
       Not_found -> ()
 
 and add_use s a =
-  Term.iter_uninterpreted
+  use_iter_uninterpreted
     (fun t ->
-       s.use <- Term.Map.add t (Term.Set.add a (use s t)) s.use)
+       let uset = use s t in
+       let uset' = Term.Set.add a uset in
+       if not(uset == uset') then
+	 s.use <- Term.Map.add t uset' s.use)
     a
 
 and del_use s a' =
-  Term.iter_uninterpreted
+  use_iter_uninterpreted
     (fun t ->
-       let uset' = Term.Set.remove a' (use s t) in
+       let uset = use s t in
+       let uset' = Term.Set.remove a' uset in
        if Term.Set.is_empty uset' then
 	 s.use <- Term.Map.remove t s.use
-       else
+       else if not(uset == uset') then
 	 s.use <- Term.Map.add t uset' s.use)
     a'
 
 and add_funsym s a =
   match Funsym.of_term a with
     | Some(f) ->
-	s.uninterp <- Funsym.Map.add f (Term.Set.add a (uninterp s f)) s.uninterp
+	let unf = uninterp s f in
+	let unf' = Term.Set.add a unf in
+	if not(unf == unf') then
+	  s.uninterp <- Funsym.Map.add f unf' s.uninterp
     | None -> ()
+
+and add_funsyms s b =
+  funsym_iter_uninterpreted
+    (fun f t ->
+       let unf = uninterp s f in
+       let unf' = Term.Set.add t unf in
+       if not(unf == unf') then
+	 s.uninterp <- Funsym.Map.add f unf' s.uninterp)
+    b
 
 and del_funsym s a =
   match Funsym.of_term a with
     | Some(f) ->
-	s.uninterp <- Funsym.Map.add f (Term.Set.remove a (uninterp s f)) s.uninterp
+	let unf = uninterp s f in
+	let unf' = Term.Set.remove a unf in
+	if not(unf == unf') then
+	  s.uninterp <- Funsym.Map.add f unf' s.uninterp
     | None -> ()
 
+and use_iter_uninterpreted f a =
+   let rec loop t =
+    match t.node with
+      | Var _ | App _ | Set(Cnstrnt _) ->
+	  f t
+      | Update(x,y,z) -> loop x; loop y; loop z
+      | Arith(Mult l) -> List.iter loop l
+      | Arith(Div(x,y))  -> loop x; loop y
+      | Bv(BvToNat x) -> loop x;
+      | Bool(Equal(x,y)) -> loop x; loop y
+      | Set s ->
+	  (match s with
+	     | SetIte(_,x,y,z) -> loop x; loop y; loop z
+	     | Finite(s) -> Set.iter loop s
+	     | _ -> ())
+      | Bool b ->
+	  (match b with
+	     | Ite(x,y,z) -> loop x; loop y; loop z
+	     | _ -> ())
+      | Arith a ->
+	  (match a with
+	     | Add l -> List.iter loop l
+	     | Multq(_,x) -> loop x
+             | Num _ -> ()
+	     | _ -> assert false)
+      | Bv b ->
+	  (match b with
+	     | Const _ -> ()
+	     | Extr((_,x),_,_) -> loop x
+	     | Conc l -> List.iter (fun (_,x) -> loop x) l
+	     | BvIte((n,x),(_,y),(_,z)) -> loop x; loop y; loop z
+	     | _ -> assert false)
+      | Tuple tp ->
+	  (match tp with
+	     | Proj(_,_,x) -> loop x
+	     | Tup l -> List.iter loop l)
+   in   loop a
 
-
+and funsym_iter_uninterpreted f a =
+   let rec loop t =
+    match t.node with
+      | Var _ -> ()
+      | App(x,_) ->
+	  f (Funsym.uninterp x) t
+      | Update _ ->
+	  f (Funsym.update()) t 
+      | Arith(Mult _) ->
+	  f (Funsym.mult()) t
+      | Arith(Div _) ->
+	  f (Funsym.div()) t
+      | Bool(Equal _) ->
+	  f (Funsym.equal()) t
+      | Set s ->
+	  (match s with
+	     | SetIte(_,x,y,z) -> loop x; loop y; loop z
+	     | Finite(s) -> failwith "funsym:to do"
+	     | _ -> ())
+      | Bool b ->
+	  (match b with
+	     | Ite(x,y,z) -> loop x; loop y; loop z
+	     | _ -> ())
+      | Arith a ->
+	  (match a with
+	     | Add l -> List.iter loop l
+	     | Multq(_,x) -> loop x
+             | Num _ -> ()
+	     | _ -> assert false)
+      | Bv b ->
+	  (match b with
+	     | Const _ -> ()
+	     | Extr((_,x),_,_) -> loop x
+	     | Conc l -> List.iter (fun (_,x) -> loop x) l
+	     | BvIte((n,x),(_,y),(_,z)) -> loop x; loop y; loop z
+	     | BvToNat _ ->
+	         failwith "funsym:to do")
+      | Tuple tp ->
+	  (match tp with
+	     | Proj(_,_,x) -> loop x
+	     | Tup l -> List.iter loop l)
+   in   loop a  
 

@@ -1,5 +1,5 @@
 
-(*
+(*i
  * ICS - Integrated Canonizer and Solver
  * Copyright (C) 2001-2004 SRI International
  *
@@ -10,7 +10,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * ICS License for more details.
- *)
+ i*)
 
 (*s The module [Bool] implements constructors, recognizers, and destructors
   for for propositional connectives and for first-order quantifications. In
@@ -28,7 +28,7 @@ val is_ff : Term.t -> bool
 
     
     (*s Constructor for equalities with simplifications
-          \begin{tabular}{lcll
+          \begin{tabular}{lcll}
           [equal a a] & = & [tt()] & \\
           [equal c d] & = & [ff()] & for different constants [c], [d]. \\
           [equal a b] & = & [iff a b] & if one of [a],[b] is an [ite] structure.
@@ -150,10 +150,15 @@ val exists : Term.variable list -> Term.t -> Term.t
        (in the theory of booleans) with the equation to be solved. The terms [ei] may contain
        fresh variables. *)
        
-val solve : Term.eqn -> Term.eqn list option
+val solve : Term.t -> Term.eqn list option
 
+    (*s Lifting conditionals. *)
 
-
+val unary_lift_ite : (Term.t -> Term.t) -> Term.t -> Term.t
+val binary_lift_ite : (Term.t * Term.t -> Term.t) -> Term.t * Term.t -> Term.t
+val ternary_lift_ite : (Term.t * Term.t * Term.t -> Term.t) -> Term.t * Term.t * Term.t -> Term.t
+val nary_lift_ite : (Term.t list -> Term.t) -> Term.t list -> Term.t
+    
 
 
 

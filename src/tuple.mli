@@ -1,5 +1,5 @@
 
-(*
+(*i
  * ICS - Integrated Canonizer and Solver
  * Copyright (C) 2001-2004 SRI International
  *
@@ -10,7 +10,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * ICS License for more details.
- *)
+ i*)
 
 (*s The module [Tuple] implements constructors for tuples and projections,
   and a solver for the tuple theory. *)
@@ -38,7 +38,7 @@ val proj : int -> int -> Term.t -> Term.t
       \begin{tabular}{lcl}
       [(tuple \list{$a_0$,\ldots,$a_n$},~tuple \list{$a_0$,\ldots,$a_n$})]
           & = & [\list{($a_0$,$b_0$),\ldots,($a_n$,$b_n$)}] \\
-      [(proj i n a, b) & = & [(a, tuple \list{$c_0$,\ldots,c_{i-1},b,...c_{n-1}})]
+      [(proj i n a, b)] & = & [(a, tuple \list{$c_0$,\ldots,c_{i-1},b,...c_{n-1}})]
       \end{tabular}
       where [$c_i$] are fresh, and [b] at [i]-th position.
   *)

@@ -1,4 +1,18 @@
 
+
+(*i
+ * ICS - Integrated Canonizer and Solver
+ * Copyright (C) 2001-2004 SRI International
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the ICS license as published at www.icansolve.com
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * ICS License for more details.
+ i*)
+
 (*i*)
 open Ics
 open Tools
@@ -137,36 +151,39 @@ let help () =
   Format.printf "help syntax.           Outlines term syntax.@."
 
 let help_commands () =
-  Format.printf "sigma <term>.           Normal form using theory-specific normalizations only. In particular,@.";
-  Format.printf "                        no context information is used.";
-  Format.printf "can <term>.             Computes canonical representative of <term> using context information.@.";
-  Format.printf "simp <term>.            Computes a normal form of <term>.@.";
-  Format.printf "                        'simp' is like 'can', but without recursive processing in conditionals.@.";
-  Format.printf "norm <term>.            Simplifies all interpreted terms, and replaces uninterpreted terms with@.";
-  Format.printf "                        their finds.@.";
-  Format.printf "solve <term> = <term>.  Solves equation on terms.@.";
   Format.printf "assert <term>.          Asserts <term> to the current context.@.";
-  Format.printf "                        There are three different outcomes. In case, <term> is found to be implied@.";
-  Format.printf "                        by the current context, `Valid.' is returned, and if <term> is found to be@.";
-  Format.printf "                        inconsistent, then 'Inconsistent.' is printed. Otherwise, <term> is added to@.";
-  Format.printf "                        the current context@.";
-  Format.printf "check <term>.           Check if <term> holds or is unsatisfiable in current context@.";
-  Format.printf "                        Returns 'Valid.' if <term> is redundant, 'Inconsistent.' if it is inconsistent,@.";
-  Format.printf "                        otherwise silent. In contrast to the assert command, the context is not updated@.";
-  Format.printf "find [<term>].          Canonical representative of the equivalence class of <term> as stored in the context.@.";
-  Format.printf "                        If <term> is omitted, the complete find structure is displayed.@.";
-  Format.printf "ext [<term>].           Prints equivalence class of <term> without <term> itself.@.";
-  Format.printf "                        If <term> is omitted, extensions of all canonical forms are displayed.@.";
-  Format.printf "use [<term>].           Displays the canonical representatives in which";
+  Format.printf "                        There are three different outcomes. In case, <term> is@.";
+  Format.printf "                        found to be implied by the current context, `Valid.' is @.";
+  Format.printf "                        returned, and if <term> is found to be inconsistent, @.";
+  Format.printf "                        'Inconsistent.' is printed. Otherwise, <term> is@.";
+  Format.printf "                        added to the current context@.";
+  Format.printf "check <term>.           Check if <term> holds or is unsatisfiable@.";
+  Format.printf "                        Returns 'Valid.' if <term> is redundant, 'Inconsistent.'@.";
+  Format.printf "                        if it is inconsistent, otherwise silent. In contrast @.";
+  Format.printf "                        to the assert command, the context is not updated.@.";
+  Format.printf "sigma <term>.           Normal form using theory-specific normalizations.@.";
+  Format.printf "                        only. In particular, no context information is used.@.";
+  Format.printf "can <term>.             Computes canonical representative of <term> using.@.";
+  Format.printf "                        context information.@.";
+  Format.printf "simp <term>.            Computes a normal form of <term>. 'simp' is like 'can',@.";
+  Format.printf "                         but without recursive processing in conditionals.@.";
+  Format.printf "norm <term>.            Simplifies all interpreted terms, and replaces @.";
+  Format.printf "                        uninterpreted terms with their finds.@.";
+  Format.printf "solve <term> = <term>.  Solves equation on terms.@.";
+  Format.printf "find [<term>].          Canonical representative of the equivalence class@.";
+  Format.printf "                        of <term> as stored in the context.@.";
+  Format.printf "                        If <term> is omitted, all finds are displayed.@.";
+  Format.printf "ext [<term>].           Prints equivalence class of <term> (without <term>).@.";
+  Format.printf "                        If <term> is omitted, all extensions are displayed.@.";
+  Format.printf "use [<term>].           Displays the canonical representatives in which@.";
   Format.printf "                        <term> occurs interpreted.@.";
-  Format.printf "                        If <term> is omitted, the complete use structure is displayed.@.";
-  Format.printf "cnstrnt [<term>].       Compute type interpretation of <term> wrt. current context.@.";
-  Format.printf "                        If <term> is omitted, then the constraints for all canonical representatives";
-  Format.printf "                        are displayed";
+  Format.printf "                        If <term> is omitted, all uses are shown.@.";
+  Format.printf "cnstrnt [<term>].       Type interpretation of <term> wrt. current context.@.";
+  Format.printf "                        If <term> is omitted, then all constraints are shown.@.";
   Format.printf "<term> << <term>.       Check term ordering.@.";
   Format.printf "verbose <int>.          Sets the verbose level.@.";
   Format.printf "reset.                  Reset to empty context.@.";
-  Format.printf "drop.                   Drop into Caml if run on bytecode (back with Main.repl ();;).@."
+  Format.printf "drop.                   Drop into Caml bytecode (back with Main.repl ();;).@."
 
 let help_syntax () =
   Format.printf

@@ -1,5 +1,5 @@
 
-(*
+(*i
  * ICS - Integrated Canonizer and Solver
  * Copyright (C) 2001-2004 SRI International
  *
@@ -10,7 +10,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * ICS License for more details.
- *)
+ i*)
 
 (*i*)
 open Hashcons
@@ -19,15 +19,21 @@ open Term
 
 (*s Smart constructors for tuples and projections. *)
 
-let tuple = function
-  | [x] -> x
-  | [] -> assert false
-  | l' -> hc(Tuple(Tup l'))
+let tuple =
+  Bool.nary_lift_ite
+    (function
+       | [x] -> x
+       | [] -> assert false
+       | l' -> hc(Tuple(Tup l')))
 
-let proj i n s =
-  match s.node with
-    | Tuple(Tup l) -> List.nth l i
-    | _ -> hc(Tuple(Proj(i,n,s)))
+let rec proj i n a =
+  match a.node with
+    | Tuple(Tup l) ->
+	List.nth l i
+    | Bool(Ite(x,y,z)) ->
+	Bool.ite x (proj i n y) (proj i n z)
+    | _ ->
+	hc(Tuple(Proj(i,n,a)))     
 
 
 (*s Solving tuples. *) 
@@ -39,7 +45,7 @@ let add ((a,b) as e) el =
 	raise (Exc.Inconsistent "Tuple solver")
     | _ -> e :: el
 
-(*s [solve (s, (t0,...,tn)) = [(proj s 0, t0),...,(proj s n, tn)]] *)
+(*s [solve (s, (t0,...,tn)) = \list{(proj s 0, t0),...,(proj s n, tn)}] *)
 
 let tuple_solve s l =
   let n = List.length l in
@@ -54,8 +60,8 @@ let tuple_solve s l =
 let tuple_tuple_solve al bl = 
    List.fold_right2 (fun a b acc -> add (a, b) acc) al bl []
 
-(*s [solve (proj i n s, t) = (s, [c0,...,t,...cn-1])]
-     where [ci] are fresh, [s] at [i]th position. *)
+(*s [solve (proj i n s, t) = (s, \list{c0,...,t,...cn-1})]
+     where [ci] are fresh, [s] at [i]-th position. *)
 
 let proj_solve i n s t =
   let rec args j acc =

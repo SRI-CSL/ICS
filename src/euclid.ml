@@ -1,4 +1,17 @@
 
+(*i
+ * ICS - Integrated Canonizer and Solver
+ * Copyright (C) 2001-2004 SRI International
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the ICS license as published at www.icansolve.com
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * ICS License for more details.
+ i*)
+
 module type Rat =
 sig
   type q
@@ -24,7 +37,7 @@ module Make(R: Rat) = struct
   $$a * x_0 + b * y_0 = (a, b)\mbox{,}$$
   where $(a, b)$ denotes the greatest common divisor of $a$,$b$.
   
-  e.g. $[euclid]~1547~560~=~(7, 21, -58) 
+  e.g. $[euclid]~1547~560~=~(7, 21, -58)$
   
   The value of $(a, b)$ is unchanged in the loop in [euclid], since
   $(a, b) = (a - (a/b)*b, b)$; thus, using $(a, 0) = a$,

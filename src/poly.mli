@@ -1,8 +1,28 @@
 
+(*i
+ * ICS - Integrated Canonizer and Solver
+ * Copyright (C) 2001-2004 SRI International
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the ICS license as published at www.icansolve.com
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * ICS License for more details.
+ i*)
+
+(*s Module [Poly]: Constructing and manipulating polynomials *)
+
 (*i*)
 open Mpa
 open Hashcons
 (*i*)
+
+(*s The input signature of the functor [Poly.Make].
+  [t] is the type of the variables of the polynomial, and
+  [cmp] is a comparison function. *)
+
 
 module type Var = sig
   type tnode
@@ -15,11 +35,11 @@ module Make(R: Var) : sig
 
   (*s A power product [pproduct] is a list of terms which are ordered from
     left-to-right according to teh comparison [cmp]; e.g. the
-    power product $x^2*y~3$ is represented by the list {\tt [x;x;y;y;y]}\@.
+    power product $x^2*y^3$ is represented by the list [\list{x;x;y;y;y}]\@.
     Since power products are hash-consed, they can be compared for equality using
-    the identity [===]. A [monomial] is a pair consisting of a rational coefficient
-    and a power product. A polynomial of type [t] can be viewed as a a
-    map from power products to rational coefficients.
+    the identity [===] from the module [Hashcons. A [monomial] is a pair consisting of
+    a rational coefficient and a power product. A polynomial of type [t] can be viewed
+    as a a map from power products to rational coefficients.
   *)
 
   type pproduct_node
@@ -152,6 +172,15 @@ module Make(R: Var) : sig
   val zsolve : (unit -> R.t) -> t -> (R.t list * ((pproduct * t) list)) solution
 
 end
+
+
+
+
+
+
+
+
+
 
 
 

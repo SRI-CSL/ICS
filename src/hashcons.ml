@@ -10,7 +10,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * ICS License for more details.
- *)
+ i*)
 
 (*s Hash tables for hash-consing. (Some code is borrowed from the ocaml
     standard library, which is copyright 1996 INRIA. *)

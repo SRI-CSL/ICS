@@ -101,10 +101,10 @@ let occursb y b =
   occ b
 
 let occurs y = List.exists (occursb y)
-  	
+
+		 
 (*s Bitvector Bdds are a BDD-like structure with basics as
-    conditions in if-then-else structures
-  *)  
+    conditions in if-then-else structures *)  
 	
 module Bvbdd = Bdd.Make(
   struct
@@ -122,19 +122,7 @@ module Bvbdd = Bdd.Make(
     let fresh n = mk_sub (X.fresh ()) n 0 (n-1)
   end)
 
-let is_bw_neg  = Bvbdd.is_neg
-let is_bw_conj = Bvbdd.is_conj
-let is_bw_disj = Bvbdd.is_disj
-let is_bw_xor  = Bvbdd.is_xor
-let is_bw_imp = Bvbdd.is_imp
-let is_bw_iff = Bvbdd.is_iff
 
-let d_bw_neg = Bvbdd.d_neg 
-let d_bw_conj = Bvbdd.d_conj 
-let d_bw_disj = Bvbdd.d_disj
-let d_bw_xor = Bvbdd.d_xor
-let d_bw_imp = Bvbdd.d_imp
-let d_bw_iff = Bvbdd.d_iff 
 
 let mk_apply b1 b2 b3 =
   assert (lengthb b1 = lengthb b2 && lengthb b2 = lengthb b3);
@@ -151,6 +139,8 @@ let atom b = [b]
 let const c = atom (mk_const c)
 let zero n = const (Bitv.create n false)
 let one n  = const (Bitv.create n true)
+
+
       
 (*s A Bitvector variable [x] of length [n] is represented by an
     extraction [mk_sub(x,0,n-1)]. *)
@@ -160,7 +150,6 @@ let inj n x =
 
 let fresh n =
   inj n (X.fresh ())
-
   
 			   
 (*s Homomorphismus on concatenation normal form *)
@@ -175,7 +164,7 @@ let hom f g h bl =
   List.map homb bl
 	  
 (*s Concatenation. Builds right-associative concatenations, eliminates bitvectors
-    of length [0], combines bitvector const_basicants and terms of the form [x[i,j]]
+    of length [0], combines bitvector constants and terms of the form [x[i,j]]
     and [x[j+1,k]], and the like... *)
 
 let add b bl =
@@ -199,9 +188,9 @@ let (++) l1 l2 =
   loop l2 (List.rev l1)
 	
 let conc = List.fold_left (++) []
- 
+
+	     
 (*s Constructors for extraction *)
-  
 
 let subb b i j =
   assert (0 <= i && i <= j && j < lengthb b);
@@ -341,4 +330,84 @@ and solve_ite b1 b2 =
     | None ->
 	raise (Exc.Inconsistent "Bitvector solver")
 
+
+	  (*s Derived constructors, recognizers, and destructors. *)
+
+let bw_neg b =
+  let n = length b in
+  ite b (zero n) (one n)
+    
+let bw_conj b1 b2 =
+  let n1 = length b1 and n2 = length b2 in
+  assert(n1 = n2);
+  ite b1 b2 (zero n1)
+  
+let bw_disj b1 b2 =
+  let n1 = length b1 and n2 = length b2 in
+  assert(n1 = n2);
+  ite b1 (one n1) b2
+
+let bw_xor b1 b2 =
+  let n1 = length b1 and n2 = length b2 in
+  assert(n1 = n2);
+  ite b1 (bw_neg b2) b2 
+  
+let bw_imp b1 b2 =
+  let n1 = length b1 and n2 = length b2 in
+  assert(n1 = n2);
+  ite b1 b2 (one n1)
+  
+let bw_iff b1 b2 =
+  let n1 = length b1 and n2 = length b2 in
+  assert(n1 = n2);
+  ite b1 b2 (bw_neg b2)
+   
+let is_bw_neg = function
+  | [b] -> Bvbdd.is_neg b
+  | _ -> false
+	
+let is_bw_conj = function
+  | [b] -> Bvbdd.is_conj b
+  | _ -> false
+
+let is_bw_disj = function
+  | [b] -> Bvbdd.is_disj b
+  | _ -> false
+
+let is_bw_xor = function
+  | [b] -> Bvbdd.is_xor b
+  | _ -> false
+
+let is_bw_imp = function
+  | [b] -> Bvbdd.is_imp b
+  | _ -> false
+	
+let is_bw_iff = function
+  | [b] -> Bvbdd.is_iff b
+  | _ -> false
+	
+let d_bw_neg = function
+  | [b] -> [Bvbdd.d_neg b]
+  | _ -> assert false
+
+let d_bw_conj = function
+  | [b] -> let b1,b2 = Bvbdd.d_conj b in [b1],[b2]
+  | _ -> assert false
+
+let d_bw_disj = function
+  | [b] ->  let b1,b2 = Bvbdd.d_disj b in [b1],[b2]
+  | _ -> assert false
+
+let d_bw_xor = function
+  | [b] -> let b1,b2 = Bvbdd.d_xor b in [b1],[b2]
+  | _ -> assert false
+
+let d_bw_imp = function
+  | [b] -> let b1,b2 = Bvbdd.d_imp b in [b1],[b2]
+  | _ -> assert false
+
+let d_bw_iff = function
+  | [b] -> let b1,b2 = Bvbdd.d_iff b in [b1],[b2]
+  | _ -> assert false
+	
 end
