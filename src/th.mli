@@ -47,6 +47,8 @@ val is_fully_interp : t -> bool
 
 val to_string : t -> string
 
+val of_string : string -> t
+
 val pp : t Pretty.printer
 
 val of_sym : Sym.t -> t

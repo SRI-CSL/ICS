@@ -66,6 +66,10 @@ val mk_expt : int -> Term.t -> Term.t
 (** [mk_expt n pp] constructs a power product for representing the 
  power product [pp] raised to the integer exponent [n]. *)
 
+val mk_inv : Term.t -> Term.t
+(** [mk_inv pp] returns an inverse power product [qq] such that
+ {!mk_mult}[(pp, qq)] is {!mk_one}. *)
+
 
 (** {Recognizers.} *)
 

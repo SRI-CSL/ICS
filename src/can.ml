@@ -63,8 +63,8 @@ and can s a =
 	arith s op al
     | App(Sym.Bvarith(Sym.Unsigned), [x]) ->
 	unsigned s x
-    | App(Sym.Pp(op), xl) ->
-	pprod s op xl
+  (*  | App(Sym.Pp(op), xl) ->
+	pprod s op xl *)
     | App(f, al) ->
 	let th = Th.of_sym f in
 	let interp x = find th s (can s x) in
@@ -72,6 +72,7 @@ and can s a =
 	let a' = if al == al' then a else sigma s f al' in
 	  lookup s a'
 
+(*
 and pprod s op al =
   match op, al with
     | Expt(n), [x] ->
@@ -80,7 +81,7 @@ and pprod s op al =
 	lookup s (Pp.mk_multl al)
     | _ ->
 	assert false
-	
+*)
 	
 
 and unsigned s x =

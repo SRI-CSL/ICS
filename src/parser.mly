@@ -378,7 +378,7 @@ identlist :
 | identlist COMMA IDENT     { $3 :: $1 }
 
 		
-th: IDENT  { failwith "to do" } /* may raise [Invalid_argument]. */
+th: IDENT  { Th.of_string $1 } /* may raise [Invalid_argument]. */
 
 help:
   HELP                      { Help.on_help () }

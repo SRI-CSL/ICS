@@ -16,15 +16,12 @@
 
 (*s Module [Cnstrnt]: real number constraints. *)
 
-(*i*)
-open Mpa
-(*i*)
 
 type t
 
 (*s Constructing and destructing intervals. *)
 
-module Diseqs: (Set.S with type elt = Q.t)
+module Diseqs: (Set.S with type elt = Mpa.Q.t)
 
 val make : Interval.t * Diseqs.t -> t
 
@@ -122,18 +119,18 @@ val of_interval : Interval.t -> t
 
 (*s Additional constructors. *)
 
-val mk_oo : Dom.t -> Q.t -> Q.t -> t
-val mk_oc : Dom.t -> Q.t -> Q.t -> t
-val mk_co : Dom.t -> Q.t -> Q.t -> t
-val mk_cc : Dom.t -> Q.t -> Q.t -> t
+val mk_oo : Dom.t -> Mpa.Q.t -> Mpa.Q.t -> t
+val mk_oc : Dom.t -> Mpa.Q.t -> Mpa.Q.t -> t
+val mk_co : Dom.t -> Mpa.Q.t -> Mpa.Q.t -> t
+val mk_cc : Dom.t -> Mpa.Q.t -> Mpa.Q.t -> t
 
-val mk_lower : Dom.t -> Q.t * bool -> t
-val mk_upper : Dom.t -> bool * Q.t -> t
+val mk_lower : Dom.t -> Mpa.Q.t * bool -> t
+val mk_upper : Dom.t -> bool * Mpa.Q.t -> t
 
-val mk_lt : Dom.t -> Q.t -> t
-val mk_le : Dom.t -> Q.t -> t
-val mk_gt : Dom.t -> Q.t -> t
-val mk_ge : Dom.t -> Q.t -> t
+val mk_lt : Dom.t -> Mpa.Q.t -> t
+val mk_le : Dom.t -> Mpa.Q.t -> t
+val mk_gt : Dom.t -> Mpa.Q.t -> t
+val mk_ge : Dom.t -> Mpa.Q.t -> t
 
 val mk_pos : Dom.t -> t
 val mk_neg : Dom.t -> t
@@ -143,12 +140,12 @@ val mk_nonpos : Dom.t -> t
 
 (*s Abstract interpretation. *)
 
-val addq : Q.t -> t -> t
+val addq : Mpa.Q.t -> t -> t
 val add : t -> t -> t
 val addl : t list -> t
 val subtract : t -> t -> t
 val mult : t -> t -> t
 val multl : t list -> t
 val expt : int -> t -> t
-val multq : Q.t -> t -> t
+val multq : Mpa.Q.t -> t -> t
 val div : t -> t -> t

@@ -187,12 +187,12 @@ and inv_pprod s a =
 	     (match acc with
 	       | None ->        (* [lcm = p * a = q * b = q * x] *)
 		   let (p, q, lcm) = Pp.lcm (a, b) in
-		     Some(q, x, b)
+		     if Pp.is_one p then Some(q, x, b) else None
 	       | Some(_, _, b') when Pp.cmp b b' <= 0 ->
 		   acc
 	       | _ ->
 		   let (p, q, lcm) = Pp.lcm (a, b) in
-		     Some(q, x, b))
+		     if Pp.is_one p then Some(q, x, b) else acc)
 	 with
 	     Not_found -> acc)
       (usea Set.empty)

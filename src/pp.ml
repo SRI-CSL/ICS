@@ -16,7 +16,7 @@
 open Sym
 open Term
 
-(*s {Symbols.} *)
+(** {Symbols.} *)
 
 let mult = Sym.Pp(Sym.Mult)
 let expt n = Sym.Pp(Sym.Expt(n))
@@ -266,7 +266,7 @@ let denumerator a = snd(split a)
 
 (** {Least common multiple.} *)
 
-let lcm (qq, pp) =
+let lcm (pp, qq) =
   let rec lcmloop ((pl, ql, lcm) as acc) (al, bl) =
     match al, bl with
       | [], [] -> 
@@ -290,10 +290,10 @@ let lcm (qq, pp) =
 		    (pl, mk_expt (n - m) x :: ql, mk_expt n x :: lcm)
 	      in
 		lcmloop acc' (al', bl')
-	    else if res < 0 then        (* [y] does not occur in [al] anymore. *)
-	      lcmloop (b :: pl, ql, b :: lcm) (al', bl')
+	    else if res > 0 then        (* [y] does not occur in [al] anymore. *)
+	      lcmloop (b :: pl, ql, b :: lcm) (al, bl')
 	    else 
-	      lcmloop (pl, a :: ql, a :: lcm) (al', bl')
+	      lcmloop (pl, a :: ql, a :: lcm) (al', bl)
   in
     let (pl, ql, lcm) = lcmloop ([], [], []) (to_list pp, to_list qq) in
       (mk_multl pl, mk_multl ql, mk_multl lcm)

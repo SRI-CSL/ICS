@@ -1,5 +1,5 @@
 
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -12,24 +12,21 @@
  * benefit corporation.
  * 
  * Author: Harald Ruess, N. Shankar
- i*)
+ *)
 
-
-(*i*)
 open Term
 open Three
 open Mpa
 open Sym
 open Context
 open Th
-(*i*)
 
 type rule = Context.t -> Context.t
 
 type 'a transform = Context.t * 'a -> Context.t * 'a
 
 
-(*s Extend with fresh variable equality. *)
+(** Extend with fresh variable equality. *)
 
 let extend =  
   let v = Name.of_string "v" in
@@ -41,10 +38,7 @@ let extend =
 	 (union i e s, x))
 
 
-(*s Variable abstract an atom *)
-
-(*s Abstraction. *)
-
+(** Variable abstract facts *)
 let rec abstract_equal (s, e) =
   Trace.msg "rule" "Abstract" e Fact.pp_equal;
   let (a, b, _) = Fact.d_equal e in
@@ -101,16 +95,19 @@ and abstract_args i (s, al) =
 	    (s'', b' :: bl')
 
 
-(*s Adding equalities/disequalities/constraints to partition. *)
-
+(** Adding a variable equality to a partition. *)
 let merge e s = 
   Trace.msg "rule" "Merge" e Fact.pp_equal;
   update (Partition.merge e (p_of s)) s
-    
+
+ 
+(** Adding a variable disequality to a partition. *)   
 let diseq d s = 
   Trace.msg "rule" "Diseq" d Fact.pp_diseq;
   update (Partition.diseq d (p_of s)) s
     
+
+(** Adding a constraint to a partition. *)   
 let add c s = 
   Trace.msg "rule" "Add" c Fact.pp_cnstrnt;
   update (Partition.add c (p_of s)) s
@@ -120,13 +117,11 @@ let infer x i s =
     let c = Fact.mk_cnstrnt (v s x) i None in
       add c s
 	  
-(*s Sequential composition *)
-
+(** Sequential composition *)
 let (&&&) f g x = g (f x)
 
-(*s Applying a rule [f] for all equalities [x = a] in theory-specific solution set [s]
- of index [i] such that [x] is equivalent to some [y] in the changed set [ch]. *)
-
+(** Applying a rule [f] for all equalities [x = a] in theory-specific solution set [s]
+  of index [i] such that [x] is equivalent to some [y] in the changed set [ch]. *)
 let fold i ch f =
   Set.fold 
     (fun x s -> 
@@ -136,9 +131,8 @@ let fold i ch f =
 	   Not_found -> s)
     ch
 
-(*s Applyfing rule [f e] for all equalities [x = y] such that [x] is in the changed
+(** Applyfing rule [f e] for all equalities [x = y] such that [x] is in the changed
  set [ch] and accumulating the results. *)
-
 let foldv ch f =
   Set.fold
     (fun x s -> 
@@ -146,9 +140,8 @@ let foldv ch f =
        with Not_found -> s)
     ch
 
-(*s Applying rule [f d] for all disequalities [d] in [s] of the form [x <> y] where [x]
- is in [ch], and accumulating the results. *)
-
+(** Applying rule [f d] for all disequalities [d] in [s] of the form [x <> y] where [x]
+  is in [ch], and accumulating the results. *)
 let foldd ch f =
   Set.fold 
     (fun x s ->
@@ -167,8 +160,7 @@ let foldc ch f =
     ch
 
 
-(*s Propagating merged equalities into theory-specific solution sets. *)
-
+(** Propagating merged equalities into theory-specific solution sets. *)
 let rec propagate_star ch = 
   foldv ch propagate
 
@@ -184,8 +176,7 @@ and propagate e =
    fuse Th.bvarith e)
 
 
-(*s Deduce new constraints from changes in the linear arithmetic part. *)
-
+(** Deduce new constraints from changes in the linear arithmetic part. *)
 let rec arith_star (chla, chc) =
   fold Th.la chla arith_fme &&&
   foldc chc arith_cnstrnt
@@ -214,19 +205,19 @@ and arith_fme e s =
       | App(Arith(Multq(q)), [y]) -> 
 	  (try infer x (Cnstrnt.multq q (c s y)) s with Not_found -> s)
       | App(Arith(Add), ml) ->
-	  let i = Arith.cnstrnt_of_monomials (c s) ml in
+	  let i = Arith.cnstrnt (c s) b in
 	    ints x ml 
-	      (fme x ml 
+	      (fme x b
 		 (infer x i s))
       | _ ->
 	  s 
 
-and fme x ml s =
+and fme x b s =
   try
     let i1 = c s x in
     let dom1 = Cnstrnt.dom_of i1 in
     let (lo1, hi1) = Cnstrnt.endpoints_of i1 in
-    let (q1, z1, ml1) = Arith.destructure (Arith.mk_addl ml) in
+    let (q1, z1, ml1) = Arith.destructure b in
       folduse Th.la z1
 	(fun (y, b) s ->
 	   if Term.eq y x then s else
@@ -243,13 +234,13 @@ and fme x ml s =
 			      (less dom (q1, lo1, ml1) (q2, hi2, ml2) s)
 			| Sign.Pos, Sign.Neg ->
 			    less dom (q2, hi2, ml2) (q1, hi1, ml1)
-			    (less dom (q1, lo1, ml1) (q2, lo2, ml2) s)
+			      (less dom (q1, lo1, ml1) (q2, lo2, ml2) s)
 			| Sign.Neg, Sign.Pos ->
 			    less dom (q1, hi1, ml1) (q2, hi2, ml2)
-			    (less dom (q2, lo2, ml2) (q1, lo1, ml1) s)
+			      (less dom (q2, lo2, ml2) (q1, lo1, ml1) s)
 			| Sign.Neg, Sign.Neg ->
 			    less dom (q1, hi1, ml1) (q2, lo2, ml2)
-			    (less dom (q2, hi2, ml2) (q1, lo1, ml1) s)
+			      (less dom (q2, hi2, ml2) (q1, lo1, ml1) s)
 			| _ ->
 			    s)
 		 with
@@ -258,11 +249,9 @@ and fme x ml s =
   with
       Not_found -> s
 
-
 	
-(*s Generate an inequality [1/q1 * (p1 - ml1) < 1/q2 & (p2 - ml2). *)	
-
-and less dom (q1, ep1, ml1) (q2, ep2, ml2) s = 
+(** Generate an inequality [1/q1 * (p1 - m1) < 1/q2 * (p2 - m2). *)	
+and less dom (q1, ep1, m1) (q2, ep2, m2) s = 
   let (extq1, alpha) = Endpoint.destruct ep1 in
   let (extq2, beta) = Endpoint.destruct ep2 in
     match Extq.destruct extq1, Extq.destruct extq2 with
@@ -275,16 +264,27 @@ and less dom (q1, ep1, ml1) (q2, ep2, ml2) s =
       | _, Extq.Neginf -> 
 	  raise Exc.Inconsistent
       | Extq.Inject(p1), Extq.Inject(p2) ->
-	  let a = Arith.mk_multq (Q.inv q1) 
-		    (Arith.mk_sub (Arith.mk_num p1) (Arith.mk_addl ml1))
-	  and b = Arith.mk_multq (Q.inv q2) 
-		    (Arith.mk_sub (Arith.mk_num p2) (Arith.mk_addl ml2)) in
+	  let a = Arith.mk_addq (Q.div p1 q1)
+		    (Arith.mk_multq (Q.minus (Q.inv q1)) m1) in
+	  let b = Arith.mk_addq (Q.div p2 q2)
+		    (Arith.mk_multq (Q.minus (Q.inv q2)) m2) in
 	  let a_sub_b = Can.term s (Arith.mk_sub a b) in
-	  let (s', x') = name Th.la (s, a_sub_b) in
 	  let i' = Cnstrnt.mk_lower dom (Q.zero, alpha && beta) in
-	    infer x' i' s'
+	    (match a_sub_b with
+	       | App(Arith(Num(q)), []) -> 
+		   if Cnstrnt.mem q i' then s else raise Exc.Inconsistent
+	       | App(Arith(Multq(q)), [x']) ->
+		   infer x' (Cnstrnt.multq (Q.inv q) i') s
+	       | _ ->
+		   let (s', x') = name Th.la (s, a_sub_b) in
+		     Trace.msg "fme" "fme" (a_sub_b, i') Term.pp_in;
+		     infer x' i' s')
       | _ ->
 	  s
+
+(* Problem: x <= y, y <= z, z <= x. Here, [name] above generates a fresh
+ variable. Probably, something smarter is needed, such as looking for a
+ rhs such that a linear multiple of it matches the current term. *)
 
 and ints x ml s = 
   let not_is_int m =
@@ -310,8 +310,7 @@ and ints x ml s =
 
 
 
-(*s Propagating into power products. *)
-
+(** Propagating into power products. *)
 let rec nonlin_star (che, chc, cha) =
   fold Th.pprod che nonlin_deduce &&&
   foldc chc nonlin_cnstrnt &&&
@@ -374,29 +373,28 @@ and nonlin_linearize e s =
 			 let r = Q.mult (Q.expt q1 n1) (Q.expt q2 n2) in
 			 let e' = Fact.mk_equal (v s y) (Arith.mk_num r) None in
 			   Context.compose Th.la e' s
-		     | Some(q1), None ->
+		(*     | Some(q1), None ->
 			 let (s', z) =  if is_var b2 then (s, b2) else name Th.pprod (s, b2) in
 			 let e' = Fact.mk_equal (v s y) (Arith.mk_multq (Q.expt q1 n1) z) None in
 			   Context.compose Th.la e' s'
 		     | None, Some(q2) ->
 			 let (s', z) = if is_var b1 then (s, b1) else name Th.pprod (s, b1) in
 			 let e' = Fact.mk_equal (v s y) (Arith.mk_multq (Q.expt q2 n1) z) None in
-			   Context.compose Th.la e' s'
-		     | None, None ->
+			   Context.compose Th.la e' s' *)
+		     | _ ->
 			 s)
 	    | _ ->
 		s))
       s
 		       	
 
-(*s Propagate variable equalities and disequalities into array equalities. *)
-
+(** Propagate variable equalities and disequalities into array equalities. *)
 let rec arrays_star (che, chd) =
   fold arr che arrays_equal &&&  
   foldd chd arrays_diseq
 
 
-(*s From the equality [x = y] and the facts
+(** From the equality [x = y] and the facts
  [z1 = select(upd1,j1)], [z2 = update(a2,i2,k2)] in [s]
  and [upd1 == z2 mod s], [x == i2 mod s], [y == j1 mod s] deduce
  that [z1 = k2]. *)
@@ -427,7 +425,7 @@ and arrays_equal1 (x, y, prf) s =
       s
 
 
-(*s Propagating a disequalities.
+(** Propagating a disequalities.
  From the disequality [i <> j] and the facts
  [z1 = select(upd, j')], [z2 = update(a,i',x)],
  [i = i'], [j = j'], [upd = z2], it follows that
@@ -461,9 +459,7 @@ and arrays_diseq1 (i, j, prf) s =
     s
 
 
-
-(*s Propagate variable equalities and disequalities into array equalities. *)
-
+(** Propagate variable equalities and disequalities into array equalities. *)
 let rec bvarith_star (chbva, chbv) =
   fold bv chbv bvarith_propagate &&&
   fold bvarith chbva bvarith_deduce
@@ -498,8 +494,7 @@ and bvarith_deduce e s =
 	  s
 
 
-(*s Deduce new facts from changes in the constraint part. *)
-
+(** Deduce new facts from changes in the constraint part. *)
 let rec diseq_star ch =
   foldc ch diseq_cnstrnt
 	       
@@ -517,8 +512,7 @@ and diseq_cnstrnt c s =
 	    (d s x) s
   
 
-
-(*s Normalization step. Remove all variables [x] which are are scheduled
+(** Normalization step. Remove all variables [x] which are are scheduled
  for removal in the partitioning. Check also that this variable [x] does
  not occur in any of the solution sets. Since [x] is noncanonical, this
  check only needs to be done for the [u] part, since all other solution
@@ -549,10 +543,10 @@ let normalize s =
     s
 	
 	
-(*s [close s] applies the rules above until the resulting state is unchanged. *)
+(** [close s] applies the rules above until the resulting state is unchanged. *)
 	
 
-let maxclose = ref 20 (* value -1 is unbounded *)
+let maxclose = ref 999999999
 
 exception Maxclose
 
@@ -582,7 +576,7 @@ and close1 ch =
   let ch i = Changed.in_eqs i ch in 
     propagate_star chv &&&
     arith_star (ch la, chc) &&&
-    diseq_star chc &&&                     (* Propagate singleton constraints into disequalities. *)
+    diseq_star chc &&&                     (* Propagate constraints into diseqs. *)
     nonlin_star (ch pprod, chc, ch la) &&& (* Propagate into Power products. *)
     arrays_star (chv, chd) &&&             (* Propagate into arrays. *)
     bvarith_star (ch bvarith, ch bv)       (* Propagate into arithmetic interps. *)
