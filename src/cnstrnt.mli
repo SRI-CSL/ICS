@@ -103,6 +103,7 @@ val mk_nonpos : Dom.t -> t
 val addq : Q.t -> t -> t
 val add : t -> t -> t
 val addl : t list -> t
+val subtract : t -> t -> t
 val mult : t -> t -> t
 val multl : t list -> t
 val expt : int -> t -> t

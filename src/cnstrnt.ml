@@ -239,6 +239,9 @@ let addq q (j, ps) =
 let add (i,_) (j,_) = 
   of_interval (Interval.add i j)
 
+let subtract (i,_) (j,_) =
+  of_interval (Interval.subtract i j)
+
 let rec addl = function
   | [] -> mk_singleton Q.zero
   | [c] -> c
