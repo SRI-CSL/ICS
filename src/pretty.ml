@@ -1,229 +1,157 @@
 
 (*i
- * ICS - Integrated Canonizer and Solver
- * Copyright (C) 2001-2004 SRI International
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the ICS license as published at www.icansolve.com
+ * The contents of this file are subject to the ICS(TM) Community Research
+ * License Version 1.0 (the ``License''); you may not use this file except in
+ * compliance with the License. You may obtain a copy of the License at
+ * http://www.icansolve.com/license.html.  Software distributed under the
+ * License is distributed on an ``AS IS'' basis, WITHOUT WARRANTY OF ANY
+ * KIND, either express or implied. See the License for the specific language
+ * governing rights and limitations under the License.  The Licensed Software
+ * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
+ * ``ICS'' is a trademark of SRI International, a California nonprofit public
+ * benefit corporation.
  * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * ICS License for more details.
+ * Author: Harald Ruess
  i*)
 
 (*i*)
-open Hashcons
-open Mpa
 open Format
 open Term
+open Hashcons
 (*i*)
 
-type 'a  printer = Format.formatter -> 'a -> unit
+type 'a printer = Format.formatter -> 'a -> unit
 
-let print_connectives = ref false
+let print_all = ref false
+let _ =  Tools.add_at_reset (fun () -> print_all := false)
 
-let rec list f fmt = function
+let get_print_all () = !print_all
+let set_print_all b = (print_all := b)
+
+let pr fmt str =
+  Format.fprintf fmt str
+
+let cnstrnt fmt c =
+  Type.pp fmt c
+
+let sym fmt f =
+  Sym.pp !print_all fmt f
+
+let arity fmt a = Arity.pp fmt a
+
+let list pre sep post pp fmt l =
+  let rec iter = function
     | [] -> ()
-    | [x] -> f fmt x
-    | x :: l -> f fmt x; Format.fprintf fmt ", " ; list f fmt l
-	
-let rec list_sep sep f = function
-    | [] -> ()
-    | [x] -> f x
-    | x :: l -> f x; sep (); list_sep sep f l
+    | [x] -> pp fmt x
+    | x :: l -> pp fmt x; pr fmt "%s" sep; iter l
+  in
+  pr fmt "@[%s" pre; iter l; pr fmt "%s@]" post
 
-	
+let rec term fmt a =
+  let f,l = Term.destruct a in
+  if l = [] then
+    constant fmt f
+  else if !print_all then
+    prefix fmt (f,l)
+  else 
+    match f.node, l with
+      | Sym.Interp(Sym.Nonlin(Sym.Expt(n))), [x] -> 
+	  (term fmt x; pr fmt "^%d" n)
+      | Sym.Interp(Sym.Arith(Sym.Multq(q))), [x] -> 
+	  (Mpa.Q.pp fmt q; pr fmt "*"; term fmt x)
+      | Sym.Interp(Sym.Bv(Sym.Sub(n,i,j))), [x] -> 
+	  (term fmt x; Format.fprintf fmt "[%d:%d]" i j)
+      | Sym.Interp(Sym.Bv(Sym.Conc(n,m))), [x;y] -> 
+	  (term fmt x; pr fmt " ++ "; term fmt y)
+      | _ when f === Sym.mk_mult ->
+	  infixl "**" fmt l
+      | _ when f === Sym.mk_add ->
+	  infixl "+" fmt l
+      | _ when f === Sym.mk_tuple ->
+	  list "(" "," ")" term fmt l
+      | _ ->
+	  prefix fmt (f,l)
 
-		 (*s Pretty-printing constraints. *)
-	
-let rec pp_cnstrnt prec fmt c =
-  match c with
-    | Top -> 
-	Format.fprintf fmt "top"
-    | BooleanCnstrnt -> 
-	Format.fprintf fmt "bool"
-    | ArithCnstrnt x -> 
-	Interval.pp fmt x
-    | TupleCnstrnt ->
-	Format.fprintf fmt "tuple"
-    | Bot ->
-	Format.fprintf fmt "bot"
+
+and constant fmt f = 
+  pr fmt "@["; sym fmt f; pr fmt "@]"
+
+and prefix fmt (f,l) = 
+  pr fmt "@["; 
+  sym fmt f; 
+  list "(" ", " ")" term fmt l; 
+  pr fmt "@]"
+
+and infix fmt x opstr y =
+  pr fmt "@["; 
+  term fmt x; pr fmt "%s" opstr; term fmt y;
+  pr fmt "@]"
+
+and infixl opstr fmt l =
+  pr fmt "@["; 
+  list "" opstr "" term fmt l; 
+  pr fmt "@]"
+
+let eqn fmt (a,b) =
+  pr fmt "@["; 
+  term fmt a; pr fmt " = "; term fmt b; 
+  pr fmt "@]"
+
+let diseq fmt (a,b) =
+  pr fmt "@["; 
+  term fmt a; pr fmt " <> "; term fmt b; 
+  pr fmt "@]"
+
+let inn fmt (a,c) =
+  pr fmt "@["; 
+  term fmt a; pr fmt " in "; Number.pp fmt c; 
+  pr fmt "@]"
+    
+let set fmt s = 
+  list "{" ", " "}" term fmt (Ptset.to_list s)
+
+let tset = set
    
-
-(*i For the printing function, we take into account the usual
-    precedence rules (i.e. * binds tighter than +) to avoid
-    printing unnecessary parentheses. To this end, we maintain
-    the current operator precedence and print parentheses
-    around an operator only if its precedence is less than
-    the current precedence.
-
-    Operator precedences:
-      0  '|', '#', '=>'
-      1  '&' '<=>'
-      2  '=' '<>' '<' '>' '<=' '>='
-      3  'union'
-      4  'inter'
-      5  'diff' 'symdiff'
-      6  '-' '+'
-      7  '*' '/'
-      8 '~' 'compl'
-  i*)
-
-let pp fmt t =
-  let pr = fprintf fmt in
-  let lpar prec op_prec = if prec > op_prec then pr "(" in 
-  let rpar prec op_prec = if prec > op_prec then pr ")" in
-  let rec pp_term prec t =
-    match t.node with
-      | Var(x,_) -> 
-	  fprintf fmt "%s" x
-      | App(f,l) ->  
-	  pp_app prec f l
-
-  and pp_app prec f l =
-    match f.node with
-      | Uninterp(x,_,_) ->
-	  pr "@["; pp_term prec x; pr "("; pp_terml l; pr ")@]"
-      | Interp(x) ->
-	  pp_interp prec x l
-      | Pred(x) ->
-	  pp_pred prec x l
-      | Builtin(x) ->
-	  pp_builtin prec x l
-
-  and pp_pred prec p l =
-    match p, l with
-      | Equal, [x;y] ->
-	  pp_binary_pred prec "=" (x,y)
-      | Cnstrnt(c), [x] ->
-	  pp_cnstrnt_pred prec c "in" x
-      | _ ->
-	  assert false
-
-  and pp_binary_pred prec str (x,y) =
-    Format.fprintf fmt "";
-    pp_term prec x;
-    Format.fprintf fmt " %s " str;
-    pp_term prec y;
-    Format.fprintf fmt ""
-
-  and pp_cnstrnt_pred prec c str x =
-    Format.fprintf fmt "@[";
-    pp_term prec x;
-    Format.fprintf fmt " %s " str;
-    pp_cnstrnt prec fmt c;
-    Format.fprintf fmt "@]"
-
-  and pp_builtin prec f l = 
-    match f,l with
-      | Update, [x;y;z] -> 
-	  pr "@["; pp_term prec x; pr "["; pp_term prec y; pr " := "; pp_term prec z; pr "]@]" 
-      | _ ->
-	  assert false
-
-  and pp_interp prec f l =
-    match f with
-      | Arith(op) ->
-	  pp_arith prec op l
-      | Tuple(op) ->
-	  pp_tuple prec op l
-      | Bool(op) -> 
-	  pp_bool prec op l
-
-  and pp_arith prec op l =
-    match op, l with
-      | Num(q),[] ->
-	  Mpa.Q.pp fmt q
-      | Multq(q), [x] ->
-	  fprintf fmt "@[";
-          Mpa.Q.pp fmt q;
-	  fprintf fmt "*";
-	  pp_term 2 x;
-	  fprintf fmt "@]"
-      | Add, _ :: _ :: _ ->
-	  list_sep (fun () -> pr " + ") (pp_term prec) l  
-      | Mult, _::_::_ ->
-	  pr "@[("; list_sep (fun () -> pr " * ") (pp_term prec) l; pr ")@]"
-      | Div, [x;y] ->
-	  pr "@["; pp_term prec x; pr " / "; pp_term prec y; pr "@]" 
-      | _ ->
-	  assert false
-
-  and pp_tuple prec op l =
-    match op, l with
-      | Product, _::_::_ ->
-	  pr "@[("; pp_terml l; pr ")@]"
-      | Proj(i,n),[x] ->
-	  fprintf fmt "@[proj[%d,%d](" i n; pp_term 0 x; pr ")@]"
-      | _ ->
-	  assert false
-
-  and pp_bool prec op l =
-    match op, l with
-      | True, [] ->
-	  fprintf fmt "true"
-      | False, [] ->
-	  fprintf fmt "false"
-      | Ite, [x;y;z] ->
-	  pp_ite "if" (pp_term 0) (x,y,z)
-      | _ ->
-	  assert false
-
-  and pp_ite str pp (x,y,z) =
-    pr "@["; fprintf fmt "%s " str;
-    pp x;
-    pr "@ then@ ";
-    pp y;
-    pr "@ else@ ";
-    pp z;
-    pr "@ end@]"
-			    
-  and pp_terml = function
-    | [t]  -> pp_term 0 t
-    | t::l -> pp_term 0 t; pr ","; pp_terml l
-    | []   -> ()
-	  
-  in
-  pp_term 0 t
+let map p fmt m =
+  let assign fmt (x,a) =
+    pr fmt "@["; term fmt x; pr fmt " |-> "; p fmt a;   pr  fmt"@]";
+  in 
+  list "[" ", " "]" assign fmt (Ptmap.to_list m)
     
-let pp_eqn fmt (a,b) =
-  Format.fprintf fmt "@[";
-  pp fmt a;
-  Format.fprintf fmt " = ";
-  pp fmt b;
-  Format.fprintf fmt "@]"
-    
-let pp_diseq fmt (a,b) =
-  Format.fprintf fmt "@[";
-  pp fmt a;
-  Format.fprintf fmt " <> ";
-  pp fmt b;
-  Format.fprintf fmt "@]"
-    
-let term = pp
-     
-let eqn = pp_eqn
+let tmap fmt m =
+  map term fmt m
 
-let diseq = pp_diseq
+let tlist = 
+  list "[" ", " "]" term
 
-let cnstrnt = (pp_cnstrnt 0)
-	    
-let tset fmt s = 
-  let rec loop = function
-    | [] -> ()
-    | [a] -> pp fmt a
-    | a :: l -> pp fmt a; Format.fprintf fmt "@ ,@ "; loop l
-  in
-  Format.fprintf fmt "@[{"; loop (Term.Set.to_list s); Format.fprintf fmt "}@]"
+let list p fmt = list "[" ", " "]" p fmt
 
-let tmap p fmt m =
-  let pp_assign (x,a) =
-    Format.fprintf fmt "@["; pp fmt x; Format.fprintf fmt "@ |->@ "; p fmt a
-  in
-  let rec pp_assigns = function
-    | [] -> ()
-    | [a] -> pp_assign a
-    | a :: l -> pp_assign a; Format.fprintf fmt "@ ,@ "; pp_assigns l
-  in
-    Format.fprintf fmt "@[["; pp_assigns (Map.to_list m); Format.fprintf fmt "]@]"
+let atom fmt p =
+  match p with
+    | Atom.True -> Format.fprintf fmt "true"
+    | Atom.False -> Format.fprintf fmt "false"
+    | Atom.Equal(x,y) -> infix fmt x " = " y
+    | Atom.Diseq(x,y) -> infix fmt x " <> " y
+    | Atom.In(c,x) -> pr fmt "@["; term fmt x; pr fmt " in "; Number.pp fmt c
+
+let atoms fmt ps =
+  let l = Atom.Set.elements ps in
+  list atom fmt l
+
+let rec prop fmt b = 
+  match Prop.destruct b with
+    | Prop.True -> 
+	Format.fprintf fmt "true"
+    | Prop.False -> 
+	Format.fprintf fmt "false"
+    | Prop.Ite(x,p,n) -> 
+	Format.fprintf fmt "@[if ";
+	atom fmt x;
+        Format.fprintf fmt " then@ ";
+	prop fmt p;
+	Format.fprintf fmt " else@ ";
+	prop fmt n;
+	Format.fprintf fmt " end@]"
+
+
+

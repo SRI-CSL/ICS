@@ -1,18 +1,18 @@
 
 (*i
- * ICS - Integrated Canonizer and Solver
- * Copyright (C) 2001-2004 SRI International
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the ICS license as published at www.icansolve.com
+ * The contents of this file are subject to the ICS(TM) Community Research
+ * License Version 1.0 (the ``License''); you may not use this file except in
+ * compliance with the License. You may obtain a copy of the License at
+ * http://www.icansolve.com/license.html.  Software distributed under the
+ * License is distributed on an ``AS IS'' basis, WITHOUT WARRANTY OF ANY
+ * KIND, either express or implied. See the License for the specific language
+ * governing rights and limitations under the License.  The Licensed Software
+ * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
+ * ``ICS'' is a trademark of SRI International, a California nonprofit public
+ * benefit corporation.
  * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * ICS License for more details.
+ * Author: Jean-Christophe Filliatre
  i*)
-
-(*s Maps of integers implemented as Patricia trees. *)
 
 (*i*)
 open Hashcons
@@ -24,6 +24,8 @@ type ('a,'b) t =
   | Branch of int * int * ('a,'b) t * ('a,'b) t
 
 let empty = Empty
+
+let is_empty m = (m = Empty)
 
 let zero_bit k m = (k land m) == 0
 
@@ -144,3 +146,9 @@ let rec fold f s accu = match s with
   | Empty -> accu
   | Leaf (k,x) -> f k x accu
   | Branch (_,_,t0,t1) -> fold f t0 (fold f t1 accu)
+		     
+let to_list m =
+  fold (fun x y acc -> (x,y) :: acc) m []
+
+let of_list l =
+  List.fold_right (fun (x,y) -> add x y) l empty

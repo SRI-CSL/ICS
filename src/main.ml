@@ -1,26 +1,20 @@
 
 (*i
- * ICS - Integrated Canonizer and Solver
- * Copyright (C) 2001-2004 SRI International
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the ICS license as published at www.icansolve.com
+ * The contents of this file are subject to the ICS(TM) Community Research
+ * License Version 1.0 (the ``License''); you may not use this file except in
+ * compliance with the License. You may obtain a copy of the License at
+ * http://www.icansolve.com/license.html.  Software distributed under the
+ * License is distributed on an ``AS IS'' basis, WITHOUT WARRANTY OF ANY
+ * KIND, either express or implied. See the License for the specific language
+ * governing rights and limitations under the License.  The Licensed Software
+ * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
+ * ``ICS'' is a trademark of SRI International, a California nonprofit public
+ * benefit corporation.
  * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * ICS License for more details.
- i*)
+ * Author: Harald Ruess
+i*)
 
 (*s Module [Main]: Toplevel of ICS command line interpreter. *)
-
-(*i*)
-open Ics
-open Lexer
-open Parser
-open Tools
-open Format
-(*i*)
 
 let _ = Sys.catch_break true
  
@@ -29,99 +23,67 @@ let _ = Sys.catch_break true
 let stat_flag = ref false
 let timing_flag = ref false
 let disable_prompt_flag = ref false
-			    
-(*s Exiting the system (on Ctrl-C or Ctrl-D) *)
+     
+(*s Interactive toplevel. Read commands from standard input and evaluate them. *)
 
-let exit n =
-  if !stat_flag then Tools.do_at_exit ();
-  print_flush ();
-  exit n
-
-(*s Display usage and errors *)
-
-let inconsistent () = printf "F\n@?"
-
-let parse_error () = eprintf "Syntax Error\n@?"
-
-let usage () =
-  eprintf "ICS: Integrated Canonizer and Solver. Copyright (c) 2001 SRI International.\n";
-  eprintf "\nType 'help.' for help about help, and 'Ctrl-d' to exit.\n\n@?"
-    
-(*s Batch mode. Read commands from files. *)
-
-let process_channel c =
-  let lb = Lexing.from_channel c in
-  try
-    while true do
-      Parser.command Lexer.token lb
-    done
-  with
-      End_of_file -> ()
-
-let process_file f =
-  let c = open_in f in
-  try
-    process_channel c; close_in c
-  with
-      e -> close_in c; raise e
-    
-let batch files =
-  try
-    List.iter process_file files; 
-    exit 0
-  with 
-    | Exc.Inconsistent   -> inconsistent (); exit 3
-    | Parsing.Parse_error -> parse_error  (); exit 4
-
-	
-(*s Interactive toplevel. Read commands from standard input
-     and evaluate them. *)
-
-let prompt () =
-  if not(!disable_prompt_flag) then printf "> @?"
-
-let repl () =
+let rec repl inch =
   usage ();
-  let lb = Lexing.from_channel stdin in
+  let outch = Ics.stdout () in
+  Ics.istate_set_in_channel inch;
+  Ics.istate_set_out_channel outch;
   try
     while true do
-      prompt ();
-      begin try
-	Parser.command Lexer.token lb
-      with 
-	| Parsing.Parse_error -> parse_error  ()
-	| Exc.Inconsistent   -> inconsistent ()
-      end;
-      print_newline(); print_flush ()
+      prompt outch;
+      Ics.istate_eval ();
+      Ics.istate_flush ();
     done
   with 
-    | End_of_file    -> printf "\n@?"; exit 0
-    | Sys.Break -> printf "\nExit...\n"; exit 1
-    | Failure "drop" ->	()
+    | End_of_file -> exiting 0
+    | Sys.Break -> exiting 1
+    | Failure "drop" -> ()
+
+and prompt outch =
+  if not(!disable_prompt_flag) then Format.printf "\nics> @?"
+
+and usage () =
+  Format.eprintf "ICS: Integrated Canonizer and Solver.";
+  Format.eprintf "\nCopyright (c) 2001,2002 SRI International.";
+  Format.eprintf "\nType 'help.' for help about help, and 'Ctrl-d' to exit.@."
+ 
+and exiting n = (*s Exiting the system (on Ctrl-C or Ctrl-D) *)
+  if !stat_flag then 
+    Ics.do_at_exit ();
+  Ics.istate_flush ();
+  exit n
 
 let args () =
   let files = ref [] in
   Arg.parse
       [ "-s", Arg.Set stat_flag,           "  Print statistics";
 	"-t", Arg.Set timing_flag,         "  Print timings";
-	"-v", Arg.Int set_verbose,         "  Verbose levels 0,1,2,...";
+	"-v", Arg.Int Ics.set_verbose,     "  Verbose levels 0,1,2,...";
 	"-p", Arg.Set disable_prompt_flag, "  Disable printing of prompt"
       ]
       (fun f -> files := f :: !files)
-      "usage: ics [-stvp] [files]";
+      "usage: ics [-stvph] [files]";
   List.rev !files
 
-let main () =
+let rec main () =
   match args () with
-    | [] -> repl ()
+    | [] -> repl (Ics.stdin ())
     | l -> batch l
 
+and batch l =
+  disable_prompt_flag := true;
+  List.iter 
+    (fun x ->
+       try
+	 repl (Ics.in_of_string x)
+       with
+	 | Sys_error str -> Format.eprintf "\nSys_error(%s)@?" str)
+    l
+
 let _ = Printexc.catch main ()
-
-
-
-
-
 
 
 

@@ -1,22 +1,23 @@
 
 (*i
- * ICS - Integrated Canonizer and Solver
- * Copyright (C) 2001-2004 SRI International
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the ICS license as published at www.icansolve.com
+ * The contents of this file are subject to the ICS(TM) Community Research
+ * License Version 1.0 (the ``License''); you may not use this file except in
+ * compliance with the License. You may obtain a copy of the License at
+ * http://www.icansolve.com/license.html.  Software distributed under the
+ * License is distributed on an ``AS IS'' basis, WITHOUT WARRANTY OF ANY
+ * KIND, either express or implied. See the License for the specific language
+ * governing rights and limitations under the License.  The Licensed Software
+ * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
+ * ``ICS'' is a trademark of SRI International, a California nonprofit public
+ * benefit corporation.
  * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * ICS License for more details.
+ * Author: Jean-Christophe Filliatre, Harald Ruess
  i*)
 
 (*s Multi-precision arithmetic. The purpose of this module is to
   abstract the necessary arithmetic functions of any multi-precision
   package such as Ocaml's bignums, GNU MP etc in order to switch
-  easily between packages. 
-*)
+  easily between packages. *)
 
 (*s Multi-precision integers. *)
 
@@ -26,6 +27,7 @@ module Z : sig
 
   val mult : t -> t -> t
   val divexact : t -> t -> t
+  val expt : t -> int -> t
 
   val equal : t -> t -> bool
   val compare : t -> t -> int
@@ -64,6 +66,7 @@ module Q : sig
   val mult : t -> t -> t
   val div : t -> t -> t
   val inv : t -> t
+  val expt : t -> int -> t
 
   val floor : t -> Z.t
   val ceil  : t -> Z.t
@@ -78,6 +81,8 @@ module Q : sig
   type cmp = Equal | Greater | Less
 
   val cmp : t -> t -> cmp
+
+  val sign : t -> Sign.t
 
   val denominator : t -> Z.t
   val numerator : t -> Z.t

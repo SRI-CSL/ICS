@@ -1,15 +1,17 @@
 
 (*i
- * ICS - Integrated Canonizer and Solver
- * Copyright (C) 2001-2004 SRI International
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the ICS license as published at www.icansolve.com
+ * The contents of this file are subject to the ICS(TM) Community Research
+ * License Version 1.0 (the ``License''); you may not use this file except in
+ * compliance with the License. You may obtain a copy of the License at
+ * http://www.icansolve.com/license.html.  Software distributed under the
+ * License is distributed on an ``AS IS'' basis, WITHOUT WARRANTY OF ANY
+ * KIND, either express or implied. See the License for the specific language
+ * governing rights and limitations under the License.  The Licensed Software
+ * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
+ * ``ICS'' is a trademark of SRI International, a California nonprofit public
+ * benefit corporation.
  * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * ICS License for more details.
+ * Author: Jean-Christophe Filliatre
  i*)
 
 (*s Module [Hashcons]: hashconsing over types with equality. *)
@@ -30,20 +32,24 @@
 type 'a hashed = { 
   hkey : int;
   tag : int;
-  node : 'a }
+  node : 'a 
+}
 
 (*s Equality for hashconsed entities reduces to identity, and
   can thus be performed in constant time. *)
 		   
 val (===) : 'a hashed -> 'a hashed -> bool 
 
+(*s Disequality [a =/= b] is defined as [not(a ===b)]. *)
+
+val (=/=) : 'a hashed -> 'a hashed -> bool
 
 (* The input signature of the functor [Hashcons.Make].
-   [t] is the type of the elements to be hashconsed.
-   [equal] specifies the equality relation for hashconsing,
-   and [hash] is a function for computing hash keys.
-   Example: a suitable hashc function is often 
-   the generic hash function [hash]. *)    
+ [t] is the type of the elements to be hashconsed.
+ [equal] specifies the equality relation for hashconsing,
+ and [hash] is a function for computing hash keys.
+ Example: a suitable hashc function is often 
+ the generic hash function [hash]. *)    
 
 module type HashedType =
   sig
@@ -58,6 +64,7 @@ module type S =
     type key
 
       (*s The type of hash tables for hashconsing elements of type [key]. *)
+
     type t
 
       (*s [create n] creates a new, empty hash table, with
@@ -65,28 +72,36 @@ module type S =
 	order of the expected number of elements that will be in
 	the table.  The table grows as needed, so [n] is just an
 	initial guess. *)
+
     val create : int -> t
 	
 	(*s Empty a hash table. *)
+
     val clear : t -> unit
 	
 	(*s Given a table [t] and a node [a], [hashcons t a] returns
 	  a hashconsing record for [a] with a unique tag. *)
+
     val hashcons : t -> key -> key hashed
 
+	(* [mem tbl x] checks if [x] is bound in [tbl]. *)
+
+    val mem : t -> key -> bool
 
 	(*s [iter f t] applies [f] in turn to all hashconsed elements of [t].
 	  The order in which the elements of [t] are presented to [f] is unspecified. *)
+
     val iter : (key hashed -> unit) -> t -> unit
 
 	(*s Prints on standard output some statistics for hash table [t] such as
 	  percentige of used entries, and maximum bucket length. *)
+
     val stat : t -> unit
   end
 
   
-  (*s Functor building an implementation of the hashcons structure
-    given a structure of signature [HashedType]. *)
+(*s Functor building an implementation of the hashcons structure
+ given a structure of signature [HashedType]. *)
 
 module Make(H : HashedType) : (S with type key = H.t)
 

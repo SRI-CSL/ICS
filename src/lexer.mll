@@ -1,18 +1,20 @@
 
 (*i
- * ICS - Integrated Canonizer and Solver
- * Copyright (C) 2001-2004 SRI International
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the ICS license as published at www.icansolve.com
+ * The contents of this file are subject to the ICS(TM) Community Research
+ * License Version 1.0 (the ``License''); you may not use this file except in
+ * compliance with the License. You may obtain a copy of the License at
+ * http://www.icansolve.com/license.html.  Software distributed under the
+ * License is distributed on an ``AS IS'' basis, WITHOUT WARRANTY OF ANY
+ * KIND, either express or implied. See the License for the specific language
+ * governing rights and limitations under the License.  The Licensed Software
+ * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
+ * ``ICS'' is a trademark of SRI International, a California nonprofit public
+ * benefit corporation.
  * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * ICS License for more details.
+ * Author: Jean-Christophe Filliatre, Harald Ruess
  i*)
 
-(*s Module [Lexer]: lexical analysis for ICS command interpreter. *)
+(*s Module [Lexer]: Lexical analysis for ICS syntactic categories such as terms. *)
 
 (*i*)
 {
@@ -23,23 +25,29 @@ open Parser
 (*s A lexer for terms. *)
 
 let keyword =
-  let kw_table = Hashtbl.create 17 in
+  let kw_table = Hashtbl.create 31 in
   List.iter 
     (fun (s,tk) -> Hashtbl.add kw_table s tk)
-    [ "can", CAN; "simp", SIMP; "sigma", SIGMA; "solve", SOLVE; 
-      "witness", WITNESS; "solution", SOLUTION; "reset", RESET;
-      "drop", DROP; "assert", ASSERT; "find", FIND; "current", CURRENT; "show", SHOW; "undo", UNDO;
-      "use", USE; "uninterp", UNINTERP; "groebner", GROEBNER; "diseqs", DISEQS; "inconsistent", INCONSISTENT;
-      "check", CHECK; "verbose", VERBOSE; "ctxt", CTXT; "ext", EXT;
-      "arith", ARITH; "boolean", BOOLEAN; "tuple", TUPLE; "eq", EQ;
-      "commands", COMMANDS; "syntax", SYNTAX; "declare", DECLARE;
-      "cnstrnt", CNSTRNT; "help", HELP;
-      "int", INTDOM; "rat", RATDOM; "bool", BOOLDOM; "real", RATDOM;
-      "A", A; "AC", AC; "C", C;
+    [  "arith", ARITH; "tuple", TUPLE;
+      "enum", ENUM;
+      "in", IN; "inf", INF;
+      "bot", BOT; "int", INT; "nonint", NONINT; "real", REAL; "top", TOP;
+      "bv", BV; "with", WITH;
       "proj", PROJ;
+      "cons", CONS; "car", CAR; "cdr", CDR; "nil", NIL;
+      "true", TRUE; "false", FALSE;
+      "if", IF; "then", THEN; "else", ELSE; "end", END;
       "unsigned", UNSIGNED;
-      "true", TRUE; "false", FALSE; "if", IF; "then", THEN; "else", ELSE; "end", END;
-      "integer", INTEGER_PRED
+      "conc", CONC; "sub", SUB; 
+      "bwite", BWITE; "bwand", BWAND; "bwor", BWOR;
+      "bwxor", BWXOR; "bwnot", BWNOT;
+      "drop", DROP; "can", CAN; "assert", ASSERT; "exit", EXIT; 
+      "save", SAVE; "restore", RESTORE; "remove", REMOVE; "forget", FORGET;
+      "reset", RESET; "sig", SIG; "type", TYPE; "def", DEF;
+      "sigma", SIGMA; "solve", SOLVE; "help", HELP;
+      "set", SET; "toggle", TOGGLE; "pretty", PRETTY; "verbose", VERBOSE; 
+      "use", USE; "find", FIND; "prop", PROP; "ctxt", CTXT; "diseq", DISEQ; "show", SHOW;
+      "symtab", SYMTAB; "cnstrnt", CNSTRNT; "sat", SAT
     ];
   fun s ->
     try Hashtbl.find kw_table s with Not_found -> IDENT s
@@ -48,9 +56,7 @@ let keyword =
 }
 (*i*)
 
-(*s The lexer it-self is quite simple. *)
-
-let ident = ['A'-'Z' 'a'-'z' '_'] ['A'-'Z' 'a'-'z' '\'' '0'-'9']*
+let ident = ['A'-'Z' 'a'-'z'] ['A'-'Z' 'a'-'z' '\'' '0'-'9']*
 
 let space = [' ' '\t' '\r' '\n']
 
@@ -58,12 +64,20 @@ rule token = parse
   | space+     { token lexbuf }
   | '%' [^ '\n']* {token lexbuf }
   | ident      { keyword (lexeme lexbuf) }
+  | "-inf"     { NEGINF }
   | ['0'-'9']+ { INTCONST (int_of_string (lexeme lexbuf)) }
-  | ['0'-'9']+ '/' ['0'-'9']+ { RATCONST (Ics.num_of_string (lexeme lexbuf)) }
+  | ['0'-'9']+ '/' ['0'-'9']+ 
+               { RATCONST (Mpa.Q.of_string (lexeme lexbuf)) }
+  | "0b" ['0'-'1']*
+               { let s = lexeme lexbuf in 
+		 BVCONST (String.sub s 2 (String.length s - 2)) }
   | ','        { COMMA }
   | '('        { LPAR }
   | ')'        { RPAR }
   | '['        { LBRA }
+  | "A["       { ALBRA }
+  | "C["       { CLBRA }
+  | "AC["      { ACLBRA }
   | ']'        { RBRA }
   | '{'        { LCUR }
   | '}'        { RCUR }
@@ -78,39 +92,25 @@ rule token = parse
   | "<="       { LESSOREQUAL }
   | ">"        { GREATER }
   | ">="       { GREATEROREQUAL }
-  | '&'        { AND }
-  | '|'        { OR }
-  | '#'        { XOR }
-  | '~'        { NOT }
-  | "=>"       { IMPLIES }
-  | "<=>"      { IFF }
-  | "<<"       { CMP }
-  | ":"        { COLON }
-  | ';'        { SEMI }
-  | '.'        { DOT }
+  | "->"       { TO }
+  | ':'        { COLON }
   | '^'        { EXPT }
-  | '_'        { UNDERSCORE }
+  | ".."       { DDOT }
+  | "+++"        { UNION }
+  | "++"       { BVCONCI }
+  | "&&"       { BWANDI }
+  | "||"       { BWORI }
+  | "##"       { BWXORI }
+  | '~'        { NEG }
+  | '&'        { CONJ }
+  | '|'        { DISJ }
+  | '#'        { XOR }
+  | "=>"       { IMPL }
+  | "<=>"      { BIIMPL}
+  | '_'        { UNDERSCORE } 
+  | "<<"       { CMP }
+  | '.'        { DOT }
+  | eof        { EOF }  
   | _          { raise Parsing.Parse_error }
-  | eof        { raise End_of_file }
 
-(*i*)
-{
-(*i*)
 
-(*s Parse terms and equations from strings and channels. *)
-
-  let term_of_string s =
-    let lb = from_string s in Parser.term token lb
-
-  let term_of_channel c =
-    let lb = from_channel c in Parser.term token lb
-
-  let eqn_of_string s = 
-    let lb = from_string s in Parser.equation token lb
-
-  let eqn_of_channel c =
-    let lb = from_channel c in Parser.equation token lb
-
-(*i*)
-}
-(*i*)

@@ -14,12 +14,9 @@
  * Author: Harald Ruess
  i*)
 
-(*s Best type from both static and dynamic information. *)
 
-val of_term : ctxt:(Term.t -> Number.t) -> Term.t -> Type.t
+(*s Module [Simplify]: simplification of propositional structures. *)
 
-val of_linarith : ctxt:(Term.t -> Number.t) -> Sym.linarith -> Term.t list -> Type.t
+val prop : Dp.t -> Prop.t -> Prop.t
 
-(*s Type from static information only. *)
-
-val of_term0 : Term.t -> Type.t
+val sat : Dp.t -> Prop.t -> Dp.t option
