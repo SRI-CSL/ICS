@@ -59,6 +59,6 @@ val extend : Cnstrnt.t -> t -> Term.t * t
 val is_slack : Term.t -> bool
 
 
-(*s [propagate (k,b) s] adds an equality [k = b] to [s]. *)
+(*s [propagate (a,b) s] adds an equality [a = b] to [s]. *)
 
 val propagate : Term.t * Term.t -> t -> t * (Term.t * Term.t) list

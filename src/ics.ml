@@ -564,6 +564,11 @@ let value_of = function
 let _ = Callback.register "is_some" is_some
 let _ = Callback.register "is_none" is_none
 let _ = Callback.register "value_of" value_of
+
+(*s Sleeping. *)
+
+let sleep = Unix.sleep
+let _ = Callback.register "sleep" sleep
 	  
 	 
 (*s Multi-precision arithmetic.*)

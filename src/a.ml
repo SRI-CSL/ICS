@@ -178,9 +178,10 @@ let merge e s =
     (s, Veqs.empty)
   else 
     begin
-      Trace.msg 6 "Merge(a)" (x,y) pp_equal;
+      Trace.call 4 "Merge(a)" (x,y) pp_equal;
       let (s', veqs') = equality (x,y) s in
       let e' = Veqs.remove e veqs' in  (* remove input equality [e]. *)
+      Trace.exit 4 "Merge(a)" e' Veqs.pp;
       (s', e')
     end
 

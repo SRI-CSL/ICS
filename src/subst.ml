@@ -162,7 +162,7 @@ module Make(Th: INTERP) = struct
    in
    List.fold_right compose1 sl (s, Veqs.empty)
 
- and step1 (a, b) ((s, veqs) as acc) = 
+ and step1 (a, b) ((s, veqs) as acc) =
    assert(is_var a);
    if is_var b then               (* External equality. *)
      external1 (a, b) (s, veqs)
@@ -187,7 +187,9 @@ module Make(Th: INTERP) = struct
        | true, false -> s
        | false, true -> union x (apply s y) (restrict y s)
        | false, false -> s
-   and veqs' = Veqs.add x y veqs in
+   and veqs' =  veqs in 
+(* the following is looping
+   and veqs' = Veqs.add x y veqs in *)
    (s', veqs')
 
 
@@ -207,8 +209,12 @@ module Make(Th: INTERP) = struct
 		(restrict y s, Veqs.add y a' veqs)
 	      else
 		try
-		  let y' = inv s a' in
-		  (restrict (Term.max y y') s, Veqs.add y y' veqs)
+		  let y' = inv s a' in  
+		  let veqs' = Veqs.add y y' veqs in
+		  if Term.(<<<) y y' then
+		    (union y a' (restrict y' s), veqs')
+		  else
+		    (restrict y s, veqs')
 		with
 		    Not_found ->
 		      (union y a' s, veqs)

@@ -195,6 +195,20 @@ let rec pp fmt a =
 	  | Sym.Interp(Sym.Arith(Sym.Expt(n))), [x] 
 	      when is_var x || not(Sym.is_arith (sym_of x)) ->
 		Pretty.infix pp "^" Pretty.number fmt (x,n)
+	  | Sym.Interp(Sym.Tuple(Sym.Proj(0,2))), [x] -> 
+	      Pretty.string fmt "car("; 
+	      pp fmt x;
+	      Pretty.string fmt ")"
+	  | Sym.Interp(Sym.Tuple(Sym.Proj(1,2))), [x] -> 
+	      Pretty.string fmt "cdr("; 
+	      pp fmt x;
+	      Pretty.string fmt ")"
+	  | Sym.Interp(Sym.Tuple(Sym.Product)), [x;y] -> 
+	      Pretty.string fmt "cons("; 
+	      pp fmt x; 
+	      Pretty.string fmt ", ";
+	      pp fmt y;
+	      Pretty.string fmt ")"
 	  | Sym.Interp(Sym.Boolean(Sym.True)), [] -> 
 	      Pretty.string fmt "true"
 	  | Sym.Interp(Sym.Boolean(Sym.False)), [] -> 
@@ -205,6 +219,20 @@ let rec pp fmt a =
 	      Pretty.infixl pp " ++ " fmt l
 	  | Sym.Interp(Sym.Bv(Sym.Sub(_,i,j))), [x] -> 
 	      (pp fmt x; Format.fprintf fmt "[%d:%d]" i j)
+	  | _, [x;y;z] when Sym.eq f Sym.mk_update ->
+	      pp fmt x; 
+	      Pretty.string fmt "[";
+	      pp fmt y; 
+	      Pretty.string fmt " := ";
+	      pp fmt z;
+	      Pretty.string fmt "]"
+	  | _, [x;y] when Sym.eq f Sym.mk_select ->
+	      pp fmt x;
+	      Pretty.string fmt "[";
+	      pp fmt y;
+	      Pretty.string fmt "]"
+	  | _, [x;y] when Sym.eq f Sym.mk_div ->
+	      pp fmt x; Pretty.string fmt " / "; pp fmt y
 	  | _ ->
 	      Sym.pp fmt f; 
 	      Tools.ppl ("(", ", ", ")") pp fmt l)

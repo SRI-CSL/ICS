@@ -286,10 +286,15 @@ let merge e s =
 	(use s a)
 	(s', addv a b xl)
   in
-  Trace.call 5 "Merge(u)" (a,b) (Pretty.eqn Term.pp);
-  let (s', xl) = merge1 a b (s, Veqs.empty) in
-  Trace.exit 5 "Merge(u)" xl (Veqs.pp);
-  (s', xl)
+  if veq s a b then
+    (s, Veqs.empty)
+  else 
+    begin
+      Trace.call 5 "Merge(u)" (a,b) (Pretty.eqn Term.pp);
+      let (s', xl) = merge1 a b (s, Veqs.empty) in
+      Trace.exit 5 "Merge(u)" xl (Veqs.pp);
+      (s', xl)
+    end 
 
 (*s Creating a fresh label term. *)
 
