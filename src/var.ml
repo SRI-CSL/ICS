@@ -76,12 +76,14 @@ let rec cmp x y =
 	let c1 = domcmp d e in
 	  if c1 != 0 then c1 else Name.cmp n m
     | External _, _ -> -1
+    | _, External _ -> 1
     | Fresh(n, i, d), Fresh(m, j, e) ->
 	let c1 = domcmp d e in
 	  if c1 != 0 then c1 else 
 	    let c2 = Pervasives.compare i j in
 	      if c2 != 0 then c2 else Pervasives.compare n m
     | Fresh _, _ -> -1
+    | _, Fresh _ -> 1
     | Rename(n, i, d), Rename(m, j, e) -> 
 	let c1 = domcmp d e in
 	  if c1 != 0 then c1 else 
