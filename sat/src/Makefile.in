@@ -17,9 +17,7 @@ ICSAT= icsat.a
 #				 LPSolver_branching.cpp LPSolver_backtrack.cpp LPSolver_invariants.cpp LPSolver_internalization.cpp LPSolver_conflict_resolution.cpp \
 #				 LPSolver_polarity_optimization.cpp LPSolver_implication_graph_optimization.cpp LPSolver_lookahead.cpp lazy-prover-front-end.cpp 
 
-SOURCES= lazy-prover-front-end.cpp LPFormula.cpp error.cpp ics_interface.cpp util.cpp safealloc.cpp UString.cpp \
-				 fmessage.cpp StringBuffer.cpp errormsg.cpp error.cpp
-
+SOURCES= lazy-prover-front-end.cpp 
 ### ics_interface.cpp
 
 OBJS= $(SOURCES:.cpp=.o) 
@@ -28,7 +26,7 @@ all: $(LIB_DIR)/$(ICSAT)
 
 $(LIB_DIR)/$(ICSAT): $(OBJS)
 	rm -f $(LIB_DIR)/$(ICSAT)
-	$(AR) cr $(LIB_DIR)/$(ICSAT) $(OBJS) 
+	$(AR) cr $(LIB_DIR)/$(ICSAT) $(OBJS)
 	$(RANLIB) $(LIB_DIR)/$(ICSAT)
 
 .PHONY: icsat

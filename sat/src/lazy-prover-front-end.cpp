@@ -10,63 +10,38 @@
 
 #include<iostream.h>
 #include "ics_interface.h"
+#include "LPFormula.h"
+#include "LPSolver.h"
 
 extern "C" {
+  // ics_sat : LPFormulaId -> int
+  int ics_sat(LPFormulaId root_id) {
+    cout << "working!!! root_id = " << root_id << "\n";
+		sat_formula_manager->dump_formula(cout, root_id);
+		if (sat_solver != NULL) 
+			delete sat_solver;
+		sat_solver = new LPSolver(sat_formula_manager);
 
-	// ics_sat : context -> prop -> atom list
-	value * ics_sat(value * context, value * prop) {
-		cout << "working!!!\n";
+		sat_solver->set_branching_mode(LP_ASSIGNMENT_MODE);
+		sat_solver->set_conflict_resolution_mode(LP_FIRST_UIP_CR);
+		sat_solver->set_verbosity(true);
+		sat_solver->set_randomness_level(0);
+		sat_solver->set_clause_relevance(DEFAULT_CLAUSE_RELEVANCE);
+		sat_solver->set_cleanup_period(DEFAULT_CLEANUP_PERIOD);
+		sat_solver->enable_subsumed_clauses_removal(true);
+		sat_solver->enable_polarity_optimization(false);
+		sat_solver->enable_implication_graph_optimization(false);
+		sat_solver->enable_lookahead_optimization(false);
+		sat_solver->set_lookahead_relevance(DEFAULT_LOOKAHEAD_RELEVANCE);
+		sat_solver->enable_experimental_heuristics(false);
+		sat_solver->set_npc_threshold(DEFAULT_NPC_THRESHOLD);
 
-		// force the link 
-		if (context == 0) {
-			// this is unreachable code... it is used just to check if the linker is working
-			ics_is_nil(context);
-			ics_head(context);
-			ics_tail(context);
-			ics_pair(context,  context);
-			ics_fst(context);
-			ics_snd(context);
-			ics_triple(context,  context,  context);
-			ics_fst_of_triple(context);
-			ics_snd_of_triple(context);
-			ics_third_of_triple(context);
-			ics_prop_is_true(context);
-			ics_prop_is_false(context);
-			ics_prop_is_atom(context);
-			ics_prop_is_var(context); 
-			ics_prop_is_ite(context);
-			ics_prop_is_disj(context);
-			ics_prop_is_iff(context);
-			ics_prop_is_neg(context);
-			ics_prop_d_atom(context);
-			ics_prop_d_ite(context);
-			ics_prop_d_disj(context);
-			ics_prop_d_iff(context);
-			ics_prop_d_neg(context);
-			ics_atom_is_negatable(context);
-			ics_atom_negate(context);
-			ics_atoms_empty();
-			ics_atoms_singleton(context);
-			ics_atoms_add(context,  context); 
-			ics_atoms_to_list(context);
-			ics_context_empty();
-			ics_process(context,  context);
-			ics_is_consistent(context);
-			ics_is_redundant(context);
-			ics_is_inconsistent(context);
-		}
-		return ics_atoms_to_list(ics_atoms_empty());
-	}
+
+		bool result = sat_solver->is_satisfiable(root_id);
+		cout << "result = " << result << endl;
+		return result;
+  }
 }
-
-
-// #ifdef LP_ARGP_AVAILABLE
-// #include<argp.h>
-// #else
-// extern "C" {
-// extern int getopt(int, char * const *, const char *);
-// }
-// #endif
 
 // #include<stdio.h>
 // #if defined(LP_TRACE_MALLOC) || !defined(NDEBUG)
