@@ -179,8 +179,30 @@ let list_of_vars a =
 
 let _ = Callback.register "atom_list_of_vars" list_of_vars
 
+let occurs x a =
+  let rec term_occurs = function
+    | Var(y) -> Var.eq x y
+    | App(_, sl) -> List.exists term_occurs sl
+  in
+    match a with
+      | True -> false
+      | False -> false
+      | Equal(s, t) -> term_occurs s || term_occurs t
+      | Diseq(s, t) -> term_occurs s || term_occurs t
+      | Less(s, _, t) -> term_occurs s || term_occurs s
+      | Greater(s, _, t) -> term_occurs s || term_occurs t
+      | In(s, _) -> term_occurs s
+
 let is_connected a b =
-  let xs = vars_of a 
-  and ys = vars_of b in
-    not(Term.Set.is_empty (Term.Set.inter xs ys))
-  
+  let rec term_is_connected = function
+    | Var(x) -> occurs x b
+    | App(_, sl) -> List.exists term_is_connected sl
+  in
+    match a with
+      | True -> false
+      | False -> false
+      | Equal(s, t) -> term_is_connected s || term_is_connected t
+      | Diseq(s, t) -> term_is_connected s || term_is_connected t
+      | Less(s, _, t) -> term_is_connected s || term_is_connected t
+      | Greater(s, _, t) -> term_is_connected s || term_is_connected t
+      | In(s, _) -> term_is_connected s
