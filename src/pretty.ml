@@ -37,44 +37,19 @@ let rec list_sep sep f = function
 	
 
 		 (*s Pretty-printing constraints. *)
-
-let pp_low fmt = function
-  | Interval.Neginf -> Format.fprintf fmt "(-inf "
-  | Interval.Low(k,q) -> Format.fprintf fmt "%s" (if k = Interval.Strict then "(" else "["); Q.pp fmt q
-
-let pp_high fmt = function
-  | Interval.Posinf -> Format.fprintf fmt " inf)"
-  | Interval.High(k,q) -> Q.pp fmt q; Format.fprintf fmt "%s" (if k = Interval.Strict then ")" else "]")
-
-let pp_interval fmt (dom,i,j) =
-  let domstr = match dom with
-    | Interval.Real -> "real"
-    | Interval.Int -> "int"
-    | Interval.NonintReal -> "nonintreal"
-  in
-  match i, j with
-    | Interval.Neginf, Interval.Posinf ->
-	Format.fprintf fmt "@[%s@]" domstr
-    | _ ->
-	Format.fprintf fmt "@[%s" domstr; 
-	pp_low fmt i;
-	Format.fprintf fmt "..";
-	pp_high fmt j;
-	Format.fprintf fmt "@]"
 	
 let rec pp_cnstrnt prec fmt c =
-  if Interval.is_top c then
-    Format.fprintf fmt "top"
-  else if Interval.is_bot c then
-    Format.fprintf fmt "bot"
-  else
-    let l = Interval.to_list c in
-    list_sep
-      (fun () ->
-	 Format.fprintf fmt "@ union@ ")
-      (fun (d,l,h) -> 
-	 pp_interval fmt (d,l,h))
-      l
+  match c with
+    | Top -> 
+	Format.fprintf fmt "top"
+    | BooleanCnstrnt -> 
+	Format.fprintf fmt "bool"
+    | ArithCnstrnt x -> 
+	Interval.pp fmt x
+    | TupleCnstrnt ->
+	Format.fprintf fmt "tuple"
+    | Bot ->
+	Format.fprintf fmt "bot"
    
 
 (*i For the printing function, we take into account the usual
@@ -102,150 +77,99 @@ let pp fmt t =
   let rpar prec op_prec = if prec > op_prec then pr ")" in
   let rec pp_term prec t =
     match t.node with
-      | Var x -> 
-	  pp_var x
-      | App ({node=Set _} as s,[x]) ->
-	  pp_term prec x; pr "@ in@ "; pp_set prec s
-      | App ({node=Update(x,y,z)},xl) ->
-	  pp_update prec (x,y,z); pr "["; pp_terml xl; pr "]"
-      | App (f, []) ->
-	  pp_term prec f
-      | App (f,l) ->
-	  pr "@["; pp_term prec f; pr "("; pp_terml l; pr ")@]"
-      | Update (a,i,v) ->
-	  pp_update prec (a,i,v)
-      | Cond(x,y,z) ->
-	  pp_ite "if" (pp_term 0) (x,y,z)
-      | Arith a -> 
-	  pp_arith prec a
-      | Tuple t ->
-	  pp_tuple prec t
-      | Set _ ->
-	  pp_set prec t
-      | Bool _ ->
-	  pp_bool prec t
-      | Bv _ ->
-	  pp_bv prec t
-	    
-  and pp_var x =
-    fprintf fmt "%s" x
+      | Var(x,_) -> 
+	  fprintf fmt "%s" x
+      | App(f,l) ->  
+	  pp_app prec f l
 
-  and pp_varl = function
-    | [x]  -> pp_var x
-    | x::l -> pp_var x; pr ", "; pp_varl l
-    | []   -> ()
+  and pp_app prec f l =
+    match f.node with
+      | Uninterp(x,_,_) ->
+	  pr "@["; pp_term prec x; pr "("; pp_terml l; pr ")@]"
+      | Interp(x) ->
+	  pp_interp prec x l
+      | Pred(x) ->
+	  pp_pred prec x l
+      | Builtin(x) ->
+	  pp_builtin prec x l
 
-  and pp_update prec (a,i,v) =
-    pr "@["; pp_term prec a; pr "["; pp_term prec i; pr " := "; pp_term prec v; pr "]@]" 
+  and pp_pred prec p l =
+    match p, l with
+      | Equal, [x;y] ->
+	  pp_binary_pred prec "=" (x,y)
+      | Cnstrnt(c), [x] ->
+	  pp_cnstrnt_pred prec c "in" x
+      | _ ->
+	  assert false
 
-  and pp_tuple prec t =
-    match t with
-      | Tup l -> 
-	  pr "@[("; pp_terml l; pr ")@]"
-      | Proj (i,n,t) -> 
-	  fprintf fmt "@[proj[%d,%d](" i n; pp_term 0 t; pr ")@]"
+  and pp_binary_pred prec str (x,y) =
+    Format.fprintf fmt "";
+    pp_term prec x;
+    Format.fprintf fmt " %s " str;
+    pp_term prec y;
+    Format.fprintf fmt ""
 
-  and pp_arith prec a =
-    match a with
-      | Num q -> Mpa.Q.pp fmt q
-      | Multq(q,x) ->
+  and pp_cnstrnt_pred prec c str x =
+    Format.fprintf fmt "@[";
+    pp_term prec x;
+    Format.fprintf fmt " %s " str;
+    pp_cnstrnt prec fmt c;
+    Format.fprintf fmt "@]"
+
+  and pp_builtin prec f l = 
+    match f,l with
+      | Update, [x;y;z] -> 
+	  pr "@["; pp_term prec x; pr "["; pp_term prec y; pr " := "; pp_term prec z; pr "]@]" 
+      | _ ->
+	  assert false
+
+  and pp_interp prec f l =
+    match f with
+      | Arith(op) ->
+	  pp_arith prec op l
+      | Tuple(op) ->
+	  pp_tuple prec op l
+      | Bool(op) -> 
+	  pp_bool prec op l
+
+  and pp_arith prec op l =
+    match op, l with
+      | Num(q),[] ->
+	  Mpa.Q.pp fmt q
+      | Multq(q), [x] ->
 	  fprintf fmt "@[";
           Mpa.Q.pp fmt q;
 	  fprintf fmt "*";
-	  pp_term prec x;
+	  pp_term 2 x;
 	  fprintf fmt "@]"
-      | Mult l -> 
-          fprintf fmt "@[(";
-	  list_sep (fun () -> pr "*") (pp_term prec) l;
-          fprintf fmt ")@]"
-      | Add l ->
-	  list_sep (fun () -> pr " + ") (pp_term prec) l
-      | Div(x,y) ->
-	  pp_binary prec (pp_term 7) "/" (x,y)
-
-  and pp_bool prec b =
-    if Bool.is_tt b then
-      fprintf fmt "true"
-    else if Bool.is_ff b then
-      fprintf fmt "false"
-    else if Bool.is_equal b then
-      pp_binary prec (pp_term 1) "=" (Bool.d_equal b)
-    else if Bool.is_diseq b then
-      pp_binary prec (pp_term 1) "<>" (Bool.d_diseq b)    
-    else if Bool.is_neg b then
-      pp_unary prec (pp_term 8) "~" (Bool.d_neg b)
-    else if !print_connectives && Bool.is_conj b then
-      pp_binary prec (pp_term 4) "&" (Bool.d_conj b)
-    else if !print_connectives && Bool.is_disj b then
-      pp_binary prec (pp_term 3) "|" (Bool.d_disj b)
-    else if !print_connectives && Bool.is_xor b then
-      pp_binary prec (pp_term 3) "#" (Bool.d_xor b)
-    else if !print_connectives && Bool.is_imp b then
-      pp_binary prec (pp_term 2) "=>" (Bool.d_imp b)
-    else if !print_connectives && Bool.is_iff b then
-      pp_binary prec (pp_term 1) "<=>" (Bool.d_iff b)
-    else 
-      pp_ite "if" (pp_term 0) (Bool.d_ite b)
-
-  and pp_bv prec b =
-    match b.node with
-      | Bv(Const c) -> 
-	  Format.fprintf fmt "0b%s" (Bitv.to_string c)
-      | Bv(BvToNat x) ->
-	  fprintf fmt "@[bv2nat("; pp_term 0 x;  fprintf fmt ")@]"
-      | Bv(Conc l) ->
-	  list_sep (fun () -> pr " ++ ") pp_fixed l
-      | Bv(Extr((n,x),i,j)) ->
-	    fprintf fmt "@[extr[%d:%d](" i j; pp_fixed (n,x); fprintf fmt ")@]"
+      | Add, _ :: _ :: _ ->
+	  list_sep (fun () -> pr " + ") (pp_term prec) l  
+      | Mult, _::_::_ ->
+	  pr "@[("; list_sep (fun () -> pr " * ") (pp_term prec) l; pr ")@]"
+      | Div, [x;y] ->
+	  pr "@["; pp_term prec x; pr " / "; pp_term prec y; pr "@]" 
       | _ ->
-	  if Bv.is_neg b then
-	    begin
-	      fprintf fmt "@[bvneg("; pp_fixed (Bv.d_neg b); fprintf fmt ")@]"
-	    end
-	  else if Bv.is_conj b then
-	    let n,x,y = Bv.d_conj b in
-	    begin
-	      fprintf fmt "@[bvand("; pp_term 0 x; fprintf fmt ", "; pp_term 0 y; fprintf fmt ")@]"
-	    end
-	  else
-	    let (n,x,y,z) = Bv.d_ite b in
-	    pp_ite "bvite" (pp_term 0) (x,y,z)
-	    
-  and pp_fixed (n,x) =
-      pp_term 0 x; fprintf fmt "@[[%d]@]" n
+	  assert false
 
-  and pp_set prec s =
-    match s.node with
-      | Set(Empty _) ->
-	  fprintf fmt "empty"
-      | Set(Full _) ->
-	  fprintf fmt "full"
-      | Set(Finite ts) ->
-	  fprintf fmt "@[{"; pp_terml (Term.Set.to_list ts); fprintf fmt "}@]"
-      | Set(Cnstrnt c) ->
-	  pp_cnstrnt prec fmt c
-      | Set(SetIte _) when Sets.is_compl s ->
-	  pp_unary prec (pp_term 8) "compl" (Sets.d_compl s)
-      | Set(SetIte _) when !print_connectives && Sets.is_inter s ->
-	  pp_binary prec (pp_term 4) "inter" (Sets.d_inter s)
-      | Set(SetIte _) when !print_connectives && Sets.is_union s ->
-	  pp_binary prec (pp_term 3) "union" (Sets.d_union s)
-      | Set(SetIte _) when !print_connectives && Sets.is_sym_diff s ->
-	  pp_binary prec (pp_term 3) "diff" (Sets.d_sym_diff s)
-      | Set(SetIte _) when !print_connectives && Sets.is_sub s ->
-	  pp_binary prec (pp_term 2) "sub" (Sets.d_sub s)
-      | Set(SetIte _) when !print_connectives && Sets.is_equal s ->
-	  pp_binary prec (pp_term 2) "sub" (Sets.d_equal s)
-      | Set(SetIte(_,x,y,z)) ->
-	  pp_ite "setite" (pp_term 0) (x,y,z)
-      | _ -> assert false
+  and pp_tuple prec op l =
+    match op, l with
+      | Product, _::_::_ ->
+	  pr "@[("; pp_terml l; pr ")@]"
+      | Proj(i,n),[x] ->
+	  fprintf fmt "@[proj[%d,%d](" i n; pp_term 0 x; pr ")@]"
+      | _ ->
+	  assert false
 
-	
-  and pp_binary prec pp op (x,y) =
-    fprintf fmt "@["; pp x; fprintf fmt "@ %s@ " op; pp y; fprintf fmt "@]"
-
-  and pp_unary prec pp op x =
-    fprintf fmt "@["; fprintf fmt "%s " op; pp x; fprintf fmt "@]"
+  and pp_bool prec op l =
+    match op, l with
+      | True, [] ->
+	  fprintf fmt "true"
+      | False, [] ->
+	  fprintf fmt "false"
+      | Ite, [x;y;z] ->
+	  pp_ite "if" (pp_term 0) (x,y,z)
+      | _ ->
+	  assert false
 
   and pp_ite str pp (x,y,z) =
     pr "@["; fprintf fmt "%s " str;
@@ -264,29 +188,27 @@ let pp fmt t =
   in
   pp_term 0 t
     
-
 let pp_eqn fmt (a,b) =
   Format.fprintf fmt "@[";
   pp fmt a;
-  Format.fprintf fmt "@ =@ ";
+  Format.fprintf fmt " = ";
   pp fmt b;
   Format.fprintf fmt "@]"
-
     
 let pp_diseq fmt (a,b) =
   Format.fprintf fmt "@[";
   pp fmt a;
-  Format.fprintf fmt "@ <>@ ";
+  Format.fprintf fmt " <> ";
   pp fmt b;
   Format.fprintf fmt "@]"
-
     
 let term = pp
      
 let eqn = pp_eqn
 
-let cnstrnt = (pp_cnstrnt 0)
+let diseq = pp_diseq
 
+let cnstrnt = (pp_cnstrnt 0)
 	    
 let tset fmt s = 
   let rec loop = function
@@ -296,7 +218,6 @@ let tset fmt s =
   in
   Format.fprintf fmt "@[{"; loop (Term.Set.to_list s); Format.fprintf fmt "}@]"
 
-    
 let tmap p fmt m =
   let pp_assign (x,a) =
     Format.fprintf fmt "@["; pp fmt x; Format.fprintf fmt "@ |->@ "; p fmt a

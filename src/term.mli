@@ -17,7 +17,23 @@
 (*i*)
 open Hashcons
 open Bitv
+open Mpa
 (*i*)
+
+(*s Type of constraints. *)
+
+type cnstrnt = 
+  | Top
+  | BooleanCnstrnt
+  | ArithCnstrnt of Interval.t
+  | TupleCnstrnt
+  | Bot
+
+val ceq : cnstrnt -> cnstrnt -> bool
+
+(*s Variable names. *)
+
+type name = string
 
       (*s Terms.  A term is either a variable [Var(s)], where the name [s] is a string, an
 	application [App(f,l)] of a `function symbol' to a list of arguments, an update
@@ -26,106 +42,197 @@ open Bitv
 	[Tuple], or bitvectors [Bv]. By definition, all entitities of type [t] are hash-consed.
 	Therefore, equality tests between terms can be done in constant time using the equality
 	[===] from the module [Hashcons].
-      *)
 
-type variable = string
-
-type tag = int
-
-type t = tnode hashed
-
-and tnode =
-  | Var of variable
-  | App of t * t list
-  | Update of t * t * t
-  | Cond of t * t * t
-  | Arith of arith
-  | Tuple of tuple
-  | Bool of prop
-  | Set of set
-  | Bv of bv
-
-      (*s Arithmetic terms are either numerals of the form [Num(q)], n-ary addition [Add(l)],
+        Arithmetic terms are either numerals of the form [Num(q)], n-ary addition [Add(l)],
 	linear multiplication [Multq(q,a)], nonlinear multiplication [Mult(l)], or division.
 	Arithmetic terms built up solely from [Num], [Add], and [Multq] are considered to
 	be interpreted, since [Mult] and [Div] are considered to be uninterpreted, in general.
 	However, certain simplification rules for these uninterpreted function symbols are
-	built-in. *)
-    
-and arith =
-  | Num of Mpa.Q.t
-  | Add of t list
-  | Multq of Mpa.Q.t * t
-  | Mult of t list
-  | Div of t * t
+	built-in.
 
-      (*s Propositional terms are either [False], [True], or conditionals [Ite(a,b,c)].
-	Other propositional connectives can be encoded using these constructor. *)
-     
-and prop =
-  | True
-  | False
-  | Equal of t * t  
-  | Ite of t * t * t
-      (*s Propositional sets are build from the empty set [Empty], the full set
-	  [Full], the finite set constructor [Finite s], denoting the extension of
-	  the set of terms [s], the constraint set [Cnstrnt(c)], which denotes
-	  all terms satisfying the constraint [c], and the set connective [SetIte(a,b,c)],
-	  which can be thought of [(a inter b) union ((compl a) inter b)], where
-	  [inter] denotes intersection of two sets, [union] denotes set union, and [compl]
-	  set complementation.  Set constructors are parameterized by a [tag] in order
-	  to distinguish between, for example, between sets of various types.
-      *)
+        Propositional terms are either [False], [True], or conditionals [Ite(a,b,c)].
+	Other propositional connectives can be encoded using these constructor.
 
-and set =
-  | Empty of tag
-  | Full of tag
-  | Finite of terms
-  | Cnstrnt of Interval.t
-  | SetIte of tag * t * t * t
-
-      (*s A tuple term is either a tuple [Tup(l)] or the [i]-th projection [Proj(i,n,_)]
-	  from an [n]-tuple.
-	*)
-      
-and tuple =
-  | Tup of t list
-  | Proj of int * int * t
-
-      (*s A fixed-sized bitvector consists of pair [(n,a)], where [a] is a term and
-	[n] is the length of [a]. The bits of a bitvectors of length [n] are addressed
-	by [0] through [n-1] from left-to-right.  Bitvector terms are  either constants
-	[Const(b)], concatentations [Conc(l)] of fixed-sized bitvectors, extractions
-	[Extr(a,i,j)] of the [i]-th through the [j]-th bit from [a], or bitwise operations
-	constructed using the bitwise conditional [BvIte(a,b,c)].  In addition, [BvToNat(a)]
-	represents the function for computing the unsigned interpretation of bitvectors.
-      *)
-
-and bv =
-  | Const of Bitv.t
-  | Conc of fixed list
-  | Extr of fixed * int * int
-  | BvIte of fixed * fixed * fixed
-  | BvToNat of t
- 
-and fixed = int * t
-
-      (*s Set of terms are implemented using Patricia trees.  Operations
+        A tuple term is either a tuple [Tup(l)] or the [i]-th projection [Proj(i,n,_)]
+	from an [n]-tuple.
+	
+        Set of terms are implemented using Patricia trees.  Operations
 	on these sets are described below in the submodule [Set]. *)
 
-and terms = tnode Ptset.t
+(*s Interpreted function symbols *)
 
-	      (*s A term equation [a = b] is just represented by a pair [(a,b)]. *)
+
+type arith = 
+  | Num of Q.t 
+  | Multq of Q.t 
+  | Add  
+  | Mult
+  | Div
+
+and tuple = 
+  | Product 
+  | Proj of int * int
+
+and boolean = 
+  | True 
+  | False 
+  | Ite
+
+and interp = 
+  | Arith of arith
+  | Tuple of tuple
+  | Bool of boolean
+
+and pred = 
+  | Equal
+  | Cnstrnt of cnstrnt
+
+and builtin = 
+  | Update 
+
+and props = AC | A | C
+
+and symnode = 
+  | Uninterp of t * domain option * props option
+  | Interp of interp
+  | Pred of pred
+  | Builtin of builtin
+
+and sym = symnode hashed
+
+
+and domain = 
+  | RatDom
+  | IntDom
+  | BoolDom
+
+and kind =
+  | Ext of domain option    (* External variables; interpretation may be constrained to domain. *)
+  | Rename of t             (* Invariant: [Var("x",EqVar(t)) = t] *)
+  | Fresh of domain         (* Fresh variables introduce by solvers. *)
+
+and tnode =
+  | Var of name * kind
+  | App of sym * (t list)
+
+and t = tnode hashed
 
 type eqn = t * t
+type diseq = t * t
 
-	     (*s The injection [hc] hash-conses term nodes. Thus, terms [a] and [b]
-	       are considered to be equal iff they are identical.  In addition to
-	       syntactical equality, sets [Finite(s1)] and [Finite(s2)] are also
-	       considered to be equal whenever [s1] and [s2] contain the same elements.
-	     *)
+(*s Variables. There are external and internal variables.
+  External variables are constructed with [mk_var] and
+  its variants [mk_intvar], [mk_ratvar], and [mk_boolvar],
+  which constrain the domain of interpretation to the
+  respective types. Internal variables are either slack
+  variables, rename variables, or fresh variables variables.
+  Slack variables are either constrained to positive or to
+  non-negative rationals, rename variables have an associated
+  equal term which does not contain the rename variable,
+  and fresh variables are variables that are typically
+  generated by solvers. *)
 
-val hc : tnode -> t
+val mk_var : string -> t
+val mk_intvar : string -> t
+val mk_ratvar : string -> t
+val mk_boolvar : string -> t
+val is_var : t -> bool
+val d_var : t -> string
+val is_intvar : t -> bool
+val is_ratvar : t -> bool
+val is_boolvar : t -> bool
+
+val mk_rename_var : string -> t -> t
+val is_rename_var : t -> bool
+val d_rename_var : t -> string * t
+
+val mk_fresh : domain -> t
+val is_fresh : t -> bool
+val d_fresh : t -> string * domain
+
+val is_internal_var : t -> bool
+
+val name_of : t -> t
+
+   (*s Applications. *)
+
+val mk_app : sym -> t list -> t
+
+val mk_uninterp : domain option -> props option -> t -> t list -> t
+val is_uninterp : t -> bool
+val d_uninterp : t -> domain option * props option * t * t list
+
+val mk_uninterp_sym : domain option -> props option -> t -> sym
+
+   (*s Arithmetic. *)
+
+val mk_num : Q.t -> t
+val is_num : t -> bool
+val is_zero : t -> bool
+val is_one : t -> bool
+val d_num : t -> Q.t
+
+val mk_multq : Q.t -> t -> t
+val is_multq : t -> bool
+val d_multq : t -> Q.t * t
+
+val mk_add : t list -> t
+val is_add : t -> bool
+val d_add : t -> t list
+
+val mk_mult : t list -> t
+val is_mult : t -> bool
+val d_mult : t -> t list
+
+    (*s Tuples and projections. *)
+
+val mk_tuple : t list -> t
+val is_tuple : t -> bool
+val d_tuple : t -> t list
+
+val mk_proj : int -> int -> t -> t
+val is_proj : t -> bool
+val d_proj : t -> int * int * t
+
+    (*s Booleans. *)
+
+val mk_tt : unit -> t
+val is_tt : t -> bool
+
+val mk_ff : unit -> t
+val is_ff : t -> bool
+
+val mk_ite : t * t * t -> t
+val is_ite : t -> bool
+val d_ite : t -> t * t * t
+
+
+(*s Predicates. *)
+
+val mk_equal : t * t -> t
+val is_equal : t -> bool
+val d_equal : t -> t * t
+
+val mk_diseq : t * t -> t
+val is_diseq : t -> bool
+val d_diseq : t -> t * t
+
+val mk_cnstrnt : cnstrnt -> t -> t
+val is_cnstrnt : t -> bool
+val d_cnstrnt : t -> cnstrnt * t
+
+
+(*s Built in functions. *)
+
+val mk_update : t * t * t -> t
+val is_update : t -> bool
+val d_update : t -> t * t * t
+
+val mk_div : t * t -> t
+val is_div : t -> bool
+val d_div : t -> t * t
+
+
 
     (*s Fast comparison is done in constant time, but is session-dependent,
       since it uses physical addresses. In constrast, [cmp] is session-independent
@@ -134,114 +241,150 @@ val hc : tnode -> t
 
 val fast_cmp : t -> t -> int
 val cmp : t -> t -> int
+val (<<<): t -> t -> bool
 
-    (*s The terms [Bool(True)], [Bool(False)], [Arith(Num(q))], for a rational [q],
-      [Set(Full(_))], [Set(Empty(_))], [Bv(Const(_))] are considered to be constant terms.
-      They are all having different interpretations.
-    *)
+
+    (*s Destructuring applications. *)
+
+val is_app : t -> bool
+val d_app : t -> sym * t list
+
+(*s Get the "statically" assigned domain of a term. *)
+
+val domain_of : t -> domain option
+
+(*s Classify function symbols. *)
+
+type theories =
+  | ArithTh
+  | TupleTh
+  | BooleanTh
+  | EqTh
+
+val theory_of : sym -> theories
+
+  (*s Test for groundness. *)
+
+val is_ground : t -> bool
+
+  (*s Test if term is a constant. *)
 
 val is_const : t -> bool
 
-    (*s Variables [Var(s)], uninterpreted function application [App _], function update [Update _],
-        nonlinear multiplication [Arith(Mult _)], division [Arith(Div _)], the unsigned interpretation
-        [Bv(BvToNat _)], and the set constructors [Set(Finite _)], and [Set(Cnstrnt _)] are
-        considered to be uninterpreted, and all other terms are interpreted. *)
+  (*s [is_suberm a b] tests if [a] occurs in [b], interpreted or not. *)
 
-val is_uninterpreted : t -> bool
+val is_subterm : t -> t -> bool
 
-    (*s [occurs_interpreted a b] tests if term [a] occurs interpreted in [b]; in
-      particular, this test fails if [a] is a subterm of an uninterpreted term. *)
+  (*s Fold operator on terms. *)
+
+val fold : (t -> 'a -> 'a) -> t -> 'a -> 'a
+
+  (*s Iteration operator on terms. *)
+
+val iter : (t -> unit) -> t -> unit
     
-val occurs_interpreted : t -> t -> bool
+(*s Mapping over list of terms. Avoids unnecessary consing. *)
 
-    (*s [is_ground a] holds for all terms which do not contain
-        a variable term [Var(s)] or a function application [App(f,l)]. *)
+val mapl : (t -> t) -> t list -> t list
 
-val is_ground : t -> bool 
-    
-    (*s [cache n f] memoizes a function [f] which takes terms as arguments using
-        an initial hashtable of size [n]. Similarly, [cache2] caches functions
-        with [t * t] as domain, and [cachel] caches functions with a list of terms
-        as domains. *)
-		  
-val cache : int -> (t -> 'a) -> (t -> 'a)
-val cache2 : int -> (t*t -> 'a) -> (t*t -> 'a)    
-val cachel : int -> (t list -> 'a) -> (t list -> 'a)
+
+(*s Homomorphism [hom a op f (b1,b2,...)] on terms. [f] is applied to arguments [bi],
+    if [bi] equals [f(bi)] for all [i], then the original term [a]
+    is returned, otherwise a new term is constructed using [op]. *)
+
+val hom1 : t -> (t -> t) -> (t -> t) -> t -> t
+val hom2 : t -> (t * t -> t) -> (t -> t) -> t * t -> t
+val hom3 : t -> (t * t * t -> t) -> (t -> t) -> t * t * t -> t
+val homl : t -> (t list -> t) -> (t -> t) -> t list -> t
+
+(*s Association lists for terms. *)
+
+val assq : t -> (t * 'a) list -> 'a
 
     (*s Set of terms. *)
-
 type term = t
-    
+
+type ts = tnode Ptset.t
+
+
+(*s Variables of a term. *)
+
+val vars_of : t -> ts
+
+val freshvars_of : t -> ts
+
+
 module Set : sig
 	     (*s The empty set. *)
-  val empty : terms
+  val empty : ts
     
     (*s [mem a s] tests whether [a] belongs to the set [s]. *)
     
-  val mem : t -> terms -> bool
+  val mem : term -> ts -> bool
 
       (*s [add a s] returns a set containing all elements of [s],
         plus [a]. If [a] was already in [s], [s] is returned unchanged. *)    
-  val add : t -> terms -> terms
+  val add : term -> ts -> ts
       
       (*s [singleton a] returns the one-element set containing only [a]. *)  
-  val singleton: t -> terms
+  val singleton: term -> ts
       
        (*s [sub s1 s2] tests whether the set [s1] is a subset of the set [s2]. *)
-  val sub : terms -> terms -> bool
+  val sub : ts -> ts -> bool
       
       (*s Test whether a set is empty or not. *)
-  val is_empty : terms -> bool
+  val is_empty : ts -> bool
       
       (*s [remove a s] returns a set containing all elements of [s],
          except [a]. If [a] was not in [s], [s] is returned unchanged. *)
-  val remove : t -> terms -> terms
+  val remove : term -> ts -> ts
       
       (* Union and intersection. *)
-  val union : terms -> terms -> terms
-  val inter : terms -> terms -> terms
+  val union : ts -> ts -> ts
+  val inter : ts -> ts -> ts
       
       (* [iter f s] applies [f] in turn to all elements of [s].
          The order in which the elements of [s] are presented to [f]
          is unspecified. *)
-  val iter : (t -> unit) -> terms -> unit
-  val iter2 : (t -> t -> unit) -> terms -> unit
+  val iter : (term -> unit) -> ts -> unit
+  val iter2 : (term -> term -> unit) -> ts -> unit
       
       (*s [fold f s a] computes [(f xN ... (f x2 (f x1 a))...)],
         where [x1 ... xN] are the elements of [s].
         The order in which elements of [s] are presented to [f] is
         unspecified. *)
-  val fold : (t -> 'a -> 'a) -> terms -> 'a -> 'a
+  val fold : (term -> 'a -> 'a) -> ts -> 'a -> 'a
       
-      (*s [map f s] constructs a set consisting of all terms [f(a)] for [a] in [s]. *)
-  val map : (t -> t) -> terms -> terms
+      (*s [map f s] constructs a set consisting of all ts [f(a)] for [a] in [s]. *)
+  val map : (term -> term) -> ts -> ts
       
       (*s [exists p s] checks if at least one element of the set satisfies the predicate [p]. *)
-  val exists : (t -> bool) -> terms -> bool
+  val exists : (term -> bool) -> ts -> bool
       
       (*s [for_all p s] checks if all elements of the set satisfy the predicate [p]. *)  
-  val for_all : (t -> bool) -> terms -> bool
+  val for_all : (term -> bool) -> ts -> bool
       
       (* [filter p s] returns the set of all elements in [s] that satisfy predicate [p]. *) 
-  val filter : (t -> bool) -> terms -> terms
+  val filter : (term -> bool) -> ts -> ts
       
       (*s [to_list s] enumerate the elements of s in a list. The order of the elements
 	  in this list is unspecified. *)
-  val to_list : terms -> term list
+  val to_list : ts -> term list
       
       (*s Return one element of the given set, or raise exception [Not_found] if
         the set is empty. Which element is chosen is unspecified,
         but equal elements will be chosen for equal sets. *)
       
-  val choose : (term -> bool) -> terms -> term
+  val choose : (term -> bool) -> ts -> term
       (*s [destructure s] returns an element term [a] of a nonempty set [s] of terms
 	  together with the set in which [a] is removed from [s]. The exception [Not_found]
 	  is reaised if the argument set is empty. *)
       
-  val destructure : terms -> term * terms
+  val destructure : ts -> term * ts
 end
 
     (*s Finite maps with terms as domain. *)
+
 
 module Map : sig
   type 'a t
@@ -255,7 +398,7 @@ module Map : sig
       (*s [add x y m] returns a map containing the same bindings as
         [m], plus a binding of [x] to [y]. If [x] was already bound
         in [m], its previous binding disappears. *)
-  val add : term -> 'a -> 'a t -> 'a t
+   val add : term -> 'a -> 'a t -> 'a t
 
       (*s [find x m] returns the current binding of [x] in [m],
         or raises [Not_found] if no such binding exists. *)
@@ -264,6 +407,11 @@ module Map : sig
       (*s [remove x m] returns a map containing the same bindings as
         [m], except for [x] which is unbound in the returned map. *)
   val remove : term -> 'a t -> 'a t
+
+      (*s [update x a m] returns a map where the binding for [x] is replace
+        with the binding [x |-> b]. *)
+
+  val update : term -> 'a -> 'a t -> 'a t
 
       (*s [mem x m] returns [true] if [m] contains a binding for [m],
         and [false] otherwise. *)
@@ -301,42 +449,3 @@ module Map : sig
   val to_list : 'a t -> (term * 'a) list
 
 end
-
-  (*s Some constructors and recognizers for constants. *)
-
-val tt : unit -> t
-val ff : unit -> t
-    
-val is_tt : t -> bool
-val is_ff : t -> bool
-
-   (*s Constructing conditional terms. *)
-    
-val ite : t -> t -> t -> t
-
-  (*s Fold operator on terms. *)
-
-val fold : (t -> 'a -> 'a) -> t -> 'a -> 'a
-
-  (*s Iteration operator on terms. *)
-
-val iter : (t -> unit) -> t -> unit
-
-    
-(*s Mapping over list of terms. Avoids unnecessary consing. *)
-
-val mapl : (t -> t) -> t list -> t list
-
-
-(*s Homomorphism [hom a op f (b1,b2,...)] on terms. [f] is applied to arguments [bi],
-    if [bi] equals [f(bi)] for all [i], then the original term [a]
-    is returned, otherwise a new term is constructed using [op]. *)
-
-val hom1 : t -> (t -> t) -> (t -> t) -> t -> t
-val hom2 : t -> (t * t -> t) -> (t -> t) -> t * t -> t
-val hom3 : t -> (t * t * t -> t) -> (t -> t) -> t * t * t -> t
-val homl : t -> (t list -> t) -> (t -> t) -> t list -> t
-val homs : t -> (terms -> t) -> (t -> t) -> terms -> t    
-
-    
-

@@ -26,24 +26,20 @@ let keyword =
   let kw_table = Hashtbl.create 17 in
   List.iter 
     (fun (s,tk) -> Hashtbl.add kw_table s tk)
-    [ "can", CAN; "simp", SIMP; "sigma", SIGMA; "solve", SOLVE; "solution", SOLUTION; "reset", RESET;
-      "for", FOR; "drop", DROP; "assert", ASSERT; "find", FIND; "ext", EXT; "current", CURRENT;
-      "use", USE;
-      "uninterp", UNINTERP;
-      "check", CHECK; "verbose", VERBOSE; "norm", NORM; "ctxt", CTXT;
-      "commands", COMMANDS; "syntax", SYNTAX;
+    [ "can", CAN; "simp", SIMP; "sigma", SIGMA; "norm", NORM; "solve", SOLVE; 
+      "witness", WITNESS; "solution", SOLUTION; "reset", RESET;
+      "drop", DROP; "assert", ASSERT; "find", FIND; "current", CURRENT; "show", SHOW; "undo", UNDO;
+      "use", USE; "uninterp", UNINTERP; "groebner", GROEBNER; "diseqs", DISEQS; "inconsistent", INCONSISTENT;
+      "check", CHECK; "verbose", VERBOSE; "ctxt", CTXT; "ext", EXT;
+      "arith", ARITH; "boolean", BOOLEAN; "tuple", TUPLE; "eq", EQ;
+      "commands", COMMANDS; "syntax", SYNTAX; "declare", DECLARE;
       "cnstrnt", CNSTRNT; "help", HELP;
-      "proj", PROJ; "floor", FLOOR;
-      "int", INT; "real", REAL; "nonintreal", NONINTREAL;
-      "neg", NEG; "nonneg", NONNEG; "pos", POS;
-      "nonpos", NONPOS;
-      "in", IN; "notin", NOTIN; "compl", COMPL; "inter", INTER; "union", UNION; "sub", SUB;
-      "diff", DIFF; "symdiff", SYMDIFF; "empty", EMPTY; "full", FULL;
+      "int", INTDOM; "rat", RATDOM; "bool", BOOLDOM; "real", RATDOM;
+      "A", A; "AC", AC; "C", C;
+      "proj", PROJ;
       "unsigned", UNSIGNED;
       "true", TRUE; "false", FALSE; "if", IF; "then", THEN; "else", ELSE; "end", END;
-      "setif", SETIF; "bvif", BVIF;
-      "integer", INTEGER_PRED;
-      "forall", FORALL; "exists", EXISTS
+      "integer", INTEGER_PRED
     ];
   fun s ->
     try Hashtbl.find kw_table s with Not_found -> IDENT s
@@ -61,13 +57,9 @@ let space = [' ' '\t' '\r' '\n']
 rule token = parse
   | space+     { token lexbuf }
   | '%' [^ '\n']* {token lexbuf }
-  | "-inf"     { NEGINF }
-  | "inf"      { POSINF }
   | ident      { keyword (lexeme lexbuf) }
   | ['0'-'9']+ { INTCONST (int_of_string (lexeme lexbuf)) }
   | ['0'-'9']+ '/' ['0'-'9']+ { RATCONST (Ics.num_of_string (lexeme lexbuf)) }
-  | "0b" ['0'-'1']+ { let s = lexeme lexbuf in 
-		      BV_CONST (String.sub s 2 (String.length s - 2)) }
   | ','        { COMMA }
   | '('        { LPAR }
   | ')'        { RPAR }
@@ -80,8 +72,6 @@ rule token = parse
   | '*'        { TIMES }
   | '/'        { DIVIDE }
   | '='        { EQUAL }
-  | "=="       { SETEQ }
-  | "::"       { CONV }
   | ":="       { ASSIGN }
   | "<>"       { DISEQ }
   | "<"        { LESS }
@@ -93,52 +83,13 @@ rule token = parse
   | '#'        { XOR }
   | '~'        { NOT }
   | "=>"       { IMPLIES }
-  | "->"       { IMPLIES }
   | "<=>"      { IFF }
-  | "<->"      { IFF }
-  | ".."       { DOTDOT }
   | "<<"       { CMP }
-  | "{" ['0'-'9']+ "}" { let s = lexeme lexbuf in
-			 let str = String.sub s 1 (String.length s - 2) in
-			 WIDTH (int_of_string str) }
-  | "&" ['0'-'9']* "&" { let s = lexeme lexbuf in
-			 let str = String.sub s 1 (String.length s - 2) in
-			 if str = "" then
-			   BV_AND(None)
-			 else
-			  BV_AND(Some(int_of_string str)) }
-  | "|" ['0'-'9']* "|"  { let s = lexeme lexbuf in
-			  let str = String.sub s 1 (String.length s - 2) in
-			  if str = "" then
-			    BV_OR(None)
-			  else
-			    BV_OR(Some(int_of_string str)) }
-  | "#" ['0'-'9']* "#"  { let s = lexeme lexbuf in
-			  let str = String.sub s 1 (String.length s - 2) in
-			  if str = "" then
-			    BV_XOR(None)
-			  else
-			    BV_XOR(Some(int_of_string str)) }
-  |  "~" ['0'-'9']+ "~" { let s = lexeme lexbuf in
-			  let str = String.sub s 1 (String.length s - 2) in
-			  BV_COMPL(Some(int_of_string str)) }
-  | "++"                { BV_CONC None }
-  | "+" ['0'-'9']+ "," ['0'-'9']+ "+"
-                        { let str = lexeme lexbuf in
-			  let len = String.length str in
-			  let idx = String.index str ',' in
-			  let n = int_of_string(String.sub str 1 (idx - 1)) in
-			  let m = int_of_string(String.sub str (idx + 1) (len - idx - 2)) in
-			  BV_CONC(Some(n,m)) }
-  |  "^" ['0'-'9']* "^" { let s = lexeme lexbuf in
-			  let str = String.sub s 1 (String.length s - 2) in
-			  if str = "" then
-			    BV_EXTR(None)
-			  else
-			    BV_EXTR(Some(int_of_string str)) }
   | ":"        { COLON }
   | ';'        { SEMI }
   | '.'        { DOT }
+  | '^'        { EXPT }
+  | '_'        { UNDERSCORE }
   | _          { raise Parsing.Parse_error }
   | eof        { raise End_of_file }
 

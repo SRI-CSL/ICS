@@ -29,7 +29,7 @@ let init () = ()
 let call trace_level op args pp =
   if Tools.get_verbose () >= trace_level then
     begin
-      Format.fprintf fmt "%s: " op;
+      Format.fprintf fmt "%s <-- " op;
       pp fmt args;
       Format.fprintf fmt "@." 
     end
@@ -37,7 +37,7 @@ let call trace_level op args pp =
 let exit trace_level op res pp =
   if Tools.get_verbose () >= trace_level then
     begin
-       Format.fprintf fmt "<-- ";
+       Format.fprintf fmt "%s --> " op;
        pp fmt res;
        Format.fprintf fmt "@."
     end
@@ -45,7 +45,6 @@ let exit trace_level op res pp =
 let ok trace_level op =
   exit trace_level op "ok" (fun fmt s -> Format.fprintf fmt s)
     
-
 let exc trace_level op res pp =
   let str = Tools.pp_to_string (fun fmt e ->
 				  Format.fprintf fmt "Exception %s for" op;

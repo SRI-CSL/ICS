@@ -27,6 +27,15 @@ let add (x,t) rho =
     rho
   else Term.Map.add x t rho
 
+let update (x,t) =
+  Term.Map.update x t
+
+let remove x rho =
+  Term.Map.remove x rho
+
+let is_empty =
+  Term.Map.is_empty
+
 let mem s x =
   Term.Map.mem x s
 
@@ -55,6 +64,18 @@ let fold f =
   let fu x y = f(x,y) in
   Map.fold fu
 
+let fold2 f s e =
+  fold 
+    (fun (x1,y1) acc1 ->
+       (fold (fun (x2,y2) acc2 ->
+		if x1 === x2 then acc2 else
+		  f (x1,y1) (x2,y2) acc2)
+	  s acc1))
+    s e
+
+let every f s =
+  fold (fun b acc -> f(b) && acc) s true
+
 let map f s =
   Map.fold (fun x y acc  -> add (f(x,y)) acc) s empty
     
@@ -63,6 +84,7 @@ let dom s =
     Term.Set.add x acc
   in
   Map.fold add s Term.Set.empty
+  
     
 let pp fmt rho =
   let pp_binding (x,a) =
@@ -81,86 +103,6 @@ let pp fmt rho =
   pp_bindings (to_list rho);
   Format.fprintf fmt "@]"
  
-
-(*s {\bf Norm.} This operation, written \replace{S}{a}, applies [S]
-    under the interpreted symbols of [a]. It is defined by
-    \begin{displaymath}\begin{array}{rcl}
-    \replace{S}{f(a_1,\dots,a_n)} & = & 
-        f(\replace{S}{a_1},\dots,\replace{S}{a_n}), 
-        \mbox{ if $f$ is interpreted} \\
-    \replace{S}{a} & = & S(a), \mbox{ otherwise}
-    \end{array}\end{displaymath}
-    We use the [map] function over terms to apply [replace] recursively under
-    interpreted terms.
-*)
-
-let norm s a =
-  let rec repl t =
-    (match t.node with
-      | Var _ ->
-	  find s t
-      | App({node=Set(Cnstrnt(c))},[x]) ->
-	  hom1 t (Cnstrnt.app c) repl x
-      | App({node=Update(x,y,z)} as f,l) ->
-	  let f' = hom3 f App.update repl (x,y,z) in
-	  homl t (App.app f') repl l
-      | App _ ->
-	  find s t
-      | Update(x,y,z) ->
-	  hom3 t App.update repl (x,y,z)
-      | Cond(x,y,z) ->
-	  hom3 t Bool.cond repl (x,y,z)
-      | Set s ->
-	  (match s with
-	     | Full _ | Empty _ | Cnstrnt _ ->
-		 t
-	     | Finite s ->
-		 homs t Sets.finite repl s 
-	     | SetIte(tg,x,y,z) ->
-		 hom3 t (Sets.ite tg) repl (x,y,z))
-      | Bool b ->
-	  (match b with
-	     | True | False ->
-		 t
-	     | Equal(x,y) ->
-		 hom2 t Bool.equal repl (x,y)
-	     | Ite(x,y,z) ->
-		 hom3 t Bool.ite repl (x,y,z))
-      | Arith a ->
-	  (match a with
-	     | Num _ ->
-		 t
-	     | Add l ->
-		 homl t Arith.add repl l
-	     | Multq(q,x) ->
-		 hom1 t (Arith.multq q) repl x
-	     | Mult l ->
-		 homl t Arith.mult repl l
-	     | Div(x,y) ->
-		 hom2 t Arith.div2 repl (x,y))
-      | Bv b ->
-	  (match b with
-	     | Const _ ->
-		 t
-	     | Extr((n,x),i,j) ->
-		 hom1 t (Bv.sub n i j) repl x
-	     | BvToNat x ->
-		 hom1 t (Bv.bv2nat 42) repl x
-	     | Conc l ->
-		 Bv.conc (List.map (fun (n,t) -> (n, repl t)) l)
-	     | BvIte((n,x),(_,y),(_,z)) ->
-		 hom3 t (Bv.ite n) repl (x,y,z))
-      | Tuple tp ->
-	  (match tp with
-	     | Proj(i,j,x) ->
-		 hom1 t (Tuple.proj i j) repl x
-	     | Tup l ->
-		 homl t Tuple.tuple repl l))
-  in
-  repl a
-
-
-
 
 
 

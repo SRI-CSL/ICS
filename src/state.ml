@@ -1,3 +1,5 @@
+<<<<<<< state.ml
+=======
 
 (*i
  * ICS - Integrated Canonizer and Solver
@@ -325,3 +327,4 @@ and funsym_iter_uninterpreted f a =
 
 
 
+>>>>>>> 1.10

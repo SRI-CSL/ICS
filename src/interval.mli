@@ -1,3 +1,4 @@
+
 (*i
  * ICS - Integrated Canonizer and Solver
  * Copyright (C) 2001-2004 SRI International
@@ -32,7 +33,7 @@ open Mpa
 (*i*)
 
 (*s An Interval is specified (although not completely)
-    by the domain its members constitute.To construct an
+    by the domain its members constitute. To construct an
     interval, we have a choice of three domains, namely
     Integers, Reals, NonintReals; the last domain meaning 
     those Reals which are not integers e.g pi. *)
@@ -80,7 +81,6 @@ val oo : domain -> Q.t -> Q.t -> t
 val oc : domain -> Q.t -> Q.t -> t
 val co : domain -> Q.t -> Q.t -> t
 val cc : domain -> Q.t -> Q.t -> t
-
 
 
 (*s Incase we want an interval with either one or both the 
@@ -226,9 +226,9 @@ val multq : Q.t -> t -> t
 
 (*s Lower and Upper bounds of possibly infinite intervals.Strict represents\
     inclusive bound and Nonstrict represents exclusive bound. 
-    Strict bounds-> '[',']';Nonstrict bounds-> '(',')' *)
+    Closed bounds-> '[',']'; Open bounds-> '(',')' *)
 
-type kind = Strict | Nonstrict
+type kind = Closed | Open
 
 (*s Defines the types of lower limits.Neginf represents negative infinity*)
 type low =

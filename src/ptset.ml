@@ -102,7 +102,7 @@ let rec merge = function
   | (Branch (p,m,s0,s1) as s), (Branch (q,n,t0,t1) as t) ->
       if m == n && match_prefix q p m then
 	(* The trees have the same prefix. Merge the subtrees. *)
-	Branch (p, m, merge (s0,t0), merge (s1,t1))
+	Branch (p, m, merge (s0,s1), merge (t0,t1))
       else if m < n && match_prefix q p m then
 	(* [q] contains [p]. Merge [t] with a subtree of [s]. *)
 	if zero_bit q m then 
