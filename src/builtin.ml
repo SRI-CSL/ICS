@@ -17,6 +17,7 @@
 (*i*)
 open Term
 open Mpa
+open Three
 (*i*)
 
 let is_builtin a =
@@ -88,12 +89,10 @@ let rec mk_select s a x =
     match Term.destruct a with
       | f, [b;y;e] 
 	  when Sym.eq f Sym.mk_update ->
-	    if  Context.is_equal s x y then 
-	      e
-	    else if Context.is_diseq s x y then
-	      mk_select s b x
-	    else 
-	      Term.mk_app Sym.mk_select [a;x]
+	    (match Context.is_equal s x y with
+	       | Yes -> e
+	       | No -> mk_select s b x
+	       | _ -> Term.mk_app Sym.mk_select [a;x])
       | _ -> 
 	  Term.mk_app Sym.mk_select [a;x]
 
