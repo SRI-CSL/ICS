@@ -54,6 +54,21 @@ let is_finite (i,_) =
   let (d,l,h) = Interval.destructure i in
   d = Dom.Int && Endpoint.is_q l && Endpoint.is_q h
 
+let is_pos (i, _) =
+  let (eq, _) = Endpoint.destruct (Interval.lo i) in
+    match Extq.destruct eq with
+      | Extq.Posinf -> true
+      | Extq.Inject(q) -> Mpa.Q.gt q Mpa.Q.zero
+      | _ -> false
+
+let is_neg (i, _) =
+  let (eq, _) = Endpoint.destruct (Interval.hi i) in
+    match Extq.destruct eq with
+      | Extq.Neginf -> true
+      | Extq.Inject(q) -> Mpa.Q.lt q Mpa.Q.zero
+      | _ -> false
+  
+
 (*s Membership. *)
 
 let mem q (i,qs) =
@@ -134,7 +149,29 @@ let d_singleton (i, qs) =
 	res
     | _ ->
 	None
-	
+
+let d_lower (i, qs) =
+  if not(Diseqs.is_empty qs) then None else
+    let (dom, lo, hi) = Interval.destructure i in
+    let (a, alpha) =  Endpoint.destruct lo in
+    let (b, _) =  Endpoint.destruct hi in
+      match Extq.destruct a, Extq.destruct b with
+	| Extq.Inject(q), Extq.Posinf ->
+	    Some(dom, alpha, q)
+	| _ ->
+	    None
+
+let d_upper (i, qs) =
+  if not(Diseqs.is_empty qs) then None else
+    let (dom, lo, hi) = Interval.destructure i in
+    let (a, _) =  Endpoint.destruct lo in
+    let (b, beta) =  Endpoint.destruct hi in
+      match Extq.destruct a, Extq.destruct b with
+	| Extq.Neginf, Extq.Inject(p)->
+	    Some(dom, p, beta)
+	| _ ->
+	    None
+ 
 
 let mk_zero = mk_singleton Mpa.Q.zero
 let mk_one = mk_singleton Mpa.Q.one
@@ -238,6 +275,12 @@ let mk_oo dom u v = of_endpoints (dom, Endpoint.strict u, Endpoint.strict v)
 let mk_oc dom u v = of_endpoints (dom, Endpoint.strict u, Endpoint.nonstrict v)
 let mk_co dom u v = of_endpoints (dom, Endpoint.nonstrict u, Endpoint.strict v)
 let mk_cc dom u v = of_endpoints (dom, Endpoint.nonstrict u, Endpoint.nonstrict v)
+
+let mk_lower dom (u, beta) = 
+  of_endpoints (dom, Endpoint.neginf, Endpoint.make (Extq.of_q u, beta))
+
+let mk_upper dom (alpha, u) = 
+  of_endpoints (dom, Endpoint.make (Extq.of_q u, alpha), Endpoint.posinf)
 
 let mk_lt dom u = of_endpoints (dom, Endpoint.neginf, Endpoint.strict u)
 let mk_le dom u = of_endpoints (dom, Endpoint.neginf, Endpoint.nonstrict u)
