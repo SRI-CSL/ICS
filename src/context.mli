@@ -29,15 +29,12 @@
        \end{itemize}
  *)
 
-type t = {
-  ctxt : Atom.Set.t;    (* Current context. *)
-  p : Partition.t;      (* Variable partitioning. *)
-  u : Solution.t;       (* Congruence closure data structure. *)
-  a : Solution.t;       (* Arithmetic equality context. *)
-  t : Solution.t;       (* Tuple equality context. *)
-  bv : Solution.t;      (* Bitvector equality context. *)
-  labels : Term.Set.t
-}
+type t
+
+val ctxt_of : t -> Atom.Set.t
+val p_of : t -> Partition.t
+val eqs_of : t -> Theories.t -> Solution.t
+val upper_of : t -> int
 
 val v_of : t -> V.t
 val d_of : t -> D.t
@@ -53,7 +50,6 @@ val pp : t Pretty.printer
 
 val eq : t -> t -> bool
 
-
 (*s For an term [a] which is either uninterpreted or an interpreted
  constant, [type_of s a] returns the most refined type as obtained
  from both static information encoded in the arity of uninterpreted
@@ -62,35 +58,28 @@ val eq : t -> t -> bool
 
 val cnstrnt : t -> Term.t -> Cnstrnt.t
 
+(*
+(*s Cnstrnts from terms. Raises [Not_found] when unconstrained. *)
+
+val of_term : V.t * t -> Term.t -> Cnstrnt.t
+
+val of_arith : V.t * t -> Sym.arith -> Term.t list -> Cnstrnt.t
+
+val of_builtin : V.t * t -> Sym.builtin -> Term.t list -> Cnstrnt.t
+*)
+
 val is_equal : t -> Term.t -> Term.t -> Three.t
 
-val is_int : t -> Term.t -> bool
 
 (*s Variable partitioning. *)
 
 val v : t -> Term.t -> Term.t
+val d : t -> Term.t -> Term.Set.t
+val c : t -> Term.t -> Cnstrnt.t
 
-val deq : t -> Term.t -> Term.Set.t
+(*s Fold over an equivalence class. *)
 
-val partition: t -> V.t * D.t
-
-(*s [update i s e] *)
-
-val update : Sym.theories -> t -> Solution.t -> t
-
-(*s [install i s (p, e)] *)
-
-
-val install : Sym.theories -> t -> Partition.t * Solution.t -> t
-
-
-(*s [extend s p] adds the partition [p] to [s]. *)
-
-val update_p : t -> Partition.t -> t
-
-val update_v : t -> V.t -> t
-val update_d : t -> D.t -> t
-val update_c : t -> C.t -> t
+val fold : t -> (Term.t -> 'a -> 'a) -> Term.t -> 'a -> 'a
 
 
 (*s [lookup s a] returns, if possible, a canonical variable equal to [a]. *)
@@ -103,17 +92,14 @@ val lookup : t -> Term.t -> Term.t
 
 val choose : t -> (Term.t -> 'a option) -> Term.t -> 'a
 
-(*s Solution sets for equality theories. *)
-
-val solutions : Sym.theories -> t -> Solution.t
-
-
 (*s Parameterized operators *)
 
-val apply : Sym.theories -> t -> Term.t -> Term.t
-val find : Sym.theories -> t -> Term.t -> Term.t
-val inv : Sym.theories -> t -> Term.t -> Term.t
-val use : Sym.theories -> t -> Term.t -> Term.Set.t
+val mem : Theories.t -> t -> Term.t -> bool
+val apply : Theories.t -> t -> Term.t -> Term.t
+val find : Theories.t -> t -> Term.t -> Term.t
+val inv : Theories.t -> t -> Term.t -> Term.t
+val use : Theories.t -> t -> Term.t -> Term.Set.t
+val equality : Theories.t -> t -> Term.t -> Fact.equal
 
 (*s [sigma] normal form. *)
 
@@ -121,28 +107,54 @@ val sigma : t -> Sym.t -> Term.t list -> Term.t
 
 (*s [solve i s (a, b)] applies solver for theory [i] on equality [a = b]. *)
 
-val solve : Sym.theories -> t -> Term.t * Term.t -> (Term.t * Term.t) list
+val solve : Theories.t -> t -> Fact.equal -> Fact.equal list
 
-(* Extend. *)
+(*s Updates. *)
 
-val extend : t -> Term.t -> Term.t * t
+val extend : Atom.t -> t -> t
 
-(*s Variable abstraction of a term *)
+val union : Theories.t -> Fact.equal -> t -> t
+val restrict : Theories.t -> Term.t -> t -> t
+val fuse : Theories.t -> Fact.equal -> t -> t
+val compose : Theories.t -> Fact.equal -> t -> t
 
-val abstract_term : Sym.theories -> t -> Term.t -> t * Term.t
+val update: Partition.t -> t -> t
 
-(*s [propagate i (x, y) s]. *)
+val name : Theories.t -> t * Term.t -> t * Term.t
 
-val propagate : Sym.theories -> Fact.equal -> t -> t
-
-(*s [fuse i (x, y) s]. *)
-
-val fuse : Sym.theories -> Fact.equal -> t -> t
-
-(*s [compose i (a, b) s]. *)
-
-val compose : Sym.theories -> Fact.equal -> t -> t
 
 (*s List all constraints with finite extension. *)
 
 val split : t -> Atom.Set.t
+
+
+
+module Changed : sig
+
+  type t
+
+  val in_v : t -> Term.Set.t
+  val in_d : t -> Term.Set.t
+  val in_c : t -> Term.Set.t
+
+  val in_eqs : Theories.t -> t -> Term.Set.t
+
+  val reset : unit -> unit
+
+  val save : unit -> t
+
+  val restore : t -> unit
+
+  val stable : unit -> bool
+
+  val pp : t Pretty.printer
+ 
+end
+
+
+(*s Update rules work on the following global variables together with the index
+ for creating new variables. Within a [protect] environment, updates are performed
+ destructively. Global variables are not protected! *)
+
+val protect : (t -> t) -> t -> t
+  
