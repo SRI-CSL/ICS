@@ -27,12 +27,18 @@ void ICSInterface::reset()
 
 void ICSInterface::push()
 {
+	// clock_t start = clock();
 	icsat_push();
+	// clock_t end = clock();
+	// ics_elapsed += ((double) (end - start)) / CLOCKS_PER_SEC;
 }
 
 void ICSInterface::pop()
 {
+	// clock_t start = clock();
 	icsat_pop();
+	// clock_t end = clock();
+	// ics_elapsed += ((double) (end - start)) / CLOCKS_PER_SEC;
 }
 
 void ICSInterface::set_formula(unsigned int f_idx)

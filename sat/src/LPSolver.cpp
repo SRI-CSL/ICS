@@ -799,7 +799,7 @@ bool LPSolver::is_satisfiable(LPFormulaId f)
 	searching = true;
 	bool result = false;
 	while(true) {
-		if (num_case_splits % 0xFF == 0) {
+		if (num_case_splits % 0xFFF == 0) {
 			update_heuristics_info();
 		}
 		
@@ -1352,6 +1352,7 @@ unsigned int LPSolver::update_heuristics_in_activation_mode(LPFormulaId f)
 
 void LPSolver::update_heuristics_info()
 {
+ 	clock_t start = clock();
 	if (branching_mode == LP_ACTIVATION_MODE) {
 		if (experimental_heuristics)
 			update_heuristics_in_activation_mode(root_formula_id);
@@ -1382,6 +1383,8 @@ void LPSolver::update_heuristics_info()
 					 for (unsigned int i = 0; i < n; i++) {
 						 assert(to_check_inverse.get(to_check.get(i)) == i);
 					 });
+	clock_t end = clock();
+	heurisitic_update_time += ((double) (end - start)) / CLOCKS_PER_SEC;
 }
 
 bool LPSolver::process_complex_constraints()
