@@ -998,7 +998,8 @@ let do_valid =
   (fun (n, a) ->
      if Context.is_valid (get_context n) [a] then Out.tt () else Out.ff ())
   {args = "[@<ident>] <atom>";
-   short = "Test if <atom> is valid in context <ident>."; 
+   short = "Test if <atom> is valid in context <ident>. There are no side
+            effects on contexts."; 
    description = "" ; 
    examples = []; 
    seealso = "assert, unsat"}
@@ -1012,7 +1013,8 @@ let do_unsat =
        else 
 	 Out.ff ())
     {args = "[@<ident>]  <atom>";
-     short = "Test if <atom> conjoined with context <ident> is unsatisfiable."; 
+     short = "Test if <atom> conjoined with context <ident> is unsatisfiable.
+              There are no side effects on contexts."; 
      description = "" ; 
      examples = []; 
      seealso = "assert, valid"}
@@ -1144,7 +1146,7 @@ let do_split =
     (fun n ->
        let s = get_context n in
 	 (try
-	    let spl = failwith "to do" (* Combine.split (Context.config_of s) *) in
+	    let spl = failwith "Split not available in version 2.1" (* Combine.split (Context.config_of s) *) in
 	     (* Combine.Split.pp !outchannel spl *)
 	      ()
 	  with
@@ -1527,8 +1529,8 @@ let _ =
   Nonterminal.register "var"
     ["<ident>";
      "<ident>{<dom>}";
-     "<ident>!<int>";
-     "<ident>!<int>{<dom>}"]
+     "<ident>!<intconst>";
+     "<ident>!<intconst>{<dom>}"]
     "An external variable is either an identifier or
      an identifier followed by a domain restriction. Such
      a restriction specifies the variable to be interpreted
@@ -1593,12 +1595,12 @@ let _ =
 
 let _ = 
   Nonterminal.register "arith"
-    ["<rat>";
+    ["<ratconst>";
      "<term> + <term>";
      "<term> - <term>";
      "<term> * <term>";
      "-<term>";
-     "<term> ^ <int>"]
+     "<term> ^ <intconst>"]
     " The function symbols '+', '-', '*',
      are interpreted in linear ('a') or nonlinear arithmetic 'nl'."
 
@@ -1621,7 +1623,7 @@ let _ =
   Nonterminal.register "bv"
     ["0b[0|1]*";
      "<term> ++ <term>";
-     "<term>[<int>:<int>]"]
+     "<term>[<intconst>:<intconst>]"]
     "Constant bitvectors are preceded by '0b' and 
      'true' and 'false' are just mnemonics for the constant bitvectors
      '0b1' and '0b0' of length 1, respectively.
@@ -1640,14 +1642,14 @@ let _ =
      and identifiers that have been used up by other means."
 
 let _ = 
-  Nonterminal.register "int"
+  Nonterminal.register "intconst"
     ["[0-9]*"]
     "Natural numbers."
 
 
 let _ = 
-  Nonterminal.register "rat"
-    ["<int>/<int> "]
+  Nonterminal.register "ratconst"
+    ["<intconst>/<intconst> "]
     "Rational numbers."
 
 let _ = 
@@ -1664,7 +1666,13 @@ let _ =
      or built up from propositional connectives such as conjunction '&',
      disjunction '|', negation '~', implication '=>', biimpliciation '<=>',
      or the conditional construct. Notice that, in contrast to atoms,
-     propositions are grouped using square brackets."
+     propositions are grouped using square brackets. Structure sharing
+     is obtained by using the <prop> command for defining names for
+     propositional formulas. For example, the command 'prop p := x & [y | z].'
+     defines a name 'p' for the formula on the right-hand side. An identifier
+     in a propositional formula is first tried to be expanded to such 
+     a definitional right-hand side and if there is no such definition,
+     an identifier is treated as a propositional variable."
 
 let _ = 
   Nonterminal.register "atom"
