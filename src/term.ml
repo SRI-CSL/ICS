@@ -59,16 +59,11 @@ module Var = struct
   (** Every variable has a {i unique} index associated with it. *)
   module Index = struct
     let current = ref 0
- (*   let index_to_var = Array.make 20000 (Obj.magic 0)
-      let _ =  Tools.add_at_reset (fun () -> current := 0) *)
-
+ 
     let create x =
       let a = Var(x, !current) in
-	(* Array.set index_to_var !current a; *)
 	incr(current);
 	a
-
- (*   let to_var i = Array.get index_to_var i *)
   end
  
 
@@ -203,61 +198,11 @@ module Var = struct
       | _ ->
 	  invalid_arg("Term.Var.compare: getting unique index of nonvariable term ")
 
-(*
-(*  Balanced trees are much faster than Patricia trees! *)
- module Set = struct
-    type t = Ptset.t
-    type elt = trm
-    let empty = Ptset.empty
-    let is_empty = Ptset.is_empty
-    let mem x = Ptset.mem (index_of x)
-    let add x = Ptset.add (index_of x)
-    let singleton x = Ptset.singleton (index_of x)
-    let remove x = Ptset.remove (index_of x)
-    let union = Ptset.union
-    let subset = Ptset.subset
-    let inter = Ptset.inter
-    let diff = Ptset.diff
-    let equal = Ptset.equal
-    let compare = Ptset.compare
-    let elements s = Ptset.fold (fun i acc -> Index.to_var i :: acc) s []
-    let choose s = Index.to_var (Ptset.choose s)
-    let cardinal = Ptset.cardinal
-    let inj f i =  f (Index.to_var i)
-    let iter f = Ptset.iter (inj f)
-    let fold f = Ptset.fold (inj f)
-    let for_all p = Ptset.for_all (inj p)
-    let exists p = Ptset.exists (inj p)
-    let filter p = Ptset.filter (inj p)
-    let partition p = Ptset.partition (inj p)
-    let max_elt s = Index.to_var (Ptset.max_elt s)
-    let min_elt s = Index.to_var (Ptset.max_elt s)
- end
-
-  module Map = struct
-    type (+'a) t = 'a Ptmap.t
-    type key = trm
-    let empty = Ptmap.empty
-    let add x = Ptmap.add (index_of x)
-    let find x = Ptmap.find (index_of x)
-    let remove x = Ptmap.remove (index_of x)
-    let mem x = Ptmap.mem (index_of x)
-    let inj f i =  f (Index.to_var i)
-    let iter f = Ptmap.iter (inj f)
-    let map f =
-      let f' i = failwith "Term.Var.Map.map: to do" in
-	Ptmap.map f'
-    let mapi f = Ptmap.mapi (inj f)
-    let fold f = Ptmap.fold (inj f)
-  end
-    *)
-
   module Set = Set.Make(
     struct
       type t = trm
       let compare = compare
     end)
-
 
   module Map = Map.Make(
     struct
