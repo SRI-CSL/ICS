@@ -64,7 +64,7 @@ and abstract_diseq (s, d) =
 and abstract_cnstrnt (s, c) =  
   Trace.msg "rule" "Abstract" c Fact.pp_cnstrnt;
   let (a, i, _) = Fact.d_cnstrnt c in
-  let (s', a') = abstract_term la (s, a) in  (* not necessarily a variable. *)
+  let (s', a') = abstract_toplevel_term (s, a) in
   let c' = Fact.mk_cnstrnt a' i None in
     (s', c')
 
@@ -101,7 +101,6 @@ and abstract_args i (s, al) =
 	    (s'', b' :: bl')
 
 
-
 (*s Adding equalities/disequalities/constraints to partition. *)
 
 let merge e s = 
@@ -114,16 +113,12 @@ let diseq d s =
     
 let add c s = 
   Trace.msg "rule" "Add" c Fact.pp_cnstrnt;
-  let (a, i, _) = Fact.d_cnstrnt c in
-    if is_var a then
-      update (Partition.add c (p_of s)) s
-    else 
-      let x' = Var(Var.mk_slack None) in
-      let c' = Fact.mk_cnstrnt x' i None in
-      let e' = Fact.mk_equal x' a None in
-	Trace.msg "foo" "Slackify" e' Fact.pp_equal;
-	let s' = update (Partition.add c' (p_of s)) s in
-	  compose la e' s'
+  update (Partition.add c (p_of s)) s
+
+let infer x i s =
+  if Cnstrnt.eq i Cnstrnt.mk_real then s else 
+    let c = Fact.mk_cnstrnt (v s x) i None in
+      add c s
 	  
 (*s Sequential composition *)
 
@@ -147,10 +142,8 @@ let fold i ch f =
 let foldv ch f =
   Set.fold
     (fun x s -> 
-       try 
-	 f (V.equality (v_of s) x) s
-       with 
-	   Not_found -> s)
+       try f (V.equality (v_of s) x) s 
+       with Not_found -> s)
     ch
 
 (*s Applying rule [f d] for all disequalities [d] in [s] of the form [x <> y] where [x]
@@ -169,92 +162,304 @@ let foldd ch f =
 let foldc ch f = 
   Set.fold
    (fun x s -> 
-      try 
-	f (Partition.cnstrnt (p_of s) x) s
-      with 
-	  Not_found -> s)
+      try f (Partition.cnstrnt (p_of s) x) s
+      with Not_found -> s)
     ch
 
 
 (*s Propagating merged equalities into theory-specific solution sets. *)
 
-let rec prop_star ch = foldv ch prop
+let rec propagate_star ch = 
+  foldv ch propagate
 
-and prop e =           
-  (compose la e &&&
-   compose p e &&&
-   compose bv e &&&
-   compose cop e &&&
-   fuse u e &&&
-   fuse pprod e &&&
-   fuse app e &&&
-   fuse arr e &&&
-   fuse bvarith e)
-
-and compose i e s =
-  Trace.msg "rule" "Compose" e Fact.pp_equal;
-  let (x, y, _) = Fact.d_equal e in
-    if not(Set.is_empty (use i s x)) then      (* [x] occurs on rhs. *)
-      let b = find i s y in
-      let e' = Fact.mk_equal x b None in
-	fuse i e' s
-    else
-      try
-	let a = apply i s x in
-	  try
-	    let b = apply i s y in 
-	      if Term.eq a b then s else 
-		let e' = Fact.mk_equal a b None in
-		  Context.compose i e' s
-	  with
-	      Not_found ->
-		let e' = Fact.mk_equal y a None in
-		  Context.compose i e' s (* (Context.restrict i x s) *)
-	  with
-	      Not_found -> s        (* [x] occurs neither on rhs nor on lhs. *)
+and propagate e =           
+  (compose Th.la e &&&
+   compose Th.p e &&&
+   compose Th.bv e &&&
+   compose Th.cop e &&&
+   fuse Th.u e &&&
+   fuse Th.pprod e &&&
+   fuse Th.app e &&&
+   fuse Th.arr e &&&
+   fuse Th.bvarith e)
 
 
+(*s Deduce new constraints from changes in the linear arithmetic part. *)
 
+let rec arith_star (chla, chc) =
+  fold Th.la chla arith_fme &&&
+  foldc chc arith_cnstrnt
 
-(*s Deduce new facts from changes in the linear arithmetic part. *)
-
-let rec arith_star ch =
-  fold la ch arith_deduce
+and arith_cnstrnt c s =
+  let (x, i, _) = Fact.d_cnstrnt c in
+    folduse Th.la x
+      (fun (y, b) s ->
+	 match b with
+	   | App(Arith(op), xl) ->
+	       (try
+		  let i = Arith.tau (Context.c s) op xl in
+		    infer y i s
+		with
+		    Not_found -> s)
+	   | _ ->
+	       s)
+      s
  
-and arith_deduce e s = 
+and arith_fme e s = 
   Trace.msg "rule" "Arith_deduce" e Fact.pp_equal;
   let (x, b, _) = Fact.d_equal e in
     match b with
-      | App(Arith(op), xl) -> 
-	  Deduce.of_linarith x (op, xl) s
-      | _ -> s
+      | App(Arith(Num(q)), []) -> 
+	  infer x (Cnstrnt.mk_singleton q) s
+      | App(Arith(Multq(q)), [y]) -> 
+	  (try infer x (Cnstrnt.multq q (c s y)) s with Not_found -> s)
+      | App(Arith(Add), ml) ->
+	  let i = Arith.cnstrnt_of_monomials (c s) ml in
+	    ints x ml 
+	      (fme x ml 
+		 (infer x i s))
+      | _ ->
+	  s 
+
+and fme x ml s =
+  try
+    let i1 = c s x in
+    let dom1 = Cnstrnt.dom_of i1 in
+    let (lo1, hi1) = Cnstrnt.endpoints_of i1 in
+    let (q1, z1, ml1) = Arith.destructure (Arith.mk_addl ml) in
+      folduse Th.la z1
+	(fun (y, b) s ->
+	   if Term.eq y x then s else
+	     let (q2, z2, ml2) = Arith.destructure b in
+	       if not(Term.eq z1 z2) then s else
+		 try
+		   let i2 = c s y in
+		   let dom2 = Cnstrnt.dom_of i2 in
+		   let (lo2, hi2) = Cnstrnt.endpoints_of i2 in
+		   let dom = Dom.union dom1 dom2 in
+		     (match Q.sign q1, Q.sign q2 with
+			| Sign.Pos, Sign.Pos ->
+			    less dom (q2, lo2, ml2) (q1, hi1, ml1)
+			      (less dom (q1, lo1, ml1) (q2, hi2, ml2) s)
+			| Sign.Pos, Sign.Neg ->
+			    less dom (q2, hi2, ml2) (q1, hi1, ml1)
+			    (less dom (q1, lo1, ml1) (q2, lo2, ml2) s)
+			| Sign.Neg, Sign.Pos ->
+			    less dom (q1, hi1, ml1) (q2, hi2, ml2)
+			    (less dom (q2, lo2, ml2) (q1, lo1, ml1) s)
+			| Sign.Neg, Sign.Neg ->
+			    less dom (q1, hi1, ml1) (q2, lo2, ml2)
+			    (less dom (q2, hi2, ml2) (q1, lo1, ml1) s)
+			| _ ->
+			    s)
+		 with
+		     Not_found -> s)
+	s      
+  with
+      Not_found -> s
+
+
+	
+(*s Generate an inequality [1/q1 * (p1 - ml1) < 1/q2 & (p2 - ml2). *)	
+
+and less dom (q1, ep1, ml1) (q2, ep2, ml2) s = 
+  let (extq1, alpha) = Endpoint.destruct ep1 in
+  let (extq2, beta) = Endpoint.destruct ep2 in
+    match Extq.destruct extq1, Extq.destruct extq2 with
+      | Extq.Posinf, Extq.Posinf -> 
+	  s
+      | Extq.Posinf, _ -> 
+	  raise Exc.Inconsistent
+      | Extq. Neginf, Extq.Neginf -> 
+	  s
+      | _, Extq.Neginf -> 
+	  raise Exc.Inconsistent
+      | Extq.Inject(p1), Extq.Inject(p2) ->
+	  let a = Arith.mk_multq (Q.inv q1) 
+		    (Arith.mk_sub (Arith.mk_num p1) (Arith.mk_addl ml1))
+	  and b = Arith.mk_multq (Q.inv q2) 
+		    (Arith.mk_sub (Arith.mk_num p2) (Arith.mk_addl ml2)) in
+	  let a_sub_b = Can.term s (Arith.mk_sub a b) in
+	  let (s', x') = name Th.la (s, a_sub_b) in
+	  let i' = Cnstrnt.mk_lower dom (Q.zero, alpha && beta) in
+	    infer x' i' s'
+      | _ ->
+	  s
+
+and ints x ml s = 
+  let not_is_int m =
+    not (Arith.is_int (c s) m)
+  in
+  let ml = Arith.mk_neg x :: ml in
+    match List.filter not_is_int ml with
+      | [] -> s
+      | [Var _ as x] -> 
+	  infer x Cnstrnt.mk_int s
+      | [App(Arith(Num(q)), [])] -> 
+	  if Q.is_integer q then s else raise Exc.Inconsistent
+      | [App(Arith(Multq(q)), [x])] ->
+	  if Q.is_integer q then infer x Cnstrnt.mk_int s else s
+      | ql -> 
+	  let a = Can.term s (Arith.mk_addl ql) in
+	    match Arith.d_num a with
+	      | Some(q) ->
+		  if Q.is_integer q then s else raise Exc.Inconsistent
+	      | _ ->
+		  if is_var a then infer a Cnstrnt.mk_int s else s   
+		                         (* do not introduce new names for now. *)
+
 
 
 (*s Propagating into power products. *)
 
-let rec pprod_star (che, chc) s =
-  (fold pprod che pproduct_deduce &&&
-   foldc chc pproduct_cnstrnt) s
+let rec nonlin_star (che, chc, cha) =
+  fold Th.pprod che nonlin_deduce &&&
+  foldc chc nonlin_cnstrnt &&&
+  fold Th.la cha nonlin_linearize
 
 
-and pproduct_deduce e s =
+and nonlin_deduce e s =
   Trace.msg "rule" "Nonlin_deduce" e Fact.pp_equal;
   let (x, b, _) = Fact.d_equal e in
     match b with
-      | App(Pp(op), xl) -> 
-	  Deduce.of_pprod x (op, xl) s
+      | App(Pp(op), yl) -> 
+	  let j = Pp.tau (c s) op yl in
+	    (try
+	       let i = c s x in
+		 (match Cnstrnt.cmp i j with
+		    | Binrel.Same -> s
+		    | Binrel.Disjoint -> raise Exc.Inconsistent
+		    | Binrel.Sub -> s
+		    | Binrel.Super -> infer x i s
+		    | Binrel.Singleton(q) -> infer x (Cnstrnt.mk_singleton q) s
+		    | Binrel.Overlap(ij) -> infer x ij s)
+	     with
+		 Not_found -> infer x j s)
       | _ -> s
 
-and pproduct_cnstrnt c s = 
+and nonlin_cnstrnt c s = 
   Trace.msg "rule" "Nonlin_cnstrnt" c Fact.pp_cnstrnt;
-  s
+  let (x, i, _) = Fact.d_cnstrnt c in
+    folduse Th.pprod x
+      (fun (y, b) s ->
+	 match b with
+	   | App(Pp(op), xl) ->
+	       (try
+		  let i = Pp.tau (Context.c s) op xl in
+		    infer y i s
+		with
+		    Not_found -> s)
+	   | _ ->
+	       s)
+      s
 
+and nonlin_linearize e s =
+  Trace.msg "rule" "Nonlin_linearize" e Fact.pp_equal;
+  let (x, _, _) = Fact.d_equal e in              
+    folduse Th.pprod x
+      (fun (y, b) s ->
+	 (match b with           
+	    | App(Pp(Expt(n)), [z]) ->         (* [y = z^n] in [pprod] and [z = q] in [la] *)  
+		(match Arith.d_num (find Th.la s z) with
+		   | None -> s
+		   | Some(q) -> 
+		       let e' = Fact.mk_equal (v s y) (Arith.mk_num (Q.expt q n)) None in
+			 Trace.msg "foo6" "Lin" e' Fact.pp_equal;
+			 Context.compose Th.la e' s)		
+	    | App(Pp(Mult), [b1; b2]) ->    (* [y = z1^n1 * z2^n2]. *)
+		let (z1, n1) = Pp.destruct b1 
+		and (z2, n2) = Pp.destruct b2 in
+		  (match Arith.d_num (find Th.la s z1), Arith.d_num (find Th.la s z2) with
+		     | Some(q1), Some(q2) ->
+			 let r = Q.mult (Q.expt q1 n1) (Q.expt q2 n2) in
+			 let e' = Fact.mk_equal (v s y) (Arith.mk_num r) None in
+			   Context.compose Th.la e' s
+		     | Some(q1), None ->
+			 let (s', z) =  if is_var b2 then (s, b2) else name Th.pprod (s, b2) in
+			 let e' = Fact.mk_equal (v s y) (Arith.mk_multq (Q.expt q1 n1) z) None in
+			   Context.compose Th.la e' s'
+		     | None, Some(q2) ->
+			 let (s', z) = if is_var b1 then (s, b1) else name Th.pprod (s, b1) in
+			 let e' = Fact.mk_equal (v s y) (Arith.mk_multq (Q.expt q2 n1) z) None in
+			   Context.compose Th.la e' s'
+		     | None, None ->
+			 s)
+	    | _ ->
+		s))
+      s
+		       	
 
 (*s Propagate variable equalities and disequalities into array equalities. *)
 
-let arrays_star (che, chd) =
-  fold arr che Arrays.propagate &&&  
-  foldd chd Arrays.diseq
+let rec arrays_star (che, chd) =
+  fold arr che arrays_equal &&&  
+  foldd chd arrays_diseq
+
+
+(*s From the equality [x = y] and the facts
+ [z1 = select(upd1,j1)], [z2 = update(a2,i2,k2)] in [s]
+ and [upd1 == z2 mod s], [x == i2 mod s], [y == j1 mod s] deduce
+ that [z1 = k2]. *)
+
+and arrays_equal e s =
+  Trace.msg "rule" "Array_equal" e Fact.pp_equal;
+  let (x, y, prf) = Fact.d_equal e in
+    arrays_equal1 (x, y, prf)
+      (arrays_equal1 (y, x, prf) s)
+
+and arrays_equal1 (x, y, prf) s =
+    Set.fold
+      (fun z1 s1 -> 
+	 match apply Th.arr s1 z1 with 
+	   | App(Arrays(Select), [upd1; j1])
+	       when is_equal s1 y j1 = Three.Yes ->
+	       Context.fold s1
+		 (fun z2 s2  -> 
+		    match apply Th.arr s2 z2 with 
+		      | App(Arrays(Update), [a2; i2; k2])
+			  when is_equal s2 x i2 = Three.Yes -> 
+			  let e' = Fact.mk_equal (v s2 z1) (v s2 k2) None in
+			    update (Partition.merge e' (p_of s2)) s2
+		      | _ -> s2)
+		 upd1 s1
+	   | _ -> s1)
+      (use Th.arr s x)
+      s
+
+
+(*s Propagating a disequalities.
+ From the disequality [i <> j] and the facts
+ [z1 = select(upd, j')], [z2 = update(a,i',x)],
+ [i = i'], [j = j'], [upd = z2], it follows that
+ [z1 = z3], where [z3 = select(a,j)]. *)
+
+and arrays_diseq d s =
+  Trace.msg "rule" "Array_diseq" d Fact.pp_diseq;
+  let (i, j, prf) = Fact.d_diseq d in
+    arrays_diseq1 (i, j, prf)
+      (arrays_diseq1 (j, i, prf) s)
+
+and arrays_diseq1 (i, j, prf) s =
+  Set.fold
+   (fun z1 s1 -> 
+      match apply Th.arr s1 z1 with
+	| App(Arrays(Select), [upd; j']) 
+	    when is_equal s1 j j' = Three.Yes ->
+	    Context.fold s 
+	      (fun z2 s2 ->
+		 match apply Th.arr s2 z2 with
+		   | App(Arrays(Update), [a; i'; _])
+		       when is_equal s2 i i' = Three.Yes ->
+		       let (s', z3) = name Th.arr (s, Arr.mk_select a j) in
+		       let e' = Fact.mk_equal (v s2 z1) (v s2 z3) None in
+		       let p' = Partition.merge e' (p_of s2) in
+			 update p' s'
+		   | _ -> s2)
+	      upd s1
+	| _ -> s)    
+    (use Th.arr s j)
+    s
+
 
 
 (*s Propagate variable equalities and disequalities into array equalities. *)
@@ -287,46 +492,19 @@ and bvarith_deduce e s =
   Trace.msg "rule" "Bvarith_deduce" e Fact.pp_equal;
   let (x, b, _) = Fact.d_equal e in
     match b with
-      | App(Bvarith(op), [y]) -> 
-	  Deduce.of_bvarith x (op, y) s
-      | _ -> s
+      | App(Bvarith(Unsigned), [y]) ->   (* [x = unsigned(y)] *)          
+	  infer x Cnstrnt.mk_nat s
+      | _ -> 
+	  s
 
 
 (*s Deduce new facts from changes in the constraint part. *)
 
-let rec cnstrnt_star ch =
-  foldc ch cnstrnt
-
-and cnstrnt c = 
-  Trace.msg "rule" "Cnstrnt" c Fact.pp_cnstrnt;
-  (cnstrnt_singleton c &&&
-   cnstrnt_diseq c &&&
-   cnstrnt_equal la c &&&
-   cnstrnt_equal pprod c &&&
-   cnstrnt_equal bvarith c)
-     
-and cnstrnt_equal th c s =
-  Trace.msg "rule" "Cnstrnt(=)" c Fact.pp_cnstrnt;
-  let (x, i, _) = Fact.d_cnstrnt c in
-  try
-    let b = apply th s x in
-    let e = Fact.mk_equal x b None in
-      Deduce.deduce e s
-  with
-      Not_found ->
-	(Set.fold
-	   (fun y s ->
-	      try
-		let e = equality th s y in
-		  Deduce.deduce e s
-	      with
-		  Not_found -> s)
-	   (use th s x) 
-	   s)
-
+let rec diseq_star ch =
+  foldc ch diseq_cnstrnt
 	       
-and cnstrnt_diseq c s = 
-  Trace.msg "rule" "Cnstrnt(<>)" c Fact.pp_cnstrnt;
+and diseq_cnstrnt c s = 
+  Trace.msg "rule" "diseq_cnstrnt" c Fact.pp_cnstrnt;
   let (x, i, _) = Fact.d_cnstrnt c in
   match Cnstrnt.d_singleton i with
     | None -> s
@@ -338,14 +516,6 @@ and cnstrnt_diseq c s =
 		 update (Partition.add c' (p_of s)) s)
 	    (d s x) s
   
-and cnstrnt_singleton c s = 
-  Trace.msg "rule" "Cnstrnt(single)" c Fact.pp_cnstrnt;
-  let (x, i, _) = Fact.d_cnstrnt c in
-  match Cnstrnt.d_singleton i with
-    | None -> s
-    | Some(q) ->
-	let e = Fact.mk_equal x (Arith.mk_num q) None in
-	  compose la e s
 
 
 (*s Normalization step. Remove all variables [x] which are are scheduled
@@ -369,9 +539,12 @@ let normalize s =
   if !compactify then
     let xs = !V.removable in
     let xs' = filter xs in  
-      Trace.msg "rule" "GC" (Term.Set.elements xs') (Pretty.set Term.pp);
-      let p' = Partition.restrict xs' (p_of s) in
-	update p' s
+      if Set.is_empty xs' then s else 
+	begin
+	  Trace.msg "rule" "GC" (Term.Set.elements xs') (Pretty.set Term.pp);
+	  let p' = Partition.restrict xs' (p_of s) in
+	    update p' s
+	end 
   else 
     s
 	
@@ -398,7 +571,7 @@ let rec close s =
       normalize !s
     with
 	Maxclose ->
-	  Format.eprintf "\nPossible incompleteness: Upper bound %d reached.@." !maxclose;
+	  Format.eprintf "\nUpper bound %d reached.@." !maxclose;
 	  !s
 
 and close1 ch =
@@ -407,10 +580,19 @@ and close1 ch =
   let chd = Changed.in_d ch in
   let chc = Changed.in_c ch in 
   let ch i = Changed.in_eqs i ch in 
-    prop_star chv &&&
-    arith_star (ch la) &&&
-    cnstrnt_star chc &&&
-    pprod_star (ch pprod, chc) &&&   (* Propagate into Power products. *)
-    arrays_star (chv, chd) &&&       (* Propagate into arrays. *)
-    bvarith_star (ch bvarith, ch bv) (* Propagate into arithmetic interps. *)
+    propagate_star chv &&&
+    arith_star (ch la, chc) &&&
+    diseq_star chc &&&                     (* Propagate singleton constraints into disequalities. *)
+    nonlin_star (ch pprod, chc, ch la) &&& (* Propagate into Power products. *)
+    arrays_star (chv, chd) &&&             (* Propagate into arrays. *)
+    bvarith_star (ch bvarith, ch bv)       (* Propagate into arithmetic interps. *)
  
+
+
+
+
+
+
+
+
+
