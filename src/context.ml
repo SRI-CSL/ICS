@@ -182,7 +182,7 @@ let abstract s a =
 
 (** {6 Facts} *)
 
-let cheap = ref true
+let cheap = ref false
 
 module Fct = struct
 
@@ -399,3 +399,25 @@ let add s atm =
 	       Status.Inconsistent(rho)
 	   | exc ->
 	       Term.Var.k := k'; raise exc)
+
+
+let add_unprotected s atm =
+  let ((atm', rho') as fct) = 
+    simplify s (Fact.mk_axiom atm)
+  in
+    if Atom.is_true atm' then
+      Status.Valid(rho')
+    else if Atom.is_false atm' then
+      Status.Inconsistent(rho')
+    else 
+      (try 
+	 Fact.Eqs.clear();                 (* Clear out stacks before processing *)
+	 Fact.Diseqs.clear();
+	 process s (abst s fct);
+         close_star s;
+	 normalize s;
+	 s.ctxt <- Atom.Set.add atm s.ctxt;
+	 Status.Ok(s)
+       with
+	 | Justification.Inconsistent(rho) -> 
+	     Status.Inconsistent(rho))

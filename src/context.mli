@@ -94,3 +94,6 @@ val add : t -> Atom.t -> t Status.t
     In the latter case, [s'] is a logical state equivalent to [s] conjoined with [a]. *)
 
 val compactify : bool ref
+
+
+val add_unprotected : t -> Atom.t -> t Status.t
