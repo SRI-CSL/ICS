@@ -338,6 +338,13 @@ let term_mk_mult a b =
 	       mk_app Sym.mult [a; b])
 let _ = Callback.register "term_mk_mult" term_mk_mult
 
+let rec term_mk_multl = function
+  | [] -> Arith.mk_one
+  | [a] -> a
+  | a :: b :: l -> term_mk_multl (term_mk_mult a b :: l)
+let _ = Callback.register "term_mk_multl" term_mk_multl
+
+
 let term_mk_expt q a = 
   mk_app Sym.expt [Arith.mk_num q; a]
 let _ = Callback.register "term_mk_expt" term_mk_expt

@@ -395,6 +395,7 @@ val term_mk_sin : term -> term
 val term_mk_cos : term -> term
 
 val term_mk_mult : term -> term -> term
+val term_mk_multl : term list -> term
 val term_mk_expt : q -> term -> term
 
 (*s The operation [process s a] adds a new atom [a] to a logical context [s].
