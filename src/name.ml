@@ -50,17 +50,3 @@ let pp_map p fmt =
        Format.fprintf fmt " |-> ";
        p fmt y;
        Format.fprintf fmt "\n")
-
-
-(*s Names of builtin function symbols. *)
-
-let select = of_string "select"
-let update = of_string "update"
-let unsigned = of_string "unsigned"
-let div = of_string "div"
-let mult = of_string "mult"  
-let expt = of_string "expt"
-let floor = of_string "floor"
-let ceiling = of_string "ceiling"
-let sin = of_string "sin"
-let cos = of_string "cos"
