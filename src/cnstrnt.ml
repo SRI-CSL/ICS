@@ -941,4 +941,74 @@ let equal x c =
 let occurs x c =
   Intervals.occurs x c.intervals
 
+(*
+let subsumed ineq c = 
+  match ineq with
+    | Arith.True -> Three.Yes
+    | Arith.False -> Three.No
+    | Arith.Less(x, beta, b) ->
+	let u = High.Bound(b, beta) in
+	if Intervals.exists (fun (_, u1) -> High.le u1 u) c.intervals then
+	  Three.Yes
+	else if Intervals.exists (fun (l1, u1
+	  refine1 (Interval.mk_less c.dom u) c
+    | Arith.Greater(x, alpha, a) ->
+*)
 
+
+
+let rec refine ineq c =
+  match ineq with
+    | Arith.True -> c
+    | Arith.False -> mk_empty
+    | Arith.Less(x, beta, b) ->
+	let u = High.Bound(b, beta) in
+	if Intervals.exists (fun (_, u1) -> High.le u1 u) c.intervals then
+	  c
+	else 
+	  refine1 (Interval.mk_less c.dom u) c
+    | Arith.Greater(x, alpha, a) ->
+	refine1 (Interval.mk_greater c.dom (Low.Bound(alpha, a))) c
+
+and refine1 ((l1, u1) as i) c =
+  failwith "to do"
+(*
+  Intervals.fold
+    (fun ((l2, u2) as j) js ->
+       if Low.le l1 l2 && High.le u1 u2 then
+	 let js' = Inter.remove j js in
+	   Inter.add (Interval.make dom l2 u1) js'
+       else if Low.le l2 l1 && High.le u2 u1 then
+	 let js' = Inter.remove j js in
+	   Inter.add (Interval.make dom l1 u2) js'  
+       else 
+	 
+
+
+    
+ 
+
+      try
+	let ((l2, u2) as j) = 
+	  choose 
+	    (fun (l2, u2) -> 
+	       Low.le l1 l2 && High.le u1 u2)
+	    js
+	in
+	let js' = Inter.remove j js in
+	  Inter.add (Interval.make dom l2 u1) js'
+      with
+	  Not_found ->
+	    (try
+	       let ((l2, u2) as j) = 
+		 choose 
+		   (fun (l2, u2) -> 
+		      Low.le l2 l1 && High.le u2 u1)
+		   js
+	       in
+	       let js' = Inter.remove j js in
+		 Inter.add (Interval.make dom l1 u2) js'  
+	     with
+		 Not_found ->
+		   Inter.add i js)
+*)
