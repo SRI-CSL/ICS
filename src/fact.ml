@@ -95,12 +95,6 @@ module Equal = struct
       | Term.Pure(i), (Term.Pure(j) as s2) -> 
 	  if i = j then s2 else Term.Mixed(i, a)
 
-  module Set = Set.Make(
-    struct
-      type t = Atom.Equal.t * Jst.t
-      let compare (e1, _) (e2, _) = Atom.Equal.compare e1 e2
-    end)
-
 end
 
 
@@ -162,26 +156,20 @@ end
 
 module Nonneg = struct
 
-  type t = Atom.Nonneg.t * Jst.t
-
-  let destruct (nn, rho) =
-    (Atom.Nonneg.destruct nn, rho)
+  type t = Term.t * Jst.t
       
-  let term_of (nn, _) = Atom.Nonneg.destruct nn
+  let term_of (a, _) = a
 			
-  let pp fmt (nn, rho) =   
+  let pp fmt (a, rho) =   
     pp_justification fmt rho;
-    Atom.Nonneg.pp fmt nn
+    Pretty.post Term.pp fmt (a, ">=0")
 			
-  let of_nonneg (d, rho) = (d, rho)
-  let make (a, rho) = (Atom.Nonneg.make a, rho)
-
+  let make a rho = (a, rho)
 			   
   let map f ((a, rho) as nn) =
-    let a = Atom.Nonneg.destruct a in
     let (a', alpha') = f a in
       if a == a' then nn else
-	(Atom.Nonneg.make a', Jst.dep2 rho alpha')
+	make a' (Jst.dep2 rho alpha')
 
   let instantiate e =
     map (instantiate e)
@@ -192,8 +180,7 @@ module Nonneg = struct
   let is_pure i nn =
     Term.is_pure i (term_of nn)
 
-  let status (nn, _) = 
-    Atom.Nonneg.status nn
+  let status (a, _) = Term.status a
 
 end
 
@@ -202,25 +189,20 @@ end
 
 module Pos = struct
 
-  type t = Atom.Pos.t * Jst.t
-
-  let destruct (p, rho) =
-    (Atom.Pos.destruct p, rho)
+  type t = Term.t * Jst.t
       
-  let term_of (p, _) = Atom.Pos.destruct p
+  let term_of (a, _) = a
 			
-  let pp fmt (p, rho) =   
+  let pp fmt (a, rho) =   
     pp_justification fmt rho;
-    Atom.Pos.pp fmt p
-			
-  let of_pos (a, rho) = (a, rho)
-  let make (a, rho) = (Atom.Pos.make a, rho)
+    Pretty.post Term.pp fmt (a, ">0")
+
+  let make a rho = (a, rho)
 			   
   let map f ((a, rho) as p) =
-    let a = Atom.Pos.destruct a in
     let (a', alpha') = f a in
       if a == a' then p else
-	(Atom.Pos.make a', Jst.dep2 rho alpha')
+	(a', Jst.dep2 rho alpha')
 
   let instantiate e =
     map (instantiate e)
@@ -231,11 +213,9 @@ module Pos = struct
   let is_pure i p =
     Term.is_pure i (term_of p)
 
-  let status (p, _) = 
-    Atom.Pos.status p
+  let status (a, _) = Term.status a
 
 end
-
 
 
 (** {6 Facts} *)

@@ -14,9 +14,6 @@
 (** Inference system for bitvector theory {!Th.bv}.
 
   @author Harald Ruess
-
-  The inference system for this theory is obtained as a variation
-  of inference systems for Shostak theories as defined in module {!Shostak}.
 *)
 
 

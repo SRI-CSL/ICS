@@ -50,6 +50,8 @@ let args () =
 	"Set proofmode to [No | Dep]";
         "-eot", Arg.String Ics.set_eot, 
 	"Print string argument after each transmission";
+	"-cone_of_influence", Arg.Unit(fun() -> Context.coi_enabled := true), 
+	"Enable cone of influence reduction for explanations of inconsistencies";
         "-server", Arg.Int (fun portnum -> portnum_flag := Some(portnum)), 
 	"Run in server mode";
 	"-verbose", set_true Ics.set_verbose,
@@ -67,7 +69,7 @@ let args () =
         "-cleanup_period", Arg.Int(Ics.set_cleanup_period),
         "Garbage collection for SAT after number of conflicts (default 2000)";
         "-refinements", Arg.Int(Ics.set_num_refinements),
-        "Number of refinement steps in SAT solver";
+        "Number of refinement steps in SAT solver (disabled when proof mode is turned on)";
 	"-frequency", Arg.Int(Ics.set_assertion_frequency),
         "Frequency of asserting ground atoms in SAT solver";
         "-statistics", set_true Ics.set_statistic,

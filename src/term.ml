@@ -11,7 +11,6 @@
  * benefit corporation.
  *)
 
-(** Terms. *)
 
 (** A term is either a variable or an application of a function symbol
   to a possibly empty list of arguments. In addition, each term has
@@ -96,9 +95,7 @@ module Var = struct
 	      let x = Var.mk_external n d in
 	      let a = Index.create x in
 		ExternalHash.add table (n, d) a; a
-
-
-		  
+	  
 
   (** Global variable for creating fresh variables. *)
   let k = ref (-1)
@@ -177,6 +174,31 @@ module Var = struct
 		let a = Index.create x in
 		  FreshHash.add table (th, k, d) a; a
 
+
+
+  (** Construct hashconsed "constant" variables *)
+  let mk_const =
+    let module FreshHash = Hashtbl.Make(
+      struct
+	type t = Th.t * int * Var.Cnstrnt.t
+	let equal (th1, k1, d1) (th2, k2, d2) = 
+	  k1 = k2 && th1 = th2 && d1 = d2
+	let hash (_, k, _) = k
+      end)
+    in
+    let table = FreshHash.create 17 in
+    let _ =  Tools.add_at_reset (fun () -> FreshHash.clear table) in 
+      fun th i d -> 
+	let k = fresh_index i in 
+	  try
+	    FreshHash.find table (th, k, d)
+	  with
+	      Not_found ->
+		let x = Var.mk_const th k d in
+		let a = Index.create x in
+		  FreshHash.add table (th, k, d) a; a
+
+
   let index_of = function
     | Var(_, idx) -> idx
     | a -> invalid_arg("Getting unique index of nonvariable term " ^ to_string a)
@@ -219,6 +241,7 @@ module Var = struct
   let is_external = function Var(x, _) -> Var.is_var x | _ -> false
   let is_rename = function Var(x, _) -> Var.is_rename x | _ -> false
   let is_fresh i = function Var(x, _) -> Var.is_fresh i x | _ -> false
+  let is_const = function Var(x, _) -> Var.is_const x | _ -> false
   let is_internal = function Var(x, _) -> Var.is_internal x | _ -> false
  
   let d_external = function
@@ -294,7 +317,7 @@ end
 
 (** Syntactic term equality *)
 let rec eq a b = 
-  (hash a = hash b) &&        (* [eq] only if hash values coincide *)
+  (hash a == hash b) &&      (* [eq] only if hash values coincide *)
   eq1 a b
 
 and eq1 a b =
@@ -378,8 +401,7 @@ let rec compare a b =
     else 
       1
 
-(** Some recognizers. *)
-
+(** Some recognizers... *)
 let is_equal a b =
   if eq a b then Three.Yes else 
     match a, b with                
@@ -514,20 +536,8 @@ let rec status = function
 	loop al
 
 
-(** Return theory [i] if both [a] and [b] are [i]-pure. *)
-let pure_of (a, b) =
-  match a, b with
-    | App(f, _, _), _ ->
-	let i = Sym.theory_of f in
-	  if is_pure i a && is_pure i b then i else raise Not_found
-    | _, App(f, _, _) ->
-	let i = Sym.theory_of f in
-	  if is_pure i a && is_pure i b then i else raise Not_found
-    | _ -> 
-	raise Not_found
 
 (** {6 Sets and maps of terms.} *)
-
 
 module Set2 = Set.Make(
   struct
@@ -563,8 +573,6 @@ let rec vars_of a =
 	al
 
 
-type 'a transformer = t -> t * 'a
-
 (** {6 Encoding of equalities} *)
 
 module Equal = struct
@@ -578,23 +586,8 @@ module Equal = struct
      let res = cmp a1 a2 in if res = 0 then cmp b1 b2 else res
    let is_var (a, b) = is_var a && is_var b       
    let is_pure i (a, b) = is_pure i a && is_pure i b
- 
 end
 
-
-(** {6 Encoding of disequalities} *)
-
-module Diseq = struct
-   type t = trm * trm
-   let lhs (a, _) = a
-   let rhs (_, b) = b
-   let pp fmt (a, b) = Pretty.infix pp "<>" pp fmt (a, b)
-   let make = orient
-   let destruct e = e
-   let eq (a1, b1) (a2, b2) = eq a1 a2 && eq b1 b2
-   let compare (a1, b1) (a2, b2) =
-     let res = cmp a1 a2 in if res = 0 then cmp b1 b2 else res
-end
 
 
 (** {6 Term Substitution} *)
@@ -649,12 +642,3 @@ module Subst = struct
   let fold = List.fold_right  
 
 end
-
-
-type solve = t * t -> Subst.t
-
-
-type three = 
-    Yes 
-  | No
-  | X of t

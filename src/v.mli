@@ -65,13 +65,17 @@ val empty : t
 
 val is_empty : t -> bool
 
-val merge : Fact.Equal.t -> t -> t
-  (** Adding a variable equality [x = y] to a context [s].
-    As a side effect, [x] is added to the global variable {!V.changed}.
-    In addition, every non-external variable [v] which is canoncal in
-    [s] but not in [merge e s], is added to [removabl s e]. *)
+val copy : t -> t
+  (** Protect state against destructive updates. *)
 
-val gc : (Term.t -> bool) -> t -> t
+val merge : Fact.Equal.t -> t -> unit
+  (** Adding a variable equality [x = y] by destructively
+    updating context [s].
+    In addition, every non-external variable [v] which is canonical in
+    [s] but not in [merge e s], is added to [removable s e] in order
+    to prepare it for garbage collection using {!V.gc}. *)
+
+val gc : (Term.t -> bool) -> t -> unit
   (** [gc filter s] removes variables [x] in [removable s],
     if the test [filter x] succeeds. Only, if {!V.garbage_collection_enabled}
     is set to [true]. *)

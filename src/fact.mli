@@ -14,22 +14,24 @@
 (** Datatype of facts (justified atoms)
 
   @author Harald Ruess
-
-  A {b fact} is either 
-  - an equality [a = b] between terms [a] and [b], 
-  - a disequality [a <> b] between terms [a], [b], or 
-  - a membership constraint of the form [a in c], where [a] is a term and [c]
-    is a constraint of type {!Cnstrnt.t}.
-  In addition, every fact includes an optional {b justification} in terms
-  of facts sufficient to prove the fact at hand.
-
 *)
 
+
+type t = Atom.t * Jst.t
+    (** A {b fact} is an atom together with a justification (proof) of this
+      atom in terms of axioms. *)
+
+val pp : t Pretty.printer
+  (** Pretty-printing the atom of a justification. In case {!Fact.print_justification} 
+    is set, this also prints the justification. *)
 
 val print_justification : bool ref
   (** {!Fact.pp} prints justification only if this flag is set to [true]. *)
 
-val pp_justification : Jst.t Pretty.printer
+val eq : t -> t -> bool
+
+val map : Jst.Eqtrans.t -> t -> t
+val replace : Term.t * Term.t * Jst.t -> t -> t
 
 
 (** Equality Facts *)
@@ -68,10 +70,9 @@ end
 
 (** Nonnegativity facts *)
 module Nonneg : sig
-  type t
-  val make : Term.t * Jst.t -> t
-  val of_nonneg : Atom.Nonneg.t * Jst.t -> t
-  val destruct : t -> Term.t * Jst.t
+  type t = Term.t * Jst.t
+  val make : Term.t -> Jst.t -> t
+  val term_of : t -> Term.t
   val pp : t Pretty.printer
   val map : Jst.Eqtrans.t -> t -> t
   val is_var : t -> bool  
@@ -81,10 +82,9 @@ end
 
 (** Nonnegativity facts *)
 module Pos : sig
-  type t
-  val make : Term.t * Jst.t -> t
-  val of_pos : Atom.Pos.t * Jst.t -> t
-  val destruct : t -> Term.t * Jst.t
+  type t = Term.t * Jst.t
+  val make : Term.t -> Jst.t -> t
+  val term_of : t -> Term.t
   val pp : t Pretty.printer
   val map : Jst.Eqtrans.t -> t -> t
   val is_var : t -> bool  
@@ -92,17 +92,6 @@ module Pos : sig
   val status : t -> Term.status
 end
 
-(** {6 Facts} *)
-
-type t = Atom.t * Jst.t
-
-val pp : t Pretty.printer
-
-val eq : t -> t -> bool
 
 val of_equal : Equal.t -> t
 val of_diseq : Diseq.t -> t
-
-val map : Jst.Eqtrans.t -> t -> t
- 
-val replace : Equal.t -> t -> t

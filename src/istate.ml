@@ -1329,7 +1329,7 @@ module Parameters = struct
 	
 
   let reset () = 
-    set Compactify "true";
+    set Compactify "false";
     set Statistics "false";
     set Justifications "false";
     set Inchannel "stdin";

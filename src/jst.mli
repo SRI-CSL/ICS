@@ -49,6 +49,8 @@ val pp : t Pretty.printer
 
 val axioms_of: t -> Atom.Set.t
 
+val of_axioms : Atom.Set.t -> t
+
 exception Inconsistent of t
 
 val axiom : Atom.t -> t
@@ -110,7 +112,7 @@ module Eqtrans : sig
 
   val replace : Term.map -> t -> t
 
-  val apply : Term.apply -> Atom.Equal.t * jst -> t
+  val apply : Term.apply -> (Term.t * Term.t) * jst -> t
 
   val pointwise : t -> Term.t list -> Term.t list * jst
 

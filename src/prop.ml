@@ -377,10 +377,8 @@ module Explanation = struct
 
 end 
 
-let progress = ref false
 
 let add i =
-  if !progress then Format.eprintf ".@?";
   let s = top() in
   let a = Atom.of_index i in
     match Context.add s a with

@@ -11,6 +11,7 @@
  * benefit corporation.
  *)
 
+
 (** Theory-specific canonization. *)
 let sigma f al =
   match Sym.get f with
@@ -260,20 +261,23 @@ module Is = struct
 
 
   (** Load configuration into global variables. *)
-  let initialize fct s p =
+  let rec initialize fct s p =
     let g0 = G.copy G.empty in
       G.put fct g0;
       Infsys.g := g0;
-      Infsys.p := Partition.copy p;
-      U.Infsys.initialize(s.E.u);
-      La.Infsys.initialize(s.E.la);
-      Nl.Infsys.initialize(s.E.nl);
-      P.Infsys.initialize(s.E.p);
-      Cop.Infsys.initialize(s.E.cop);
-      L.Infsys.initialize(s.E.cl);
-      Arr.Infsys.initialize(s.E.arr);
-      Pset.Infsys.initialize(s.E.set);
-      Bv.Infsys.initialize(s.E.bv)
+      initialize0 s p
+
+  and initialize0 s p =
+    Infsys.p := Partition.copy p;
+    U.Infsys.initialize(s.E.u);
+    La.Infsys.initialize(s.E.la);
+    Nl.Infsys.initialize(s.E.nl);
+    P.Infsys.initialize(s.E.p);
+    Cop.Infsys.initialize(s.E.cop);
+    L.Infsys.initialize(s.E.cl);
+    Arr.Infsys.initialize(s.E.arr);
+    Pset.Infsys.initialize(s.E.set);
+    Bv.Infsys.initialize(s.E.bv)
       
   (** Save global configuration into a pair [(s, p)]. *)
   let finalize () = 
@@ -574,22 +578,18 @@ and eval1 () =
 		  | Term.Pure(i) -> dismerge_i i d
 		  | Term.Mixed(i, a) -> abstract fct i a)
 	 | Atom.Nonneg(a) ->
-	     let nn = Fact.Nonneg.make (a, rho) in
+	     let nn = Fact.Nonneg.make a rho in
 	       (match Fact.Nonneg.status nn with
 		 | Term.Variable -> nonneg_la nn
 		 | Term.Pure(i) when i = Th.la -> nonneg_la nn
-		 | Term.Pure(i)  -> 
-		     let (a, _) = Fact.Nonneg.destruct nn in
-		       abstract fct i a
+		 | Term.Pure(i)  -> abstract fct i (Fact.Nonneg.term_of nn)
 		 | Term.Mixed(i, a) -> abstract fct i a)
 	 | Atom.Pos(a) ->
-	     let pp = Fact.Pos.make (a, rho) in
+	     let pp = Fact.Pos.make a rho in
 	       (match Fact.Pos.status pp with
 		 | Term.Variable -> pos_la pp
 		 | Term.Pure(i) when i = Th.la -> pos_la pp
-		 | Term.Pure(i) ->
-		     let (a, _) = Fact.Pos.destruct pp in
-		       abstract fct i a
+		 | Term.Pure(i) -> abstract fct i (Fact.Pos.term_of pp)
 		 | Term.Mixed(i, a) -> abstract fct i a))
   with
       Not_found -> ()
@@ -651,7 +651,7 @@ and pos_la pp =
 
 (** Two terms [a], [b] are disequal in [(e, p)] if asserting
   [a = b] yields a contradiction. This also takes into 
-  account all implicit disequalies. *)
+  account all implicit disequalites. *)
 and is_diseq_complete ((s, p) as cfg) a b =
   let d = (Atom.mk_diseq (a, b), Jst.dep0) in
     try
@@ -662,33 +662,17 @@ and is_diseq_complete ((s, p) as cfg) a b =
 
 
 (** Search for satisfiable branch. *)
-let rec is_sat c =
-  failwith "is_sat: to do"
+let rec is_sat (s, p) =
+  try
+    Is.initialize0 s p;
+    eval_and_branch ();
+    let (s', p') = Is.finalize () in
+      Some(s', p')
+  with 
+      Jst.Inconsistent _ -> None
 
-(*
-  match Is.branch c with
-    | [] ->
-	invalid_arg "Combine.check: empty branching"
-    | [c] -> 
-	(try
-	   protect eval c;
-	   Some(c)
-	 with
-	     Jst.Inconsistent _ -> None)
-    | cl ->
-	is_sat_orelse cl
-	
-and is_sat_orelse cl =
-  match cl with
-    | [] -> 
-	None
-    | c :: cl -> 
-	(try
-	   protect eval c;
-	   is_sat c
-	 with
-	     Jst.Inconsistent _ -> is_sat_orelse cl)
-*)
+and eval_and_branch () =
+  eval ()
 
 let gc c = ()
 

@@ -18,7 +18,8 @@
   
 
 type t
-  (** Elements of type {!D.t} represent sets of variable disequalities. *)
+  (** Elements of type {!D.t} represent sets of 
+    variable disequalities. *)
 
 val pp : t Pretty.printer
   (** Pretty-printing. *)
@@ -34,28 +35,21 @@ val diseqs : t -> Term.t -> Set.t
  (** [diseqs s x] returns set of  disequalites of the form [x <> y] 
    such that [x <> y] is represented in [s]. *)
 
-val map_diseqs : t -> Jst.Eqtrans.t -> Term.t -> Set.t
-
-val fold : (Term.t -> Set.t -> 'a -> 'a) -> t -> 'a -> 'a 
- 
-val iter : (Term.t -> Set.t -> unit) -> t -> unit
- 
-
 val is_diseq: t -> Term.t -> Term.t -> Jst.t option
   (** Check if two terms are known to be disequal. *)
-
 
 val empty : t
   (** The empty disequality context. *)
 
 val is_empty : t -> bool
+  (** Check if the argument disequality context is empty. *)
  
 val merge : Fact.Equal.t -> t -> t * Fact.Diseq.Set.t
   (** [merge e s] propagates an equality [e] of the form [x = y]
     into the disequality context by computing a new disequality
     context which is equal to [s] except that every [x] has been
     replaced by [y]. Raises {!Exc.Inconsistent} if [x <> y] is
-    already in [s]. The second argument returns newly generated
+    valid in [s]. The second argument returns the newly generated
     disequalities. *)
 
 val add : Fact.Diseq.t -> t -> t * Fact.Diseq.Set.t

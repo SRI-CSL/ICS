@@ -78,6 +78,8 @@ val add : t -> Atom.t -> t Status.t
     - [Ok(s')] otherwise.  In this case, [s'] is a logical state equivalent 
     to [s] conjoined with [a]. *)
 
+val coi_enabled : bool ref
+
 val addl : t -> Atom.t list -> t Status.t
 
 val is_inconsistent : t -> Atom.t list -> bool

@@ -43,6 +43,7 @@
   Theory names are denoted by [i],[j] etc.
 *)
 
+exception Found of Atom.Set.t
 
 (** {6 Logical contexts} *)
 
@@ -156,13 +157,15 @@ module Status = struct
 
 end
 
+let coi_enabled = ref true
 
 let rec add s atm =
   let atm', rho' = Combine.simplify (s.eqs, s.p) atm in
     if Atom.is_true atm' then
       Status.Valid(rho')
     else if Atom.is_false atm' then
-      Status.Inconsistent(Jst.dep2 rho' (Jst.axiom atm))
+      let tau = Jst.dep2 rho' (Jst.axiom atm) in
+	Status.Inconsistent(tau)
     else 
       (try
 	 Term.Var.k := s.upper;         (* Install fresh variable index. *)
@@ -177,16 +180,90 @@ let rec add s atm =
 	   in
 	     Status.Ok(s')
        with
-	 | Jst.Inconsistent(rho) -> Status.Inconsistent(rho))
+	 | Jst.Inconsistent(rho) -> 
+	     let tau = if !coi_enabled then  cone_of_influence atm rho else rho in
+	       Status.Inconsistent(tau))
 
-(* For debugging:  *)
-let add =
-  let pp0 fmt s = Mode.set Mode.None (pp fmt) s in
-  let ppc fmt s = Mode.set Mode.Context (pp fmt) s in
-    Trace.func2 "top" "Process" ppc Atom.pp (Status.pp pp0) 
-      add
 
-let addl =
+and cone_of_influence atm rho =
+  let allatms = Jst.axioms_of rho in
+  let visited = ref (Atom.Set.singleton atm) in
+  let todo = Stack.create () in
+  let rec loop () =
+    try
+      let current = Stack.pop todo in
+	Atom.Set.iter
+	  (fun atm ->
+	     if not(Atom.Set.mem atm !visited) &&
+	       Atom.is_connected atm current 
+	     then
+	       begin
+		 visited := Atom.Set.add atm !visited;
+		 Stack.push atm todo
+	       end)
+	  allatms;
+	loop ()
+    with
+	Stack.Empty -> !visited
+  in
+    Stack.push atm todo;
+    Jst.of_axioms (loop ())
+	
+
+
+(** {i Cone of influence} computation
+  - (1) assert atom contributing to inconsistency
+           i.e. [8 - x6 > 0].
+  - (2) pick up cone of influence of (1), in this case 
+          [coi(x6) = {x8 = x6, x6 = x4, x6 >= 0}]
+  - (3) repeat cone of influence 
+          [coi(x4, x6) = -8 + x4 >= 0, x4 >= 0, x8 = 1 + x11, x8 >= 0]
+        until inconsistency is detected. *)
+and semantic_cone_of_influence atm0 rho =
+  let allatms = Jst.axioms_of rho in
+  let rec loop visited s todo =
+    try
+      let atm = Atom.Set.choose todo in
+      let coi = 
+	Atom.Set.filter
+	  (fun atm1 -> 
+	       not(Atom.Set.mem atm1 visited) && 
+	     Atom.is_connected atm1 atm)
+	  allatms
+      in
+      let (visited', s') =
+	Atom.Set.fold 
+	  (fun coi1 (visited1, s1) ->
+	     let visited1 = Atom.Set.add coi1 visited1 in
+		 match add s1 coi1 with
+		   | Status.Valid _ -> (visited1, s1)
+		   | Status.Ok(s2) -> (visited1, s2)
+		   | Status.Inconsistent _ -> raise(Found(visited1)))
+	    coi (visited, s)
+      in
+      let todo' = 
+	Atom.Set.union (Atom.Set.remove atm todo) coi 
+      in
+	loop visited' s' todo'
+    with
+	Not_found ->
+	  begin
+	    Format.eprintf "\nWarning: possible incompleteness detected by cone of influence reduction@.";
+	    allatms
+	  end
+  in
+  let visited0 = Atom.Set.empty
+  and s0 = empty
+  and todo0 = Atom.Set.singleton atm0 in
+  let atms = 
+    try
+      loop visited0 s0 todo0
+    with
+	Found(atms) -> atms
+  in
+    Jst.of_axioms atms
+	
+let addl atms =
   let rec loop s = function
     | [] -> 
 	Status.Ok(s)
@@ -196,7 +273,17 @@ let addl =
 	   | Status.Ok(s') -> loop s' al   
 	   | Status.Inconsistent(rho) -> Status.Inconsistent(rho))
   in
-    loop 
+    loop atms
+
+
+
+(* For debugging:  *)
+let add =
+  let pp0 fmt s = Mode.set Mode.None (pp fmt) s in
+  let ppc fmt s = Mode.set Mode.Context (pp fmt) s in
+    Trace.func2 "top" "Process" ppc Atom.pp (Status.pp pp0) 
+      add
+
 
 let is_inconsistent =
   let rec loop s = function

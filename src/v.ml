@@ -11,9 +11,7 @@
  * benefit corporation.
  *)
 
-(** Datatype for storing variable equalities. *)
-
-(** Elements of type [t] represent sets of directed variable equalities [y = x] 
+(** Elements of type {!V.t} represent sets of directed variable equalities [y = x] 
   such that [x] is less than [y] according to the variable comparison {!Var.cmp}. 
   These sets are functional in the sense that whenever both [x1 = y] and [x2 = y]
   are represented, then [x1] equals [x2].  
@@ -108,6 +106,7 @@ module Pre = struct
 
 end
 
+
 (** [x |-> (y, rho)] in [post] represents [rho |- x = y].
   In such a case [x] is in the [pre] of [y]. Furthermore,
   this data structure is {i maximally compressed} in that
@@ -116,10 +115,10 @@ end
   represented as a list as this makes {!V.restrict} more 
   expensive. *)
 type t = {
-  post : (Term.t * Jst.t) Term.Var.Map.t; 
-  pre : Pre.t Term.Var.Map.t; 
-  cnstrnt : (Var.Cnstrnt.t * Jst.t) Term.Var.Map.t;
-  removable: Term.Var.Set.t
+  mutable post : (Term.t * Jst.t) Term.Var.Map.t; 
+  mutable pre : Pre.t Term.Var.Map.t; 
+  mutable cnstrnt : (Var.Cnstrnt.t * Jst.t) Term.Var.Map.t;
+  mutable removable: Term.Var.Set.t
 }
 
 let eq s t = s.post == t.post
@@ -133,12 +132,20 @@ let empty = {
 
 let is_empty s = (s.post == Term.Var.Map.empty)
 
+let copy s = {
+  post = s.post;
+  pre = s.pre;
+  cnstrnt = s.cnstrnt;
+  removable = s.removable
+}
+
 let post s x = Term.Var.Map.find x s.post
 
 let pre s x = 
   let ys = Term.Var.Map.find x s.pre in
     assert(not(Pre.is_empty ys));
     ys
+
 
 (** Canonical representative of equivalence class for [x]. *)
 let find s x = 
@@ -148,10 +155,12 @@ let find s x =
     | _ ->
 	Jst.Eqtrans.id x
 
+
 (** Totalized [pre]. *)
 let inv s x = 
   assert(Term.is_var x);
   try pre s x with Not_found -> Pre.empty
+
 
 (** Constraint associated with equivalence class [x]. *)
 let cnstrnt s x =
@@ -180,12 +189,11 @@ let to_equalities s =
        Fact.Equal.make x y rho :: acc)
     s.post []
 
-let pp_as_equalities = ref false
-       
+
 let pp fmt s =
   if not(is_empty s) then
     begin
-      if !pp_as_equalities then
+      if !Fact.print_justification then
 	Pretty.set Fact.Equal.pp fmt (to_equalities s)
       else 
 	Pretty.map Term.pp (Pretty.set Term.pp) fmt (to_list s);
@@ -224,7 +232,6 @@ let check validates s =
     s.post true
        
 
-
 (** A variable [x] is {i canonical} iff it is not in the domain
   of the [post] function of [s]. In this case, {!V.find} is the
   identity. *)
@@ -232,9 +239,11 @@ let is_canonical s x =
   assert(Term.is_var x);
   not(Term.Var.Map.mem x s.post)
 
+
 (** Iterating over all equalities [x = y]. *)
 let fold f s = Term.Var.Map.fold f s.post
   
+
 (** Extension of the equivalence class for [x] contains
   all [y] such that [x] and [y] are equal modulo [s].
   Expensive operation, uses memory linear in the size of the
@@ -244,6 +253,7 @@ let ext s x =
   let (y, _) = find s x in
     Pre.elements (Pre.add y (inv s y))
 
+
 (** Starting from the canonical representative [x' = find s x], the
   function [f] is applied to each [y] in [ext s x'] and the results are
   accumulated. *)
@@ -251,6 +261,7 @@ let accumulate s f x e =
   assert(Term.is_var x);
   let (y, _) = find s x in
     Pre.fold f (inv s y) (f y e)
+
 
 (** Iteration on extension of equivalence class. *)
 let iter s f x =
@@ -269,7 +280,9 @@ let for_all s p x =
   let (y, _) = find s x in
     p y && Pre.for_all p (inv s y) 
 
+
 exception Found
+
 
 (** Choose an element satisfying some property. *)
 let choose s p x = 
@@ -294,18 +307,18 @@ let choose s p x =
 
 
 (** Merging of two different canonical variables [x] and [y] *)
-let rec merge e s =            
+let rec merge ((x, y, _) as e) s =            
   assert (Fact.Equal.both_sides (is_canonical s) e);
-  let ((x, y, _) as eql) = e in
-    if Term.eq x y then s else
-      begin 
-	Trace.msg "v" "Union" e Fact.Equal.pp;
-	union s eql
-      end 
+  if not(Term.eq x y) then
+    begin 
+      Trace.msg "v" "Union" e Fact.Equal.pp;
+      union s e
+    end 
+
 
 (** Merging [x = y] is performed by 
   - adding [x |-> y] and 
-  - replacing all links [z |-> x] with [z |-> y]. *)
+  - eager {i path compression} by replacing all links [z |-> x] with [z |-> y]. *)
 and union s (x, y, rho) = 
   assert(not(Term.eq x y));            (* [rho |- x = y] *)
   let removable' = 
@@ -359,10 +372,10 @@ and union s (x, y, rho) =
     with
 	Not_found -> s.cnstrnt
   in
-    {post = post'; 
-     pre = pre'; 
-     cnstrnt = cnstrnt';
-     removable = removable'}
+    s.post <- post'; 
+    s.pre <- pre'; 
+    s.cnstrnt <- cnstrnt';
+    s.removable <- removable'
       
       
 (** Remove a binding [x |-> y] *)
@@ -385,27 +398,31 @@ let restrict s x =
 	  else 
 	    Term.Var.Map.add y pre_of_y' s.pre
       in
-	{post = post'; 
-	 pre = pre'; 
-	 cnstrnt = s.cnstrnt;
-	 removable = removable'}
+	s.post <- post'; 
+	s.pre <- pre';
+	s.removable <- removable'
   with
-      Not_found -> s
+      Not_found -> ()
 
 
 (** Garbage collection *)
 let gc f s =
-  let gc1 x s =
+  let gc1 x =
     assert(Term.is_var x);
-    if f x then restrict s x else s
+    if f x then restrict s x
   in
-  Term.Var.Set.fold gc1 s.removable s
+    Term.Var.Set.iter gc1 s.removable
+
 
 (** Difference. *)
 let diff s1 s2 =
-  fold 
+  let empty = copy empty in
+  fold
     (fun x (y, rho) acc ->
        match is_equal s2 x y with
-	 | Some _ -> acc
-	 | None -> union acc (x, y, rho) )
+	 | Some _ -> 
+	     acc
+	 | None -> 
+	     union acc (x, y, rho);
+             acc)
     s1 empty

@@ -68,6 +68,7 @@ open Cnstrnt
  
 type t =  
   | Slack of int * slack
+  | Const of Th.t * int * Cnstrnt.t
   | External of Name.t * Cnstrnt.t
   | Rename of Name.t * int * Cnstrnt.t
   | Fresh of Th.t * int * Cnstrnt.t
@@ -87,6 +88,7 @@ let nonneg =
 (** {6 Constructors} *)
 
 let mk_external n d = External(n, d)
+let mk_const th k d = Const(th, k, d)
 let mk_slack k sl = Slack(k, sl)
 let mk_rename n k d = Rename(n, k, d)
 let mk_fresh th k d = Fresh(th, k, d)
@@ -95,7 +97,10 @@ let mk_fresh th k d = Fresh(th, k, d)
 (** {6 Accessors} *)
     
 let name_of = function
-  | External(n, _) -> n
+  | External(n, _) -> 
+      n
+  | Const(th, i, _) -> 
+      Name.of_string (Format.sprintf "%s!%d" (Th.to_string th) i)
   | Rename(n, i, _) ->  
       Name.of_string (Format.sprintf "%s!%d" (Name.to_string n) i)
   | Slack(i, Zero) ->  
@@ -109,6 +114,7 @@ let cnstrnt_of x =
   let c = match x with
     | Slack(_, Zero) -> Real(Dom.Int)
     | Slack(_, Nonneg(d)) -> Real(d)
+    | Const(_, _, c) -> c
     | External(_, c) -> c
     | Fresh(_, _, c) -> c
     | Rename(_, _, c) -> c
@@ -119,6 +125,7 @@ let dom_of = function
   | Slack(_, Zero) -> Dom.Int
   | Slack(_, Nonneg(d)) -> d
   | External(_, Real(d)) -> d
+  | Const(_, _, Real(d)) -> d
   | Fresh(_, _, Real(d)) -> d
   | Rename(_, _, Real(d)) -> d
   | _ -> raise Not_found
@@ -150,7 +157,7 @@ let domcmp d e =
     | Bitvector _, _ -> -1
     | _, Bitvector _ -> 1
 
-(** slack < fresh < external < renaming < bound *)
+(** slack < const < fresh < external < renaming *)
 let rec cmp x y =
   match x, y with
     | Slack(i, sl1), Slack(j, sl2) ->
@@ -165,6 +172,13 @@ let rec cmp x y =
 		   Pervasives.compare i j)
     | Slack _, _ ->  -1
     | _, Slack _ -> 1 
+    | Const(n, i, d), Const(m, j, e) ->
+	let c1 = domcmp d e in
+	  if c1 != 0 then c1 else 
+	    let c2 = Pervasives.compare i j in
+	      if c2 != 0 then c2 else Pervasives.compare n m
+    | Const _, _ -> -1
+    | _, Const _ -> 1
     | Fresh(n, i, d), Fresh(m, j, e) ->
 	let c1 = domcmp d e in
 	  if c1 != 0 then c1 else 
@@ -191,6 +205,7 @@ let (<<<) x y = (cmp x y <= 0)
 
 let is_var = function External _ -> true | _ -> false
 let is_rename = function Rename _ -> true | _ -> false
+let is_const = function Const _ -> true | _ -> false
 let is_slack sl = function Slack(_, sl') when sl = sl' -> true | _ -> false
 let is_nonneg_slack = function Slack(_, Nonneg _) -> true | _ -> false
 let is_zero_slack = function Slack(_, Zero) -> true | _ -> false

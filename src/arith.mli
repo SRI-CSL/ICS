@@ -11,9 +11,13 @@
  * benefit corporation.
  *)
 
-(** Equality theory of linear arithmetic.
+(** Linear arithmetic.
 
-  A linear arithmetic term is built-up from 
+  @author Harald Ruess
+*)
+
+
+(** A {i linear arithmetic term} is built-up from 
   - rational constants,
   - linear multiplication of a rational with a variable, and 
   - n-ary addition. 
@@ -25,14 +29,8 @@
   greater than zero for [i < j]. This implies that any such variable
   occurs at most once. In addition, [qi], for [i > 0], is never zero.
   If [qi] is one, we just write [xi] instead of [qi * xi], and if [q0]
-  is zero, it is simply omitted in the sum-of-product above.
+  is zero, it is simply omitted in the sum-of-product above. *)
 
-  @author Harald Ruess
-*)
-
-
-
-(** {6 Constructors} *)
 
 val mk_num  : Mpa.Q.t -> Term.t
   (** [mk_num q] creates a constant [mk_app (num q) []] *)
@@ -255,5 +253,3 @@ val dom : (Term.t -> Dom.t) -> Sym.arith -> Term.t list -> Dom.t
 val dom_of : Term.t -> Dom.t
 
 val is_int : Term.t -> bool
-
-

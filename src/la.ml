@@ -51,6 +51,7 @@ open Mpa
   - Greek letters for justifications ({!Jst.t}).
 *)
 
+
 (** {6 Exceptions} *)
 
 (** Indicates {i unboundedness} of a term in a state. *)
@@ -148,7 +149,6 @@ let apply1 e =
 (** Transform the equation [e] of the form [a = b] to the equivalent [x = c].  
   Assumes that [x] is a subterm of [a - b]. *)
 let isolate x e =
-  Trace.msg "foo9" "isolate" (x, e) (Pretty.pair Term.pp Fact.Equal.pp);
   let (a, b, rho) = e in
   try
     let (y, c) = Arith.isolate x (a, b) in
@@ -188,8 +188,7 @@ let d_diophantine d =
 
 
 (** Fusing an equality [x = a] into right-hand sides of a solved list. *)
-let solved_fuse e =
-  let (x, a, rho) = e in
+let solved_fuse ((x, a, rho) as e) =
   let rec loop acc = function
     | [] -> acc
     | s :: sl -> 
@@ -214,9 +213,8 @@ let mk_diff e =
 
 (** [occurs_negatively x e] holds if [e] is of the 
   form [y = a] and [x] is in [a-]. *)
-let occurs_negatively x e  = 
-  let a = Fact.Equal.rhs_of e in
-    try Q.is_neg (Arith.coefficient_of x a) with Not_found -> false
+let occurs_negatively x ((_, a, _) as e) = 
+  try Q.is_neg (Arith.coefficient_of x a) with Not_found -> false
 
 
 (** Specification for an index for restricted variables [k]
@@ -253,12 +251,11 @@ type tag = R | T
   - {i tableau} equations [k = a] with [k] and [a] restricted. *)
 let partition s = 
   S.fold
-    (fun e (r, t) ->
-       let x = Fact.Equal.lhs_of e in
-	 if is_unrestricted_var x then
-	   (e :: r, t)
-	 else 
-	   (r, e :: t))
+    (fun ((x, _, _) as e) (r, t) ->
+       if is_unrestricted_var x then
+	 (e :: r, t)
+       else 
+	 (r, e :: t))
     s ([], [])
 
 let index = ref false
@@ -307,9 +304,20 @@ let call_with_configuration (p1, s1) f a =
 	  s := s0; Infsys.p := p0;
 	  raise exc
 
-
-let update e = 
-  S.update (!Infsys.p, !s) e
+let upd ((x, a, rho) as e) =
+(*  following is an attempt to assign canonical constant variables to numbers to
+    avoid extensive dependencies.
+  if Arith.is_num a && not(Term.Var.is_const x) then
+    let q = Arith.d_num a in
+    let c = Var.Cnstrnt.mk_real(if Mpa.Q.is_integer q then Dom.Int else Dom.Real) in
+    let u = Term.Var.mk_const Th.la None c in
+    let e' = Fact.Equal.make x u rho in
+      Partition.merge !Infsys.p e';
+      let e'' = Fact.Equal.make u a Jst.dep0 in
+	S.update (!Infsys.p, !s) e''
+  else 
+*)
+    S.update (!Infsys.p, !s) e
 
 let apply a = S.apply !s a
 let find a = Jst.Eqtrans.totalize (S.apply !s) a
@@ -600,7 +608,7 @@ let name a =
 		mk_rename b rho
 	    in
 	    let e = Fact.Equal.make v a (Jst.dep2 rho tau) in
-	      update e;
+	      upd e;
 	      (v, tau)
 
 let is_equal a b =
@@ -629,16 +637,6 @@ let is_diseq_infeasible d =
 	None
 
 
-(** Check if all variables in [s] are canonical in [p].  *)
-let is_canonical (s, p)	=
-  S.for_all
-    (fun e -> 
-       let (x, a, _) = e in
-	 Partition.is_canonical p x &&
-	 Arith.for_all (Partition.is_canonical p) a)
-    s
-
-
 (** {6 Basic Updates} *)
 
 (** All update functions manipulate configurations [(p, s)]
@@ -648,12 +646,11 @@ type config = Partition.t * S.t
 let do_infer = ref false
 
 let update ((k, a, _) as e) =
-  Trace.msg "foo6" "Update" e Fact.Equal.pp;
   if is_restricted_var k &&
     Mpa.Q.is_zero (Arith.constant_of a) 
   then
-    do_infer := true;                      (* if this update comes from pivoting, flag does not need to be set. *)
-  S.update (!Infsys.p, !s) e
+    do_infer := true;           (* if this update comes from pivoting, flag does not need to be set. *)
+  upd e
 
 let fuse ((x, _, _) as e) = 
   let instantiate_rhs e' = 
@@ -819,7 +816,6 @@ and compose_and_cut e =
   [-def(b) + Sigma_i frac(ci)*xi >= 0], proceed. *)
 and gomory_cut e =
   assert(is_restricted_equality e);
-  Trace.call "gomory" "Gomory cut" e Fact.Equal.pp;
   let (x, a, rho) = e in (* [rho |- x = a]. *)
     if not(Term.Var.is_zero_slack x) then
       let b = Arith.constant_of a
@@ -828,30 +824,29 @@ and gomory_cut e =
 	  let b' = Mpa.Q.minus (Mpa.Q.def b) in
 	  let ml' = Arith.Monomials.mapq Mpa.Q.frac ml in
 	  let a' = Arith.mk_addq b' ml' in
-	    Trace.exit "gomory" "Gomory cut: nonnegative" a' Term.pp;
+	    Trace.msg "la'" "Gomory cut" a' Term.pp;
 	    process_nonneg_restricted (a', rho)
 
 
-and process_nonneg nn = 
+and process_nonneg ((a, rho) as nn) =                 (* [rho |- a >= 0] *)
   Trace.msg "la'" "process_nonneg" nn Fact.Nonneg.pp;
-  let (a, rho) = Fact.Nonneg.destruct nn in      (* [rho |- a >= 0] *)
-    match Arith.is_nonneg a with
-      | Three.Yes -> 
-	  ()
-      | Three.No -> 
-	  raise(Jst.Inconsistent(rho))
-      | Three.X ->
-	  (try
-	     (let y = choose_unrestricted a in 
-	      let (k, tau) = mk_nonneg_slack a rho in    (* [tau |- k = a] *) 
-	      let e = Fact.Equal.make k a (Jst.dep2 rho tau) in
-		compose (isolate y e))
-	   with
-	       Not_found ->
-		   assert(is_restricted a);
-		   process_nonneg_restricted (a, rho))
-
-
+  match Arith.is_nonneg a with
+    | Three.Yes -> 
+	()
+    | Three.No -> 
+	raise(Jst.Inconsistent(rho))
+    | Three.X ->
+	(try
+	   (let y = choose_unrestricted a in 
+	    let (k, tau) = mk_nonneg_slack a rho in  (* [tau |- k = a] *) 
+	    let e = Fact.Equal.make k a (Jst.dep2 rho tau) in
+	      compose (isolate y e))
+	 with
+	     Not_found ->
+	       assert(is_restricted a);
+	       process_nonneg_restricted (a, rho))
+	
+	
 and process_nonneg_restricted (a, rho) =                 (* [rho |- a >= 0] *)
   Trace.msg "la'" "process_nonneg_restricted" a Term.pp;
   assert(is_restricted a); 
@@ -877,7 +872,7 @@ and process_nonneg_make_feasible e =
 		let e' = Fact.Equal.map_rhs replace e in
 		  process_nonneg_make_feasible e'
 	    with
-		Not_found ->       (* Case IV: [a] is unbounded. *)
+		Not_found -> (* Case IV: [a] is unbounded. *)
 		  assert(Arith.Monomials.Pos.is_empty a);
 		  raise(Jst.Inconsistent(rho))
 		
@@ -896,7 +891,7 @@ and add_to_t ((k, a, rho) as e) =
       in 
 	if Term.Var.is_zero_slack k then
 	  let b' = replace_zero_slacks b in
-	  let e'' = Fact.Equal.make y b' rho in    (* [rho |-y=b[k:=0]] *) 
+	  let e'' = Fact.Equal.make y b' rho in   (* [rho |-y=b[k:=0]] *) 
 	    compose_and_cut e''
 	else 
 	  compose_and_cut e'
@@ -916,8 +911,10 @@ and pivot y =
   try
     let (g, e) = gain y in
     let e' = isolate y e in 
+(*
     Trace.msg "la'" "Pivot" (e, e') (Pretty.infix Fact.Equal.pp " ==> " Fact.Equal.pp);
     Trace.msg "la'" "with gain" g Mpa.Q.pp;
+*)
       compose e'                        (* no Gomory cuts required for pivoting. *)
   with
       Not_found -> 
@@ -938,7 +935,6 @@ and infer () =
     maximize stuck_at_zeros       (* 2. maximize all zeros which are not stuck at zero. *)
 
 and toplevel f a =
-  Trace.msg "foo6" "Toplevel" () Pretty.unit;
   do_infer := false;
   f a;
   if !do_infer then infer ()
@@ -990,9 +986,7 @@ and set_to_zero (x, a, rho) =             (* [rho |- x = a] *)
 
 and analyze () =
   let stuck_at_zero = analyze_initial () in
-  Trace.msg "foo6" "Stuck_at_zero" (Term.Var.Set.elements stuck_at_zero) (Pretty.set Term.pp);
   let stuck_at_zero' = analyze_refine stuck_at_zero in
-   Trace.msg "foo6" "Refined Stuck_at_zero" (Term.Var.Set.elements stuck_at_zero') (Pretty.set Term.pp);
     stuck_at_zero'
 
 and analyze_initial () =
@@ -1104,8 +1098,7 @@ and analyze_final stuck_at_zeros =
 *)
 
 
-(** [is_diseq (p, s) a b] iff adding [a = b] to [(p, s)] yields
-  inconsistency. *)
+(** [is_diseq (p, s) a b] iff adding [a = b] to [(p, s)] yields inconsistency. *)
 let is_diseq a b =
   try
     let (a', rho') = can a
@@ -1115,9 +1108,6 @@ let is_diseq a b =
       None
   with
       Jst.Inconsistent(sigma) -> Some(sigma)
-
-let is_diseq = 
-  Jst.Pred2.trace "foo" "is_diseq" is_diseq
 
 
 (** {6 Extremal Values} *)    
@@ -1256,8 +1246,6 @@ and process_diophantine_diseq d =
 	    contiguous_diseq_segment (lo, hi) (e, n)
 	  in
 	    assert(Mpa.Z.le lo min && Mpa.Z.le max hi);
-	    Trace.msg "foo7" "Min" min Mpa.Z.pp;
-	    Trace.msg "foo7" "Max" max Mpa.Z.pp;
 	    if Mpa.Z.le min lo && Mpa.Z.ge max hi then 
 	      let theta = Jst.dep3 rho tau sigma in
 		raise(Jst.Inconsistent(theta))
@@ -1308,9 +1296,8 @@ and contiguous_diseq_segment (lo, hi) (e, n) =
 (** Processing a positivity constraint. *)
 
 let process_pos pp =
-  let pp = Fact.Pos.map replace pp in
-  let (a, rho) = Fact.Pos.destruct pp in
-  let nn = Fact.Nonneg.make (a, rho) 
+  let ((a, rho) as pp) = Fact.Pos.map replace pp in
+  let nn = Fact.Nonneg.make a rho
   and dd = Fact.Diseq.make a (Arith.mk_zero()) rho in 
     process_nonneg nn;
     process_diseq dd
@@ -1361,7 +1348,7 @@ end
 (** {6 Inference System} *)
 
 (** Inference system for linear arithmetic. *)
-module Infsys0: (Infsys.ARITH with type e = S.t) = struct
+module Infsys: (Infsys.ARITH with type e = S.t) = struct
 
   type e = S.t
   
@@ -1424,29 +1411,52 @@ module Infsys0: (Infsys.ARITH with type e = S.t) = struct
     
   let branch () = 
     let (x, lo, hi, rho) = Finite.disjunction () in
-      assert(Mpa.Z.le lo hi);
-      raise Not_found (* to do *)
+    let cmp = Mpa.Z.compare lo hi in
+      if cmp > 0 then        (* [lo > hi] *)
+	raise(Jst.Inconsistent(rho))
+      else if cmp = 0 then   (* [lo = hi] *)
+	()
+      else 
+	begin
+	  assert(Mpa.Z.lt lo hi);
+	  let hyps = ref rho in
+	  let rec loop acc i =
+	    if Mpa.Z.gt i hi then acc else
+	      let i_num = Arith.mk_num (Mpa.Q.of_z i) in
+	      let acc' = 
+		match is_diseq x i_num with
+		  | Some(tau) -> 
+		      hyps := Jst.dep2 tau !hyps;
+		      acc
+		  | None ->
+		      let e = Atom.mk_equal (x, i_num) in
+			e :: acc 
+	      in
+	      let i' = Mpa.Z.add i Mpa.Z.one in
+		loop acc' i'
+	  in
+	  let el = loop [] lo in
+	  let cl = Clause.of_list (el, !hyps) in
+	    G.put_clause cl !g	
+	end 
 	  
   let normalize _ = ()
 
   let nonneg nn =
     assert(Fact.Nonneg.is_pure Th.la nn);
-    let nn = Fact.Nonneg.map can nn in
-    let (a, rho) = Fact.Nonneg.destruct nn in
+    let ((a, rho) as nn) = Fact.Nonneg.map can nn in
       match Arith.is_nonneg a with (* cheap test*)
 	| Three.Yes -> 
 	    ()
 	| Three.No -> 
 	    raise(Jst.Inconsistent rho)
 	| Three.X -> 
-	    let nn = Fact.Nonneg.make (a, rho) in
-	      toplevel 
-		process_nonneg nn
+	    toplevel 
+	      process_nonneg nn
 
   let pos pp =
     assert(Fact.Pos.is_pure Th.la pp);
-    let pp = Fact.Pos.map can pp in
-    let (a, rho) = Fact.Pos.destruct pp in
+    let ((a, rho) as pp) = Fact.Pos.map can pp in
       match Arith.is_pos a with (* cheap test*)
 	| Three.Yes -> 
 	    ()
@@ -1460,7 +1470,7 @@ module Infsys0: (Infsys.ARITH with type e = S.t) = struct
 end
 
 
-
+(*
 (** Tracing inference system. *)
 module Infsys: (Infsys.ARITH with type e = S.t) =
   Infsys.TraceArith(Infsys0)
@@ -1471,6 +1481,7 @@ module Infsys: (Infsys.ARITH with type e = S.t) =
        let diff = S.diff
        let pp = S.pp
      end)
+*)
 
 
 (** {6 Inequality Tests} *)
@@ -1481,7 +1492,7 @@ let rec is_neg a =
     try
       let _ = 
 	let rho = Jst.axiom (Atom.mk_nonneg a) in
-	let nn = Fact.Nonneg.make (a, rho) in
+	let nn = Fact.Nonneg.make a rho in
 	  protect process_nonneg nn
       in
 	None

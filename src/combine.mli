@@ -15,8 +15,9 @@
 
   @author Harald Ruess
   @author N. Shankar 
+*)
 
-  Inference system for the union of the theories
+(** Inference system for the union of the theories
   - {!Th.u} of uninterpreted functions,
   - {!Th.la} of linear arithmetic,
   - {!Th.nl} of nonlinear multiplication,
@@ -25,8 +26,7 @@
   - {!Th.cl} of combinatory logic,
   - {!Th.arr} of functional arrays,
   - {!Th.set} of propositional sets,
-  - {!Th.bv} of bitvectors.
-*)
+  - {!Th.bv} of bitvectors. *)
 
 
 val sigma : Sym.t -> Term.t list -> Term.t
@@ -46,11 +46,11 @@ module E : sig
     (** Projections to individual equality sets. *)
   val u_of : t -> U.S.t
   val la_of : t -> La.S.t
- (* val nl_of : t -> Nl.S.t *)
+  val nl_of : t -> Solution.Set.t
   val p_of : t -> Solution.Set.t
   val cop_of : t -> Solution.Set.t
   val cl_of : t -> Solution.Set.t
-(*  val arr_of : t -> Arr.E.t *)
+  val arr_of : t -> Solution.Set.t
   val set_of : t -> Solution.Set.t
 
   val empty: t 
@@ -104,7 +104,7 @@ val process : Fact.t -> E.t * Partition.t -> E.t * Partition.t
     although the target configuration might contain internally generated
     variables not present in the source configuration. *)
 
-val is_sat :  t -> t option
+val is_sat :  E.t * Partition.t -> (E.t * Partition.t) option
   (** [is_sat [c]] applies applicable {i branching rules} until 
     it finds a satisfiable configuration [d] (with empty input) for 
     which no branching rule is applicable; in this case [Some(d)] is returned.

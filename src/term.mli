@@ -82,6 +82,8 @@ module Var : sig
       domain restriction [d], and  [mk_fresh th Some(i) d] creates the theory-specific
       fresh variable of index [i] with optional domain restriction [d]. See also {!Var.mk_fresh}. *)
 
+  val mk_const : Th.t -> int option -> Var.Cnstrnt.t -> t
+
 
   (** Variables are partitioned into {i renaming}, {i external}, {i fresh}, {i free},
     and {i slack variables}, and the following recognizers can be used to test membership
@@ -90,6 +92,7 @@ module Var : sig
   val is_rename : t -> bool
   val is_external : t -> bool
   val is_fresh : Th.t -> t -> bool
+  val is_const : t -> bool
   val is_slack : t -> bool
 
   val d_external : t -> Name.t * Var.Cnstrnt.t
@@ -202,10 +205,6 @@ val status : t -> status
     - {i mixed} terms. In this case, a maximal pure term is retured. *)
 
 
-val pure_of : t * t -> Th.t
-  (** Return theory [i] if both [a] and [b] are [i]-pure (and not
-    both of [a] and [b] are variables). Otherwise, [Not_found] is raised. *)
-
 val is_equal : t -> t -> Three.t
   (** [is_equal a b] returns
     - [Three.Yes] if {!Term.eq}[a b] holds,
@@ -310,26 +309,12 @@ module Equal : sig
   val is_pure : Th.t -> t -> bool
 end
 
-(** Following to be deprecated. *)
-module Diseq : sig
-  type t = trm * trm
-  val lhs : t -> trm
-  val rhs : t -> trm
-  val make : trm * trm -> t
-  val destruct : t -> trm * trm
-  val pp : t Pretty.printer
-  val eq : t -> t -> bool
-  val compare : t -> t -> int
-end
-
-type 'a transformer = t -> t * 'a
-
-
-(** {6 Term Substitutions} *)
 
 type apply = t * t -> t -> t
 type map = (t -> t) -> (t -> t)
 
+
+(** Term Substitutions *)
 module Subst : sig
 
   type t = (trm * trm) list
@@ -350,11 +335,3 @@ module Subst : sig
   val fold : (trm * trm -> 'a -> 'a) -> t -> 'a -> 'a
 
 end
-
-type solve = t * t -> Subst.t
-
-
-type three = 
-    Yes 
-  | No
-  | X of t

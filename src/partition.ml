@@ -36,7 +36,7 @@ let empty = {
 
 (** Shallow copying. *)
 let copy s = {
-  v = s.v; 
+  v = V.copy s.v; 
   d = s.d; 
   equal = s.equal; 
   diseq = s.diseq
@@ -84,15 +84,6 @@ let find p = V.find p.v
 
 let is_canonical p = V.is_canonical p.v
 
-(** Checker for the invariant that disequalities are kept in 
-  canonical form. *)
-let invariant_diseqs_canonical p =
-  D.fold 
-    (fun x ys acc ->
-       acc &&
-       is_canonical p x && 
-       D.Set.for_all (fun (y, _) -> is_canonical p y) ys)
-    p.d true
     
 
 (** All disequalities of some variable [x]. *)
@@ -172,7 +163,7 @@ and merge1 p e =
     if Term.eq x y then () else 
       let (d', ds') = D.merge e p.d in 
 	p.d <- d'; 
-	p.v <- V.merge e p.v;
+	V.merge e p.v;
 	p.equal <- e :: p.equal;
 	p.diseq <- Fact.Diseq.Set.union ds' p.diseq 
 
@@ -207,7 +198,7 @@ let dismerge p d =
   disequalities and constraints are always in canonical form, only variable equalities
   need to be considered. *)
 let gc f p = 
-  p.v <- V.gc f p.v
+  V.gc f p.v
     
 (** Choose a fresh variable equality or disequality. *)
 let fresh_equal p =

@@ -16,89 +16,11 @@
   @author Harald Ruess
 *)
 
-(** An atomic predicate is either 
-  - one of the constants [True], [False],
-  - an equality, 
-  - a disequality, or 
-  - an arithmetic inequality.
-
-  For each of these kinds of atoms there is a module for constructing,
-  destructing, displaying, and manipulating constraints.
-
-  For each atom, a {i unique index} is maintained. That is, {!Atom.eq}[ a b]
-  holds iff [i = j] with [i], [j] the indices associated with [a], [b], respectively.
-*)
-
-(** {6 Equalities} *)
-
-module Equal : sig
-  type t
-    (** Representation of ordered equalities [a = b]; that is, [a <<< b] according
-      to the term ordering {!Term.(<<<)}. *)
-  val lhs : t -> Term.t
-    (** [lhs e] returns [a] if [e] represents [a = b]. *)
-  val rhs : t -> Term.t
-    (** [rhs e] returns [b] if [e] represents [a = b]. *)
-  val pp : t Pretty.printer
-    (** Pretty-printing equality constaints. *)
-  val make : Term.t * Term.t -> t
-  val make_inorder: Term.t * Term.t -> t
-  val destruct : t -> Term.t * Term.t
-  val both_sides : (Term.t -> bool) -> t -> bool
-  val is_var : t -> bool
-  val is_pure : Th.t -> t -> bool
-  val holds : t -> Three.t
-  val eq : t -> t -> bool 
-  val compare : t -> t -> int
-  val map2 : (t -> 'c) * (t -> 'a -> 'b -> 'c) -> 'a Term.transformer * 'b Term.transformer -> t -> t * 'c
-  val map : (t -> 'b) * (t -> 'a -> 'a -> 'b) -> 'a Term.transformer -> t -> t * 'b
-  val status : t -> Term.status
-end 
-              
-
-(** {6 Disequalities} *)
-
-module Diseq : sig
-  type t
-  val lhs : t -> Term.t
-  val rhs : t -> Term.t
-  val make : Term.t * Term.t -> t
-  val destruct : t -> Term.t * Term.t
-  val pp : t Pretty.printer
-  val both_sides : (Term.t -> bool) -> t -> bool
-  val is_var : t -> bool
-  val map : (t -> 'b) * (t -> 'a -> 'a -> 'b) -> 'a Term.transformer -> t -> t * 'b
-  val compare : t -> t -> int
-  val status : t -> Term.status
-end 
-      
-  
-(** {6 Nonnegativity Constrains} *)
-
-module Nonneg : sig
-  type t
-  val pp : t Pretty.printer
-  val make : Term.t -> t
-  val destruct : t -> Term.t
-  val map : (t -> 'b) * (t -> 'a -> 'b) -> 'a Term.transformer -> t  -> t * 'b
-  val status : t -> Term.status
-end 
-
-
-(** {6 Positive Constraints} *)
-
-module Pos : sig
-  type t
-  val pp : t Pretty.printer
-  val make : Term.t -> t
-  val destruct : t -> Term.t
-  val map : (t -> 'b) * (t -> 'a -> 'b) -> 'a Term.transformer -> t -> t * 'b
-  val status : t -> Term.status
-end 
-
-
-(** {6 Atoms} *)
-
+(** An {i atomic predicate} is either
+  - one of the constants [True] or [False],
+  - an equality [a = b],
+  - a disequality [a <> b], or 
+  - an arithmetic inequality [a > 0] or [a >= 0]. *)
 type atom =
   | TT
   | Equal of Term.t * Term.t
@@ -108,63 +30,75 @@ type atom =
   | FF
 
 type t
+  (** For each atom, a {i unique index} is maintained. That is, 
+    - {!Atom.equal}[a b] holds iff [i = j] 
+    with [i], [j] the indices associated with [a], [b], respectively. *)
 
 val atom_of : t -> atom
+  (** Retrieve the atom from an atom-index pair. *)
+
 val index_of : t -> int
+  (** Retrieve the unique index from an atom-index pair. *)
 
 val of_atom : atom -> t
+  (** Construct an atom-index pair with unique index from an atom. *)
+
 val of_index : int -> t
-
-
-(** {6 Constructors} *)
+  (** [of_index n] returns an atom-index pair of index [n] if such and
+    atom-index pair has been created since the last {!Tools.do_at_reset}. 
+    Otherwise, the result is undefined. *)
 
 val mk_true : t
+  (** Atom-index pair for representing the [true] atom. *)
 
 val mk_false : t
+  (** Atom-index pair for representing the [false] atom. *)
 
 val mk_equal : Term.t * Term.t -> t
+  (** The atom-index pair [mk_equal (a, b)] represents the equality [a = b]. *)
+
 val mk_diseq : Term.t * Term.t -> t
+  (** The atom-index pair [mk_diseq (a, b)] represents the disequality [a <> b]. *)
+
 val mk_nonneg : Term.t -> t
+  (** The atom-index pair [mk_nonneg a] represents the nonnegativity 
+    constraint [a >= 0]. *)
+
 val mk_pos : Term.t -> t
-
-val of_equal : Equal.t -> t
-val of_diseq : Diseq.t -> t
-val of_nonneg : Nonneg.t -> t
-val of_pos : Pos.t -> t
-
-(** {6 Recognizers} *)
+  (** The atom-index pair [mk_nonneg a] represents the positivity
+    constraint [a > 0]. *)
 
 val is_true : t -> bool
-val is_false : t -> bool
+  (** [is_true atm] holds iff [atm] represents the [true] atom. *)
 
-val is_pure : Th.t -> t -> bool
+val is_false : t -> bool
+  (** [is_false atm] holds iff [atm] represents the [false] atom. *)
 
 val equal : t -> t -> bool
-
-
-(** {6 Negations of atoms} *)
+  (** Equality on atoms. *)
 
 val is_negatable : t -> bool
+  (** [is_negatable atm] is always true. Not deleted,
+    because it is called by SAT solver *)
 
 val negate : (Term.t -> Term.t) -> t -> t
-
-
-(** {6 Accessors} *)
-
+  (** [negate f atm] ... *)
+  
 val vars_of : t -> Term.Var.Set.t
+  (** [vars_of atm] collects all variables in [atm]. *)
 
 val is_connected : t -> t -> bool
-
-
-(** {6 Pretty-printing} *)
+  (** [is_connected atm1 atm2] holds iff [vars_of atm1] and
+    [vars_of atm2] not disjoint. *)
 
 val pp : t Pretty.printer
+  (** Pretty-printing an atom. *)
 
 val to_string : t -> string
-
-
-(** {6 Sets and Maplets} *)
+  (** Pretty-printing an atom to a string. *)
 
 module Set : (Set.S with type elt = t)
+  (** Sets of atoms. *)
 
 module Map : (Map.S with type key = t)
+  (** Maplets with atoms as keys. *)

@@ -38,12 +38,13 @@ module Mode = struct
 
 end 
 
-
 open Mode
 
 type t = Atom.Set.t
  
 let axioms_of j = j
+
+let of_axioms j = j
 
 let pp fmt j =
   match !proofmode with
@@ -169,7 +170,7 @@ module Eqtrans = struct
       (b, !tau)
 
   let apply app (e, rho) a =
-    let b = app (Atom.Equal.destruct e) a in
+    let b = app e a in
       if a == b then id a else
 	(b, rho)
 	

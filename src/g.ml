@@ -41,7 +41,6 @@ let get g =
     | fct :: fcts' ->
 	g.facts <- fcts'; fct
       
-
 let mem fct g =
   let eq_fct fct' = Fact.eq fct fct' in
     List.exists eq_fct g.facts
@@ -57,17 +56,18 @@ let get_clause g =
 	g.clauses <- cls; cl
 
 let put_clause cl g =
-(*
   try
     let fct = Clause.d_singleton cl in
-      put fct g.facts
+      put fct g
   with
       Not_found -> 
-*)
 	g.clauses <- cl :: g.clauses
 
-(* don't replace in clauses. *)
-let replace e g =
-  g.facts <- List.map (Fact.replace e) g.facts
 
-let copy g = { facts = g.facts; clauses = g.clauses}
+let replace e g =        (* don't replace in clauses. *)
+  let fcts' =  
+    List.map (Fact.replace e) g.facts
+  in
+    g.facts <- fcts'
+
+let copy g = { facts = g.facts; clauses = g.clauses }

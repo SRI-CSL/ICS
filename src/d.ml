@@ -21,7 +21,8 @@ module Set = Set.Make(
     let compare (x, _) (y, _) = Term.Var.compare x y
   end)
 
-let mem x = Set.exists (fun (y, _) -> Term.eq x y)
+let mem x = 
+  Set.exists (fun (y, _) -> Term.eq x y)
 
 exception Found of Set.elt
 
