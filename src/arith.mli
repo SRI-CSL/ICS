@@ -28,7 +28,7 @@ open Term
   multiplication ([multq]), or an addition ([add], [add2]). *)
 
 val is_interp: Term.t -> bool
-val d_interp : Term.t -> (Sym.arith * Term.t list) option 
+
 
 (*s [fold f a e] applies [f] at uninterpreted positions of [a] and 
  accumulates the results starting with [e]. *)
@@ -46,30 +46,6 @@ val of_mono : Mpa.Q.t -> Term.t -> Term.t
 val monomials : Term.t -> Term.t list
 
 
-(* [foldall f a e] calls [f pre q x post acc] is called for 
-   each [pre + q * x + post] equal to [a] and accumulates the results
-   starting with [e]. *)
-
-val foldall : (Term.t -> Mpa.Q.t -> Term.t -> Term.t -> 'a -> 'a) -> Term.t -> 'a -> 'a
-
-(*s Decompose a polynomial of the form, say, ['q + p * x + 7 * y']
- into [('q', Some('p', 'x'), Some('7 * y'))]. *)
-
-type decompose =
-  | Const of Mpa.Q.t
-  | One of Mpa.Q.t * Mpa.Q.t * Term.t
-  | Many of Mpa.Q.t * Mpa.Q.t * Term.t * Term.t
-
-val decompose : Term.t -> decompose
-
-(*s Set of subterms not interpreted in linear arithmetic. *)
-
-val uninterps : Term.t -> Term.Set.t 
-
-(*s Test if every monomial in an arithmetic term satisfies some
- predicate [p]. *)
-
-val for_all : (Mpa.Q.t  * Term.t -> bool) -> Term.t -> bool
 
 (*s Constructors for building up arithmetic terms.  Arithmetic terms 
   are always in polynomial normal form. That is, they either
@@ -99,9 +75,6 @@ val mk_incr : Term.t -> Term.t
 val mk_sub  : Term.t -> Term.t -> Term.t
 val mk_neg  : Term.t -> Term.t
 val mk_multq: Mpa.Q.t -> Term.t -> Term.t
-val mk_mult : Term.t -> Term.t -> Term.t
-val mk_multl : Term.t list -> Term.t
-val mk_expt : int -> Term.t -> Term.t
 
 (*s Recognizers. *)
 
@@ -109,17 +82,13 @@ val is_num : Term.t -> bool
 
 val is_zero : Term.t -> bool
 val is_one : Term.t -> bool
-
-val is_linear : Term.t -> bool
+val is_q : Mpa.Q.t -> Term.t -> bool
 
 (*s Destructors. *)
 
 val d_num : Term.t -> Q.t option
 val d_add : Term.t -> Term.t list option
 val d_multq : Term.t -> (Q.t * Term.t) option
-val d_mult : Term.t -> (Term.t list) option
-val d_expt : Term.t -> (int * Term.t) option
-
 
 
 (*s Given an arithmetic operation [Num(q)], [Multq(q)], [Add], [Mult], or [Div]
@@ -158,10 +127,6 @@ val replacel : (Term.t * Term.t) list -> Term.t -> Term.t
 
 val solve_for : (Term.t -> bool) -> Term.t * Term.t -> (Term.t * Term.t) option
 
-val solve : 
-  (Term.t -> Cnstrnt.t)
-  -> Term.t * Term.t 
-    -> ((Term.t * Term.t) list * (Term.t * Cnstrnt.t) list) option
 
 (*s Abstract interpretation in the domain of constraints. Given 
  a context [f], which associates uninterpreted subterms of [a]
@@ -179,11 +144,3 @@ val cnstrnt : (Term.t -> Cnstrnt.t) -> (Term.t -> Cnstrnt.t)
 
 val split: (Term.t -> Cnstrnt.t) -> Term.t 
              -> (Term.t * Cnstrnt.t) option * Term.t option
-
-
-(*s Normalize a constraint [a in i]. If [a = q + p * x + y], then
-  the result is [x + 1/p * y in '1/p ** (i -- q)'], where ['**'] and
-  ['--'] are multiplication and subtraction operatons on constraints
-  (see module Cnstrnt). *)
-
-val normalize : Term.t * Cnstrnt.t -> Term.t * Cnstrnt.t
