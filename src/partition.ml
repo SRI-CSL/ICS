@@ -22,10 +22,11 @@ open Three
 (*s Equalities and disequalities over variables and constraints on variables *)
 
 type t = {
-  v : V.t;              (* Variable equalities. *)
-  d : D.t;              (* Variables disequalities. *)
-  c : C.t               (* Constraints. *)
+  mutable v : V.t;              (* Variable equalities. *)
+  mutable d : D.t;              (* Variables disequalities. *)
+  mutable c : C.t               (* Constraints. *)
 }
+
 
 let empty = {
   v = V.empty;
@@ -33,11 +34,20 @@ let empty = {
   c = C.empty 
 }
 
-(*s Updates. *)
+let copy p = {v = p.v; d = p.d; c = p.c}
 
-let update_v s v = if v == s.v then s else {s with v = v}
-let update_d s d = if d == s.d then s else {s with d = d}
-let update_c s c = if c == s.c then s else {s with c = c}
+(*s Accessors. *)
+
+let v_of s = s.v
+let d_of s = s.d
+let c_of s = s.c
+
+
+(*s Destructive Updates. *)
+
+let update_v p v = (p.v <- v; p)
+let update_d p d = (p.d <- d; p)
+let update_c p c = (p.c <- c; p)
 
 
 (*s Canonical variables module [s]. *)
@@ -48,11 +58,6 @@ let v s = V.find s.v
 (*s All disequalities of some variable [x]. *)
 
 let deq s = D.deq s.d
-
-
-(*s Constraint of [a] in [s]. *)
-
-let cnstrnt s = C.cnstrnt s.c
 
 
 (*s Pretty-printing. *)
@@ -75,11 +80,15 @@ let eq s t =
 let is_equal s x y =
   let x' = v s x in
   let y' = v s y in
-  if Term.eq x' y' then Three.Yes
-  else if D.is_diseq s.d x' y' then Three.No
+  if Term.eq x' y' then 
+    Three.Yes
+  else if D.is_diseq s.d x' y' then 
+    Three.No
   else
     try
-      if Cnstrnt.is_disjoint (C.cnstrnt s.c x) (C.cnstrnt s.c y) then 
+      let i = C.apply s.c x in
+      let j = C.apply s.c y in
+      if Cnstrnt.is_disjoint i j then
 	Three.No 
       else 
 	Three.X
@@ -91,7 +100,7 @@ let is_equal s x y =
 
 let is_int s x = 
   try 
-    Cnstrnt.dom_of (C.cnstrnt s.c x) = Dom.Int 
+    Cnstrnt.dom_of (C.apply s.c x) = Dom.Int 
   with 
       Not_found -> false
 
@@ -108,21 +117,17 @@ let merge e s =
 	let v' = V.merge e s.v in
 	let d' = D.merge e s.d in
 	let c' = C.merge e s.c in
-	let s' = {s with v = v'; d = d'; c = c'} in
-	s'
-
+	  update_v (update_d (update_c s c') d') v'
 
 (*s Add a constraint. *)
 
 let add c s =
-  let c' = C.add c s.c in
-    if C.eq s.c c' then s 
-    else
+  let c' = C.add c s.c in  
+    if C.eq s.c c' then s else 
       begin
 	Trace.msg "p" "Add" c Fact.pp_cnstrnt;
-	let s' = {s with c = c'} in
-	  s'
-      end
+	  update_c s c'
+      end 
 
 (*s Add a disequality. *)
 
@@ -135,47 +140,40 @@ let diseq d s =
 	s
     | Three.X -> 
 	let d' = D.add d s.d in
-	  if D.eq s.d d' then s else 
-	    begin
-	      Trace.msg "p" "Diseq" d Fact.pp_diseq;
-	      {s with d = d'}
-	    end 
-
-(*s Remove noncanonical, internal variables. Assumes that [d] and [c]
- do not contain any of these variables. *)
-
-let removable s = V.removable s.v
+	let c' = C.diseq d s.c in
+	  Trace.msg "p" "Diseq" d Fact.pp_diseq;
+	  update_d (update_c s c') d'
 
 let restrict xs s = 
   let v' = Set.fold V.restrict xs s.v in
-  {s with v = v'}
+    update_v s v'
 
-(*s Triple of changes in the equality, disequality, and constraint parts
- (in this order). *) 
+(*s Stored facts. *)
 
-type index = V | D | C
-
-let changed s =
-  (V.changed s.v, D.changed s.d, C.changed s.c)
-
-let changed_v s = V.changed s.v
-let changed_d s = D.changed s.d
-let changed_c s = C.changed s.c
+let equality p = V.equality p.v
+let disequalities p x = D.disequalities p.d (V.find p.v x)
+let cnstrnt p x = C.to_fact p.c (V.find p.v x)
 
 
+(*s Management of changed sets. *)
 
-(*s Resetting the [changed] indices. *)
+module Changed = struct
 
-let reset i s = 
-  match i with
-    | V -> {s with v = V.reset s.v}
-    | D -> {s with d = D.reset s.d}
-    | C -> {s with c = C.reset s.c}
+  let reset () =
+    V.changed := Set.empty;
+    D.changed := Set.empty;
+    C.changed := Set.empty
 
-let reset_v s = update_v s (V.reset s.v)
-let reset_d s = update_d s (D.reset s.d)
-let reset_c s = update_c s (C.reset s.c)
+  let save () = (!V.changed, !D.changed, !C.changed)
 
+  let restore (v, d, c) =
+    V.changed := v;
+    D.changed := d;
+    C.changed := c
+  
+  let stable () =
+    !V.changed = Set.empty &&
+    !D.changed = Set.empty &&
+    !C.changed = Set.empty
 
-
-
+end
