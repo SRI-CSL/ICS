@@ -44,7 +44,8 @@ let keyword =
       "syntax", SYNTAX; "commands", COMMANDS; "ctxt", CTXT; "diseq", DISEQ; 
       "show", SHOW; "symtab", SYMTAB; "cnstrnt", CNSTRNT; "split", SPLIT;
       "true", TRUE; "false", FALSE;
-      "floor", FLOOR; "ceiling", CEILING; "sin", SIN; "cos", COS; "unsigned", UNSIGNED 
+      "floor", FLOOR; "ceiling", CEILING; "sin", SIN; "cos", COS; "unsigned", UNSIGNED;
+      "apply", APPLY
     ];
   fun s ->
     try Hashtbl.find kw_table s with Not_found -> IDENT s
