@@ -66,7 +66,10 @@ CMO = hashcons.cmo hasht.cmo ptset.cmo \
       sets.cmo morphisms.cmo solve.cmo \
       can.cmo process.cmo ics.cmo
 
+
 CMX = $(CMO:.cmo=.cmx)
+
+SRC = $(addprefix ./src/,$(CMO:.cmo=.ml))
 
 .PHONY : all all-chdir
 all: $(OBJDIR) $(LIBDIR) $(BINDIR)
@@ -111,9 +114,7 @@ ics_stub.c ics.h ics.lisp: ics.ml ics.mli ../../chameleon/$(ARCH)/chameleon
 
 GENERATED = lexer.ml parser.mli parser.ml
 
-# don't know what this one does
-top: $(COBJS) $(CMO)
-	ocamlmktop -o top -custom unix.cma $(CMO) $(COBJS) $(LIBS)
+### Chameleon
 
 ../../chameleon/$(ARCH)/chameleon:
 	make -C ../../chameleon all
@@ -166,14 +167,14 @@ bench:: consistent inconsistent benchmarks
 
 check:: consistent inconsistent
 
-consistent: ics
+consistent: $(BINDIR)/ics
 	@for f in `find tests/consistent/ -maxdepth 1 -type f -print`; do \
 	echo -n $$f"..."; \
 	$(BINDIR)/ics $$f > /dev/null; if [ $$? = 0 ]; then echo "Ok"; else \
           echo "Error! (Should be consistent)"; exit $$?; fi \
 	done
 
-inconsistent: ics
+inconsistent: $(BINDIR)/ics
 	@for f in `find tests/inconsistent/ -maxdepth 1 -type f -print`; do \
 	echo -n $$f"..."; \
 	$(BINDIR)/ics $$f > /dev/null; if [ $$? = 3 ]; then echo "Ok"; else \
@@ -185,7 +186,7 @@ BENCHFILES=linsys-005 linsys-006 linsys-007 linsys-008 linsys-009 linsys-010 \
            trans-100 trans-200 trans-300 trans-400 trans-500 trans-1000 \
            ineq-010 ineq-020 ineq-030 ineq-040 ineq-050 ineq-060 ineq-070
 
-benchmarks: ics
+benchmarks: $(BINDIR)/ics 
 	@for f in $(BENCHFILES); do \
 	echo -n "bench file $$f..."; \
 	time -f "user = %U system = %S" $(BINDIR)/ics tests/bench/$$f > /dev/null;\
@@ -202,9 +203,9 @@ profile:
 CPROFFILE = tests/bench/trans-1000
 
 cprofile:
-	make BFLAGS="" OCAMLC="ocamlcp -p fmt" OCAMLLINK="ocamlcp -p fmt" clean ics.byte
+	$(MAKE) BFLAGS="" OCAMLC="ocamlcp -p fmt" OCAMLLINK="ocamlcp -p fmt" clean ics.byte
 	$(BINDIR)/ics.byte $(CPROFFILE)
-	make find.prof shostak.prof
+	$(MAKE) process.prof
 
 ### literate programming
 
@@ -214,7 +215,6 @@ OCAMLWEBARGS = $(DOCDIR)/intro.tex \
                $(DOCDIR)/algo.tex $(SRCDIR)/process.mli \
                $(SRCDIR)/process.ml \
                $(SRCDIR)/poly.mli $(SRCDIR)/poly.ml \
-               $(SRCDIR)/ineq.ml \
                $(SRCDIR)/congstate.mli $(SRCDIR)/congstate.ml \
                $(SRCDIR)/cmd.mli $(SRCDIR)/cmd.ml \
                $(DOCDIR)/theo.tex $(SRCDIR)/term.ml $(SRCDIR)/arith.mli \
@@ -239,8 +239,8 @@ $(DOCDIR)/doc.tex: $(OCAMLWEBARGS) Makefile
 $(DOCDIR)/doc.html: $(DOCDIR)/doc.tex
 	$(HEVEA) $(OCAMLWEBSTY) $(DOCDIR)/doc.tex -o $(DOCDIR)/doc.html
 
-$(DOCDIR)/dep.ps: $(CMO:.cmo=.ml)
-	$(OCAMLDEP) $(CMO:.cmo=.ml) | ocamldot -lr | dot -Tps > $(DOCDIR)/dep.ps
+$(DOCDIR)/dep.ps: $(addprefix ./src/,$(CMO:.cmo=.ml))
+	$(OCAMLDEP) $(addprefix ./src/,$(CMO:.cmo=.ml)) | ocamldot -lr | dot -Tps > $(DOCDIR)/dep.ps
 
 ### Emacs tags
 
