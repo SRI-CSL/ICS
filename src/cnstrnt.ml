@@ -202,7 +202,7 @@ let pp fmt c =
   Interval.pp fmt i;
   if not(Diseqs.is_empty qs) then
     begin
-      Format.fprintf fmt " but ";
+      Format.fprintf fmt "\\";
       Pretty.set Mpa.Q.pp fmt (Diseqs.elements qs)
     end
 
