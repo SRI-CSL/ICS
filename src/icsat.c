@@ -91,6 +91,14 @@ void icsat_pop() {
   CAMLreturn0;
 }
 
+void icsat_stackpp() {
+  CAMLparam0();
+  static value * closure = NULL;
+  if (closure == NULL) { closure = caml_named_value("prop_stackpp"); }
+  callback(*closure, Val_unit);
+  CAMLreturn0;
+}
+
 int icsat_assert(int x1) {
   static value * closure = NULL;
   if (closure == NULL) { closure = caml_named_value("prop_add"); }

@@ -302,11 +302,11 @@ let is_connected i j =
 let _ = Callback.register "atom_is_connected" is_connected
 
 let atom_pp i =
-  Format.fprintf Format.std_formatter "\nAtom.pp(%i)" i;
-  Trace.msg "foo23" "Atom.pp" i Pretty.number;
   let a = id_to_atom i in
-    Atom.pp Format.std_formatter a
+    Atom.pp Format.std_formatter a;
+    Format.print_flush ()
 let _ = Callback.register "prop_atom_pp" atom_pp
+
 
 (** {6 Stack} *)
 
@@ -330,6 +330,12 @@ let _ = Callback.register "prop_pop" pop
 
 let top () = Stack.top stack
 let _ = Callback.register "prop_top" top
+
+let stackpp () =
+  Stack.iter (Context.pp Format.std_formatter) stack
+let _ = Callback.register "prop_stackpp" stackpp
+
+
 
 let add i =
   let a = id_to_atom i in
