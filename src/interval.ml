@@ -326,6 +326,9 @@ let mult i j =
 	mk_zero
 
 let multq q = mult (mk_singleton q)
+
+let subtract i j =
+  add i (multq (Mpa.Q.minus Q.one) j)
 	
 let div i j =
   let dom = Dom.Real

@@ -339,8 +339,8 @@ val context_pp : context -> unit
 
 val term_mk_unsigned : context -> term -> term
 
-val term_mk_update : context -> term -> term -> term -> term
-val term_mk_select :  context ->term -> term -> term
+val term_mk_update : context -> term * term * term -> term
+val term_mk_select :  context -> term * term -> term
 
 val term_mk_div :  context -> term -> term -> term
 val term_mk_floor : context -> term -> term
