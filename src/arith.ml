@@ -88,8 +88,7 @@ let mk_num q = App(Arith(Num(q)), [])
 
 let mk_zero = mk_num(Q.zero)
 let mk_one = mk_num(Q.one)
-
-
+let mk_two = mk_num(Q.of_int 2)
 (*s Some normalization functions. *)
 
 let poly_of a =

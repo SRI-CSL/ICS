@@ -67,6 +67,7 @@ val monomials : Term.t -> Term.t list
 val mk_num  : Mpa.Q.t -> Term.t
 val mk_zero : Term.t
 val mk_one  : Term.t
+val mk_two  : Term.t
 
 
 val mk_add  : Term.t -> Term.t -> Term.t
