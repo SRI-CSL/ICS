@@ -11,59 +11,131 @@
  * benefit corporation.
  *)
 
-(** Tableau
+(** Linear arithmetic decision procedures
 
   @author Harald Ruess
   @author N. Shankar
+
+  This module provides the building blocks for a decision procedure
+  for real and integer linear arithmetic based on the Simplex algorithm.
 *)
 
 type t
+  (** States [s] consist of two solution sets [(r, t)] with 
+    - [r] the {i regular} solution set with equalities of the 
+    form [x = a] with [x] a nonslack variable (see {!Term.Var.is_slack})
+    and [a] a linear arithmetic term.
+    - [t] a {i tableau} with equalities [k = b] with [k] a slack variable,
+    and all variables in the linear arithmetic term [b] are slack variables, too.
 
-type config = Partition.t * t
+    A state [s] {i represents} the conjunction of equalities in [r] and [t]. 
+    [s |= p] if the atom [p] is {i valid} in [s].  *)
 
 val eq : t -> t -> bool
+  (** [eq s1 s2] holds if the respective solution sets of [s1] 
+    and [s2] are identical. *)
+
+val empty : t
+  (** The {i empty} state *)
+
+val is_empty : t -> bool
+  (** [is_empty s] holds iff [s] represents an empty state [s]. *)
+
+val pp : t Pretty.printer
+  (** Pretty-printing a state. *)
+
 
 
 (** {6 Accessors} *)
 
 val apply : t -> Justification.Eqtrans.t
-
+  (** [apply s x] returns [a] if [x = a] is in [s]; otherwise
+    [Not_found] is raised. *)
+  
 val find : t -> Justification.Eqtrans.t
+  (** [find s x] returns [a] if [x = a] is in [s], and [x] otherwise. *)
 
 val inv : t -> Justification.Eqtrans.t
+  (** [inv s a] returns [x] if [x = a] is in [s]; otherwise
+    [Not_found] is raised. *)
 
 val dep : t -> Term.t -> Term.Set.t
+  (** [dep s y] returns the set of [x] such that [x = a] in [s]
+    and [y] occurs in [a]. *)
 
 val is_dependent : t -> Term.t -> bool
+  (** [is_dependent s x] holds iff there is an [a] such that [x = a] in [s]. *)
 
 val is_independent : t -> Term.t -> bool
+  (** [is_independent s y] holds iff [y] occurs in some [a] such that
+    [x = a] in [s]. *)
 
 
-(** {6 Manipulating tableau} *)
+(** {6 Processing} *)
 
-val empty : t
-  (** Empty tableau. *)
-
-val is_empty : t -> bool
 
 val copy : t -> t
+  (** The update functions {!La.name}, {!La.process_equal},
+    and {!La.process_diseq}, {!La.process_nonneg}, {!La.process_pos}, 
+    and {b destructively} update equality sets. The function [copy s] 
+    can be used to protect state [s] against these updates. *)
+
+
+type config = Partition.t * t
+    (** A {i configuration} consists of a pair [(p, s)] with
+      [p] a partitioning and [s] a linear arithmetic equality set.
+      A configuration {i represents{ the conjunction of variable
+      equalities and disequalities in [p] and the equalities in [s]. *)
 
 val name : config -> Justification.Eqtrans.t
+  (** [name (p, s) a] returns a canonical variable [x] 
+    with [x = a] in the [r] part of [s].  If there is no such 
+    variable, it creates such a variable [v] and updates [s] to 
+    include the equality [v = a]. *)
 
 val process_equal : config -> Fact.Equal.t -> unit
+  (** Given a configuration [(p, s)] and an equality [e]
+    over {i pure}, linear arithmetic terms
+    [process_equal (p, s) e] adds [e] to [(p, s)]. 
+    If [e] conjoined with [s] and [p] is {i inconsistent},
+    then {!Justification.Inconsistent} is raised.  Besides 
+    {i destructively} updating [s], all generated variable 
+    equalities and disequalities are propagated into the 
+    partitioning [p].  *)
 
 val process_nonneg : config -> Fact.Nonneg.t -> unit
+  (** Given a configuration [(p, s)] and an nonnegativity
+    constraint [nn] of the form [a >= 0] with [a] a pure
+    linear arithmetic term, [process_nonneg (p, s) nn] adds 
+    [nn] to [(p, s)]. If [nn] conjoined with [s] and [p] is 
+    {i inconsistent}, then {!Justification.Inconsistent} is 
+    raised.  Besides {i destructively} updating [s], all 
+    generated variable equalities and disequalities are propagated
+    into the partitioning [p].  *)
 
 val process_pos : config -> Fact.Pos.t -> unit
+  (** Given a configuration [(p, s)] and an positivity
+    constraint [pp] of the form [a > 0] with [a] a pure
+    linear arithmetic term, [process_nonneg (p, s) pp] adds 
+    [pp] to [(p, s)]. If [pp] conjoined with [s] and [p] is 
+    {i inconsistent}, then {!Justification.Inconsistent} is 
+    raised.  Besides {i destructively} updating [s], all 
+    generated variable equalities and disequalities are propagated
+    into the partitioning [p].  *)
 
 val process_diseq : config -> Fact.Diseq.t -> unit
+  (** Given a configuration [(p, s)] and an disequality
+    constraint [a <> b] with [a], [b] either variables or
+    [a] a linear term and [b] a rational constant, 
+    [process_diseq (p, s) d] adds 
+    [d] to [(p, s)]. If [d] conjoined with [s] and [p] is 
+    {i inconsistent}, then {!Justification.Inconsistent} is 
+    raised.  Besides {i destructively} updating [s], all 
+    generated variable equalities and disequalities are 
+    propagated into the partitioning [p].  *)
 
 
-(** {6 Pretty-printing} *)
-
-val pp : t Pretty.printer
-
-(** {6 Maximization} *)
+(** {6 Boundary Values} *)
 
 exception Unbounded
 
@@ -79,9 +151,17 @@ val is_nonpos : config -> Justification.Pred.t
     In this case [rho |- a <= 0]. Otherwise, [None] is returned. *)
 
 val is_nonneg : config -> Justification.Pred.t
+  (** [is_nonneg s a] returns [Some(rho)] if [a >= 0] holds in [s]. 
+    In this case [rho |- a >= 0]. Otherwise, [None] is returned. *)
 
 val is_pos : config -> Justification.Pred.t
+  (** [is_pos s a] returns [Some(rho)] if [a > 0] holds in [s]. 
+    In this case [rho |- a > 0]. Otherwise, [None] is returned. *)
+
 val is_neg : config -> Justification.Pred.t
+  (** [is_neg s a] returns [Some(rho)] if [a < 0] holds in [s]. 
+    In this case [rho |- a < 0]. Otherwise, [None] is returned. *)
+
 
 
 (** {6 Finite Interpretations} *)
@@ -115,7 +195,11 @@ module Finite : sig
 end 
 
 
-
-(** {6 Interpretations} *)
-
 val model : config -> Term.Set.t -> Term.t Term.Map.t
+  (** [model (p, s) xs] returns an assignment [rho]
+    for the variables in [xs] with bindings [x |-> q].
+    [q] is either a rational number or a rational 
+    number added to the multiple of a "small" constant [eps].
+    The assignment [rho] can be extended to a model of [s]. *)
+  
+    
