@@ -645,23 +645,6 @@ and merge_i i e s =
 	      let e' = Fact.mk_equal x y None in
 		merge_v e' s
 
-and nonlin_equal e s =
-  let rec linearize occs s =
-    Set.fold
-      (fun x s ->
-	 try 
-	   let a = apply Th.pprod s x in
-	   let b = Sig.map (find Th.la s) a in
-	     if Term.eq a b then s else 
-	       let (s', b') = Abstract.term Th.u (s, b) in
-	       let e' = Fact.mk_equal (v s' x) b' None in
-		 merge_v e' s'
-	 with
-	     Not_found -> s)
-      occs s
-  in
-  let (x, _, _) = Fact.d_equal e in
-    linearize (use Th.pprod s x) s
 
 
 and fuse i e s =   
@@ -969,6 +952,25 @@ and close_i i =
            s'''
        with
 	   Not_found -> s)
+
+and nonlin_equal e s =
+  let rec linearize occs s =
+    Set.fold
+      (fun x s ->
+	 try 
+	   let a = apply Th.pprod s x in
+	   let b = Sig.map (find Th.la s) a in
+	     if Term.eq a b then s else 
+	       let (s', b') = Abstract.term Th.u (s, b) in
+	       let e' = Fact.mk_equal (v s' x) b' None in
+		 merge_v e' s'
+	 with
+	     Not_found -> s)
+      occs s
+  in
+  let (x, _, _) = Fact.d_equal e in
+    linearize (use Th.pprod s x) s
+
 
 (** Propagate changes in the variable partitioning. *)    
 and close_p ch s =
