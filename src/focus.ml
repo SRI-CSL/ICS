@@ -14,29 +14,32 @@
  * Author: Harald Ruess
  i*)
 
-type t = 
-  | A        (*s Arithmetic. *)
-  | T        (*s Tuples. *)
-  | BV       (*s Bitvectors. *)
+type t = {
+  vfocus : V.focus;
+  dfocus : D.focus
+}
 
-let name_of = function
-  | A -> "a"
-  | T -> "t"
-  | BV -> "bv"
+let v f = f.vfocus
+let d f = f.dfocus
 
-let of_name = function
-  | "a" -> A
-  | "t" -> T
-  | "bv" -> BV
-  | str -> raise (Invalid_argument (str ^ "not an interpreted theory name."))
+let make v d = { vfocus = v; dfocus = d}
 
+let empty = {
+  vfocus = V.Focus.empty;
+  dfocus = D.Focus.empty
+}
 
-let index f =
-  match Sym.destruct f with
-    | Sym.Interp(op) ->
-	Some(match op with
-	       | Sym.Arith _ -> A
-	       | Sym.Tuple _ -> T
-	       | Sym.Bv _ -> BV)
-    | _ ->
-	None
+let is_empty f =
+  V.Focus.is_empty f.vfocus &&
+  D.Focus.is_empty f.dfocus
+
+let add_v v f = {f with vfocus = V.Focus.union v f.vfocus}
+let add_d d f = {f with dfocus = D.Focus.union d f.dfocus}
+
+let union f1 f2 = 
+  {vfocus = V.Focus.union f1.vfocus f2.vfocus;
+   dfocus = D.Focus.union f1.dfocus f2.dfocus}
+
+let fold_v f p = V.Focus.fold f p.vfocus
+
+let fold_d f p = D.Focus.fold f p.dfocus

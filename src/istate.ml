@@ -24,28 +24,36 @@ type t = {
   mutable current : Context.t;
   mutable symtab : Symtab.t;
   mutable inchannel : in_channel;
-  mutable outchannel : Format.formatter
+  mutable outchannel : Format.formatter;
+  mutable eot : string;
+  mutable counter : int
 }
 
 let init () = {
   current = Context.empty;
   symtab = Symtab.empty;
   inchannel = Pervasives.stdin;
-  outchannel = Format.std_formatter
+  outchannel = Format.std_formatter;
+  eot = "";
+  counter = 0
 }
 
 let s = init ()
 
-(*s Context. *)
+(*s Initialize. *)
 
-let ctxt_of () = 
-  Atom.Set.elements s.current.Context.ctxt
+let initialize pp eot inch outch =
+  Term.set_pretty_print pp;
+  s.eot <- eot;
+  s.inchannel <- inch;
+  s.outchannel <- outch
+  
 
 (*s Accessors to components of global state. *)
 
 let current () = s.current
 let symtab () = s.symtab
-
+let eot () = s.eot
 let inchannel () = s.inchannel
 let outchannel () = s.outchannel
 
@@ -78,6 +86,13 @@ let type_of n =
     | Symtab.Type(c) -> Some(c)
     | _ -> None
 
+(*s Get context for name in symbol table *)
+
+let context_of n = 
+  match Symtab.lookup n s.symtab with
+    | Symtab.State(c) -> c
+    | _ -> raise (Invalid_argument("No context of name " ^ (Name.to_string n)))
+
 (*s Getting the width of bitvector terms from the signature. *)
 
 let width_of a =
@@ -98,9 +113,13 @@ let reset () =
   Tools.do_at_reset ();
   s.current <- Context.empty;
   s.symtab <- Symtab.empty;
-  s.inchannel <- Pervasives.stdin;
-  s.outchannel <- Format.std_formatter
+  s.counter <- 0
 
+(*s Getting either current context or explicitly specified context. *)
+
+let get_context = function
+  | None -> s.current
+  | Some(n) -> context_of n
 
 (*s Set input and output channels. *)
 
@@ -114,16 +133,21 @@ let flush () = Format.fprintf s.outchannel "@?"
 let nl () = Format.fprintf s.outchannel "\n"
 
 
+(*s Context. *)
+
+let ctxt_of = function
+  | None -> s.current.Context.ctxt
+  | Some(n) -> (context_of n).Context.ctxt
+
 (*s Canonization w.r.t current state. *)
 
-
 let can p = 
-  let (t, b) = Shostak.can s.current p in
+  let (t, q) = Shostak.can s.current p in
   s.current <- t;
-  b
+  q
 
-let cant p = 
-  let (t, b) = Shostak.can_t s.current p in
+let cant a = 
+  let (t, b) = Shostak.can_t s.current a in
   s.current <- t;
   b
 
@@ -131,29 +155,30 @@ let sigma f l =
   Context.sigma s.current f l
 
 
-(*s Adding a new fact *)
-
-let process a =
-  let t = current () in
-  let status = Shostak.process t a in
-  (match status with                     (* Update state *)
-     | Shostak.Satisfiable(t') -> 
-	 s.current <- t' 
-     | _ -> ());
-  status
 
 
+(*s Create a fresh name for a state. *)
 
-(*s State compression. *)
-
-let compress () =
-  s.current <- Context.compress s.current
+let rec fresh_state_name () =
+  s.counter <- s.counter + 1;
+  let n = Name.of_string ("s" ^ (string_of_int s.counter)) in
+  try
+    let _ = Symtab.lookup n s.symtab in  (* make sure state name is really fresh. *)
+    fresh_state_name ()
+  with
+      Not_found -> 
+	n
 
 (*s Change current state. *)
 
-let save n = 
-  let e = Symtab.State (s.current) in
-  s.symtab <- Symtab.add n e s.symtab
+let save arg =
+  let n = match arg with
+    | None -> fresh_state_name ()
+    | Some(n) -> n
+  in
+  let e = Symtab.State s.current in
+  s.symtab <- Symtab.add n e s.symtab;
+  n
 
 let restore n =
   try
@@ -169,33 +194,70 @@ let remove n =
 let forget () =
   s.current <- Context.empty
 
+(*s State compression. *)
+
+let compress () =
+  s.current <- Context.compress s.current;
+  save None
+
+(*s Adding a new fact *)
+
+let process n a =
+  let t = (get_context n) in
+  let status = Shostak.process t a in
+  match status with      (* Update state and install new name in symbol table *)
+    | Shostak.Satisfiable(t') -> 
+	s.current <- t';
+	let n = save None in
+	Shostak.Satisfiable(n)
+    | Shostak.Valid ->
+	Shostak.Valid
+    | Shostak.Inconsistent ->
+	Shostak.Inconsistent
+
+let valid n a =
+  match Shostak.process (get_context n) a with 
+    | Shostak.Valid -> true
+    | _ -> false
+
+let unsat n a =
+  match Shostak.process (get_context n) a with 
+    | Shostak.Inconsistent -> true
+    | _ -> false
 
 (*s Accessors. *)
 
-let diseq a =
-  let a' = cant a in
+let diseq n a =
+  let s = get_context n in
+  let (s', a') = Shostak.can_t s a in
   try
-    Term.Set.elements (Term.Map.find a' (Cc.diseqs (s.current.Context.u)))
+    Context.deq s' a'
   with
-      Not_found -> []
+      Not_found -> Term.Set.empty
 
-let cnstrnt a =
-  let a' = cant a in
+let cnstrnt n a =
+  let s = get_context n in
+  let (s', a') = Shostak.can_t s a in
   try
-    Some(Context.cnstrnt s.current a')
+    Some(Context.cnstrnt s' a')
   with
       Not_found -> None
 
 
 (*s Applying maps. *)
 
-let find e = Context.find e s.current
-let inv e = Context.inv e s.current
-let use e = Context.use e s.current
+
+let find n e = Context.find e (get_context n)
+let inv n e = Context.inv e (get_context n)
+let use n e = Context.use e (get_context n)
 
 (*s Solution sets. *)
 
-let solution e = Context.solution e s.current
+let solution n e = 
+  Solution.fold
+    (fun x a acc -> (x, a) :: acc)
+    (Context.solutions e (get_context n))
+    []
 
 (*s Variable partitioning. *)
 
@@ -203,7 +265,7 @@ let partition () =
   Term.Map.fold
     (fun x ys acc ->
        (x, Term.Set.elements ys) :: acc)
-    (Context.partition s.current)
+    (V.partition s.current.Context.v)
     []
  
 (*s Equality/disequality test. *)
@@ -222,4 +284,5 @@ let is_int a =
 (*s Splitting. *)
 
 let split () =
-  Context.split s.current
+  let al = Context.split s.current in
+  List.fold_right Atom.Set.add al Atom.Set.empty

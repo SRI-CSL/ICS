@@ -20,9 +20,11 @@ open Sym
 open Term
 (*i*)
 
-let init n =
-  Sys.catch_break true                 (*s raise [Sys.Break] exception upon *)
-                                       (*s user interrupt. *)
+let init (n, pp, eot, inch, outch) =
+  Istate.initialize pp eot inch outch;
+  if n = 0 then
+    Sys.catch_break true                 (*s raise [Sys.Break] exception upon *)
+                                         (*s user interrupt. *)
 
 let do_at_exit () = Tools.do_at_exit ()
 let _ = Callback.register "do_at_exit" do_at_exit
@@ -34,21 +36,21 @@ let _ = Callback.register "init" init
 type inchannel = in_channel
 type outchannel = Format.formatter
 
-let stdin () = Pervasives.stdin
-let _ = Callback.register "stdin" stdin
+let channel_stdin () = Pervasives.stdin
+let _ = Callback.register "channel_stdin" channel_stdin
 
-let stdout () = Format.std_formatter
-let _ = Callback.register "stdout" stdout
+let channel_stdout () = Format.std_formatter
+let _ = Callback.register "channel_stdout"  channel_stdout
 
-let stderr () = Format.err_formatter
-let _ = Callback.register "stderr" stderr
+let  channel_stderr () = Format.err_formatter
+let _ = Callback.register "channel_stderr"  channel_stderr
 
-let in_of_string = Pervasives.open_in
-(* let _ = Callback.register "in_of_string" in_of_string *)
+let inchannel_of_string = Pervasives.open_in
+let _ = Callback.register "inchannel_of_string" inchannel_of_string
 
-let out_of_string str = 
+let outchannel_of_string str = 
   Format.formatter_of_out_channel (Pervasives.open_out str)
-let _ = Callback.register "out_of_string" out_of_string
+let _ = Callback.register "outchannel_of_string" outchannel_of_string
 
 
 (* Names. *)
@@ -115,6 +117,13 @@ let _ = Callback.register "cnstrnt_mk_lt" cnstrnt_mk_lt
 
 let cnstrnt_mk_le = Cnstrnt.mk_le Dom.Real
 let _ = Callback.register "cnstrnt_mk_le" cnstrnt_mk_le
+
+
+let cnstrnt_mk_gt = Cnstrnt.mk_gt Dom.Real
+let _ = Callback.register "cnstrnt_mk_gt" cnstrnt_mk_gt
+
+let cnstrnt_mk_ge = Cnstrnt.mk_ge Dom.Real
+let _ = Callback.register "cnstrnt_mk_ge" cnstrnt_mk_ge
 
 
 let cnstrnt_inter = Cnstrnt.inter
@@ -344,9 +353,6 @@ let term_mk_cos = Builtin.mk_cos
 let _ = Callback.register "term_mk_cos" term_mk_cos
 
 
-
-
-
 (*s Set of terms. *)
 
 type terms = Term.Set.t
@@ -423,98 +429,82 @@ let _ = Callback.register "is_inconsistent" is_inconsistent
 let d_consistent r =
   match r with
     | Shostak.Satisfiable s -> s
-    | _ -> failwith "Ics.d_consistent: fatal error"
+    | _ -> (context_empty())
+         (* failwith "Ics.d_consistent: fatal error" *)
 	
-let _ = Callback.register "d_consistent" d_consistent  
-
-let process s a =
-  match Shostak.process s a with
-    | Shostak.Satisfiable s ->
-	Shostak.Satisfiable s
-    | Shostak.Valid ->
-        Shostak.Valid
-    | Shostak.Inconsistent ->
-	Shostak.Inconsistent
-
+let _ = Callback.register "d_consistent" d_consistent 
+ 
+let process = Shostak.process
 let _ = Callback.register "process" process   
 
 let split = Context.split 
 let _ = Callback.register "split" split
-
 
 (*s Normalization functions *)
 
 let can = Shostak.can
 let _ = Callback.register "can" can
 
-(*s Command interface. *)
-
-type istate = Istate.t
-
-let cmd_current = Istate.current
-let _ = Callback.register "cmd_current" cmd_current
-
-let cmd_symtab = Istate.symtab
-(* let _ = Callback.register "cmd_symtab" cmd_symtab *)
-
-let cmd_def = Istate.def
-let _ = Callback.register "cmd_def" cmd_def
-
-let cmd_sig = Istate.sgn
-let _ = Callback.register "cmd_sig" cmd_sig
-
-let cmd_set_in_channel = Istate.set_inchannel 
-let _ = Callback.register "cmd_set_in_channel" cmd_set_in_channel
-
-let cmd_set_out_channel = Istate.set_outchannel 
-let _ = Callback.register "cmd_set_out_channel" cmd_set_out_channel
-
-let cmd_type = Istate.typ
-let _ = Callback.register "cmd_type" cmd_type
-
-let cmd_flush = Istate.flush
-let _ = Callback.register "cmd_flush" cmd_flush
-
-let cmd_nl = Istate.nl
-let _ = Callback.register "cmd_nl" cmd_nl
-
-let cmd_can  = Istate.can
-let _ = Callback.register "cmd_can" cmd_can
-
-let cmd_split  = Istate.split
-let _ = Callback.register "cmd_split" cmd_split
 
 
+let read_from_channel ch = 
+  Parser.commands Lexer.token (Lexing.from_channel ch)
 
-let cmd_process = Istate.process
-let _ = Callback.register "cmd_process" cmd_process
+let read_from_string str =  
+  Parser.commandseof Lexer.token (Lexing.from_string str)
 
-let cmd_reset = Istate.reset
-let _ = Callback.register "cmd_reset" cmd_reset
-
-let cmd_save = Istate.save
-let _ = Callback.register "cmd_save" cmd_save
-
-let cmd_restore = Istate.restore
-let _ = Callback.register "cmd_restore" cmd_restore
-
-let cmd_remove = Istate.remove
-let _ = Callback.register "cmd_remove" cmd_remove
-
-let cmd_forget = Istate.forget
-let _ = Callback.register "cmd_forget" cmd_forget
-
-let cmd_eval () =
+let rec cmd_rep () =
+  let inch = Istate.inchannel() in
+  let outch = Istate.outchannel() in
   try 
-    Parser.commands Lexer.token (Lexing.from_channel (Istate.inchannel()))
-  with 
-    | Invalid_argument str -> Format.eprintf "Error(%s).@." str
-    | Parsing.Parse_error -> Format.eprintf "Error(Syntax).@."
-    | End_of_file -> raise End_of_file
-    | Sys.Break -> raise Sys.Break
-    | exc -> Format.eprintf "Internal error.@."; raise exc
+    cmd_output outch (read_from_channel inch);
+  with
+    | Invalid_argument str -> cmd_error outch str
+    | Parsing.Parse_error -> cmd_error outch "Syntax"
+    | End_of_file ->  cmd_quit 0 outch;
+    | Sys.Break -> cmd_quit 1 outch;
+    | Failure "drop" -> ()
+    | exc -> (cmd_error outch ("Exception " ^ (Printexc.to_string exc)); exit 2)
 
-let _ = Callback.register "cmd_eval" cmd_eval
+and cmd_output fmt result =
+  (match result with
+     | Result.Process(Shostak.Valid) -> 
+	 (Format.fprintf fmt ":valid")
+     | Result.Process(Shostak.Inconsistent) -> 
+	 (Format.fprintf fmt ":unsat")
+     | Result.Process(Shostak.Satisfiable(n)) -> 
+	 (Format.fprintf fmt ":ok "; Name.pp fmt n)
+     | Result.Unit() ->
+	 Format.fprintf fmt ":unit"
+     | Result.Bool(true) ->
+	 Format.fprintf fmt ":true"
+     | Result.Bool(false) ->
+	 Format.fprintf fmt ":false"
+     | value -> 
+	 Format.fprintf fmt ":val ";
+	 Result.output fmt value);
+  cmd_endmarker fmt
+	
+and cmd_error fmt str =
+  Format.fprintf fmt ":error %s" str;
+  Format.fprintf fmt "\n%s@?" (Istate.eot())
+
+and cmd_quit n fmt = 
+ Format.fprintf fmt ":quit\n";
+ cmd_endmarker fmt;
+ exit n
+
+and cmd_endmarker fmt =
+  let eot = Istate.eot () in
+  if eot = "" then
+    Format.pp_print_flush fmt ()
+  else 
+    begin
+      Format.fprintf fmt "\n%s" eot;
+      Format.pp_print_flush fmt ()
+    end 
+
+let _ = Callback.register "cmd_rep" cmd_rep
 
 
 (*s Abstract sign interpretation. *)

@@ -29,7 +29,7 @@ type t
 
 val solutions : t -> Solution.t
 
-val cnstrnts : t -> C.t
+val cnstrnts : t -> Cnstrnt.t Term.Map.t
 
 
 (*s Empty state. *)

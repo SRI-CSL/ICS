@@ -12,31 +12,25 @@
  * benefit corporation.
  * 
  * Author: Harald Ruess
- i*)
-
-type t = 
-  | A        (*s Arithmetic. *)
-  | T        (*s Tuples. *)
-  | BV       (*s Bitvectors. *)
-
-let name_of = function
-  | A -> "a"
-  | T -> "t"
-  | BV -> "bv"
-
-let of_name = function
-  | "a" -> A
-  | "t" -> T
-  | "bv" -> BV
-  | str -> raise (Invalid_argument (str ^ "not an interpreted theory name."))
+i*)
 
 
-let index f =
-  match Sym.destruct f with
-    | Sym.Interp(op) ->
-	Some(match op with
-	       | Sym.Arith _ -> A
-	       | Sym.Tuple _ -> T
-	       | Sym.Bv _ -> BV)
-    | _ ->
-	None
+type t
+
+val v : t -> V.focus
+val d : t -> D.focus
+
+val make : V.focus -> D.focus -> t
+
+val empty : t
+
+val add_v : V.focus -> t -> t
+val add_d : D.focus -> t -> t
+
+val union : t -> t -> t
+
+val is_empty : t -> bool
+
+val fold_v : (Term.t -> 'a -> 'a) -> t -> 'a -> 'a
+
+val fold_d : (Term.t * Term.t -> 'a -> 'a) -> t -> 'a -> 'a

@@ -11,32 +11,44 @@
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
  * 
- * Author: Harald Ruess
- i*)
+ * Author: Harald Ruess, N. Shankar
+i*)
 
-type t = 
-  | A        (*s Arithmetic. *)
-  | T        (*s Tuples. *)
-  | BV       (*s Bitvectors. *)
+(*i*)
+open Term
+open Three
+(*i*)
 
-let name_of = function
-  | A -> "a"
-  | T -> "t"
-  | BV -> "bv"
+type t = {
+  v: V.t;
+  d: D.t;
+  vfocus : V.focus;
+  dfocus : D.focus
+}
 
-let of_name = function
-  | "a" -> A
-  | "t" -> T
-  | "bv" -> BV
-  | str -> raise (Invalid_argument (str ^ "not an interpreted theory name."))
+let empty = {
+ v = V.empty;
+ d = D.empty;
+ vfocus = V.Focus.empty;
+ dfocus = D.Focus.empty
+}
+
+let find s = V.find s.v
+let deq s = D.deq s.d
 
 
-let index f =
-  match Sym.destruct f with
-    | Sym.Interp(op) ->
-	Some(match op with
-	       | Sym.Arith _ -> A
-	       | Sym.Tuple _ -> T
-	       | Sym.Bv _ -> BV)
-    | _ ->
-	None
+let is_equal p x y = 
+  let x' = find p x in
+  let y' = find p y in
+  if Term.eq x' y' then Three.Yes
+  else if D.is_diseq p.d x' y' then Three.No
+  else Three.X
+
+let is_confluent p =
+  V.Focus.is_empty p.vfocus && 
+  D.Focus.is_empty p.dfocus
+
+
+let pp fmt p =
+  V.pp fmt p.v;
+  D.pp fmt p.d

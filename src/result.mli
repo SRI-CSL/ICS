@@ -1,4 +1,3 @@
-
 (*i
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
@@ -11,32 +10,28 @@
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
  * 
- * Author: Harald Ruess
+ * Author: Harald Ruess,
  i*)
 
+(*s Module [Result]: result type for commands. *)
+
 type t = 
-  | A        (*s Arithmetic. *)
-  | T        (*s Tuples. *)
-  | BV       (*s Bitvectors. *)
+  | Term of Term.t
+  | Atom of Atom.t
+  | Cnstrnt of Cnstrnt.t option
+  | Optterm of Term.t option
+  | Name of Name.t
+  | Terms of Term.Set.t
+  | Atoms of Atom.Set.t
+  | Unit of unit
+  | Bool of bool
+  | Solution of (Term.t * Term.t) list
+  | Context of Context.t
+  | Process of Name.t Shostak.status
+  | Solve of Th.solvedform
+  | Symtab of Symtab.t
+  | Entry of Symtab.entry
+  | Int of int
+  | String of string
 
-let name_of = function
-  | A -> "a"
-  | T -> "t"
-  | BV -> "bv"
-
-let of_name = function
-  | "a" -> A
-  | "t" -> T
-  | "bv" -> BV
-  | str -> raise (Invalid_argument (str ^ "not an interpreted theory name."))
-
-
-let index f =
-  match Sym.destruct f with
-    | Sym.Interp(op) ->
-	Some(match op with
-	       | Sym.Arith _ -> A
-	       | Sym.Tuple _ -> T
-	       | Sym.Bv _ -> BV)
-    | _ ->
-	None
+val output : Format.formatter -> t -> unit

@@ -29,7 +29,7 @@ open Term
 
 type t = {
   a : Solution.t;
-  c : C.t
+  c : Cnstrnt.t Term.Map.t
 }
 
 let solutions s = s.a

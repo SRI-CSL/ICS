@@ -35,15 +35,6 @@ i*)
  arithmetic, tuples, and lists.
 *)
  
- 
-(*s Initialization. [init n] sets the verbose level to [n]. The higher
- the verbose level, the more trace information is printed to [stderr]
- (see below). There are no trace messages for [n = 0]. In addition, 
- initialization makes the system to raise the [Sys.Break] exception upon
- user interrupt [^C^C].  The [init] function should be called before
- using any other function in this API. *)
-
-val init : int -> unit
 
 
 (*s Controls. [reset] clears all the global tables. This does not only 
@@ -77,17 +68,26 @@ val trace_get : unit -> trace_level list
  and [stderr] are predefined channels for standard input, standard
  output, and standard error. [flush] flushes the [stdout] channel. *)
 
-type inchannel
-type outchannel
+type inchannel = in_channel
+type outchannel = Format.formatter
 
-val stdin : unit -> inchannel
-val stdout : unit -> outchannel
-val stderr : unit -> outchannel
-val in_of_string : string -> inchannel 
-val out_of_string : string -> outchannel
-   
+val channel_stdin : unit -> inchannel
+val channel_stdout : unit -> outchannel
+val channel_stderr : unit -> outchannel
+val inchannel_of_string : string -> inchannel 
+val outchannel_of_string : string -> outchannel
+  
 val flush : unit -> unit
 
+
+(*s Initialization. [init n] sets the verbose level to [n]. The higher
+ the verbose level, the more trace information is printed to [stderr]
+ (see below). There are no trace messages for [n = 0]. In addition, 
+ initialization makes the system to raise the [Sys.Break] exception upon
+ user interrupt [^C^C].  The [init] function should be called before
+ using any other function in this API. *)
+
+val init : int * bool * string * inchannel * outchannel -> unit
 
 
 (*s Multi-precision rational numbers. [num_of_int n]
@@ -164,6 +164,8 @@ val cnstrnt_mk_co : q -> q -> cnstrnt
 val cnstrnt_mk_cc : q -> q -> cnstrnt
 val cnstrnt_mk_lt : q -> cnstrnt
 val cnstrnt_mk_le : q -> cnstrnt
+val cnstrnt_mk_gt : q -> cnstrnt
+val cnstrnt_mk_ge : q -> cnstrnt
 
 val cnstrnt_inter : cnstrnt -> cnstrnt -> cnstrnt
 
@@ -403,88 +405,14 @@ val cnstrnt : context -> term -> Cnstrnt.t option
  channels. A global [istate] variable is manipulated and
  destructively updated by commands. *)
 
-type istate
-
-(*s [cmd_current ()] returns the current logical state. *)
-
-val cmd_current : unit -> context
-
-(*s [cmd_def n a] adds a definition [n] for [a] to the symbol table. *)
-
-val cmd_def : name -> term -> unit
-
-
-(*s [cmd_sig n i] declares a variable with name [n] to be interpreted
- as a bitvector of width [i] by adding a corresponding entry to the
- symbol table. *)
-
-val cmd_sig : name -> int -> unit
-
-(*s [cmd_type n c] adds a type definition [n] for [a] to the symbol table. *)
-
-val cmd_type : name -> Cnstrnt.t -> unit
-
-(*s [cmd_set_in_channel in] sets the current input channel to [in]. *)
-
-val cmd_set_in_channel : inchannel -> unit
-
-
-(*s [cmd_set_in_channel in] sets the current output channel to [out]. *)
-
-val cmd_set_out_channel : outchannel -> unit
-
-(*s [cmd_flush] flushed the current output channel. *)
-
-val cmd_flush : unit -> unit
-
-(*s [cmd_nl] writes a newline on the current output channel. *)
-
-val cmd_nl : unit -> unit
-
-
-(*s [cmd_can a] canonizes an atom and updates the current logical
- state with newly introduced variables. *)
-
-val cmd_can : atom -> atom
-
-(*s [cmd_process a] adds atom [a] to the current logical context. *)
-
-val cmd_process : atom -> status
-
-(*s Splitting on current state. *)
-
-val cmd_split : unit -> atom list
-
-(*s Install the intial [istate] with an empty context
- and flush internal data structures. *)
-
-val cmd_reset : unit -> unit
-
-(*s [cmd_save n] adds a definition [n] for the current logical
- state by introducing a new symbol table entry. *)
-
-val cmd_save : name -> unit
-
-(*s [cmd_restore n] restores the current logical state to
- the logical state corresponding to [n] in the symbol table. *)
-
-val cmd_restore : name -> unit
-
-(*s [cmd_remove n] removes the symbol table entry corresponding to [n]. *)
-
-val cmd_remove : name -> unit
-
-(*s [cmd_forget ()] reinitializes the current logical context to the
- empty context. *)
-
-val cmd_forget : unit -> unit
 
 (*s [cmd_eval] reads a command from the current input channel according
  to the grammar for the nonterminal [commandeof] in module [Parser] (see
  its specification in file [parser.mly], the current internal [istate] 
  accordingly, and outputs the result to the current output channel. *)
 
-val cmd_eval : unit -> unit
+val cmd_rep : unit -> unit
+
 
 (*s Sleeping for a number of seconds. *)
 

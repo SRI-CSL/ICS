@@ -17,7 +17,7 @@
 (*s Module [Theories]: equality theories. *)
 
 
-type t = A | T | B | BV
+type t = A | T | BV
 
 val index : Sym.t -> t option
 

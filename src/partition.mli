@@ -11,32 +11,25 @@
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
  * 
- * Author: Harald Ruess
- i*)
+ * Author: Harald Ruess, N. Shankar
+i*)
 
-type t = 
-  | A        (*s Arithmetic. *)
-  | T        (*s Tuples. *)
-  | BV       (*s Bitvectors. *)
+(*s Module [V]: Equalities and disequalities over variables. *)
 
-let name_of = function
-  | A -> "a"
-  | T -> "t"
-  | BV -> "bv"
+type t = {
+  v: V.t;
+  d : D.t;
+  vfocus : V.focus;
+  dfocus : D.focus
+}
 
-let of_name = function
-  | "a" -> A
-  | "t" -> T
-  | "bv" -> BV
-  | str -> raise (Invalid_argument (str ^ "not an interpreted theory name."))
+val empty : t
 
+val is_confluent : t -> bool
 
-let index f =
-  match Sym.destruct f with
-    | Sym.Interp(op) ->
-	Some(match op with
-	       | Sym.Arith _ -> A
-	       | Sym.Tuple _ -> T
-	       | Sym.Bv _ -> BV)
-    | _ ->
-	None
+val find : t -> Term.t -> Term.t
+val deq : t -> Term.t -> Term.Set.t
+
+val is_equal : t -> Term.t -> Term.t -> Three.t
+
+val pp : t Pretty.printer

@@ -19,8 +19,13 @@ type t
 val current : unit -> Context.t
 val get_context : Name.t option -> Context.t
 val symtab : unit -> Symtab.t
+val eot : unit -> string
 val inchannel : unit -> in_channel
 val outchannel : unit -> Format.formatter
+
+(*s Initialize. *)
+
+val initialize: bool -> string -> in_channel -> Format.formatter -> unit
 
 (*s Resetting the state. *)
 
@@ -62,9 +67,9 @@ val ctxt_of : Name.t option -> Atom.Set.t
 
 (*s Canonization w.r.t current state. *)
 
-val can : Name.t option -> Atom.t -> Atom.t
+val can : Atom.t -> Atom.t
 
-val cant : Name.t option -> Term.t -> Term.t
+val cant : Term.t -> Term.t
 
 val sigma : Sym.t -> Term.t list -> Term.t
 
@@ -72,9 +77,15 @@ val sigma : Sym.t -> Term.t list -> Term.t
 
 val process : Name.t option -> Atom.t -> Name.t Shostak.status
 
+(*s Checking for validity/unsatisfiability. *)
+
+val valid : Name.t option -> Atom.t -> bool
+
+val unsat : Name.t option -> Atom.t -> bool
+
 (*s Compress the current state. *)
 
-val compress : unit -> unit
+val compress : unit -> Name.t
 
  
 (*s Change current state. *)
