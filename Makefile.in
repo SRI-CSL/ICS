@@ -6,6 +6,9 @@ OCAMLSTDLIB = `ocamlc -v | tail -1 | cut -f 4 -d " "`
 LIBGMPA = @GMPPATH@/lib/libgmp.a
 GMPINCLUDE = -I @GMPPATH@/include
 
+CC = @CC@
+CXX = @CXX@
+
 OCAMLC   = @OCAMLC@
 OCAMLLINK= @OCAMLMKTOP@
 OCAMLOPT = @OCAMLOPT@
@@ -38,6 +41,7 @@ ifeq ($(MAKELEVEL),0)
 	DOCDIR = ./doc
         WEBDIR = ./www.icansolve.com
 	LABDIR = /csl/ics
+	SATDIR = ./sat
 else
 	OBJDIR = .
 	BINDIR = ../../bin/$(ARCH)
@@ -46,6 +50,7 @@ else
 	DOCDIR = ../../doc
         WEBDIR = ../../www.icansolve.com
 	LABDIR = /csl/ics
+	SATDIR = ../../sat
 endif
 
 # Flags
@@ -58,10 +63,10 @@ LIBS = $(LIBGMPA)
 
 # Object files
 
-COBJS = mlgmp.o mlgmp41.o ocaml-signals.o
+COBJS = mlgmp41.o ocaml-signals.o icsat.o
 
 CMO = sign.cmo three.cmo \
-      gmp.cmo gmp41.cmo mpa.cmo \
+      gmp41.cmo mpa.cmo \
       binrel.cmo \
       hashcons.cmo \
       tools.cmo status.cmo \
@@ -69,14 +74,15 @@ CMO = sign.cmo three.cmo \
       trace.cmo \
       exc.cmo\
       bitv.cmo \
-      extq.cmo dom.cmo endpoint.cmo interval.cmo cnstrnt.cmo \
+      extq.cmo dom.cmo endpoint.cmo interval.cmo \
       name.cmo \
       var.cmo \
       sym.cmo \
       term.cmo \
-      fact.cmo \
       euclid.cmo \
       arith.cmo \
+      cnstrnt.cmo \
+      fact.cmo \
       tuple.cmo \
       coproduct.cmo \
       bitvector.cmo \
@@ -84,6 +90,7 @@ CMO = sign.cmo three.cmo \
       pp.cmo \
       arr.cmo \
       bvarith.cmo \
+      sig.cmo \
       apply.cmo \
       app.cmo \
       th.cmo \
@@ -92,13 +99,10 @@ CMO = sign.cmo three.cmo \
       d.cmo \
       v.cmo \
       c.cmo \
-      sig.cmo \
       partition.cmo \
       solution.cmo \
       context.cmo \
-      can.cmo \
-      rule.cmo \
-      process.cmo \
+      prop.cmo \
       symtab.cmo istate.cmo \
       help.cmo \
       result.cmo \
@@ -113,9 +117,12 @@ CMX = $(CMO:.cmo=.cmx)
 SRC = $(addprefix $(SRCDIR)/,$(CMO:.cmo=.ml))
 SRCMLI = $(addprefix $(SRCDIR)/,$(CMO:.cmo=.mli))
 
+### ICSAT Library ###
+ICSAT= $(SATDIR)/lib/icsat.a
+
 
 .PHONY : all all-chdir
-all: $(OBJDIR) $(LIBDIR) $(BINDIR)
+all: $(OBJDIR) $(LIBDIR) $(BINDIR) # $(ICSAT)
 	$(MAKE) -C chameleon all
 	$(MAKE) -C $(OBJDIR) -f ../../Makefile all-chdir
 
@@ -131,9 +138,9 @@ TOPCMI = $(CMI)
 TOPCMX = $(TOPCMO:.cmo=.cmx)
 
 ifeq ($(MAKELEVEL),1)
-$(BINDIR)/ics: $(COBJS) $(TOPCMI) $(TOPCMX)
-	$(OCAMLOPT) $(OFLAGS) -o $@ unix.cmxa $(TOPCMX) \
-                    $(COBJS) $(LIBS)
+$(BINDIR)/ics: $(COBJS) $(TOPCMI) $(TOPCMX) # $(ICSAT)
+	$(OCAMLOPT) -cc $(CXX) $(OFLAGS) -o $@ unix.cmxa $(TOPCMX) $(COBJS) $(LIBS) \
+        $(ICSAT)  -ccopt "-lstdc++"
 else
 ics: $(OBJDIR)
 	make -C $(OBJDIR) -f ../../Makefile ics
@@ -141,14 +148,14 @@ endif
 
 ifeq ($(MAKELEVEL),1)
 $(BINDIR)/ics.byte: $(COBJS) $(TOPCMI) $(TOPCMO)
-	$(OCAMLLINK) -g -custom -o $@ unix.cma $(TOPCMO) \
-                    $(COBJS) $(LIBS)
+	$(OCAMLLINK) -cc $(CXX) -g -custom -o $@ unix.cma $(TOPCMO) \
+                    $(COBJS) $(LIBS) $(ICSAT)
 else
 ics.byte: $(OBJDIR)
 	make -C $(OBJDIR) -f ../../Makefile ics.byte
 endif
 
-OBJS = ics_all.o ics_stub.o ocaml-signals.o mlgmp.o mlgmp41.o
+OBJS = ics_all.o ics_stub.o ocaml-signals.o mlgmp41.o icsat.o
 
 
 ics_all.o: $(CMX)
@@ -169,6 +176,9 @@ ics_stub.c ics.h ics.lisp: ics.ml ics.mli ../../chameleon/$(ARCH)/chameleon
 
 GENERATED = lexer.ml parser.mli parser.ml
 
+### build ICSAT ###
+$(ICSAT) : 
+	@(cd sat; $(MAKE))
 
 ### Directories
 
@@ -188,10 +198,9 @@ $(LIBDIR):
 ### Source file links
 
 .PRECIOUS : $(OBJDIR)/%.ml $(OBJDIR)/%.mli $(OBJDIR)/%.mly 
-.PRECIOUS : $(OBJDIR)/%.mll $(OBJDIR)/mlgmp.c
 .PRECIOUS : $(OBJDIR)/%.mll $(OBJDIR)/mlgmp41.c
 .PRECIOUS : $(OBJDIR)/%.mll $(OBJDIR)/ocaml-signals.c
-
+.PRECIOUS : $(OBJDIR)/%.mll $(OBJDIR)/icsat.c
 
 $(OBJDIR)/%.ml: $(SRCDIR)/%.ml
 	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
@@ -205,14 +214,13 @@ $(OBJDIR)/%.mly: $(SRCDIR)/%.mly
 $(OBJDIR)/%.mll: $(SRCDIR)/%.mll
 	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
 
-$(OBJDIR)/mlgmp.c: $(SRCDIR)/mlgmp.c
-	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
-
 $(OBJDIR)/mlgmp41.c: $(SRCDIR)/mlgmp41.c
 	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
 
-
 $(OBJDIR)/ocaml-signals.c: $(SRCDIR)/ocaml-signals.c
+	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
+
+$(OBJDIR)/icsat.c: $(SRCDIR)/icsat.c
 	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
 
 
@@ -249,7 +257,7 @@ ics.tar.gz:	distclean
                   ./chameleon/src/mli_parser.mly \
                   ./chameleon/src/mli_types.mli \
                   ./$(DOCDIR)/doc.ps.gz  ./$(DOCDIR)/doc.pdf \
-                  ./src/mlgmp.c ./src/ocaml-signals.c \
+                  ./src/mlgmp41.c ./src/ocaml-signals.c \
                   ./src/parser.mly ./src/lexer.mll \
                   ./src/main.ml \
                   ./$(SRC)  ./$(SRCMLI))
@@ -270,7 +278,7 @@ $(DOCDIR)/api.tex: $(SRCDIR)/ics.mli
 $(DOCDIR)/doc.pdf: $(DOCDIR)/dep.ps $(DOCDIR)/doc.tex
 	(cd $(DOCDIR); pdflatex ./doc.tex  && pdflatex ./doc.tex)
 
-$(DOCDIR)/doc.ps:  $(DOCDIR)/doc.dvi  $(DOCDIR)/dep.ps $(DOCDIR)/doc.tex
+$(DOCDIR)/doc.ps:  $(DOCDIR)/doc.dvi $(DOCDIR)/dep.ps $(DOCDIR)/doc.tex
 	(cd $(DOCDIR); dvips ./doc.dvi -o doc.ps)
 
 $(DOCDIR)/doc.ps.gz:  $(DOCDIR)/doc.ps
@@ -356,6 +364,8 @@ clean::
 	rm -f $(DOCDIR)/*.bbl $(DOCDIR)/*.log $(DOCDIR)/*.haux $(DOCDIR)/*.dvi
 	make -C chameleon clean
 	rm -f $(DOCDIR)/*.ppm $(DOCDIR)/*.blg $(DOCDIR)/*.brf $(DOCDIR)/*.out 
+	@(cd sat; $(MAKE) clean)
+
 
 # Installation
 
