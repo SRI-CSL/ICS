@@ -77,7 +77,7 @@ module PolyCache = Hasht.Make(
     let hash x = x.tag 
   end)
 	 
-let table = PolyCache.create 17   
+let table = PolyCache.create 10007
 		   
 let to_mono t =
   match t.node with

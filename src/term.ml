@@ -84,9 +84,9 @@ and tuple =
 and bv =
   | Const of Bitv.t
   | Conc of fixed list
-  | BvToNat of t
   | Extr of fixed * int * int
   | BvIte of fixed * fixed * fixed
+  | BvToNat of t
  
 and fixed = int * t
 
@@ -569,9 +569,10 @@ let iter_uninterpreted f a =
       | Arith(Div(x,y))  -> loop x; loop y
       | Bv(BvToNat x) -> loop x;
       | Bool(Equal(x,y)) -> loop x; loop y
-      | Set s->
+      | Set s ->
 	  (match s with
 	     | SetIte(_,x,y,z) -> loop x; loop y; loop z
+	     | Finite(s) -> Set.iter loop s
 	     | _ -> ())
       | Bool b ->
 	  (match b with

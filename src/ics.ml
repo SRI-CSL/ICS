@@ -99,10 +99,10 @@ let d_multq t =
 	  
 (*s Constructing tuples and projections. *)
 
-let mk_tup = Tuple.tuple
+let mk_tuple = Tuple.tuple
 let mk_proj = Tuple.proj
 
-let _ = Callback.register "mk_tup" mk_tup
+let _ = Callback.register "mk_tuple" mk_tuple
 let _ = Callback.register "mk_proj" mk_proj
 
 	  
@@ -127,6 +127,14 @@ let _ = Callback.register "mk_or" mk_or
 let _ = Callback.register "mk_xor" mk_xor
 let _ = Callback.register "mk_imp" mk_imp
 let _ = Callback.register "mk_iff" mk_iff
+
+let d_ite = Bool.d_ite
+let d_not = Bool.d_neg
+let d_and = Bool.d_conj
+let d_or = Bool.d_disj
+let d_xor = Bool.d_xor
+let d_imp = Bool.d_imp
+let d_iff = Bool.d_iff
 
 
 let mk_equal = Bool.equal
@@ -156,7 +164,7 @@ let _ = Callback.register "mk_ge" mk_ge
 
 (*s Set of terms. *)
 
-type terms = Term.Set.t
+type terms = Term.terms
 
 let terms_empty () = Term.Set.empty
 let terms_add = Term.Set.add
@@ -246,9 +254,7 @@ let cnstrnt_app = Cnstrnt.app
 let cnstrnt_pp c =
   Pretty.cnstrnt Format.std_formatter c;
   Format.pp_print_flush Format.std_formatter ()
-  		  
-let mk_int = Cnstrnt.app Cnstrnt.int
-let mk_real = Cnstrnt.app Cnstrnt.real
+  		 
 let mk_pos = Cnstrnt.app (Cnstrnt.gt Interval.Real Mpa.Q.zero)
 let mk_neg = Cnstrnt.app (Cnstrnt.lt Interval.Real Mpa.Q.zero)
 let mk_nonneg = Cnstrnt.app (Cnstrnt.ge Interval.Real Mpa.Q.zero)
@@ -263,11 +269,7 @@ let _ = Callback.register "cnstrnt_closedopen" cnstrnt_closedopen
 let _ = Callback.register "cnstrnt_openclosed" cnstrnt_openclosed
 let _ = Callback.register "cnstrnt_closedclosed" cnstrnt_closedclosed
 
-let _ = Callback.register "mk_equal" mk_equal
-let _ = Callback.register "mk_diseq" mk_diseq	  
 let _ = Callback.register "cnstrnt_app" cnstrnt_app
-let _ = Callback.register "mk_int" mk_int
-let _ = Callback.register "mk_real" mk_real
 let _ = Callback.register "mk_pos" mk_pos
 let _ = Callback.register "mk_neg" mk_neg
 let _ = Callback.register "mk_nonneg" mk_nonneg
@@ -535,14 +537,20 @@ let _ = Callback.register "d_bv_ite" d_bv_ite
 (*s Pretty-print of terms. *)
 
 let term_pp t =
-  Pretty.term Format.std_formatter t;
-  Format.pp_print_flush Format.std_formatter ()
+  begin
+    Pretty.term Format.std_formatter t;
+    Format.pp_print_flush Format.std_formatter ()
+  end
 
 let eqn_pp e =
-  Pretty.eqn Format.std_formatter e;
-  Format.pp_print_flush Format.std_formatter ()
+  begin
+    Pretty.eqn Format.std_formatter e;
+    Format.pp_print_flush Format.std_formatter ()
+  end
 
 let _ = Callback.register "term_pp" term_pp
+let _ = Callback.register "eqn_pp" eqn_pp
+	  
 
 (*s Equalities. *)
 
@@ -591,15 +599,6 @@ let uninterp st a =
 	Set.to_list ts
     | _ -> assert false
 
-let pp_find =
-  State.pp_find Format.std_formatter
-		
-let pp_use =
-  State.pp_use Format.std_formatter
-	       
-let pp_uninterp =
-  State.pp_uninterp Format.std_formatter
-
 let _ = Callback.register "ctxt_of" ctxt_of
 let _ = Callback.register "ext_of" ext_of
 let _ = Callback.register "find_of" find_of  
@@ -608,9 +607,7 @@ let _ = Callback.register "init" init
 let _ = Callback.register "find" find
 let _ = Callback.register "use" use
 let _ = Callback.register "uninterp" uninterp
-let _ = Callback.register "pp_find" pp_find
-let _ = Callback.register "pp_use" pp_use
-let _ = Callback.register "pp_uninterp" pp_uninterp
+
 	  
 (*s Processing of new equalities. *)
 

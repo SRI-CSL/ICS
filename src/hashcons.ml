@@ -1,4 +1,17 @@
 
+(*i
+ * ICS - Integrated Canonizer and Solver
+ * Copyright (C) 2001-2004 SRI International
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the ICS license as published at www.icansolve.com
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * ICS License for more details.
+ *)
+
 (*s Hash tables for hash-consing. (Some code is borrowed from the ocaml
     standard library, which is copyright 1996 INRIA. *)
 
@@ -135,7 +148,6 @@ module type S =
     val create : int -> t
     val clear : t -> unit
     val hashcons : t -> key -> key hashed
-    val (===) : key hashed -> key hashed -> bool
     val iter : (key hashed -> unit) -> t -> unit
     val stat : t -> unit
   end
@@ -185,8 +197,6 @@ module Make(H : HashedType) : (S with type key = H.t) =
 	let hnode = { hkey = hkey; tag = gentag(); node = node } in
 	add h hkey hnode;
 	hnode
-
-    let (===) = (==)
 
     let iter = iter
 

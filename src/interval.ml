@@ -1,3 +1,15 @@
+(*i
+ * ICS - Integrated Canonizer and Solver
+ * Copyright (C) 2001-2004 SRI International
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the ICS license as published at www.icansolve.com
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * ICS License for more details.
+ *)
 
 (*i*)
 open Mpa
@@ -77,7 +89,8 @@ let low_high_cmp i j =
 	   | Q.Less -> Less
 	   | Q.Greater -> Greater)
 
-(*s Intervals. *)
+(*s An interval consists of a lower bound, an upper bound, and the
+  domain over which it is interpreted. *)
 
 type interval = domain * low * high
 
@@ -122,9 +135,6 @@ and nonintreal_interval l h =
     | _ -> h
   in
   (NonintReal,l',h')
-
-    
-
 
 let interval_mem q (dom,l,h) =
   let memq q (i,j) =
@@ -180,12 +190,14 @@ and nonintreal_interval_compl l h =
   failwith "to do"
 	 
 
-(*s Disjunction of Intervals.
-  Invariant: intervals are disjoint, ordered from left-to-right,
-  and no interval is empty (when interpreted over the reals).
+(*s Disjunction of Intervals. Invariant: intervals are disjoint, o
+  rdered from left-to-right, and no interval is empty
+  (when interpreted over the reals).
 *)
 
 type t = interval list
+
+let to_list l = l
 
 	   (*s Constructing Intervals. *)
 			    
@@ -262,6 +274,23 @@ let is_nonint l =
 let value_of = function
   | [_,Low(Nonstrict,q1), High(Nonstrict,q2)] when Q.equal q1 q2 -> q1
   | _ -> raise (Invalid_argument "Not a singleton")
+
+	(*s Fold function *)
+
+let fold flt fle fgt fge foo fco foc fcc ffull fempty l  =
+  List.fold_right (fun (d,l,h) acc ->
+		     match l, h with
+		       | Neginf, High(Strict,q) -> flt d q acc
+		       | Neginf, High(Nonstrict,q) -> fle d q acc
+		       | Neginf, Posinf -> ffull d acc
+		       | Low(Strict,q), Posinf -> fgt d q acc
+		       | Low(Nonstrict,q), Posinf -> fge d q acc
+		       | Low(Strict,q1), High(Strict,q2) -> foo d (q1,q2) acc
+		       | Low(Strict,q1), High(Nonstrict,q2) -> foc d (q1,q2) acc
+		       | Low(Nonstrict,q1), High(Strict,q2) -> fco d (q1,q2) acc     
+		       | Low(Nonstrict,q1), High(Nonstrict,q2) -> fcc d (q1,q2) acc)
+    l
+    fempty		     
 
 	
 	(*s Pretty printing *)

@@ -72,7 +72,7 @@ SRC = $(addprefix $(SRCDIR)/,$(CMO:.cmo=.ml))
 all: $(OBJDIR) $(LIBDIR) $(BINDIR)
 	$(MAKE) -C $(OBJDIR) -f ../../Makefile all-chdir
 
-all-chdir: ics # $(LIBDIR)/libics.so $(LIBDIR)/libics.a ics.byte $(OBJDIR)/ics-pvs.lisp 
+all-chdir: ics $(LIBDIR)/libics.so $(LIBDIR)/libics.a ics.byte $(OBJDIR)/ics-pvs.lisp 
 	@echo 
 	@echo ICS Build complete
 	@echo 

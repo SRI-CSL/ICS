@@ -17,11 +17,9 @@ let current = ref (init())
 let verbose n =
   Ics.set_verbose n
 
-		
-
-	  (*s The command [process] introduces a new fact. The state
-	    is left unchanged is an inconsistency is discovered.
-	  *)
+    (*s The command [process] introduces a new fact. The state
+      is left unchanged is an inconsistency is discovered.
+    *)
   
 let process a =
   match Ics.process !current a with
@@ -118,8 +116,8 @@ let solve x (a,b) =
     (*s Order of terms. *)
     
 let less (t1,t2) =
-  Format.printf "%s@."
-    (if Ics.term_cmp t1 t2 < 0 then "True" else "False")
+  Format.printf "%s.@."
+    (if Ics.term_cmp t1 t2 < 0 then "Yes" else "No")
 
     
     (*s Reset and dropping into byte-code interpreter *)
@@ -139,13 +137,23 @@ let help () =
   Format.printf "help syntax.           Outlines term syntax.@."
 
 let help_commands () =
-  Format.printf "can <term>.             Computes the canonical form of <term>.@.";
+  Format.printf "sigma <term>.           Normal form using theory-specific normalizations only. In particular,@.";
+  Format.printf "                        no context information is used.";
+  Format.printf "can <term>.             Computes canonical representative of <term> using context information.@.";
+  Format.printf "simp <term>.            Computes a normal form of <term>.@.";
+  Format.printf "                        'simp' is like 'can', but without recursive processing in conditionals.@.";
+  Format.printf "norm <term>.            Simplifies all interpreted terms, and replaces uninterpreted terms with@.";
+  Format.printf "                        their finds.@.";
   Format.printf "solve <term> = <term>.  Solves equation on terms.@.";
   Format.printf "assert <term>.          Asserts <term> to the current context.@.";
+  Format.printf "                        There are three different outcomes. In case, <term> is found to be implied@.";
+  Format.printf "                        by the current context, `Valid.' is returned, and if <term> is found to be@.";
+  Format.printf "                        inconsistent, then 'Inconsistent.' is printed. Otherwise, <term> is added to@.";
+  Format.printf "                        the current context@.";
   Format.printf "check <term>.           Check if <term> holds or is unsatisfiable in current context@.";
-  Format.printf "                        Returns T if <term> is redundant, F if it is inconsistent,@.";
-  Format.printf "                        otherwise silent.@.";
-  Format.printf "find [<term>].          Representative of the equivalence class of <term>.@.";
+  Format.printf "                        Returns 'Valid.' if <term> is redundant, 'Inconsistent.' if it is inconsistent,@.";
+  Format.printf "                        otherwise silent. In contrast to the assert command, the context is not updated@.";
+  Format.printf "find [<term>].          Canonical representative of the equivalence class of <term> as stored in the context.@.";
   Format.printf "                        If <term> is omitted, the complete find structure is displayed.@.";
   Format.printf "ext [<term>].           Prints equivalence class of <term> without <term> itself.@.";
   Format.printf "                        If <term> is omitted, extensions of all canonical forms are displayed.@.";
@@ -155,6 +163,7 @@ let help_commands () =
   Format.printf "cnstrnt [<term>].       Compute type interpretation of <term> wrt. current context.@.";
   Format.printf "                        If <term> is omitted, then the constraints for all canonical representatives";
   Format.printf "                        are displayed";
+  Format.printf "<term> << <term>.       Check term ordering.@.";
   Format.printf "verbose <int>.          Sets the verbose level.@.";
   Format.printf "reset.                  Reset to empty context.@.";
   Format.printf "drop.                   Drop into Caml if run on bytecode (back with Main.repl ();;).@."
@@ -173,10 +182,11 @@ let help_syntax () =
           | const ['/' const]               
           | '-' <term>                     
 
-<tuple> ::= '(' <term> ',' ... ',' <term> ')'                   Tuple  
-          | proj '[' const ',' const ']' '(' <term> ')'         Projection
+<tuple> ::= '(' <term> ',' ... ',' <term> ')'              Tuple  
+          | proj '[' int ',' int ']' '(' <term> ')'         Projection
 
-<set> ::= empty | full                         
+<set> ::= empty
+        | full                         
         | <term> union <term> 
         | <term> diff <term>           
         | <term> symdiff <term>
@@ -184,20 +194,20 @@ let help_syntax () =
         | compl <term> 
 
 <bv> ::= constbv                                   
-       | conc(<fixed>, <fixed>)               Concatenation
-       | bvand(<fixed>,<fixed>)               Bitwise conjunction
-       | bvor(<fixed>, <fixed>)               Bitwise disjunction   
-       | bvxor(<fixed>,<fixed>)               Bitwise xor
-       | extr '['const ':' const ']' <fixed>  Extraction
+       | <fixed> ++ <fixed>                  Concatenation
+       | <fixed> && <fixed>                  Bitwise conjunction
+       | <fixed> || <fixed>                  Bitwise disjunction   
+       | <fixed> ## <fixed>                  Bitwise xor
+       | <fixed> '[' int ':' int ']'          Extraction
 
 <fixed> ::= <term> 
-          | <term> '[' const ']'
+          | <term> '[' int ']'
     
 <prop> ::= true             
          | false            
          | <atom>            
-         | <term> '&&' <term>        Conjunction
-         | <term> '||' <term>        Disjunction
+         | <term> '&' <term>        Conjunction
+         | <term> '|' <term>        Disjunction
          | <term> '=>' <term>        Implication
          | <term> '<=>' <term>       Biimplication
          | '~' <term>                Negation

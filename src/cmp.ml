@@ -1,3 +1,17 @@
+
+(*i
+ * ICS - Integrated Canonizer and Solver
+ * Copyright (C) 2001-2004 SRI International
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the ICS license as published at www.icansolve.com
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * ICS License for more details.
+ *)
+
 (*s Comparison function similar to Pervasives.compare but not recursive. *)
 
 let generic f v1 v2 =
@@ -46,7 +60,7 @@ let array cmp a1 a2 =
   in
   if n1 != n2 then n1 - n2 else loop 0
 
-(*s Lexicographic comparison. *)
+(*s Lexicographic comparisons. *)
 
 let lexico2 fu u1 u2 fv v1 v2 =
   let c = fu u1 u2 in

@@ -102,7 +102,7 @@ open Parsing
   let mk_tuple = function
     | [] -> assert false
     | [t] -> t
-    | l -> mk_tup l
+    | l -> Ics.mk_tuple l
 
   let get_width (a,w) =
     match Ics.width_of a,w with

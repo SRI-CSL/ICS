@@ -1,26 +1,101 @@
 
+(*
+ * ICS - Integrated Canonizer and Solver
+ * Copyright (C) 2001-2004 SRI International
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the ICS license as published at www.icansolve.com
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * ICS License for more details.
+ *)
+
+
 (*i*)
 open Term
 open Hashcons
 (*i*)
 
 
-(* Constants *)
+(* Propositional constants *)
 
 let tt () = hc(Bool True)
-	      
 let ff () = hc(Bool False)
 
-let finite s x =
-  if Term.Set.mem x s then
-    tt()
-  else if Term.Set.for_all (fun y -> not(x === y)) s then
-    ff()
+	      
+(*s Exactly one of the recognizers [is_tt a], [is_ff a], [is_ite a]
+  holds for any given non-quantified Boolean connective. *)
+
+let is_tt t =
+  match t.node with Bool(True) -> true | _ -> false
+
+let is_ff t =
+  match t.node with Bool(False) -> true | _ -> false
+    
+let is_ite t = 
+  match t.node with 
+    | Bool Ite _ -> true 
+    | _ -> false
+
+	  
+(*s Destructuring of conditional terms. *)
+
+let d_ite a =
+  match a.node with
+    | Bool(Ite(x,y,z)) -> (x,y,z)
+    | _ -> assert false  
+
+
+	  
+(*s Simplification of the disjunction of two atoms. *)
+
+let rec union a b =
+  match a.node, b.node with
+    | Bool True, _ ->
+	Some(tt())
+    | _, Bool True ->
+	Some(tt())
+    | Bool False, _ ->
+	Some(b)
+    | _, Bool False ->
+	Some(a)
+    | Bool(Equal(x1,y1)),
+      Bool(Equal(x2,y2)) ->
+	if x1 === x2 && y1 === y2 then
+	  Some(a)
+	else
+	  None
+    | Bool(Ite({node=Bool(Equal(x1,y1))},{node=Bool False},{node=Bool True})),
+      Bool(Equal(x2,y2)) ->
+	union_diseq_equal (x1,y1) (x2,y2)
+    | Bool(Equal(x1,y1)),
+      Bool(Ite({node=Bool(Equal(x2,y2))},{node=Bool False},{node=Bool True})) ->
+	union_diseq_equal (x2,y2) (x1,y1)
+    | Bool(Equal(x1,y1)),
+      App({node=Set(Cnstrnt(c2))},[x2]) ->
+	union_equal_app (x1,y1) (c2,x2)
+    | App({node=Set(Cnstrnt(c1))},[x1]),
+      Bool(Equal(x2,y2)) ->
+	union_equal_app (x2,y2) (c1,x1)  
+    | _ ->
+	None
+
+and union_diseq_equal (x1,y1) (x2,y2) =
+  if (x1 === x2 && y1 === y2) || (x1 === y2 && y1 === x2) then
+    Some(tt())
   else
-    hc(App(Sets.finite s,[x]))
+    None
+
+and union_equal_app (x1,y1) (c2,x2) =
+  if x1 === x2 && Cnstrnt.mem y1 c2 then
+    Some(tt())
+  else
+    None
 
       
-(* Intersection of two atoms *)
+(* Simplification of the conjunction of two atoms. *)
     
 let inter_equal_equal (x1,y1) (x2,y2) =
   if x1 === x2 then
@@ -60,7 +135,8 @@ let inter_diseq_equal (x1,y1) (x2,y2) =
   else
     None
 
-let inter a b =                   (* intersection of [a] and [c] *)
+
+let inter a b =                   (* intersection of [a] and [b] *)
   if a === b then
     Some(a)
   else
@@ -104,30 +180,16 @@ let compl_inter a c =                 (* intersection of [not(a)] and [c] *)
     | None -> None
     | Some(a') -> inter a' c
 
-let ite a b c =
+let ite a b c =                      (*s ite(a,b,c) *)
   match inter a b, compl_inter a c with
     | Some(x), Some(y) ->
-	(match x.node, y.node with
-	   | Bool True, _ -> tt()
-	   | _, Bool True -> tt()
-	   | Bool False, _ -> y
-	   | _, Bool False -> x
-	   | _ -> hc(Bool(Ite(x,tt(),y))))
-    | _ -> 
+	(match union x y with
+	   | Some(z) -> z
+	   | None -> hc(Bool(Ite(x,tt(),y))))
+    | _ ->
 	hc(Bool(Ite(a,b,c)))
 
-(*s Some recognizers. *)
 
-let is_tt t =
-  match t.node with Bool(True) -> true | _ -> false
-
-let is_ff t =
-  match t.node with Bool(False) -> true | _ -> false
-    
-let is_ite t = 
-  match t.node with 
-    | Bool Ite _ -> true 
-    | _ -> false
 
 (* Building up BDDs *)
 
@@ -137,24 +199,15 @@ module BDD = Bdd.Make(
     type bdd = Term.t
     type tag = unit
     let compare = fast_cmp
-    let high _ = tt ()
-    let low _ = ff ()
-    let ite _ a b c = ite a b c
-    let is_high p =
-      match p.node with
-	| Bool True -> true
-	| _ -> false
-    let is_low p =
-      match p.node with
-	| Bool False -> true
-	| _ -> false
-    let is_ite p =
-      match p.node with
-	| Bool (Ite _) -> true
-	| _ -> false
+    let high _ = tt()
+    let low _ = ff()
+    let ite _ = ite
+    let is_high = is_tt
+    let is_low = is_ff
+    let is_ite = is_ite
     let destructure_ite p =
       match p.node with
-	| Bool(Ite(a,b,c)) -> Some(a,b,c)
+	| Bool(Ite(x,y,z)) -> Some(x,y,z)
 	| _ -> None
     let fresh _ = (Var.fresh "z" [])    
   end)
@@ -190,12 +243,8 @@ let d_disj = BDD.d_disj
 let d_xor = BDD.d_xor
 let d_imp = BDD.d_imp
 let d_iff = BDD.d_iff
-let d_ite a =
-  match a.node with
-    | Bool(Ite(x,y,z)) -> (x,y,z)
-    | _ -> assert false
-	      
-(* let ite a b c = BDD.build () (a,b,c) *)
+
+	    
 
 let forall xl p = hc (Bool(Forall (xl, p)))
 let exists xl p = hc (Bool(Exists (xl, p)))
@@ -205,12 +254,12 @@ let exists xl p = hc (Bool(Exists (xl, p)))
 let solve_eqn (s1,s2) = BDD.solve () (iff s1 s2)
 let solve_deq (s1,s2) = BDD.solve () (xor s1 s2)
 
-let solve (a,b) = BDD.solve () (iff a b)
-		      
-(* infer new boolean equalities:
+let solve (a,b) =
+  BDD.solve () (iff a b)
 
-      ite(x,p,n) = T --> p | n = T
- *) 
+    
+(*s infer new boolean equalities based on the fact that
+    [ite(x,p,n) = tt()] implies [(disj p  n) = tt()]. *) 
 
 let rec infer ((a,b) as e) =
   match a.node, b.node with
@@ -218,8 +267,7 @@ let rec infer ((a,b) as e) =
 	 e :: infer (disj y z , tt ())
      | _ ->
 	 [e]
-
-	 
+ 
 (*s Equalities *)
 
 let rec equal a b =
@@ -260,3 +308,10 @@ let d_diseq a =
 		{node=Bool False},
 		{node=Bool True})) -> (x,y)
     | _ -> raise (Invalid_argument "Bool.d_diseq: Not a disequality.")
+
+
+
+
+
+
+

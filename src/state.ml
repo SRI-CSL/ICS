@@ -18,9 +18,9 @@ open Subst
 type t = {
   mutable ctxt: Term.eqn list;
   mutable find: Subst.t;
-  mutable inv: (Term.Set.t * Cnstrnt.t) Term.Map.t;    (* extension and constraint for each find. *)
-  mutable use: Term.Set.t Term.Map.t;
-  mutable uninterp: Term.Set.t Funsym.Map.t
+  mutable inv: (Term.terms * Cnstrnt.t) Term.Map.t;    (* extension and constraint for each find. *)
+  mutable use: Term.terms Term.Map.t;
+  mutable uninterp: Term.terms Funsym.Map.t
 }  
 
 let empty = {

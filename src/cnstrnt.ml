@@ -168,7 +168,7 @@ let rec cmp c1 c2 =
 	Binrel.Disjoint
     | _, Bot ->
 	Binrel.Disjoint
-    | Sub(s1,i1), Sub(s2,i2) when Nonreals.is_empty s1 && Nonreals.is_empty s2 ->
+    | Sub(s1,i1), Sub(s2,i2) when Nonreals.equal s1 s2 ->
 	Interval.cmp i1 i2
     | Sub(s1,i1), Sub(s2,i2) ->
 	Binrel.union (nonreals_cmp s1 s2) (Interval.cmp i1 i2)         (* ??? *)
@@ -190,7 +190,6 @@ and nonreals_cmp s1 s2 =
       Binrel.Super
     else
       Binrel.Overlap
-
     
 	(*s Abstract interpretation of addition and multiplication. *)
 

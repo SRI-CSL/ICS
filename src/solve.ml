@@ -113,7 +113,7 @@ let solve x s e =
       | Bool(Ite _) ->
 	   solvel rho (bool_ite_solve(b,Bool.ff()) @ el)
       | _ ->
-	  solvel (Subst.add b (Bool.tt()) rho) el 
+	  solvel (Subst.add b (Bool.ff()) rho) el 
 	
   and cnstrnt_solve rho c x el =               (* solve equalities of the form [(x in c) = true] *)
     match x.node with

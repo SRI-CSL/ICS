@@ -1,10 +1,23 @@
 
+(*
+ * ICS - Integrated Canonizer and Solver
+ * Copyright (C) 2001-2004 SRI International
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the ICS license as published at www.icansolve.com
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * ICS License for more details.
+ *)
+
 (*i*)
 open Hashcons
 open Term
 (*i*)
 
-(*s Smart constructors *)
+(*s Smart constructors for tuples and projections. *)
 
 let tuple = function
   | [x] -> x
@@ -13,12 +26,8 @@ let tuple = function
 
 let proj i n s =
   match s.node with
-    | Tuple t ->
-	(match t with
-	   | Tup l -> List.nth l i
-	   | Proj(j,m,a) -> hc (Tuple(Proj(i + j,n + m,a))))
-    | _ ->
-	hc(Tuple(Proj(i,n,s)))
+    | Tuple(Tup l) -> List.nth l i
+    | _ -> hc(Tuple(Proj(i,n,s)))
 
 
 (*s Solving tuples. *) 
@@ -61,8 +70,10 @@ let solve ((a,b) as e) =
   try
     let l = match a.node,b.node with
       | Tuple(Tup al), Tuple(Tup bl) -> tuple_tuple_solve al bl
-      | Tuple(Tup al), _ -> tuple_solve b al
       | Tuple(Proj (i,n,a)), _ -> proj_solve i n a b
+      | _, Tuple(Proj(i,n,a)) ->  proj_solve i n a b
+      | Tuple(Tup al), _ -> tuple_solve b al
+      | _, Tuple(Tup al) -> tuple_solve b al
       | _ -> assert false
     in
     Some l
