@@ -104,7 +104,7 @@ let rec propagate (p, la, nl) e =
       let (y, b, tau) = Fact.Equal.destruct e in  (* [tau |- y = b] *)
       let c = Nonlin.apply (x, a) b in
 	if not(b == c) then                       (* [sigma |- b = c] *)
-	  let sigma = Justification.dependencies [rho] in 
+	  let sigma = Justification.dependencies1 rho in 
 	  let (d, upsilon) = purify (p, la, nl) c in (* [upsilon |- c = d] *)
 	  let omega' = Justification.trans (y, b, c) tau sigma in
 	  let e' = Fact.Equal.make (y, c, omega') in  (* [omega' |- y = c] *)

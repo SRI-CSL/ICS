@@ -38,7 +38,7 @@ module Interp = struct
     try
       let (n, bs) = Term.Map.find x m in
 	if n <> Bitv.length b then
-	  let sigma = Justification.dependencies [] in
+	  let sigma = Justification.dependencies0 in
 	    raise(Justification.Inconsistent(sigma))
 	else
 	  let bs' = Bitvs.add (b, rho) bs in
@@ -122,6 +122,7 @@ let process_equal ((p, s) as cfg) e =
 
 let rec process_diseq ((p, s) as cfg) d =  
   Trace.msg "bv" "Process" d Fact.Diseq.pp;
+(*
   let (x, y, rho) = Fact.Diseq.destruct d in
     match const_of cfg x, const_of cfg y with
       | None, None -> ()
@@ -130,11 +131,12 @@ let rec process_diseq ((p, s) as cfg) d =
 	    let phi = Justification.dependencies [rho; tau; sigma] in
 	      raise(Justification.Inconsistent(phi))
       | Some(b, tau), None ->
-	  let phi = Justification.dependencies [rho; tau] in
+	  let phi = Justification.dependencies2 rho tau in
 	    s.interp <- Interp.add_diseq x (b, phi) s.interp
       | None, Some(c, sigma) ->
-	  let phi = Justification.dependencies [rho; sigma] in
+	  let phi = Justification.dependencies2 rho sigma in
 	    s.interp <- Interp.add_diseq y (c, phi) s.interp
+*)
 
 (* [const_of (p, s) x] returns [tau |- x = b] for [b] a bitvector constant. *)
 and const_of (p, s) x =

@@ -180,7 +180,7 @@ and is_domain_incompatible a b =
     let d = Arith.dom_of a
     and e = Arith.dom_of b in
       if Dom.disjoint d e then
-	let tau = Justification.dependencies [] in
+	let tau = Justification.dependencies0 in
 	  Some(tau)
       else 
 	None
@@ -285,7 +285,20 @@ module Zero = struct
  
   (** Apply [f e] to all equalities [k = a] in [t] such that [|a| = 0]. *)
   let iter s f =
-    let apply_to k = f (S.equality t s k) in
+    let apply_to k =
+      let e = 
+	try 
+	  S.equality t s k 
+	with 
+	    Not_found ->
+	      Format.printf "\nError in Zero iter. Failed application of %s in\n"  
+	         (Term.to_string k);  
+	      S.pp Format.std_formatter s;
+	      Format.printf "@.";
+	      failwith "Terminate"
+      in
+         f e
+    in
       Term.Set.iter apply_to (get s)
 end
     
@@ -431,7 +444,7 @@ let is_num_diseq (_, s) a q =
     let (a', tau) = replace s a in
     let (p, rho) = d_num s a' in
       if not(Mpa.Q.equal q p) then
-	Some(Justification.dependencies [rho; tau])
+	Some(Justification.dependencies2 rho tau)
       else 
 	None
   with
@@ -564,7 +577,7 @@ and process_solved_restricted ((p, s) as cfg) e =
 		 let cmp = Mpa.Q.compare (Arith.constant_of a') Mpa.Q.zero in
 		   if cmp < 0 then                 (* I. [|a'| < 0] *)
 		   inconsistent 
-		     (Justification.dependencies [rho])
+		     (Justification.dependencies1 rho)
 		   else if cmp = 0 then            (* II. [|a'| = 0] *)
 		     (try 
 			compose1 t cfg 
@@ -577,7 +590,7 @@ and process_solved_restricted ((p, s) as cfg) e =
 		   else                            (* III. [|a'| > 0] *)
 		     if Arith.Monomials.Neg.is_empty a' then
 		       inconsistent 
-			 (Justification.dependencies [rho])
+			 (Justification.dependencies1 rho)
 		     else 
 		       (try
 			  let y = choose_negvar_with_no_smaller_gain s a' in
@@ -627,11 +640,10 @@ and gomory_cut ((_, s) as cfg) e =
   let b' = Mpa.Q.minus (Mpa.Q.def b) in
   let ml' = Arith.Monomials.mapq Mpa.Q.frac ml in
   let a' = Arith.mk_addq b' ml' in
-  let rho' = Justification.dependencies [rho] in
+  let rho' = Justification.dependencies1 rho in
   let nn' = Fact.Nonneg.make (a', rho') in
     Trace.msg "la" "Gomory" nn' Fact.Nonneg.pp;
     process_nonneg1 cfg nn'
-
   
 (** Process a nonnegativity constraint [nn] of the form [a >= 0]. *)
 and process_nonneg ((_, s) as cfg) nn = 
@@ -662,8 +674,7 @@ and process_nonneg1 ((_, s) as cfg) nn =
 			 add_to_t cfg e;
 			 if Fact.Equal.is_diophantine e then
 			   gomory_cut cfg e;
-			 infer cfg)
-	
+			   infer cfg)
 	      
 and add_to_t ((_, s) as cfg) e =
   let (k, a, rho) = Fact.Equal.destruct e in
@@ -679,14 +690,14 @@ and add_to_t ((_, s) as cfg) e =
 	  let e' = try_isolate_rhs_unbounded s e in                  (* k = a == y = b *)   
 	  let (y, b, _) = Fact.Equal.destruct e' in
 	    if Term.Var.is_zero_slack k then
-	      let rho' = Justification.dependencies [rho] in     (* [rho' |- k = 0] *)
+	      let rho' = Justification.dependencies1 rho in      (* [rho' |- k = 0] *)
 	      let (b', rho'') = 
 		apply1 (Fact.Equal.make (k, Arith.mk_zero, rho')) b 
 	      in  
 		compose1 t cfg                                   (* [rho''|-y=b[k:=0]] *)
 		  (Fact.Equal.make (y, b', rho'')) 
 	    else 
-	      let tau' = Justification.dependencies [rho] in     (* [tau' |- y = b] *)
+	      let tau' = Justification.dependencies1 rho in     (* [tau' |- y = b] *)
 		compose1 t cfg 
 		  (Fact.Equal.make (y, b, tau'))
 	with
@@ -715,10 +726,13 @@ and try_isolate_rhs_unbounded s e =
 (** [e] is of the form [k = a] with [k] unbounded and [|a|]
   positive and [a-] is empty. *)
 and is_lhs_unbounded s e =
-  let (x, a, _) = Fact.Equal.destruct e in
-    is_unbounded s x
-    && Mpa.Q.is_nonneg (Arith.constant_of a)
-    && Arith.Monomials.Neg.is_empty a     
+  try
+    let (x, a, _) = Fact.Equal.destruct e in
+      is_unbounded s x
+      && Mpa.Q.is_nonneg (Arith.constant_of a)
+      && Arith.Monomials.Neg.is_empty a    
+  with
+      Not_found -> failwith "is_lhs_unbounded raised Not_found"
       
 
 and pivot ((_, s) as cfg) y =
@@ -779,7 +793,7 @@ and set_to_zero cfg (x, a, rho) =
   assert(Arith.Monomials.Pos.is_empty a);
   Arith.Monomials.Neg.iter
     (fun (_, y) ->
-       let tau = Justification.dependencies [rho] in
+       let tau = Justification.dependencies1 rho in
        let e = Fact.Equal.make (y, Arith.mk_zero, tau) in
 	 compose1 t cfg e)
     a
@@ -842,7 +856,7 @@ and analyze ((_, s) as cfg) =
   contradiction, then [a<=0] holds. *)
 let rec is_nonpos cfg a =
   try
-    let pa = Fact.Pos.make (a, Justification.dependencies []) in
+    let pa = Fact.Pos.make (a, Justification.dependencies0) in
       protect cfg process_pos pa;
       None
   with
@@ -862,7 +876,7 @@ and process_pos ((_, s) as cfg) c =
   then [a < 0] holds. *)
 and is_neg cfg a =
   try
-    let nna = Fact.Nonneg.make (a, Justification.dependencies []) in
+    let nna = Fact.Nonneg.make (a, Justification.dependencies0) in
       protect cfg process_nonneg nna;
       None
   with
@@ -891,7 +905,7 @@ and is_gt cfg (a, b) =
 (** Test if [a <> b] by asserting [a = b]. *)
 and is_diseq cfg (a, b) =
   try
-    let hyp = Justification.dependencies [] in
+    let hyp = Justification.dependencies0 in
     let e = Fact.Equal.make (a, b, hyp) in
       protect cfg process_equal e;
       None
@@ -969,14 +983,14 @@ and process_ge cfg (a, b, rho) =
 and case_process_le cfg =
   Trace.proc "la" "Case_le" (Pretty.pair Term.pp Term.pp)
     (fun (a, b) ->
-       let dummy = Justification.dependencies [] in
+       let dummy = Justification.dependencies0 in
        let nn = Fact.Nonneg.make (Arith.mk_sub b a, dummy) in
 	 protect cfg process_nonneg nn)
       
 and case_process_ge cfg =
   Trace.proc "la" "Case_ge" (Pretty.pair Term.pp Term.pp)
     (fun (a, b) ->
-       let dummy = Justification.dependencies [] in
+       let dummy = Justification.dependencies0 in
        let nn = Fact.Nonneg.make (Arith.mk_sub a b, dummy) in
 	 protect cfg process_nonneg nn)
   
@@ -1190,7 +1204,7 @@ let rec model ((_, s) as cfg) xl =
 	(fun (x, mode) -> 
 	   let a = interpretation_of cfg (x, mode) in
 	     m := Term.Map.add x a !m;
-	     let e = Fact.Equal.make (x, a, Justification.dependencies []) in 
+	     let e = Fact.Equal.make (x, a, Justification.dependencies0) in 
 	       process_equal cfg e)
 	xl;
       !m

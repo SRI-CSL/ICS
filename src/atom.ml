@@ -18,23 +18,37 @@ open Mpa
 
 type t =
   | True
-  | Equal of Term.Equal.t
-  | Diseq of Term.Diseq.t
-  | Nonneg of Term.Nonneg.t
-  | Pos of Term.Pos.t
+  | Equal of Term.t * Term.t
+  | Diseq of Term.t * Term.t
+  | Nonneg of Term.t
+  | Pos of Term.t
   | False
 
-let cmp a b =
-  match a, b with
-    | True, True -> 0
-    | False, False -> 0
-    | Equal(e1), Equal(e2) -> Term.Equal.compare e1 e2
-    | Diseq(d1), Diseq(d2) -> Term.Diseq.compare d1 d2
-    | Nonneg(c1), Nonneg(c2) -> Term.Nonneg.compare c1 c2
-    | Pos(c1), Pos(c2) -> Term.Pos.compare c1 c2
-    | _ -> Pervasives.compare a b
+(** Following is not a particularly good `hash' function,
+  but serves its purpose as a quick failure criteria for 
+  equality test. *)
+let hash = function
+  | True -> 0
+  | Equal(_, b) -> Term.hash b
+  | Diseq(_, b) -> Term.hash b
+  | Nonneg(a) -> Term.hash a
+  | Pos(a) -> Term.hash a
+  | False -> 1
 
-let eq a b = (cmp a b = 0)
+let rec eq a b =
+  (hash a = hash b) &&    (* quick failure test *)
+  match a, b with
+    | True, True -> true
+    | False, False -> true
+    | Equal(a1, b1), Equal(a2, b2) -> Term.eq a1 a2 && Term.eq b1 b2
+    | Diseq(a1, b1), Diseq(a2, b2) -> Term.eq a1 a2 && Term.eq b1 b2
+    | Nonneg(a), Nonneg(b) -> Term.eq a b
+    | Pos(a), Pos(b) -> Term.eq a b
+    | _ -> false
+
+let compare a b =
+  if eq a b then 0 else if hash a < hash b then -1 else 1
+
 
 let is_true = function True -> true | _ -> false
 
@@ -48,7 +62,7 @@ type atom = t
 module Set = Set.Make(
   struct
     type t = atom
-    let compare = cmp
+    let compare = compare
   end)
 
 
@@ -60,8 +74,8 @@ let mk_false = False
 
 let mk_equal (a, b) =
   if Term.eq a b then mk_true else 
-    let (a', b') = Nonlin.crossmultiply (a, b) in
-      Equal(Term.Equal.make (a', b'))
+    let (a', b') = Term.orient(Nonlin.crossmultiply (a, b)) in
+      Equal(a', b')
 
 let mk_diseq (a, b) =
   if Term.eq a b then mk_false else
@@ -74,25 +88,34 @@ let mk_diseq (a, b) =
     else if Term.eq b Boolean.mk_false then
       mk_equal (a, Boolean.mk_true)
     else
-      let (a', b') = Nonlin.crossmultiply (a, b) in
-	Diseq(Term.Diseq.make (a', b'))
+      let (a', b') = Term.orient(Nonlin.crossmultiply (a, b)) in
+	Diseq(a', b')
 
 let mk_nonneg a =
-  match a with
-    | Term.App(Sym.Arith(Sym.Num(q)), []) ->
-	if Mpa.Q.is_nonneg q then mk_true else mk_false
-    | _ -> 
-	Nonneg(Term.Nonneg.make a)
+  try
+    let q = Arith.d_num a in
+      if Mpa.Q.is_nonneg q then mk_true else mk_false
+  with
+      Not_found -> 
+	(try
+	   let (q, x) = Arith.d_multq a in
+	     if Mpa.Q.is_nonneg q then 
+	       Nonneg(x)
+	     else 
+	       Nonneg(a)
+	 with
+	     Not_found -> Nonneg(a))
 
 let mk_pos a =
-  match a with
-    | Term.App(Sym.Arith(Sym.Num(q)), []) ->
-	if Mpa.Q.is_pos q then mk_true else mk_false
-    | _ -> 
+  try
+    let q = Arith.d_num a in
+      if Mpa.Q.is_pos q then mk_true else mk_false
+  with
+      Not_found ->
 	if Arith.is_int a then         (* [a > 0] iff [a - 1 >= 0] for [a] an integer. *)
 	  mk_nonneg (Arith.mk_decr a)
 	else 
-	  Pos(Term.Pos.make a)
+	  Pos(a)
 
 let mk_neg a = mk_pos (Arith.mk_neg a)
 let mk_nonpos a = mk_nonneg (Arith.mk_neg a)
@@ -110,10 +133,10 @@ let apply rho = failwith "atom.apply: to do"
 let pp fmt = function
   | True -> Pretty.string fmt "True"
   | False -> Pretty.string fmt "False"
-  | Equal(e) -> Term.Equal.pp fmt e
-  | Diseq(d) -> Term.Diseq.pp fmt d
-  | Nonneg(nn) -> Term.Nonneg.pp fmt nn
-  | Pos(p) -> Term.Pos.pp fmt p
+  | Equal(a, b) -> Pretty.infix Term.pp "=" Term.pp fmt (a, b)
+  | Diseq(a, b) -> Pretty.infix Term.pp "<>" Term.pp fmt (a, b)
+  | Nonneg(a) -> Term.pp fmt a; Pretty.string fmt " >= 0"
+  | Pos(a) ->  Term.pp fmt a; Pretty.string fmt " > 0"
   
 
 (** {6 Negations of atoms} *)
@@ -123,8 +146,8 @@ let is_negatable _ = true
 let negate = function
   | True -> False
   | False -> True
-  | Equal(e) -> mk_diseq (Term.Equal.destruct e)
-  | Diseq(d) -> mk_equal (Term.Diseq.destruct d)
+  | Equal(a, b) -> mk_diseq (a, b)
+  | Diseq(a, b) -> mk_equal (a, b)
   | Nonneg(a) -> mk_pos (Arith.mk_neg a)  (* [not(a >= 0)] iff [-a > 0] *)
   | Pos(a) -> mk_nonneg (Arith.mk_neg a)  (* [not(a > 0)] iff [-a >= 0] *)
 
@@ -136,10 +159,10 @@ let _ = Callback.register "atom_negate" negate
 let vars_of = function
   | True -> Term.Set.empty
   | False -> Term.Set.empty
-  | Equal(e) -> Term.Set.union (Term.vars_of (Term.Equal.lhs e)) (Term.vars_of (Term.Equal.rhs e))
-  | Diseq(d) -> Term.Set.union (Term.vars_of (Term.Equal.lhs d)) (Term.vars_of (Term.Equal.rhs d))
-  | Nonneg(nn) -> Term.vars_of (Term.Nonneg.term_of nn)
-  | Pos(p) -> Term.vars_of (Term.Pos.term_of p)
+  | Equal(a, b) -> Term.Set.union (Term.vars_of a) (Term.vars_of b)
+  | Diseq(a, b) -> Term.Set.union (Term.vars_of a) (Term.vars_of b)
+  | Nonneg(a) -> Term.vars_of a
+  | Pos(a) -> Term.vars_of a
 
 let list_of_vars a = 
   Term.Set.elements (vars_of a)
@@ -148,20 +171,20 @@ let list_of_vars a =
 let occurs ((x, a) as p) =
   let rec term_occurs = function
     | Term.Var _ as y -> Term.eq x y
-    | Term.App(_, sl) -> List.exists term_occurs sl
+    | Term.App(_, sl, _) -> List.exists term_occurs sl
   in
     match a with
       | True -> false
       | False -> false
-      | Equal(e) -> term_occurs (Term.Equal.lhs e) || term_occurs (Term.Equal.rhs e)
-      | Diseq(d) -> term_occurs (Term.Equal.lhs d) || term_occurs (Term.Equal.rhs d)
-      | Nonneg(nn) -> term_occurs (Term.Nonneg.term_of nn)
-      | Pos(p) -> term_occurs (Term.Pos.term_of p)
+      | Equal(a, b) -> term_occurs a || term_occurs b
+      | Diseq(a, b) -> term_occurs a || term_occurs b
+      | Nonneg(a) -> term_occurs a
+      | Pos(a) -> term_occurs a
 
 let is_connected a b =
   let rec term_is_connected = function
     | Term.Var _ as x -> occurs (x, b)
-    | Term.App(_, sl) -> List.exists term_is_connected sl
+    | Term.App(_, sl, _) -> List.exists term_is_connected sl
   in
     match a with
       | True -> false

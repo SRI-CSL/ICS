@@ -13,8 +13,8 @@
 
 (** {6 Constants} *)
 
-let tt =  Sym.Bv(Sym.Const(Bitv.create 1 true))
-let ff =  Sym.Bv(Sym.Const(Bitv.create 1 false))
+let tt = Sym.Bv.const(Bitv.create 1 true)
+let ff = Sym.Bv.const(Bitv.create 1 false)
 
 let mk_true = Bitvector.mk_one 1
 let mk_false = Bitvector.mk_zero 1

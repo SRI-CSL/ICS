@@ -18,14 +18,14 @@ open Mpa
 let is_pure = Term.is_pure Th.bv
 
 let is_interp = function
-  | Term.App(Sym.Bv _, _) -> true
+  | Term.App(sym, _, _) -> Sym.theory_of sym = Th.bv
   | _ -> false
 
 
 (** {6 Destructors} *)
 
 let d_interp = function
-  | Term.App(Sym.Bv(op), l) -> (op, l)
+  | Term.App(sym, l, _) -> (Sym.Bv.get sym, l)
   | _ -> raise Not_found
 
 let d_const a =

@@ -13,16 +13,13 @@
 
 
 let is_interp = function
-  | Term.App(Sym.Coproduct _, _) -> true
+  | Term.App(sym, _, _) -> (Sym.theory_of sym) = Th.cop
   | _ -> false
 
-let rec is_pure = function
-  | Term.Var _ -> true
-  | Term.App(Sym.Coproduct _, [a]) -> is_pure a
-  | _ -> false
+let is_pure = Term.is_pure Th.cop
 
 let d_interp = function
-  | Term.App(Sym.Coproduct(op), [a]) -> (op, a)
+  | Term.App(sym, [a], _) -> (Sym.Coproduct.get sym, a)
   | _ -> raise Not_found
 
 let d_outl a =

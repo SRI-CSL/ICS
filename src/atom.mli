@@ -26,14 +26,14 @@
 
 type t =
   | True
-  | Equal of Term.Equal.t
-  | Diseq of Term.Diseq.t
-  | Nonneg of Term.Nonneg.t
-  | Pos of Term.Pos.t
+  | Equal of Term.t * Term.t
+  | Diseq of Term.t * Term.t
+  | Nonneg of Term.t
+  | Pos of Term.t
   | False
 
 
-val cmp : t -> t -> int
+val compare : t -> t -> int
 val eq : t -> t -> bool
 
 

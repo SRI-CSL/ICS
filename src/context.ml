@@ -132,7 +132,7 @@ let name i s =
 
 let name_of_term s a =
   if Term.is_var a then v s a else 
-    name (Th.of_sym (Term.App.sym_of a)) s a
+    name (Sym.theory_of (Term.App.sym_of a)) s a
 
 
 
@@ -159,8 +159,8 @@ let abstract s a =
     match a with
       | Term.Var _ ->  
 	  v s a
-      | Term.App(f, al) ->
-	  let j = Th.of_sym f in
+      | Term.App(f, al, _) ->
+	  let j = Sym.theory_of f in
 	  let (bl, rhol) = of_args j al in    (* roughly, [rhok |- bk = ak] *) 
 	  let (c, rho) =                      (* [rho |- c = f(b1,...,bn)] *)
 	    if Term.eql al bl then 
@@ -177,7 +177,7 @@ let abstract s a =
   in
     match a with 
       | Term.Var _ -> Justification.Eqtrans.id a
-      | Term.App(f, _) -> of_term (Th.of_sym f) a
+      | Term.App(f, _, _) -> of_term (Sym.theory_of f) a
 
 
 (** {6 Facts} *)
@@ -272,13 +272,13 @@ and process_equal s e =
   match Fact.Equal.lhs_of e, Fact.Equal.rhs_of e with
     | Term.Var _, Term.Var _ -> 
 	Partition.merge s.p e
-    | Term.App(f, _), Term.Var _ -> 
-	Combine.process_equal (s.p, s.eqs) (Th.of_sym f) e
-    | Term.Var _, Term.App(f, _) -> 
-	Combine.process_equal (s.p, s.eqs) (Th.of_sym f) e
-    | Term.App(f, _), Term.App(g, _) ->
-	let i = Th.of_sym f 
-	and j = Th.of_sym g in
+    | Term.App(f, _, _), Term.Var _ -> 
+	Combine.process_equal (s.p, s.eqs) (Sym.theory_of f) e
+    | Term.Var _, Term.App(f, _, _) -> 
+	Combine.process_equal (s.p, s.eqs) (Sym.theory_of f) e
+    | Term.App(f, _, _), Term.App(g, _, _) ->
+	let i = Sym.theory_of f 
+	and j = Sym.theory_of g in
 	  if i = j then 
 	    Combine.process_equal (s.p, s.eqs) i e
 	  else

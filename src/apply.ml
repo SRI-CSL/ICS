@@ -1,4 +1,3 @@
-
 (*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
@@ -23,17 +22,17 @@ type norm = Sym.t -> Term.t list -> Term.t
 
 let d_interp a =
   match a with
-   | Term.App(Sym.Fun(op), al) -> (op, al)
+   | Term.App(sym, al, _) -> (Sym.Fun.get sym, al)
    | _ -> raise Not_found
 
 let d_abs a =
-  match a with 
-   | Term.App(Sym.Fun(Abs), [a1]) -> a1
-   | _ -> raise Not_found
+  match d_interp a with
+    | Sym.Abs, [a1] -> a1
+    | _ -> raise Not_found
 
 let d_apply a =
-  match a with
-    | Term.App(Sym.Fun(Apply(r)), [a; b]) -> (r, a, b)
+  match d_interp a with
+    | Sym.Apply(r), [a; b] -> (r, a, b)
     | _ -> raise Not_found
 
 
@@ -55,29 +54,32 @@ let rec mk_apply sigma r a b =
 and eval sigma =
   Trace.func "eval" "Eval" Term.pp Term.pp
     (fun a -> 
-       match a with
-	 | Term.App(Fun(Apply(r)), [x; y]) ->
-	     let x' = eval sigma x in
-	       (match x' with
-		  | Term.App(Fun(Abs), [z]) ->
-		      eval sigma (subst sigma z (eval sigma y) 0)
-		  | _ -> 
-		      let y' = eval sigma y in
-			if x' == x && y' == y then a else 
-			  Term.App.mk_app (Sym.Fun.apply r) [x'; y'])
-	 | _ ->
-	     a)
-
+       try 
+	 let (r, x, y) = d_apply a in
+	 let x' = eval sigma x in
+	   (try 
+	      let z = d_abs x' in
+		eval sigma (subst sigma z (eval sigma y) 0)
+	    with 
+		Not_found -> 
+		  let y' = eval sigma y in
+		    if x' == x && y' == y then a else 
+		      Term.App.mk_app (Sym.Fun.apply r) [x'; y'])
+       with
+	   Not_found -> a)
 
 (** normalization using call-by-value*)
 and byValue sigma a = 
   let rec bodies a =
-    match a with
-      | Term.App(Fun(Abs), [x]) -> 
-	  Term.App.mk_app Sym.Fun.abs [byValue sigma x]
-      | Term.App(Fun(Apply(r)), xl) -> 
-	  Term.App.mk_app (Sym.Fun.apply r) (Term.mapl bodies xl)
-      | _ -> a
+    try
+      match d_interp a with
+	| Abs, [x] -> 
+	    Term.App.mk_app Sym.Fun.abs [byValue sigma x]
+	| Apply(r), xl -> 
+	    Term.App.mk_app (Sym.Fun.apply r) (Term.mapl bodies xl)
+	| _ -> a
+      with
+	  Not_found -> a
   in
     bodies (eval sigma a)
 
@@ -85,56 +87,64 @@ and byValue sigma a =
 (* Head normal form. *)
 
 and hnf sigma a =
-  match a with
-    | Term.App(Fun(Abs), [x]) ->
-	let x' = hnf sigma x in
-	  if x == x' then a else 
-	    Term.App.mk_app Sym.Fun.abs [x']
-    | Term.App(Fun(Apply(r)), [x1; x2]) ->
-	(match hnf sigma x1 with
-	   | Term.App(Fun(Abs), [y]) ->
-	       hnf sigma (subst sigma y x2 0)
-	   | y -> 
-	       if y == x1 then a else 
-		 Term.App.mk_app (Sym.Fun.apply r) [y; x2])
-    | _ -> 
-	a
+  try
+    match d_interp a with
+      | Abs, [x] ->
+	  let x' = hnf sigma x in
+	    if x == x' then a else 
+	      Term.App.mk_app Sym.Fun.abs [x']
+      | Apply(r), [x1; x2] ->
+	  let z = hnf sigma x1 in
+	    (try
+	       let y = d_abs z in
+		 hnf sigma (subst sigma y x2 0)
+	     with
+		 Not_found -> 
+		   if z == x1 then a else 
+		     Term.App.mk_app (Sym.Fun.apply r) [z; x2])
+      | _ -> 
+	  a
+    with
+	Not_found -> a
 
 (* Normalization using call-by-name. *)
 
 and byName sigma a =
   let rec args a =
-    match a with
-      | Term.App(Fun(Abs), [x]) ->
-	  let x' = args x in
-	    if x == x' then a else 
-	      Term.App.mk_app Sym.Fun.abs [x']
-       | Term.App(Fun(Apply(r)), x :: xl) ->
-	  let x' = args x 
-	  and xl' = Term.mapl (byName sigma) xl in
-	    if x == x' && xl == xl' then a else 
-	      Term.App.mk_app (Sym.Fun.apply(r)) (x' :: xl')
-      | _ -> 
-	  a
+    try
+      (match d_interp a with
+	| Abs, [x] ->
+	    let x' = args x in
+	      if x == x' then a else 
+		Term.App.mk_app Sym.Fun.abs [x']
+	| Apply(r), x :: xl ->
+	    let x' = args x 
+	    and xl' = Term.mapl (byName sigma) xl in
+	      if x == x' && xl == xl' then a else 
+		Term.App.mk_app (Sym.Fun.apply(r)) (x' :: xl')
+	| _ -> 
+	    a)
+    with
+	Not_found -> a
   in
     args (hnf sigma a)
 
 and subst sigma a s k =
   match a with
-    | Term.Var(x) -> 
+    | Term.Var(x, _) -> 
 	if Var.is_free x then
           let i = Var.d_free x in
             if k < i then 
-              Term.Var(Var.mk_free(i - 1))
+              Term.Var.mk_free(i - 1)
             else if i = k then
               s
             else 
-              Term.Var(Var.mk_free i)
+              Term.Var.mk_free i
 	else 
 	  a
-    | Term.App(Fun(Abs), [x]) ->
+    | Term.App(sym, [x], _) when Sym.Fun.is_abs sym ->
         mk_abs (subst sigma x (lift s 0) (k + 1))
-    | Term.App(f, xl) ->
+    | Term.App(f, xl, _) ->
 	sigma f (substl sigma xl s k)
 
 and substl sigma al s k =
@@ -142,15 +152,15 @@ and substl sigma al s k =
 
 and lift a k =
   match a with
-    | Term.Var(x) ->
+    | Term.Var(x, _) ->
 	if Var.is_free x then
 	  let i = Var.d_free x in
-	    if i < k then a else Term.Var(Var.mk_free(i + 1))
+	    if i < k then a else Term.Var.mk_free(i + 1)
 	else 
 	  a
-    | Term.App(Fun(Abs), [x]) ->
+    | Term.App(sym, [x], _) when Sym.Fun.is_abs sym ->
 	mk_abs (lift x (k + 1))
-    | Term.App(f, xl) ->
+    | Term.App(f, xl, _) ->
 	Term.App.mk_app f (liftl xl k)
 
 and liftl al k =

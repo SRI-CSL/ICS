@@ -59,7 +59,7 @@ endif
 INCLUDE =
 CFLAGS = 
 BFLAGS = -g $(INCLUDE)
-OFLAGS = $(INCLUDE) # -noassert -compact -inline 3 -unsafe
+OFLAGS = $(INCLUDE) -compact -inline 3 -noassert -unsafe
 LIBS = $(LIBGMPA)
 
 # Object files
@@ -74,8 +74,8 @@ CMO = three.cmo \
       bitv.cmo \
       dom.cmo \
       name.cmo \
-      sym.cmo \
       th.cmo \
+      sym.cmo \
       trace.cmo \
       var.cmo \
       term.cmo \

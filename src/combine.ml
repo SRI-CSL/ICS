@@ -22,7 +22,7 @@ module U = Eqs.Make0(
     let nickname = Th.to_string Th.u
     let rec apply (x, b) = function
       | Term.Var _ as y -> if Term.eq x y then b else y
-      | Term.App(f, yl) as a -> 
+      | Term.App(f, yl, _) as a -> 
 	  let yl' = Term.mapl (apply (x, b)) yl in
 	    if yl == yl' then a else Term.App.mk_app f yl'
     let is_infeasible _ _ = None
@@ -310,7 +310,7 @@ let sigma (p, _) =
 let rec can ((p, s) as cfg) a =
   let interp_can op =                      (* Apply interpretation on canonized term. *)
     Justification.Eqtrans.compose_partial1 (* If there is no interpretation, return canonized result. *)
-      (interp cfg (Th.of_sym op))
+      (interp cfg (Sym.theory_of op))
       (can cfg)
   in 
     try

@@ -18,7 +18,7 @@ open Mpa
 
 let is_interp a =
   match a with
-    | Term.App(Sym.Arith _, _) -> true
+    | Term.App(sym, _, _) -> Sym.theory_of sym = Th.a
     | _ -> false
 
 let is_pure = Term.is_pure Th.a
@@ -41,19 +41,19 @@ let mk_eps = mk_num (Q.div Q.one (Q.of_int 123456789))
 (** {6 Destructors} *)
 
 let d_interp = function
-  | Term.App(Sym.Arith(op), al) -> (op, al)
+  | Term.App(sym, al, _) -> (Sym.Arith.get sym, al)
   | _ -> raise Not_found
 
 let d_num = function
-  | Term.App(Sym.Arith(Sym.Num(q)), []) -> q
+  | Term.App(sym, [], _) -> Sym.Arith.d_num sym
   | _ -> raise Not_found
 
 let d_multq = function
-  | Term.App(Sym.Arith(Sym.Multq(q)), [a]) -> (q, a)
+  | Term.App(sym, [a], _) -> (Sym.Arith.d_multq sym, a)
   | _ -> raise Not_found
 
 let d_add = function
-  | Term.App(Sym.Arith(Sym.Add), al) -> al
+  | Term.App(sym, al, _) when Sym.eq sym Sym.Arith.add -> al
   | _ -> raise Not_found
 
 let monomials a =

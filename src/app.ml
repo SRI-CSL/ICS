@@ -25,7 +25,7 @@ let lazy_sigma a f l =
     sigma f l
 	  
 let is_uninterp = function
-  | App(Sym.Uninterp _, _) -> true
+  | App(sym, _, _) -> Sym.theory_of sym = Th.u
   | _ -> false
  
 let d_uninterp a =
@@ -36,7 +36,7 @@ let d_uninterp a =
 let map ctxt a =
   match a with
     | Var _ -> ctxt(a)
-    | App(f, l) ->  
+    | App(f, l, _) ->  
 	let l' = Term.mapl ctxt l in
 	  if l == l' then a else 
 	    Term.App.mk_app f l'
