@@ -32,8 +32,7 @@ let empty = {
   singletons = Set.empty
 }
 
-let eq s t =
-  s.c == t.c
+let eq s t = s.c == t.c
 
 let cnstrnts s = s.c
 
@@ -53,7 +52,7 @@ let cnstrnt s =
 let cnstrnt_split s =
   Arith.split (fun x -> Map.find x s.c)
 
-(*s [update x i s] updates teh constraint map with the constraint [x in i]. *)
+(*s [update x i s] updates the constraint map with the constraint [x in i]. *)
 
 let update x i s = 
   Trace.msg "c" "Update" (x, i) Term.pp_in;
@@ -63,22 +62,6 @@ let update x i s =
      singletons = match Cnstrnt.d_singleton i with 
        | Some _ -> Set.add x s.singletons
        | None -> s.singletons}
-
-(*s Adding a new constraint. *)
-
-let add c s =
-  Trace.msg "c" "Add" c Fact.pp_cnstrnt;
-  let (x, i, _) = Fact.d_cnstrnt c in
-   try
-     let j = apply s x in
-     match Cnstrnt.cmp i j with
-       | Binrel.Disjoint -> raise Exc.Inconsistent
-       | (Binrel.Same | Binrel.Super) -> s
-       | Binrel.Sub -> update x i s
-       | Binrel.Singleton(q) -> update x (Cnstrnt.mk_singleton q) s
-       | Binrel.Overlap(ij) -> update x ij s
-   with
-       Not_found -> update x i s
 
 
 (*s Restrict the map. *)
@@ -96,6 +79,27 @@ let restrict x s =
     s
 
 
+(*s Adding a new constraint. *)
+
+let rec add c s =
+  Trace.msg "c1" "Add" c Fact.pp_cnstrnt;
+  let (x, i, _) = Fact.d_cnstrnt c in
+    refine x i s
+
+and refine x i s =
+  try
+    let j = apply s x in
+      (match Cnstrnt.cmp i j with
+	 | Binrel.Disjoint -> raise Exc.Inconsistent
+	 | (Binrel.Same | Binrel.Super) -> s
+	 | Binrel.Sub -> update x i s
+	 | Binrel.Singleton(q) -> update x (Cnstrnt.mk_singleton q) s
+	 | Binrel.Overlap(ij) -> update x ij s)
+  with
+      Not_found -> update x i s
+
+
+
 (*s Merge a variable equality [x = y] in the constraint map by
  adding [x in ij] for the canonical variable [x], where [x in i],
  [y in j] are in the constraint map and [ij] is the intersection of
@@ -106,7 +110,8 @@ let restrict x s =
  are always associated with canonical variables. *)
 
 
-let merge e s = 
+let merge e s =  
+  Trace.msg "c1" "Equal" e Fact.pp_equal;
   let (x, y, _) = Fact.d_equal e in
   try
     let i = find s x in
@@ -130,6 +135,7 @@ let merge e s =
  but the disequality sets might become rather large then. *)
 
 let diseq d s =
+  Trace.msg "c1" "Diseq" d Fact.pp_diseq;
   let (x, y, _) = Fact.d_diseq d in
   try
     let i = find s x in
@@ -142,10 +148,10 @@ let diseq d s =
 	    s
       | Some(q), None ->
 	  let j' = Cnstrnt.inter j (Cnstrnt.mk_diseq q) in
-	  update y j' s
+	  refine y j' s
       | None, Some(q) -> 
 	  let i' = Cnstrnt.inter i (Cnstrnt.mk_diseq q) in
-	  update x i' s
+	  refine x i' s
       | None, None ->
 	  s
   with
@@ -214,8 +220,6 @@ and of_builtin vs op al =
 	Cnstrnt.multl (List.map (of_term vs) al)
     | Floor, [x] -> 
 	Cnstrnt.mk_int
-    | Ceiling, [x] -> 
-	Cnstrnt.mk_int
     | Sin, [_] 
     | Cos, [_] ->
 	Cnstrnt.mk_cc Dom.Real (Q.of_int (-1)) (Q.of_int 1)
@@ -225,6 +229,8 @@ and of_builtin vs op al =
 	Cnstrnt.mk_ge Dom.Real Q.zero
     | Div, [x; y] ->
 	Cnstrnt.div (of_term vs x) (of_term vs y)
+    | Apply(Some(Real(n, i))), _ :: xl when List.length xl = n ->
+	i
     | _ ->
 	raise Not_found
 	
