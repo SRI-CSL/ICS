@@ -1,4 +1,3 @@
-
 ### configuration part (done by ./configure) #################################
 
 OCAMLSTDLIB = `ocamlc -v | tail -1 | cut -f 4 -d " "`
@@ -40,7 +39,6 @@ ifeq ($(MAKELEVEL),0)
 	LIBDIR = ./lib/$(ARCH)
 	SRCDIR = ./src
 	DOCDIR = ./doc
-  WEBDIR = ./www.icansolve.com
 	LABDIR = /csl/ics
 	SATDIR = ./sat
 else
@@ -49,7 +47,6 @@ else
 	LIBDIR = ../../lib/$(ARCH)
 	SRCDIR = ../../src
 	DOCDIR = ../../doc
-  WEBDIR = ../../www.icansolve.com
 	LABDIR = /csl/ics
 	SATDIR = ../../sat
 endif
@@ -71,6 +68,7 @@ endif
 
 COBJS = mlgmp41.o ocaml-signals.o icsat.o
 
+OBJS = ics_all.o ics_stub.o ocaml-signals.o mlgmp41.o icsat.o
 
 CMO = three.cmo \
       dynarray.cmo \
@@ -139,7 +137,7 @@ SRCMLI = $(addprefix $(SRCDIR)/,$(CMO:.cmo=.mli))
 ### ICSAT Library ###
 ICSAT= $(SATDIR)/lib/$(ARCH)/icsat.a
 
-TARGETS=$(BINDIR)/ics $(LIBDIR)/libics.a $(BINDIR)/ics.byte $(LIBDIR)/ics.cmxa
+TARGETS=$(BINDIR)/ics $(LIBDIR)/libics.a $(BINDIR)/ics.byte $(LIBDIR)/ics.cmxa $(LIBDIR)/libicsall.so   
 
 .PHONY : all all-chdir
 all: $(OBJDIR) $(LIBDIR) $(BINDIR) $(ICSAT)
@@ -175,21 +173,28 @@ ics.byte: $(OBJDIR)
 	make -C $(OBJDIR) -f ../../Makefile ics.byte
 endif
 
-OBJS = ics_all.o ics_stub.o ocaml-signals.o mlgmp41.o icsat.o
 
 ics_all.o: $(CMX)
 	$(OCAMLOPT) -output-obj -o $@ unix.cmxa $(CMX)
 
 
 $(LIBDIR)/libics.a: $(OBJS) $(SATDIR)/obj/$(ARCH)/*.o
-	$(OCAMLMKLIB) -oc ics -linkall $(OBJS) $(OBJDIR)/$(CMX) $(SATDIR)/obj/$(ARCH)/*.o
-	mv libics.* $(LIBDIR)
+	(cd $(OBJDIR); \
+	 $(OCAMLMKLIB) -oc ics -linkall $(OBJS) $(OBJDIR)/$(CMX) $(SATDIR)/obj/$(ARCH)/*.o; \
+	 mv libics.a $(LIBDIR))
 
-$(LIBDIR)/ics.cmxa: $(OBJS) $(SATDIR)/obj/$(ARCH)/*.o
+$(LIBDIR)/ics.cmxa: $(OBJS) $(SATDIR)/obj/$(ARCH)/*.o $(ICSAT)
 	(cd $(OBJDIR); \
 	 $(OCAMLMKLIB) -custom -linkall -o ics unix.cma $(OBJS) $(OBJDIR)/$(CMX) $(SATDIR)/obj/$(ARCH)/*.o \
-	               -cclib $(LIBGMPA) -cclib -licsat -cclib $(LIBCPP))
+	               -cclib $(LIBGMPA) -cclib -licsat -cclib $(LIBCPP); \
+         mv ics.cmxa ics.cmi ics.a $(LIBDIR); \
+	 cp $(ICSAT) $(LIBDIR))
 
+$(LIBDIR)/libicsall.so: $(OBJS) $(SATDIR)/obj/$(ARCH)/*.o # For use with Lisp everything has to be included
+	$(LD) -r -o $@ $(OBJS) \
+	$(SATDIR)/obj/$(ARCH)/*.o \
+	$(OCAMLSTDLIB)/libunix.a \
+	$(OCAMLSTDLIB)/libasmrun.a
 
 #$(LIBDIR)/libics.so: $(OBJS)
 #	echo "Target for $(POSIXOS) = $(TARGETS)"
@@ -198,20 +203,9 @@ $(LIBDIR)/ics.cmxa: $(OBJS) $(SATDIR)/obj/$(ARCH)/*.o
 #	  $(LIBGMPA) \
 #          $(OCAMLSTDLIB)/libasmrun.a
 
-$(LIBDIR)/libics.so: $(OBJS)       # For use with Lisp everything has to be included
-	$(LD) -r -o $@ $(OBJS) \
-	$(SATDIR)/obj/$(ARCH)/*.o \
-	$(OCAMLSTDLIB)/libunix.a \
-	$(OCAMLSTDLIB)/libasmrun.a
-
 ics_stub.c ics.h ics.lisp: ics.ml ics.mli ../../chameleon/$(ARCH)/chameleon
 	../../chameleon/$(ARCH)/chameleon ics.ml
 
-#ocaml-lib:
-#	(cd $(OBJDIR);\
-#	 $(OCAMLMKLIB) -custom -o ics unix.cma $(CMO) $(CMX) $(COBJS) \
-#		-cclib $(LIBGMPA) -cclib -licsat -cclib $(LIBCPP)) #; \
-#         # cp ics.cma ics.cmxa ics.cmi libics.a ics.a $(LIBDIR))
 
 GENERATED = lexer.ml parser.mli parser.ml
 

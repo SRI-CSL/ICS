@@ -40,6 +40,9 @@ let _ = Callback.register "set_compactify" set_compactify
 let set_verbose = Prop.set_verbose
 let _ = Callback.register "set_verbose" set_verbose
 
+let set_assertion_frequency = Prop.set_assertion_frequency
+let _ = Callback.register "set_assertion_frequency" set_assertion_frequency
+
 let set_remove_subsumed_clauses = Prop.set_remove_subsumed_clauses
 let _ = Callback.register "set_remove_subsumed_clauses" set_remove_subsumed_clauses
 

@@ -68,6 +68,8 @@ let args () =
         "Garbage collection for SAT after number of conflicts (default 2000)";
         "-refinements", Arg.Int(Ics.set_num_refinements),
         "Number of refinement steps in SAT solver";
+	"-frequency", Arg.Int(Ics.set_assertion_frequency),
+        "Frequency of asserting ground atoms in SAT solver";
         "-statistics", set_true Ics.set_statistic,
         "Print statistics for SAT solver";
 	"-reduce_explanation", set_true Ics.set_reduce_explanation,

@@ -63,6 +63,7 @@ val d_let : t -> Name.t * t * t
 
 (** Parameter settings for SAT solver *)
 val set_verbose : bool -> unit
+val set_assertion_frequency : int -> unit
 val set_remove_subsumed_clauses : bool -> unit
 val set_validate : bool -> unit
 val set_polarity_optimization : bool -> unit

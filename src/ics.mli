@@ -52,6 +52,10 @@ val set_compactify : bool -> unit
   (** [set_compactify false] disables garbage collection of
     internally generated variables (default [true]). *)
 
+val set_assertion_frequency : int -> unit
+  (** [set_assertion_frequency n] determines how often (frequency) 
+    the SAT solver sends (the relevant) information to ground decision procedures. *)
+
 val set_verbose : bool -> unit
   (** Using [set_verbose true], the SAT solver reports all kinds
     of statistics and progress reports (default [false]). *)

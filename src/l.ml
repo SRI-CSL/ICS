@@ -65,11 +65,12 @@ module Infsys0: (Infsys.EQ with type e = Solution.Set.t) = struct
   let rec export () = 
     S.iter export1 (current())
 
-  and export1 e =
-    let (x, a, rho) = e in
-      if is_first_order a then
+  and export1 ((x, a, rho) as e) =
+    if is_first_order a then
+      begin
 	G.put (Fact.of_equal e) !g;
 	S.restrict (current()) x
+      end 
 
   and is_first_order a =
     try

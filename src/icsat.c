@@ -380,6 +380,25 @@ void icsat_set_verbose(value x1) {
   CAMLreturn0;
 }
 
+
+extern void sat_set_assertion_frequency(int);
+
+void icsat_set_assertion_frequency(value x1) {
+  CAMLparam1(x1);
+  sat_set_assertion_frequency(Int_val(x1));
+  CAMLreturn0;
+}
+
+/* 
+extern int sat_get_assertion_frequency();
+
+value icsat_get_assertion_frequency() {
+  CAMLparam0();
+  CAMLreturn(Val_int(sat_get_assertion_frequency()));
+}
+*/
+
+
 extern void sat_set_remove_subsumed_clauses(int);
 
 void icsat_set_remove_subsumed_clauses(value x1) {

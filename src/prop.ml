@@ -127,6 +127,7 @@ external icsat_print_statistics : unit -> unit = "icsat_print_statistics"
 (** Parameter settings for SAT solver *)
 
 external set_verbose : bool -> unit = "icsat_set_verbose"
+external set_assertion_frequency : int -> unit = "icsat_set_assertion_frequency"
 external set_remove_subsumed_clauses : bool -> unit = "icsat_set_remove_subsumed_clauses"
 external set_validate_counter_example : bool -> unit = "icsat_set_validate_counter_example"
 external set_polarity_optimization : bool -> unit = "icsat_set_polarity_optimization"
