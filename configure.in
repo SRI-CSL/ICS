@@ -61,7 +61,7 @@ fi
 
 dnl Check for library
 if test -z "$with_gmp"; then
-  GMPPATH=/usr
+  GMPPATH=
 else
   GMPPATH=$with_gmp
 fi
