@@ -18,25 +18,41 @@ open Term
 (*i*)
 
 type t = {
-    find: Term.t Map.t;
+    find: (Term.t * Fact.justification option) Map.t;
     inv : Term.t Map.t;
-    use : Use.t;
-    changed : Term.Set.t
+    use : Use.t
 }
 
 let empty = {
   find = Map.empty;
   inv = Map.empty;
-  use = Use.empty;
-  changed = Set.empty
+  use = Use.empty
 }
+
 
 let is_empty s = 
   s.find == Map.empty
 
-
 let eq s t =
   s.find == t.find
+
+(*s Changed sets. *)
+
+let changed = Theories.Array.create Set.empty
+
+module Changed = struct
+		  
+  let reset () = Theories.Array.reset changed Set.empty
+		   
+  let restore = 
+    Theories.Array.iter (Theories.Array.set changed) 
+      
+  let save () = Theories.Array.copy changed
+		  
+  let stable () =
+    Theories.Array.for_all Set.is_empty changed
+
+end
 
 
 (*s Fold over the [find] structure. *)
@@ -47,22 +63,37 @@ let fold f s = Term.Map.fold f s.find
 (*s Solution set *)
 
 let to_list s =
-  fold (fun x b acc -> (x, b) :: acc) s []
+  fold (fun x (b,_) acc -> (x, b) :: acc) s []
 
 (*s Pretty-printer. *)
 
-let pp fmt s =
+let pp i fmt s =
+  Pretty.string fmt "\n";
+  Theories.pp fmt i;
+  Pretty.string fmt ":";
   Pretty.list (Pretty.eqn Term.pp) fmt (to_list s) 
 
 let apply s x =
   match x with
-    | App _ -> raise Not_found    (* Invariant: only variables in domain of [s]. *)
-    | _ -> Map.find x s.find
+    | App _ -> raise Not_found (* Invariant: only vars in domain of [s]. *)
+    | _ -> fst(Map.find x s.find)
 
 let find s x = 
   match x with
     | App _ -> x
-    | _ -> (try Map.find x s.find with Not_found -> x)
+    | _ -> (try fst(Map.find x s.find) with Not_found -> x)
+
+
+let justification s x = 
+  match x with
+    | App _ -> raise Not_found
+    | _ -> Map.find x s.find
+
+let equality s x =
+  let (a, prf) = justification s x in
+    Fact.mk_equal x a prf
+
+
 
 let inv s a = Map.find a s.inv
     
@@ -80,94 +111,122 @@ let occurs s x =
 (*s [union x b s] adds new equality [x = b] to [s],
  possibly overwriting an equality [x = ...] *)
 
-let union (x, b) s =  
+let union i e s =  
+  let (x, b, j) = Fact.d_equal e in
   assert(is_var x);
-  Trace.msg "s" "Update" (x, b) Term.pp_equal;
+  Trace.msg (Theories.to_string i) "Update" (x, b) Term.pp_equal;
   if Term.eq x b then 
     s 
   else
     let use' = 
       try 
-	Use.remove x (Map.find x s.find) s.use 
+	Use.remove x (fst(Map.find x s.find)) s.use 
       with 
 	  Not_found -> s.use 
     in
-    {find = Map.add x b s.find;
-     inv = Map.add b x s.inv;
-     use = Use.add x b use';
-     changed = Set.add x s.changed}
+      Theories.Array.set changed i (Set.add x (Theories.Array.get changed i));
+      {find = Map.add x (b,j) s.find;
+       inv = Map.add b x s.inv;
+       use = Use.add x b use'}
 
 
 (*s Extend with binding [x = b], where [x] is fresh *)
 
-let extend b s = 
-  let x = Term.mk_fresh_var (Name.of_string "v") None in
-  (x, union (x, b) s)
+let extend i b s = 
+  let x = Term.mk_fresh_var (Name.of_string "s") None in
+  let e = Fact.mk_equal x b None in
+    Trace.msg (Theories.to_string i) "Extend" e Fact.pp_equal;
+    (x, union i e s)
 
 (*s Restrict domain. *)
 
-let restrict =
-  fun x s ->
-    try
-      let b = Map.find x s.find in  
-      Trace.msg "s" "Restrict" x Term.pp;
+let restrict i x s =
+  try
+    let b = fst(Map.find x s.find) in  
+      Trace.msg (Theories.to_string i) "Restrict" x Term.pp;
+      Theories.Array.set changed i (Set.remove x (Theories.Array.get changed i));
       {find = Map.remove x s.find;
        inv = Map.remove b s.inv;
-       use = Use.remove x b s.use;
-       changed = Set.remove x s.changed}
-    with
-	Not_found -> s
+       use = Use.remove x b s.use}
+  with
+      Not_found -> s
 	    
 	    (*s [name e a] returns a variable [x] if there is
 	      a solution [x = a]. Otherwise, it creates a new name
 	      [x'] and installs a solution [x' = a] in [e]. *)
 
-let name (b, s) =
+let name i (b, s) =
   try
     (inv s b, s)
   with
-      Not_found -> extend b s
+      Not_found -> extend i b s
+
+(*s Theory-specific normalization. *)
+
+let rec map i =
+  match i with
+    | Theories.A -> Arith.map
+    | Theories.T -> Tuple.map
+    | Theories.BV -> Bitvector.map
+    | Theories.S -> Coproduct.map
+    | Theories.U -> mapu
+
+and mapu ctxt a =
+  match a with
+    | Var _ -> ctxt(a)
+    | App(f, l) ->  
+	let l' = mapl ctxt l in
+	  if l == l' then a else 
+	    mk_app f l'
 
 (*s Fuse. *)
 
-let rec fuse map (p, s) r =
-  let norm = 
-    map (fun x -> try Term.assq x r with Not_found -> x) 
-  in
-  let focus = 
-    List.fold_right
-      (fun (x, _) -> Set.union (use s x)) 
-      r Set.empty
-  in
+let rec fuse i (p, s) r = 
+  Trace.msg (Theories.to_string i) "Fuse" r (Pretty.list Fact.pp_equal);
+  let norm = map i (fun x -> assoc x r) in
   Set.fold 
     (fun x acc ->
        try
 	 let b = apply s x in
-	 let b' = norm b in
-	 update (x, b') acc
+	 let e' = Fact.mk_equal x (norm b) None in
+	 update i e' acc
        with
 	   Not_found -> acc)
-    focus
+    (dom s r)
     (p, s)
 
-and update (x, b) (p, s) =
+and assoc x = function
+  | [] -> x
+  | e :: el -> 
+      let (a, b, _) = Fact.d_equal e in
+	if Term.eq x a then b else assoc x el
+	  
+and dom s r = 
+  List.fold_right
+    (fun e ->
+       let (x, _, _) = Fact.d_equal e in
+	 Set.union (use s x))
+    r Set.empty
+
+and update i e (p, s) =
+  let (x, b, _) = Fact.d_equal e in
   assert(is_var x);
   if Term.eq x b then
-    (p, restrict x s)
+    (p, restrict i x s)
   else if is_var b then
-    let e' = Fact.mk_equal x b None in
-    let p' = Partition.merge e' p in
+    let p' = Partition.merge e p in
     let s' = 
       try
 	let a = apply s b in
 	if b <<< x then
-	  restrict x s
+	  restrict i x s
 	else 
-	  let s' = restrict b s in
-	  union (x, a) s'
+	  let e' = Fact.mk_equal x a None in
+	  let s' = restrict i b s in
+	  union i e' s'
       with
 	  Not_found -> 
-	    restrict x s 
+	    restrict i x s 
     in
     (p', s')
   else
@@ -178,30 +237,21 @@ and update (x, b) (p, s) =
 	  let p' = Partition.merge e' p in
 	  let s' = 
 	    if y <<< x then 
-	      restrict x s 
+	      restrict i x s 
 	    else 
-	      let s' = restrict y s in
-		union (x, b) s'
+	      let s' = restrict i y s in
+		union i e s'
 	  in
 	    (p', s')
     with
 	Not_found ->
-	  let s' = union (x, b) s in
+	  let s' = union i e s in
 	    (p, s')
 
 
 (*s Composition. *)
 
-let compose map (v, s) r =
-  let (v', s') = fuse map (v, s) r in
-  List.fold_right update r (v', s')
-
-       
-(*s Changed set *)
-
-let changed s = s.changed
-
-let reset s = 
-  if Set.is_empty s.changed then s else 
-    {s with changed = Set.empty}
-
+let compose i (p, s) r =
+  Trace.msg (Theories.to_string i) "Compose" r (Pretty.list Fact.pp_equal);
+  let (p', s') = fuse i (p, s) r in
+  List.fold_right (update i) r (p', s')

@@ -34,14 +34,14 @@ val to_list : t -> (Term.t * Term.t) list
 
 (*s Pretty-printing of solution sets. *)
 
-val pp : t Pretty.printer
+val pp : Theories.t -> t Pretty.printer
 
 
 (*s [fold f s e] applies [f x a] to all [x = a] in
  the solution set [s] in an unspecified order and
  accumulates the result. *)
 
-val fold : (Term.t -> Term.t -> 'a -> 'a) -> t -> 'a -> 'a
+val fold : (Term.t -> Term.t * Fact.justification option -> 'a -> 'a) -> t -> 'a -> 'a
 
 
 (*s [apply s x] returns [b] if [x = b] is in [s], and 
@@ -54,6 +54,13 @@ val apply : t -> Term.t -> Term.t
  For non-variable argument [a], [find s a] always returns [a]. *)
 
 val find : t -> Term.t -> Term.t
+
+(*s [justification s x] returns [(b, j)] if [x = b] is in [s] with justification [j].
+ Raises [Not_found] if there is no such justification. *)
+
+val justification : t -> Term.t -> Term.t * Fact.justification option
+
+val equality : t -> Term.t -> Fact.equal
 
 
 (*s [inv s b] returns [x] if [x = b] is in [s]; 
@@ -98,22 +105,19 @@ val eq : t -> t -> bool
 
 (*s [restrict s x] removes equalities [x = a] from [s]. *)
 
-val restrict : Term.t -> t -> t 
+val restrict : Theories.t -> Term.t -> t -> t 
 
 
 (*s [union (x, b) s] adds an equality [x = b] to [s], 
  possibly removing an equality [x = b'] in [s]. *)
 
-val union : Term.t * Term.t -> t -> t
-
-val update : Term.t * Term.t -> Partition.t * t -> Partition.t * t
-
+val union : Theories.t -> Fact.equal -> t -> t
 
 (*s [name s a] returns the variable [x] if there is
  an equation [x = a] in [s].  Otherwise, it creates a 
  fresh variiable [x'] and installs a solution [x' = a] in [s]. *)
 
-val name : Term.t * t -> Term.t * t
+val name : Theories.t -> Term.t * t -> Term.t * t
 
 (*s [fuse norm (p, s) r] propagates the equalities in [r] on 
   the right-hand side of equalities in [s]. The return value [(p', s')] consists 
@@ -132,8 +136,7 @@ val name : Term.t * t -> Term.t * t
   partitioning [p] and only one of [x = b'], [y = b'] is retained in the
   resulting solution set. *)
 
-val fuse : ((Term.t -> Term.t) -> Term.t -> Term.t)
-              -> Partition.t * t -> (Term.t * Term.t) list -> Partition.t * t
+val fuse : Theories.t -> Partition.t * t -> Fact.equal list -> Partition.t * t
 
 
 (*s [compose norm (p,s) r] is a [fuse] step followed by
@@ -142,8 +145,7 @@ val fuse : ((Term.t -> Term.t) -> Term.t -> Term.t)
  a non-variable term, in [sl]. If [b] is a variable, then
  it is added to [v'] and [ch'] is extended accordingly. *)
 
-val compose :  ((Term.t -> Term.t) -> Term.t -> Term.t)
-                  -> Partition.t * t -> (Term.t * Term.t) list -> Partition.t * t
+val compose : Theories.t -> Partition.t * t -> Fact.equal list -> Partition.t * t
 
 
 (*s Every modification or addition of an equality [x = a] to
@@ -152,8 +154,14 @@ val compose :  ((Term.t -> Term.t) -> Term.t -> Term.t)
  set can be obtained by [changed s]. [reset s] resets the set of
  changed variables in [s] to the empty set. *)
  
+module Changed: sig
 
-val changed : t -> Term.Set.t
+  val reset : unit -> unit
+    
+  val save : unit -> Term.Set.t Theories.Array.arr
+    
+  val restore : Term.Set.t Theories.Array.arr -> unit
+    
+  val stable : unit -> bool
 
-val reset : t -> t
-
+end 
