@@ -128,24 +128,26 @@ let rec merge e s =
   (s', es')
 
 and merge1 e s =
+  Trace.msg 3 "Merge1(a):" s pp;
   let not_is_slack x = not (is_slack x) in
   let (x,y) = Veq.destruct e in
   if not (A.occurs s.a x) then
     (s, Veqs.empty)
   else 
-    let a = A.norm s.a x and b = A.norm s.a y in
+    let a' = A.norm s.a x and b' = A.norm s.a y in
     try
-      match Arith.solve not_is_slack (a,b) with
+      match Arith.solve not_is_slack (a',b') with
 	| None -> (s, Veqs.empty)
 	| Some(x, b) ->
 	    assert(not_is_slack x);
+            Trace.msg 3 "Merge1_after_solve(a):" s pp;
 	    let (a',veqs') = A.compose s.a [(x,b)] in
 	    ({s with a = a'}, Veqs.remove e veqs')
     with
 	Exc.Unsolved ->
 	  Trace.exit 7 "Solve(a)" "Unsolved for nonslack" Pretty.string;
 	  try
-	  match Arith.solve is_slack (a,b) with
+	  match Arith.solve is_slack (a',b') with
 	    | None -> 
 		(s, Veqs.empty)
 	    | Some(k, b) ->
