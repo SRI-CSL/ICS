@@ -22,7 +22,32 @@ type t =
   | Neg of t
   | Let of Name.t * t * t
 
-let pp fmt p = Pretty.string fmt "<prop ...>"
+let rec pp fmt = function
+  | True -> Pretty.string fmt "tt"
+  | False -> Pretty.string fmt "ff"
+  | Var(x) -> Name.pp fmt x
+  | Atom(a) -> Atom.pp fmt a
+  | Disj(pl) -> Pretty.infixl pp " | " fmt pl
+  | Iff(p, q) -> Pretty.infix pp " <=> " pp fmt (p, q)
+  | Neg(p) -> 
+      Pretty.string fmt "~("; pp fmt p; Pretty.string fmt ")"
+  | Let(x, p, q) ->
+      Pretty.string fmt "let ";
+      Name.pp fmt x;
+      Pretty.string fmt " := ";
+      pp fmt p;
+      Pretty.string fmt " in ";
+      pp fmt q;
+      Pretty.string fmt " end"
+  | Ite(p, q, r) ->
+      Pretty.string fmt "if ";
+      pp fmt p;
+      Pretty.string fmt " then ";
+      pp fmt q;
+      Pretty.string fmt " else ";
+      pp fmt r;
+      Pretty.string fmt " end"
+
 
 let mk_true = True
 let mk_false = False

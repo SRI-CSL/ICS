@@ -563,4 +563,5 @@ let lt a b =
 let less (a, alpha, b) =
   if alpha then le a b else lt a b
 
-let greater (a, alpha, b) = failwith "to do"
+let greater (a, alpha, b) =
+  less (b, alpha, a)
