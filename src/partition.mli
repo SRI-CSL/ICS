@@ -36,6 +36,15 @@ val empty : t
 val v : t -> Term.t -> Term.t
 
 
+(*s [update_v s v] updates the [v] part of the partitioning [s] if it
+ is different from [s.v]. Similarly,  [update_d] and [update_c] update
+ the disequlity part and the constraint part, respectively. *)
+
+val update_v : t -> V.t -> t
+val update_d : t -> D.t -> t
+val update_c : t -> C.t -> t
+
+
 (*s [cnstrnt s a] computes a constraint for [s] by using variable constraints
  [x in i] in the variable constraint part [c] of the partitioning [s], and by
  recursing over arithmetic terms using abstract interval interpretation as
@@ -59,7 +68,6 @@ val deq : t -> Term.t -> Term.Set.t
 (*s Pretty-printing of a partitioning. *)
   
 val pp : t Pretty.printer
-
 
 (*s [is_equal s x y] for variables [x], [y] returns [Three.Yes] if [x] and
  [y] belong to the same equivalence class modulo [s], that is, if [v s x]
@@ -106,6 +114,8 @@ val diseq : Fact.diseq -> t -> t
 val eq : t -> t -> bool
 
 
+type index = V | D | C
+
 (*s [changed s] returns the changed sets for the equality, the disequality,
  and the constraint part (in this order).  The changed set for equalities
  contains variables [x] for which [v s x] changed since the last [reset].
@@ -116,8 +126,17 @@ val eq : t -> t -> bool
 
 val changed : t -> Term.Set.t * Fact.diseq list * Term.Set.t
 
+val changed_v : t -> Term.Set.t
+val changed_d : t -> Fact.diseq list
+val changed_c : t -> Term.Set.t
 
 (*s Resetting the [changed] indices to empty sets. *)
 
-val reset : t -> t
+val reset : index -> t -> t
  
+val reset_v : t -> t
+val reset_d : t -> t
+val reset_c : t -> t
+
+
+

@@ -33,13 +33,22 @@ let empty = {
   c = C.empty 
 }
 
+(*s Updates. *)
+
+let update_v s v = if V.eq v s.v then s else {s with v = v}
+let update_d s d = if D.eq d s.d then s else {s with d = d}
+let update_c s c = if C.eq c s.c then s else {s with c = c}
+
+
 (*s Canonical variables module [s]. *)
 
 let v s = V.find s.v
 
+
 (*s All disequalities of some variable [x]. *)
 
 let deq s = D.deq s.d
+
 
 (*s Constraint of [a] in [s]. *)
 
@@ -57,7 +66,7 @@ let pp fmt s =
 
 let eq s t =
   V.eq s.v t.v &&
-  D.unchanged s.d t.d &&
+  D.eq s.d t.d &&
   C.eq s.c t.c
  
 
@@ -81,18 +90,21 @@ let is_equal s x y =
 (*s Test for integerness. *)
 
 let is_int s x = 
-  try Cnstrnt.dom_of (C.cnstrnt s.c x) = Dom.Int with Not_found -> false
+  try 
+    Cnstrnt.dom_of (C.cnstrnt s.c x) = Dom.Int 
+  with 
+      Not_found -> false
 
 
 (* Merge a variable equality. *)
 
 let merge e s =
-  Trace.msg "p" "Merge" e Fact.pp_equal;
   let (x, y, _) = Fact.d_equal e in
   match is_equal s x y with
     | Three.Yes -> s
     | Three.No -> raise Exc.Inconsistent
-    | Three.X -> 
+    | Three.X ->
+	Trace.msg "p" "Merge" e Fact.pp_equal;
 	let v' = V.merge e s.v in
 	let d' = D.merge e s.d in
 	let c' = C.merge e s.c in
@@ -103,18 +115,18 @@ let merge e s =
 (*s Add a constraint. *)
 
 let add c s =
-  Trace.msg "p" "Add" c Fact.pp_cnstrnt;
   let c' = C.add c s.c in
-  if C.eq s.c c' then 
-    s 
-  else
-    let s' = {s with c = c'} in
-    s'
+    if C.eq s.c c' then s 
+    else
+      begin
+	Trace.msg "p" "Add" c Fact.pp_cnstrnt;
+	let s' = {s with c = c'} in
+	  s'
+      end
 
 (*s Add a disequality. *)
 
 let diseq d s = 
-  Trace.msg "p" "Diseq" d Fact.pp_diseq;
   let (x, y, _) = Fact.d_diseq d in
   match is_equal s x y with
     | Three.Yes -> 
@@ -123,8 +135,11 @@ let diseq d s =
 	s
     | Three.X -> 
 	let d' = D.add d s.d in
-	let s' = {s with d = d'} in
-	s'
+	  if D.eq s.d d' then s else 
+	    begin
+	      Trace.msg "p" "Diseq" d Fact.pp_diseq;
+	      {s with d = d'}
+	    end 
 
 (*s Remove noncanonical, internal variables. Assumes that [d] and [c]
  do not contain any of these variables. *)
@@ -138,13 +153,29 @@ let restrict xs s =
 (*s Triple of changes in the equality, disequality, and constraint parts
  (in this order). *) 
 
+type index = V | D | C
+
 let changed s =
   (V.changed s.v, D.changed s.d, C.changed s.c)
 
+let changed_v s = V.changed s.v
+let changed_d s = D.changed s.d
+let changed_c s = C.changed s.c
+
+
+
 (*s Resetting the [changed] indices. *)
 
-let reset s = 
-  {s with 
-     v = V.reset s.v;
-     d = D.reset s.d;
-     c = C.reset s.c}
+let reset i s = 
+  match i with
+    | V -> {s with v = V.reset s.v}
+    | D -> {s with d = D.reset s.d}
+    | C -> {s with c = C.reset s.c}
+
+let reset_v s = update_v s (V.reset s.v)
+let reset_d s = update_d s (D.reset s.d)
+let reset_c s = update_c s (C.reset s.c)
+
+
+
+
