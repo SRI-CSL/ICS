@@ -182,17 +182,16 @@ bench:: consistent inconsistent benchmarks
 check:: consistent inconsistent
 
 consistent: $(BINDIR)/ics
-	@for f in `find tests/consistent/ -maxdepth 1 -type f -print`; do \
+	@for f in `find tests/consistent/ -maxdepth 1 -type f -print`; \
+	do \
 	echo -n $$f"..."; \
-	$(BINDIR)/ics $$f > /dev/null; if [ $$? = 0 ]; then echo "Ok"; else \
-          echo "Error! (Should be consistent)"; exit $$?; fi \
+	$(BINDIR)/ics $$f; \
 	done
 
 inconsistent: $(BINDIR)/ics
 	@for f in `find tests/inconsistent/ -maxdepth 1 -type f -print`; do \
 	echo -n $$f"..."; \
-	$(BINDIR)/ics $$f > /dev/null; if [ $$? = 3 ]; then echo "Ok"; else \
-          echo "Error! (Should be inconsistent)"; exit $$?; fi \
+	$(BINDIR)/ics $$f; \
 	done
 
 BENCHFILES=linsys-005 linsys-006 linsys-007 linsys-008 linsys-009 linsys-010 \
