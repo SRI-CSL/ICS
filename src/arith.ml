@@ -563,7 +563,7 @@ and general al (d, pl) =
     (!fl, loop al (List.map mk_num pl))
 
 
-let integer_solve = ref true
+let integer_solve = ref false
 
 let solve e =
   if !integer_solve && 
