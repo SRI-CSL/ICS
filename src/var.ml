@@ -16,11 +16,10 @@ type t =
   | External of Name.t * Dom.t option
   | Rename of Name.t * int * Dom.t option
   | Fresh of Th.t * int * Dom.t option
-  | Bound of int                       (* Bound variables for quantification *)
+  | Bound of int
 
 and slack = Zero | Nonneg of Dom.t
-     
-and var = t
+ 
 
 (** {6 Constructors} *)
 
@@ -72,7 +71,7 @@ let domcmp d e =
     | None, Some _ -> 1
     | Some d, Some e -> Dom.cmp d e
 
-(* slack < external < fresh < renaming < bound *)
+(** slack < external < fresh < renaming < bound *)
 let rec cmp x y =
   match x, y with
     | Slack(i, sl1), Slack(j, sl2) ->
@@ -108,7 +107,6 @@ let rec cmp x y =
     | Bound(i), Bound(j) -> 
 	Pervasives.compare i j
     | Bound _ , _ -> 1
-
 
 
 let (<<<) x y = (cmp x y <= 0)
