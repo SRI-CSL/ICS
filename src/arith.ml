@@ -91,8 +91,6 @@ let monomials a =
     | None -> [a]
 
 
-
-
 (*s Recognizers. *)
 
 let is_num a =
@@ -318,10 +316,10 @@ let decompose a =
   let (q, al) = poly_of a in
   match al with
     | [] -> 
-	(q, None)
+	None
     | m :: ml ->
 	let (p,x) = mono_of m in
-	(q, Some(p, mk_add x (mk_multq (Q.inv p) (mk_addl ml))))
+	Some(q, p, mk_add x (mk_multq (Q.inv p) (mk_addl ml)))
 
 (*s Apply term transformer [f] at uninterpreted positions. *)
 
@@ -349,6 +347,34 @@ let replace x a b =
 
 let replacel el =
   map (fun x -> try Term.assq x el with Not_found -> x)
+
+
+(* Does every nonconstant monomial satisfy predicate [p]. *)
+
+let rec for_all p a =
+  match d_interp a with
+    | Some(op, l) -> 
+	(match op, l with
+	   | Sym.Num _, [] -> 
+	       true
+	   | Sym.Add, l -> 
+	       for_all_list p l
+	   | Sym.Mult, (x :: xl) ->
+	       (match d_num x with
+		  | Some(q) -> p (q, mk_multl xl)
+		  | None -> p (Q.one, a))
+	   | Sym.Expt _, [_] ->
+	       p (Q.one, a)
+	   | _ -> assert false)
+    | _ ->
+	p (Q.one, a)
+
+and for_all_list p l =
+  match l with
+    | [] -> true
+    | x :: xl -> 
+	for_all p x && for_all_list p xl
+
 
 (*s Interface for sigmatizing arithmetic terms. *)
 
