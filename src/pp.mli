@@ -34,6 +34,10 @@ val sigma : Sym.pprod -> Term.t list -> Term.t
 
 val map: (Term.t -> Term.t) -> Term.t -> Term.t
 
+val cmp : Term.t -> Term.t -> int
+
+val min : Term.t -> Term.t -> Term.t
+val max : Term.t -> Term.t -> Term.t
 
 (*s Abstract interpretation in the domain of constraints. Given 
  a context [f], which associates uninterpreted subterms of [a]
@@ -54,6 +58,11 @@ val gcd : Term.t -> Term.t -> Term.t * Term.t * Term.t
 (*s Least common muliple [lcm pp qq] *)
 
 val lcm : Term.t -> Term.t -> Term.t
+
+(*s Divisibility test [div pp qq] returns largest [Some(mm)] such that
+  [pp * mm = qq] and [None] if no such [mm] exists. *)
+
+val div : Term.t * Term.t -> Term.t option
 
 
 (*s [split pp] splits a power product [pp] into a pair [(nn,dd)] of
