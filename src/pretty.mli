@@ -53,6 +53,8 @@ val infixl : 'a printer -> string -> 'a list printer
 val set : 'a printer -> 'a list printer
   (** Printing of a list as a set. *)
 
+val assign : 'a printer -> 'b printer -> ('a * 'b) printer
+
 val map : 'a printer -> 'b printer -> ('a * 'b) list printer
   (** Printing of a list of pairs as a finite map. *)
 

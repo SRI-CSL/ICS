@@ -867,7 +867,9 @@ val prop_mk_disj : prop list -> prop
 val prop_mk_iff : prop -> prop ->prop
 val prop_mk_neg : prop -> prop
 
-val sat : context -> prop -> atoms option
+type assignment
+
+val sat : context -> prop -> assignment option
 
 (*
 val prop_is_true : prop -> bool

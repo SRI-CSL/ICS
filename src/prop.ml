@@ -48,6 +48,16 @@ let rec pp fmt = function
       pp fmt r;
       Pretty.string fmt " end"
 
+let rec occurs x = function
+  | True -> false
+  | False -> false
+  | Var(y) -> Name.eq x y
+  | Atom _ -> false
+  | Disj(pl) -> List.exists (occurs x) pl
+  | Iff(p, q) -> occurs x p || occurs x q
+  | Neg(p) -> occurs x p
+  | Let(y, p, q) -> if Name.eq x y then false else occurs x p || occurs x q
+  | Ite(p, q, r) -> occurs x p || occurs x q || occurs x r
 
 let mk_true = True
 let mk_false = False
@@ -118,8 +128,10 @@ external icsat_d_atom : prop -> int = "icsat_d_atom"
 external icsat_d_not : prop -> prop = "icsat_d_not"
 external icsat_num_arguments : prop -> int = "icsat_num_arguments"
 external icsat_get_argument : prop -> int -> prop = "icsat_get_argument"
-
 external icsat_get_assignment : int -> int = "icsat_get_assignment"
+
+external icsat_print_statistics : unit -> unit = "icsat_print_statistics"
+
 
 (** Parameter settings for SAT solver *)
 
@@ -129,6 +141,7 @@ external set_validate_counter_example : bool -> unit = "icsat_set_validate_count
 external set_polarity_optimization : bool -> unit = "icsat_set_polarity_optimization"
 external set_clause_relevance : int -> unit = "icsat_set_clause_relevance"
 external set_cleanup_period : int -> unit = "icsat_set_cleanup_period"
+external set_num_refinements : int -> unit = "icsat_set_num_refinements"
 
 
 (** Translating to and from propositions *)
@@ -148,11 +161,19 @@ module Inttbl = Hashtbl.Make(
     let hash = Hashtbl.hash
   end)
 
+module Nametbl = Hashtbl.Make(
+  struct
+    type t = Name.t
+    let equal = Name.eq
+    let hash = Hashtbl.hash
+  end)
+
 let id = ref 0
 let atomtbl = Atomtbl.create 17
 let inttbl = Inttbl.create 17
 
 let idtbl = Atomtbl.create 17   (* internal [id] of ICSAT of an atom. *)
+let vartbl = Nametbl.create 17  (* internal [id] of ICSAT for a variable *)
 
 let atom_to_id a =
   try
@@ -175,10 +196,13 @@ let atom_to_icsat_id a =
   try
     Atomtbl.find idtbl a
   with
-      Not_found -> failwith "ICSAT: no such id"
+      Not_found -> failwith "ICSAT: no such atom id"
 
 let var_to_icsat_id x =
-  icsat_mk_var (Name.to_string x)
+  try
+    Nametbl.find vartbl x
+  with
+      Not_found -> failwith "ICSAT: no such var id"
 
 
 let to_prop p =
@@ -193,7 +217,10 @@ let to_prop p =
 	     let q = List.assoc x rho in
 	       translate rho q
 	   with
-	       Not_found -> icsat_mk_var (Name.to_string x))
+	       Not_found -> 
+		 let id = icsat_mk_var (Name.to_string x) in
+		   Nametbl.add vartbl x id;
+		   id)
       | Atom(a) -> 
 	  assert(Atom.is_negatable a);
 	  let b = Atom.negate a in
@@ -334,20 +361,39 @@ let init s =
   scratch := s;          (* Initialize scratch area *)
   id := 0;               (* Initialize translation to props *)
   Atomtbl.clear atomtbl;
-  Inttbl.clear inttbl
+  Inttbl.clear inttbl;
+  Atomtbl.clear idtbl;
+  Nametbl.clear vartbl
 
 let finalize () =
   icsat_finalize ()
+
+let statistics = ref false
+
+module Assignment = struct
+
+  type t = {
+    valuation : (Name.t * bool) list;
+    literals : Atom.t list
+  }
+
+  let pp fmt rho =
+    Pretty.list (Pretty.assign Name.pp Pretty.bool) fmt rho.valuation;
+    Pretty.list Atom.pp fmt rho.literals
+
+end
 
 let rec sat s p =
   try
     init s;
     let result = 
       if icsat_sat (to_prop p) then 
-	Some(assignment p Atom.Set.empty)
+	Some(assignment ())
       else 
 	None
     in
+      if !statistics then
+	icsat_print_statistics();
       finalize();
       result
   with
@@ -355,27 +401,27 @@ let rec sat s p =
 	finalize ();
 	raise exc
         
-and assignment p acc = 
-  match apply [] p with
-    | True -> acc
-    | False -> acc
-    | Var _ ->
-	acc
-    | Atom(a) -> 
-	let id = atom_to_icsat_id a in
-	  Trace.msg "foo5" "Atom" (id, a) (Pretty.pair Pretty.number Atom.pp);
+and assignment () =
+  let valuation =
+    Nametbl.fold
+      (fun x id acc ->
+	 match icsat_get_assignment id with
+	   | (-1) -> (x, false) :: acc
+	   | 0 -> acc                   (* don't care *)
+	   | 1 -> (x, true) :: acc       
+	   | _ -> failwith "ICSAT: invalid return value of icsat_get_assignment")
+      vartbl []
+  in
+  let literals = 
+    Atomtbl.fold
+      (fun a id acc ->
+	 Trace.msg "foo5" "Atom" (id, a) (Pretty.pair Pretty.number Atom.pp);
 	  (match icsat_get_assignment id with
-	     | (-1) -> Atom.Set.add (Atom.negate a) acc  (* false *)
-	     | 0 -> acc                                  (* don't care *)
-	     | 1 -> Atom.Set.add a acc                   (* true *)
-	     | _ -> failwith "ICSAT: invalid return value of icsat_get_assignment")
-    | Disj(pl) ->
-	List.fold_right assignment pl acc
-    | Iff(p, q) -> 
-	assignment p (assignment q acc)
-    | Ite(p, q, r) -> 
-	assignment p (assignment q (assignment r acc))
-    | Neg(p) ->
-	assignment p acc
-    | Let _ ->
-	failwith "Failed invariant: 'let' not eliminated"
+	     | (-1) -> Atom.negate a :: acc  
+	     | 0 -> acc               (* don't care *)
+	     | 1 -> a :: acc          (* true *)
+	     | _ -> failwith "ICSAT: invalid return value of icsat_get_assignment"))
+      idtbl []
+  in
+    { Assignment.valuation = valuation; Assignment.literals = literals }
+	

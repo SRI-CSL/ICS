@@ -53,6 +53,21 @@ val set_remove_subsumed_clauses : bool -> unit
 val set_validate_counter_example : bool -> unit
 val set_polarity_optimization : bool -> unit
 val set_clause_relevance : int -> unit
-val set_cleanup_period : int -> unit
+val set_cleanup_period : int -> unit 
+val set_num_refinements : int -> unit
 
-val sat : Context.t -> t -> Atom.Set.t option
+val statistics : bool ref
+
+module Assignment : sig
+
+  type t = {
+    valuation : (Name.t * bool) list;
+    literals : Atom.t list
+  }
+
+  val pp : t Pretty.printer
+
+end
+
+val sat : Context.t -> t -> Assignment.t option
+

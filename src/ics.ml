@@ -587,7 +587,7 @@ let prop_d_neg = Prop.d_neg
 let _ = Callback.register "prop_d_neg" prop_d_neg
 *)
 
-type assignment = Atom.Set.t
+type assignment = Prop.Assignment.t
 
 let sat = Prop.sat
 let _ = Callback.register "sat" sat
@@ -798,7 +798,8 @@ and cmd_batch () =
     match Parser.commandsequence Lexer.token (Lexing.from_channel inch) with
       | Result.Process(Context.Status.Inconsistent) ->
 	  raise Exc.Inconsistent
-      | _ -> ()   (* be quiet *)
+      | result ->   (* be quiet (not any more) *)
+	  cmd_output outch result
   with
     | Invalid_argument str -> 
 	cmd_error outch str;

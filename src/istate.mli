@@ -184,7 +184,7 @@ val is_equal : Term.t -> Term.t -> bool
 
 (** {6 Sat solver} *)
 
-val sat : Prop.t -> Atom.Set.t option
+val sat : Prop.t -> Prop.Assignment.t option
 
 
 (** {6 Suggested Splits} *)

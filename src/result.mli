@@ -31,7 +31,7 @@ type t =
   | Process of Name.t Context.Status.t
   | Symtab of Symtab.t
   | Entry of Symtab.entry
-  | Sat of Atom.Set.t option
+  | Sat of Prop.Assignment.t option
   | Int of int
   | String of string
 

@@ -129,7 +129,11 @@ let args () =
 	"-clause_relevance", Arg.Int(Prop.set_clause_relevance),
         "Deletion of conflict clauses (default 50) in SAT";
         "-cleanup_period", Arg.Int(Prop.set_cleanup_period),
-        "Garbage collection for SAT after number of conflicts (default 2000)"
+        "Garbage collection for SAT after number of conflicts (default 2000)";
+        "-refinements", Arg.Int(Prop.set_num_refinements),
+        "Number of refinement steps in SAT solver";
+         "-statistics", Arg.Set(Prop.statistics),
+        "Print statistics for SAT solver"
       ]
       (fun f -> files := f :: !files)
       "usage: ics [-h] [-timings] [-prompt] [-pp] [-usage] [-eot <string>] [-server <portnum>] [files]";
