@@ -1,5 +1,4 @@
-
-(*i
+ (*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -12,13 +11,10 @@
  * benefit corporation.
  * 
  * Author: Harald Ruess
-i*)
+ *)
 
-(*i*)
-open Mpa
-(*i*)
 
-(*s Classification of function symbols. *)
+(** Module [Th]: Classification of function symbols. *)
 
 
 type t
@@ -36,36 +32,36 @@ val arr : t        (* Array theory. *)
 val bvarith : t    (* Theory of bitvector interpretation(s). *)
 
 val to_int : t -> int
+(** [to_int th] returns a unique nonnegative integer for theories [th]. *)
 
 val of_int : int -> t
-
-(*s Only [u] is fully uninterpreted. *)
+(** [of_int i] returns the theory [th] if [to_int th] is [i]. 
+ The result value is undefined otherwise. *)
 
 val is_fully_uninterp : t -> bool
+(** [is_fully_uninterp th] is equivalent to [eq th u]. *)
 
-(*s [la], [p], [bv], [cop] are fully interpreted. *)
 
 val is_fully_interp : t -> bool
+(** [la], [p], [bv], [cop] are fully interpreted. *)
 
 val to_string : t -> string
 
 val pp : t Pretty.printer
 
-(*s Classification of function symbols. *)
-
 val of_sym : Sym.t -> t
+(** Classification of function symbols. *)
 
-
-(*s Theory-specific map function. *)
 
 val map : t -> (Term.t -> Term.t) -> Term.t -> Term.t
+(** Theory-specific map function. *)
 
-(*s Theory-specific solver *)
 
 val solve : t -> Fact.equal -> Fact.equal list
+(** Theory-specific solver *)
 
 
-(*s Arrays of index theory. *)
+(** {Arrays of index theory.} *)
 
 
 module Array : sig
@@ -91,6 +87,5 @@ module Array : sig
   val to_list : 'a arr -> (t * 'a) list
 
   val pp : 'a Pretty.printer -> 'a arr Pretty.printer
-
 
 end
