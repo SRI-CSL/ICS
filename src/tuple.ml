@@ -78,15 +78,11 @@ let proj_solve i n s t =
   add (s, tuple (args (n - 1) [])) []
 
 let solve ((a,b) as e) =
-  try
-    let l = match a.node,b.node with
-      | Tuple(Tup al), Tuple(Tup bl) -> tuple_tuple_solve al bl
-      | Tuple(Proj (i,n,a)), _ -> proj_solve i n a b
-      | _, Tuple(Proj(i,n,a)) ->  proj_solve i n a b
-      | Tuple(Tup al), _ -> tuple_solve b al
-      | _, Tuple(Tup al) -> tuple_solve b al
-      | _ -> assert false
-    in
-    Some l
-  with
-      Exc.Inconsistent -> None
+  match a.node,b.node with
+    | Tuple(Tup al), Tuple(Tup bl) -> tuple_tuple_solve al bl
+    | Tuple(Proj (i,n,a)), _ -> proj_solve i n a b
+    | _, Tuple(Proj(i,n,a)) ->  proj_solve i n a b
+    | Tuple(Tup al), _ -> tuple_solve b al
+    | _, Tuple(Tup al) -> tuple_solve b al
+    | _ -> assert false
+	  

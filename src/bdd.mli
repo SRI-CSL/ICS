@@ -126,8 +126,8 @@ module Make(Ite : ITE) : sig
        [solve1] applies this equation only once for the toplevel atom, while [solve]
        applies this equivalence repetitively for all atoms. *)
 
-  val solve1 : tag -> bdd -> (bdd * bdd) list option     
-  val solve : tag -> bdd -> (bdd * bdd) list  option        (* Solving bdds *)
+  val solve1 : tag -> bdd -> (bdd * bdd) list    
+  val solve : tag -> bdd -> (bdd * bdd) list       (* Solving bdds *)
  
 end
 

@@ -25,6 +25,11 @@ val sigma : Ics.term -> unit
     
 val solve : Ics.term option -> Ics.term * Ics.term -> unit
 
+    (*s Get solution for an uninterpreted term. *)
+
+val solution : Ics.term -> unit
+    
+
    (*s Asserts argument term to the current context.
      There are three different outcomes. In case, <term> is found to be implied
      by the current context, `Valid.' is returned, and if <term> is found to be

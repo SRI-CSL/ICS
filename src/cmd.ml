@@ -113,11 +113,8 @@ let norm a =
   Format.printf "@["; Ics.term_pp b; Format.printf "@]@."
 
 let simp a =
-  match Ics.simplify !current a with
-    | Some(b) -> 
-	Format.printf "@["; Ics.term_pp b; Format.printf "@]@."
-    | None ->
-	Format.printf "@[Simplified form contains fresh variables@]@."
+  let b = Ics.simplify a in
+  Format.printf "@["; Ics.term_pp b; Format.printf "@]@."
      
 let can a =
   let b = Ics.can !current a in
@@ -134,6 +131,19 @@ let solve x (a,b) =
   with
       Exc.Inconsistent -> printf "Inconsistent.@."
 
+   (*s Get solution for a term. *)
+
+let solution a =
+  let st = !current in
+  if Ics.is_solvable a then
+    match Ics.solution st a with
+      | Some(b) ->
+	  Format.printf "@["; Ics.term_pp b; Format.printf "@]@."
+      | None ->
+	  Format.printf "@[No solution@]@."
+  else
+    Format.printf "@[Not a solvable.@]@."
+      
     
     (*s Order of terms. *)
     

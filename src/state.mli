@@ -74,6 +74,10 @@ val uninterp : t -> Funsym.t -> Term.terms
        
 val cnstrnt: t -> Term.t -> Interval.t
 
+(*s Test is term is an integer. *)
+
+val is_int : t -> Term.t -> bool
+
     (*s Computing a substitution from the [find] structure of a state.
       This translation does not consider the constraint part of a state. *)
   

@@ -29,4 +29,12 @@
 
  *)
 
+val is_solvable : Term.t -> bool
+
 val solve : Term.t option -> State.t -> Term.eqn -> Subst.t
+
+  (*s [solution s a] yields, if successful, a term [b] such that [a = b] can
+    be derived from context [s] and [a] does not occur interpreted in [b].
+    This function is restricted to [a] which satisfy the [is_solvable] predicate. *)
+
+val solution : State.t -> Term.t -> Term.t option

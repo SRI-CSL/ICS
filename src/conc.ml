@@ -324,13 +324,10 @@ and solve_extr x n i j k l =
      
 and solve_ite b1 b2 =
   let n = lengthb b1 in
-  match Bvbdd.solve n (Bvbdd.iff n b1 b2) with
-    | Some(bbl) -> 
-	List.fold_right (fun (b1,b2) acc -> solveb b1 b2 @ acc) bbl []
-    | None ->
-	raise Exc.Inconsistent
+  let bbl = Bvbdd.solve n (Bvbdd.iff n b1 b2) in
+  List.fold_right (fun (b1,b2) acc -> solveb b1 b2 @ acc) bbl []
 
-
+    
 	  (*s Derived constructors, recognizers, and destructors. *)
 
 let bw_neg b =

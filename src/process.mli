@@ -17,4 +17,4 @@
 
    (*s [process x (a,b) s] yields a log... *)  
 
-val process : Term.t option -> Term.eqn -> State.t -> State.t
+val process : Term.eqn -> State.t -> State.t

@@ -50,8 +50,6 @@ let mk_update a b c = App.update (a,b,c)
 let is_app t = match t.node with App _ -> true | _ -> false
 let is_update t = match t.node with Update _ -> true | _ -> false
 
-let _ = Callback.register "mk_app" mk_app
-let _ = Callback.register "mk_update" mk_update
 
 let d_app t =
   match t.node with
@@ -62,10 +60,28 @@ let d_update t =
   match t.node with
     | Update(a,x,i) -> a,x,i
     | _ -> raise (Invalid_argument "Ics.d_update: Update required")
-	  
-let _ = Callback.register "is_app" is_app
-let _ = Callback.register "is_update" is_update  
 
+let _ = Callback.register "mk_app" mk_app
+let _ = Callback.register "mk_update" mk_update    
+let _ = Callback.register "is_app" is_app
+let _ = Callback.register "is_update" is_update
+let _ = Callback.register "d_app" d_app
+let _ = Callback.register "d_update" d_update  
+	  
+ (*s Conditionals. *)
+
+let mk_cond a b c =
+  Bool.cond(a,b,c)
+  
+let is_cond a =
+  match a.node with
+    | Cond _ -> true
+    | _ -> false
+
+let d_cond a =
+  match a.node with
+    | Cond(x,y,z) -> (x,y,z)
+    | _ -> assert false
 	  
 (*s Constructing arithmetic expressions. *)
 
@@ -86,11 +102,22 @@ let _ = Callback.register "mk_unary_minus" mk_unary_minus
 let _ = Callback.register "mk_times" mk_times
 let _ = Callback.register "mk_times2" mk_times2
 
+let is_arith t =
+  match t.node with
+    | Arith _ -> true
+    | _ -> false
+	  
 let is_num t = match t.node with Arith(Num _) -> true | _ -> false
 let is_multq t = match t.node with Arith(Multq _) -> true | _ -> false  
 let is_mult t = match t.node with Arith(Mult _) -> true | _ -> false
 let is_add t = match t.node with Arith(Add _) -> true | _ -> false
-
+ 
+let _ = Callback.register "is_arith" is_arith 	  
+let _ = Callback.register "is_num" is_num
+let _ = Callback.register "is_add" is_add
+let _ = Callback.register "is_multq" is_multq  
+let _ = Callback.register "is_mult" is_mult
+	  
 let d_num t =
   match t.node with
     | Arith Num q -> q
@@ -110,22 +137,44 @@ let d_multq t =
   match t.node with
     | Arith Multq(q,x) -> (q,x)
     | _ -> raise (Invalid_argument "Ics.d_times: Linear multiplication required")
-  
-  
-	  
+
+let _ = Callback.register "d_num" d_num
+let _ = Callback.register "d_add" d_add
+let _ = Callback.register "d_mult" d_mult
+let _ = Callback.register "d_multq" d_multq 
+ 
 (*s Constructing tuples and projections. *)
 
 let mk_tuple = Tuple.tuple
 let mk_proj = Tuple.proj
 
+let is_tuple t = match t.node with Tuple Tup _ -> true | _ -> false
+let is_proj t = match t.node with Tuple (Proj _) -> true | _ -> false
+
+let d_tuple t = 
+  match t.node with
+    | Tuple Tup l -> l
+    | _ -> raise (Invalid_argument "Ics.d_tuple: Tuple required")
+
+let d_proj t = 
+  match t.node with
+    | Tuple Proj (n,i,x) -> n,i,x
+    | _ -> raise (Invalid_argument "Ics.d_proj: Projection required")
+
 let _ = Callback.register "mk_tuple" mk_tuple
 let _ = Callback.register "mk_proj" mk_proj
+let _ = Callback.register "is_tuple" is_tuple
+let _ = Callback.register "is_proj" is_proj
+let _ = Callback.register "d_tuple" d_tuple
+let _ = Callback.register "d_proj" d_proj
 
 	  
-(*s Constructing Boolean terms. *)
+(*s Boolean terms. *)
 
 let mk_true () = Bool.tt ()
 let mk_false () = Bool.ff ()
+let mk_equal a b = Bool.equal(a,b)
+let mk_diseq = Bool.diseq
 let mk_ite a b c = Bool.ite(a,b,c)
 let mk_not = Bool.neg
 let mk_and = Bool.conj
@@ -136,6 +185,8 @@ let mk_iff = Bool.iff
    
 let _ = Callback.register "mk_true" mk_true
 let _ = Callback.register "mk_false" mk_false
+let _ = Callback.register "mk_equal" mk_equal  
+let _ = Callback.register "mk_diseq" mk_diseq
 let _ = Callback.register "mk_ite" mk_ite
 let _ = Callback.register "mk_not" mk_not
 let _ = Callback.register "mk_and" mk_and
@@ -143,6 +194,33 @@ let _ = Callback.register "mk_or" mk_or
 let _ = Callback.register "mk_xor" mk_xor
 let _ = Callback.register "mk_imp" mk_imp
 let _ = Callback.register "mk_iff" mk_iff
+
+let is_bool t =
+  match t.node with
+    | Bool _ -> true
+    | _ -> false
+let is_true t = match t.node with Bool True -> true | _ -> false
+let is_false t = match t.node with Bool True -> true | _ -> false
+let is_ite t = match t.node with Bool Ite _ -> true | _ -> false
+let is_equal = Bool.is_equal
+let is_not = Bool.is_neg
+let is_and = Bool.is_neg
+let is_or = Bool.is_neg
+let is_xor = Bool.is_xor
+let is_imp = Bool.is_imp
+let is_iff = Bool.is_iff
+
+let _ = Callback.register "is_bool" is_bool       
+let _ = Callback.register "is_true" is_true
+let _ = Callback.register "is_false" is_false
+let _ = Callback.register "is_equal" is_equal
+let _ = Callback.register "is_ite" is_ite
+let _ = Callback.register "is_not" is_not
+let _ = Callback.register "is_and" is_and
+let _ = Callback.register "is_or" is_or
+let _ = Callback.register "is_xor" is_xor
+let _ = Callback.register "is_imp" is_imp
+let _ = Callback.register "is_iff" is_iff       
 
 let d_ite = Bool.d_ite
 let d_not = Bool.d_neg
@@ -152,9 +230,12 @@ let d_xor = Bool.d_xor
 let d_imp = Bool.d_imp
 let d_iff = Bool.d_iff
 
-
-let mk_equal a b = Bool.equal(a,b)
-let mk_diseq = Bool.diseq
+let _ = Callback.register "d_not" d_not
+let _ = Callback.register "d_and" d_and
+let _ = Callback.register "d_or" d_or
+let _ = Callback.register "d_xor" d_xor
+let _ = Callback.register "d_imp" d_imp
+let _ = Callback.register "d_iff" d_iff      
 
 let mk_in a b = App.app b [a]
 let mk_notin a b = mk_not(App.app b [a])
@@ -166,8 +247,7 @@ let mk_le a b = Arith.le (a,b)
 let mk_gt a b = Arith.lt (b,a)
 let mk_ge a b = Arith.le (b,a)
 
-let _ = Callback.register "mk_equal" mk_equal  
-let _ = Callback.register "mk_diseq" mk_diseq
+
 let _ = Callback.register "mk_in" mk_in
 let _ = Callback.register "mk_notin" mk_notin
 let _ = Callback.register "mk_int" mk_int
@@ -175,7 +255,48 @@ let _ = Callback.register "mk_real" mk_real
 let _ = Callback.register "mk_lt" mk_lt
 let _ = Callback.register "mk_le" mk_le
 let _ = Callback.register "mk_gt" mk_gt
-let _ = Callback.register "mk_ge" mk_ge 
+let _ = Callback.register "mk_ge" mk_ge
+	  
+let d_ite t = 
+  match t.node with
+    | Bool Ite (x,y,z) -> x,y,z
+    | _ -> raise (Invalid_argument "Ics.d_ite: Ite structure required")
+
+let d_not t = 
+  match t.node with
+    | Bool Ite (x,{node=Bool False},{node=Bool True}) -> x
+    | _ -> raise (Invalid_argument "Ics.d_ite: Ite structure required")
+
+let d_and t = 
+  match t.node with
+    | Bool Ite (x,{node=Bool False},y) -> x,y
+    | _ -> raise (Invalid_argument "Ics.d_and: Conjunction required")
+
+let d_or t = 
+  match t.node with
+    | Bool Ite (x,y,{node=Bool True}) -> x,y
+    | _ -> raise (Invalid_argument "Ics.d_or: Disjunction required")
+
+let d_xor t = 
+  match t.node with 
+    | Bool Ite(x,{node=Bool Ite (y,{node=Bool False}, {node= Bool True})}, y') when y == y' -> x, y
+    | _ -> raise (Invalid_argument "Ics.d_xor: Exclusive or required")
+
+let d_imp t = 
+  match t.node with 
+    | Bool Ite(x,y,{node=Bool True}) -> x, y 
+    | _ -> raise (Invalid_argument "Ics.d_imp: Implication required")
+
+let d_iff t =
+  match t.node with
+    | Bool Ite(x,y,{node=Bool Ite(y',{node=Bool False},{node=Bool True})}) when y == y' -> (x,y)
+    | _ -> raise  (Invalid_argument "Ics.d_iff: Equivalence required")
+
+let d_equal t =
+  match t.node with
+    | Bool(Equal(x,y)) -> (x,y)
+    | _ -> raise  (Invalid_argument "Ics.d_equal: Equal required")
+
 	  
 
 (*s Set of terms. *)
@@ -428,6 +549,91 @@ let _ = Callback.register "mk_sym_diff" mk_sym_diff
 let _ = Callback.register "mk_finite" mk_finite
 let _ = Callback.register "mk_cnstrnt" mk_cnstrnt
 
+let is_set t =
+  match t.node with
+    | Set(Empty _) -> true
+    | _ -> false
+	  
+let is_empty t = match t.node with Set (Empty _) -> true | _ -> false
+let is_full t = match t.node with Set (Full _) -> true | _ -> false
+let is_setite t = match t.node with Set (SetIte _) -> true | _ -> false
+let is_compl = Sets.is_compl
+let is_inter = Sets.is_inter
+let is_union = Sets.is_union
+		 
+let is_finite a =
+  match a.node with
+    | Set(Finite _) -> true
+    | _ -> false
+	  
+let is_cnstrnt a =
+  match a.node with
+    | Set(Cnstrnt _) -> true
+    | _ -> false
+		 
+
+let _ = Callback.register "is_empty" is_empty
+let _ = Callback.register "is_full" is_full
+let _ = Callback.register "is_setite" is_setite
+let _ = Callback.register "is_compl" is_compl
+let _ = Callback.register "is_inter" is_inter
+let _ = Callback.register "is_union" is_union
+let _ = Callback.register "is_finite" is_finite
+let _ = Callback.register "is_cnstrnt" is_cnstrnt
+	  	  
+	  
+let d_empty t =
+  match t.node with
+    | Set(Empty tg) -> tg
+    | _ -> assert false
+
+let d_full t =
+  match t.node with
+    | Set(Full tg) -> tg
+    | _ -> assert false
+  
+	  
+let d_setite t =
+  match t.node with
+    | Set (SetIte(tg,x,y,z)) -> (tg,x)
+    | _ -> raise  (Invalid_argument "Ics.d_setite: Setite required")
+
+let d_compl t =
+  match t.node with
+    | Set (SetIte(tg,x,{node=Set Empty _},{node=Set Full _})) -> (tg,x)
+    | _ -> raise  (Invalid_argument "Ics.d_compl: Set complement required")
+
+let d_inter t =
+  match t.node with
+    | Set (SetIte(tg,x,y,{node=Set Empty _})) -> (tg,x,y)
+    | _ -> raise  (Invalid_argument "Ics.d_inter: Set intersection required")
+
+let d_union t =
+  match t.node with
+    | Set (SetIte(tg,x,{node=Set Full _},y)) -> (tg,x,y)
+    | _ -> raise  (Invalid_argument "Ics.d_union: Set union required")
+
+let d_finite a =
+  match a.node with
+    | Set(Finite(x)) -> x
+    | _ -> assert false
+	  
+let d_cnstrnt a =
+  match a.node with
+    | Set(Cnstrnt(c)) -> c
+    | _ -> assert false
+		   
+
+let _ = Callback.register "d_empty" d_empty
+let _ = Callback.register "d_full" d_full
+let _ = Callback.register "d_setite" d_setite
+let _ = Callback.register "d_compl" d_compl
+let _ = Callback.register "d_union" d_union
+let _ = Callback.register "d_inter" d_inter  
+
+(*s Bitvectors. *)
+	  
+
 let mk_bv_eps = Bv.eps
 let mk_bv_zero = Bv.zero
 let mk_bv_one = Bv.one
@@ -438,7 +644,7 @@ let mk_bv_conc (n1,b1) (n2,b2) =
   else
     raise (Invalid_argument "Bitvector concatenation")
     
-let mk_bv_extr (n,b) i j =
+let mk_bv_extr  (n,b) i j =
   if 0 <= i && i < j && i < n then
     Bv.sub n i j b
   else
@@ -469,41 +675,8 @@ let _ = Callback.register "width_of" width_of
 
 let tag t = t.tag
 let _ = Callback.register "tag" tag
-	  
-(*s Test functions. *)
 
-    (*
-let is_equal t = match t.node with Equal _ -> true | _ -> false
-let is_nonneg t = match t.node with Cnstrnt(Nonneg,_) -> true | _ -> false
-let is_neg t = match t.node with Cnstrnt(Neg,_) -> true | _ -> false
-let is_pos t = match t.node with Cnstrnt(Pos,_) -> true | _ -> false
-let is_nonpos t = match t.node with Cnstrnt(Nonpos,_) -> true | _ -> false
-let is_int t = match t.node with Cnstrnt(Int,_) -> true | _ -> false
-let is_real t = match t.node with Cnstrnt(Real,_) -> true | _ -> false
-      *)
-
-let is_equal = Bool.is_equal
-
-let is_tuple t = match t.node with Tuple Tup _ -> true | _ -> false
-let is_proj t = match t.node with Tuple (Proj _) -> true | _ -> false
-
-let is_empty t = match t.node with Set (Empty _) -> true | _ -> false
-let is_full t = match t.node with Set (Full _) -> true | _ -> false
-let is_setite t = match t.node with Set (SetIte _) -> true | _ -> false
-let is_compl = Sets.is_compl
-let is_inter = Sets.is_inter
-let is_union = Sets.is_union
-
-let is_true t = match t.node with Bool True -> true | _ -> false
-let is_false t = match t.node with Bool True -> true | _ -> false
-let is_ite t = match t.node with Bool Ite _ -> true | _ -> false
-let is_not = Bool.is_neg
-let is_and = Bool.is_neg
-let is_or = Bool.is_neg
-let is_xor = Bool.is_xor
-let is_imp = Bool.is_imp
-let is_iff = Bool.is_iff
-
+let is_bv t = match t.node with Bv _ -> true | _ -> false
 let is_bv_const t = match t.node with Bv Const _ -> true | _ -> false
 let is_bv_zero = Bv.is_zero
 let is_bv_one = Bv.is_one
@@ -511,29 +684,7 @@ let is_bv_conc t = match t.node with Bv Conc _ -> true | _ -> false
 let is_bv_extr t = match t.node with Bv Extr _ -> true | _ -> false
 let is_bv_ite t = match t.node with Bv BvIte _ -> true | _ -> false
 
-
-let _ = Callback.register "is_equal" is_equal
-let _ = Callback.register "is_tuple" is_tuple
-let _ = Callback.register "is_proj" is_proj
-let _ = Callback.register "is_num" is_num
-let _ = Callback.register "is_multq" is_multq  
-let _ = Callback.register "is_mult" is_mult
-let _ = Callback.register "is_add" is_add
-let _ = Callback.register "is_empty" is_empty
-let _ = Callback.register "is_full" is_full
-let _ = Callback.register "is_setite" is_setite
-let _ = Callback.register "is_compl" is_compl
-let _ = Callback.register "is_inter" is_inter
-let _ = Callback.register "is_union" is_union
-let _ = Callback.register "is_true" is_true
-let _ = Callback.register "is_false" is_false
-let _ = Callback.register "is_ite" is_ite
-let _ = Callback.register "is_not" is_not
-let _ = Callback.register "is_and" is_and
-let _ = Callback.register "is_or" is_or
-let _ = Callback.register "is_xor" is_xor
-let _ = Callback.register "is_imp" is_imp
-let _ = Callback.register "is_iff" is_iff
+let _ = Callback.register "is_bv" is_bv
 let _ = Callback.register "is_bv_const" is_bv_const
 let _ = Callback.register "is_bv_zero" is_bv_zero
 let _ = Callback.register "is_bv_one" is_bv_one
@@ -541,82 +692,10 @@ let _ = Callback.register "is_bv_conc" is_bv_conc
 let _ = Callback.register "is_bv_extr" is_bv_extr
 let _ = Callback.register "is_bv_ite" is_bv_ite
 
-
-(*s Destructors *)
-
-let d_tuple t = 
-  match t.node with
-    | Tuple Tup l -> l
-    | _ -> raise (Invalid_argument "Ics.d_tuple: Tuple required")
-
-let d_proj t = 
-  match t.node with
-    | Tuple Proj (n,i,x) -> n,i,x
-    | _ -> raise (Invalid_argument "Ics.d_proj: Projection required")
-
-let d_ite t = 
-  match t.node with
-    | Bool Ite (x,y,z) -> x,y,z
-    | _ -> raise (Invalid_argument "Ics.d_ite: Ite structure required")
-
-let d_not t = 
-  match t.node with
-    | Bool Ite (x,{node=Bool False},{node=Bool True}) -> x
-    | _ -> raise (Invalid_argument "Ics.d_ite: Ite structure required")
-
-let d_and t = 
-  match t.node with
-    | Bool Ite (x,{node=Bool False},y) -> x,y
-    | _ -> raise (Invalid_argument "Ics.d_and: Conjunction required")
-
-let d_or t = 
-  match t.node with
-    | Bool Ite (x,y,{node=Bool True}) -> x,y
-    | _ -> raise (Invalid_argument "Ics.d_or: Disjunction required")
-
-let d_xor t = 
-  match t.node with 
-    | Bool Ite(x,{node=Bool Ite (y,{node=Bool False}, {node= Bool True})}, y') when y == y' -> x, y
-    | _ -> raise (Invalid_argument "Ics.d_xor: Exclusive or required")
-
-let d_imp t = 
-  match t.node with 
-    | Bool Ite(x,y,{node=Bool True}) -> x, y 
-    | _ -> raise (Invalid_argument "Ics.d_imp: Implication required")
-
-let d_iff t =
-  match t.node with
-    | Bool Ite(x,y,{node=Bool Ite(y',{node=Bool False},{node=Bool True})}) when y == y' -> (x,y)
-    | _ -> raise  (Invalid_argument "Ics.d_iff: Equivalence required")
-
-let d_equal t =
-  match t.node with
-    | Bool(Equal(x,y)) -> (x,y)
-    | _ -> raise  (Invalid_argument "Ics.d_equal: Equal required")
-
-let d_setite t =
-  match t.node with
-    | Set (SetIte(tg,x,y,z)) -> (tg,x)
-    | _ -> raise  (Invalid_argument "Ics.d_setite: Setite required")
-
-let d_compl t =
-  match t.node with
-    | Set (SetIte(tg,x,{node=Set Empty _},{node=Set Full _})) -> (tg,x)
-    | _ -> raise  (Invalid_argument "Ics.d_compl: Set complement required")
-
-let d_inter t =
-  match t.node with
-    | Set (SetIte(tg,x,y,{node=Set Empty _})) -> (tg,x,y)
-    | _ -> raise  (Invalid_argument "Ics.d_inter: Set intersection required")
-
-let d_union t =
-  match t.node with
-    | Set (SetIte(tg,x,{node=Set Full _},y)) -> (tg,x,y)
-    | _ -> raise  (Invalid_argument "Ics.d_union: Set union required")
-
 let d_bv_const t =
   match t.node with
-    | Bv (Const b) -> b
+    | Bv (Const b) ->
+	Bitv.to_string b
     | _ -> raise  (Invalid_argument "Ics.d_bv_const: Constant bitvector required")
 
 let d_bv_conc t =
@@ -636,24 +715,6 @@ let d_bv_ite t =
  
 
 
-let _ = Callback.register "d_app" d_app
-let _ = Callback.register "d_update" d_update
-let _ = Callback.register "d_num" d_num
-let _ = Callback.register "d_add" d_add
-let _ = Callback.register "d_mult" d_mult
-let _ = Callback.register "d_multq" d_multq 
-let _ = Callback.register "d_tuple" d_tuple
-let _ = Callback.register "d_proj" d_proj
-let _ = Callback.register "d_not" d_not
-let _ = Callback.register "d_and" d_and
-let _ = Callback.register "d_or" d_or
-let _ = Callback.register "d_xor" d_xor
-let _ = Callback.register "d_imp" d_imp
-let _ = Callback.register "d_iff" d_iff
-let _ = Callback.register "d_setite" d_setite
-let _ = Callback.register "d_compl" d_compl
-let _ = Callback.register "d_union" d_union
-let _ = Callback.register "d_inter" d_inter
 let _ = Callback.register "d_bv_const" d_bv_const
 let _ = Callback.register "d_bv_conc" d_bv_conc
 let _ = Callback.register "d_bv_extr" d_bv_extr
@@ -809,9 +870,9 @@ let process st t =
       | Bool False ->
 	  Inconsistent
       | Bool(Equal(t1,t2)) ->
-	  Consistent (Process.process None (t1,t2) st)
+	  Consistent (Process.process (t1,t2) st)
       | _ ->
-	  Consistent (Process.process None (t', Bool.tt ()) st)
+	  Consistent (Process.process (t', Bool.tt ()) st)
   with
     | Exc.Inconsistent -> Inconsistent
     | Exc.Valid -> Valid
@@ -843,15 +904,24 @@ let sigma st t = t
 let norm s t = Subst.norm (State.to_subst s) t
 let can = Can.can
 let simplify = Can.simplify
+
+let is_solvable =
+  Solve.is_solvable
 	    
 let solve x s e =
   let s' = State.copy s in
   Solve.solve x s' e
     
+let solution = Solve.solution
+ 
+    
 let _ = Callback.register "norm" norm 
 let _ = Callback.register "can" can
 let _ = Callback.register "simplify" simplify
+let _ = Callback.register "is_solvable" is_solvable
 let _ = Callback.register "solve" solve
+let _ = Callback.register "solution" solution
+  
 
 	  
 (*s Abstract sign interpretation. *)
@@ -906,7 +976,7 @@ let _ = Callback.register "pop" pop
 let _ = Callback.register "iprocess" iprocess
 
 
-(*s Callbacks for the basic Caml data structures. *)
+(*s Callbacks for some basic Caml data structures. *)
 
 (*s Lists. *)
 
@@ -934,6 +1004,32 @@ let snd = snd
 let _ = Callback.register "pair" pair
 let _ = Callback.register "fst" fst
 let _ = Callback.register "snd" snd
+
+(*s Triples. *)
+
+let triple x y z = (x,y,z)
+let fst_of_triple = function (x,_,_) -> x
+let snd_of_triple = function (_,y,_) -> y
+let third_of_triple = function (_,_,z) -> z
+
+let _ = Callback.register "triple" triple
+let _ = Callback.register "fst_of_triple" fst_of_triple
+let _ = Callback.register "snd_of_triple" snd_of_triple
+let _ = Callback.register "third_of_triple" third_of_triple
+  
+
+(*s Quadruples. *)
+   
+let fst_of_quadruple  = function (x1,_,_,_) -> x1
+let snd_of_quadruple = function (_,x2,_,_) -> x2
+let third_of_quadruple = function (_,_,x3,_) -> x3
+let fourth_of_quadruple = function (_,_,_,x4) -> x4
+    
+let _ = Callback.register "fst_of_quadruple" fst_of_quadruple
+let _ = Callback.register "snd_of_quadruple" snd_of_quadruple
+let _ = Callback.register "third_of_quadruple" third_of_quadruple
+let _ = Callback.register "fourth_of_quadruple" fourth_of_quadruple
+    
 
 (*s Options. *)
 

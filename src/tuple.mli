@@ -43,5 +43,5 @@ val proj : int -> int -> Term.t -> Term.t
       where [$c_i$] are fresh, and [b] at [i]-th position.
   *)
 
-val solve : Term.eqn -> Term.eqn list option
+val solve : Term.eqn -> Term.eqn list
  

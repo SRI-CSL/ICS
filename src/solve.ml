@@ -20,37 +20,17 @@ let is_solvable a =
 	false
 
 let arith_solve x s (a,b) =
-  let is_int a =
-    Interval.is_int(State.cnstrnt s a)
+  let add_cnstrnt =
+    State.add_cnstrnt s Interval.int
   in
-  if Arith.is_diophantine is_int a && Arith.is_diophantine is_int b then
+  if State.is_int s a
+    && State.is_int s b
+  then
     let (kl,rho) = Arith.zsolve (a,b) in
-    rho @ (List.map (fun k -> (Cnstrnt.app Interval.int k, Bool.tt ())) kl)
+    List.iter add_cnstrnt kl;
+    rho
   else
     Arith.qsolve x (a,b)
-
-let set_solve s e =
-  match Sets.solve 0 e with
-    | Some l -> l
-    | None -> raise Exc.Inconsistent
-
-let tuple_solve s e =
-  match Tuple.solve e with
-    | Some l -> l
-    | None -> raise Exc.Inconsistent
-
-let bv_solve s a =
-  match Bv.solve a with
-    | Some l -> l
-    | None -> raise Exc.Inconsistent  
-
-let bool_ite_solve a =
-  match Bool.solve a with
-    | Some l ->
-	l
-    | None ->
-	raise Exc.Inconsistent
-  
 
 let solve x s e =
   let rec solvel rho el =
@@ -79,7 +59,7 @@ let solve x s e =
 	  let a = Bool.equal(a1,a2) in
 	  if Term.occurs_interpreted a b then
 	    let x = Bool.iff a b in
-	    let l = bool_ite_solve x in
+	    let l = Bool.solve x in
 	    solvel rho (l @ el)
 	  else
 	    solvel (Subst.add (a,b) rho) el
@@ -112,7 +92,7 @@ let solve x s e =
 	  solve_equal rho (x,y) b el
       | Ite _ ->
 	  let x = Bool.iff (hc(Bool(a))) b in
-	  let l = bool_ite_solve x in
+	  let l = Bool.solve x in
 	  solvel rho (l @ el)
       | _ ->
 	  assert false
@@ -126,7 +106,7 @@ let solve x s e =
       | Bool(Equal(x,y)) ->
 	  solvel rho ((x,y) :: el)
       | Bool(Ite _) ->
-	  solvel rho (bool_ite_solve b @ el)
+	  solvel rho (Bool.solve b @ el)
       | App({node=Set(Cnstrnt(c))}, [x]) ->
 	  cnstrnt_solve rho c x el
       | _ ->
@@ -144,7 +124,7 @@ let solve x s e =
 	  cnstrnt_solve rho (Interval.compl c) x el
       | Bool(Ite _) ->
 	  let x = Bool.neg b in
-	  solvel rho (bool_ite_solve x @ el)
+	  solvel rho (Bool.solve x @ el)
       | _ ->
 	  solvel (Subst.add (b,Bool.ff()) rho) el 
 	
@@ -231,34 +211,90 @@ let solve x s e =
 			   | _, Arith(Num _ | Multq _ | Add _) ->
 			       solvel rho (arith_solve x s (b,a) @ el)
 			   | Set _, _ ->
-			       solvel rho (set_solve s (a,b) @ el)
+			       solvel rho (Sets.solve 0 (a,b) @ el)
 			   | _, Set _ ->
-			       solvel rho (set_solve s (b,a) @ el)
+			       solvel rho (Sets.solve 0 (b,a) @ el)
 			   | Tuple _, _ ->
-			       solvel rho (tuple_solve s (a,b) @ el)
+			       solvel rho (Tuple.solve (a,b) @ el)
 			   | _, Tuple _ ->
-			       solvel rho (tuple_solve s (b,a) @ el)
+			       solvel rho (Tuple.solve (b,a) @ el)
 			   | Bv _, _ ->
-			       solvel rho (bv_solve s (a,b) @ el)
+			       solvel rho (Tuple.solve (a,b) @ el)
 			   | _, Bv _ ->
-			       solvel rho (bv_solve s (b,a) @ el)
+			       solvel rho (Bv.solve (b,a) @ el)
 			   | _ ->
 			       failwith "Incompleteness in solver; to be fixed..."))
 		
   in
   solvel Subst.empty [e]
-   
+
+
 let solve x s ((a,b) as e) =
   Trace.call 3 "Solve" e Pretty.eqn;
   try
     let rho = solve x s e in
-    (* assert(Subst.norm rho a === Subst.norm rho b); *)
     Trace.exit 3 "Solve" rho Subst.pp;
     rho
   with
       Exc.Inconsistent ->
 	Trace.exc 3 "Solve" e Pretty.eqn;
 	raise Exc.Inconsistent
+
+
+(*s Compute a solution for [a] given [s]. *)
+    
+let rec solution s a =
+  if State.mem s a then
+    Some(State.apply s a)
+  else
+    try
+      let p x =                                 (*s choose lhs [b] such that [a] occurs interpreted *)
+	not(Term.Set.is_empty(State.ext s x))   (*s in [b] and the extension of [b] is nonempty. *)
+      in
+      let b = Term.Set.choose p (State.use s a) in   
+      let x = Term.Set.choose (fun x -> true) (State.ext s b) in
+      Some(unwind a (x,b))
+    with
+	Not_found ->
+	  None
+
+and  unwind x (a,b) =
+  if a === x then
+    b
+  else
+    match b.node with
+      | Arith(Multq _ | Add _) ->
+	  (match Arith.qsolve (Some x) (a,b) with
+	     | [a',b'] ->
+		 unwind x (a',b')
+	     | _ ->
+		 raise Not_found)
+      | Bool(Ite _ ) ->
+	  let l = Bool.solve (Bool.iff a b) in
+	  let b' = List.assq a l in
+	  unwind x (a,b')
+      | Tuple _ ->
+	  let l = Tuple.solve (a,b) in
+	  let b' = List.assq a l in
+	  unwind x (a,b')
+      | Set _ ->
+	  let l = Sets.solve 0 (a,b) in
+	  let b' = List.assq a l in
+	  unwind x (a,b')
+      | Bv _ ->
+	  let l = Bv.solve (a,b) in
+	  let b' = List.assq a l in
+	  unwind x (a,b')
+      | _ ->
+	  raise Not_found
+	
+	
+ 
+
+
+
+
+
 
 
 

@@ -153,7 +153,7 @@ val exists : Term.variable list -> Term.t -> Term.t
        (in the theory of booleans) with the equation to be solved. The terms [ei] may contain
        fresh variables. *)
        
-val solve : Term.t -> Term.eqn list option
+val solve : Term.t -> Term.eqn list
 
     (*s Lifting conditionals. *)
 

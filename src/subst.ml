@@ -54,6 +54,9 @@ let iter f =
 let fold f =
   let fu x y = f(x,y) in
   Map.fold fu
+
+let map f s =
+  Map.fold (fun x y acc  -> add (f(x,y)) acc) s empty
     
 let dom s =
   let add x _ acc =

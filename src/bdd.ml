@@ -193,17 +193,17 @@ module Make(Ite : ITE) = struct
 
   let solve1 tg s =
     if is_low s then
-      None
+      raise Exc.Inconsistent
     else if is_high s then
-      Some []
+      []
     else
       match destructure_ite s with
 	| Some(x,p,n) ->
 	    let e = conj tg p (imp tg n (fresh tg)) in
 	    if x === e then
-	      Some [disj tg p n, high tg]
+	      [disj tg p n, high tg]
 	    else
-	      Some [disj tg p n, high tg; x, e]
+	      [disj tg p n, high tg; x, e]
 	| _ -> assert false
 
 	      
@@ -252,15 +252,12 @@ module Make(Ite : ITE) = struct
 	    add tg s (high tg) e
     in
     if is_low s then
-      None
+      raise Exc.Inconsistent
     else if is_high s then
-      Some []
+      []
     else
-      try
-	Some(triangular_solve s [])
-      with
-	  Exc.Inconsistent -> None
-
+      triangular_solve s []
+   
 end
 
 

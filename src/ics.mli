@@ -102,6 +102,12 @@ val is_update : term -> bool
 val d_app : term -> term * term list
 val d_update : term -> term * term * term
 
+    (*s Conditionals. *)
+
+val mk_cond : term -> term -> term -> term
+val is_cond : term -> bool
+val d_cond : term -> term * term * term
+
     (*s Arithmetic terms include rational constants built from
       [mk_num q];  in addition, linear arithmetic terms are built
       using binary and $n$-ary versions for addition and
@@ -113,7 +119,7 @@ val d_update : term -> term * term * term
       argument is indeed a linear multiplication, and [is_mult] yields
       true only if the actual argument is indeed nonlinear.
     *)
-  
+ 
 val mk_num : q -> term
 val mk_div : term -> term -> term
 val mk_plus : term list -> term
@@ -123,6 +129,7 @@ val mk_unary_minus : term -> term
 val mk_times : term list -> term
 val mk_times2 : term -> term -> term
 
+val is_arith : term -> bool
 val is_num : term -> bool
 val is_multq : term -> bool
 val is_add : term -> bool
@@ -181,6 +188,8 @@ val mk_xor : term -> term -> term
 val mk_imp : term -> term -> term
 val mk_iff : term -> term -> term
 
+val is_bool : term -> bool
+    
 val is_true : term -> bool
 val is_false : term -> bool
 val is_ite : term -> bool
@@ -254,7 +263,7 @@ val mk_bv_eps : unit -> term
 val mk_bv_zero : int -> term
 val mk_bv_one : int -> term
 val mk_bv_const: string -> term
-val mk_bv_conc : int * term -> int * term -> term
+val mk_bv_conc : (int * term) -> (int * term) -> term
 val mk_bv_extr : int * term -> int -> int -> term
 val mk_bv_neg : int -> term -> term
 val mk_bv_and : int -> term -> term -> term
@@ -263,6 +272,8 @@ val mk_bv_xor : int -> term -> term -> term
 
 val width_of : term -> int option
 
+val is_bv : term -> bool
+
 val is_bv_const : term -> bool
 val is_bv_zero : term -> bool
 val is_bv_one : term -> bool
@@ -270,7 +281,7 @@ val is_bv_conc : term -> bool
 val is_bv_extr : term -> bool
 val is_bv_ite : term -> bool
 
-val d_bv_const : term -> Bitv.t
+val d_bv_const : term -> string
 val d_bv_conc : term -> (int * term) list
 val d_bv_extr : term -> (int * term) * int * int
 val d_bv_ite : term -> int * term * term * term
@@ -352,7 +363,7 @@ val interval_domain_is_nonintreal : interval_domain -> bool
 
       (*s Listify constraints as the disjunction of singleton constraints. *)
 
-type interval
+type interval = interval_domain * low_bound * high_bound
 
 val cnstrnt_to_list : cnstrnt -> interval list
 val cnstrnt_of_list : interval list -> cnstrnt
@@ -397,6 +408,7 @@ val mk_sym_diff : int -> term -> term -> term
 val mk_sub : int -> term -> term -> term
 val mk_seteq : int -> term -> term -> term
 
+val is_set : term -> bool
 
 val is_empty : term -> bool
 val is_full : term -> bool
@@ -404,11 +416,17 @@ val is_setite : term -> bool
 val is_compl : term -> bool
 val is_union : term -> bool
 val is_inter : term -> bool
+val is_finite : term -> bool
+val is_cnstrnt : term -> bool
 
+val d_empty : term -> int
+val d_full : term -> int
 val d_setite : term -> int * term
 val d_compl : term -> int * term
 val d_inter : term -> int * term * term
 val d_union : term -> int * term * term
+val d_finite : term -> terms
+val d_cnstrnt : term -> cnstrnt
 
     
 (*s Maps with terms as domain. *)
@@ -538,9 +556,13 @@ val is_unsat : state -> term -> bool
 
 val norm : state -> term -> term
 val can : state -> term -> term
-val simplify : state -> term -> term option
+val simplify : term -> term
+
+val is_solvable : term -> bool
 
 val solve : term option -> state -> term * term -> subst
+
+val solution : state -> term -> term option
 
 val cnstrnt : state -> term -> cnstrnt
    
@@ -579,6 +601,21 @@ val pair : 'a -> 'b -> 'a * 'b
 val fst : 'a * 'b -> 'a
 val snd : 'a * 'b -> 'b
 
+(*s Triples. *)
+
+val triple : 'a -> 'b -> 'c -> 'a * 'b * 'c
+val fst_of_triple : 'a * 'b *'c -> 'a
+val snd_of_triple : 'a * 'b *'c -> 'b
+val third_of_triple : 'a * 'b *'c -> 'c
+
+(*s Quadruples. *)
+  
+val fst_of_quadruple : 'a * 'b * 'c *'d -> 'a
+val snd_of_quadruple : 'a * 'b * 'c *'d -> 'b
+val third_of_quadruple : 'a * 'b * 'c *'d -> 'c
+val fourth_of_quadruple : 'a * 'b * 'c *'d -> 'd
+    
+    
     
 (*s Options. *)
 

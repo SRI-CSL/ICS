@@ -42,7 +42,7 @@ val d_equal: Term.t -> Term.t * Term.t
     
     (*s Solving equalities over terms built up from set connectors. *)
 
-val solve : Term.tag -> Term.eqn -> Term.eqn list option
+val solve : Term.tag -> Term.eqn -> Term.eqn list
 
 
 

@@ -17,7 +17,7 @@ HEVEA = @HEVEA@
 OCAMLWEB = @OCAMLWEB@
 OCAMLWEBSTY = $$HOME/tex/ocamlweb.sty
 
-WEBHOME = $$HOME/internal_html/ics
+WEBHOME = /homes/web/www.icansolve.com
 
 ### end of configuration part ################################################
 
@@ -347,8 +347,8 @@ tags:
 
 clean::
 	rm -f gmon.out
-	rm -f profile.out
-	rm -r $(SRCDIR)/parser.output
+	rm -rf profile.out
+	rm -rf $(SRCDIR)/parser.output
 	rm -f $(BINDIR)/ics $(BINDIR)/ics.byte 
 	rm -rf $(OBJDIR) $(LIBDIR)
 	rm -f $(DOCDIR)/*.aux  $(DOCDIR)/*.toc

@@ -125,6 +125,13 @@ let dom s =
   Subst.fold (fun (x,_) acc -> x :: acc) s.find []
 
     
+(*s Test is term is an integer. *)
+
+let is_int s a =
+  let f x = Interval.is_int (cnstrnt s x) in
+  Arith.is_diophantine f a
+  
+    
 (*s Updating structures *)
 
 let add_ctxt s e =

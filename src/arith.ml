@@ -251,18 +251,25 @@ let is_diophantine is_int a =
 
 let qsolve x e =
   match Poly.qsolve x (to_poly (sub e)) with
-    | Poly.Valid -> []
-    | Poly.Inconsistent -> raise Exc.Inconsistent
-    | Poly.Solution (x,p) -> [of_pproduct x, of_poly p]
+    | Poly.Valid ->
+	[]
+    | Poly.Inconsistent ->
+	raise Exc.Inconsistent
+    | Poly.Solution (x,p) ->
+	[of_pproduct x, of_poly p]
 
 
 let zsolve e =
   let fresh () = Var.fresh "_k" None in
   match Poly.zsolve fresh (to_poly (sub e)) with
-    | Poly.Valid -> ([],[])
-    | Poly.Inconsistent -> raise Exc.Inconsistent
+    | Poly.Valid ->
+	([],[])
+    | Poly.Inconsistent ->
+	raise Exc.Inconsistent
     | Poly.Solution (ks, rho) ->
-	(ks, List.map (fun (x,p) -> (of_pproduct x, of_poly p)) rho)
+	(ks, List.map (fun (x,p) ->
+			 (of_pproduct x, of_poly p))
+	   rho)
 
 	  
 (*s Test if some term is trivially an integer. *)
@@ -271,12 +278,20 @@ let rec is_integer t =
   match t.node with
     | Arith a ->
 	(match a with
-	   | Num q -> Q.is_integer q
-	   | Multq(q,x) -> Q.is_integer q && is_integer x
-	   | Mult l -> List.for_all is_integer l
-	   | Add l -> List.for_all is_integer l
-	   | Div(x,y) -> x === y)
-    | _ -> false  
+	   | Num q ->
+	       Q.is_integer q
+	   | Multq(q,x) ->
+	       Q.is_integer q && is_integer x
+	   | Mult l ->
+	       List.for_all is_integer l
+	   | Add l ->
+	       List.for_all is_integer l
+	   | Div(x,y) ->
+	       x === y)
+    | Bv(BvToNat _) ->
+	true
+    | _ ->
+	false  
 
 (*s Destructure an arithmetic polynomial in constant and nonconstant part. *)
 
@@ -329,22 +344,16 @@ let le (x,y) =
       let c = Interval.ge Interval.Real q' in
       Cnstrnt.app c (of_poly (Poly.neg p'))
 
+	
  (*s Computes the gcd of two ordered power products. *)
 
 let gcd l1 l2 =
   failwith "to do"
-      
+
+    
 (*s Constructor for domain constraints *)
 
 let int = Cnstrnt.app Interval.int
     
 let real = Cnstrnt.app Interval.real
-
-
-
-
-
-
-
-
 

@@ -41,7 +41,7 @@
 
 %}
 
-%token CAN SIMP SOLVE FOR ASSERT FIND CHECK LIFT USE EXT UNINTERP SIGMA VERBOSE
+%token CAN SIMP SOLVE SOLUTION FOR ASSERT FIND CHECK LIFT USE EXT UNINTERP SIGMA VERBOSE
 %token CURRENT RESET DROP NORM CMP CTXT
 %token CNSTRNT HELP COMMANDS SYNTAX
 
@@ -199,7 +199,9 @@ bv:
   BV_CONST                                    { Ics.mk_bv_const $1 }
 | BV_CONC LPAR fixed COMMA fixed RPAR         { match get_width $3,  get_width $5 with
                                                   | Some(n1), Some(n2) ->
-                                                       Ics.mk_bv_conc (n1,from_fixed $3) (n2,from_fixed $5)
+                                                       Ics.mk_bv_conc
+							 (n1, from_fixed $3)
+							 (n2,from_fixed $5)
                                                   | _ -> raise Parsing.Parse_error }
 | BV_AND LPAR fixed COMMA fixed RPAR          { bitwise Ics.mk_bv_and $3 $5 }
 | BV_XOR LPAR fixed COMMA fixed RPAR          { bitwise Ics.mk_bv_xor $3 $5 }
@@ -238,6 +240,7 @@ command:
 | term CMP term  DOT   { Cmd.less ($1,$3)}
 | SOLVE equation DOT   { Cmd.solve None $2 }
 | SOLVE equation FOR term DOT { Cmd.solve (Some $4) $2 }
+| SOLUTION term  DOT   { Cmd.solution $2 }
 | ASSERT term    DOT   { Cmd.process $2 }
 | CURRENT DOT          { Cmd.curr() }
 | FIND optterm   DOT   { Cmd.find $2 }

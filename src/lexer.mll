@@ -26,7 +26,7 @@ let keyword =
   let kw_table = Hashtbl.create 17 in
   List.iter 
     (fun (s,tk) -> Hashtbl.add kw_table s tk)
-    [ "can", CAN; "simp", SIMP; "sigma", SIGMA; "solve", SOLVE; "reset", RESET;
+    [ "can", CAN; "simp", SIMP; "sigma", SIGMA; "solve", SOLVE; "solution", SOLUTION; "reset", RESET;
       "for", FOR; "drop", DROP; "assert", ASSERT; "find", FIND; "ext", EXT; "current", CURRENT;
       "use", USE;
       "uninterp", UNINTERP;
