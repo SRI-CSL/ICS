@@ -37,8 +37,10 @@ module Z = struct
   let lcm a b = Z.divexact (Z.mul a b) (Z.gcd a b)
   let pow = Z.pow_ui_ui 
 
-  let rec expt x n =
-    if n = 0 then one else mult x (expt x (n - 1))
+  let rec expt x n =  
+    if n = 0 then one 
+    else 
+      mult x (expt x (n - 1))
 		 
   let compare = Z.cmp
   let equal x y = Z.cmp x y == 0
@@ -72,9 +74,15 @@ module Q = struct
   let inv = Q.inv
 
   let rec expt a n =
-    assert(n >= 0);
-    if n = 0 then one
-    else mult a (expt a (n - 1))
+    if Q.equal a zero then zero
+    else if n < 0 then
+      Q.inv (expt a (-n))
+    else if n = 0 then 
+      one
+    else if n = 1 then
+      a
+    else 
+      mult a (expt a (n - 1))
 
   let floor x = Gmp.Z.fdiv_q (Q.get_num x) (Q.get_den x)
   let ceil x  = Gmp.Z.cdiv_q (Q.get_num x) (Q.get_den x)
@@ -88,6 +96,9 @@ module Q = struct
   let le x y = Q.cmp x y <= 0
   let gt x y = Q.cmp x y > 0
   let ge x y = Q.cmp x y >= 0
+
+  let is_pos x = gt x zero
+  let is_neg x = lt x zero
 
   type cmp = Equal | Greater | Less
 

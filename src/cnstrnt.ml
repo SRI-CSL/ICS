@@ -196,6 +196,29 @@ let d_upper (i, qs) =
 	    Some(dom, p, beta)
 	| _ ->
 	    None
+
+
+type bounds = 
+  | Lower of Dom.t * bool * Mpa.Q.t
+  | Upper of Dom.t * Mpa.Q.t * bool
+  | LowerUpper of Dom.t * bool * Mpa.Q.t * Mpa.Q.t * bool
+  | Unbounded of Dom.t
+
+let bounds (i, _) = 
+  let (dom, lo, hi) = Interval.destructure i in
+  let (a, alpha) =  Endpoint.destruct lo in
+  let (b, beta) =  Endpoint.destruct hi in
+    match Extq.destruct a, Extq.destruct b with
+      | Extq.Neginf, Extq.Posinf ->
+	  Unbounded(dom)
+      | Extq.Neginf, Extq.Inject(p)->
+	  Upper(dom, p, beta)
+      | Extq.Inject(q), Extq.Posinf ->
+	  Lower(dom, alpha, q)
+      | Extq.Inject(q),  Extq.Inject(p) ->
+	  LowerUpper(dom, alpha, q, p, beta)
+      | _ ->
+	  assert false
  
 
 let mk_zero = mk_singleton Mpa.Q.zero

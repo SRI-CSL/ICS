@@ -51,11 +51,6 @@ let is_fresh_var = function
   | Var(x) -> Var.is_fresh x
   | _ -> false
 
-let is_slack_var = function
-  | Var(x) -> Var.is_slack x
-  | _ -> false
-
-
 
 (*s Recognizers. *)
 

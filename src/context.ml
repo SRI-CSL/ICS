@@ -166,33 +166,41 @@ let rec inv i s =
  rhs which matches [a]. *)
 
 and inv_pprod s a =           
-  let usea = 
+  let rec usea acc = 
     match a with
-      | App(Pp(Mult), x :: _) -> (use Th.pprod s x)
-      | App(Pp(Expt(_)), [x]) -> (use Th.pprod s x)
-      | _ -> Set.empty
+      | App(Pp(Mult), xl) ->
+	  (List.fold_left 
+	     (fun acc' x -> 
+		let (x', _) = Pp.destruct x in
+		  Set.union (use Th.pprod s x') acc')
+	     acc xl)
+      | App(Pp(Expt(_)), [x]) -> 
+	  use Th.pprod s x
+      | _ -> 
+	  acc
   in
   let lookup =
     Set.fold
       (fun x acc ->
 	 try
-	   let b' = apply Th.pprod s x in
-	     (match Pp.div (a, b') with
-		| None -> acc
-		| Some(c') ->    (* [a * c' = b'] *)
-		    (match acc with
-		       | Some(_, _, b) when Pp.cmp b b' > 0 -> acc
-		       | _ -> Some(x, c', b')))
+	   let b = apply Th.pprod s x in
+	     (match acc with
+	       | None ->        (* [lcm = p * a = q * b = q * x] *)
+		   let (p, q, lcm) = Pp.lcm (a, b) in
+		     Some(q, x, b)
+	       | Some(_, _, b') when Pp.cmp b b' <= 0 ->
+		   acc
+	       | _ ->
+		   let (p, q, lcm) = Pp.lcm (a, b) in
+		     Some(q, x, b))
 	 with
 	     Not_found -> acc)
-      usea
+      (usea Set.empty)
       None
   in
     match lookup with
-      | Some(x, c, _) -> 
-	  Pp.mk_mult (v s x) c
-      | None ->
-	  raise Not_found
+      | Some(q, x, _) -> Pp.mk_mult q (v s x) 
+      | None -> raise Not_found
 
 
 let equality i s = Solution.equality (eqs_of s i)
@@ -220,6 +228,20 @@ let sigma s f =
     | Bvarith(op) -> Bvarith.sigma op
     | Uninterp _ -> mk_app f
 
+(*s Folding over the use list. *)
+
+let folduse i x f s = 
+  Trace.msg "foo4" "folduse" (Set.elements (use i s x)) (Pretty.list Term.pp);
+  Set.fold
+    (fun y s ->
+       try
+	 let b = apply i s y in
+	   f (y, b) s
+       with
+	   Not_found -> s)
+    (use i s x)
+    s
+
 
 (* Component-wise solver. Only defined for fully interpreted theories. *)
 
@@ -232,10 +254,12 @@ let solve i _ =
 let fuse i e s =
   install s i (Solution.fuse i (s.p, eqs_of s i) [e])
 
-
 let rec compose i e s =
+  let (a, b, _) = Fact.d_equal e in
+  let a' = find i s a and b' = find i s b in
+  let e' = Fact.mk_equal a' b' None in
   try
-    let sl' = solve i s e in
+    let sl' = solve i s e' in
       install s i (Solution.compose i (s.p, eqs_of s i) sl')
   with
       Exc.Unsolved -> 

@@ -78,6 +78,15 @@ val d_lower : t -> (Dom.t * bool * Mpa.Q.t) option
 
 val d_upper : t -> (Dom.t * Mpa.Q.t * bool) option
 
+type bounds = 
+  | Lower of Dom.t * bool * Mpa.Q.t
+  | Upper of Dom.t * Mpa.Q.t * bool
+  | LowerUpper of Dom.t * bool * Mpa.Q.t * Mpa.Q.t * bool
+  | Unbounded of Dom.t
+
+val bounds : t -> bounds
+
+
 (*s Equality. *)
 
 val eq : t -> t -> bool
