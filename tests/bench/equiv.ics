@@ -1,5 +1,5 @@
-canon (p || (q && r) || (~p && q && ~r) || (p && ~q && r)).
-% => p || q
+can (p | (q & r) | (~p & q & ~r) | (p & ~q & r)).
+% => p | q
 
 assert p = (x <= y).
 assert q = (z > 0).
@@ -7,13 +7,13 @@ assert r = (x + 2*z-y >= 3).
 assert x >= 0.
 assert y >= 0.
 assert z >= 0.
-assert integer(x).
-assert integer(y).
-assert integer(z).
+assert x in int.
+assert y in int.
+assert z in int.
 
 % Don't cares
 
-check ~p && q && ~r.
-check p && ~q && r.
+check ~p & q & ~r.
+check p & ~q & r.
 
-check ((x <= y) || (z > 0 && x + 2 * z - y >= 3)) <=> (p || q).
+check ((x <= y) | (z > 0 & x + 2 * z - y >= 3)) <=> (p | q).
