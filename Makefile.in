@@ -30,6 +30,7 @@ ifeq ($(MAKELEVEL),0)
 	SRCDIR = ./src
 	DOCDIR = ./doc
         WEBDIR = ./www.icansolve.com
+	LABDIR = /csl/ics
 else
 	OBJDIR = .
 	BINDIR = ../../bin/$(ARCH)
@@ -37,6 +38,7 @@ else
 	SRCDIR = ../../src
 	DOCDIR = ../../doc
         WEBDIR = ../../www.icansolve.com
+	LABDIR = /csl/ics
 endif
 
 # Flags
@@ -263,10 +265,20 @@ web::
 	cp ics.tar.gz $(WEBDIR)/download
 	cp -rf $(WEBDIR) $(WEBHOME)
 
+
 ICSDIR = $(shell basename $(PWD))
 
 ics.tar.gz:	distclean
 	(cd .. ; tar -cvz --file=$(ICSDIR)/ics.tar.gz --mode="u+rw" --atime-preserve --exclude=CVS --exclude=ics.tar.gz ics)
+
+### Update executables in Lab
+
+.PHONE : labinstall
+
+labinstall::
+	cp -R ./bin $(LABDIR)
+	cp -R ./lib $(LABDIR)
+	cp ./obj/i686-unknown-linux/ics.h $(LABDIR)/include
 
 
 ### Documention
