@@ -51,9 +51,11 @@ type t
 (*s Constructing and destructing terms *)
 
 val mk_var : Name.t -> t
+val mk_fresh : Name.t -> int option -> t
 val mk_const : Sym.t -> t
 val mk_app : Sym.t -> t list -> t
 
+val name_of : t -> Name.t
 
 val destruct : t -> Sym.t * t list
 
@@ -68,16 +70,7 @@ val cmp : t -> t -> int
 
 val (<<<): t -> t -> bool
 
-val order : t -> t -> t * t
-
-
-(*s Boolean constants. *)
-
-val mk_tt : t
-val mk_ff : t
-
-val is_tt : t -> bool
-val is_ff : t -> bool
+val orient : t * t -> t * t
 
 
 (*s Test if term is a constant. *)
@@ -85,12 +78,8 @@ val is_ff : t -> bool
 val is_const : t -> bool
 
 val is_var : t -> bool
-
-val is_label : t -> bool
-
-val is_slack : t -> bool
-
-val d_slack : t -> Number.t option
+val is_app : t -> bool
+val is_fresh : t -> bool
 
 val is_interp_const : t -> bool
  
@@ -98,9 +87,6 @@ val is_interp_const : t -> bool
 
 val is_diseq : t  -> t -> bool
 
-(*s [is_suberm a b] tests if [a] occurs in [b], interpreted or not. *)
-
-val is_subterm : t -> t -> bool
 
 (*s Fold operator on ts. *)
 
@@ -110,6 +96,7 @@ val fold : (t -> 'a -> 'a) -> t -> 'a -> 'a
 (*s Iteration operator on terms. *)
 
 val iter : (t -> unit) -> t -> unit
+
 
 (*s Predicate holds for all subterms. *)
 
@@ -130,9 +117,14 @@ val assq : t -> (t * 'a) list -> 'a
 
 val pp : Format.formatter -> t -> unit
 
-val ppeqn : Format.formatter -> t * t -> unit
+val to_string : t -> string
 
 
+(*s Pretty-printing pairs as equalities/disequalities/constraints. *)
+
+val pp_equal : (t * t) Pretty.printer
+val pp_diseq : (t * t) Pretty.printer
+val pp_in : (t * Cnstrnt.t) Pretty.printer
 
 (*s Sets and maps of terms. *)
 

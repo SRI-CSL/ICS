@@ -38,7 +38,7 @@ let rec eq a b =
 (*s Constructors. *)
 
 let mk_var x = Var(Var.mk_var x)
-let mk_fresh x = Var(Var.mk_fresh x)
+let mk_fresh x k = Var(Var.mk_fresh x k)
 let mk_const f = App(f,[])
 let mk_app f l = App(f,l)
 
@@ -52,6 +52,10 @@ let is_const = function App(_,[]) -> true | _ -> false
 
 
 (*s Destructors. *)
+
+let name_of a =
+  assert(is_var a);
+  match a with Var(x) -> Var.name_of x | _ -> assert false
 
 let destruct a =
   assert(is_app a);
@@ -165,16 +169,45 @@ let rec pp fmt a =
   match a with
     | Var(x) -> 
 	Var.pp fmt x
-    | App(f,[]) ->
-	Sym.pp fmt f
     | App(f,l) ->
-	Format.fprintf fmt "@["; 
-	Sym.pp fmt f; 
-	Tools.ppl ("(", ", ", ")") pp fmt l; 
-	Format.fprintf fmt "@]"
+	(match Sym.destruct f, l with
+	  | Sym.Interp(Sym.Arith(Sym.Num q)), [] -> 
+	      Mpa.Q.pp fmt q
+	  | Sym.Interp(Sym.Arith(Sym.Add)), _ -> 
+	      Pretty.infixl pp " + " fmt l
+	  | Sym.Interp(Sym.Arith(Sym.Mult)), _ -> 
+	      Pretty.infixl pp " * " fmt l
+	  | Sym.Interp(Sym.Arith(Sym.Expt(n))), [x] 
+	      when is_var x || not(Sym.is_arith (sym_of x)) ->
+		Pretty.infix pp "^" Pretty.number fmt (x,n)
+	  | Sym.Interp(Sym.Boolean(Sym.True)), [] -> 
+	      Pretty.string fmt "true"
+	  | Sym.Interp(Sym.Boolean(Sym.False)), [] -> 
+	      Pretty.string fmt "false"
+	  | Sym.Interp(Sym.Bv(Sym.Const(b))), [] -> 
+	      Format.fprintf fmt "0b%s" (Bitv.to_string b)
+	  | Sym.Interp(Sym.Bv(Sym.Conc _)), l -> 
+	      Pretty.infixl pp " ++ " fmt l
+	  | Sym.Interp(Sym.Bv(Sym.Sub(_,i,j))), [x] -> 
+	      (pp fmt x; Format.fprintf fmt "[%d:%d]" i j)
+	  | _ ->
+	      Sym.pp fmt f; 
+	      Tools.ppl ("(", ", ", ")") pp fmt l)
 
 let to_string = 
   Pretty.to_string pp
+
+
+(*s Pretty-printing of equalities/disequalities/constraints. *)
+
+let pp_equal fmt (x,y) = 
+  Pretty.infix pp "=" pp fmt (x,y)
+
+let pp_diseq fmt (x,y) = 
+  Pretty.infix pp "<>" pp fmt (x,y)
+
+let pp_in fmt (x,c) = 
+  Pretty.infix pp "in" Cnstrnt.pp fmt (x,c)
 
 
 (*s Sets and maps of terms. *)
@@ -184,11 +217,11 @@ type trm = t  (* avoid type-check error below *)
 module Set = Set.Make(
   struct
     type t = trm
-    let compare = Pervasives.compare
+    let compare = cmp
   end)
 
 module Map = Map.Make(
   struct
     type t = trm
-    let compare = Pervasives.compare
+    let compare = cmp
   end)
