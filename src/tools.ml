@@ -9,11 +9,10 @@
  * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
- * 
- * Author: Jean-Christophe Filliatre, Harald Ruess
  *)
 
-(** Functions to run at exit. *)
+
+(** {6 Functions to run at exit} *)
 
 let at_exit_functions = ref []
 
@@ -24,7 +23,7 @@ let do_at_exit () =
   List.iter (fun f -> f()) (List.rev !at_exit_functions)
 
 
-(** Functions to run at reset. *)
+(** {6 Functions to run at reset} *)
 
 let at_reset_functions = ref []
 
@@ -35,7 +34,7 @@ let do_at_reset () =
   List.iter (fun f -> f()) (List.rev !at_reset_functions)
 
 
-(** Timing functions. *)
+(** {6 Timing functions} *)
 
 open Unix
 
@@ -52,15 +51,16 @@ let profile str f =
   let calls = ref 0 in
   add_at_exit
     (fun () -> Format.printf "%s: utime = %f  calls = %d\n@ " str !timer !calls);
-  fun x ->
-    let start = (Unix.times()).tms_utime in
-    let y = f x in
-    let finish = (Unix.times()).tms_utime in
-    timer := !timer +. (finish -. start);
-    calls := !calls + 1;
-    y
+  (fun x ->
+     let start = (Unix.times()).tms_utime in
+     let y = f x in
+     let finish = (Unix.times()).tms_utime in
+       timer := !timer +. (finish -. start);
+       calls := !calls + 1;
+       y)
 
-(** Simulate dynamic binding. *)
+
+(** {6 Simulate dynamic binding} *)
 
 let dynamic_let (x, v) f a = 
   let saved = !x in
@@ -73,6 +73,7 @@ let dynamic_let (x, v) f a =
 	  x := saved;
 	  raise exc
 
-(** Global variable for linenumers. *)
+
+(** {6 Global variable for linenumers} *)
 
 let linenumber = ref 0

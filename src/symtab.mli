@@ -1,5 +1,4 @@
-
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -10,10 +9,13 @@
  * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
-i*)
+ *)
 
 
-(*s Module [Symtab]: Symbol table functions. *)
+(** Symbol table 
+
+  @author Harald Ruess
+*)
 
 
 type entry = 
@@ -24,37 +26,34 @@ type entry =
 
 and t
 
-(*s [lookup n s] lookup value [e] if binding [n |-> e] is in the table [s];
-  otherwise exception [Not_found] is raised. *)
-
 val lookup : Name.t -> t -> entry
-
-(*s Empty symbol table. *)
+  (** [lookup n s] lookup value [e] if binding [n |-> e] is in the table [s];
+    otherwise exception [Not_found] is raised. *)
 
 val empty : t
-
-(*s Adding a binding [n |-> e] to a symbol table. Throws [Invalid_argument],
-  if [n] is already in the domain of the table. *)
+  (** Empty symbol table. *)
 
 val add : Name.t -> entry -> t -> t
-
-(*s Removing an entry [n |-> ...] from the symbol table. *)
+  (** Adding a binding [n |-> e] to a symbol table. Throws [Invalid_argument],
+    if [n] is already in the domain of the table. *)
 
 val remove : Name.t -> t -> t
-
-(*s [filter p s] builds a subtable of [s] with all bindings [n |-> e] satisfying 
- predicate [p n e]. *)
+  (** Removing an entry [n |-> ...] from the symbol table. *)
 
 val filter : (Name.t -> entry -> bool) -> t -> t
+  (** [filter p s] builds a subtable of [s] with all bindings [n |-> e] satisfying 
+    predicate [p n e]. *)
 
-(*s Projections. *)
+
+(** {6 Accessors} *)
 
 val def : t -> t      
 val arity : t -> t
 val typ : t -> t
 val state : t -> t
 
-(*s Pretty printing of a symbol table. *)
+
+(** {6 Pretty-printing} *)
 
 val pp : t Pretty.printer
 

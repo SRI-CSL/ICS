@@ -58,6 +58,8 @@ val arrays_equal : Fact.equal -> Context.t -> Context.t
 
 val arrays_diseq : Fact.diseq -> Context.t -> Context.t
 
+val fme : bool ref
+
 (* ... *)
 
 

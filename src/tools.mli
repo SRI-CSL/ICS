@@ -11,13 +11,15 @@
  * benefit corporation.
  *)
 
-(** The [Tools] module collects some functions and types,
-  which are used throughout the code of ICS. 
+(** Collection of useful functions used throughout ICS.
 
   @author Jean-Christophe Filliatre
   @author Harald Ruess
  *)
 
+
+
+(** {6 Exit functions} *)
 
 val add_at_exit : (unit -> unit) -> unit
   (** Procedures [f] without parameters can be registered as exit procedures
@@ -28,34 +30,36 @@ val do_at_exit : unit -> unit
   (** Procedures [f] registered by {!Tools.add_at_exit} are called 
     by [do_at_exit()]. The order in which these functions are called is
     unspecified. *)
+
+(** {6 Reset functions} *)
   
 val add_at_reset : (unit -> unit) -> unit
   (** [add_to_reset f] registers [f] as a reset procedure *)
 
 val do_at_reset : unit -> unit
-  (** [do_at_reset()].
- which are then
-    called, one-by-one, by [do_at_reset()]. *)
+  (** [do_at_reset()]. which are then called, one-by-one, by [do_at_reset()]. *)
 
-
-(*s [utime f a] returns not only the result of applying [f] to [a]
-  but also the time required to compute the function. *)
+(** {6 Timings} *)
 
 val utime : ('a -> 'b) -> 'a -> 'b * float
-    
+  (** [utime f a] returns not only the result of applying [f] to [a]
+    but also the time required to compute the function. *)
 
-(*s [profile str f] profiles function [f], and
- registers an exit function which outputs the number of calls
- of this function, and the total time spent in this function;
- the argument [str] is usually just the name of the function. *)
+   
+(** {6 Profiling} *) 
 
 val profile : string -> ('a -> 'b) -> ('a -> 'b)
-
-(*s [dynamic_let (x, v) f a] simulated dynamic binding of value [v]
- to the global variable [x] in the call of [f] to [a]. *)
+  (** [profile str f] profiles function [f], and
+    registers an exit function which outputs the number of calls
+    of this function, and the total time spent in this function;
+    the argument [str] is usually just the name of the function. *)
 
 val dynamic_let : 'a ref * 'a -> ('b -> 'c) -> 'b -> 'c
+  (** [dynamic_let (x, v) f a] simulated dynamic binding of value [v]
+    to the global variable [x] in the call of [f] to [a]. *)
 
-(*s [linenumber] used by lexer and parser. *)
+
+(** {6 Global variables} *)
 
 val linenumber : int ref
+  (** [linenumber] used by lexer and parser. *)

@@ -12,10 +12,12 @@
  *)
 
 
-(** A {b partition} consists of a
-    - set of variable equalities [x = y], 
-    - a set of variable disequalities [x <> y], and
-    - a set of variable constraints [x in i],
+(** Variable partitioning.
+
+  A {b partition} consists of a
+  - set of variable equalities [x = y], 
+  - a set of variable disequalities [x <> y], and
+  - a set of variable constraints [x in i],
   where [i] is an arithmetic constraint of type {!Cnstrnt.t}.
 
   @author Harald Ruess
