@@ -55,7 +55,7 @@ val mk_proj : int -> int -> Term.t -> Term.t
   it simply applies the constructor [proj i n a], and for [Tuple] and it 
   applies [tuple l]. All other inputs result in a run-time error. *)
 
-val sigma : Sym.tuple -> Term.t list -> Term.t
+val sigma : Sym.product -> Term.t list -> Term.t
 
 
 (*s [fold f a e] applies [f] at uninterpreted positions of [a] and 

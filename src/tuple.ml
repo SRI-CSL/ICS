@@ -20,17 +20,17 @@ open Term
 (*i*)
 
 let is_interp = function
-  | App(Tuple _, _) -> true
+  | App(Product _, _) -> true
   | _ -> false
 
 (*s Destructors. *)
 
 let d_tuple = function
-  | App(Tuple(Product), xl) -> Some(xl)
+  | App(Product(Tuple), xl) -> Some(xl)
   | _ -> None
 
 let d_proj = function
-  | App(Tuple(Proj(i, n)), [x]) -> Some(i, n, x)
+  | App(Product(Proj(i, n)), [x]) -> Some(i, n, x)
   | _ -> None
 
 
@@ -38,9 +38,9 @@ let d_proj = function
 
 let rec fold f a e = 
   match a with
-    | App(Tuple(Product), xl) ->
+    | App(Product(Tuple), xl) ->
 	List.fold_right (fold f) xl e
-    | App(Tuple(Proj _), [x]) -> 
+    | App(Product(Proj _), [x]) -> 
 	fold f x e
     | _ ->
 	f a e
@@ -49,13 +49,13 @@ let rec fold f a e =
 (*s Constructors for tuples and projections. *)
 
 let mk_tuple = 
-  let product = Tuple(Product) in
+  let product = Product(Tuple) in
     function
       | [x] -> x
       | ([x; y] as xl) ->
 	  (match x, y with
-	     | App(Tuple(Proj(0,2)), [z1]), 
-	       App(Tuple(Proj(1,2)), [z2]) when Term.eq z1 z2 ->
+	     | App(Product(Proj(0,2)), [z1]), 
+	       App(Product(Proj(1,2)), [z2]) when Term.eq z1 z2 ->
 		 z1
 	     | _ ->
 		 Term.mk_app product xl)
@@ -64,21 +64,21 @@ let mk_tuple =
 
 let mk_proj i n a =
   match a with
-    | App(Tuple(Product), xl) ->
+    | App(Product(Tuple), xl) ->
 	List.nth xl i
     | _ -> 
-	Term.mk_app (Tuple(Proj(i, n))) [a]
+	Term.mk_app (Product(Proj(i, n))) [a]
 
 
 (*s Apply term transformer [f] at uninterpreted positions. *)
 
 let rec map f a =
   match a with
-    | App(Tuple(Product), xl) ->
+    | App(Product(Tuple), xl) ->
 	let xl' = Term.mapl (map f) xl in
 	  if xl == xl' then a else 
 	    mk_tuple xl'
-    | App(Tuple(Proj(i, n)), [x]) ->
+    | App(Product(Proj(i, n)), [x]) ->
 	let x' = map f x in
 	  if x == x' then a else 
 	    mk_proj i n x'
@@ -90,7 +90,7 @@ let rec map f a =
 
 let sigma op l =
   match op, l with
-    | Product, _ -> 
+    | Tuple, _ -> 
 	mk_tuple l
     | Proj(i, n), [x] -> 
 	mk_proj i n x
@@ -122,10 +122,10 @@ and solve1 (a, b) el sl =
   else if Term.is_var b then
     solvevar (b, a) el sl
   else match a with
-    | App(Tuple(Proj(i, n)), [x]) -> 
+    | App(Product(Proj(i, n)), [x]) -> 
 	let e' = proj_solve i n x b in
 	solvel (e' :: el) sl
-    | App(Tuple(Product), xl) ->
+    | App(Product(Tuple), xl) ->
 	solvel (tuple_solve xl b el) sl 
     | _ -> 
 	solvevar (a, b) el sl

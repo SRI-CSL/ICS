@@ -14,9 +14,6 @@
  * Author: Harald Ruess
  i*)
 
-(*i*)
-open Term
-(*i*)
 
 type t = 
   | Equal of equal
@@ -32,17 +29,17 @@ and cnstrnt = Term.t * Cnstrnt.t * justification option
 and rule = string 
 
 let mk_equal x y j =
-  let (x, y) = orient (x, y) in
-    Trace.msg "fact" "Equal" (x, y) pp_equal;
+  let (x, y) = Term.orient (x, y) in
+    Trace.msg "fact" "Equal" (x, y) Term.pp_equal;
     (x, y, j)
 
 let mk_diseq x y j =
-  let (x, y) = orient (x, y) in 
-    Trace.msg "fact" "Diseq" (x, y) pp_diseq;
+  let (x, y) = Term.orient (x, y) in 
+    Trace.msg "fact" "Diseq" (x, y) Term.pp_diseq;
     (x, y, j)
 
 let mk_cnstrnt x c j = 
-  Trace.msg "fact" "Cnstrnt" (x, c) pp_in;
+  Trace.msg "fact" "Cnstrnt" (x, c) Term.pp_in;
   (x, c, j)
 
 let d_equal e = e
@@ -70,3 +67,15 @@ and pp_cnstrnt fmt c =
   let (x, i, _) = d_cnstrnt c in
   Pretty.infix Term.pp "in" Cnstrnt.pp fmt (x, i)
 
+
+module Equalset = Set.Make(
+  struct
+    type t = equal
+    let compare e1 e2 =
+      let (x1, y1, _) = d_equal e1 in
+      let (x2, y2, _) = d_equal e2 in
+	if Term.eq x1 x2 && Term.eq y1 y2 then
+	  0
+	else 
+	  Pervasives.compare e1 e2
+  end)

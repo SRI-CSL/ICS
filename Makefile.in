@@ -70,7 +70,6 @@ CMO = sign.cmo three.cmo \
       extq.cmo dom.cmo endpoint.cmo interval.cmo cnstrnt.cmo \
       name.cmo \
       var.cmo \
-      theories.cmo \
       sym.cmo \
       term.cmo \
       trace.cmo \
@@ -80,17 +79,23 @@ CMO = sign.cmo three.cmo \
       coproduct.cmo \
       bitvector.cmo \
       boolean.cmo \
+      pp.cmo \
+      apply.cmo \
+      arr.cmo \
+      bvarith.cmo \
       app.cmo \
+      th.cmo \
       atom.cmo \
       use.cmo \
       d.cmo \
       v.cmo \
       c.cmo \
+      sig.cmo \
       partition.cmo \
       solution.cmo \
       context.cmo \
+      can.cmo \
       arrays.cmo \
-      sig.cmo \
       deduce.cmo \
       rule.cmo \
       shostak.cmo \

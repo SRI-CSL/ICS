@@ -397,11 +397,12 @@ val term_mk_div :  term -> term -> term
 
 val term_mk_mult : term -> term -> term
 val term_mk_multl : term list -> term
-val term_mk_expt : q -> term -> term
+val term_mk_expt : int -> term -> term   
+  (* [term_mk_expt n x] represent [x^n]. *)
 
-val term_mk_apply : term -> term -> term
+val term_mk_apply : term -> term list -> term
 
-val term_mk_arith_apply : cnstrnt -> term -> term -> term
+val term_mk_arith_apply : cnstrnt -> term -> term list -> term
 
 (*s The operation [process s a] adds a new atom [a] to a logical context [s].
   The codomain of this function is of type [status], elements of
