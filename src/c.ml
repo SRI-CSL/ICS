@@ -37,14 +37,6 @@ let apply s = function
   | Var(x) -> fst(Var.Map.find x s)
   | App _ -> raise Not_found
 
-let find s = function
-  | Var(x) ->
-      (try 
-	 fst(Var.Map.find x s) 
-       with 
-	   Not_found -> Cnstrnt.mk_real)
-  | _ -> Cnstrnt.mk_real
-
 let justification s = function
   | Var(x) -> Var.Map.find x s
   | _ -> raise Not_found
@@ -61,12 +53,12 @@ let mem a s =
 
 (*s [update x i s] updates the constraint map with the constraint [x in i]. *)
 
-let update a i s =
+let update a i prf s =
   match a with
     | Var(x) ->
 	Trace.msg "c" "Update" (a, i) Term.pp_in;
 	changed := Term.Set.add a !changed;
-	Var.Map.add x (i, None) s
+	Var.Map.add x (i, prf) s
     | _ -> s
 
 
@@ -84,23 +76,25 @@ let restrict a s =
 (*s Adding a new constraint. *)
 
 let rec add c s =
-  let (x, i, _) = Fact.d_cnstrnt c in
+  let (x, i, prf1) = Fact.d_cnstrnt c in    (* [prf1 |- x in i]. *)
   try
-    let j = apply s x in
+    let (j, prf2) = justification s x in    (* [prf2 |- x in j]. *)
       (match Cnstrnt.cmp i j with
 	 | Binrel.Disjoint -> 
 	     raise Exc.Inconsistent
 	 | (Binrel.Same | Binrel.Super) -> 
 	     s
 	 | Binrel.Sub -> 
-	     update x i s
+	     update x i prf1 s
 	 | Binrel.Singleton(q) -> 
-	     update x (Cnstrnt.mk_singleton q) s
+	     let prf = Fact.mk_rule "inter" [prf1; prf2] in
+	       update x (Cnstrnt.mk_singleton q) prf s
 	 | Binrel.Overlap(ij) -> 
-	     update x ij s)
+	     let prf = Fact.mk_rule "inter" [prf1; prf2] in
+	     update x ij prf s)
   with
       Not_found -> 
-	update x i s
+	update x i prf1 s
 
 
 
@@ -116,22 +110,33 @@ let rec add c s =
 
 let merge e s =  
   Trace.msg "c1" "Equal" e Fact.pp_equal;
-  let (x, y, _) = Fact.d_equal e in
+  let (x, y, prf) = Fact.d_equal e in     (* [prf |- x = y] *)
   try
-    let i = find s x in
+    let (i, prf1) = justification s x in  (* [prf1 |- x in i] *)
     let s' = restrict x s in
     try
-      let j = find s y in
+      let (j, prf2) = justification s y in (* [prf2 |- y in j]. *)
       match Cnstrnt.cmp i j with
-	| Binrel.Disjoint -> raise Exc.Inconsistent
-	| (Binrel.Same | Binrel.Super) -> s'
-	| Binrel.Sub -> update y i s'
-	| Binrel.Singleton(q) -> update y (Cnstrnt.mk_singleton q) s'
-	| Binrel.Overlap(ij) -> update y ij s'
+	| Binrel.Disjoint -> 
+	    raise Exc.Inconsistent
+	| (Binrel.Same | Binrel.Super) -> 
+	    s'
+	| Binrel.Sub -> 
+	    let prf' = Fact.mk_rule "equal_sub" [prf; prf1; prf2] in
+              update y i None s'
+	| Binrel.Singleton(q) -> 
+	    let prf' = Fact.mk_rule "equal_overlap" [prf; prf1; prf2] in
+	      update y (Cnstrnt.mk_singleton q) prf' s'
+	| Binrel.Overlap(ij) ->
+	    let prf' = Fact.mk_rule "equal_overlap" [prf; prf1; prf2] in 
+	      update y ij prf' s'
     with
-	Not_found -> update y i s'     
+	Not_found -> 
+	  let prf' = Fact.mk_rule "equal_cnstrnt" [prf; prf1] in
+	    update y i prf' s'     
   with
-      Not_found -> s
+      Not_found ->
+	s
 
 
 (*s Propagate disequalities to the constraint part. The following
@@ -140,10 +145,10 @@ let merge e s =
 
 let diseq d s =
   Trace.msg "c1" "Diseq" d Fact.pp_diseq;
-  let (x, y, _) = Fact.d_diseq d in
+  let (x, y, prf) = Fact.d_diseq d in        (* [prf |- x <> y] *)
   try
-    let i = find s x in
-    let j = find s y in
+    let (i, prf1) = justification s x in     (* [prf1 |- x in i] *)
+    let (j, prf2) = justification s y in
     match Cnstrnt.d_singleton i, Cnstrnt.d_singleton j with
       | Some(q), Some(p) ->
 	  if Mpa.Q.equal q p then

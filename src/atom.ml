@@ -56,7 +56,7 @@ let rec mk_in c =
     | None -> 
 	(match a with
 	   | Term.App(Sym.Arith(Sym.Num(q)), []) -> 
-	       if Cnstrnt.mem q c then True else raise Exc.Inconsistent
+	       if Cnstrnt.mem q c then True else False
 	   | _ ->
 	       let (a', c') = normalize (a, c) in
 		 In(Fact.mk_cnstrnt a' c' j))
