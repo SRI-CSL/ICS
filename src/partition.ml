@@ -71,11 +71,14 @@ let dom p a =
     match a with
       | Term.Var _ -> 
 	  of_var a
-      | Term.App(f, al) ->
-	  (match f with 
-	     | Sym.Arith(op) -> Arith.dom of_term op al
-             | Sym.Pp(op) ->  Pprod.dom of_term op al
-	     | _ -> raise Not_found)
+      | Term.App(f, al, _) ->
+	  (try
+	     let op = Sym.Arith.get f in
+	       Arith.dom of_term op al
+	   with
+	       Not_found ->
+		 let op = Sym.Pprod.get f in
+		   Pprod.dom of_term op al)
   and of_var x =
      let (y, rho) = find p x in
      let d = Term.Var.dom_of y in
@@ -136,7 +139,7 @@ let is_in p d x =
 
 (** Shallow copy for protecting against destructive 
   updates in [merge], [diseq], and [gc]. *)
-let copy p = {v = p.v; d = p.d}
+let copy p = { v = p.v; d = p.d }
 
 
 (** Merge a variable equality. *)
@@ -181,20 +184,21 @@ let gc f p =
  of the current state, except for sigma-normal forms for arrays, which use
  variable equalities and disequalities. *)
 let rec sigma p sym l = 
-  match sym with
-    | Sym.Arrays(op) ->
-	let rhos = ref [] in
-	let is_equal' = Justification.Three.to_three rhos (is_equal_or_diseq p) in
-	let b = Funarr.sigma is_equal' op l in
-	let rho = Justification.sigma ((sym, l), b) !rhos in
-	  (b, rho)
-    | _ ->
+  try
+    let op = Sym.Array.get sym in
+    let rhos = ref [] in
+    let is_equal' = Justification.Three.to_three rhos (is_equal_or_diseq p) in
+    let b = Funarr.sigma is_equal' op l in
+    let rho = Justification.sigma ((sym, l), b) !rhos in
+      (b, rho)
+  with
+      Not_found ->
 	let b = sigma0 sym l in
 	let rho =  Justification.sigma ((sym, l), b) [] in
 	  (b, rho)
 	  
 and sigma0 f =
-  match f with
+  match Sym.get f with
     | Sym.Arith(op) -> Arith.sigma op
     | Sym.Pair(op) -> Product.sigma op
     | Sym.Bv(op) -> Bitvector.sigma op
@@ -203,6 +207,5 @@ and sigma0 f =
     | Sym.Pp(op) -> Pprod.sigma op
     | Sym.Arrays(op) -> Funarr.sigma Term.is_equal op
     | Sym.Uninterp _ -> Term.App.mk_app f
-
 
 
