@@ -357,7 +357,8 @@ module Out = struct
        end 
 
   let error msg =
-    Format.fprintf !outchannel ":error %s@." msg
+    let fmt = if !batch then Format.err_formatter else !outchannel in
+      Format.fprintf fmt ":error %s@." msg
 
   let endmarker () =
     let fmt = !outchannel in
