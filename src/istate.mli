@@ -17,6 +17,7 @@
 type t 
 
 val current : unit -> Context.t
+val get_context : Name.t option -> Context.t
 val symtab : unit -> Symtab.t
 val inchannel : unit -> in_channel
 val outchannel : unit -> Format.formatter
@@ -57,19 +58,19 @@ val width_of : Term.t -> int option
 
 (*s Context of. *)
 
-val ctxt_of : unit -> Atom.t list
+val ctxt_of : Name.t option -> Atom.Set.t
 
 (*s Canonization w.r.t current state. *)
 
-val can : Atom.t -> Atom.t
+val can : Name.t option -> Atom.t -> Atom.t
 
-val cant : Term.t -> Term.t
+val cant : Name.t option -> Term.t -> Term.t
 
 val sigma : Sym.t -> Term.t list -> Term.t
 
 (*s Adding a new fact *)
 
-val process : Atom.t -> Context.t Shostak.status
+val process : Name.t option -> Atom.t -> Name.t Shostak.status
 
 (*s Compress the current state. *)
 
@@ -78,7 +79,7 @@ val compress : unit -> unit
  
 (*s Change current state. *)
 
-val save : Name.t -> unit
+val save : Name.t option -> Name.t
 val restore : Name.t -> unit
 val remove : Name.t -> unit
 val forget : unit -> unit
@@ -86,13 +87,13 @@ val forget : unit -> unit
 
 (*s Applying maps. *)
 
-val find : Theories.t -> Term.t -> Term.t
-val inv : Theories.t -> Term.t -> Term.t
-val use : Theories.t -> Term.t -> Term.Set.t
+val find : Name.t option -> Theories.t -> Term.t -> Term.t
+val inv : Name.t option -> Theories.t -> Term.t -> Term.t
+val use : Name.t option -> Theories.t -> Term.t -> Term.Set.t
 
 (*s Solution set for equality theories. *)
 
-val solution: Theories.t -> (Term.t * Term.t) list
+val solution: Name.t option -> Theories.t -> (Term.t * Term.t) list
 
 (*s Variable partitioning. *)
 
@@ -100,11 +101,11 @@ val partition: unit -> (Term.t * Term.t list) list
 
 (*s Disequalities. *)
 
-val diseq : Term.t -> Term.t list
+val diseq : Name.t option -> Term.t -> Term.Set.t
 
 (*s Constraint. *)
 
-val cnstrnt : Term.t -> Cnstrnt.t option
+val cnstrnt : Name.t option -> Term.t -> Cnstrnt.t option
 
 (*s Equality/disequality test. *)
 
@@ -112,4 +113,4 @@ val is_equal : Term.t -> Term.t -> bool
 
 (*s Splitting. *)
 
-val split : unit -> Atom.t list
+val split : unit -> Atom.Set.t
