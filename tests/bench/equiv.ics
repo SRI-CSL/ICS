@@ -7,13 +7,13 @@ assert r = (x + 2*z-y >= 3).
 assert x >= 0.
 assert y >= 0.
 assert z >= 0.
-assert x in int.
-assert y in int.
-assert z in int.
+assert int(x).
+assert int(y).
+assert int(z).
 
 % Don't cares
 
 check ~p & q & ~r.
 check p & ~q & r.
-
+s
 check ((x <= y) | (z > 0 & x + 2 * z - y >= 3)) <=> (p | q).
