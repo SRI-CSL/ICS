@@ -24,19 +24,16 @@ open Status
   The function is closed in that forall [x], [y] such that [x |-> {...,y,...} ]
   then also [y |-> {....,x,....}] *)
 
-type t = {
-  d: Term.Set.t Term.Map.t;
-  changed : Fact.diseq list
-}
+type t = Term.Set.t Term.Map.t
 
-let empty = {
-  d = Term.Map.empty;
-  changed = []
-}
 
-let eq s t = (s.d == t.d)
+let changed = ref Term.Set.empty 
 
-let deq_of s = s.d
+let empty = Term.Map.empty
+
+let eq s t = (s == t)
+
+let deq_of s = s
 
 let to_list s =
   let eq (x1,y1) (x2,y2) =
@@ -50,7 +47,7 @@ let to_list s =
 	 (fun y acc ->
 	    if mem (x, y) acc then acc else (x, y) :: acc)
 	 ys acc)
-    s.d []
+    s []
 
 let pp fmt s = 
   let l = to_list s in
@@ -61,23 +58,11 @@ let pp fmt s =
     end
 
 
-(*s Changed. *)
-
-let is_changed s x = 
-  List.exists 
-    (fun d ->
-       let (y, z,_) = Fact.d_diseq d in
-	 Term.eq x y || Term.eq x z) s.changed
-
-let changed s = s.changed
-
-let reset s =
-  if s.changed = [] then s else {s with changed = []}
-
 (*s All terms known to be disequal to [a]. *)
 
 let deq s a =
-  try Term.Map.find a s.d with Not_found -> Term.Set.empty
+  try Term.Map.find a s with Not_found -> Term.Set.empty
+
 
 (*s Check if two terms are known to be disequal. *)
 
@@ -98,19 +83,16 @@ let rec add d s =
 	s
     | true, false ->
 	Trace.msg "d" "Update" (x, y) Term.pp_diseq;
-	{s with 
-	   d = Term.Map.add y yd' s.d;
-	   changed = Fact.mk_diseq x y None :: s.changed }
+	changed := Term.Set.add y !changed; 
+	Term.Map.add y yd' s
     | false, true -> 
 	Trace.msg "d" "Update" (x, y) Term.pp_diseq;
-	{s with 
-	   d = Term.Map.add x xd' s.d;
-	   changed = Fact.mk_diseq x y None :: s.changed}
+	changed := Term.Set.add x !changed;
+	Term.Map.add x xd' s
     | false, false -> 
 	Trace.msg "d" "Update" (x, y) Term.pp_diseq;
-	{s with 
-	   d = Term.Map.add x xd' (Term.Map.add y yd' s.d);
-           changed = Fact.mk_diseq x y None :: s.changed}
+	changed := Term.Set.add x (Term.Set.add y !changed);
+	Term.Map.add x xd' (Term.Map.add y yd' s)
 
 
 (*s Propagating an equality between variables. *)
@@ -123,9 +105,19 @@ let merge e s =
   else
     let dab = Term.Set.union da db in
     if db == dab then
-      {s with d = Term.Map.remove a s.d}
+      Term.Map.remove a s
     else
-      let d' = Term.Map.remove a s.d in
-      {s with 
-	 d = Term.Map.add b dab d';
-	 changed = s.changed }
+      begin
+	changed := Term.Set.add b !changed;
+	Term.Map.add b dab (Term.Map.remove a s)
+      end 
+
+
+(*s Return disequalities for [x]. *)
+
+let disequalities s x =
+  Term.Set.fold
+    (fun y acc -> 
+       (Fact.mk_diseq x y None) :: acc)
+    (deq s x)
+    []

@@ -32,7 +32,6 @@ and cnstrnt = Term.t * Cnstrnt.t * justification option
 and rule = string 
 
 let mk_equal x y j =
-  Trace.msg "fact" "mk_equal" (x, y) pp_equal;
   let (x, y) = orient (x, y) in
     Trace.msg "fact" "Equal" (x, y) pp_equal;
     (x, y, j)

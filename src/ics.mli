@@ -294,6 +294,11 @@ val term_mk_bwand : int -> term -> term -> term
 val term_mk_bwor : int -> term -> term -> term
 val term_mk_bwnot : int -> term -> term
 
+(*s Coproducts. *)
+
+val term_mk_inj : int -> term -> term
+val term_mk_out : int -> term -> term
+
 (*s Set of terms. *)
 
 type terms
@@ -378,6 +383,7 @@ val context_a_of : context -> solution
 val context_t_of : context -> solution
 val context_bv_of : context -> solution
 val context_pp : context -> unit
+val context_ctxt_pp : context -> unit
 
 
 (*s Builtin simplifying constructors. *)
@@ -388,20 +394,14 @@ val term_mk_update : term -> term -> term -> term
 val term_mk_select :  term -> term -> term
 
 val term_mk_div :  term -> term -> term
-val term_mk_floor : term -> term
-val term_mk_ceiling : term -> term
-
-val term_mk_sin : term -> term
-val term_mk_cos : term -> term
 
 val term_mk_mult : term -> term -> term
 val term_mk_multl : term list -> term
 val term_mk_expt : q -> term -> term
 
-val term_mk_apply : term -> term list -> term
-val term_mk_arith_apply : int * cnstrnt -> term -> term list -> term
-val term_mk_pred_apply : int -> term -> term list -> term
+val term_mk_apply : term -> term -> term
 
+val term_mk_arith_apply : cnstrnt -> term -> term -> term
 
 (*s The operation [process s a] adds a new atom [a] to a logical context [s].
   The codomain of this function is of type [status], elements of

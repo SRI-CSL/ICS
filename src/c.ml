@@ -20,83 +20,87 @@ open Sym
 open Mpa
 (*i*)
 
-type t = {
-  c : Cnstrnt.t Map.t;
-  changed : Set.t;
-  singletons : Set.t
-}
+type t = (Cnstrnt.t * Fact.justification option) Var.Map.t
 
-let empty = {
-  c = Map.empty;
-  changed = Set.empty;
-  singletons = Set.empty
-}
+let empty = Var.Map.empty
 
-let eq s t = s.c == t.c
+let eq s t = (s == t)
 
-let cnstrnts s = s.c
+let cnstrnts s = s
 
-let singletons s = s.singletons
+let to_list s =
+  Var.Map.fold (fun x (i, _) acc -> (x, i) :: acc) s []
 
-let apply s x = Map.find x s.c 
+let changed = ref Set.empty
 
-let find s x = try Map.find x s.c with Not_found -> Cnstrnt.mk_real
+let apply s = function
+  | Var(x) -> fst(Var.Map.find x s)
+  | App _ -> raise Not_found
 
-let mem x s = Map.mem x s.c
+let find s = function
+  | Var(x) ->
+      (try 
+	 fst(Var.Map.find x s) 
+       with 
+	   Not_found -> Cnstrnt.mk_real)
+  | _ -> Cnstrnt.mk_real
 
-(*s Constraint for an arithmetic term. *)
+let justification s = function
+  | Var(x) -> Var.Map.find x s
+  | _ -> raise Not_found
 
-let cnstrnt s = 
-  Arith.cnstrnt (fun x -> Map.find x s.c)
+let to_fact s x =
+  let (i, prf) = justification s x in
+    Fact.mk_cnstrnt x i prf
 
-let cnstrnt_split s =
-  Arith.split (fun x -> Map.find x s.c)
+let mem a s = 
+  match a with
+    | Var(x) -> Var.Map.mem x s
+    | App _ -> false
+
 
 (*s [update x i s] updates the constraint map with the constraint [x in i]. *)
 
-let update x i s = 
-  Trace.msg "c" "Update" (x, i) Term.pp_in;
-  if not(is_var x) then s else 
-    {c = Map.add x i s.c; 
-     changed = Set.add x s.changed;
-     singletons = match Cnstrnt.d_singleton i with 
-       | Some _ -> Set.add x s.singletons
-       | None -> s.singletons}
+let update a i s =
+  match a with
+    | Var(x) ->
+	Trace.msg "c" "Update" (a, i) Term.pp_in;
+	changed := Term.Set.add a !changed;
+	Var.Map.add x (i, None) s
+    | _ -> s
 
 
 (*s Restrict the map. *)
 
-let restrict x s =
-  if mem x s then 
-    begin
-      Trace.msg "c" "Restrict" x Term.pp;
-      {s with 
-	 c = Map.remove x s.c;
-	 changed = Set.remove x s.changed;
-	 singletons = Set.remove x s.singletons}
-    end 
-  else 
-    s
+let restrict a s =
+  match a with
+    | Var(x) when Var.Map.mem x s ->
+	Trace.msg "c" "Restrict" a Term.pp;
+	changed := Term.Set.remove a !changed;
+	Var.Map.remove x s
+    | _ -> s
 
 
 (*s Adding a new constraint. *)
 
 let rec add c s =
-  Trace.msg "c1" "Add" c Fact.pp_cnstrnt;
   let (x, i, _) = Fact.d_cnstrnt c in
-    refine x i s
-
-and refine x i s =
   try
     let j = apply s x in
       (match Cnstrnt.cmp i j with
-	 | Binrel.Disjoint -> raise Exc.Inconsistent
-	 | (Binrel.Same | Binrel.Super) -> s
-	 | Binrel.Sub -> update x i s
-	 | Binrel.Singleton(q) -> update x (Cnstrnt.mk_singleton q) s
-	 | Binrel.Overlap(ij) -> update x ij s)
+	 | Binrel.Disjoint -> 
+	     raise Exc.Inconsistent
+	 | (Binrel.Same | Binrel.Super) -> 
+	     s
+	 | Binrel.Sub -> 
+	     update x i s
+	 | Binrel.Singleton(q) -> 
+	     update x (Cnstrnt.mk_singleton q) s
+	 | Binrel.Overlap(ij) -> 
+	     update x ij s)
   with
-      Not_found -> update x i s
+      Not_found -> 
+	update x i s
 
 
 
@@ -148,10 +152,10 @@ let diseq d s =
 	    s
       | Some(q), None ->
 	  let j' = Cnstrnt.inter j (Cnstrnt.mk_diseq q) in
-	  refine y j' s
+	    add (Fact.mk_cnstrnt y j' None) s
       | None, Some(q) -> 
 	  let i' = Cnstrnt.inter i (Cnstrnt.mk_diseq q) in
-	  refine x i' s
+	    add (Fact.mk_cnstrnt x i' None) s
       | None, None ->
 	  s
   with
@@ -160,31 +164,24 @@ let diseq d s =
 (*s Split. *)
 
 let split s =
-  Term.Map.fold
-    (fun x i acc ->
+  Var.Map.fold
+    (fun x (i, prf) acc ->
        if Cnstrnt.is_finite i then
-	 Atom.Set.add (Atom.mk_in i x) acc
+	 Atom.Set.add (Atom.mk_in (Fact.mk_cnstrnt (Var(x)) i prf)) acc
        else 
 	 acc)
-    s.c Atom.Set.empty
+    s Atom.Set.empty
 
-(*s Changes. *)
-
-let changed s = s.changed
-
-let reset s = 
-  if Set.is_empty(s.changed) then s else 
-    {s with changed = Set.empty}
 
 (*s Pretty-printing. *)
 
 let pp fmt s =
-  let l = Map.fold (fun x i acc -> (x, i) :: acc) s.c [] in
-  if l <> [] then
-    begin
-      Format.fprintf fmt "\nc:";
-      Pretty.map Term.pp Cnstrnt.pp fmt l
-    end
+  let l = to_list s in
+    if l <> [] then
+      begin
+	Format.fprintf fmt "\nc:";
+	Pretty.map Var.pp Cnstrnt.pp fmt l
+      end
 
 
 (*s Computing constraints for terms. *)
@@ -218,18 +215,13 @@ and of_builtin vs op al =
   match op, al with
     | Mult, _ ->  
 	Cnstrnt.multl (List.map (of_term vs) al)
-    | Floor, [x] -> 
-	Cnstrnt.mk_int
-    | Sin, [_] 
-    | Cos, [_] ->
-	Cnstrnt.mk_cc Dom.Real (Q.of_int (-1)) (Q.of_int 1)
     | Unsigned, [_] ->
 	Cnstrnt.mk_nat
     | Expt, [x; _] when Arith.is_q Q.two x ->
 	Cnstrnt.mk_ge Dom.Real Q.zero
     | Div, [x; y] ->
 	Cnstrnt.div (of_term vs x) (of_term vs y)
-    | Apply(Some(Real(n, i))), _ :: xl when List.length xl = n ->
+    | Apply(Some(i)), [_] ->
 	i
     | _ ->
 	raise Not_found

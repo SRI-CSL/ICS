@@ -16,4 +16,8 @@
 
 (*s Module [Deduce]. Deducing new facts from a variable equality. *)
 
-val deduce : Fact.equal -> V.t * C.t * Solution.t -> V.t * C.t * Solution.t 
+val deduce : Fact.equal -> Context.t -> Context.t
+
+val of_builtin : Term.t -> Sym.builtin * Term.t list -> Context.t -> Context.t
+
+val of_linarith : Term.t -> Sym.arith * Term.t list -> Context.t -> Context.t

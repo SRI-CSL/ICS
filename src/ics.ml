@@ -263,6 +263,13 @@ let _ = Callback.register "term_mk_true" term_mk_true
 let term_mk_false = Boolean.mk_false
 let _ = Callback.register "term_mk_false" term_mk_false
 
+(*s Coproducts. *)
+
+let term_mk_inj = Coproduct.mk_inj
+let _ = Callback.register "term_mk_inj" term_mk_inj
+
+let term_mk_out = Coproduct.mk_out
+let _ = Callback.register "term_mk_out" term_mk_out
 
 (*s Atoms. *)
 
@@ -282,13 +289,16 @@ let _ = Callback.register "atom_of_string" atom_of_string
 let atom_to_string = Pretty.to_string Atom.pp
 let _ = Callback.register "atom_to_string" atom_to_string
 
-let atom_mk_equal = Atom.mk_equal
+let atom_mk_equal a b = 
+  Atom.mk_equal (Fact.mk_equal a b None)
 let _ = Callback.register "atom_mk_equal" atom_mk_equal  
 
-let atom_mk_diseq = Atom.mk_diseq
+let atom_mk_diseq a b = 
+  Atom.mk_diseq (Fact.mk_diseq a b None)
 let _ = Callback.register "atom_mk_diseq" atom_mk_diseq
 
-let atom_mk_in = Atom.mk_in 
+let atom_mk_in i a = 
+  Atom.mk_in (Fact.mk_cnstrnt a i None)
 let _ = Callback.register "atom_mk_in" atom_mk_in
 
 let atom_mk_true = Atom.mk_true
@@ -297,10 +307,12 @@ let _ = Callback.register "atom_mk_true" atom_mk_true
 let atom_mk_false = Atom.mk_false
 let _ = Callback.register "atom_mk_false" atom_mk_false
 
-let atom_mk_real = Atom.mk_in Cnstrnt.mk_real
+let atom_mk_real a = 
+  Atom.mk_in (Fact.mk_cnstrnt a Cnstrnt.mk_real None)
 let _ = Callback.register "atom_mk_real" atom_mk_real
 
-let atom_mk_int = Atom.mk_in Cnstrnt.mk_int
+let atom_mk_int a = 
+  Atom.mk_in (Fact.mk_cnstrnt a Cnstrnt.mk_int None)
 let _ = Callback.register "atom_mk_int" atom_mk_int
 
 let atom_mk_lt = Atom.mk_lt
@@ -327,15 +339,7 @@ let _ = Callback.register "term_is_false" term_is_false
 
 
 let term_mk_mult a b = 
-  match a with
-    | App(Sym.Arith(Sym.Num(q)), []) ->
-	Arith.mk_multq q b
-    | _ ->
-	(match b with
-	   | App(Sym.Arith(Sym.Num(p)), []) ->
-	       Arith.mk_multq p a
-	   | _ ->
-	       mk_app Sym.mult [a; b])
+  Sig.mult Context.empty (a, b)
 let _ = Callback.register "term_mk_mult" term_mk_mult
 
 let rec term_mk_multl = function
@@ -346,48 +350,32 @@ let _ = Callback.register "term_mk_multl" term_mk_multl
 
 
 let term_mk_expt q a = 
-  mk_app Sym.expt [Arith.mk_num q; a]
+  Sig.expt Context.empty (Arith.mk_num q) a
 let _ = Callback.register "term_mk_expt" term_mk_expt
 
 
 (*s Builtin applications. *)
 
-let term_mk_unsigned a = mk_app Sym.unsigned [a]
+let term_mk_unsigned a = Sig.unsigned Context.empty a
 let _ = Callback.register "term_mk_unsigned" term_mk_unsigned
 
-let term_mk_update a b c = mk_app Sym.update [a;b;c]
+let term_mk_update a b c = Sig.update Context.empty (a, b, c)
 let _ = Callback.register "term_mk_update" term_mk_update
 
-let term_mk_select a b = mk_app Sym.select [a; b]
+let term_mk_select a b = Sig.select Context.empty (a, b)
 let _ = Callback.register "term_mk_select" term_mk_select
 
-let term_mk_div a b = mk_app Sym.div [a; b]
+let term_mk_div a b = Sig.div Context.empty (a, b)
 let _ = Callback.register "term_mk_div" term_mk_div
 
-let term_mk_floor a = mk_app Sym.floor [a]
-let _ = Callback.register "term_mk_floor" term_mk_floor
-
-let term_mk_ceiling = Sig.ceiling Context.empty
-let _ = Callback.register "term_mk_ceiling" term_mk_ceiling
-
-let term_mk_sin a = mk_app Sym.sin [a]
-let _ = Callback.register "term_mk_sin" term_mk_sin
-
-let term_mk_cos a = mk_app Sym.cos [a]
-let _ = Callback.register "term_mk_cos" term_mk_cos
 
 let term_mk_apply = 
   Sig.apply Context.empty None
 let _ = Callback.register "term_mk_apply" term_mk_apply
 
-let term_mk_arith_apply (n, c) = 
-  Sig.apply Context.empty (Some(Sym.Real(n, c)))
+let term_mk_arith_apply c = 
+  Sig.apply Context.empty (Some(c))
 let _ = Callback.register "term_mk_arith_apply" term_mk_arith_apply
-
-let term_mk_pred_apply n = 
-  Sig.apply Context.empty (Some(Sym.Boolean(n)))
-let _ = Callback.register "term_mk_pred_apply" term_mk_pred_apply
-
 
 
 (*s Set of terms. *)
@@ -457,23 +445,36 @@ let _ = Callback.register "context_eq" context_eq
 let context_empty () = Context.empty
 let _ = Callback.register "context_empty" context_empty
 
-let context_ctxt_of s = (Atom.Set.elements s.Context.ctxt)
+let context_ctxt_of s = (Atom.Set.elements (Context.ctxt_of s))
 let _ = Callback.register "context_ctxt_of" context_ctxt_of
 
-let context_u_of s = s.Context.u
+let context_u_of s = Context.eqs_of s Theories.U
 let _ = Callback.register "context_u_of" context_u_of
 
-let context_a_of s = s.Context.a
+let context_a_of s = Context.eqs_of s Theories.A
 let _ = Callback.register "context_a_of" context_a_of
 
-let context_t_of s = s.Context.t
+let context_t_of s = Context.eqs_of s Theories.T
 let _ = Callback.register "context_t_of" context_t_of
 
-let context_bv_of s = s.Context.bv
+let context_bv_of s =  Context.eqs_of s Theories.BV
 let _ = Callback.register "context_bv_of" context_bv_of
 
 let context_pp s = Context.pp Format.std_formatter s; Format.print_flush()
 let _ = Callback.register "context_pp" context_pp
+
+let context_ctxt_pp s = 
+  let al = (Atom.Set.elements (Context.ctxt_of s)) in
+  let fmt = Format.std_formatter in
+    List.iter
+      (fun a ->
+	 Pretty.string fmt "\nassert ";
+	 Atom.pp fmt a;
+	 Pretty.string fmt " .")
+      al;
+    Format.print_flush()
+let _ = Callback.register "context_ctxt_pp" context_ctxt_pp
+
 	  
 
 (*s Processing of new equalities. *)
@@ -501,7 +502,9 @@ let d_consistent r =
 	
 let _ = Callback.register "d_consistent" d_consistent 
  
-let process = Shostak.process
+let process s =
+  Trace.func "api" "Process" Atom.pp (Shostak.pp_status Context.pp)
+    (Shostak.process s)
 let _ = Callback.register "process" process   
 
 let split s = 
@@ -512,7 +515,6 @@ let _ = Callback.register "split" split
 
 let can = Shostak.can
 let _ = Callback.register "can" can
-
 
 
 let read_from_channel ch = 
@@ -536,12 +538,8 @@ let rec cmd_rep () =
 
 and cmd_output fmt result =
   (match result with
-     | Result.Process(Shostak.Valid) -> 
-	 (Format.fprintf fmt ":valid")
-     | Result.Process(Shostak.Inconsistent) -> 
-	 (Format.fprintf fmt ":unsat")
-     | Result.Process(Shostak.Satisfiable(n)) -> 
-	 (Format.fprintf fmt ":ok "; Name.pp fmt n)
+     | Result.Process(status) -> 
+	 Shostak.pp_status Name.pp fmt status
      | Result.Unit() ->
 	 Format.fprintf fmt ":unit"
      | Result.Bool(true) ->
