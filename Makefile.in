@@ -155,7 +155,7 @@ ics_all.o: $(CMX)
 	$(OCAMLOPT) -output-obj -o $@ unix.cmxa $(CMX)
 
 $(LIBDIR)/libics.so: $(OBJS)
-	gcc -shared -o $(LIBDIR)/libics.so $(OBJS) \
+	$(CC) -shared -o $(LIBDIR)/libics.so $(OBJS) \
 	  $(OCAMLSTDLIB)/libunix.a \
 	  $(LIBGMPA) \
           $(OCAMLSTDLIB)/libasmrun.a
@@ -279,10 +279,20 @@ ICSDIR = $(shell basename $(PWD))
 ics.tar.gz:	distclean
 	(tar -cvz --file=./ics.tar.gz \
                   --mode="u+rw" \
-                  ./README ./Makefile.in ./configure ./configure.in ./ics-mode.el \
+                  ./README ./Makefile.in ./configure ./configure.in \
+                  ./config.guess \
+                  ./ics-mode.el \
+                  ./fm-license.pdf \
                   ./ics.in \
-                  ./chameleon \
+                  ./chameleon/Makefile.in \
+                  ./chameleon/src/chameleon.ml \
+                  ./chameleon/src/mli_lexer.mll \
+                  ./chameleon/src/mli_parser.mly \
+                  ./chameleon/src/mli_types.mli \
                   ./$(DOCDIR)/doc.ps.gz  ./$(DOCDIR)/doc.pdf \
+                  ./src/mlgmp.c ./src/ocaml-signals.c \
+                  ./src/parser.mly ./src/lexer.mll \
+                  ./src/main.ml \
                   ./$(SRC)  ./$(SRCMLI))
 
 ### Update executables in Lab
@@ -309,7 +319,7 @@ $(DOCDIR)/literal/%.ml.tex: $(SRCDIR)/%.ml
 $(DOCDIR)/literal/%.mli.tex: $(SRCDIR)/%.mli
 	$(OCAMLWEB) --no-preamble --no-index --intf $< -o $(DOCDIR)/literal/$(@F)
 
-doc:  $(DOCDIR)/doc.ps.gz $(DOCDIR)/doc.html $(DOCDIR)/doc.pdf
+doc: $(LITERAL) $(DOCDIR)/doc.ps.gz $(DOCDIR)/doc.html $(DOCDIR)/doc.pdf
 
 $(DOCDIR)/doc.dvi: $(LITERAL)  $(DOCDIR)/dep.ps $(DOCDIR)/doc.tex
 	(cd $(DOCDIR); latex ./doc.tex  && bibtex ./doc && latex ./doc.tex && latex ./doc.tex)
