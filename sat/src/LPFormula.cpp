@@ -82,10 +82,12 @@ LPFormulaManager::LPFormulaManager(unsigned int init_num_formulas,
 LPFormulaManager::~LPFormulaManager()
 {
 	DBG_CODE(cout << "Destroying LPFormulaManager\n";);
+	// cout << ">>Destroying LPFormulaManager\n";
 	delete[] formulas;
 	delete[] arguments;
 	formulas = NULL;
 	arguments = NULL;
+	// cout << "<<Destroying LPFormulaManager\n";
 }
 
 void LPFormulaManager::dump_formula(ostream & target, const LPFormula * f, bool negated) const

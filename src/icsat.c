@@ -331,7 +331,7 @@ extern int ics_sat(LPFormulaId);
 
 value icsat_sat (value x1) {
   CAMLparam1(x1);
-  CAMLreturn(Bool_val(ics_sat(Int_val(x1))));
+  CAMLreturn(Val_bool(ics_sat(Int_val(x1))));
 }
 
 

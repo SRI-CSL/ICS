@@ -39,8 +39,11 @@ void ICSInterface::set_formula(unsigned int f_idx)
 	formulas.insert(f_idx);
 }
 
+extern double SAT_associated_formulas_time;
+
 void ICSInterface::compute_associated_formulas_info()
 {
+	clock_t start = clock();
 	FormulaIdSet::const_iterator it1 = formulas.begin();
 	for (;it1 != formulas.end(); it1++) {
 		unsigned int f1_idx = *it1;
@@ -68,6 +71,8 @@ void ICSInterface::compute_associated_formulas_info()
 						 cout << endl;
 					 });
 
+	clock_t end = clock();
+	SAT_associated_formulas_time = ((double) (end - start)) / CLOCKS_PER_SEC;		
 }
 
 bool ICSInterface::assert_formula(LPFormulaId f, bool in_scratch) {

@@ -86,8 +86,10 @@ LPSolver::LPSolver(LPFormulaManager * f_manager, unsigned int initial_capacity, 
 LPSolver::~LPSolver()
 {
 	DBG_CODE(cout << "Destroying LPSolver\n";);
+	// cout << ">>Destroying LPSolver\n";
 	delete[] literals;
 	delete_dynamic_arrays();
+	// cout << "<<Destroying LPSolver\n";
 }
 
 void LPSolver::delete_dynamic_arrays()
@@ -1195,10 +1197,10 @@ bool LPSolver::check_counter_example_main_loop(LPFormulaId f_id)
 	return true;
 }
 
-bool LPSolver::check_counter_example(LPFormulaId root_id) {
+bool LPSolver::check_assignment(LPFormulaId root_id) {
 	assert(check_marks());
 
-	if (get_formula_value(root_id) != -1) {
+	if (get_formula_value(root_id) != 1) {
 		assert(false);
 		return false;
 	}

@@ -21,6 +21,7 @@ bool SAT_implication_graph_optimization = false;
 int  SAT_clause_relevance = DEFAULT_CLAUSE_RELEVANCE;
 int  SAT_cleanup_period = DEFAULT_CLEANUP_PERIOD;
 extern int ICS_EXPLAIN_NUM_REFINEMENTS;
+double SAT_associated_formulas_time;
 
 extern "C" {
 	void sat_initialize() {
@@ -145,6 +146,7 @@ extern "C" {
 		cout << "  number of formulas: " << sat_formula_manager->get_num_formulas() << endl;
 		cout << "  total solver time: " << SAT_total_solver_time << " secs\n";
 		cout << "    preprocessor time: " << sat_solver->get_preprocessing_time() << " secs\n";
+		cout << "      formula association time: " << SAT_associated_formulas_time << " secs\n";
 		if (SAT_polarity_optimization)
 			cout << "      polarity optimization time: " << sat_solver->get_polarity_optimization_time() << " secs\n";
 		if (SAT_implication_graph_optimization)
@@ -201,9 +203,23 @@ extern "C" {
 		bool result = sat_solver->is_satisfiable(root_id);
 		clock_t end = clock();
 		SAT_total_solver_time = ((double) (end - start)) / CLOCKS_PER_SEC;		
-		cout << "result = " << result << endl;
-		sat_print_statistics();
+		// cout << "result = " << result << endl;
+		// sat_print_statistics();
 		DBG_CODE(cout << "result = " << result << endl;);
+		if (result && SAT_validate_counter_example) {
+			if (SAT_verbose)
+				cout << "  validating counter example... "; 
+			if (sat_solver->check_assignment(root_id)) {
+				if (SAT_verbose)
+					cout << "done\n";
+			}
+			else {
+				if (SAT_verbose)
+					cout << "FAILED\n";
+				cerr << "BUG DETECTED: failed to validade SAT assignment\n";
+				exit(-1);
+			}
+		}
 		return result;
   }
 

@@ -811,7 +811,7 @@ public:
 protected:
 	bool check_counter_example_main_loop(LPFormulaId f_id);
 public:
-	bool check_counter_example(LPFormulaId root_id);
+	bool check_assignment(LPFormulaId root_id);
 	//
 	// End of Result validation methods
 	//
