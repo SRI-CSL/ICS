@@ -91,6 +91,10 @@ type t =
   | Fun of apply             (* Lambda abstraction and application *)
   | Arrays of arrays         (* Theory of arrays. *)
 
+module Uninterp : sig
+  val uninterp : Name.t -> t
+end
+
 
 module Arith : sig
   val d_sym : t -> arith
