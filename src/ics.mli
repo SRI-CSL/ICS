@@ -93,7 +93,7 @@ val set_show_explanations : bool -> unit
     when flag is enabled. *)
 
 val set_justifications : bool -> unit
-  (** Print justifications of internally xgenerated facts (default [false]). *)
+  (** Print justifications of internally generated facts (default [false]). *)
 
 val set_integer_solve : bool -> unit
   (** Enable/disable integer solver (default [true]). Disabling the 
@@ -775,6 +775,10 @@ type justification
 val justification_pp : justification -> unit
   (** Print a justification to [stdout]. *)
 
+val justification_to_axioms : justification -> atom list
+  (** Transform a justification into a list of atoms.  These
+    atoms are the axioms of a proof represented by the justication. 
+    Notice, that such a list is not necesarily minimal. *)
 
 
 (** {6 Processing} *)
@@ -822,11 +826,39 @@ type status
     - [Consistent] neither a redundancy nor an inconsistency could be detected. *)
     
 val is_consistent   : status -> bool
-val is_redundant    : status -> bool
+  (** If [st] is the result of [process ctxt atm], then [is_consistent st] 
+    holds if [atm] has not been shown to be valid in [ctxt] and if [atm] conjoined
+    with [ctxt] has not been shown to be unsatisfiable.  Notice that, despite the
+    name of this function, this does not necessarily imply that [ctxt] extended 
+    with [atm] is indeed satisfiable, since [process] does not perform all the 
+    necessary case splits for some of the nonconvex theories such as integers.
+    Also, the support for nonlinear arithmetic is incomplete.  Therefore, one
+    can only be sure that a context is indeed satisfiable by explicitly 
+    constructing a model. *)
+
+val is_redundant : status -> bool
+  (** If [st] is the result of [process ctxt atm], then [is_redundant st]
+    holds if [atm] could be shown to be valid in [ctxt]. *)
+
 val is_inconsistent : status -> bool
+  (** If [st] is the result of [process ctxt atm], then [is_inconsistent st]
+    holds if [atm] conjoined with [ctxt] is inconsistent. *)
 
 val d_consistent : status -> context
-  (** In case [is_consistent st] holds, [d_consistent st] returns the extended context. *)
+  (** In case [is_consistent st] holds and [st] is the result of 
+    [process ctxt atm], [d_consistent st] returns 
+    the extended context for [ctxt] conjoined with [atm]. *)
+
+val d_redundant : status -> justification
+  (** In case [is_redundant st] and [st] is the result of [process ctxt atm],
+    then [d_redundant st] returns a justification [rho] for the fact that
+    [atm] is valid in context [ctxt]. *)
+
+val d_inconsistent : status -> justification
+  (** In case [is_inconsistent st] and [st] is the result of [process ctxt atm],
+    then [d_inconsistent st] returns a justification [rho] for the fact that
+    [atm] conjoined with the context [ctxt] is unsatisfiable. *)
+
     
 val process : context -> atom -> status
   (** The operation [process s a] adds a new atom [a] to a logical context [s].
@@ -844,13 +876,12 @@ val process : context -> atom -> status
     imply that atom [a] is indeed satisfiable, since the theory of ICS is indeed
     undecidable.  Moreover, ICS includes a number of nonconvex theories, which
     requires case-splitting for completeness.  [process] does not perform these
-    case-splits in order to keep worst-case runtimes polynomial (with the notable
-    exception of canonization of logical bitwise operators).  Instead, it is in 
-    the responsibility of the application programmer to perform these splits;
-    see also {!Ics.split}. *)
+    case-splits in order to keep worst-case runtimes polynomial.  Instead, 
+    it is in the responsibility of the application programmer to perform 
+    these splits; see also {!Ics.split}. *)
 
 val split : context -> atom list
-  (** Suggested case splits. *)
+  (** Suggested case splits. Not available in versions <= 2.1 *)
 
 val can : context -> term -> term * justification
   (** Given a logical context [s] and an atom [a],

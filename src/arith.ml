@@ -371,6 +371,17 @@ let lcm_of_denominators a =
       a lcm0
 
 
+let gcd_of_denominators a =
+  let p = constant_of a in
+  let gcd_init = if Q.is_zero p then Z.one else Q.denominator p in
+  let gcd_step acc m = 
+    let q = coefficient_of_mono m in
+      Z.gcd (Q.denominator q) acc
+  in
+    List.fold_left gcd_step gcd_init (nonconstant_monomials_of a)
+
+
+
 (** Test if [a >= 0]. *)
 let is_nonneg a =
   let q = constant_of a in
@@ -545,7 +556,12 @@ let rec sigma op l =
     | _ ->  
 	assert false
 
-
+(** Multiply with a constant so that all coefficients become integer.*)
+let integerize a =
+  let lcm = Q.of_z (lcm_of_denominators a) in
+  let a' = if Q.is_one lcm then a else mk_multq lcm a in
+  let gcd = Q.of_z (gcd_of_denominators a') in
+    if Q.is_one gcd then a' else mk_multq gcd a'
 
 let dom of_term op al =
   try
@@ -575,6 +591,34 @@ let is_int a =
     Dom.sub (dom_of a) Dom.Int
   with
       Not_found -> false
+
+
+ 
+(** Decompose [a] into [pre + q * y + post]. *)
+let destructure y a =
+  let rec loop pre post =     (* [pre + post = 0]. *)
+    match post with
+      | [m] ->
+	  let q = coefficient_of_mono m
+	  and y' = variable_of_mono m in
+	    if Term.eq y y' then
+	      (pre, q, y, [])
+	    else 
+	      raise Not_found
+      | m :: post' ->
+	  let q = coefficient_of_mono m
+	  and y' = variable_of_mono m in
+	    if Term.eq y y' then
+	      (pre, q, y, post')
+	    else 
+	      loop (m :: pre) post'
+      | [] ->
+	  raise Not_found
+  in      
+  let p = constant_of a
+  and ml = nonconstant_monomials_of a in
+  let (pre, q, y, post) = loop [] ml in
+    (p, pre, q, y, post)
 
 
 (** {6 Rational Solvers} *)
@@ -622,6 +666,19 @@ let is_fresh x =
   let eqx = Term.eq x in
     List.exists eqx !fresh
 
+(** Solve [a = 0] over the integers if there is a 
+  variable with unitary coefficient. *)
+let choose_unitary a =
+  let is_unitary q _ = Q.is_one q || Q.is_negone q in
+    Monomials.variable_choose is_unitary a
+
+let zsolve_unitary x a =
+  let (p, pre, q, x, post) = destructure x a in  (* [a = p + pre + q*x + post = 0]. *)
+  let b = mk_multq (Q.minus (Q.inv q))           (* ==> [x = -1/q(p + pre + post)].*)
+            (mk_addq p (mk_addl (pre @ post)))
+  in
+    (x, b)
+  
 
 module Euclid = Euclid.Make(
   struct
@@ -645,28 +702,36 @@ let rec zsolve (a, b) =
       [Term.orient(a, b)]
     else 
       let a_sub_b = mk_sub a b in
-      let q = constant_of a_sub_b 
-      and ml = nonconstant_monomials_of a_sub_b in     (* [q + ml = 0] *)
-	match ml with
-	  | [] -> 
-	      if Q.is_zero q then [] else raise(Exc.Inconsistent)
-	  | [m] ->                           (* [q + p*x = 0] *)
-	      let p = coefficient_of_mono m
-	      and x = variable_of_mono m in
-	      let q_div_p = Q.div q p in
-		if Q.is_integer q_div_p then 
-		  [(x, mk_num (Q.minus q_div_p))]
-		else 
-		  raise Exc.Inconsistent
-	  | _ ->
-	      let (cl, xl) = vectorize ml in     (* [cl * xl = ml] in vector notation *)
-		(match Euclid.solve cl (Q.minus q) with
-		   | None -> 
-		       raise Exc.Inconsistent
-		   | Some(d, pl) -> 
-		       let gl = general cl (d, pl) in
-			 combine xl gl)
-	     
+	try
+	  let x = choose_unitary a_sub_b in
+	    [zsolve_unitary x a_sub_b]
+	with
+	    Not_found ->
+	      zsolve0 (mk_sub a b)
+
+and zsolve0 a_sub_b =
+  let q = constant_of a_sub_b 
+  and ml = nonconstant_monomials_of a_sub_b in     (* [q + ml = 0] *)
+    match ml with
+      | [] -> 
+	  if Q.is_zero q then [] else raise(Exc.Inconsistent)
+      | [m] ->                           (* [q + p*x = 0] *)
+	  let p = coefficient_of_mono m
+	  and x = variable_of_mono m in
+	  let q_div_p = Q.div q p in
+	    if Q.is_integer q_div_p then 
+	      [(x, mk_num (Q.minus q_div_p))]
+	    else 
+	      raise Exc.Inconsistent
+      | _ ->
+	  let (cl, xl) = vectorize ml in     (* [cl * xl = ml] in vector notation *)
+	    (match Euclid.solve cl (Q.minus q) with
+	       | None -> 
+		   raise Exc.Inconsistent
+	       | Some(d, pl) -> 
+		   let gl = general cl (d, pl) in
+		     combine xl gl)
+	    
 and vectorize ml =
   let rec loop (ql, xl) = function
     | [] -> 
@@ -755,30 +820,4 @@ and isolate_in_unsolved x ((a, b) as e) =
       in
 	(x, c)
     
-   
-(** Decompose [a] into [pre + q * y + post]. *)
-and destructure y a =
-  let rec loop pre post =     (* [pre + post = 0]. *)
-    match post with
-      | [m] ->
-	  let q = coefficient_of_mono m
-	  and y' = variable_of_mono m in
-	    if Term.eq y y' then
-	      (pre, q, y, [])
-	    else 
-	      raise Not_found
-      | m :: post' ->
-	  let q = coefficient_of_mono m
-	  and y' = variable_of_mono m in
-	    if Term.eq y y' then
-	      (pre, q, y, post')
-	    else 
-	      loop (m :: pre) post'
-      | [] ->
-	  raise Not_found
-  in      
-  let p = constant_of a
-  and ml = nonconstant_monomials_of a in
-  let (pre, q, y, post) = loop [] ml in
-    (p, pre, q, y, post)
-
+  

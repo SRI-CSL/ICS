@@ -53,7 +53,7 @@ endif
 
 ### Version ###
 
-VERSION = 2.1
+VERSION = 2.1.experimental
 DEBUG = 0
 
 
@@ -92,8 +92,8 @@ FOREIGNCMO = dynarray.cmo ptset.cmo ptmap.cmo rbset.cmo
 CORECMO = three.cmo \
       mpa.cmo \
       tools.cmo \
-      version.cmo \
       pretty.cmo \
+      version.cmo \
       exc.cmo\
       bitv.cmo \
       dom.cmo \
@@ -151,9 +151,13 @@ CMI = $(CMO:.cmo=.cmi)
 
 CMX = $(CMO:.cmo=.cmx)
 
-SRC = $(addprefix $(SRCDIR)/,$(CMO:.cmo=.ml))
+SRCML = $(addprefix $(SRCDIR)/,$(CMO:.cmo=.ml))
 
-SRCMLI = $(addprefix $(SRCDIR)/,$(CMO:.cmo=.mli))
+SRCMLI = $(addprefix $(SRCDIR)/,$(FOREIGNCMO:.cmo=.mli)) \
+         $(addprefix $(SRCDIR)/,$(CORECMO:.cmo=.mli))\
+         $(SRCDIR)/symtab.mli \
+         $(SRCDIR)/istate.mli \
+         $(SRCDIR)/ics.mli
 
 ICSAT= $(SATDIR)/lib/$(ARCH)/icsat.a
 
@@ -302,34 +306,7 @@ $(OBJDIR)/%.mll: $(SRCDIR)/%.mll
 $(OBJDIR)/%.c: $(SRCDIR)/%.c
 	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
 
-# Distribution
 
-ics-$(VERSION).tar.gz:
-	(tar -cvz --file=./ics-$(VERSION).tar.gz \
-                  --mode="u+rw" \
-                  ./README ./Makefile.in ./configure ./configure.in \
-                  ./config.guess \
-                  ./ics-mode.el \
-                  ./fm-license.pdf \
-                  ./ics.in \
-                  ./chameleon/Makefile.in \
-                  ./chameleon/src/chameleon.ml \
-                  ./chameleon/src/mli_lexer.mll \
-                  ./chameleon/src/mli_parser.mly \
-                  ./chameleon/src/mli_types.mli \
-                  ./$(DOCDIR)/doc.ps.gz  ./$(DOCDIR)/doc.pdf \
-                  ./sat/Makefile.in \
-                  ./sat/src/*.cpp \
-	          ./sat/src/*.h \
-                  ./sat/src/*.d \
-                  ./sat/src/Makefile.in \
-                  ./sat/lib/ \
-                  ./src/*.c \
-                  ./src/parser.mly \
-                  ./src/lexer.mll \
-                  ./src/main.ml \
-                  ./$(SRC) \
-	          ./$(SRCMLI))
 
 
 ### Documention
@@ -342,7 +319,7 @@ $(DOCDIR)/doc.dvi: $(DOCDIR)/dep.ps $(DOCDIR)/doc.tex $(DOCDIR)/api.tex
 	(cd $(DOCDIR); \
          latex ./doc.tex && latex ./doc.tex)
 
-$(DOCDIR)/dep.ps: $(SRC)
+$(DOCDIR)/dep.ps: $(SRCML)
 	(cd src; $(OCAMLDEP) -native *.ml *.mli | ocamldot | dot -Tps > ../doc/dep.ps)
 
 $(DOCDIR)/api.tex: $(SRCDIR)/ics.mli
@@ -445,7 +422,6 @@ clean::
 	rm -f $(INCDIR)/*
 	rm -rf $(SRCDIR)/parser.output
 	rm -rf $(SRCDIR)/lexer.ml
-	rm -rf $(SRCDIR)/lexer.mli
 	rm -rf $(SRCDIR)/parser.ml
 	rm -rf $(SRCDIR)/parser.mli
 	rm -rf obj/*  lib/* bin/*
@@ -488,8 +464,7 @@ lexer.cmi: lexer.ml
 
 parser.mli parser.ml: parser.mly
 
-
-.depend: $(SRC)
+.depend: $(SRCML)
 	$(OCAMLDEP) *.mli *.ml main.ml > .depend
 
 
@@ -502,6 +477,8 @@ endif
 
 ICS_DIST_DIR="ics-$(VERSION)"
 ICS_DIST_TAR="ics-$(VERSION)-bin-$(ARCH).tar.gz"
+
+.PHONY: binary-distribution
 
 binary-distribution: 
 	@ echo "Building ICS binary distribution..."
@@ -528,3 +505,37 @@ binary-distribution:
 	@ echo "Building TAR ball..."
 	@ tar -cvzf $(ICS_DIST_TAR) $(ICS_DIST_DIR)
 
+
+# Source Distribution
+
+ICS_SRC_TAR="ics-$(VERSION).tar.gz"
+
+source-distribution:
+	@ echo "Building ICS source distribution..."
+	@ rm -r -f $(ICS_DIST_DIR)	
+	@ mkdir $(ICS_DIST_DIR)
+	@ (tar -cvz --file=$(ICS_SRC_TAR) \
+                  --mode="u+rw" \
+                  ./README ./Makefile.in ./configure ./configure.in \
+                  ./config.guess \
+                  ./ics-mode.el \
+                  ./fm-license.pdf \
+                  ./ics.in \
+                  ./chameleon/Makefile.in \
+                  ./chameleon/src/chameleon.ml \
+                  ./chameleon/src/mli_lexer.mll \
+                  ./chameleon/src/mli_parser.mly \
+                  ./chameleon/src/mli_types.mli \
+                  ./$(DOCDIR)/doc.ps.gz  ./$(DOCDIR)/doc.pdf \
+                  ./sat/Makefile.in \
+                  ./sat/src/*.cpp \
+	          ./sat/src/*.h \
+                  ./sat/src/Makefile.in \
+                  ./sat/lib/ \
+                  ./src/*.c \
+                  ./src/parser.mly \
+                  ./src/lexer.mll \
+                  ./src/main.ml \
+                  ./$(SRCML) \
+	          ./$(SRCMLI))
+	@ echo "Finished building " $(ICS_SRC_TAR) 

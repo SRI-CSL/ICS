@@ -525,6 +525,11 @@ end
 let is_unbounded a = 
   Negdep.is_empty a 
 
+let is_unbounded_term a =
+  let is_unbounded_monomial _ x =
+    is_unbounded x 
+  in
+    Arith.Monomials.Pos.exists is_unbounded_monomial a
 
 (** [x = a == y = a'] with [y] unbounded in [s]; otherwise [Not_found] is raised. *)
 let try_isolate_rhs_positive_unbounded e =
@@ -594,6 +599,7 @@ let choose_negvar_with_no_smaller_gain a' =
 (** [replace s a] one-step replaces dependent variables [x] 
   in [a] with [b] if [x = b] in [s]. *)
 let replace a =
+  Trace.call "la" "Replace" a Term.pp;
   let hyps = ref Jst.dep0 in
   let lookup y = 
     try
@@ -603,6 +609,7 @@ let replace a =
 	Not_found -> y
   in
   let b = Arith.map lookup a in
+    Trace.exit "la" "Replace" b Term.pp;
     (b, !hyps)
 
 (** Replace dependent variables in [s] with corresponding
@@ -740,8 +747,8 @@ let rec fuse ((x, _, _) as e) =
       if Term.is_var b then
 	begin
 	  Partition.merge !Infsys.p e';
-	  S.restrict !s y;
-	  fuse e'   (* in every recursive call one less equation. *)
+	  S.restrict !s y
+	(*  fuse e'   (* in every recursive call one less equation. *)  *)
 	end
       else 
 	update e'
@@ -921,9 +928,9 @@ and compose_and_cut ((x, a, _) as e) =
   Trace.msg "la'" "Compose" e Fact.Equal.pp;
   assert(Term.is_var x);
   assert(is_noncircular());
-  compose e;
-  assert(is_noncircular());
-  if !Arith.integer_solve 
+  compose e;                       
+  assert(is_noncircular());          (* to do: apply cut to all fused equalities. *)
+  if !Arith.integer_solve            (* be careful, [fuse] should still be atomic. *)
     && is_diophantine e 
     && is_restricted_equality e
   then
@@ -953,6 +960,10 @@ and gomory_cut  ((x, a, rho) as e) = (* [rho |- x = a]. *)
 	    cut e'
       with
 	  Not_found -> ()
+	    (** To do: Right cut: compute gain for a integer slack [y] on rhs
+	      and if gain is fractional then pivot and cut on everything
+	      that has been changed by pivot.
+              Do right cut on each of those variables to completion. *)
 
 and choose_right_cut q =
   let pred qi _ = not(Q.is_integer (Q.div q qi)) in
@@ -962,7 +973,7 @@ and choose_right_cut q =
 and cut (x, a, rho) =         (* [rho |- x = b + ml]. *)
   let b = Arith.constant_of a
   and ml = Arith.nonconstant_of a in  (* [a == b + ml]. *)
-    assert(not(Q.is_integer b));    (* Gomory cut only on fractional constant. *)
+    assert(not(Q.is_integer b));  (* Gomory cut only on fractional constant. *)
     let b' = Q.minus (Q.def b) in
     let ml' = Arith.Monomials.mapq Q.frac ml in
     let a' = Arith.mk_addq b' ml' in
@@ -1249,48 +1260,62 @@ let is_diseq a b =
       Jst.Inconsistent(sigma) -> Some(sigma)
 
 
-(** {6 Extremal Values} *)    
+(** [is_inconsistent_nonneg (a, rho)] iff adding [a >= 0] to the current
+  context yields an inconsistency. *)
+let is_inconsistent_nonneg ((a, rho) as nn) =
+  try
+    let _ = protect process_nonneg nn in
+      None
+  with
+      Jst.Inconsistent(sigma) -> Some(sigma)
+
+(** [is_inconsistent_equal (a, b, rho)] iff adding [a = b] to the current
+  context yields an inconsistency. *)
+let is_inconsistent_equal ((a, b, rho) as e) =
+  try
+    let _ = protect process_equal e in
+      None
+  with
+      Jst.Inconsistent(sigma) -> Some(sigma)
+
+
+
+(** {6 Extremal Values} *) 
 
 (** Maximize [a] in [s] by systematically eliminating positive 
   monomials in the canonical form [a'] of [a].  It returns either 
   - [(b, rho')] such that [b+] is empty and [rho' |- a = b], or
   - raises [Unbounded] if [a] is unbounded. *)
 let rec upper a =
-  let rec max_term a (b, rho) =           (* [rho |- b = a] *)
-    if Term.is_var a then
-      max_var a (b, rho)
+  let rho = ref Jst.dep0 in
+  let rec max_term a =           (* [rho |- b = a] *)
+    Trace.msg "la" "Max" a Term.pp;
+    if is_unbounded_term a then
+      raise Unbounded
     else 
       try
 	let x = choose_pos_least a in     (* choose least [x] in [a+]. *)
-	let (_, e) = gain x in            (* [y = ... + q*x + ...] with [q < 0].  *)
-	let e' = isolate x e in           (* Isolate [x] in [e] and substitute *)
-	let (a', rho') = apply1 e' a in   (* [rho' |- a = a'] *)
-	let tau = Jst.dep2 rho rho' in
-	  max_term a' (b, tau)            (* [tau |- b = a'] *)
+	  Trace.msg "la" "Choose" x Term.pp;
+          pivot x;
+	  let (b, tau) = replace a in
+	    rho := Jst.dep2 tau !rho;
+	    max_term b
       with
 	  Not_found -> 
 	    begin
 	      assert(Arith.Monomials.Pos.is_empty a);
-	      (a, rho)
+	      a
 	    end
-  and max_var x (b, rho) =                 (* [rho |- x = b] *)
-    assert(is_restricted_var x);
-    make_dependent x;                      (* make [x] a dependent variable. *)
-    try
-      let (a, rho') = apply x in           (* [rho' |- x = a] *)
-      let tau = Jst.dep2 rho rho' in
-	max_term a (b, tau)
-    with
-	Not_found -> raise Unbounded
   in
-  let (b, rho) = can a in
+  let (b, tau) = replace a in
+    rho := Jst.dep2 tau !rho;
     if Arith.is_num b then
-      (b, rho)
+      (b, !rho)
     else if is_unrestricted b then 
       raise Unbounded
     else
-      protect 
-	(max_term b) (a, rho)               (* [rho |- a = b] *)
+      let c = protect max_term b in
+	(c, !rho)
 
 
 (** Update [s] such that [x] is a dependent variable whenever 
@@ -1323,7 +1348,7 @@ and inf a =
   Trace.call "la" "Inf" a Term.pp;
   let (b, rho) = lower a in
     assert(Arith.Monomials.Neg.is_empty b);
-    Trace.call "la" "Inf" (Arith.constant_of b) Mpa.Q.pp;
+    Trace.exit "la" "Inf" (Arith.constant_of b) Mpa.Q.pp;
     (Arith.constant_of b, rho) 
 
 (** Closed interval with rational endpoints or [Unbounded]. *)
@@ -1362,8 +1387,9 @@ and process_nondiophantine_diseq ((a, b, _) as d) =
 
 (** Process [a <> 0] for [a] diophantine by processing 
   the disjunction [a >= 1] or [-a >= 1] when [a] is
-  bounded from below and above. In particular, there 
-  are [l1], [l2] with [a - 1 >= l1] and [-a - 1 >= l2]. Now, 
+  bounded from below by [l1+1] and above by [-l2-1]. 
+  In particular, there are [l1], [l2] with 
+  [a - 1 >= l1] and [-a - 1 >= l2]. Now, 
   the original disequality is encoded by
   - [a - 1 >= l1 * (1 - z) = l1 - l1 * z]
   - [-a - 1 >= l2 * z]
@@ -1373,23 +1399,34 @@ and process_nondiophantine_diseq ((a, b, _) as d) =
 and process_diophantine_diseq2 ((a, rho) as d) =      (* [rho |- a <> 0 ]. *)
   assert(Arith.is_diophantine a);
   Trace.msg "la" "Diophantine" (a, Arith.mk_zero(), rho) Fact.Diseq.pp;
-  if is_restricted a then
-    let a_sub_1 = Arith.mk_decr a in
-    let nega_sub_1 =  Arith.mk_decr (Arith.mk_neg a) in
-      try
-	let (l1, tau) = inf a_sub_1 in                (* [tau |- a-1 >= l1]. *)
-	let (l2, sigma) = inf nega_sub_1 in           (* [sigma |- -a-1 >= l2]. *)
-	let theta = Jst.dep3 rho tau sigma in
-	let z = Term.Var.mk_slack None (Var.nonneg Dom.Int) in
-	  process_ge (a_sub_1, Arith.mk_addq l1 (Arith.mk_multq(Q.minus l1) z), theta);
-	  process_ge (nega_sub_1, Arith.mk_multq l2 z, theta);
-	  process_le (z, Arith.mk_one(), theta)
-      with
-	  Unbounded -> 
-	    process_nondiophantine_diseq (a, Arith.mk_zero(), rho)
-  else 
-    process_nondiophantine_diseq (a, Arith.mk_zero(), rho) 
-    
+  match is_inconsistent_equal (a, Arith.mk_zero(), rho) with
+    | Some _ -> ()
+    | None -> 
+	if is_restricted a then
+	  let a_sub_1 = Arith.mk_decr a in
+	  let nega_sub_1 =  Arith.mk_decr (Arith.mk_neg a) in
+	    match is_inconsistent_nonneg (a_sub_1, rho) with
+	      | Some(tau) ->                    (* ==> [rho, tau |- -a -1 >= 0 <=> a <> 0]. *)
+		  process_nonneg (nega_sub_1, Jst.dep2 rho tau)
+	      | None ->  
+		  (match is_inconsistent_nonneg (nega_sub_1, rho) with
+		     | Some(sigma) ->           (* ==> [rho, sigma |- a - 1 >= 0 <=> a <> 0]. *)
+			 process_nonneg (a_sub_1, Jst.dep2 rho sigma)
+		     | None -> 
+			 (try
+			    let (l1, tau) = inf a_sub_1 in                (* [tau |- a-1 >= l1]. *)
+			    let (l2, sigma) = inf nega_sub_1 in           (* [sigma |- -a-1 >= l2]. *)
+			    let theta = Jst.dep3 rho tau sigma in
+			    let z = Term.Var.mk_slack None (Var.nonneg Dom.Int) in
+			      process_ge (a_sub_1, Arith.mk_addq l1 (Arith.mk_multq (Q.minus l1) z), theta);
+			      process_ge (nega_sub_1, Arith.mk_multq l2 z, theta);
+			      process_le (z, Arith.mk_one(), theta)
+			  with
+			      Unbounded -> 
+				process_nondiophantine_diseq (a, Arith.mk_zero(), rho)))
+	else 
+	  process_nondiophantine_diseq (a, Arith.mk_zero(), rho)
+	    
 (** [a >= b] iff [a - b >= 0. *)
 and process_ge (a, b, rho) =
   Trace.msg "la" "Ge" (a, b) (Pretty.pair Term.pp Term.pp);
@@ -1602,7 +1639,7 @@ module Infsys: (Infsys.ARITH with type e = S.t) = struct
 		let (findy, sigma) = apply y in
                 let e' = Fact.Equal.make x findy (Jst.dep2 rho sigma) in
 		  do_infer := false;         (* toplevel  *)
-		  (* restrict y; *)
+		  (* restrict y; *) 
 		  process_equal e';
 		  compose e;
 		  infer ()
@@ -1670,7 +1707,7 @@ module Infsys: (Infsys.ARITH with type e = S.t) = struct
     assert(all_variables_propagated());
      ()
     
-  let nonneg ((a, rho) as nn)=
+  let nonneg ((a, rho) as nn) =
     assert(Fact.Nonneg.is_pure Th.la nn);
     match Arith.is_nonneg a with
       | Three.Yes -> ()

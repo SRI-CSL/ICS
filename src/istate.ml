@@ -1104,8 +1104,9 @@ let do_sup =
   (fun (n, a) ->
      let s = get_context n in
        try
-	 let (b, rho) = Combine.maximize (Context.config_of s) a in
-	   Out.term (b, rho)
+	 let (b, rho) = Combine.can (Context.config_of !current) a in
+	 let (c, tau) = Combine.maximize (Context.config_of s) b in
+	   Out.term (c, Jst.dep2 rho tau)
        with
 	   La.Unbounded -> Out.none ())
   {args = "[@<ident>]  <term>";
@@ -1125,8 +1126,9 @@ let do_inf =
     (fun (n, a) ->
        let s = get_context n in
 	 try
-	   let (b, rho) = Combine.minimize (Context.config_of s) a in
-	     Out.term (b, rho)
+	   let (b, rho) = Combine.can (Context.config_of !current) a in
+	   let (c, tau) = Combine.minimize (Context.config_of s) b in
+	     Out.term (c, Jst.dep2 rho tau)
 	 with
 	     La.Unbounded -> Out.none ())
   {args = "[@<ident>] <term>";
@@ -1700,7 +1702,7 @@ let _ =
 
 
 let _ =
-  Nonterminal.register "parameters"
+  Nonterminal.register "parameter"
     (let params = ref [] in
        Parameters.iter
 	 (fun x ->  params := Parameters.to_string x :: !params);
