@@ -1,7 +1,3 @@
-
-
-
-
 (*
  * hashcons: hash tables for hash consing
  * Copyright (C) 2000 Jean-Christophe FILLIATRE

@@ -1,5 +1,4 @@
-(*i
- * Bit vectors.
+(*
  * Copyright (C) 1999 Jean-Christophe FILLIATRE
  * 
  * This software is free software; you can redistribute it and/or
@@ -14,7 +13,7 @@
  * (enclosed in the file LGPL).
  i*)
 
-(* $Id: bitv.ml,v 1.3 2003/10/06 03:25:05 ruess Exp $ *)
+(* $Id: bitv.ml,v 1.4 2003/10/23 17:08:37 ruess Exp $ *)
 
 (** Bitvector constants. *)
 
