@@ -38,17 +38,20 @@ let portnum_flag = ref None
 (*s Interactive toplevel. Read commands from standard input and evaluate them. *)
 
 let rec repl inch =
-  usage ();
-  Ics.init (1, 
-            not !disable_pretty_print_flag,
-            !end_of_transmission,
-            inch,
-            Ics.channel_stdout());
-  let outch = Ics.channel_stdout () in
-  while true do
-    prompt ();
-    Ics.cmd_rep ()
-  done
+  try
+    usage ();
+    Ics.init (1, 
+              not !disable_pretty_print_flag,
+              !end_of_transmission,
+              inch,
+              Ics.channel_stdout());
+    let outch = Ics.channel_stdout () in
+      while true do
+	prompt ();
+	Ics.cmd_rep ()
+      done
+  with
+    | Failure "drop" -> ()
 
 and prompt () =
   if not(!disable_prompt_flag) then 
