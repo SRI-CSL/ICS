@@ -97,14 +97,10 @@ let use s = A.use s.a
 
 let cnstrnt s a =
   let b = A.find s.a a in
-  match C.cnstrnt s.c b with
-    | Some(d) ->
-	Some(d)
-    | None when is_linear_slack_combination a ->
-	Some(Cnstrnt.mk_real)
-    | None ->
-	None
-
+  if is_linear_slack_combination b then
+    Some(C.cnstrnt s.c b)
+  else 
+    None
 
 (*s Extend the domain of equality map. *)
 

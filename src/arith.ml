@@ -312,14 +312,23 @@ and mk_expt n a =
 
 (*s Decomposition. *)
 
+type decompose =
+  | Const of Mpa.Q.t
+  | One of Mpa.Q.t * Mpa.Q.t * Term.t
+  | Many of Mpa.Q.t * Mpa.Q.t * Term.t * Term.t
+
+
 let decompose a =
   let (q, al) = poly_of a in
   match al with
     | [] -> 
-	None
+	Const(q)
+    | [m] ->
+	let (p,x) = mono_of m in
+	One(q,p,x)
     | m :: ml ->
 	let (p,x) = mono_of m in
-	Some(q, p, mk_add x (mk_multq (Q.inv p) (mk_addl ml)))
+	Many(q, p, x, Term.mk_app Sym.mk_add ml)
 
 (*s Apply term transformer [f] at uninterpreted positions. *)
 
