@@ -135,7 +135,6 @@ and solved_normalize sl =
   in
     loop [] sl
 
-
 (** [apply e a], for [e] is of the form [x = b], applies the
   substition [x := b] to [a]  *)
 let apply1 e = 
@@ -343,7 +342,7 @@ let upd ((x, a, rho) as e) =
 	S.update (!Infsys.p, !s) e''
   else 
 *)
-    Trace.msg "la'" "Update" e Fact.Equal.pp;
+   (* Trace.msg "la'" "Update" e Fact.Equal.pp; *)
     S.update (!Infsys.p, !s) e
 
 let restrict x = 
@@ -783,7 +782,7 @@ let compose e =
      go below [0] in this process. *)
 
 let rec process_equal e =
-  Trace.msg "la'" "Merge" e Fact.Equal.pp;
+  (* Trace.msg "la'" "Merge" e Fact.Equal.pp; *)
   assert(is_noncircular());
   let e = Fact.Equal.map replace e in
     assert(is_nondependent_equal e);
@@ -901,7 +900,7 @@ and eliminate_zero_slack (k, rho) =                 (* [rho |- k = 0] *)
 	  compose_and_cut e0
 	    
 and compose_and_cut ((x, a, _) as e) = 
-  Trace.msg "la'" "Compose" e Fact.Equal.pp;
+  (* Trace.msg "la'" "Compose" e Fact.Equal.pp; *)
   assert(Term.is_var x);
   assert(is_noncircular());
   compose e;
@@ -938,7 +937,7 @@ and gomory_cut e =
 
 
 and process_nonneg ((a, rho) as nn) =                 (* [rho |- a >= 0] *)
-  Trace.msg "la'" "process_nonneg" nn Fact.Nonneg.pp;
+  (* Trace.msg "la'" "process_nonneg" nn Fact.Nonneg.pp; *)
   match Arith.is_nonneg a with
     | Three.Yes -> ()
     | Three.No -> raise(Jst.Inconsistent(rho))
@@ -956,7 +955,7 @@ and process_nonneg ((a, rho) as nn) =                 (* [rho |- a >= 0] *)
 		    let (k, tau) = mk_nonneg_slack a rho in  (* [tau |- k = a] *) 
 		    let e = Fact.Equal.make k a (Jst.dep2 rho tau) in
 		      !nl_merge e;
-		      Trace.msg "nl" "Merge(nl)" e Fact.Equal.pp;
+		      (* Trace.msg "nl" "Merge(nl)" e Fact.Equal.pp; *)
 		      compose (isolate y e))
 		 with
 		     Not_found ->
@@ -1001,7 +1000,7 @@ and process_nonneg_make_feasible e =
 
 and add_to_t ((k, a, rho) as e) =
   assert(is_restricted_var k && is_restricted a);
-  Trace.msg "la'" "Add_to_t" e Fact.Equal.pp;
+  (* Trace.msg "la'" "Add_to_t" e Fact.Equal.pp; *)
   if Q.is_nonneg (Arith.constant_of a) then
     compose_and_cut e
   else if Arith.Monomials.Pos.is_empty a then
@@ -1034,8 +1033,10 @@ and pivot y =
   try
     let (g, e) = gain y in
     let e' = isolate y e in 
+(*
     Trace.msg "la'" "Pivot" (e, e') (Pretty.infix Fact.Equal.pp " ==> " Fact.Equal.pp);
     Trace.msg "la'" "with gain" g Mpa.Q.pp;
+*)
       compose e'                        (* no Gomory cuts required for pivoting. *)
   with
       Not_found -> 
@@ -1055,7 +1056,7 @@ and infer () =
   if !do_infer then
     begin
       let stuck_at_zeros = analyze () in  (* 1. find all stuck at zero variables. *)
-	Trace.msg "la'" "Analyze" (Term.Var.Set.elements stuck_at_zeros) (Pretty.set Term.pp);
+	(* Trace.msg "la'" "Analyze" (Term.Var.Set.elements stuck_at_zeros) (Pretty.set Term.pp); *)
 	maximize stuck_at_zeros           (* 2. maximize all zeros which are not stuck at zero. *)
     end
 
@@ -1090,8 +1091,10 @@ and maximize stuck_at_zeros =
       Not_found -> ()
       
 and maximize1 stuck_at_zeros ((k, a, rho) as e) = (* [rho |- k = a] *)
+(*
   Trace.msg "la'" "Maximize1" e Fact.Equal.pp;
   Trace.msg "la'" "with stuck_at_zeros" (Term.Var.Set.elements stuck_at_zeros) (Pretty.set Term.pp);
+*)
   let monomial_is_unbounded _ y = is_unbounded y in
     if not(Mpa.Q.is_zero (Arith.constant_of a)) then
       stuck_at_zeros
@@ -1119,7 +1122,7 @@ and stuck_at_zeros_is_zero y =
 
 and pivot_in_maximize stuck_at_zeros y =  (* pivot and update stuck at zero variables to *)
   assert(not(is_unbounded y));            (* contain only dependent variables. *)
-  Trace.msg "la'" "Pivot" y Term.pp;
+  (* Trace.msg "la'" "Pivot" y Term.pp; *)
   try
     let (g, e) = gain y in  
       let e' = isolate y e in  
@@ -1143,7 +1146,7 @@ and set_to_zero (x, a, rho) =             (* [rho |- x = a] *)
   Arith.Monomials.Neg.iter
     (fun _ y ->
        let e = Fact.Equal.make y (Arith.mk_zero()) rho in
-	 Trace.msg "la'" "Set_to_zero" e Fact.Equal.pp;
+	 (* Trace.msg "la'" "Set_to_zero" e Fact.Equal.pp; *)
 	 compose e)
     a
 
@@ -1456,7 +1459,7 @@ end
 (** {6 Inference System} *)
 
 (** Inference system for linear arithmetic. *)
-module Infsys0: (Infsys.ARITH with type e = S.t) = struct
+module Infsys: (Infsys.ARITH with type e = S.t) = struct
 
   type e = S.t
   
@@ -1512,27 +1515,19 @@ module Infsys0: (Infsys.ARITH with type e = S.t) = struct
 		    restrict x;
 		    process_equal e';
 		    infer ())
-	 with
-	     Not_found -> 
-               (try                            (* case: [x = find(y)] *)
-		  let (findy, sigma) = apply y in
-                  let e' = Fact.Equal.make x findy (Jst.dep2 rho sigma) in
-		    do_infer := false; (* toplevel  *)
-		(*    restrict y; *)
-		    process_equal e';
-		    compose e;
-		    infer ()
-                with
-                    Not_found ->               (* case: [x = y]. *)
-                      toplevel compose e));
-    if not(is_noncircular()) then
-      begin
-	Format.eprintf "\nCircularity when propagating %s in \n" (Pretty.to_string Fact.Equal.pp e);
-        pp R Format.err_formatter !s;
-	pp T Format.err_formatter !s;
-	Format.eprintf "@.";
-        exit 1;
-      end;
+       with
+	   Not_found -> 
+	     (try                            (* case: [x = find(y)] *)
+		let (findy, sigma) = apply y in
+                let e' = Fact.Equal.make x findy (Jst.dep2 rho sigma) in
+		  do_infer := false;         (* toplevel  *)
+		  (* restrict y; *)
+		  process_equal e';
+		  compose e;
+		  infer ()
+              with
+                  Not_found ->               (* case: [x = y]. *)
+                    toplevel compose e));
     assert(is_noncircular())
 
   let dismerge d = 
@@ -1630,8 +1625,9 @@ module Infsys0: (Infsys.ARITH with type e = S.t) = struct
 end
 
 (** Tracing inference system. *)
+(*
 module Infsys: (Infsys.ARITH with type e = S.t) =
-  Infsys.TraceArith(Infsys0)
+  Infsys.TraceArith(Infsys)
     (struct
        type t = S.t
        let level = "la"
@@ -1639,6 +1635,7 @@ module Infsys: (Infsys.ARITH with type e = S.t) =
        let diff = S.diff
        let pp = S.pp
      end)
+*)
 
 
 (** {6 Inequality Tests} *)

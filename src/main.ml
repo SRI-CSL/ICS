@@ -149,6 +149,7 @@ and server portnum =
 
 
 let rec main () =
+  Ics.init(0);
   try
     let l = args () in
       (match !portnum_flag with

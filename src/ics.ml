@@ -17,8 +17,27 @@
 
 open Format
 
+external ics_licensed_to : unit -> unit = "ics_licensed_to"
+external ics_is_licensed : unit -> bool = "ics_is_licensed"
+
+let license_check () = 
+  if ics_is_licensed() then
+    begin
+      (* Format.eprintf "%s licensed to " Version.version;
+      ics_licensed_to (); 
+      Format.eprintf "@." *)
+    end 
+  else 
+    begin
+     Format.eprintf "\nThis copy of ICS appears to be unlicensed.";
+     Format.eprintf "\nPlease, obtain the license agreement at ics.csl.sri.com";
+     Format.eprintf "\nand follow the simple three step instructions for obtaining";
+     Format.eprintf "\na licensed copy of ICS.\n\n"
+    end
+
 
 let init (n) =
+  license_check ();
   if n = 0 then
     Sys.catch_break true                 (** raise [Sys.Break] exception upon *)
                                          (** user interrupt. *)

@@ -69,9 +69,9 @@ endif
 
 ### Object files ###
 
-COBJS = mlgmp41.o ocaml-signals.o icsat.o
+COBJS = mlgmp41.o ocaml-signals.o icsat.o licensing.o
 
-OBJS = ics_all.o ics_stub.o ocaml-signals.o mlgmp41.o icsat.o
+OBJS = ics_all.o ics_stub.o ocaml-signals.o mlgmp41.o icsat.o licensing.o
 
 LISPERROROBJ = ics_lisp_error.o
 
@@ -277,6 +277,7 @@ $(INCDIR):
 .PRECIOUS : $(OBJDIR)/%.mll $(OBJDIR)/ocaml-signals.c
 .PRECIOUS : $(OBJDIR)/%.mll $(OBJDIR)/icsat.c 
 .PRECIOUS : $(OBJDIR)/%.mll $(OBJDIR)/ics_lisp_error.c
+.PRECIOUS : $(OBJDIR)/%.mll $(OBJDIR)/licensing.c
 
 $(OBJDIR)/%.ml: $(SRCDIR)/%.ml
 	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
@@ -300,6 +301,9 @@ $(OBJDIR)/icsat.c: $(SRCDIR)/icsat.c
 	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
 
 $(OBJDIR)/ics_lisp_error.c: $(SRCDIR)/ics_lisp_error.c
+	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
+
+$(OBJDIR)/licensing.c: $(SRCDIR)/licensing.c
 	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
 
 
