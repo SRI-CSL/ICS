@@ -163,7 +163,7 @@ let mk_neg =
 			 mk_false
 		     | Atom.FF -> 
 			 mk_true
-		     | Atom.Diseq(s, t) -> (* [not(s <> )] iff [s = t]. *)
+		     | Atom.Diseq(s, t) -> (* [not(s <> t)] iff [s = t]. *)
 			 mk_poslit (Atom.mk_equal (s, t))
 		     | Atom.Pos(t) -> 
 			 let b = Atom.mk_nonneg (Arith.mk_neg t) in 
@@ -182,9 +182,9 @@ let mk_neg =
 
 
 let mk_disj =
-  let rec simplify acc = function
-    | [] -> acc
-    | True :: _ -> [True]
+  let rec simplify acc = function  (* don't do simplify as this builds up *) 
+    | [] -> acc                    (* structure and many formulas can not *)
+    | True :: _ -> [True]          (* be build as a result. *)
     | False :: pl -> simplify acc pl
     | Disj(ql, _) :: pl -> simplify acc (ql @ pl)
     | p :: pl -> simplify (p :: acc) pl  
@@ -211,7 +211,7 @@ let mk_disj =
 	Table.find memo pl
       with
 	  Not_found -> 
-	    let disj = match simplify [] pl with
+	    let disj = match pl with
 	      | [] -> False
 	      | [p] -> p
 	      | pl -> 
@@ -222,8 +222,8 @@ let mk_disj =
 	      Table.add memo pl disj; disj
 
 let mk_conj =
-  let rec simplify acc = function
-    | [] -> acc
+  let rec simplify acc = function  (* don't call simplification! *)
+    | [] -> acc                    (* (see above) *)
     | True :: pl -> simplify acc pl
     | False :: _ -> [False]
     | p :: pl -> simplify (p :: acc) pl  
@@ -246,7 +246,7 @@ let mk_conj =
 	Table.find memo pl
       with
 	  Not_found -> 
-	    let conj = match simplify [] pl with
+	    let conj = match pl with
 	      | [] -> True
 	      | [p] -> p	
 	      | pl ->
@@ -532,7 +532,8 @@ let is_model_of propval atomval =
    eval
 
 
-(** Translate propositional formula to one understood by ICSAT. *)
+(** Translate propositional formula to one understood by ICSAT. 
+  For big formulas this causes stack overflow. *)
 let to_prop p =
   let module Table = Hashtbl.Make(
     struct
