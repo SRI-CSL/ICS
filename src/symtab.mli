@@ -19,16 +19,19 @@
 
 
 type entry = 
-  | Def of defn
+  | Def of args * defn
   | Arity of int
   | Type of Var.Cnstrnt.t
   | State of Context.t
 
 and defn = 
-  | Term of Term.t
+  | Term of  Term.t
   | Prop of Prop.t
 
+and args = Name.t list
+
 and t
+
 
 val lookup : Name.t -> t -> entry
   (** [lookup n s] lookup value [e] if binding [n |-> e] is in the table [s];

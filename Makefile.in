@@ -17,8 +17,6 @@ OCAMLDEP = @OCAMLDEP@
 OCAMLMKLIB = @OCAMLMKLIB@
 OCAMLDOC = @OCAMLDOC@
 
-DEBUG = @DEBUG@
-
 prefix = @prefix@
 exec_prefix = @exec_prefix@
 bindir = @bindir@
@@ -28,6 +26,7 @@ LIBS=@LIBS@
 MINUS_L_LIBS=@MINUS_L_LIBS@
 CPPFLAGS=@CPPFLAGS@
 posixos=@posixos@
+
 ### end of configuration part ###
 
 
@@ -52,10 +51,16 @@ else
 endif
 
 
+### Version ###
+
+VERSION = 2.1
+DEBUG = 0
+
+
 ### Compilation flags ###
 
 INCLUDE =
-CFLAGS = 
+CFLAGS =
 BFLAGS = -g $(INCLUDE)
 
 ifeq ($(DEBUG),0)
@@ -65,23 +70,29 @@ else
 endif
 
 
+### Libraries ###
+
+LIBS_WITH_CCLIB=$(LIBS:%=-cclib %)
+
+MINUS_L_LIBS_WITH_CCLIB=$(MINUS_L_LIBS:%=-cclib %)
+
+OCAMLLIBS= $(OCAMLSTDLIB)/libunix.a $(OCAMLSTDLIB)/libnums.a
+
+
 ### Object files ###
 
-COBJS = mlgmp41.o ocaml-signals.o icsat.o licensing.o verify_signature.o
+COBJS = ocaml-signals.o icsat.o licensing.o verify_signature.o icsversion.o
 
-OBJS = ics_all.o ics_stub.o ocaml-signals.o mlgmp41.o icsat.o licensing.o verify_signature.o
+OBJS = ics_all.o ics_stub.o $(COBJS)
 
 LISPERROROBJ = ics_lisp_error.o
 
-FOREIGNCMO = dynarray.cmo ptset.cmo ptmap.cmo rbset.cmo gmp41.cmo 
-
-LIBS_WITH_CCLIB=$(LIBS:%=-cclib %)
-MINUS_L_LIBS_WITH_CCLIB=$(MINUS_L_LIBS:%=-cclib %)
+FOREIGNCMO = dynarray.cmo ptset.cmo ptmap.cmo rbset.cmo
 
 CORECMO = three.cmo \
       mpa.cmo \
-      version.cmo \
       tools.cmo \
+      version.cmo \
       pretty.cmo \
       exc.cmo\
       bitv.cmo \
@@ -130,7 +141,6 @@ CORECMO = three.cmo \
       context.cmo \
       prop.cmo
 
-
 CMO = $(FOREIGNCMO) \
       $(CORECMO) \
       symtab.cmo istate.cmo \
@@ -142,6 +152,7 @@ CMI = $(CMO:.cmo=.cmi)
 CMX = $(CMO:.cmo=.cmx)
 
 SRC = $(addprefix $(SRCDIR)/,$(CMO:.cmo=.ml))
+
 SRCMLI = $(addprefix $(SRCDIR)/,$(CMO:.cmo=.mli))
 
 ICSAT= $(SATDIR)/lib/$(ARCH)/icsat.a
@@ -150,6 +161,7 @@ CMXA = unix.cmxa \
        nums.cmxa 
 
 CMA = $(CMXA:.cmxa=.cma)
+
 
 ### Top level ###
 
@@ -202,10 +214,12 @@ ics_all.o: $(CMX)
 	$(OCAMLOPT) -output-obj -o $@ $(CMXA) $(CMX)
 
 
+### Building Libraries ###
+
 $(LIBDIR)/libics.a: $(OBJS)
 	$(LD) -r -o $@ $(OBJS) $(ICSAT) \
         $(LIBCPP) \
-	$(OCAMLSTDLIB)/libunix.a \
+        $(OCAMLLIBS) \
         $(LIBS) $(LIBGCCA) \
 	$(OCAMLSTDLIB)/libasmrun.a
 
@@ -219,7 +233,7 @@ $(LIBDIR)/ics.cmxa: $(OBJS) $(ICSAT) $(LISPERROROBJ)
                    # For use with Lisp everything, including error function, has to be included
 $(LIBDIR)/libicsall.so: $(OBJS) $(ICSAT)
 	$(CC) -shared -o $(LIBDIR)/libicsall.so $(OBJS) \
-	  $(OCAMLSTDLIB)/libunix.a \
+          $(OCAMLLIBS) \
 	  $(LIBS) \
 	  $(MINUS_L_LIBS) \
           $(ICSAT) \
@@ -227,38 +241,29 @@ $(LIBDIR)/libicsall.so: $(OBJS) $(ICSAT)
           $(OBJDIR)/ics_lisp_error.o \
           $(OCAMLSTDLIB)/libasmrun.a
 
-
-# Following deprecated.
-# $(LIBDIR)/libics.a: $(OBJS) $(ICSAT)
-#	(cd $(OBJDIR); \
-#	 $(OCAMLMKLIB) -oc ics -linkall $(OBJS) $(OBJDIR)/$(CMX) $(SATDIR)/obj/$(ARCH)/*.o \
-#                       -cclib $(LIBGMPA) -cclib -cclib $(LIBCPP); \
-#	mv libics.a $(LIBDIR))
-
-
-# Following deprecated.
-#$(LIBDIR)/libics.so: $(OBJS) $(ICSAT)
-#	$(LD) -r -o $@ $(OBJS) \
-#	$(SATDIR)/obj/$(ARCH)/*.o \
-#	$(OCAMLSTDLIB)/libunix.a \
-#	$(OCAMLSTDLIB)/libasmrun.a
-
-
 ics_stub.c ics.h ics.lisp: ics.ml ics.mli ../../chameleon/$(ARCH)/chameleon
 	../../chameleon/$(ARCH)/chameleon ics.ml
 	cp ics.h $(INCDIR)
 	cp ics.lisp $(INCDIR)
 
 
+$(OBJDIR)/icsversion.o: $(OBJDIR)/icsversion.c
+	$(CC) -c -DBUILDDATE='"$(shell date)"' \
+               -DVERSION='"$(VERSION)"' \
+               -DDEBUG=$(DEBUG) \
+               -DCOMPILATION_FLAGS='"$(OFLAGS)"'  \
+               $(CPPFLAGS) -I $(OCAMLSTDLIB) -o $@  $<
+
 GENERATED = lexer.ml parser.mli parser.ml
 
 
-### build ICSAT ###
+### building the SAT solver ###
+
 $(ICSAT) : 
 	@(cd $(SATDIR); $(MAKE))
 
 
-### Directories
+### Directories ###
 
 $(BINDIR):	
 	-umask 022; if test '!' -d $(BINDIR) ; then \
@@ -298,15 +303,14 @@ $(OBJDIR)/%.c: $(SRCDIR)/%.c
 
 # Distribution
 
-ics-2-0.tar.gz:
-	(tar -cvz --file=./ics-2-0.tar.gz \
+ics-$(VERSION).tar.gz:
+	(tar -cvz --file=./ics-$(VERSION).tar.gz \
                   --mode="u+rw" \
                   ./README ./Makefile.in ./configure ./configure.in \
                   ./config.guess \
                   ./ics-mode.el \
                   ./fm-license.pdf \
                   ./ics.in \
-                  ./src/version.ml.in \
                   ./chameleon/Makefile.in \
                   ./chameleon/src/chameleon.ml \
                   ./chameleon/src/mli_lexer.mll \
@@ -347,13 +351,6 @@ $(DOCDIR)/api.tex: $(SRCDIR)/ics.mli
 $(DOCDIR)/doc.pdf: $(DOCDIR)/dep.ps $(DOCDIR)/doc.tex
 	(cd $(DOCDIR); pdflatex ./doc.tex  && pdflatex ./doc.tex)
 
-#$(DOCDIR)/doc.pdf: $(DOCDIR)/doc.dvi
-#	(cd $(DOCDIR);  \
-#	dvips -Ppdf ./doc.dvi -o ./doc-tmp.ps; \
-#	ps2pdf ./doc-tmp.ps ./doc.pdf; \
-#        rm ./doc-tmp.ps)
-
-
 $(DOCDIR)/doc.ps:  $(DOCDIR)/doc.dvi $(DOCDIR)/dep.ps $(DOCDIR)/doc.tex
 	(cd $(DOCDIR); dvips ./doc.dvi -o doc.ps)
 
@@ -363,6 +360,7 @@ $(DOCDIR)/doc.ps.gz:  $(DOCDIR)/doc.ps
 $(DOCDIR)/doc.pdf:  $(DOCDIR)/dep.ps $(DOCDIR)/doc.tex
 
 $(DOCDIR)/dep.gif: $(DOCDIR)/dep.ps
+
 
 ### Literate Programming
 
@@ -439,7 +437,6 @@ tags:
 
 clean::
 	rm -f config.cache config.log confdefs.h config.status
-	rm -f Makefile
 	rm -f gmon.out
 	rm -rf profile.out
 	rm -f $(BINDIR)/ics $(BINDIR)/ics.byte 
@@ -460,7 +457,7 @@ clean::
 	@(cd sat; $(MAKE) clean)
 
 
-# Installation
+### Installation ###
 
 install:
 	mkdir -p $(bindir)
@@ -477,6 +474,10 @@ uninstall:
 	rm -f $(libdir)/libics.*
 	rm -f $(includedir)/ics.h
 
+
+### Dependencies ###
+
+
 # Static dependencies for the generated files.
 
 lexer.ml:  lexer.mll
@@ -486,7 +487,7 @@ lexer.cmi: lexer.ml
 
 parser.mli parser.ml: parser.mly
 
-# Dependencies
+
 .depend: $(SRC)
 	$(OCAMLDEP) *.mli *.ml main.ml > .depend
 
@@ -495,8 +496,11 @@ ifeq ($(MAKELEVEL),1)
 include .depend
 endif
 
-ICS_DIST_DIR="ics-@ICSVERSION@"
-ICS_DIST_TAR="ics-@ICSVERSION@-bin-$(ARCH).tar.gz"
+
+### Binary distribution ###
+
+ICS_DIST_DIR="ics-$(VERSION)"
+ICS_DIST_TAR="ics-$(VERSION)-bin-$(ARCH).tar.gz"
 
 binary-distribution: 
 	@ echo "Building ICS binary distribution..."

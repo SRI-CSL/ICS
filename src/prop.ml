@@ -18,7 +18,8 @@ type t =
   | False
   | Var of Name.t
   | Atom of Atom.t
-  | Disj of t list * int
+  | Disj of t * t * int
+  | Conj of t * t * int
   | Iff of t * t * int
   | Ite of t * t * t * int
   | Neg of t * int
@@ -28,13 +29,15 @@ let is_false = function False -> true | _ -> false
 let is_var = function Var _ -> true | _ -> false
 let is_atom = function Atom _ -> true | _ -> false
 let is_disj = function Disj _ -> true | _ -> false
+let is_conj = function Disj _ -> true | _ -> false
 let is_iff = function Iff _ -> true | _ -> false
 let is_ite = function Ite _ -> true | _ -> false
 let is_neg = function Neg _ -> true | _ -> false
 
 let d_var = function Var(x) -> x | _ -> invalid_arg "wrong propositional argument"
 let d_atom = function Atom(a) -> a | _ -> invalid_arg "wrong propositional argument"
-let d_disj = function Disj(dl, _) -> dl | _ -> invalid_arg "wrong propositional argument"
+let d_disj = function Disj(p, q, _) -> (p, q) | _ -> invalid_arg "wrong propositional argument"
+let d_conj = function Conj(p, q, _) -> (p, q) | _ -> invalid_arg "wrong propositional argument"
 let d_iff = function Iff(p, q, _) -> (p, q) | _ -> invalid_arg "wrong propositional argument"
 let d_ite = function Ite(p, q, r, _) -> (p, q, r) | _ -> invalid_arg "wrong propositional argument"
 let d_neg = function Neg(p, _) -> p | _ -> invalid_arg "wrong propositional argument"
@@ -53,8 +56,10 @@ let rec pp fmt = function
       Name.pp fmt x
   | Atom(a) -> 
       Atom.pp fmt a
-  | Disj(pl, _) -> 
-      Pretty.infixl pp " | " fmt pl
+  | Disj(p, q, _) -> 
+      Pretty.infix pp " | " pp fmt (p, q)
+  | Conj(p, q, _) -> 
+      Pretty.infix pp " & " pp fmt (p, q)
   | Iff(p, q, _) -> 
       Pretty.infix pp " <=> " pp fmt (p, q)
   | Neg(p, _) -> 
@@ -67,10 +72,11 @@ let hash = function
   | False -> 1
   | Var(n) -> Name.hash n
   | Atom(a) -> Atom.index_of a
-  | Disj(_, hsh) -> hsh
+  | Disj(_, _, hsh) -> hsh
   | Iff(_, _, hsh) -> hsh
   | Neg(_, hsh) -> hsh
   | Ite(_, _, _, hsh) -> hsh
+  | Conj(_, _, hsh) -> hsh
 
 
 let rec equal p q =
@@ -84,14 +90,16 @@ let rec equal p q =
 	 Name.eq x y
      | Atom(a), Atom(b) -> 
 	 Atom.equal a b
-     | Disj(pl, _), Disj(ql, _) ->
-	 (try List.for_all2 equal pl ql with Invalid_argument _ -> false)
+     | Disj(p1, q1, _), Disj(p2, q2, _) ->
+	 equal p1 p2 && equal q1 q2 
      | Iff(p1, q1, _), Iff(p2, q2, _) ->
 	 equal p1 p2 && equal q1 q2
      | Neg(p1, _), Neg(p2, _) -> 
 	 equal p1 p2
      | Ite(p1, q1, r1, _), Ite(p2, q2, r2, _) ->
 	 equal p1 p2 && equal q1 q2 && equal r1 r2
+     | Conj(p1, q1, _), Conj(p2, q2, _) ->
+	 equal p1 p2 && equal q1 q2 
      | _ -> 
 	 false)
 
@@ -198,24 +206,44 @@ let mk_neg =
 	      Table.add memo p np; np
 
 let mk_disj2 = 
-  let simplified p q =
-    match p, q with
+  let simplified p1 p2 =
+    match p1, p2 with
       | True, _ -> True
       | _, True -> True
-      | False, _ -> q
-      | _, False -> p
-      | Disj(pl, phsh), Disj(ql, qhsh) -> 
-	  let hsh = (phsh + qhsh) land 0x3FFFFFFF in
-	    Disj(pl @ ql, hsh)
-      | Disj(pl, phsh), _ -> 
-	  let hsh = (phsh + hash q) land 0x3FFFFFFF in
-	    Disj(q :: pl, hsh)
-      | _, Disj(ql, qhsh) -> 
-	  let hsh = (qhsh + hash p) land 0x3FFFFFFF in
-	    Disj(p :: ql, hsh)
+      | False, _ -> p2
+      | _, False -> p1
+      | (Disj(p1, q1, hsh_p1q1) as pq1), (Disj(p2, q2, hsh_p2q2) as pq2) -> 
+	  assert(not(is_disj p1));
+	  assert(not(is_disj p2));
+	  (match is_disj q1 , is_disj q2 with
+	     | false, false -> 
+		 let hsh = (hsh_p1q1 + hsh_p2q2) land 0x3FFFFFFF in
+		   Disj(pq1, pq2, hsh)
+	     | false, true -> 
+		 let hsh_q1p2q2 = (hash q1 + hsh_p2q2) land 0x3FFFFFFF in
+		 let hsh_p1q1p2p2 = (hash p1 + hsh_q1p2q2) land 0x3FFFFFFF in
+		   Disj(p1, Disj(q1, pq2, hsh_q1p2q2), hsh_p1q1p2p2) 
+	     | _ ->
+		 let hsh_q1 = hash q1 and hsh_q2 = hash q2 in
+		 let hsh_q1q2 = (hsh_q1 + hsh_q2) land 0x3FFFFFFF in
+		 let hsh_p2q1q2 = (hash p2 + hsh_q1q2) land 0x3FFFFFFF in
+		 let hsh_p1p2q1q2 = (hash p1 +  hsh_p2q1q2) land 0x3FFFFFFF in
+		   Disj(p1, Disj(p2, Disj(q1, q2, hsh_q1q2), hsh_p2q1q2), hsh_p1p2q1q2))
+      | Disj(_, _, hsh1), _ -> 
+	  assert(not(is_disj p2));
+	  let hsh = (hash p2 + hsh1) land 0x3FFFFFFF in
+	    Disj(p2, p1, hsh)
+      | _, Disj(_, _, hsh2) ->  
+	  assert(not(is_disj p1));
+	  let hsh = (hash p1 + hsh2) land 0x3FFFFFFF in
+	    Disj(p1, p2, hsh)
       | _ ->
-	  let hsh = (hash p + hash q) land 0x3FFFFFFF in
-	    Disj([p; q], hsh)
+	  let hsh_p1 = hash p1 and hsh_p2 = hash p2 in
+	  let hsh = (hsh_p1 + hsh_p2) land 0x3FFFFFFF in
+	    if hsh_p1 <= hsh_p2 then
+	      Disj(p1, p2, hsh)
+	    else 
+	      Disj(p2, p1, hsh)
   in
   let module Table = Hashtbl.Make(
     struct
@@ -236,9 +264,40 @@ let mk_disj2 =
 	  with
 	      Not_found -> 
 		let disj = simplified p q in
+		(* let disj = Disj(p, q, (hash p + hash q) land 0x3FFFFFFF) in *)
 		  Table.add memo pq disj; disj
 
 let mk_conj2 = 
+  let simplified p1 p2 =
+    match p1, p2 with
+      | True, _ -> p2
+      | _, True -> p1
+      | False, _ -> False
+      | _, False -> False
+      | Conj(p1, q1, _), Conj(p2, q2, _) -> 
+	  assert(not(is_conj  p1));
+	  assert(not(is_conj p2));
+	  let hsh_q1 = hash q1 and hsh_q2 = hash q2 in
+	  let hsh_q1q2 = (hsh_q1 + hsh_q2) land 0x3FFFFFFF in
+	  let hsh_p2q1q2 = (hash p2 + hsh_q1q2) land 0x3FFFFFFF in
+	  let hsh_p1p2q1q2 = (hash p1 +  hsh_p2q1q2) land 0x3FFFFFFF in
+	    Conj(p1, Conj(p2, Conj(q1, q2, hsh_q1q2), hsh_p2q1q2), hsh_p1p2q1q2)
+      | Conj(_, _, hsh1), _ -> 
+	  assert(not(is_conj p2));
+	  let hsh = (hash p2 + hsh1) land 0x3FFFFFFF in
+	    Conj(p2, p1, hsh)
+      | _, Conj(_, _, hsh2) ->  
+	  assert(not(is_conj p1));
+	  let hsh = (hash p1 + hsh2) land 0x3FFFFFFF in
+	    Conj(p1, p2, hsh)
+      | _ ->
+	  let hsh_p1 = hash p1 and hsh_p2 = hash p2 in
+	  let hsh = (hsh_p1 + hsh_p2) land 0x3FFFFFFF in
+	    if hsh_p1 <= hsh_p2 then
+	      Conj(p1, p2, hsh)
+	    else 
+	      Conj(p2, p1, hsh)
+  in
   let module Table = Hashtbl.Make(
     struct
       type t = prp * prp
@@ -257,7 +316,7 @@ let mk_conj2 =
 	    Table.find memo pq
 	  with
 	      Not_found -> 
-		let conj = mk_neg (mk_disj2 (mk_neg p) (mk_neg q)) in
+		let conj = simplified p q in
 		  Table.add memo pq conj; conj
 		    
 let rec mk_disj = function
@@ -332,6 +391,58 @@ let mk_ite =
 		Table.add memo pqr ite; ite
 
 
+(** Mapping an atom transformer. *)
+let map atmf p =
+  let module Table = Hashtbl.Make(
+    struct
+      type t = prp
+      let equal = (==)
+      let hash = hash
+    end)
+  in
+  let memo = Table.create 5 in
+  let rec apply p =
+    match p with
+      | True | False | Var _ -> p 
+      | _ -> 
+	  (try
+	     Table.find memo p
+	   with
+	       Not_found ->
+		 let p' = do_apply p in
+		   Table.add memo p p'; p')
+  and do_apply p =
+    match p with
+      | Atom(a) -> 
+	  let a' = atmf a in
+	    if a == a' then p else mk_poslit a' 
+      | Disj(q1, q2, _) ->
+	  let q1' = apply q1 in
+	  let q2' = apply q2 in
+	    if q1 == q1' && q2 == q2' then p else mk_disj2 q1' q2'
+      | Conj(q1, q2, _) ->
+	  let q1' = apply q1 in
+	  let q2' = apply q2 in
+	    if q1 == q1' && q2 == q2' then p else mk_conj2 q1' q2'
+      | Iff(q1, q2, _) ->
+	  let q1' = apply q1 in
+	  let q2' = apply q2 in
+	    if q1 == q1' && q2 == q2' then p else mk_iff q1' q2'
+      | Ite(q1, q2, q3, _) ->
+	  let q1' = apply q1 in
+	  let q2' = apply q2 in
+	  let q3' = apply q3 in
+	    if q1 == q1' && q2 == q2' &&q3 == q3' then p else mk_ite q1' q2' q3'
+      | Neg(q, _) ->
+	  let q' = apply q in
+	    if q == q' then p else mk_neg q'
+      | True -> p
+      | False -> p
+      | Var _ -> p
+  in
+    apply p
+
+
 
 (** {6 Translations to/from ICSAT propositions} *)
 
@@ -345,8 +456,8 @@ external icsat_mk_false : unit -> prop = "icsat_mk_false"
 external icsat_mk_var : string -> prop = "icsat_mk_var"
 external icsat_mk_atom : int -> int -> prop = "icsat_mk_atom"
 
-external icsat_mk_or : prop list -> prop = "icsat_mk_or"
-external icsat_mk_and : prop list -> prop = "icsat_mk_and"
+external icsat_mk_or2 : prop -> prop -> prop = "icsat_mk_or2"
+external icsat_mk_and2 : prop -> prop -> prop = "icsat_mk_and2"
 external icsat_mk_iff : prop -> prop -> prop = "icsat_mk_iff"
 external icsat_mk_implies : prop -> prop -> prop = "icsat_mk_implies"
 external icsat_mk_xor : prop -> prop -> prop = "icsat_mk_xor"
@@ -382,7 +493,7 @@ external set_clause_relevance : int -> unit = "icsat_set_clause_relevance"
 external set_cleanup_period : int -> unit = "icsat_set_cleanup_period"
 external set_num_refinements : int -> unit = "icsat_set_num_refinements"
 
-let debug = (Version.debug <> 0)
+let debug = (Version.debug() <> 0)
 
 let validate_explanations = ref false
 let show_explanations = ref false
@@ -511,14 +622,14 @@ let is_model_of propval atomval =
     | Atom(a) -> 
 	assert(Atom.Map.mem a atomval);
 	Atom.Map.find a atomval
-    | Disj([p; q], _) ->
-	let ep = eval p in
-	  (match ep with
-	     | T -> T
-	     | _ -> eval q)
-    | Disj(pl, _) ->
-	let el = List.map eval pl in
-	  disjl el
+    | Disj(p, q, _) ->
+	(match eval p with
+	   | T -> T
+	   | _ -> eval q)
+    | Conj(p, q, _) ->
+	(match eval p with
+	   | F -> F
+	   | _ -> eval q)
     | Iff(p, q, _) ->
 	equiv (eval p) (eval q)
     | Ite(p, q, r, _) ->
@@ -562,9 +673,14 @@ let to_prop p =
 	  var_to_id x
       | Atom(a) -> 
 	  atom_to_id a
-      | Disj(pl, _) ->
-	  let pl' =  List.map translate pl in
-	    icsat_mk_or pl'
+      | Disj(p, q, _) ->
+	  let p' = translate p in
+	  let q' = translate q in
+	    icsat_mk_or2 p' q'
+      | Conj(p, q, _) ->
+	  let p' = translate p in
+	  let q' = translate q in
+	    icsat_mk_and2 p' q'
       | Iff(p, q, _) ->
 	  let p' = translate p in
 	  let q' = translate q in

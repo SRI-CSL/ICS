@@ -130,7 +130,7 @@ commandsequence :
 prop:
   LBRA prop RBRA                  { $2 } 
 /* | LPAR prop RPAR                  { $2 } */
-| name                            { try Istate.prop_of $1 with Not_found -> Prop.mk_var $1 }
+| name                            { Istate.propvar_of $1 }
 | atom                            { Prop.mk_poslit $1 }
 | prop CONJ prop                  { Prop.mk_conj2 $1 $3 }
 | prop DISJ prop                  { Prop.mk_disj2 $1 $3 }
@@ -152,7 +152,7 @@ name: IDENT  { Name.of_string $1 }
 
 namelist:    
   name                { [$1] }
-| namelist COMMA name { $3 :: $1 }
+| name COMMA namelist { $1 :: $3 }   /* avoid reversing list */
 ;
 
 
@@ -172,21 +172,18 @@ term:
 ;
 
 var:
-  name  { try
-	    match Istate.entry_of $1 with
-	      | Symtab.Def(Symtab.Term(a)) -> a
-	      | Symtab.Type(c)  -> Term.Var.mk_var $1 c
-	      | _ -> Term.Var.mk_var $1 Var.Cnstrnt.Unconstrained
-	  with
-	      Not_found -> Term.Var.mk_var $1 Var.Cnstrnt.Unconstrained }
-| name LCUR cnstrnt RCUR 
-         { Term.Var.mk_var $1 $3 }
+  name                          { Istate.termvar_of $1 }
+| name LCUR cnstrnt RCUR        { Term.Var.mk_var $1 $3 }
 ;
 
 
-app: funsym LPAR termlist RPAR     { Term.App.mk_app $1 (List.rev $3) }
+app: name LPAR appargs RPAR   { Istate.termapp_of $1 $3 }
+;
 
-funsym: name                       { Sym.Uninterp.make $1 }
+appargs:              { [] }
+| term                { [$1] }
+| term COMMA appargs  { $1 :: $3 }   /* avoid reversing list. */
+;
 
 list: 
   term LISTCONS term            { Coproduct.mk_inj 1 (Product.mk_cons $1 $3) }
@@ -201,7 +198,7 @@ apply:
 | K                             { Apply.mk_k () }
 | I                             { Apply.mk_i () }
 | C                             { Apply.mk_c () }
-| LAMBDA namelist COLON term    { let nl = $2 in   (* in reverse order! *)
+| LAMBDA namelist COLON term    { let nl = List.rev $2 in   (* in reverse order! *)
 				  let body = $4 in
 				  let rec abstract_star acc = function
 				    | [] -> assert false
@@ -217,8 +214,7 @@ boolean:
 ;
      
 arith:
-  rat                           { Trace.msg "parser" "Rational" $1 Mpa.Q.pp;
-                                  Arith.mk_num $1 }
+  rat                           { Arith.mk_num $1 }
 | term PLUS term                { Arith.mk_add $1 $3 }
 | term MINUS term               { Arith.mk_sub $1 $3 }
 | MINUS term %prec prec_unary   { Arith.mk_neg $2 }
@@ -312,10 +308,7 @@ cnstrnt:
 | signature    { Var.Cnstrnt.Bitvector($1) }
 ;
 
-termlist:             { [] }
-| term                { [$1] }
-| termlist COMMA term { $3 :: $1 }
-;
+
 
 atomlist:             { [] }
 | atom                { [$1] }
@@ -331,8 +324,8 @@ command:
 | SIMPLIFY atom             { Istate.do_simplify $2 }
 | ASSERT optname atom       { Istate.do_process1 ($2, $3) }
 | ASSERT optname atom COMMA atomlist { Istate.do_process ($2, $3 :: $5) }
-| DEF name ASSIGN term      { Istate.do_def ($2, (Symtab.Term($4))) }
-| PROP name ASSIGN prop     { Istate.do_prop ($2, $4) }
+| DEF name optargs ASSIGN term { Istate.do_def ($2, $3, $5) }
+| PROP name optargs ASSIGN prop { Istate.do_prop ($2, $3, $5) }
 | SIG name COLON cnstrnt    { Istate.do_typ ([$2], $4) }
 | SIG namelist COLON cnstrnt{ Istate.do_typ ($2, $4) }
 | RESET                     { Istate.do_reset () }
@@ -341,8 +334,8 @@ command:
 | RESTORE name              { Istate.do_restore $2 }
 | REMOVE name               { Istate.do_remove $2 }
 | FORGET                    { Istate.do_forget() }
-| VALID optname atomlist    { Istate.do_valid ($2, $3) }
-| UNSAT optname atomlist    { Istate.do_unsat ($2, $3) }
+| VALID optname atom        { Istate.do_valid ($2, $3) }
+| UNSAT optname atom        { Istate.do_unsat ($2, $3) }
 | EXIT                      { raise End_of_file }
 | DROP                      { failwith "drop" }
 | SYMTAB                    { Istate.do_symtab None }
@@ -377,6 +370,9 @@ command:
 ;
 
 optvarspecs:               { [] }
+
+optargs:                   { [] }
+| LPAR namelist RPAR       { $2 }
 
 varname : IDENT            { Istate.Parameters.of_string $1 }
 

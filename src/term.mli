@@ -279,6 +279,12 @@ val choose : (t -> bool) -> t -> t
   (** [choose p a] chooses a variable of [a] which satisfies predicate [p]. *)
 
 
+val replace: (Sym.t -> t list -> t) -> t -> Name.t list -> t list -> t
+(** [replace norm a [x1;...;xn] [a1;...an]] applies 
+  the substitution [a[x1:= a1]...[xn:=an]]; and all new 
+  subterms are normalized using [norm]. *)
+
+
 (** {6 Predicates} *)
 
 val subterm : t -> t -> bool

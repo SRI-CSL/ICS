@@ -16,10 +16,12 @@
   @author Harald Ruess
 *)
 
-val version : string
-  (** Version and build date of current ICS version. *)
+val print : unit -> unit
+  (** Print version number on standard output. *)
 
-val debug : int
+val eprint : unit -> unit
+
+val debug : unit -> int
   (** Level of debugging.
     - [0] no debugging
     - [1] debugging information turned on. *)

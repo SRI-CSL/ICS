@@ -11,6 +11,7 @@
  * benefit corporation.
  *)
 
+let var_name_of = Var.name_of
 
 (** A term is either a variable or an application of a function symbol
   to a possibly empty list of arguments. In addition, each term has
@@ -53,7 +54,7 @@ let rec pp fmt a =
 	pp_hash fmt hsh
 
 and pp_hash fmt hsh =
-  if !debug then Format.fprintf fmt "{%d}" hsh
+  if !debug then Format.fprintf fmt "{{%d}}" hsh
 
 and debug = ref false
 
@@ -467,6 +468,33 @@ let rec subterm a b =
     sub_a b    
 
 let occurs x b = subterm x b
+
+(** Application of substitution [a[x1:= a1]...[xn:=an]]. *)
+let replace norm a xl al = 
+  assert(List.length xl = List.length al);
+  let lookup y =
+    let rec find xl al =
+      match xl, al with
+	| [], [] -> 
+	    raise Not_found
+	| x' :: xl', a' :: al' ->
+	    if Name.eq x' y then a' else find xl' al'
+	| _ ->
+	    invalid_arg "Term.replace: non well-formed substitution"
+    in
+      find xl al
+  in
+  let rec repl b =
+    match b with
+      | Var(y, _) -> 
+	  (try lookup (var_name_of y) with Not_found -> b)
+      | App(f, bl, _) -> 
+	  let bl' = mapl repl bl in
+	    if bl == bl' then a else
+	      norm f bl'
+  in
+    repl a  
+
 
 let is_pure i =
   let rec loop = function

@@ -42,7 +42,7 @@ let init (n) =
 
 let _ = Callback.register "init" init
 
-let version () = Version.version
+let version = Version.print
 let _ = Callback.register "version" version
 
 

@@ -68,6 +68,10 @@ val mk_pos : Term.t -> t
   (** The atom-index pair [mk_nonneg a] represents the positivity
     constraint [a > 0]. *)
 
+val map : (Term.t -> Term.t) -> t -> t
+  (** [map f atm] yields an atom where every term [a] in [atm] 
+    is replaced by [f a]. *)
+
 val is_true : t -> bool
   (** [is_true atm] holds iff [atm] represents the [true] atom. *)
 

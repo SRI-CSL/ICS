@@ -14,19 +14,20 @@
 (** Datatype for symbol table. *)
 
 type entry = 
-  | Def of defn
+  | Def of args * defn
   | Arity of int
   | Type of Var.Cnstrnt.t
   | State of Context.t
 
 and defn = 
-  | Term of Term.t
+  | Term of  Term.t
   | Prop of Prop.t
+
+and args = Name.t list
 
 and t = entry Name.Map.t
 
 let lookup = Name.Map.find
-
 	      
 let empty_name () = Name.of_string "empty"
 		      (* needs to be recreated after resets. *)
@@ -68,10 +69,14 @@ and pp_entry fmt e =
     if !pretty then () else Format.fprintf fmt a
   in
     match e with
-      | Def(Term(x)) -> pr "@[def("; Term.pp fmt x; pr ")@]"
-      | Def(Prop(x)) -> pr "@[def("; Prop.pp fmt x; pr ")@]"
-      | Arity(a) -> pr "@[sig("; Format.fprintf fmt "%d" a; pr ")@]"
-      | Type(c) -> pr "@[type("; Var.Cnstrnt.pp fmt c; pr ")@]"
+      | Def(args, Term(a)) -> 
+	  pr "@[def("; Term.pp fmt a; pr ")@]"
+      | Def(args, Prop(a)) -> 
+	  pr "@[def("; Prop.pp fmt a; pr ")@]"
+      | Arity(a) -> 
+	  pr "@[sig("; Format.fprintf fmt "%d" a; pr ")@]"
+      | Type(c) ->
+	  pr "@[type("; Var.Cnstrnt.pp fmt c; pr ")@]"
       | State(s) -> 
 	  pr "@[state(";
 	  Pretty.list Atom.pp fmt (Context.ctxt_of s);

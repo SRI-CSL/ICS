@@ -631,10 +631,10 @@ let do_prop =
        let e = Symtab.Def(args, Symtab.Prop(a)) in
 	 symtab := Symtab.add n e !symtab;
 	 Out.unit ())
-    {args = "<ident> ['(' <ident>,...,<ident> ')'] := <prop>";
+    {args = "<ident> ['(' <ident>,...,<ident> ')'] := <propfml>";
      short = "Extend symbol table with definition for proposition"; 
      description = 
-        "Extend the symbol table with a definition <ident> for a proposition <prop>.
+        "Extend the symbol table with a definition <ident> for a proposition <propfml>.
          In such a context, variables <ident> are macro-expanded to <term> 
          but different <props>s obtained from the same definition are structure-shared."; 
      examples = []; 
@@ -1249,7 +1249,7 @@ let do_sat =
 	     let n = fresh_state_name () in
 	       symtab := Symtab.add n (Symtab.State(s')) !symtab;
 	       Out.prop_sat (n, rho))
-    {args = "[@<ident>] <prop> ";
+    {args = "[@<ident>] <propfml> ";
      short = "SAT Solver for propositional constraints."; 
      description = 
         "A satisfiability solver for propositional formulas over atoms.
@@ -1651,15 +1651,15 @@ let _ =
     "Rational numbers."
 
 let _ = 
-  Nonterminal.register "prop"
-    ["[<prop>]";
+  Nonterminal.register "propfml"
+    ["[<propfml>]";
      "<ident>";
-     "<prop> & <prop>";
-     "<prop> | <prop>";
-     "<prop> <=> <prop>";
-     "<prop> => <prop>";
-     "~<prop>";
-     "if <prop> then <prop> else <prop> end"]
+     "<propfml> & <propfml>";
+     "<propfml> | <propfml>";
+     "<propfml> <=> <propfml>";
+     "<propfml> => <propfml>";
+     "~<propfml>";
+     "if <propfml> then <propfml> else <propfml> end"]
     "Propositions are either propositional variables of the form <ident>
      or built up from propositional connectives such as conjunction '&',
      disjunction '|', negation '~', implication '=>', biimpliciation '<=>',

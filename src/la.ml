@@ -165,28 +165,35 @@ let is_diophantine e =
 
 (** Destruct a disequality [a <> b] over integer terms as [e <> n] with
   [n] an integer. *)
-let d_diophantine d =
+let d_diophantine ((a, b, rho) as d)  =
+  assert(Term.is_pure Th.la a);
+  assert(Term.is_pure Th.la b);
   assert(Fact.Diseq.both_sides Arith.is_diophantine d);
-  let (a, b, rho) = d in
+  let lcm =                     (* least common multiple of denominators *)
+    Mpa.Q.abs                   (* of the coefficients in [a] and [b]. *)
+      (Mpa.Q.of_z
+         (Mpa.Z.lcm
+            (Arith.lcm_of_denominators a)
+            (Arith.lcm_of_denominators b)))
+  in 
+  let (a', b') =                (* all coefficients are integer now. *)
+    if Mpa.Q.is_one lcm then (a, b) else
+      (Arith.mk_multq lcm a, Arith.mk_multq lcm b)
+  in   
   let (e, n) = 
-    let lcm =                     (* least common multiple of denominators *)
-      Mpa.Q.abs                   (* of the coefficients in [a] and [b]. *)
-	(Mpa.Q.of_z
-           (Mpa.Z.lcm
-              (Arith.lcm_of_denominators a)
-              (Arith.lcm_of_denominators b)))
-    in
-    let (a', b') =                (* all coefficients are integer now. *)
-      if Mpa.Q.is_one lcm then (a, b) else
-	(Arith.mk_multq lcm a, Arith.mk_multq lcm b)
-    in
     let a_sub_b = Arith.mk_sub a' b' in
     let q' = Arith.constant_of a_sub_b 
     and c' = Arith.nonconstant_of a_sub_b in  (* [q' + c' <> 0] *)
       (c', Mpa.Q.minus q')                    (* ==> [c' <> -q'] *)
-  in
+  in 
+    assert(Term.is_pure Th.la e);
     (e, n, rho)
 
+let d_diophantine = 
+  Trace.func "la" "d_diophantine" 
+    Fact.Diseq.pp
+    (Pretty.triple Term.pp Mpa.Q.pp Jst.pp)
+    d_diophantine
 
 (** Fusing an equality [x = a] into right-hand sides of a solved list. *)
 let solved_fuse ((x, a, rho) as e) =
@@ -782,7 +789,7 @@ let compose e =
      go below [0] in this process. *)
 
 let rec process_equal e =
-  (* Trace.msg "la'" "Merge" e Fact.Equal.pp; *)
+  Trace.msg "la" "Merge" e Fact.Equal.pp;
   assert(is_noncircular());
   let e = Fact.Equal.map replace e in
     assert(is_nondependent_equal e);
@@ -822,7 +829,7 @@ and compose_solved ((x, a, _) as e) sl =
 
 
 and compose_solved_restricted e = 
-  (* Trace.msg "la'" "Compose_solved_restricted" e Fact.Equal.pp; *)
+  Trace.msg "la" "Compose_solved_restricted" e Fact.Equal.pp;
   assert(is_nondependent_equal e);
   assert(is_restricted_equality e);
   if is_lhs_unbounded e then
@@ -900,7 +907,7 @@ and eliminate_zero_slack (k, rho) =                 (* [rho |- k = 0] *)
 	  compose_and_cut e0
 	    
 and compose_and_cut ((x, a, _) as e) = 
-  (* Trace.msg "la'" "Compose" e Fact.Equal.pp; *)
+  Trace.msg "la'" "Compose" e Fact.Equal.pp;
   assert(Term.is_var x);
   assert(is_noncircular());
   compose e;
@@ -937,7 +944,7 @@ and gomory_cut e =
 
 
 and process_nonneg ((a, rho) as nn) =                 (* [rho |- a >= 0] *)
-  (* Trace.msg "la'" "process_nonneg" nn Fact.Nonneg.pp; *)
+  Trace.msg "la" "process_nonneg" nn Fact.Nonneg.pp;
   match Arith.is_nonneg a with
     | Three.Yes -> ()
     | Three.No -> raise(Jst.Inconsistent(rho))
@@ -966,7 +973,7 @@ and process_nonneg ((a, rho) as nn) =                 (* [rho |- a >= 0] *)
 	
 	
 and process_nonneg_restricted (a, rho) =                 (* [rho |- a >= 0] *)
-  (* Trace.msg "la'" "process_nonneg_restricted" a Term.pp; *)
+  Trace.msg "la" "process_nonneg_restricted" a Term.pp;
   assert(is_restricted a); 
   let (k, tau) = mk_nonneg_slack a rho in                (* [tau |- k = a] *)
   let e = Fact.Equal.make k a (Jst.dep2 rho tau) in
@@ -974,7 +981,7 @@ and process_nonneg_restricted (a, rho) =                 (* [rho |- a >= 0] *)
     process_nonneg_make_feasible e
 
 and process_nonneg_make_feasible e =
-  (* Trace.msg "la'" "process_nonneg_make_feasible" e Fact.Equal.pp; *)
+  Trace.msg "la" "process_nonneg_make_feasible" e Fact.Equal.pp;
   assert(is_restricted_equality e);
   let (_, a, rho) = e in     (* Case I: [|a| >= 0] *)
     if Mpa.Q.is_nonneg (Arith.constant_of a) then 
@@ -1000,7 +1007,7 @@ and process_nonneg_make_feasible e =
 
 and add_to_t ((k, a, rho) as e) =
   assert(is_restricted_var k && is_restricted a);
-  (* Trace.msg "la'" "Add_to_t" e Fact.Equal.pp; *)
+  Trace.msg "la" "Add_to_t" e Fact.Equal.pp;
   if Q.is_nonneg (Arith.constant_of a) then
     compose_and_cut e
   else if Arith.Monomials.Pos.is_empty a then
@@ -1300,10 +1307,9 @@ and bounds a =
   which are maintained in the form [e <> n] where [n] is a natural 
   number. *) 
 and process_diseq d = 
-  (* Trace.msg "la'" "Process" d Fact.Diseq.pp; *)
+  Trace.msg "la" "Process" d Fact.Diseq.pp;
   assert(Fact.Diseq.both_sides (Term.is_pure Th.la) d);
   let ((a, b, rho) as d) = Fact.Diseq.map replace d in  (* [rho |- a <> b] *)
-    assert(Fact.Diseq.both_sides is_nondependent_term d);
     match is_equal_or_diseq a b with
       | Jst.Three.Yes(tau) ->                         (* [tau |- a = b] *)
 	  raise(Jst.Inconsistent(Jst.dep2 rho tau))
@@ -1317,7 +1323,8 @@ and process_diseq d =
 	  else 
 	    process_nondiophantine_diseq d
 
-and process_nondiophantine_diseq d =
+and process_nondiophantine_diseq ((a, b, _) as d) =
+  Trace.msg "la" "Nondiophantine" d Fact.Diseq.pp;
   let d = Fact.Diseq.map name d in
     assert(Fact.Diseq.is_var d);
     Partition.dismerge !Infsys.p d
@@ -1335,7 +1342,7 @@ and process_nondiophantine_diseq d =
   the original state and continue processing inputs. *)
 and process_diophantine_diseq d =
   assert(Fact.Diseq.both_sides Arith.is_diophantine d);
-  (* Trace.msg "la'" "Diophantine" d Fact.Diseq.pp; *)
+  Trace.msg "la" "Diophantine" d Fact.Diseq.pp;
   let (e, n, rho) = d_diophantine d in         (* [rho |- e <> n]. *)
     assert(Arith.is_int e);
     assert(Mpa.Q.is_integer n);

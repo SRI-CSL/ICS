@@ -35,8 +35,8 @@
 *)
 
 
-val version : unit -> string
-  (** Returns this ICS's version number. *)
+val version : unit -> unit
+  (** Outputs this ICS's version number on [stdout]. *)
 
 
 (** {6 Parameters} *)
@@ -944,7 +944,7 @@ val prop_is_neg : prop -> bool
 val prop_d_var : prop -> name
 val prop_d_atom : prop -> atom
 val prop_d_ite : prop -> prop * prop * prop
-val prop_d_disj : prop -> prop list
+val prop_d_disj : prop -> prop * prop
 val prop_d_iff : prop -> prop * prop
 val prop_d_neg : prop -> prop
 

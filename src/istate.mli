@@ -81,7 +81,11 @@ val set_eot : string -> unit
 
 val lexing : unit -> Lexing.lexbuf
 
-val prop_of : Name.t -> Prop.t
+val termvar_of : Name.t -> Term.t
+
+val termapp_of : Name.t -> Term.t list -> Term.t
+
+val propvar_of : Name.t -> Prop.t
 
 val entry_of : Name.t -> Symtab.entry
 
@@ -171,15 +175,15 @@ val do_set_outchannel : Format.formatter -> unit
 
 val do_symtab : Name.t option -> unit
 
-val do_def : Name.t * Symtab.defn -> unit
-  (** [def n a] adds a {i term definition} of name [n] for term [a] to the
-    current symbol table. Raises [Invalid_argument], if [n] is already in 
-    the domain of the table. *)
+val do_def : Name.t * Symtab.args * Term.t -> unit
+  (** [def n args a] adds a {i term definition} of name [n] with arguments
+    [args] for term [a] to the current symbol table. Raises [Invalid_argument], 
+    if [n] is already in the domain of the table. *)
 
-val do_prop: Name.t * Prop.t -> unit
-  (** [def n p] adds a {i prop definition} of name [n] for proposition [p] to the
-    current symbol table. Raises [Invalid_argument], if [n] is already in 
-    the domain of the table. *)
+val do_prop: Name.t * Symtab.args * Prop.t -> unit
+  (** [def n p] adds a {i prop definition} of name [n] with arguments [args]
+    for proposition [p] to the current symbol table. Raises [Invalid_argument], 
+    if [n] is already in the domain of the table. *)
 
 val do_sgn : Name.t * int -> unit
   (** [sgn n i] adds a {i signature definition} [i] for name [n] to the
@@ -214,10 +218,10 @@ val do_process1 : Name.t option * Atom.t -> unit
 
 val do_process : Name.t option * Atom.t list -> unit
 
-val do_valid : Name.t option * Atom.t list -> unit
+val do_valid : Name.t option * Atom.t -> unit
   (** Checking for validity. *)
 
-val do_unsat : Name.t option * Atom.t list -> unit
+val do_unsat : Name.t option * Atom.t -> unit
   (** Checking for unsatisfiablity. *)
 
 val do_model : Name.t option *  Term.t list -> unit

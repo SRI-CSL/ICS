@@ -42,7 +42,7 @@ let args () =
 	"Enable tracing";
 	"-show_explanations", set_true Ics.set_show_explanations,
 	"Display explanations generated for SAT solver on stderr";
-        "-version", Arg.Unit (fun () -> Format.printf "%s@." Version.version; exit 0),
+        "-version", Arg.Unit (fun () -> Version.print(); exit 0),
         "Display version number";
         "-compactify",  set_true Ics.set_compactify,
 	"Disable compactification in SAT solver";
@@ -103,8 +103,7 @@ let rec repl () =
 
 and usage () =
   begin
-    Format.eprintf "%s: Integrated Canonizer and Solver." Version.version;
-    Format.eprintf "\nCopyright (c) 2003 SRI International.";
+    Version.eprint (); 
     Format.eprintf "\nType 'help help.' for help about help, and 'Ctrl-d' to exit.@."
   end
 

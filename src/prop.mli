@@ -36,6 +36,8 @@ val mk_disj : t list -> t
 val mk_iff : t -> t -> t
 val mk_neg : t -> t
 
+val map : (Atom.t -> Atom.t) -> t -> t
+
 
 (** {6 Recognizers} *)
  
@@ -52,7 +54,7 @@ val is_neg : t -> bool
 
 val d_var : t -> Name.t
 val d_atom : t -> Atom.t
-val d_disj : t -> t list
+val d_disj : t -> t * t
 val d_iff : t -> t * t
 val d_ite : t -> t * t * t
 val d_neg : t -> t
