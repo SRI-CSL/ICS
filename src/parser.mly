@@ -43,7 +43,7 @@ let lastresult = ref(Result.Unit())
 %token DROP CAN ASSERT EXIT SAVE RESTORE REMOVE FORGET RESET SYMTAB SIG VALID UNSAT
 %token TYPE SIGMA
 %token SOLVE HELP DEF PROP TOGGLE SET TRACE UNTRACE CMP FIND USE INV SOLUTION PARTITION
-%token SHOW CNSTRNT SYNTAX COMMANDS SPLIT SAT
+%token SHOW CNSTRNT SYNTAX COMMANDS SPLIT SAT ECHO
 %token DISEQ CTXT 
 %token IN TT FF DEF
 %token EOF
@@ -51,6 +51,7 @@ let lastresult = ref(Result.Unit())
 %token ARITH TUPLE
 
 %token <string> IDENT
+%token <string> STRING
 %token <int> INTCONST
 %token <Mpa.Q.t> RATCONST
 %token <Name.t> PROPVAR
@@ -360,8 +361,10 @@ command:
 | TRACE identlist           { Result.Unit(List.iter Trace.add $2) }
 | UNTRACE                   { Result.Unit(Trace.reset ()) }
 | SAT prop                  { Result.Sat(Istate.sat $2) }
+| ECHO STRING               { Result.Unit(Format.eprintf "%s@." $2) }
 | help                      { Result.Unit($1) }
 ;
+  
 
 identlist :
   IDENT                     { [$1] }

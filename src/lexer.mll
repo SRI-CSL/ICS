@@ -39,7 +39,7 @@ let keyword =
       "sigma", SIGMA; "solve", SOLVE; "help", HELP;
       "set", SET; "toggle", TOGGLE; "trace", TRACE;  "untrace", UNTRACE; 
       "find", FIND; "inv", INV; "use", USE; "solution", SOLUTION; "partition", PARTITION;
-      "syntax", SYNTAX; "commands", COMMANDS; "ctxt", CTXT; "diseq", DISEQ; 
+      "syntax", SYNTAX; "commands", COMMANDS; "ctxt", CTXT; "diseq", DISEQ; "echo", ECHO;
       "show", SHOW; "symtab", SYMTAB; "cnstrnt", CNSTRNT; "split", SPLIT; "sat", SAT;
       "true", TRUE; "false", FALSE;
       "tt", TT; "ff", FF;
@@ -86,6 +86,7 @@ rule token = parse
 		 let n = String.length s in
 		 let k = int_of_string (String.sub s 1 (n - 1)) in
 		   FREE k }
+  | '"' [^ '"']* '"' { STRING(Lexing.lexeme lexbuf) }
   | ','        { COMMA }
   | '('        { if !Tools.mode = Tools.Prop then PROPLPAR else LPAR }
   | ')'        { if !Tools.mode = Tools.Prop then PROPRPAR else RPAR }
