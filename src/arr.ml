@@ -45,17 +45,17 @@ let mk_select =
 	| _ ->
 	    select [b; j]
 
-let rec mk_update = 
+let mk_update = 
   let update = mk_app (Arrays(Update)) in
     fun is_equal a j y ->
       match a with
-	| App(Arrays(Update), [b; i; x]) ->
+	| App(Arrays(Update), [b; i; x])
 	    (match is_equal i j with
 	       | Three.Yes -> 
 		   update [b; i; y]
-	       | Three.No when Term.cmp i j > 0 ->   (* [b[i:=x][j:=y] = b[j:=y][i:=x] if [i <> j]] *)
-		   mk_update is_equal (mk_update is_equal b j y) i x
-	       | _ ->  
+	       | Three.No when Term.cmp i j > 0 ->
+		   mk_update is_equal (mk_update is_equal b i x) j y
+	       | _ -> 
 		   update [a; j; y])
 	| _ ->
 	    update [a; j; y]
