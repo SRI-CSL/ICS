@@ -60,31 +60,3 @@ let profile str f =
     timer := !timer +. (finish -. start);
     calls := !calls + 1;
     y
-
-
-(*s Type for comparison. *)
-
-type cmp = Less | Equal | Greater
-    
-
-(*s Mapping over list of terms. Avoids unnecessary consing. *)
-
-let rec mapl f l =
-  match l with
-    | [] -> []
-    | a :: l1 ->
-	let a' = f a and l1' = mapl f l1 in
-	if a' == a && l1 == l1' then l else a' :: l1'
-
-
-(*s Printing a list. *)        
-
-let ppl (pre,sep,post) pp fmt l =
-  let rec iter = function
-    | [] -> ()
-    | [x] -> pp fmt x
-    | x :: l -> pp fmt x; Format.fprintf fmt "%s " sep; iter l
-  in
-  Format.fprintf fmt "@[%s" pre;
-  iter l;
-  Format.fprintf fmt "%s@]" post
