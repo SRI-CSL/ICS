@@ -78,10 +78,10 @@ let v s x = fst(Partition.v s.p x)
 
 let d s x = List.map fst (Partition.d s.p (v s x))
 
-let c s a = 
+let sign lookup a = 
   let rec term a =
     match a with
-      | Var _ -> fst(Partition.c s.p a)
+      | Var _ -> lookup a
       | Term.App(Arith(op), xl) -> arith op xl
       | Term.App(Pp(op), xl) -> pprod op xl
       | Term.App(Bvarith(op), [x]) -> bvarith op x
@@ -112,6 +112,12 @@ let c s a =
 	  Not_found -> Sign.T
   in
     term a
+
+let c s a =
+  let lookup k =
+    fst(Partition.c s.p k)
+  in
+    sign lookup a
 
 let fold s f x = 
   let y = v s x in
@@ -241,11 +247,23 @@ let is_diseq s x y = (is_equal s x y = Three.No)
 (** Constraint of a term. *)
 
 let rec cnstrnt s a =
-  try
-    c s a 
-  with
-      Not_found ->
-	c s (apply Th.la s a)
+  let lookup x = 
+    try
+      fst(Partition.c s.p x)
+    with
+	Not_found -> 
+	  let b = apply Th.la s x in
+	    Trace.msg "foo" "Interp" (x, b) (Pretty.pair Term.pp Term.pp);
+	    cnstrnt s b
+  in
+    sign lookup a
+
+let cnstrnt s a =
+  let b = Arith.map (fun x -> if is_slack x then x else find Th.la s x) a in
+    c s b
+
+let cnstrnt s =
+  Trace.func "foo" "Cnstrnt" Term.pp Sign.pp (cnstrnt s)
 
 (** Sigma normal forms. *)
 
