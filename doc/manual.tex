@@ -1,0 +1,201 @@
+\documentclass[12pt]{article}
+
+\usepackage{fullpage}
+
+\begin{document}
+
+\thispagestyle{empty}
+\vspace*{4cm}
+\begin{center}
+   {\Huge\sf ICS} 
+   \\[3cm]
+   {\large\sf Jean-Christophe Filli\^atre, Sam Owre, Harald Rue\ss, 
+   and Natarajan Shankar}
+   \\[3cm]
+  Computer Science Laboratory, SRI International \\
+  333 Ravenswood Avenue, Menlo Park, CA 94025, USA
+\end{center}
+\vfill\newpage
+
+
+\section*{Introduction}
+
+ICS is a decision procedure for the combination of 
+\begin{itemize}
+\item Propositional satisfiability
+\item Pure equality over uninterpreted function symbols
+\item Equality combined with theories (arithmetic, arrays, tuples,
+  sets, bit vectors)
+\item Linear arithmetic inequalities
+\end{itemize}
+
+
+\section{The ICS interactive program}
+
+The interactive program is called \texttt{ics}.
+It allows you to enter commands and print their results.
+Here is a quick introduction to the ICS commands, through various
+little examples.
+
+First we start the interactive program:
+\begin{verbatim}
+mymachine% ics
+ICS interpreter. Copyright (c) 2000 SRI International.
+
+> 
+\end{verbatim}
+The `\texttt{>}' is the prompt and ICS is ready to interpret your commands.
+Let us start by checking various tautologies:
+\begin{verbatim}
+> check ((p => q) => p) => p.
+Valid.
+
+> check (x <= y) => (x >= y) => x = y.
+Valid.
+
+> check f(f(x)) = x => f(f(f(f(x)))) = x. 
+Valid.
+\end{verbatim}
+
+You can also use ICS in an incremental way, by adding statements into
+its `state'. The command for that is \texttt{assert}.
+\begin{verbatim}
+> assert x = 0.
+
+> assert f(x) = 1.
+\end{verbatim}
+At any point, you can have a look at the current state with the
+command \texttt{show}.
+\begin{verbatim}
+> show.
+(find)
+  f(0) = 1;
+  x = 0;
+\end{verbatim}
+As you can see on this example, ICS is keeping everything in a
+canonized form. 
+At some point, an \texttt{assert} command can fail because an
+inconsistency is discovered:
+\begin{verbatim}
+> assert f(f(x) - 1) = 2.
+Inconsistent!
+\end{verbatim}
+In that case, nothing is added to the state.
+You can reset the state to an empty state with the \texttt{reset}
+command:
+\begin{verbatim}
+> reset.          
+\end{verbatim}
+When you enter complex propositions with \texttt{assert}, they are
+stored in the state but their consistency is not always checked
+immediatly (unless trivial).
+\begin{verbatim}
+> assert a => (b && c).
+
+> assert ~b && a.
+\end{verbatim}
+Therefore, you can end up with an inconsistent state without
+notification by ICS.  That is perfectly normal, the \texttt{assert}
+command being designed to be fast. But the \texttt{check} command is
+complete, and hence you can always check the (in)consistency of the
+state with the following command:
+\begin{verbatim}
+> check false.
+Valid.
+\end{verbatim}
+Similarly, you could have asserted only the first proposition and
+checked the validity of the negation of the second one:
+\begin{verbatim}
+> assert a => (b && c).
+
+> check ~(~b && a).
+Valid.
+\end{verbatim}
+
+\bigskip
+The \texttt{ics} program can also be used as an interpreter, in the
+following way:
+\begin{center}
+  \texttt{ics} [\texttt{-s}] [\texttt{-t}] \textit{file}
+\end{center}
+Option \texttt{-s} prints statistics when the program exits, and
+option \texttt{-t} prints timings for each validity check.
+
+
+\section{Installing ICS}
+
+TODO
+
+
+\section{Using ICS as a library}
+
+TODO
+
+
+\section{Grammar of the ICS interpreter}
+
+\subsection{Lexical conventions}
+
+The lexical conventions of ICS are the following:
+\begin{center}
+  \begin{tabular}{rrl}
+    \textit{ident} & ::= & (\textit{letter}$|$\texttt{\_}) 
+                           (\textit{letter}$|$\texttt{\_}$|$\texttt{'}$|$\textit{digit})$\star$
+                           \\
+    \textit{number} & ::= & (digit)+
+  \end{tabular}
+\end{center}
+Comments start with the character \texttt{\%}, up to the end of line.
+
+\subsection{BNF grammar}
+
+\newcommand{\comm}{\textit{command}}
+\newcommand{\term}{\textit{term}}
+\newcommand{\prop}{\textit{proposition}}
+
+\begin{center}
+  \begin{tabular}{rrl}
+    \comm & ::= & \texttt{assert} \prop\texttt{;} \dots\texttt{;} 
+                  \prop\texttt{.} \\
+          & $|$ & \texttt{check} \prop\texttt{.} \\
+          & $|$ & \texttt{show}\texttt{.} \\
+          & $|$ & \texttt{canon} \term\texttt{.} \\
+          & $|$ & \texttt{verbose} \textit{int}\texttt{.} \\
+          & $|$ & \texttt{reset.} \\
+  \end{tabular}
+\end{center}
+
+\begin{center}
+  \begin{tabular}{rrl}
+    \prop & ::= & \term\ \texttt{=} \term \\
+          & $|$ & \term\ \texttt{<>} \term \\
+          & $|$ & \term\ \texttt{>} \term \\
+          & $|$ & \term\ \texttt{>=} \term \\
+          & $|$ & \term\ \texttt{<} \term \\
+          & $|$ & \term\ \texttt{<=} \term \\
+          & $|$ & \texttt{true} \\
+          & $|$ & \texttt{false} \\
+          & $|$ & \prop\ \texttt{\&\&} \prop \\
+          & $|$ & \prop\ \texttt{||} \prop \\
+          & $|$ & \prop\ \texttt{=>} \prop \\
+          & $|$ & \texttt{\~{}} \prop \\
+          & $|$ & \texttt{if} \prop\ \texttt{then} \prop\ 
+                  \texttt{else} \prop\ \texttt{fi}
+  \end{tabular}
+\end{center}
+
+\begin{center}
+  \begin{tabular}{rrl}
+    \term & ::= & \textit{ident} \\
+          & $|$ & \textit{ident}
+                  \texttt{(}\term\texttt{,}\dots\texttt{,}\term\texttt{)} \\
+          & $|$ & \textit{number} \\
+          & $|$ & \term\ \texttt{+} \term \\
+          & $|$ & \term\ \texttt{-} \term \\
+          & $|$ & \term\ \texttt{*} \term \\
+          & $|$ & \term\ \texttt{/} \term \\
+          & $|$ & TODO
+  \end{tabular}
+\end{center}
+
+\end{document}

@@ -1,0 +1,56 @@
+dnl ICS autoconf input
+
+dnl begin
+AC_INIT(src/ics.mli)
+
+AC_PREFIX_DEFAULT(/usr)
+
+# AC_CONFIG_AUX_DIR(./support)
+# need support/install-sh
+# need support/missing
+# need support/mkinstalldirs
+
+dnl Check for programs
+
+# Check for OCaml programs
+AC_CHECK_PROG(OCAMLC,ocamlc,ocamlc,no)
+if test "$OCAMLC" = no ; then
+	AC_MSG_ERROR(Cannot find ocamlc.)
+fi
+AC_CHECK_PROG(OCAMLOPT,ocamlopt,ocamlopt,no)
+if test "$OCAMLOPT" = no ; then
+	AC_MSG_ERROR(Cannot find ocamlopt.)
+fi
+AC_CHECK_PROG(OCAMLMKTOP,ocamlmktop,ocamlmktop,no)
+if test "$OCAMLMKTOP" = no ; then
+	AC_MSG_ERROR(Cannot find ocamlmktop.)
+fi
+AC_CHECK_PROG(OCAMLDEP,ocamldep,ocamldep,no)
+if test "$OCAMLDEP" = no ; then
+	AC_MSG_ERROR(Cannot find ocamldep.)
+fi
+AC_CHECK_PROG(OCAMLLEX,ocamllex,ocamllex,no)
+if test "$OCAMLLEX" = no ; then
+	AC_MSG_ERROR(Cannot find ocamllex.)
+fi
+AC_CHECK_PROG(OCAMLYACC,ocamlyacc,ocamlyacc,no)
+if test "$OCAMLYACC" = no ; then
+	AC_MSG_ERROR(Cannot find ocamlyacc.)
+fi
+
+# Check for other programs
+AC_CHECK_PROG(HEVEA,hevea,hevea,true)
+if test "$HEVEA" = true ; then
+	AC_MSG_WARN(Cannot find hevea -- but not mandatory)
+fi
+
+AC_CHECK_PROG(OCAMLWEB,ocamlweb,ocamlweb,true)
+if test "$OCAMLWEB" = true ; then
+	AC_MSG_WARN(Cannot find ocamlweb -- but not mandatory)
+fi
+
+# Check for library
+AC_CHECK_LIB(gmp,mpz_cmp, , AC_MSG_ERROR(Cannot find the GMP library.))
+
+# Finally create all the generated files
+AC_OUTPUT(Makefile chameleon/Makefile)

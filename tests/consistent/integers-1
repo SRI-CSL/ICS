@@ -1,0 +1,2 @@
+% BUG: no more checked!
+% check integer_pred(x) => not (1 < x && x < 2).

@@ -1,0 +1,2 @@
+check f(f(f(x)))=f(x) -> f(f(f(f(f(x)))))=f(x).
+check f(f(f(x))) = x && f(f(f(f(f(x))))) = x => x = f(x).

@@ -1,0 +1,31 @@
+This is ICS, a decision procedure based on a variation of Shostak's
+algorithm by Harald Rueﬂ and Natarajan Shankar.
+
+Requirements:
+-------------
+
+To compile ICS, you need to install first:
+ 
+ - Objective Caml version 3.00 or later
+   Freely available at http://caml.inria.fr
+
+ - GNU MP version 3.0 or later
+   Freely available at http://www.swox.com/gmp/
+
+Installation:
+-------------
+
+Edit the Makefile if the Ocaml compiler is not in your path.
+
+Then compile with `make'. 
+
+Credits:
+--------
+
+Main ocaml code is by Jean-Christophe Filli‚tre and Harald Rueﬂ.
+
+Lisp code is by Sam Owre, Harald Rueﬂ and Jean-Christophe Filli‚tre.
+
+GMP ocaml interface was originally written by David Monniaux, 
+and patched for ocaml 3.00 by Jean-Christophe Filli‚tre.
+

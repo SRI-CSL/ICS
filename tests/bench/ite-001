@@ -1,0 +1,11 @@
+assert if x = y then
+         if y = z then
+	   if x = z then true else false fi
+	 else
+	   true
+	 fi
+       else
+         true
+       fi.
+
+assert x = y && y = z => x = z.

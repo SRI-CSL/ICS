@@ -1,0 +1,253 @@
+
+### configuration part (done by ./configure) #################################
+
+OCAMLSTDLIB = `ocamlc -v | tail -1 | cut -f 4 -d " "`
+
+GMPPATH = -L/usr/lib
+LIBGMPA = /usr/lib/libgmp.a
+GMPINCLUDE = -I /usr/include
+
+OCAMLC   = @OCAMLC@
+OCAMLLINK= @OCAMLMKTOP@
+OCAMLOPT = @OCAMLOPT@
+OCAMLLEX = @OCAMLLEX@
+OCAMLYACC= @OCAMLYACC@
+OCAMLDEP = @OCAMLDEP@
+
+HEVEA = @HEVEA@
+OCAMLWEB = @OCAMLWEB@
+OCAMLWEBSTY = $$HOME/tex/inputs/ocamlweb.sty
+
+### end of configuration part ################################################
+
+INCLUDE = -I src # -I unify -I fol -I qe
+CFLAGS = 
+BFLAGS = -g $(INCLUDE) # -noassert
+OFLAGS = $(INCLUDE) # -noassert
+
+LIBS = -cclib "$(GMPPATH) -lunix -lgmp"
+
+### targets
+
+BIN = ./bin
+LIB = ./lib
+SRC = ./src
+DOC = ./doc
+
+
+COBJS = $(SRC)/mlgmp.o
+
+CMO = $(SRC)/hashcons.cmo $(SRC)/hasht.cmo $(SRC)/ptset.cmo \
+      $(SRC)/ptmap.cmo $(SRC)/tools.cmo $(SRC)/seqs.cmo \
+      $(SRC)/gmp.cmo $(SRC)/mpa.cmo $(SRC)/bitv.cmo $(SRC)/term.cmo \
+      $(SRC)/tset.cmo $(SRC)/tmap.cmo $(SRC)/pp.cmo $(SRC)/bdd.cmo \
+      $(SRC)/euclid.cmo $(SRC)/poly.cmo $(SRC)/bool.cmo $(SRC)/equal.cmo \
+      $(SRC)/arith.cmo $(SRC)/ineq.cmo $(SRC)/prop.cmo $(SRC)/congstate.cmo \
+      $(SRC)/tuple.cmo $(SRC)/arrays.cmo $(SRC)/conc.cmo $(SRC)/bv.cmo \
+      $(SRC)/sets.cmo $(SRC)/morphisms.cmo $(SRC)/solve.cmo \
+      $(SRC)/can.cmo $(SRC)/process.cmo $(SRC)/ics.cmo
+
+CMX = $(CMO:.cmo=.cmx)
+
+all: ics $(LIB)/ics.so $(LIB)/libics.a
+
+TOPCMO = $(CMO) $(SRC)/cmd.cmo $(SRC)/parser.cmo \
+	 $(SRC)/lexer.cmo $(SRC)/main.cmo
+
+TOPCMX = $(TOPCMO:.cmo=.cmx)
+
+ics: $(COBJS) $(TOPCMX)
+	$(OCAMLOPT) $(OFLAGS) -o $(BIN)/$@ unix.cmxa $(TOPCMX) $(COBJS) $(LIBS)
+
+ics.byte: $(COBJS) $(TOPCMO)
+	$(OCAMLLINK) -g -custom -o $(BIN)/$@ unix.cma $(TOPCMO) $(COBJS) $(LIBS)
+
+OBJS = $(SRC)/ics_all.o $(SRC)/ics_stub.o $(SRC)/ics_error.o $(SRC)/mlgmp.o
+
+$(SRC)/ics_all.o: $(CMX)
+	$(OCAMLOPT) -output-obj -o $@ unix.cmxa $(CMX)
+
+$(LIB)/ics.so: $(OBJS)
+	gcc -shared -o $(LIB)/ics.so $(OBJS) \
+	  $(OCAMLSTDLIB)/libunix.a \
+	  $(LIBGMPA) \
+          $(OCAMLSTDLIB)/libasmrun.a
+
+$(LIB)/libics.a: $(OBJS)
+	cp $(OCAMLSTDLIB)/libasmrun.a $(LIB)/libics.a
+	ar r $(LIB)/libics.a $(OBJS)
+
+$(SRC)/ics_stub.c $(SRC)/ics.h $(SRC)/ics.lisp: $(SRC)/ics.ml $(SRC)/ics.mli chameleon/chameleon
+	chameleon/chameleon $(SRC)/ics.ml
+
+GENERATED = $(SRC)/lexer.ml $(SRC)/parser.mli $(SRC)/parser.ml
+
+top: $(COBJS) $(CMO)
+	ocamlmktop -o top -custom unix.cma $(CMO) $(COBJS) $(LIBS)
+
+CHAMELEONSRC = chameleon/mli_parser.mly chameleon/mli_lexer.mll \
+               chameleon/chameleon.ml
+
+chameleon/chameleon: $(CHAMELEONSRC)
+	make -C chameleon chameleon
+
+### Automatic tests
+
+bench:: consistent inconsistent benchmarks
+
+check:: consistent inconsistent
+
+consistent: ics
+	@for f in `find tests/consistent/ -maxdepth 1 -type f -print`; do \
+	echo -n $$f"..."; \
+	./bin/ics $$f > /dev/null; if [ $$? = 0 ]; then echo "Ok"; else \
+          echo "Error! (Should be consistent)"; exit $$?; fi \
+	done
+
+inconsistent: ics
+	@for f in `find tests/inconsistent/ -maxdepth 1 -type f -print`; do \
+	echo -n $$f"..."; \
+	./bin/ics $$f > /dev/null; if [ $$? = 3 ]; then echo "Ok"; else \
+          echo "Error! (Should be inconsistent)"; exit $$?; fi \
+	done
+
+BENCHFILES=linsys-005 linsys-006 linsys-007 linsys-008 linsys-009 linsys-010 \
+	   linsys-011 linsys-012 linsys-013 linsys-014 linsys-015 \
+           trans-100 trans-200 trans-300 trans-400 trans-500 trans-1000 \
+           ineq-010 ineq-020 ineq-030 ineq-040 ineq-050 ineq-060 ineq-070
+
+benchmarks: ics
+	@for f in $(BENCHFILES); do \
+	echo -n "bench file $$f..."; \
+	time -f "user = %U system = %S" ./bin/ics tests/bench/$$f > /dev/null;\
+	done
+
+PROFFILE = tests/bench/linsys-010
+
+profile:
+	make clean
+	make OFLAGS=-p ics
+	$(BIN)/ics $(PROFFILE)
+	gprof $(BIN)/ics gmon.out > profile.out
+
+CPROFFILE = tests/bench/trans-1000
+
+cprofile:
+	make BFLAGS="" OCAMLC="ocamlcp -p fmt" OCAMLLINK="ocamlcp -p fmt" clean ics.byte
+	$(BIN)/ics.byte $(CPROFFILE)
+	make find.prof shostak.prof
+
+### literate programming
+
+OCAMLWEBARGS = $(DOC)/intro.tex \
+               $(DOC)/ics.tex $(SRC)/ics.mli \
+               $(DOC)/terms.tex $(SRC)term.mli \
+               $(DOC)/algo.tex $(SRC)/find.mli $(SRC)/find.ml \
+               $(SRC)/process.ml \
+               $(DOC)/dp.tex \
+               $(SRC)/poly.mli $(SRC)/poly.ml $(SRC)/ineq.mli \
+               $(SRC)/ineq.ml \
+               $(SRC)/state.mli $(SRC)/state.ml $(SRC)/dp.mli $(SRC)/dp.ml \
+               $(DOC)/theo.tex $(SRC)/term.ml $(SRC)/arith.mli \
+               $(SRC)/arith.ml $(SRC)/tuple.mli $(SRC)/tuple.ml \
+               $(SRC)/arrays.mli $(SRC)/arrays.ml \
+               $(DOC)/misc.tex $(SRC)/tools.mli $(SRC)/lexer.mli \
+               $(SRC)/toplevel.ml
+
+manual: $(DOC)/manual.ps  $(DOC)/manual.html
+	cp  $(DOC)/manual.ps  $(DOC)/manual.html $$HOME/internal_html/ics
+
+doc:  $(DOC)/doc.ps  $(DOC)/doc.html
+	cp  $(DOC)/doc.ps  $(DOC)/doc.html $$HOME/internal_html/ics
+
+$(DOC)/doc.dvi:  $(DOC)/doc.tex  $(DOC)/dep.ps
+
+$(DOC)/doc.ps:  $(DOC)/doc.dvi  $(DOC)/dep.ps
+
+$(DOC)/doc.tex: $(OCAMLWEBARGS) Makefile
+	$(OCAMLWEB) -o $(DOC)/doc.tex $(OCAMLWEBARGS)
+
+$(DOC)/doc.html: $(DOC)/doc.tex
+	$(HEVEA) $(OCAMLWEBSTY) $(DOC)/doc.tex -o $(DOC)/doc.html
+
+$(DOC)/dep.ps: $(CMO:.cmo=.ml)
+	$(OCAMLDEP) $(CMO:.cmo=.ml) | ocamldot -lr | dot -Tps > $(DOC)/dep.ps
+
+### Emacs tags
+
+tags:
+	find . -name "*.ml*" | sort -r | xargs \
+        etags "--regex=/let[ \t]+\([^ \t]+\)/\1/" \
+              "--regex=/let[ \t]+rec[ \t]+\([^ \t]+\)/\1/" \
+              "--regex=/and[ \t]+\([^ \t]+\)/\1/" \
+              "--regex=/type[ \t]+\([^ \t]+\)/\1/" \
+              "--regex=/exception[ \t]+\([^ \t]+\)/\1/" \
+              "--regex=/val[ \t]+\([^ \t]+\)/\1/" \
+              "--regex=/module[ \t]+\([^ \t]+\)/\1/"
+
+### Generic rules
+
+.SUFFIXES: .ml .mli .cmi .cmo .cmx .mll .mly .prof .tex .dvi .ps .html
+
+.tex.dvi:
+	latex $< && latex $<
+
+.dvi.ps: 
+	dvips $< -o $@
+
+.tex.html:
+	$(HEVEA) $< -o $@
+
+.c.o:
+	$(OCAMLC) -c -ccopt "-o $@" $(GMPINCLUDE) $<
+
+.mli.cmi:
+	$(OCAMLC) $(BFLAGS) -c $<
+
+.ml.cmo:
+	$(OCAMLC) $(BFLAGS) -c $<
+
+.ml.cmx:
+	$(OCAMLOPT) $(OFLAGS) -c $<
+
+.mll.ml:
+	$(OCAMLLEX) $<
+
+.mly.ml:
+	$(OCAMLYACC) $<
+.mly.mli:
+	$(OCAMLYACC) $<
+
+.ml.prof:
+	ocamlprof $< > $@
+
+### clean and depend
+
+archclean::
+	rm -f *.cmx *.o *.so *.a
+	make -C chameleon archclean
+
+clean::
+	rm -f *~ *.cm[iox] *.o *.prof
+	rm -f $(SRC)/*.cm[iox] $(SRC)/*~
+	rm -f $(SRC)/unify/*~ $(SRC)/unify/*.cm[iox]
+	rm -f $(SRC)/unify/*.o $(SRC)/unify/*.prof
+	rm -f tests/consistent/*~ tests/inconsistent/*~ tests/bench/*~
+	rm -f $(DOC)/*.aux $(DOC)/*.log
+	rm -f $(DOC)/doc.tex $(DOC)/doc.dvi $(DOC)/doc.ps
+	rm -f $(GENERATED)
+	rm -f ics ics.byte
+	rm -f $(LIB)/ics.so $(LIB)/libics.a
+	rm -f *.prof ocamlprof.dump gmon.out profile.out
+	make -C chameleon clean
+
+depend: $(GENERATED)
+	$(OCAMLDEP) $(INCLUDE) $(SRC)/*.mli $(SRC)/*.ml > .depend
+	make -C chameleon depend
+
+include .depend
+
+
+
+
+

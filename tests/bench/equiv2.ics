@@ -1,0 +1,15 @@
+assert a = (x = 1).
+assert b = (y = 1).
+assert c = (y = 2).
+assert d = (x = 2).
+
+check (a && d).   % don't cares
+check (b && c).
+
+check (((x = 1) && (y = 1)) ||
+       ((x = 1) && (y = 2)) ||
+       ((x = 2) && (y = 2)))
+      <=>
+       ((a && b) || (a && c) || (d && c) || (a && d) || (b && c)).
+
+

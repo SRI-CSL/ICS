@@ -1,0 +1,66 @@
+
+### configuration part
+
+OCAMLC   = @OCAMLC@
+OCAMLLINK= @OCAMLMKTOP@
+OCAMLOPT = @OCAMLOPT@
+OCAMLLEX = @OCAMLLEX@
+OCAMLYACC= @OCAMLYACC@
+OCAMLDEP = @OCAMLDEP@
+
+BFLAGS =
+OFLAGS =
+
+LIBS    = -cclib -lstr
+
+### targets
+
+CMO = mli_parser.cmo mli_lexer.cmo chameleon.cmo
+CMX = $(CMO:.cmo=.cmx)
+
+chameleon: $(CMX)
+	$(OCAMLOPT) -o $@ str.cmxa $(CMX) $(LIBS)
+
+GENERATED = mli_parser.ml mli_parser.mli mli_lexer.ml
+
+### Generic rules
+
+.SUFFIXES: .ml .mli .cmi .cmo .cmx .mll .mly .prof
+
+.c.o:
+	$(OCAMLC) -c $<
+
+.mli.cmi:
+	$(OCAMLC) $(BFLAGS) -c $<
+
+.ml.cmo:
+	$(OCAMLC) $(BFLAGS) -c $<
+
+.ml.cmx:
+	$(OCAMLOPT) $(OFLAGS) -c $<
+
+.mll.ml:
+	$(OCAMLLEX) $<
+
+.mly.ml:
+	$(OCAMLYACC) $<
+.mly.mli:
+	$(OCAMLYACC) $<
+
+.ml.prof:
+	ocamlprof $< > $@
+
+### clean and depend
+
+archclean::
+	rm -f *.cmx *.o *.so *.a
+
+clean::
+	rm -f *~ *.cm[iox] *.o
+	rm -f $(GENERATED)
+	rm -f chameleon
+
+depend: $(GENERATED)
+	$(OCAMLDEP) *.mli *.ml > .depend
+
+include .depend

@@ -1,0 +1,5 @@
+assert f(v) = v.
+
+assert f(u) = u - 1.
+
+assert u = v.

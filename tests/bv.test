@@ -1,0 +1,71 @@
+sigma eps.
+
+sigma conc[4,5](x,y).
+
+sigma x[10,0,7].
+
+sigma x[10,1,7][7,2,3].
+
+sigma bw_and[4](x,y).
+
+sigma 0b1111.
+
+sigma 0b0000.
+
+sigma 0b101.
+
+sigma bw_or[3](0b101,0b010).
+
+sigma conc[3,3](0b000,0b111).
+
+sigma conc[3,3](0b00011[5,0,2],0b111).
+
+sigma bw_and[3](0b000,0b000).
+
+sigma 0b1001110110[10,3,7].
+
+sigma conc[3,5](x,y)[8,2,3].  (* canon makes nonsense here *)
+
+sigma conc[7,5](x,y)[12,2,3].
+
+sigma conc[7,5](x,y)[12,7,9].
+
+sigma bw_xor[3](0b001,0b101).
+
+sigma bw_and[7](0b0000000,x)[7,5,6].
+
+sigma bw_and[7](0b0000000,x)[7,2,5].   
+
+sigma bw_and[7](0b1111111,x)[7,2,5].
+
+sigma bw_and[7](0b1111111,x).  
+
+sigma bw_and[3](x,y) = x.
+
+sigma conc[16,12](x, x[16,0,11]).
+
+sigma conc[4,24](y, conc[12,12](0b000000000000,0b111111111111)).
+
+sigma conc[1,4](0b0,conc[1,3](0b1,x)).
+
+solve conc[3,4](x,y) = conc[3,4](u,v).
+
+solve conc[4,3](x,y) = conc[3,4](u,v).
+
+solve conc[4,3](0b1110, x) = conc[3,4](0b111,y).
+
+solve conc[3,34](y, conc[16,18](x, conc[16,2](x,z)))
+      = conc[16,21](x, conc[4,17](w, conc[1,16](0b1,x))).
+      
+solve conc[3,4](x,y) = 0b0010000.
+
+solve conc[3,4](x,y) = conc[4,3](0b0010,z).  
+
+
+
+      
+
+
+
+
+

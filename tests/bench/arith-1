@@ -1,0 +1,8 @@
+
+assert 4*x=2*x+2*y.
+
+assert x =f(2*x-y).
+
+assert f(2*y-x) = 3.
+
+assert f(x) = 4.

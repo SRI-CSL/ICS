@@ -1,0 +1,6 @@
+% very basic checks of the propositional part of the d.p.
+
+check false => p.
+
+check (a=>b)=>a=>b.
+

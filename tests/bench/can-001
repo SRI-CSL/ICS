@@ -1,0 +1,3 @@
+can if x = y && z = 1 then f(f((x+z))) = f(f((1+y))) else true fi.
+
+assert (if a = b then x else y fi) < (if a <> b then x + 1 else y - 1 fi).

@@ -1,0 +1,54 @@
+check x = y & f(f(f(x))) = f(x) => f(f(f(f(f(y))))) = f(x).
+
+check x <= y & x <= 1 - y & 2 * x >= 1 => f(4 * x) = f(2).
+
+check proj[0,2]((a,b)) = a.
+
+check x <= proj[0,2](a) => proj[0,2](a) >= proj[0,2]((x,b)).
+
+reset.
+assert integer(y1).
+assert integer(y2).
+assert integer(y2p).
+assert y1 >= 0.
+assert y2 >= 0.
+assert y2p >= 0.
+assert y1 = y2p + 1.
+assert y2 = y2p.
+check y1 <> 0.
+
+reset.
+assert integer(y1).
+assert integer(y2).
+assert integer(y1p).
+assert y1 >= 0.
+assert y2 >= 0.
+assert y1p >= 0.
+assert y2 = y1p + 1.
+assert y1 = y1p.
+check y1 <= y2.
+
+reset.
+assert integer(y1p).
+assert y1p >= 0.
+check y1p <= y1p.
+	
+reset.
+assert integer(y1).
+assert integer(y2).
+assert integer(y1p).
+assert y1 >= 0.
+assert y2 >= 0.
+assert y2p >= 0.
+assert true.
+assert y1 = y2p + 1.
+assert y2 = y2p.
+check not(y1 <= y2).
+check y1 > y2.
+
+
+
+
+
+
+

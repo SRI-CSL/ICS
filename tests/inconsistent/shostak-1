@@ -1,0 +1,3 @@
+assert z = f(x - y).    
+assert x = z + y.
+assert -y <> -(x - f(f(z))).   

@@ -1,0 +1,7 @@
+assert f(f(f(x)))=f(x).
+assert f(f(f(f(f(x)))))=f(x).
+
+reset.
+assert f(f(f(x))) = x.
+assert f(f(f(f(f(x))))) = x.
+assert x = f(x).

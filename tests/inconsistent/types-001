@@ -1,0 +1,2 @@
+assert integer(x).
+assert x=y; x+y=1.
