@@ -1,5 +1,4 @@
-
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -12,19 +11,18 @@
  * benefit corporation.
  * 
  * Author: Harald Ruess
- i*)
+ *)
 
-(*i*)
 open Sym
 open Term
-(*i*)
 
-(*s Symbols. *)
+(*s {Symbols.} *)
 
 let mult = Sym.Pp(Sym.Mult)
 let expt n = Sym.Pp(Sym.Expt(n))
 
-(*s Test if term is purely interpreted. *)
+
+(** {Recognizers.} *)
 
 let rec is_interp a =
   is_expt a || is_mult a
@@ -39,7 +37,7 @@ and is_mult = function
   | _ -> false
 
 
-(*s Constructors. *)
+(** {Constructors.} *)
 
 let mk_one = 
   mk_app mult []
@@ -49,7 +47,6 @@ let is_one = function
   | _ -> false
 
 let rec mk_expt n a = 
-  Trace.msg "pp" "Expt" (a, n) (Pretty.pair Term.pp Pretty.number); 
   if n = 0 then                     (* [a^0 = 1] *)
     mk_one
   else if n = 1 then                (* [a^1 = a] *)
@@ -62,7 +59,7 @@ let rec mk_expt n a =
 	  mk_one
       | App(Pp(Mult), [x]) -> 
 	  mk_app (expt n) [x]
-      | App(Pp(Mult), xl) ->        (* [(x1 * ... * xk)^n = x1^n * ... * ...xk^n] *)
+      | App(Pp(Mult), xl) ->        (* [(x1*...*xk)^n = x1^n*...*...xk^n] *)
 	  mk_multl (mapl (mk_expt n) xl)
       | _ ->
 	  mk_app (expt n) [a]
@@ -71,7 +68,6 @@ and mk_multl al =
   List.fold_left mk_mult mk_one al
 
 and mk_mult a b =
-  Trace.msg "pp" "Mult" (a, b) (Pretty.pair Term.pp Term.pp);
   match a with
     | App(Pp(Expt(n)), [x]) ->
 	mk_mult_with_expt x n b
@@ -84,18 +80,19 @@ and mk_mult a b =
 
 and mk_mult_with_expt x n b =
   match b with
-    | App(Pp(Expt(m)), [y]) when Term.eq x y ->  (* [x^n * x*m = x^(n + m)] *)
+    | App(Pp(Expt(m)), [y]) 
+	when Term.eq x y ->  (* [x^n * x*m = x^(n + m)] *)
 	mk_expt (n + m) x
-    | App(Pp(Mult), []) ->           (* [x^n * 1 = x^n] *)
+    | App(Pp(Mult), []) ->   (* [x^n * 1 = x^n] *)
 	mk_expt n x
-    | App(Pp(Mult), yl) ->           (* [x^n * (y1 * ... * yk) = (y1 * ... x^n ... * yk)] *)
+    | App(Pp(Mult), yl) -> (* [x^n * (y1 * ... * yk) = (y1*...x^n...*yk)] *)
 	insert x n yl
     | _ ->
 	insert x n [b]
 
 and mk_mult_with_pp xl b =
   match b with
-    | App(Pp(Expt(m)), [y]) -> (* [(x1 * ... * xk) * y^m = (x1 * ...y^m * ... * xk)] *)
+    | App(Pp(Expt(m)), [y]) -> (* [(x1*...*xk) * y^m = (x1*...y^m*...*xk)] *)
 	insert y m xl
     | App(Pp(Mult), yl) ->
 	merge yl xl 
@@ -118,12 +115,11 @@ and insert x n bl =
 and insert1 x = insert x 1
 
 and merge al bl =
-  Trace.msg "pp" "Merge" (al, bl) (Pretty.pair (Pretty.list Term.pp) (Pretty.list Term.pp));
   let compare a b = cmp1 (destruct a) (destruct b) in
   let rec loop acc al bl = 
     match al, bl with
       | [], [] -> acc
-      | _, [] -> acc @ al   (* still needs to be sorted. *)
+      | _, [] -> acc @ al   (* needs to be sorted. *)
       | [], _ -> acc @ bl
       | a :: al', b :: bl' ->
 	  let (x, n) = destruct a 
@@ -147,7 +143,7 @@ and merge al bl =
 let mk_inv a = mk_expt (-1) a
 	
 
-(*s Sigma normal forms. *)
+(** {Sigma normal forms.} *)
 
 let sigma op l =
   match op, l with
@@ -170,10 +166,9 @@ let rec map f a =
     | _ ->
 	f a
 
-(*s Constraint. *)
+(** {Constraint}. *)
 
 let tau ctxt op l =
-  Trace.msg "pp" "tau" l (Pretty.list Term.pp);
   try
     match op, l with
       | Expt(n), [x] -> 
@@ -187,7 +182,7 @@ let tau ctxt op l =
     with
 	Not_found -> Cnstrnt.mk_real
 
-(*s Normalize a power product to a list. *)
+(** Normalize a power product to a list. *)
 
 let to_list a =
   match a with
@@ -195,7 +190,7 @@ let to_list a =
     | _ -> [a]
 
     
-(*s Ordering relation. *)
+(** {Ordering relation.} *)
 
 let cmp a b =
   let rec loop al bl =
@@ -214,7 +209,7 @@ let min a b = if cmp a b <= 0 then a else b
 let max a b = if cmp a b <= 0 then b else a
 
 
-(*s Greatest common divisor of two power products. For example,
+(** Greatest common divisor of two power products. For example,
   [gcd 'x^2 * y' 'x * y^2] returns the triple [(y, x, x * y)].
   [x * y] is the gcd of these power products. *)
 
@@ -262,65 +257,82 @@ let split a =
   in
     (mk_multl numerator, mk_inv (mk_multl denumerator))
 
+
 let numerator a = fst(split a)
+
+
 let denumerator a = snd(split a)
 
 
-(*s Least common multiple *)
+(** {Least common multiple.} *)
 
-let lcm qq pp =
-  let rec loop acc al bl =
+let lcm (qq, pp) =
+  let rec lcmloop ((pl, ql, lcm) as acc) (al, bl) =
     match al, bl with
       | [], [] -> 
 	  acc
       | [], bl ->
-	  mk_mult acc (mk_multl bl)
+	  (bl @ pl, ql, bl @ lcm)
       | al, [] ->
-	  mk_mult acc (mk_multl al)
+	  (pl, al @ ql, al @ lcm)
       | a :: al', b :: bl' ->
 	  let (x, n) = destruct a 
 	  and (y, m) = destruct b in
-	  let acc' =
-	    if Term.eq x y then
-	      mk_mult acc (mk_expt (Pervasives.min n m) x)
+	  let res = Term.cmp x y in
+	    if res = 0 then
+	      let acc' = 
+		let res = Pervasives.compare n m in
+		  if res = 0 then       (* [n = m] *)
+		    (pl, ql, a :: lcm)
+		  else if res < 0 then  (* [n < m] *)
+		    (mk_expt (m - n) x :: pl, ql, mk_expt m x :: lcm)
+		  else                  (* [n > m]. *)
+		    (pl, mk_expt (n - m) x :: ql, mk_expt n x :: lcm)
+	      in
+		lcmloop acc' (al', bl')
+	    else if res < 0 then        (* [y] does not occur in [al] anymore. *)
+	      lcmloop (b :: pl, ql, b :: lcm) (al', bl')
 	    else 
-	      mk_mult a (mk_mult b acc)
-	  in
-	    loop acc' al' bl'
+	      lcmloop (pl, a :: ql, a :: lcm) (al', bl')
   in
-    loop mk_one (to_list pp) (to_list qq)
+    let (pl, ql, lcm) = lcmloop ([], [], []) (to_list pp, to_list qq) in
+      (mk_multl pl, mk_multl ql, mk_multl lcm)
+
+let lcm =
+  Trace.func "foo7" "lcm"
+    (Pretty.pair Term.pp Term.pp)
+    (Pretty.triple Term.pp Term.pp Term.pp)
+    lcm
 
 
-(*s Divisibility. *)
+(**  {Divisibility.} *)
 
-let div =
-  Trace.func "foo" "div" (Pretty.pair Term.pp Term.pp)  (Pretty.option Term.pp)
-    (fun (pp, qq) ->
-       try
-	 let rec loop acc al bl =
-	   match al, bl with
-	     | [], [] -> 
-		 acc
-	     | [], bl ->
-		 mk_mult acc (mk_multl bl)
-	     | al, [] ->
-		 raise Not_found
-	     | a :: al', b :: bl' ->
-		 let (x, n) = destruct a 
-		 and (y, m) = destruct b in
-		 let cmp = Term.cmp x y in
-		   if cmp = 0 then
-		     if n = m then
-		       loop acc al' bl'
-		     else if n < m then
-		       loop (mk_mult acc (mk_expt (m - n) x)) al' bl'
-		     else 
-		       raise Not_found
-		   else if cmp > 0 then
-		     loop (mk_mult b acc) al bl'
-		   else 
-		     raise Not_found
-	 in
-	   Some(loop mk_one (to_list pp) (to_list qq))
-       with
-	   Not_found -> None)
+let div (pp, qq) =
+  try
+    let rec loop acc al bl =
+      match al, bl with
+	| [], [] -> 
+	    acc
+	| [], bl ->
+	    mk_mult acc (mk_multl bl)
+	| al, [] ->
+	    raise Not_found
+	| a :: al', b :: bl' ->
+	    let (x, n) = destruct a 
+	    and (y, m) = destruct b in
+	    let cmp = Term.cmp x y in
+	      if cmp = 0 then
+		if n = m then
+		  loop acc al' bl'
+		else if n < m then
+		  loop (mk_mult acc (mk_expt (m - n) x)) al' bl'
+		else 
+		  raise Not_found
+	      else if cmp > 0 then
+		loop (mk_mult b acc) al bl'
+	      else 
+		raise Not_found
+    in
+      Some(loop mk_one (to_list pp) (to_list qq))
+  with
+      Not_found -> None
