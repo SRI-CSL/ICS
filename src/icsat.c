@@ -346,7 +346,7 @@ void icsat_set_remove_subsumed_clauses(value x1) {
 
 void icsat_set_validate_counter_example(value x1) {
   CAMLparam1(x1);
-  sat_set_remove_validate_counter_example(Bool_val(x1));
+  sat_set_validate_counter_example(Bool_val(x1));
   CAMLreturn0;
 }
 

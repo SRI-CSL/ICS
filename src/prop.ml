@@ -89,7 +89,7 @@ external icsat_d_not : prop -> prop = "icsat_d_not"
 external icsat_num_arguments : prop -> int = "icsat_num_arguments"
 external icsat_get_argument : prop -> int -> prop = "icsat_get_argument"
 
-external icsat_get_assignment : int -> int = "icsat_get_assignment"
+external icsat_get_assignment2 : int -> int = "icsat_get_assignment"
 
 (** Parameter settings for SAT solver *)
 
