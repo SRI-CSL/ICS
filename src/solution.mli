@@ -34,7 +34,7 @@ val to_list : t -> (Term.t * Term.t) list
 
 (*s Pretty-printing of solution sets. *)
 
-val pp : Theories.t -> t Pretty.printer
+val pp : Th.t -> t Pretty.printer
 
 
 (*s [fold f s e] applies [f x a] to all [x = a] in
@@ -42,6 +42,7 @@ val pp : Theories.t -> t Pretty.printer
  accumulates the result. *)
 
 val fold : (Term.t -> Term.t * Fact.justification option -> 'a -> 'a) -> t -> 'a -> 'a
+
 
 
 (*s [apply s x] returns [b] if [x = b] is in [s], and 
@@ -105,19 +106,19 @@ val eq : t -> t -> bool
 
 (*s [restrict s x] removes equalities [x = a] from [s]. *)
 
-val restrict : Theories.t -> Term.t -> t -> t 
+val restrict : Th.t -> Term.t -> t -> t 
 
 
 (*s [union (x, b) s] adds an equality [x = b] to [s], 
  possibly removing an equality [x = b'] in [s]. *)
 
-val union : Theories.t -> Fact.equal -> t -> t
+val union : Th.t -> Fact.equal -> t -> t
 
 (*s [name s a] returns the variable [x] if there is
  an equation [x = a] in [s].  Otherwise, it creates a 
  fresh variiable [x'] and installs a solution [x' = a] in [s]. *)
 
-val name : Theories.t -> Term.t * t -> Term.t * t
+val name : Th.t -> Term.t * t -> Term.t * t
 
 (*s [fuse norm (p, s) r] propagates the equalities in [r] on 
   the right-hand side of equalities in [s]. The return value [(p', s')] consists 
@@ -136,7 +137,7 @@ vi  of an extension of the partition [p] with newly generated variable equalitie
   partitioning [p] and only one of [x = b'], [y = b'] is retained in the
   resulting solution set. *)
 
-val fuse : Theories.t -> Partition.t * t -> Fact.equal list -> Partition.t * t
+val fuse : Th.t -> Partition.t * t -> Fact.equal list -> Partition.t * t
 
 
 (*s [compose norm (p,s) r] is a [fuse] step followed by
@@ -145,7 +146,7 @@ val fuse : Theories.t -> Partition.t * t -> Fact.equal list -> Partition.t * t
  a non-variable term, in [sl]. If [b] is a variable, then
  it is added to [v'] and [ch'] is extended accordingly. *)
 
-val compose : Theories.t -> Partition.t * t -> Fact.equal list -> Partition.t * t
+val compose : Th.t -> Partition.t * t -> Fact.equal list -> Partition.t * t
 
 
 (*s Every modification or addition of an equality [x = a] to
@@ -156,11 +157,13 @@ val compose : Theories.t -> Partition.t * t -> Fact.equal list -> Partition.t * 
  
 module Changed: sig
 
+  type t = Term.Set.t Th.Array.arr
+
   val reset : unit -> unit
     
-  val save : unit -> Term.Set.t Theories.Array.arr
+  val save : unit -> t
     
-  val restore : Term.Set.t Theories.Array.arr -> unit
+  val restore : t -> unit
     
   val stable : unit -> bool
 

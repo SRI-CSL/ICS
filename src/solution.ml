@@ -16,6 +16,7 @@
 
 (*i*)
 open Term
+open Th
 (*i*)
 
 type t = {
@@ -39,19 +40,21 @@ let eq s t =
 
 (*s Changed sets. *)
 
-let changed = Theories.Array.create Set.empty
+let changed = Array.create Set.empty
 
 module Changed = struct
+
+  type t = Set.t Th.Array.arr
 		  
-  let reset () = Theories.Array.reset changed Set.empty
+  let reset () = Array.reset changed Set.empty
 		   
   let restore = 
-    Theories.Array.iter (Theories.Array.set changed) 
+    Array.iter (Array.set changed)
       
-  let save () = Theories.Array.copy changed
+  let save () = Array.copy changed
 		  
   let stable () =
-    Theories.Array.for_all Set.is_empty changed
+    Array.for_all Set.is_empty changed
 
 end
 
@@ -70,7 +73,7 @@ let to_list s =
 
 let pp i fmt s =
   Pretty.string fmt "\n";
-  Theories.pp fmt i;
+  Th.pp fmt i;
   Pretty.string fmt ":";
   Pretty.list (Pretty.eqn Term.pp) fmt (to_list s) 
 
@@ -115,7 +118,7 @@ let occurs s x =
 let union i e s =  
   let (x, b, j) = Fact.d_equal e in
   assert(is_var x);
-  Trace.msg (Theories.to_string i) "Update" (x, b) Term.pp_equal;
+  Trace.msg (to_string i) "Update" (x, b) Term.pp_equal;
   if Term.eq x b then 
     s 
   else
@@ -125,7 +128,7 @@ let union i e s =
       with 
 	  Not_found -> s.use 
     in
-      Theories.Array.set changed i (Set.add x (Theories.Array.get changed i));
+      Array.set changed i (Set.add x (Array.get changed i));
       {find = Map.add x (b,j) s.find;
        inv = Map.add b x s.inv;
        use = Use.add x b use'}
@@ -136,7 +139,7 @@ let union i e s =
 let extend i b s = 
   let x = Term.mk_fresh_var (Name.of_string "s") None in
   let e = Fact.mk_equal x b None in
-    Trace.msg (Theories.to_string i) "Extend" e Fact.pp_equal;
+    Trace.msg (to_string i) "Extend" e Fact.pp_equal;
     (x, union i e s)
 
 (*s Restrict domain. *)
@@ -144,8 +147,8 @@ let extend i b s =
 let restrict i x s =
   try
     let b = fst(Map.find x s.find) in  
-      Trace.msg (Theories.to_string i) "Restrict" x Term.pp;
-      Theories.Array.set changed i (Set.remove x (Theories.Array.get changed i));
+      Trace.msg (to_string i) "Restrict" x Term.pp;
+      Array.set changed i (Set.remove x (Array.get changed i));
       {find = Map.remove x s.find;
        inv = Map.remove b s.inv;
        use = Use.remove x b s.use}
@@ -162,29 +165,12 @@ let name i (b, s) =
   with
       Not_found -> extend i b s
 
-(*s Theory-specific normalization. *)
-
-let rec map i =
-  match i with
-    | Theories.A -> Arith.map
-    | Theories.T -> Tuple.map
-    | Theories.BV -> Bitvector.map
-    | Theories.S -> Coproduct.map
-    | Theories.U -> mapu
-
-and mapu ctxt a =
-  match a with
-    | Var _ -> ctxt(a)
-    | App(f, l) ->  
-	let l' = mapl ctxt l in
-	  if l == l' then a else 
-	    mk_app f l'
 
 (*s Fuse. *)
 
 let rec fuse i (p, s) r = 
-  Trace.msg (Theories.to_string i) "Fuse" r (Pretty.list Fact.pp_equal);
-  let norm = map i (fun x -> assoc x r) in
+  Trace.msg (Th.to_string i) "Fuse" r (Pretty.list Fact.pp_equal);
+  let norm = Th.map i (fun x -> assoc x r) in
   Set.fold 
     (fun x acc ->
        try
@@ -253,6 +239,8 @@ and update i e (p, s) =
 (*s Composition. *)
 
 let compose i (p, s) r =
-  Trace.msg (Theories.to_string i) "Compose" r (Pretty.list Fact.pp_equal);
+  Trace.msg (Th.to_string i) "Compose" r (Pretty.list Fact.pp_equal);
   let (p', s') = fuse i (p, s) r in
   List.fold_right (update i) r (p', s')
+
+

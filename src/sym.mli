@@ -17,14 +17,19 @@
 (*s Module [Sym]: Interpreted and uninterpreted function symbols *)
 
 
+
+(*s Interpreted symbols. *)
+
 type arith = 
   | Num of Mpa.Q.t  
   | Add
   | Multq of Mpa.Q.t
 
-type tuple = 
-  | Product 
+type product = 
+  | Tuple
   | Proj of int * int
+
+type coproduct = InL | InR | OutL | OutR
 
 type bv =
   | Const of Bitv.t
@@ -32,25 +37,34 @@ type bv =
   | Sub of int * int * int
   | Bitwise of int
 
-type coproduct = InL | InR | OutL | OutR
+type pprod = 
+  | Mult
+  | Expt of int
 
-
-type builtin = 
-  | Select | Update
-  | Unsigned 
-  | Mult | Expt | Div
-  | Apply of range
+type apply = 
+  | Funapp of Cnstrnt.t option
   | Lambda of int
 
-and range = Cnstrnt.t option
+type arrays = 
+  | Select 
+  | Update
+
+type bvarith = 
+  | Unsigned
+
+
+(*s Symbols. *)
 
 type t = 
-  | Uninterp of Name.t
-  | Builtin of builtin (* Never construct a [Builtin(f)] symbol explicitly! *)
-  | Arith of arith
-  | Tuple of tuple 
-  | Coproduct of coproduct
-  | Bv of bv
+  | Uninterp of Name.t       (* Uninterpreted function symbols. *)
+  | Arith of arith           (* Linear arithmetic function symbols. *) 
+  | Product of product       (* N-ary products *)
+  | Coproduct of coproduct   (* 2-ary coproducts *)
+  | Bv of bv                 (* Bitvector function symbols. *)
+  | Pp of pprod              (* Power products. *)
+  | Apply of apply           (* Lambda abstraction and application *)
+  | Arrays of arrays         (* Theory of arrays. *)
+  | Bvarith of bvarith       (* Bitvector interpretations. *)
 
 
 (*s Equality test *)
@@ -72,49 +86,6 @@ val pp : Format.formatter -> t -> unit
 val width : t -> int option
 
 
-(*s Classification of function symbols. *)
-
-val theory_of : t -> Theories.t
-
-
-(*s Some predefined function symbols. *)
-
-val add : t
-val product : t
+val tuple : t
 val car : t
 val cdr : t
-
-
-(*s Predefined array function symbols. Never use
- [Bultin(op)] to construct these function symbols, since
- the [is_array] test fails on these symbols. *)
-
-val select : t
-val update : t
-
-val is_array : t -> bool
-
-(*s Application (for encoding higher-order terms) *)
-
-val apply : range -> t
-
-
-(*s Predefined nonlinear function symbols. *)
-
-val mult : t
-val expt : t
-val div : t
-
-val is_nonlin : t -> bool
-
-(*s Predefined function symbol for unsigned interpretations. *)
-
-val unsigned : t
-
-val is_unsigned : t -> bool
-
-
-(*s [is_builtin f] tests if [f] is one of the function
- symbols mentioned above. *)
-
-val is_builtin : t -> bool

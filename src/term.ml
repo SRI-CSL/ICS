@@ -126,17 +126,28 @@ let max a b =
 (*s Some recognizers. *)
 
 let is_interp_const = function
-  | App((Arith _ | Bv _ | Tuple _), []) -> true
+  | App((Arith _ | Bv _ | Product _), []) -> true
   | _ -> false
    
 let is_interp = function
-  | App((Arith _ | Bv _ | Tuple _), _) -> true
+  | App((Arith _ | Bv _ | Product _), _) -> true
   | _ -> false
 
 let is_uninterpreted = function
   | App(Uninterp _, _) -> true
   | _ -> false
 
+
+let is_equal a b =
+  if eq a b then
+    Three.Yes
+  else match a, b with                                 (* constants from within a theory are *)
+    | App((Arith _ as c), []), App((Arith _ as d), []) (* assumed to interpreted differently *)
+	when not(Sym.eq c d) -> Three.No
+    | App((Bv _ as c), []), App((Bv _ as d), [])
+	when not(Sym.eq c d) -> Three.No
+    | _ ->
+	Three.X
 
 
 (*s Mapping over list of terms. Avoids unnecessary consing. *)
@@ -204,36 +215,34 @@ let rec pp fmt a =
 	       infixl " + " l
 	   | Arith(Multq(q)) , [x] -> 
 	       Pretty.infix Mpa.Q.pp "*" pp fmt (q, x)  
-	   | Tuple(Proj(0, 2)), [App(Coproduct(OutR), [x])] ->
+	   | Product(Proj(0, 2)), [App(Coproduct(OutR), [x])] ->
 	       str "hd"; str "("; term x; str ")"
-	   | Tuple(Proj(1, 2)), [App(Coproduct(OutR), [x])] ->
+	   | Product(Proj(1, 2)), [App(Coproduct(OutR), [x])] ->
 	       str "tl"; str "("; term x; str ")"
-	   | Tuple(Proj(0,2)), [_] -> 
+	   | Product(Proj(0,2)), [_] -> 
 	       str "car"; args l
-	   | Tuple(Proj(1,2)), [_] -> 
+	   | Product(Proj(1,2)), [_] -> 
 	       str "cdr"; args l
-	   | Tuple(Product), [_; _] -> 
+	   | Product(Tuple), [_; _] -> 
 	       str "cons"; args l
+	   | Pp(Mult), xl ->
+	       infixl "*" xl
+	   | Pp(Expt _), [x] ->
+	       term x; Sym.pp fmt f
 	   | Bv(Const(b)), [] -> 
 	       str ("0b" ^ Bitv.to_string b)
 	   | Bv(Conc _), l -> 
 	       infixl " ++ " l
 	   | Bv(Sub(_,i,j)), [x] ->
 	       term x; Format.fprintf fmt "[%d:%d]" i j
-	   | Coproduct(InL), [App(Tuple(Product), [x; xl])] ->
+	   | Coproduct(InL), [App(Product(Tuple), [x; xl])] ->
 	       Pretty.infix pp "::" pp fmt (x, xl)
-	   | Coproduct(InR), [App(Tuple(Product), [])] ->
+	   | Coproduct(InR), [App(Product(Tuple), [])] ->
 	       str "[]"
-	   | Builtin(Update), [x;y;z] ->
+	   | Arrays(Update), [x;y;z] ->
 	       term x; str "["; term y; str " := "; term z; str "]"
-	   | Builtin(Select), [x; y] ->
+	   | Arrays(Select), [x; y] ->
 	       term x; str "["; term y; str "]"
-	   | Builtin(Div), [_; _] ->
-	       str "("; infixl " / " l; str ")";
-	   | Builtin(Mult), _ ->
-	       infixl " * " l
-	   | Builtin(Expt), [x; y] ->
-	       Pretty.infix pp "^" pp fmt (y, x)
 	   | _ -> 
 	       app f l)
 
@@ -270,4 +279,15 @@ module Map = Map.Make(
   end)
 
 
+(*s Set of variables. *)
 
+let rec vars_of a = 
+  match a with
+    | Var _ -> 
+	Set.singleton a
+    | App(_, al) ->
+	List.fold_left 
+	  (fun acc b ->
+	     Set.union (vars_of b) acc)
+	  Set.empty
+	al

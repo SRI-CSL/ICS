@@ -91,7 +91,9 @@ val is_app : t -> bool
 val to_var : t -> Var.t
 
 val is_interp_const : t -> bool
- 
+
+val is_equal : t -> t -> Three.t
+
 
 (*s Fold operator on terms. *)
 
@@ -148,3 +150,9 @@ type trm = t
 module Set : (Set.S with type elt = trm)
 
 module Map : (Map.S with type key = trm)
+
+
+(*s Return set of variables. *)
+
+val vars_of : t -> Set.t
+ 
