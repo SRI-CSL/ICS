@@ -1,4 +1,3 @@
-
 (*i
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
@@ -200,3 +199,17 @@ let compose map (v, s) r =
 let changed s = s.changed
 
 let reset s = {s with changed = Set.empty}
+
+
+(* Make sure that rhs are canonical. *)
+
+let instantiate p =
+  Set.fold 
+    (fun x s -> 
+       try
+	 let b = apply s x in
+	 let y = Partition.v p x in
+	 union (y, b) (restrict x s)
+       with
+	   Not_found -> s)
+
