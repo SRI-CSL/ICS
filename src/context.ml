@@ -48,6 +48,14 @@ let v_of s = s.p.Partition.v
 let d_of s = s.p.Partition.d
 let c_of s = s.p.Partition.c
 
+(*s Equality test. *)
+
+let eq s t = 
+ Partition.eq s.p t.p &&
+ Solution.eq s.u t.u &&
+ Solution.eq s.a t.a &&
+ Solution.eq s.t t.t &&
+ Solution.eq s.bv t.bv
 
 
 (*s Canonical variables module [s]. *)
@@ -199,7 +207,6 @@ and close1 s =
   and afocus = Solution.changed s.a
   and cfocus = C.changed s.p.Partition.c
   in
-  Trace.msg "foo" "Afocus" (Set.elements afocus) (Pretty.set Term.pp);
   (deduce afocus &&&
    prop vfocus &&&
    diseqs dfocus &&&
@@ -257,7 +264,7 @@ and tuple_prop (x, y) s =
     {s with t = t'; p = p'}
   in
   if not(Set.is_empty (Solution.use s.t x)) then   (* [x] occurs on rhs. *)
-    fuse (x, y) s
+    fuse (x, Solution.find s.t y) s
   else
     try
       let a = Solution.apply s.t x in
@@ -284,7 +291,7 @@ and bv_prop (x, y) s =
     {s with bv = bv'; p = p'}
   in
   if not(Set.is_empty (Solution.use s.bv x)) then   (* [x] occurs on rhs. *)
-    fuse (x, y) s
+    fuse (x, Solution.find s.bv y) s
   else
     try
       let a = Solution.apply s.bv x in
@@ -301,7 +308,7 @@ and bv_prop (x, y) s =
 and arith_prop (x, y) s =
   Trace.msg "a" "Prop" (x, y) Term.pp_equal;
   if not(Set.is_empty (Solution.use s.a x)) then   (* [x] occurs on rhs. *)
-    arith_fuse (x, y) s
+    arith_fuse (x, Solution.find s.a y) s
   else
     try
       let a = Solution.apply s.a x in
@@ -315,11 +322,13 @@ and arith_prop (x, y) s =
     with
 	Not_found -> s            (* [x] occurs neither on rhs nor on lhs. *)
 
-and arith_fuse (x, y) s = 
+and arith_fuse (x, y) s =  
+ Trace.msg "a" "Fuse" (x, y) Term.pp_equal;
  let (p', a') = Solution.compose Arith.map (s.p, s.a) [(x, y)] in
  {s with a = a'; p = p'}
 
 and arith_compose (a, b) s = 
+  Trace.msg "a" "Compose" (a, b) Term.pp_equal;
   try
     match arith_solve s (a, b) with
       | None -> s
@@ -350,7 +359,7 @@ and select_update_prop (x, y) s =
        let v1 = s1.p.Partition.v and u1 = s1.u in
        try
 	 let (upd1, j1) = d_select (Solution.apply u1 z1) in
-	 if not(V.eq v1 y j1) then
+	 if not(V.is_equal v1 y j1) then
 	   s1
 	 else 
 	   V.fold v1
@@ -358,7 +367,7 @@ and select_update_prop (x, y) s =
 		let v2 = s2.p.Partition.v and u2 = s2.u in
 		try
 		  let (a2, i2, k2) = d_update (Solution.apply u2 z2) in
-		  if V.eq v2 x i2 then
+		  if V.is_equal v2 x i2 then
 		    let e' = Fact.mk_equal (V.find v2 z1) (V.find v2 k2) None in
 		    merge e' s2
 		  else
@@ -408,7 +417,7 @@ and select_update_diseq (i, j) s =
 	let (u, j') = d_select (Solution.apply s1.u z1) in 
         Trace.msg "foo" "u" u Term.pp;
         Trace.msg "foo" "j'" j' Term.pp;
-	if not(V.eq (v_of s1) j j') then
+	if not(V.is_equal (v_of s1) j j') then
 	  s1
 	else 
 	  V.fold (v_of s1)
@@ -416,7 +425,7 @@ and select_update_diseq (i, j) s =
 	       Trace.msg "foo" "z2" z2 Term.pp;
 	       try
 		 let (a,i',x) = d_update (Solution.apply s2.u z2) in
-		 if not(V.eq (v_of s2) i i') then
+		 if not(V.is_equal (v_of s2) i i') then
 		   s2
 		 else 
 		   let u3 = Term.mk_app Sym.mk_select [a;j] in
@@ -458,7 +467,7 @@ and infer focus s =
   let s = {s with p = {s.p with Partition.c = C.reset (c_of s)}} in
   Set.fold
     (fun x s -> 
-       Trace.msg "tac" "Consistent" x Term.pp;
+       Trace.msg "tac" "Infer" x Term.pp;
        try
 	 let i = C.apply (c_of s) (V.find (v_of s) x) in
 	 singleton_infer (x, i)
