@@ -20,6 +20,8 @@ open Term
 
 let init (n, pp, eot, inch, outch) =
   Istate.initialize pp eot inch outch;
+  Var.pretty := pp;
+  Term.pretty := pp;
   if n = 0 then
     Sys.catch_break true                 (** raise [Sys.Break] exception upon *)
                                          (** user interrupt. *)
@@ -75,43 +77,34 @@ let cnstrnt_pp s =
   Format.print_flush ()
 let _ = Callback.register "cnstrnt_pp" cnstrnt_pp
 
-let cnstrnt_mk_zero () = Sign.zero
+let cnstrnt_mk_zero () = Sign.Zero
 let _ = Callback.register "cnstrnt_mk_zero" cnstrnt_mk_zero
 
-let cnstrnt_mk_real () = Sign.real
-let _ = Callback.register "cnstrnt_mk_real" cnstrnt_mk_real
-
-let cnstrnt_mk_int () = Sign.integer
-let _ = Callback.register "cnstrnt_mk_int" cnstrnt_mk_int
-
-let cnstrnt_mk_pos () = Sign.pos
+let cnstrnt_mk_pos () = Sign.Pos
 let _ = Callback.register "cnstrnt_mk_pos" cnstrnt_mk_pos
 
-let cnstrnt_mk_neg () = Sign.neg
+let cnstrnt_mk_neg () = Sign.Neg
 let _ = Callback.register "cnstrnt_mk_neg" cnstrnt_mk_neg
 
-let cnstrnt_mk_nonneg () = Sign.nonneg
+let cnstrnt_mk_nonneg () = Sign.Nonneg
 let _ = Callback.register "cnstrnt_mk_nonneg" cnstrnt_mk_nonneg
 
-let cnstrnt_mk_nonpos () = Sign.nonpos
+let cnstrnt_mk_nonpos () = Sign.Nonpos
 let _ = Callback.register "cnstrnt_mk_nonpos" cnstrnt_mk_nonpos
 
-let cnstrnt_is_int s = Dom.eq (Sign.dom s) Dom.Int
-let _ = Callback.register "cnstrnt_is_int" cnstrnt_is_int
-
-let cnstrnt_is_empty = Sign.is_empty
+let cnstrnt_is_empty s = (s = Sign.F)
 let _ = Callback.register "cnstrnt_is_empty" cnstrnt_is_empty
 
-let cnstrnt_is_pos s = (Sign.sign s = Sign.Pos)
+let cnstrnt_is_pos s = (s = Sign.Pos)
 let _ = Callback.register "cnstrnt_is_pos" cnstrnt_is_pos
 
-let cnstrnt_is_neg s = (Sign.sign s = Sign.Neg)
+let cnstrnt_is_neg s = (s = Sign.Neg)
 let _ = Callback.register "cnstrnt_is_neg" cnstrnt_is_neg
 
-let cnstrnt_is_nonneg s = (Sign.sign s = Sign.Nonneg)
+let cnstrnt_is_nonneg s = (s = Sign.Nonneg)
 let _ = Callback.register "cnstrnt_is_nonneg" cnstrnt_is_nonneg
 
-let cnstrnt_is_nonpos s = (Sign.sign s = Sign.Nonpos)
+let cnstrnt_is_nonpos s = (s = Sign.Nonpos)
 let _ = Callback.register "cnstrnt_is_nonpos" cnstrnt_is_nonpos
 
 let cnstrnt_eq = Sign.eq
@@ -327,20 +320,14 @@ let _ = Callback.register "var_eq" var_eq
 let var_cmp = Var.cmp
 let _ = Callback.register "var_cmp" var_cmp
 
-let var_mk_external = Var.mk_var
+let var_mk_external x = Var.mk_var x None
 let _ = Callback.register "var_mk_external" var_mk_external
-
-let var_mk_fresh = Var.mk_fresh
-let _ = Callback.register "var_mk_fresh" var_mk_fresh
 
 let var_mk_bound = Var.mk_free
 let _ = Callback.register "var_mk_bound" var_mk_bound
 
 let var_is_external = Var.is_var
 let _ = Callback.register "var_is_external" var_is_external
-
-let var_is_fresh = Var.is_fresh
-let _ = Callback.register "var_is_fresh" var_is_fresh
 
 let var_is_bound = Var.is_free
 let _ = Callback.register "var_is_bound" var_is_bound
@@ -378,7 +365,7 @@ let _ = Callback.register "term_pp" term_pp
 
 let term_mk_var str =
   let x = Name.of_string str in
-  Term.mk_var x
+  Term.mk_var x None
 let _ = Callback.register "term_mk_var" term_mk_var
 
 
@@ -507,11 +494,6 @@ let _ = Callback.register "atom_mk_false" atom_mk_false
 let atom_mk_in a i = Atom.mk_in (a, i)
 let _ = Callback.register "atom_mk_in" atom_mk_in
 
-let atom_mk_real a = Atom.mk_in (a, Sign.real)
-let _ = Callback.register "atom_mk_real" atom_mk_real
-
-let atom_mk_int a = Atom.mk_in (a, Sign.integer)
-let _ = Callback.register "atom_mk_int" atom_mk_int
 
 
 let atom_mk_lt a b = Atom.mk_lt (a, b)
@@ -678,7 +660,7 @@ let term_mk_div = Sig.mk_div
 let _ = Callback.register "term_mk_div" term_mk_div
 
 let term_mk_apply = 
-  Apply.mk_apply (Context.sigma Context.empty) None
+  Apply.mk_apply Th.sigma None
 let _ = Callback.register "term_mk_apply" term_mk_apply
 
 (** Set of terms. *)

@@ -20,6 +20,7 @@ type t =
   | Term of Term.t
   | Atom of Atom.t
   | Cnstrnt of Sign.t option
+  | Dom of Dom.t option
   | Optterm of Term.t option
   | Name of Name.t
   | Terms of Term.Set.t

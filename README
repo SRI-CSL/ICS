@@ -22,7 +22,7 @@ To compile ICS, you need to install first:
  - Objective Caml version 3.04 or later
    Available at http://caml.inria.fr
 
- - GNU MP version 3.0 or later
+ - GNU MP version 4.1 or later
    Is part of the distribution of at least some Unix systems
    Available at http://www.swox.com/gmp/
 
@@ -35,8 +35,7 @@ After unpacking the source distribution and 'cding' to this directory, do:
 
 1> ./configure [--with-gmp=/path/to/gmp] [--prefix=/path/to/binaries]  ; creates the Makefile etc from XXX.in
 2> make			                   ; builds ICS
-3> make doc		                   ; generates documentation (optional)
-4> make install                            ; installs executables and libraries in directory $prefix
+4> make install                            ; installs executables and libraries in directory /path/to/binaries
 
 Binaries will be in ./bin/$(ARCH)/ 
 Libraries in ./lib/$(ARCH)/
@@ -55,3 +54,5 @@ Sam Owre, and N. Shankar.
 
 GMP ocaml interface was originally written by David Monniaux, 
 and patched for ocaml 3.00 by Jean-Christophe Filliâtre.
+
+

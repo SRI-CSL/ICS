@@ -27,8 +27,7 @@ let keyword =
     (fun (s,tk) -> Hashtbl.add kw_table s tk)
     [ "arith", ARITH; "tuple", TUPLE;
       "in", IN; "inf", INF;
-      "bot", BOT; "int", INT; "nonint", NONINT; "real", REAL; "top", TOP;
-      "pos", POS; "neg", NEG; "nonneg", NONNEG; "nonpos", NONPOS; "zero", ZERO;
+      "bot", BOT; "int", INT; "real", REAL; "top", TOP;
       "bitvector", BV; "with", WITH;
       "proj", PROJ;
       "cons", CONS; "car", CAR; "cdr", CDR;
@@ -41,7 +40,7 @@ let keyword =
       "set", SET; "toggle", TOGGLE; "trace", TRACE;  "untrace", UNTRACE; 
       "find", FIND; "inv", INV; "use", USE; "solution", SOLUTION; "partition", PARTITION;
       "syntax", SYNTAX; "commands", COMMANDS; "ctxt", CTXT; "diseq", DISEQ; "echo", ECHO;
-      "show", SHOW; "symtab", SYMTAB; "cnstrnt", CNSTRNT; "split", SPLIT; "sat", SAT;
+      "show", SHOW; "symtab", SYMTAB; "sign", SIGN; "dom", DOM; "split", SPLIT; "sat", SAT;
       "true", TRUE; "false", FALSE;
       "tt", TT; "ff", FF;
       "inr", INR; "inl", INL; "outr", OUTR; "outl", OUTL;
@@ -82,7 +81,6 @@ rule token = parse
                      let x = String.sub s 0 i in
 		     let k = int_of_string (String.sub s (i + 1) (n - i - 1)) in
 		       FRESH (x, k) }
-
   | '!' int    { let s = Lexing.lexeme lexbuf in
 		 let n = String.length s in
 		 let k = int_of_string (String.sub s 1 (n - 1)) in

@@ -59,9 +59,11 @@ val ctxt_of : Name.t option -> Atom.Set.t
 val diseq : Name.t option -> Term.t -> Term.t list
   (** Disequalities. *)
   
-val cnstrnt : Name.t option -> Term.t -> Sign.t option
-  (** Constraint. *)
+val sign : Name.t option -> Term.t -> Sign.t option
+  (** Sign Constraint. *)
 
+val dom : Name.t option -> Term.t -> Dom.t option
+  (** Domain Constraint. *)
 
 val solve : Th.t ->  (Term.t * Term.t) -> (Term.t * Term.t) list
   (** Solver. *)
@@ -122,7 +124,7 @@ val sgn : Name.t -> int -> unit
     current symbol table. Raises [Invalid_argument], if [n] is already in 
     the domain of the table. *)
 
-val typ : Name.t -> Dom.t -> unit
+val typ : Name.t list -> Dom.t -> unit
   (** [typ n i] adds a {i type definition} [n] for type [i] to the
     current symbol table. Raises [Invalid_argument], if [n] is already in 
     the domain of the table. *)

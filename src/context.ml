@@ -24,6 +24,7 @@ type t = {
   mutable ctxt : Atom.Set.t;      (* Current context. *)
   mutable p : Partition.t;        (* Variable partitioning. *)
   eqs : Solution.t Th.Array.arr;  (* Theory-specific solution sets. *)
+  mutable sl : Sl.t;              (* Slack equalities. *)
   mutable upper : int;            (* Upper bound on fresh variable index. *)
 }
 
@@ -32,6 +33,7 @@ let empty = {
   ctxt = Atom.Set.empty;
   p = Partition.empty;
   eqs = Array.create Solution.empty;
+  sl = Sl.empty;
   upper = 0
 } 
 
@@ -44,16 +46,18 @@ let v_of s = Partition.v_of s.p
 let d_of s = Partition.d_of s.p
 let c_of s = Partition.c_of s.p
 let eqs_of s = Array.get s.eqs
+let sl_of s = s.sl
 let upper_of s = s.upper
 
 
 (** Equality test. Do not take upper bounds into account. *)
 let eq s t =              
   Partition.eq s.p t.p &&
-  Array.for_all2 
+  (Array.for_all2 
     (fun eqs1 eqs2 -> 
        Solution.eq eqs1 eqs2) 
-    s.eqs t.eqs
+    s.eqs t.eqs) &&
+  Sl.eq s.sl t.sl
 
 
 (** Destructive updates. *)
@@ -66,9 +70,9 @@ let copy s = {
   ctxt = s.ctxt;
   p = Partition.copy s.p;
   eqs = Array.copy s.eqs;
+  sl = s.sl;
   upper = s.upper
 }
-
 
 (** Canonical variables module [s]. *)
 	       
@@ -76,12 +80,42 @@ let v s x = fst(Partition.v s.p x)
 
 let d s x = List.map fst (Partition.d s.p (v s x))
 
-let c s =
-  let lookup x = 
-    let (c, _) = C.apply (c_of s) x in
-      c
+let c s a = 
+  let rec term a =
+    match a with
+      | Var _ -> fst(Partition.c s.p a)
+      | Term.App(Arith(op), xl) -> arith op xl
+      | Term.App(Pp(op), xl) -> pprod op xl
+      | Term.App(Bvarith(op), [x]) -> bvarith op x
+      | a -> raise Not_found
+  and arith op al = 
+    try
+      match op, al with
+	| Num(q), [] -> Sign.of_q q
+	| Multq(q), [x] -> Sign.multq q (term x)
+	| Add, [x; y] -> Sign.add (term x) (term y)
+	| Add, xl -> Sign.addl (List.map term xl)
+	| _ -> assert false
+      with
+	  Not_found -> Sign.T
+  and bvarith op a =
+    match op with
+      | Unsigned -> Sign.Nonneg
+  and pprod op al =
+    try
+      match op, al with
+	| Expt(n), [x] -> Sign.expt n (try term x with Not_found -> Sign.T)
+	| Mult, [] -> Sign.of_q Q.one
+	| Mult, [x] -> term x
+	| Mult, [x; y] -> Sign.mult (term x) (term y)
+	| Mult, xl -> Sign.multl (List.map term xl)
+	| _ -> assert false
+      with
+	  Not_found -> Sign.T
   in
-    Sign.of_term lookup
+    term a
+
+let sl s = Sl.find s.sl
   
 let fold s f x = 
   let y = v s x in
@@ -103,17 +137,39 @@ let inv i s = Solution.inv (eqs_of s i)
 
 (** Constraint of [a] in [s]. *)
 
-let dom s a = Sign.dom (c s a)
+let dom s a =
+  let rec of_term = function
+    | App(Arith(op), xl) -> of_arith op xl
+    | App(Pp(op), xl) -> of_pprod op xl
+    | App(Bvarith(op), xl) -> of_bvarith op xl
+    | a -> if is_intvar a then Dom.Int else if is_realvar a then Dom.Real else raise Not_found
+  and of_arith op xl =
+    match op, xl with
+      | Num(q), [] ->
+	  if Q.is_integer q then Dom.Int else Dom.Real
+      | Multq(q), [x] -> 
+	  if Q.is_integer q && of_term x = Dom.Int then Dom.Int else Dom.Real
+      | Add, xl -> 
+	  if List.for_all (fun x -> Dom.eq (of_term x) Dom.Int) xl then Dom.Int else Dom.Real
+      | _ -> 
+	  Dom.Real
+  and of_pprod op xl = 
+    match op, xl with
+      | Mult, _ -> 
+	  if List.for_all (fun x -> Dom.eq (of_term x) Dom.Int) xl then Dom.Int else Dom.Real
+      | Expt(n), [x] ->
+	  if n >= 0 && of_term x = Dom.Int then Dom.Int else Dom.Real
+      | _ ->
+	  Dom.Real
+  and of_bvarith op xl =
+    match op, xl with
+      | Unsigned, [_] -> Dom.Int
+      | _ -> Dom.Real
+  in
+    of_term a
 
 let is_int s a = 
   try Dom.eq (dom s a) Dom.Int with Not_found -> false
-
-let solve i s e = 
-  let (a, b, _) = Fact.d_equal e in
-  let i' = if is_int s a && is_int s b then Th.z else Th.la in
-    Th.solve i' e
-
-let sigma s a = Th.sigma a
 
 
 (* Return a name for a nonvariable term. *)
@@ -131,7 +187,9 @@ let pp fmt s =
       Solution.pp i fmt sl
   in
     Partition.pp fmt s.p;
-    Array.iter (fun i eqs -> pps i eqs) s.eqs
+    Array.iter (fun i eqs -> pps i eqs) s.eqs;
+    if not(Sl.is_empty s.sl) then
+      Sl.pp fmt s.sl
 
 let equation i s = Solution.equality (eqs_of s i)
 
@@ -143,10 +201,14 @@ let rec is_equal s x y =
     | Three.X -> Partition.is_equal s.p x y
     | res -> res
 
+(** Constraint of a term. *)
 
-(** [sigma]-normal forms. *)
-
-let sigma s f = Th.sigma f
+let rec cnstrnt s a =
+  try
+    c s a 
+  with
+      Not_found ->
+	c s (apply Th.la s a)
 
 
 (* Lookup terms on rhs of solution sets. *)
@@ -255,7 +317,7 @@ module Can = struct
 	  let th = Th.of_sym f in
 	  let interp x = fnd th s (can s x) in
 	  let al' = mapl interp al in
-	  let a' = if al == al' then a else sigma s f al' in
+	  let a' = if al == al' then a else Th.sigma f al' in
 	    lookup s a'
 
   and pprod s op al =   
@@ -304,7 +366,7 @@ module Can = struct
 	 | Atom.True -> Atom.True
 	 | Atom.Equal(a, b) -> equal s (a, b)
 	 | Atom.Diseq(a, b) -> diseq s (a, b)
-	 | Atom.In(a, d) -> cnstrnt s (a, d)
+	 | Atom.In(a, d) -> sign s (a, d)
 	 | Atom.False -> Atom.False)
       
   and equal s (a, b) = 
@@ -344,13 +406,13 @@ module Can = struct
       if Pp.is_one d then (a, b) else
 	(Sig.mk_mult a d, Sig.mk_mult b d)
 
-  and cnstrnt s (a, i) =
+  and sign s (a, i) =
     let a' = can s a in
       try
-	let j = c s a' in
+	let j = cnstrnt s a' in
 	let k = Sign.inter i j in
 	  if Sign.eq k j then Atom.mk_true 
-	  else if Sign.is_empty k then Atom.mk_false
+	  else if k = Sign.F then Atom.mk_false
 	  else Atom.mk_in (a', k)
       with
 	  Not_found -> Atom.mk_in (a', i)
@@ -412,7 +474,7 @@ module Abstract = struct
       | App(f, al) ->
 	  let j = Th.of_sym f in
 	  let (s', al') = args j (s, al) in
-	  let a' = if Term.eql al al' then a else sigma s f al' in
+	  let a' = if Term.eql al al' then a else Th.sigma f al' in
 	    if i = u || i = arr || i <> j then
 	      try
 		let x' = inv j s' a' in
@@ -436,20 +498,7 @@ module Abstract = struct
 end 
 
 
-(** Constraint of a term. *)
-
-let rec cnstrnt s =
-  let lookup x = 
-    try
-      let (c, _) = C.apply (c_of s) x in
-	c
-    with 
-	Not_found ->
-	  let b = apply Th.la s x in
-	    cnstrnt s b
-  in
-    Sign.of_term lookup
-
+      
 
 (* Processing an equality. *)
 
@@ -472,6 +521,7 @@ and merge e s =
       | Three.No -> 
 	  raise Exc.Inconsistent
       | Three.X ->
+	  Trace.msg "rule" "Merge" e Fact.pp_equal;
 	  let (ch', p') = Partition.merge e s.p in
 	    s.p <- p';
 	    let s' = propagate e s in
@@ -539,6 +589,26 @@ and bvarith_equal e s =
       (use bvarith s x)
       s
 
+and nonlin_equal e s =
+  Trace.msg "rule" "Nonlin" e Fact.pp_equal;
+  let rec linearize occs s =
+    Set.fold 
+      (fun x s -> 
+	 try 
+	   let a = apply Th.pprod s x in
+	   let b = Sig.map (find Th.la s) a in
+	     Trace.msg "foo" "Inst" b Term.pp;
+	     if Term.eq a b then s else 
+	       let (s', b') = Abstract.toplevel_term (s, b) in
+	       let e' = Fact.mk_equal (v s' x) b' None in
+		 merge e' s'
+	 with
+	     Not_found -> s)
+      occs s
+  in
+  let (x, _, _) = Fact.d_equal e in
+    linearize (use Th.pprod s x) s
+
 and fuse i e s =   
   let (x, _, _) = Fact.d_equal e in   
   let (ch', es', si') = Solution.fuse i (eqs_of s i) [e] in
@@ -550,7 +620,8 @@ and compose i e s =
   let a' = find i s a 
   and b' = find i s b in
   let e' = Fact.mk_equal a' b' None in
-  let sl' = solve i s e' in
+  let sl' = Th.solve i e' in
+  let s = if Th.eq i Th.la then List.fold_right slack sl' s else s in
   let (ch', es', si') = Solution.compose i (eqs_of s i) sl' in
   let s' =  Fact.Equalset.fold merge es' s in
   let s'' = update s' i si' in
@@ -559,20 +630,43 @@ and compose i e s =
       (fun x acc ->
 	   try
 	     let e' = Solution.equality (eqs_of acc i) x in
-	       deduce i e' acc
+	     let acc' =  if Th.eq i Th.la then nonlin_equal e' acc else acc in
+	       deduce i e' acc'
 	   with
 	       Not_found -> acc)
       ch' s''
   in
     s'''
 
+and slack e s =
+  let (k, a, _) = Fact.d_equal e in
+    if is_slack k then
+      let sl' = Sl.update e s.sl in
+	s.sl <- sl';
+	try      (* Keep [cnstrnt s k] stronger than [cnstrnt s (sl s a)] *)
+	  refine (Fact.mk_cnstrnt k (c s a) None) s
+	with
+	    Not_found -> s
+    else 
+      s
+
+and refine c s =
+  let (ch', p') = Partition.add c s.p in
+    s.p <- p'; 
+    close ch' s 
+
+
+
+
+
 (** Deduce new constraints from an equality *)
 and deduce i e s =
-  Trace.msg "rule" "Deduce" e Fact.pp_equal;
   if Th.eq i Th.la then
     deduce_la e s
   else if Th.eq i Th.bvarith then
     deduce_bvarith e s
+  else if Th.eq i Th.pprod then
+    deduce_nonlin e s
   else 
     s
 
@@ -580,64 +674,85 @@ and deduce_bvarith e s =
   let (x, b, _) = Fact.d_equal e in
     match b with
       | App(Bvarith(Unsigned), [y]) ->   (* [x = unsigned(y)] *)      
-	  let c = Fact.mk_cnstrnt (v s x) Sign.nat None in
+	  let c = Fact.mk_cnstrnt (v s x) Sign.T None in
 	    add c s
       | _ -> 
 	  s
 
+and deduce_nonlin e s =
+  let (x, a, _) = Fact.d_equal e in
+  let x' = v s x in
+  try
+    let j = c s a in
+      (try
+	 let i = c s x' in
+	   if Sign.sub j i then s else 
+	     refine (Fact.mk_cnstrnt x' j None) s
+       with
+	   Not_found -> 
+	     refine (Fact.mk_cnstrnt x' j None) s)
+  with
+      Not_found -> s
+
+
+(* If C(k) = 0, then we can assert that S(k) = 0.
+   Inequality Propagation: If Sl(k) = R+[k'] - R-[k''],
+   then if either C(k) or C[R-[k'']] goes from >= to >,
+   then we can assert R+[k']>0. *) 
+
 and deduce_la e s =
-  let unnecessary s a =             (* do not generate constraint *)
-    try                             (* [a in c] if [a] appears as *)
-      let k = inv Th.la s a in      (* [k = a] with [k] a slack *)
-	is_slack k
+  let inconsistent (x, a) =
+    try
+      (dom s x = Dom.Int) &&
+      (match Arith.d_num a with
+	 | Some(q) -> not(Q.is_integer q)
+	 | None -> false)
     with
 	Not_found -> false
   in
-  let (k1, r, prf) = Fact.d_equal e in  
-    try
-      let c_k1 = cnstrnt s k1 in
-      let c_r = cnstrnt s r in
-      let c_r_k1 = Sign.inter c_r c_k1 in
-	if Sign.is_empty c_r_k1 then
-	  raise Exc.Inconsistent
-	else if Sign.is_zero c_r_k1 then 
-	  let e = Fact.mk_equal r Arith.mk_zero None in
-	    equality e s
-	else 
-	  (try                 
-	     let (ci, ki, ri) =     (* [k1 = ri + ci*ki] with [ci < 0] *)
-	       Arith.choose 
-		 (fun (q, x) -> 
-		    Q.is_neg q && is_slack x)
-		 r 
-	     in
-	     let c_ki = cnstrnt s ki in    (* [ki >(=) 0] *)
-	     let c_k1_ki = Sign.inter c_k1 c_ki in
-	     let c_ri = cnstrnt s ri in 
-	       if Sign.disjoint c_ri c_k1_ki then 
-		 raise Exc.Inconsistent
-	       else if Sign.sub c_ri c_k1_ki || unnecessary s ri then
-		 s  (* do nothing *)
-	       else if is_slack ri then  (* ??? *)
-		 let c_k1_ki_ri = Sign.inter c_k1_ki c_ri in
-		   if Sign.sub c_ri c_k1_ki_ri then s else  
-		     let c = Fact.mk_cnstrnt ri c_k1_ki_ri None in
-		       add c s
-	       else 
-		 s
-	   with
-	       Not_found ->
-		 let c_r = cnstrnt s r in
-		   if Sign.disjoint c_r c_k1 then
-		     raise Exc.Inconsistent
-		   else if Sign.sub c_k1 c_r then 
-		     s
-		   else 
-		     if unnecessary s k1 then s else 
-		       let c = Fact.mk_cnstrnt k1 c_r None in
-			 add c s)
-    with
-	Not_found -> s  (* do nothing *)
+  let (k, sk, prf) = Fact.d_equal e in
+    if inconsistent (k, sk) then
+      raise Exc.Inconsistent
+    else if not(is_slack k) then 
+      s 
+    else  
+      begin
+	Trace.msg "rule" "Deduce" e Fact.pp_equal;
+	try  
+	  let c_sk = c s sk in  (* Keep invariant that [c s k] is stronger than [cnstrnt s sk]. *)
+	  let s = add (Fact.mk_cnstrnt k c_sk None) s in 
+	  let c_k = c s k in 
+	    if c_k = Sign.Zero then
+	      equality (Fact.mk_equal k Arith.mk_zero None) s
+	    else 
+	      let (r_plus, r_minus) = partition s (sl s k) in
+		if c_k = Sign.Pos || c s r_minus = Sign.Pos then
+		  if c s r_plus = Sign.Pos then s else 
+		    add (Fact.mk_cnstrnt r_plus Sign.Pos None) s 
+		else 
+		  s
+	with
+	    Not_found -> s (* should not happen *)
+      end 
+	    
+and partition s a =
+    let sign_of_monomial = function
+      | App(Arith(Num(q)), []) -> Sign.of_q q
+      | App(Arith(Multq(q)), [k]) -> Sign.multq q (c s k)
+      | k -> cnstrnt s k
+    in
+    let rec loop posl negl = function
+      | [] -> (Arith.mk_addl posl, Arith.mk_addl negl)
+      | m :: ml ->
+	  (match sign_of_monomial m with
+	     | (Sign.Pos | Sign.Nonneg | Sign.Zero) ->
+		 loop (m :: posl) negl ml
+	     | (Sign.Neg | Sign.Nonpos) -> 
+		 loop posl (Arith.mk_neg m :: negl) ml
+	     | Sign.F -> raise Exc.Inconsistent  (* following should not happen *)
+	     | Sign.T -> raise Not_found)
+    in
+      loop [] [] (Arith.monomials a)
 	   
 	
 
@@ -681,32 +796,31 @@ and arrays_diseq d s =
 
 and add c s =
   Trace.msg "rule" "Add" c Fact.pp_cnstrnt;
-  let (a, i, prf) = Fact.d_cnstrnt c in
-  if Sign.is_empty i then
-    raise Exc.Inconsistent
-  else if Sign.is_zero i then
-    equality (Fact.mk_equal a Arith.mk_zero None) s
-  else 
-    let b = Can.term s a in
-    let (b, i) = normalize (b, i) in
-      if is_slack b then
-	refine (Fact.mk_cnstrnt b i prf) s
-      else 
-	let k = Term.mk_slack None in
-	  equality (Fact.mk_equal k a None)
-	    (refine (Fact.mk_cnstrnt k i None) s)
-
-and normalize (a, i) =
-  match Sign.sign i with
-    | Sign.Neg -> (Arith.mk_neg a, Sign.make (Sign.dom i) Sign.Pos)
-    | Sign.Nonpos -> (Arith.mk_neg a, Sign.make (Sign.dom i) Sign.Nonneg)
+  let normalize (a, i) =
+  match i with
+    | Sign.Neg -> (Arith.mk_neg a, Sign.Pos)
+    | Sign.Nonpos -> (Arith.mk_neg a, Sign.Nonneg)
     | _ -> (a, i)
-
-
-and refine c s =
-  let (ch', p') = Partition.add c s.p in
-    s.p <- p'; 
-    close ch' s
+  in
+  let (a, i, prf) = Fact.d_cnstrnt c in
+    match i with
+      | Sign.F ->
+	  raise Exc.Inconsistent
+      | Sign.Zero -> 
+	  equality (Fact.mk_equal a Arith.mk_zero None) s
+      | Sign.T ->
+	  s
+      | _ ->
+	  let b = Can.term s a in
+	  let (b, i) = normalize (b, i) in
+	    if is_slack b then
+	      refine (Fact.mk_cnstrnt b i prf) s
+	    else 
+	      let d = if is_int s a then Some(Dom.Int) else None in
+	      let alpha = if i = Sign.Pos then false else true in
+	      let k = Term.mk_slack None alpha d in
+		equality (Fact.mk_equal k a None)
+		  (refine (Fact.mk_cnstrnt k i None) s)
 
 
 (** Propagate changes in the variable partitioning. *)    

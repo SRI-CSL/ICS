@@ -43,6 +43,9 @@ val eqs_of : t -> Th.t -> Solution.t
   (** [eqs_of s th] returns the solution set for equality theory [th]
     in the logical context [s]. *)
 
+val sl_of : t -> Sl.t
+  (** [sl_of s] returns the slack equalities in [s]. *)
+
 val mem : Th.t -> t -> Term.t -> bool
   (** [mem th s x] iff [x = _] is in the solution set for theory [th]
     in [s]. *)
@@ -77,6 +80,8 @@ val pp : t Pretty.printer
 
 val cnstrnt : t -> Term.t -> Sign.t
 
+val dom : t -> Term.t -> Dom.t
+
 val v : t -> Term.t -> Term.t
   (** [v s x] returns the canonical variable in [s] of the equivalence 
     class containing [x]. *)
@@ -98,14 +103,7 @@ val is_equal : t -> Term.t -> Term.t -> Three.t
 
 (** {6 Canonizer and Solver} *)
 
-val sigma : t -> Sym.t -> Term.t list -> Term.t
-  (** [sigma] normal form. *)
-
 val can : t -> Term.t -> Term.t
-
-val solve : Th.t -> t -> Fact.equal -> Fact.equal list
-  (** [solve i s (a, b)] applies solver for theory [i] on equality [a = b]. *)
-
 
 (** {6 Constructors} *)
 

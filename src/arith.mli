@@ -30,7 +30,6 @@
 *)
 
 
-
 (** {6 Function symbols} *)
 
 val num : Mpa.Q.t -> Sym.t
@@ -81,10 +80,6 @@ val mk_multq: Mpa.Q.t -> Term.t -> Term.t
   (** [mk_multq q a] creates the normalized linear arithmetic term
     representing [q * a]. *)
 
-val mk_linear : Mpa.Q.t * Term.t -> Mpa.Q.t * Term.t -> Term.t
-  (** [mk_linear (q, a) (p, b)] creates a normalized arithmetic
-    term representing [q * a + p * b]. *)
-
 
 (** {6 Recognizers} *)
 
@@ -111,9 +106,9 @@ val is_q : Mpa.Q.t -> Term.t -> bool
 val is_multq : Term.t -> bool
   (** [is_multq a] holds iff [a] is equal to some [mk_multq _ _]. *)
 
-val is_diophantine : (Term.t -> bool) -> Term.t -> bool
-  (** [is_diophantine is_int a] holds iff all maximal uninterpreted subterms [b] of [a]
-    are integer, that is [is_int b] holds. *)
+val is_diophantine : Term.t -> bool
+  (** [is_diophantine a] holds iff all variables in [a] are integer. *)
+
 
 (** {6 Destructors} *)
 
@@ -129,49 +124,9 @@ val d_multq : Term.t -> (Mpa.Q.t * Term.t) option
   (** [d_multq a] returns [Some(q, b)] if [a] is a function application
     of the symbol {!Sym.Multq}[(q)] to the unary list [[b]]. *)
 
-val poly_of : Term.t -> Mpa.Q.t * Term.t list
-  (** [poly_of a] yields (q, ml) such that [q + mk_addl ml] equals [a]. *)
-
-val of_poly : Mpa.Q.t -> Term.t list -> Term.t
-  (** [of_poly q ml] is equal to [q + ml]. *)
-
-val mono_of : Term.t -> Mpa.Q.t * Term.t
-  (** The result (q, b) of [mono_of a] is such that [q * b = a]. *)
-
-val of_mono : Mpa.Q.t -> Term.t -> Term.t
-  (** [of_mono q a] yields [b] with [q * a = b]. *)
-
 val monomials : Term.t -> Term.t list
   (** [monomials a] yiels a list of monomials [ml] such that [mk_addl ml]
     equal [a]. *)
-
-val to_list : Term.t -> Mpa.Q.t * (Mpa.Q.t * Term.t) list
-
-val of_list :  Mpa.Q.t -> (Mpa.Q.t * Term.t) list -> Term.t
-
-val destructure : Term.t -> Mpa.Q.t * Term.t * Term.t
-  (** Destructure a monomial into the a triple [(q, x, m)] such
-    that [q * x] is the largest monomial ([x] is the largest variable in the
-    argument term [a]) and [a = q * x + m].  If the argument term is not of such
-    a form, [Not_found] is raised. *)
-
-val multiple : Term.t * Term.t -> Mpa.Q.t
-  (** If there exists a rational [q] such that [q * a = b], then 
-    [multiple (a, b)] returns [q]; otherwise [Not_found] is raised. *)
-
-val leading : Term.t -> Term.t
-  (** [leading a] returns the largest variable (or largest term not interpreted
-    in the theory of linear arithmetic) in [a] according to the term ordering
-    {!Term.cmp}. *)
-
-type linear = 
-  | Const of Mpa.Q.t
-  | Linear of Mpa.Q.t * Mpa.Q.t * Term.t * Term.t
-
-val linearize : Term.t -> linear
-  (** [decompose a] returns [Num(q)] is [a] represents the numeral [q]
-    and for all other linear arithmetic it returns [Linear(p, q, x, al)]
-    with [a = p + q*x + al], with [x] uninterpreted. *)
 
 
 (** {6 Iterators} *)
@@ -183,17 +138,6 @@ val map: (Term.t -> Term.t) -> Term.t -> Term.t
     - [map f (mk_addl al)] equals [mk_addl (List.map f al)]
     - Otherwise, [map f x] equals [f x] *)
 
-val replace : Term.t -> Term.t -> Term.t -> Term.t
-  (** [replace x a b] replaces occurrences of [x] in [a] by [b].
-    The result is normalized. *)
-
-val foldq : (Mpa.Q.t -> 'a -> 'a) -> Term.t -> 'a -> 'a
-  (** Folding over all coefficients (including constant) *)
-
-val choose : (Mpa.Q.t * Term.t -> bool) -> Term.t -> Mpa.Q.t * Term.t * Term.t
-  (* [choose f a] returns the largest monomial [q*x] in [a] that satisfies [f (q,x)]
-     and returns [(q, x, b)] where [b] is equal to [a - q*x]. Otherwise [Not_found]
-     is raised. *)
 
 (** {6 Canonization} *)
 
@@ -204,6 +148,12 @@ val sigma : Sym.arith -> Term.t list -> Term.t
     [al] are normalized. If [op] is of the form [multq _], then [al] 
     is required to be unary, and for [op] of the form [num _], the 
     argument list must be [[]]. Otherwise, the outcome is unspecified. *)
+
+
+(** {6 Domain Interpretation} *)
+
+val tau : Term.t -> Dom.t
+  (** Abstract domain interpretation. *)
 
 
 (** {6 Solver} *)
@@ -224,7 +174,9 @@ val zsolve : Term.t * Term.t  -> (Term.t * Term.t) list
     [t] usually contains newly generated variables. {!Exc.Inconsistent}
     if raised if the given equation [e] is unsatisfiable in the integers. *)
 
-val solve : Dom.t -> Fact.equal -> Fact.equal list
+val integer_solve : bool ref
+
+val solve : Fact.equal -> Fact.equal list
 
 val isolate : Term.t -> (Term.t * Term.t) -> Term.t
   (** [isolate y (x, a)] isolates [y] in a solved equality [x = a];
@@ -233,23 +185,3 @@ val isolate : Term.t -> (Term.t * Term.t) -> Term.t
     is raised. *)
 
 
-(** {6 Inequalities} *)
-
-type ineq = 
-  | True
-  | False
-  | Less of Term.t * bool * Term.t
-  | Greater of Term.t * bool * Term.t
-
-val mk_less : Term.t * bool * Term.t -> ineq
-
-val mk_greater: Term.t * bool * Term.t -> ineq
-
-val mk_lt : Term.t -> Term.t -> ineq
-val mk_le : Term.t -> Term.t -> ineq
-val mk_gt : Term.t -> Term.t -> ineq
-val mk_ge : Term.t -> Term.t -> ineq
-
-val negate : ineq -> ineq
-
-val pp_ineq : ineq Pretty.printer

@@ -131,12 +131,6 @@ val cnstrnt_pp : cnstrnt -> unit
 val cnstrnt_mk_zero : unit -> cnstrnt
   (** Constructing a constraints with [D(cnstrnt_mk_zero()) = {0}] *)
 
-val cnstrnt_mk_real : unit -> cnstrnt
-  (** [D(cnstrnt_mk_real)] is the real number line. *)
-
-val cnstrnt_mk_int : unit -> cnstrnt
-  (** [D(cnstrnt_mk_int)] is the set of integers. *)
-
 val cnstrnt_mk_pos : unit -> cnstrnt
   (** [D(cnstrnt_mk_pos)] is the set of positive reals. *)
 
@@ -148,9 +142,6 @@ val cnstrnt_mk_nonneg : unit -> cnstrnt
 
 val cnstrnt_mk_nonpos : unit -> cnstrnt
  (** [D(cnstrnt_mk_nonpos)] is the set of non-positive reals. *)
-
-val cnstrnt_is_int : cnstrnt -> bool
-  (** [cnstrnt_is_int s] holds iff [D(s)] is a subset of the integers. *)
 
 val cnstrnt_is_empty : cnstrnt -> bool
   (** [cnstrnt_is_empty(s)] holds iff [D(s)] is the empty set. *)
@@ -476,21 +467,11 @@ val var_cmp :var -> var -> int
 val var_mk_external : name -> var
   (** [var_mk_external x] creates an external variable with associated name [x]. *)
 
-val var_mk_fresh : name -> int option -> var
-  (** [mk_fresh n None] constructs a fresh variable with associated name
-    ["n!i"], where [i] is the current value of the variable {!Var.k} above. As
-    as side-effect, {!Var.k} is incremented by one.  [mk_fresh n Some(i)]
-    constructs a fresh variable with associated name ["n!i"]; there are no
-    side effects on {!Var.k}. *)
-
 val var_mk_bound : int -> var
   (** [var_mk_bound i] constructs a bound variable with associated name [!i]. *)
 
 val var_is_external : var -> bool
   (** [is_var x] holds iff [x] is an external variable. *)
-
-val var_is_fresh : var -> bool
-  (** [is_fresh x] holds iff [x] is a fresh variable. *)
 
 val var_is_bound : var -> bool
   (** [is_bound x] holds iff [x] is a bound variable. *)
@@ -764,9 +745,6 @@ val atom_mk_le : term -> term -> atom
 val atom_mk_lt : term -> term -> atom
 val atom_mk_ge : term -> term -> atom
 val atom_mk_gt : term -> term -> atom
-val atom_mk_real : term -> atom
-val atom_mk_int : term -> atom
-
 
 val atom_is_negatable : atom -> bool
 val atom_negate : atom -> atom

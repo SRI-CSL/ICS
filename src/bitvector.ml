@@ -80,7 +80,7 @@ let mk_fresh =
     if n = 0 then 
       mk_eps
     else 
-	Var(Var.mk_fresh name None)
+      Term.mk_fresh name None None
 
 (** Bitvector symbols *)
 

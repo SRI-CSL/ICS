@@ -78,19 +78,18 @@ let rec mk_diseq (a, b) =
 	  
   
 let mk_in (a, c) =
-  if Sign.is_empty c then
-    mk_false
-  else if Sign.is_zero c then
-    mk_equal (a, Arith.mk_zero)
-  else 
-    match Arith.d_num a with
-      | Some(q) -> 
-	  if Sign.mem q c then mk_true else mk_false
-      | None ->
-	  In(a, c)
+  match c with
+    | Sign.F -> mk_false
+    | Sign.Zero -> mk_equal (a, Arith.mk_zero)
+    | _ ->
+	(match Arith.d_num a with
+	   | Some(q) -> 
+	       if Sign.mem q c then mk_true else mk_false
+	   | None ->
+	       In(a, c))
 
-let mk_ge (a, b) = mk_in (Arith.mk_sub a b, Sign.nonneg)
-let mk_gt (a, b) = mk_in (Arith.mk_sub a b, Sign.pos)
+let mk_ge (a, b) = mk_in (Arith.mk_sub a b, Sign.Nonneg)
+let mk_gt (a, b) = mk_in (Arith.mk_sub a b, Sign.Pos)
 let mk_le (a, b) = mk_ge (b, a)
 let mk_lt (a, b) = mk_gt (b, a)
 	
@@ -112,7 +111,6 @@ let pp fmt = function
       Term.pp fmt b
   | In(a, c) -> 
       Term.pp fmt a;
-      Pretty.string fmt " in ";
       Sign.pp fmt c
   
 

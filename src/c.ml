@@ -35,7 +35,7 @@ let pp fmt s =
     if l <> [] then
       begin
 	Format.fprintf fmt "\nc:";
-	Pretty.list (fun fmt (a, i) -> Term.pp fmt a; Pretty.string fmt " in "; Sign.pp fmt i) fmt l
+	Pretty.list (fun fmt (a, i) -> Term.pp fmt a; Sign.pp fmt i) fmt l
       end
 
 let apply s a = Term.Map.find a s
@@ -55,7 +55,7 @@ let changed = ref Set.empty
 
 let update c s =
   let update1 (a, i, rho) = 
-    if Sign.is_empty i then
+    if i = Sign.F then
       raise Exc.Inconsistent
     else 
       begin
@@ -133,7 +133,7 @@ and diseq1 d s =
     try
       let (i, prf1) = apply s x 
       and (j, prf2) = apply s y in
-	if Sign.is_zero i && Sign.is_zero j then
+	if i = Sign.Zero && j = Sign.Zero then
 	  raise Exc.Inconsistent
 	else 
 	  s

@@ -35,7 +35,7 @@ and eql al bl =
   try List.for_all2 eq al bl with Invalid_argument _ -> false
 
 
-let mk_var x = Var(Var.mk_var x)
+let mk_var x d = Var(Var.mk_var x d)
 
 let mk_const f = App(f,[])
 let mk_app f l = App(f,l)
@@ -58,16 +58,22 @@ let mk_num =
 	    let n = App(Arith(Num(q)), []) in
 	      Hashq.add table q n; n
 
-let mk_fresh_var x k = Var(Var.mk_fresh x k)
+let mk_rename x k d = Var(Var.mk_rename x k d)
 
-let mk_slack k = Var(Var.mk_slack(k))
+let mk_fresh x k d = Var(Var.mk_fresh x k d)
 
-let is_fresh_var = function
+let mk_slack k alpha d = Var(Var.mk_slack k alpha d)
+
+let is_rename = function
+  | Var(x) -> Var.is_rename x
+  | _ -> false
+
+let is_fresh = function
   | Var(x) -> Var.is_fresh x
   | _ -> false
 
 let is_internal = function
-  | Var(x) -> Var.is_fresh x || Var.is_slack x 
+  | Var(x) -> Var.is_rename x || Var.is_slack x 
   | _ -> false
 
 let is_slack = function Var(x) -> Var.is_slack x | _ -> false
@@ -76,6 +82,19 @@ let is_var = function Var _ -> true | _ -> false
 let is_app = function App _ -> true | _ -> false
 let is_const = function App(_,[]) -> true | _ -> false
 
+let is_intvar = function 
+  | Var(x) -> 
+      (match Var.dom_of x with
+	 | Some(d) -> Dom.eq d Dom.Int
+	 | _ -> false)
+  | _ -> false
+
+let is_realvar = function 
+  | Var(x) -> 
+      (match Var.dom_of x with
+	 | Some(d) -> Dom.eq d Dom.Real
+	 | _ -> false)
+  | _ -> false
 
 let to_var = function
   | Var(x) -> x

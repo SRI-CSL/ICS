@@ -65,10 +65,12 @@ let sgn n a =
   let e = Symtab.Arity(a) in
   s.symtab <- Symtab.add n e s.symtab
 
-let typ n c =
+let typ nl c =
   let e = Symtab.Type(c) in
-  s.symtab <- Symtab.add n e s.symtab
-
+    List.iter
+      (fun n ->
+	 s.symtab <- Symtab.add n e s.symtab)
+      nl
 
 let entry_of n = 
   try
@@ -141,8 +143,7 @@ let ctxt_of = function
 let can a = 
   Context.can s.current a
 
-let sigma f l =
-  Context.sigma s.current f l
+let sigma f l = Th.sigma f l
 
 
 
@@ -217,11 +218,19 @@ let diseq n a =
   with
       Not_found -> []
 
-let cnstrnt n a =
+let sign n a =
   let s = get_context n in
   let a' = Context.can s a in
     try
       Some(Context.cnstrnt s a')
+    with
+	Not_found -> None
+
+let dom n a =
+  let s = get_context n in
+  let a' = Context.can s a in
+    try
+      Some(Context.dom s a')
     with
 	Not_found -> None
 
@@ -249,7 +258,7 @@ let solve i (a, b) =
       List.map (fun e' -> 
 		  let (x, b, _) = Fact.d_equal e' in
 		    (x, b))
-	(Context.solve i s.current e)
+	(Th.solve i e)
   with
     | Exc.Inconsistent -> raise(Invalid_argument("Unsat"))
  

@@ -22,6 +22,9 @@
 
 val unsigned : Sym.t
 
+(** {6 Recognizers} *)
+
+val is_interp : Term.t -> bool
 
 (** {6 Constructors} *)
 

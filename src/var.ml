@@ -15,62 +15,113 @@ open Mpa
 open Format
 
 type t = 
-  | External of Name.t
-  | Fresh of Name.t * int
-  | Slack of int
+  | External of Name.t * dom 
+  | Rename of Name.t * int * dom
+  | Fresh of Name.t * int * dom
+  | Slack of int * bool * dom
   | Bound of int
 
+and dom = Dom.t option 
+
 let name_of = function
-  | External(n) -> n
-  | Fresh(n, i) ->  
+  | External(n, _) -> n
+  | Rename(n, i, _) ->  
       let str = Format.sprintf "%s!%d" (Name.to_string n) i in
 	Name.of_string str
-  | Slack(i) ->
-      let str = Format.sprintf "k!%d" i in
+  | Slack(i, alpha, _) ->
+      let str = Format.sprintf "%s!%d" (if alpha then "k" else "l") i in
+	Name.of_string str
+  | Fresh(n, i, _) ->
+      let str = Format.sprintf "%s!%d" (Name.to_string n) i in
 	Name.of_string str
   | Bound(n) ->
       let str = Format.sprintf "!%d" n in
 	Name.of_string str
 
+let dom_of = function
+  | External(_,d) -> d
+  | Rename(_,_,d) -> d
+  | Slack(_,_,d) -> d
+  | Fresh(_,_,d) -> d
+  | Bound _ -> None
+
 let eq x y =
   match x, y with
-    | External(n), External(m) -> 
-	Name.eq n m
-    | Fresh(n,i), Fresh(m,j) -> 
-	Name.eq n m && i = j
+    | External(n, d), External(m, e) -> 
+	Name.eq n m && d = e
+    | Rename(n, i, d), Rename(m, j, e) -> 
+	Name.eq n m && i = j && d = e
+    | Fresh(n, i, d), Fresh(m, j, e) -> 
+	Name.eq n m && i = j && d = e
     | Bound(n), Bound(m) ->
 	n = m
-    | Slack(i), Slack(j) ->
-	i = j
+    | Slack(i, alpha, d), Slack(j, beta, e) ->
+	i = j && alpha = beta && d = e
     | _ -> 
 	false
 
 let cmp x y =
-  match x, y with
-    | External _, Fresh _ -> -1
-    | Fresh _, External _ -> 1
-    | External(n), External(m) -> Name.cmp n m
-    | Fresh(n, i), Fresh(m, j) -> 
-	let c1 = Name.cmp n m in
-	if c1 != 0 then c1 else Pervasives.compare i j
-    | Slack(i), Slack(j) ->        (* newer slack vars are smaller *)
-	-(Pervasives.compare i j)
-    | Slack _, _ -> -1
-    | _, Slack _ -> 1
-    | Bound(n), Bound(m) -> Pervasives.compare n m
-    | _ -> Pervasives.compare x y
+  let domcmp d e =
+    match d, e with
+      | None, None -> 0
+      | Some _, None -> -1
+      | None, Some _ -> 1
+      | Some d, Some e ->
+	  (match d, e with   
+	     | Dom.Real, Dom.Real -> 0
+	     | Dom.Int, Dom.Int -> 0
+	     | Dom.Real, Dom.Int -> 1    (* real-valued variables are larger *)
+	     | Dom.Int, Dom.Real -> -1)
+  in 
+  let strictcmp alpha beta =    
+    match alpha, beta with
+      | true, false -> -1           (* nonstrict slacks are smaller *)
+      | false, true -> 1
+      | _ -> 0
+  in
+    match x, y with
+      | External _, Rename _ -> -1   (* external variables are smaller than renaming vars. *)
+      | Rename _, External _ -> 1
+      | External(n, d), External(m, e) -> 
+	  let c1 = domcmp d e in
+	    if c1 != 0 then c1 else Name.cmp n m
+      | Rename(n, i, d), Rename(m, j, e) -> 
+	  let c1 = domcmp d e in
+	    if c1 != 0 then c1 else 
+	      let c2 = Name.cmp n m  in
+		if c2 != 0 then c2 else Pervasives.compare i j
+      | Fresh(n, i, d), Fresh(m, j, e) -> 
+	  let c1 = domcmp d e in
+	    if c1 != 0 then c1 else 
+	      let c2 = Name.cmp n m  in
+		if c2 != 0 then c2 else Pervasives.compare i j
+      | Slack(i, alpha, d), Slack(j, beta, e) ->  
+	  let c1 = strictcmp alpha beta in
+	    if c1 != 0 then c1 else 
+	      let c2 = domcmp d e in   (* newer slack vars are smaller *)
+		if c2 != 0 then c2 else -(Pervasives.compare i j)
+      | Slack _, _ -> -1           (* slacks are smaller than other variables. *)
+      | _, Slack _ -> 1
+      | External _, Fresh _ -> 1   (* external variables are larger than fresh vars *)
+      | Fresh _, External _ -> -1
+      | Bound(n), Bound(m) -> 
+	  Pervasives.compare n m
+      | _ -> 
+	  Pervasives.compare x y
 
 let (<<<) x y = (cmp x y <= 0)
 
 let hash = function
-  | External(n) ->
+  | External(n, _) ->
       (3 + Hashtbl.hash n) land 0x3FFFFFFF
-  | Fresh(n, i) ->
+  | Rename(n, i, _) ->
       (5 + Hashtbl.hash n + i) land 0x3FFFFFFF
   | Bound(i) ->
       (7 + i) land 0x3FFFFFFF
-  | Slack(i) ->
-      (11 + i) land 0x3FFFFFFF
+  | Slack(i,_, _) ->
+      (11 + i) land 0x3FFFFFFF 
+  | Fresh(n, i, _) ->
+      (17 + Hashtbl.hash n + i) land 0x3FFFFFFF
      
 
 (** {6 Sets and maps of terms} *)
@@ -92,32 +143,42 @@ module Map = Map.Make(
 
 (** {6 Constructors} *)
 
-let mk_var x = External(x)
+let mk_var x d = External(x, d)
 
 let k = ref 0
 let _ = Tools.add_at_reset (fun () -> k := 0)
 
-let mk_fresh x = function
-  | Some(k) -> 
-      Fresh(x, k)
-  | None ->
-      incr(k);
-      Fresh(x, !k)
+let mk_rename x i d =
+  match i with
+    | Some(k) -> 
+	Rename(x, k, d)
+    | None ->
+	incr(k);
+	Rename(x, !k, d)
+
+let mk_fresh x i d =
+  match i with
+    | Some(k) -> 
+	Fresh(x, k, d)
+    | None ->
+	incr(k);
+	Fresh(x, !k, d)
 
 let mk_free i = Bound(i)
 
-let mk_slack (i) =
+let mk_slack i alpha d =
   match i with
     | Some(k) -> 
-	Slack(k)
+	Slack(k, alpha, d)
     | None ->
 	incr(k);
-	Slack(!k)
+	Slack(!k, alpha, d)
 
 (** {6 Recognizers} *)
 
 let is_var = function External _ -> true | _ -> false
-let is_fresh = function Fresh _ -> true | _ -> false
+let is_rename = function Rename _ -> true | _ -> false
+let is_fresh = function Rename _ -> true | _ -> false
 let is_free = function Bound _ -> true | _ -> false
 let is_slack = function Slack _ -> true | _ -> false
 
@@ -128,5 +189,16 @@ let d_free = function
 
 (** {6 Printer} *)
 
+let pretty = ref false
+
 let pp fmt x =
-  Name.pp fmt (name_of x)
+  Name.pp fmt (name_of x);
+  (if not !pretty then
+    (match dom_of x with
+       | Some(d) -> 
+	   Pretty.string fmt "{";
+	   Dom.pp fmt d;
+	   Pretty.string fmt "}"
+       | None -> ()))
+
+

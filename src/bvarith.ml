@@ -17,6 +17,10 @@ open Term
 
 let unsigned = Bvarith(Unsigned)
 
+let is_interp = function
+  | App(Bvarith _, _) -> true
+  | _ -> false
+
 let rec mk_unsigned = 
   let unsigned = mk_app (Bvarith(Unsigned)) in
     function

@@ -33,26 +33,6 @@ let is_empty s =
 let eq s t =
   s.find == t.find
 
-(** Changed sets. *)
-
-let changed = Array.create Set.empty
-
-module Changed = struct
-
-  type t = Set.t Th.Array.arr
-		  
-  let reset () = Array.reset changed Set.empty
-		   
-  let restore = 
-    Array.iter (Array.set changed)
-      
-  let save () = Array.copy changed
-		  
-  let stable () =
-    Array.for_all Set.is_empty changed
-
-end
-
 
 (** Fold over the [find] structure. *)
 
@@ -122,7 +102,6 @@ let union i e s =
       with 
 	  Not_found -> s.use 
     in
-      Array.set changed i (Set.add x (Array.get changed i));
       {find = Map.add x (b,j) s.find;
        inv = Map.add b x s.inv;
        use = Use.add x b use'}
@@ -131,7 +110,7 @@ let union i e s =
 (** Extend with binding [x = b], where [x] is fresh *)
 
 let extend i b s = 
-  let x = Term.mk_fresh_var (Name.of_string "v") None in
+  let x = Term.mk_rename (Name.of_string "v") None None in
   let e = Fact.mk_equal x b (Fact.mk_rule "extend" []) in
     Trace.msg (to_string i) "Ext" e Fact.pp_equal;
     (x, union i e s)
@@ -142,7 +121,6 @@ let restrict i x s =
   try
     let b = fst(Map.find x s.find) in  
       Trace.msg (to_string i) "Restrict" x Term.pp;
-      Array.set changed i (Set.remove x (Array.get changed i));
       {find = Map.remove x s.find;
        inv = Map.remove b s.inv;
        use = Use.remove x b s.use}
@@ -273,7 +251,6 @@ and update (changed, eqs) i e s =
 	  Not_found -> 
 	    changed := Term.Set.add x !changed;
 	    union i e s
-
 
 
 (** Composition. *)

@@ -26,3 +26,5 @@ val mk_expt : int -> Term.t -> Term.t
 val mk_div : Term.t -> Term.t -> Term.t
 
 val mk_inv : Term.t -> Term.t
+
+val map : (Term.t -> Term.t) -> Term.t -> Term.t

@@ -17,6 +17,7 @@ type t =
   | Term of Term.t
   | Atom of Atom.t
   | Cnstrnt of Sign.t option
+  | Dom of Dom.t option
   | Optterm of Term.t option
   | Name of Name.t
   | Terms of Term.Set.t
@@ -40,6 +41,8 @@ let output fmt = function
   | Atom(a) -> Atom.pp fmt a
   | Cnstrnt(Some(c)) -> Sign.pp fmt c
   | Cnstrnt(None) -> Format.fprintf fmt "None"
+  | Dom(Some(d)) -> Dom.pp fmt d
+  | Dom(None) -> Format.fprintf fmt "None"
   | Optterm(Some(t)) -> Term.pp fmt t
   | Optterm(None) -> Format.fprintf fmt "None"
   | Name(n) -> Name.pp fmt n

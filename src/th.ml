@@ -24,7 +24,7 @@ let of_int i = i
 let to_int i = i
 
 
-let names = ["u"; "a"; "p"; "bv"; "cop"; "nl"; "app"; "arr"; "bva"; "z"]
+let names = ["u"; "a"; "p"; "bv"; "cop"; "nl"; "app"; "arr"; "bva"]
 
 let num_of_theories = List.length names
 
@@ -39,7 +39,6 @@ let pprod = 5
 let app = 6
 let arr = 7
 let bvarith = 8
-let z = 9
 
 let to_string = List.nth names
 
@@ -136,7 +135,6 @@ let maps =
       (fun (i, m) -> Array.set a i m)
       [u, App.map;
        la, Arith.map;
-       z, Arith.map;
        p, Tuple.map;
        bv, Bitvector.map;
        cop, Coproduct.map;
@@ -171,8 +169,7 @@ let solvers =
     List.iter
       (fun (i, m) -> 
 	 Array.set a i m)
-      [la, Arith.solve Dom.Real;
-       z, Arith.solve Dom.Int;
+      [la, Arith.solve;
        p, Tuple.solve;
        bv, Bitvector.solve;
        cop, Coproduct.solve];

@@ -112,6 +112,8 @@ let args () =
 	"Print string argument after each transmission";
         "-server", Arg.Int (fun portnum -> portnum_flag := Some(portnum)), 
 	"Run in server mode";
+	"-integer_solve", Arg.Unit (fun () -> Arith.integer_solve := true),
+        "Enbable integer solver";
 	"-verbose", Arg.Unit (fun () -> Prop.set_verbose true),
         "Verbose flag for SAT solver";
 	"-remove_subsumed_clauses", Arg.Unit(fun () -> Prop.set_remove_subsumed_clauses true),

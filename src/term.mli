@@ -28,9 +28,8 @@ type t =
 
 (** {6 Constructors} *)
 
-val mk_var : Name.t -> t
+val mk_var : Name.t -> Dom.t option -> t
   (** Constructing a variable. *)
-
 
 val mk_const : Sym.t -> t
   (** [mk_const c] constructs a function application 
@@ -43,20 +42,29 @@ val mk_app : Sym.t -> t list -> t
   (* [mk_app f l] constructs a function application of symbol [f]
      to a list [l]. *)
 
-val mk_fresh_var : Name.t -> int option -> t
-  (** [mk_fresh_var n None] constructs a fresh variable, where
+val mk_rename : Name.t -> int option -> Dom.t option -> t
+  (** [mk_rename n None] constructs a fresh variable, where
     'fresh' means that the index part of this fresh variable
     (see Module {!Var}) is larger than {!Var.k}; as a side-effect,
     {!Var.k} is incremented. [mk_fresh_var n Some(k)] simply constructs
     a variable of name [n] and index [k]. *)
 
-val mk_slack : int option -> t
+val mk_fresh : Name.t -> int option -> Dom.t option -> t
+
+val mk_slack : int option -> bool -> Dom.t option -> t
 
 
 (** {6 Recognizers} *)
 
 val is_var : t -> bool
   (** [is_var a] holds iff [a] is of the form [Var _]. *)
+
+val is_intvar : t -> bool
+  (** [is_intvar a] holds iff [a] is a variable with associated domain {!Dom.Int} *)
+
+val is_realvar : t -> bool
+  (** [is_realvar a] holds iff [a] is a variable with associated domain {!Dom.Real} *)
+
 
 val is_app : t -> bool
   (** [is_app a] holds iff [a] is of the form [App _]. *)
@@ -69,9 +77,11 @@ val is_interp_const : t -> bool
     form [App(c,[])] and [c] is an interpreted function symbol 
     (see module {!Sym}). *)
 
-val is_fresh_var : t -> bool
-  (** [is_fresh_var a] holds if [a] is a variable and if it is
+val is_rename : t -> bool
+  (** [is_rename a] holds if [a] is a variable and if it is
     of category 'fresh' (see module {!Var}). *)
+
+val is_fresh : t -> bool
 
 val is_slack : t -> bool
 

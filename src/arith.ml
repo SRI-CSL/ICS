@@ -32,24 +32,6 @@ let is_interp a =
     | _ -> false
 
 
-(** {6 Iterators} *)
-
-(** Folding over coefficients. *)
-let rec foldq f a e = 
-  match a with
-    | App(Arith(op), l) ->
-	(match op, l with
-	   | Num(q), [] -> 
-	       f q e
-	   | Multq(q), [_] -> 
-	       f q e
-	   | Add, l -> 
-	       List.fold_right (foldq f) l e
-	   | _ -> assert false)
-    | _ ->
-	f Q.one e
-	
-
 (** {6 Destructors} *)
 
 let d_num = function
@@ -92,11 +74,11 @@ let is_multq = function
   | App(Arith(Multq(_)), _) -> true
   | _ -> false
 
-let rec is_diophantine is_int = function
+let rec is_diophantine = function
   | App(Arith(Num _), []) -> true
-  | App(Arith(Multq(_)), [x]) -> is_int x 
-  | App(Arith(Add), xl) -> List.for_all (is_diophantine is_int) xl
-  | a -> is_int a
+  | App(Arith(Multq(_)), [x]) -> is_intvar x
+  | App(Arith(Add), xl) -> List.for_all is_diophantine xl
+  | a -> is_intvar a
 
 
 (** {6 Constants} *)
@@ -214,45 +196,7 @@ and mk_neg a =
 
 and mk_sub a b =
   mk_add a (mk_neg b)
-
-and mk_linear (p, a) (q, b) =
-  mk_add (mk_multq p a) (mk_multq q b)
-
-(** Normalization *)
-
-let to_list a =
-  let (p, al) = poly_of a in
-  let ql = List.map mono_of al in
-    (p, ql)
-
-let of_list p ml =
-  let rec loop acc = function
-    | [] -> acc
-    | (q, x) :: ml -> 
-	let acc' = mk_add (mk_multq q x) acc in
-	  loop acc' ml
-  in
-    loop (mk_num p) ml
-
-(** Choose *)
-let choose f a =
-  let (p, ml) =  poly_of a in
-  let rec loop pre = function
-    | [] -> raise Not_found
-    | m :: post' ->              (* [a = p + pre + q*x + post]. *)
-	let (q, x) = mono_of m in
-	  if f (q, x) then
-	    (q, x, mk_addq p (mk_addl (pre @ post')))
-	  else 
-	    let pre' = pre @ [m] in
-	      loop pre' post'
-  in
-    loop [] ml
-
-let choose f =
-  Trace.func "foo5" "Choose" Term.pp (Pretty.triple Mpa.Q.pp Term.pp Term.pp)
-    (choose f)
-    
+ 
 
 (** Mapping a term transformer [f] over [a]. *)
 let rec map f a =
@@ -278,10 +222,6 @@ let rec map f a =
     | _ ->
 	f a
 
-let replace x a b =
-  let repl y = if Term.eq x y then a else y in
-    map repl b
-
 
 (** Interface for sigmatizing arithmetic terms. *)
 let rec sigma op l =
@@ -293,6 +233,15 @@ let rec sigma op l =
     | _ ->  assert false
 
 
+(** Domain interpretation. *)
+let rec tau = function
+  | App(Arith(Num(q)), []) -> Dom.of_q q
+  | App(Arith(Multq(q)), [x]) -> Dom.union (Dom.of_q q) (tau x)
+  | App(Arith(Add), xl) -> 
+      if List.for_all (fun x -> Dom.eq (tau x) Dom.Int) xl then Dom.Int else Dom.Real
+  | a -> if is_intvar a then Dom.Int else Dom.Real
+
+
 (** [pre + q * x + post = 0] implies [x = 1/q * (-pre - post)] *)
 let rec qsolve (a, b) =
   let rec destructure pre post =     (* [pre + post = 0]. *)
@@ -302,7 +251,7 @@ let rec qsolve (a, b) =
 	  (pre, q, x, [])
       | m :: post' ->
 	  let (q, x) = mono_of m in
-	    if is_fresh_var x then
+	    if is_rename x then
 	      destructure (m :: pre) post'
 	    else 
 	      (pre, q, x, post')
@@ -342,95 +291,12 @@ let destructure a =
 	raise Not_found
 	
 
-
-	
-(** Check if there exists a [q] such that [q * a] equals [b]. *)
-let rec multiple (a, b) =
-  let divnum q p =         (* return [r] s.t. [r * q = p]. *)
-    if Q.is_zero q then
-      if Q.is_zero p then Q.one else raise Not_found
-    else 
-      Q.div p q
-  in   
-  let al = monomials a and bl = monomials b in
-    match al, bl with
-      | [], [] -> Q.one
-      | [], _ -> 
-	  raise Not_found
-      | _, [] -> 
-	  raise Not_found
-      | a :: al', b :: bl' ->
-	  (match a, b with     (* first check for constant monomials. *)
-	     | App(Arith(Num(q)), []), App(Arith(Num(p)), []) ->
-		 check (divnum q p) al' bl'
-	     | App(Arith(Num _), _), _ ->
-		 raise Not_found
-	     | _, App(Arith(Num _), _) ->
-		 raise Not_found
-	     | _ ->
-		 let (q, x) = mono_of a 
-		 and (p, y) = mono_of b in
-		   if Term.eq x y then
-		     check (divnum q p) al' bl'
-		   else 
-		     raise Not_found)
-
-and check r al bl =   (* check if [r * al = bl] *)
-  match al, bl with
-    | [], [] -> r
-    | [], _ -> raise Not_found
-    | _, [] -> raise Not_found
-    | a :: al', b :: bl' ->
-	let (q, x) = mono_of a 
-	and (p, y) = mono_of b in
-	 if Term.eq x y && Q.equal (Q.mult r q) p then
-	   check r al' bl'
-	 else 
-	   raise Not_found
-
-let multiple =
-  Trace.func "foo" "Multiple" (Pretty.pair Term.pp Term.pp) Q.pp
-    multiple
-
-
-let leading = function
-  | App(Arith(Num _), _) -> 
-      raise Not_found
-  | App(Arith(Multq(q)), [x]) -> x 
-  | App(Arith(Add), (App(Arith(Num _), [])) :: m :: _) ->
-      let (_, x) = mono_of m in x
-  | App(Arith(Add), m :: ml) ->
-      let (_, x) = mono_of m in x
-  | _ ->
-      raise Not_found
-
-let leading = 
-  Trace.func "foo" "Leading" Term.pp Term.pp leading
-
-
-type linear = 
-  | Const of Q.t
-  | Linear of Q.t * Q.t * Term.t * Term.t
-
-let linearize a =
-  let (p, al) = poly_of a in
-    match al with
-      | [] -> Const(p)
-      | m :: ml ->
-	  let (q, x) = mono_of m in
-	  let a' = match ml with
-	    | [] -> mk_zero
-	    | [m] -> m
-	    | ml -> mk_app add ml
-	  in
-	    Linear(p, q, x, a')
-    
-
 (** {6 Integer solver} *)
 
 let mk_fresh =
-  let name = Name.of_string "a" in
-    fun () -> Var(Var.mk_fresh name None)
+  let name = Name.of_string "a"
+  and d = Some(Dom.Int) in
+    fun () -> Term.mk_fresh name None d
 
 
 module Euclid = Euclid.Make(
@@ -449,16 +315,20 @@ module Euclid = Euclid.Make(
 
 
 let rec zsolve (a, b) = 
-  let (q, ml) = poly_of (mk_sub a b) in   (* [q + ml = 0] *)
-    if ml = [] then
-      if Q.is_zero q then [] else raise(Exc.Inconsistent)
-    else
-      let (cl, xl) = vectorize ml in     (* [cl * xl = ml] in vector notation *)
-	match Euclid.solve cl (Q.minus q) with
-	  | None -> raise Exc.Inconsistent
-	  | Some(d, pl) -> 
-	      let (kl, gl) = general cl (d, pl) in
-		List.combine xl gl
+  if is_var a && is_var b then
+    if Term.eq a b then [] else
+      [(a, b)]
+  else 
+    let (q, ml) = poly_of (mk_sub a b) in   (* [q + ml = 0] *)
+      if ml = [] then
+	if Q.is_zero q then [] else raise(Exc.Inconsistent)
+      else
+	let (cl, xl) = vectorize ml in     (* [cl * xl = ml] in vector notation *)
+	  match Euclid.solve cl (Q.minus q) with
+	    | None -> raise Exc.Inconsistent
+	    | Some(d, pl) -> 
+		let (kl, gl) = general cl (d, pl) in
+		  List.combine xl gl
 	     
 and vectorize ml =
   let rec loop (ql, xl) = function
@@ -495,10 +365,12 @@ and general al (d, pl) =
     (!fl, loop al (List.map mk_num pl))
 
 
-let solve d e =
+let integer_solve = ref false
+
+let solve e =
   let (a, b, prf) = Fact.d_equal e in 
   let prf' =  Fact.mk_rule "Arith.solve" [prf] in
-    if d = Dom.Int then
+    if !integer_solve && is_diophantine a && is_diophantine b then
       let sl = zsolve (a, b) in
 	List.map (fun (c, d) -> Fact.mk_equal c d prf') sl
     else 
@@ -530,93 +402,3 @@ let isolate y (x, a) =
     assert(not(Q.is_zero q));
     mk_multq (Q.inv q)
       (mk_sub x (mk_addl (pre @ post)))
-
-(** {6 Inequalities} *)
-
-type ineq = 
-  | True
-  | False
-  | Less of Term.t * bool * Term.t
-  | Greater of Term.t * bool * Term.t
-
-let mk_less (a, alpha, b) =
-  match linearize (mk_sub a b) with
-      | Const(p) ->                   (* p < 0 *)
-	  let res = Q.compare p Q.zero in
-	    if res < 0 then
-	      True
-	    else if res > 0 then
-	      False
-	    else (* [p = r] *)
-	      if alpha then True else False
-      | Linear(p, q, x, a') ->    (* [p + q*x + a' < 0] *) 
-	  assert(not(Q.is_zero q));
-	  let b' = mk_addq (Q.minus (Q.div p q))
-		     (mk_multq (Q.minus (Q.inv q)) a')
-	  in
-	    if Q.is_pos q then          (* <=> [x < -p/q - 1/q * a' *)
-	      Less(x, alpha, b')
-	    else (* [ q < 0] *)  
-	      Greater(x, alpha, b')
-
-let mk_greater (a, alpha, b) =              (* [a >(=) b] *)
-    match linearize (mk_sub a b) with
-      | Const(p) ->                         (* [p >(=) 0] *)
-	  let res = Q.compare p Q.zero in
-	    if res < 0 then
-	      False
-	    else if res > 0 then
-	      True
-	    else (* [p = r] *)
-	      if alpha then True else False
-      | Linear(p, q, x, a') ->      (* [p + q*x + a' >(=) r] *) 
-	  assert(not(Q.is_zero q));
-	  let b' =  mk_addq (Q.minus (Q.div p q))
-		     (mk_multq (Q.minus (Q.inv q)) a')
-	  in
-	    if Q.is_pos q then
-	      Greater(x, alpha, b')
-	    else 
-	      Less(x, alpha, b')
-
-let mk_lt a b = mk_less (a, false, b)
-let mk_le a b = mk_less (a, true, b)
-let mk_gt a b = mk_less (b, false, a)
-let mk_ge a b = mk_less (b, true, a)
-
-let negate = function
-  | True -> False
-  | False -> True
-  | Less(x, kind, a) -> Greater(x, not kind, a)
-  | Greater(x, kind, a) -> Less(x, not kind, a)
-
-let pp_ineq fmt = function
-  | True -> Pretty.string fmt "True"
-  | False -> Pretty.string fmt "False"
-  | Less(a, kind, b) ->
-      Term.pp fmt a;
-      Pretty.string fmt (if kind then " <= " else " < ");
-      Term.pp fmt b
-  | Greater(a, kind, b) ->
-      Term.pp fmt a;
-      Pretty.string fmt (if kind then " >= " else " > ");
-      Term.pp fmt b
-
-
-(** {6 Term comparison} *)
-
-let le a b =
-  let (q, ml) = poly_of a 
-  and (p, nl) = poly_of b in
-    Term.eql ml nl && Q.le q p
-
-let lt a b =
-  let (q, ml) = poly_of a 
-  and (p, nl) = poly_of b in
-    Term.eql ml nl && Q.lt q p
-
-let less (a, alpha, b) =
-  if alpha then le a b else lt a b
-
-let greater (a, alpha, b) =
-  less (b, alpha, a)

@@ -108,3 +108,53 @@ let mk_div a b =
 
 let mk_inv a = 
   mk_expt (-1) a
+
+(** Mapping a term transformer [f] over [a]. *)
+let rec map f a = 
+  match a with
+    | App(Arith(op), l) ->
+	(match op, l with
+	   | Num _, [] -> 
+	       a
+	   | Multq(q), [x] ->
+	       let x' = map f x in
+		 if x == x' then a else 
+		   Arith.mk_multq q x'
+	   | Add, [x; y] -> 
+	       let x' = map f x and y' = map f y in
+		 if x == x' && y == y' then a else 
+		   Arith.mk_add x' y'
+	   | Add, xl -> 
+	       let xl' = Term.mapl (map f) xl in
+		 if xl == xl' then a else
+		   Arith.mk_addl xl'
+	   | _ -> 
+	       assert false)
+    | App(Pp(op), l) ->
+	(match op, l with
+	   | Mult, [x; y] -> 
+	       let x' = map f x and y' = map f y in
+		 if x == x' && y == y' then a else 
+		   mk_mult x' y'
+	   | Mult, xl -> 
+	       let xl' = Term.mapl (map f) xl in
+		 if xl == xl' then a else
+		   mk_multl xl'
+	   | Expt(n), [x] -> 
+	       let x' = map f x in
+		 if x == x' then a else
+		   mk_expt n x'
+	   | _ ->
+	       assert false)
+    | _ ->
+	f a
+
+
+
+
+
+
+
+
+
+

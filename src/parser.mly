@@ -38,7 +38,8 @@ let equal_width_of a b =
 
 let lastresult = ref(Result.Unit())
 
-let name_of_slack = Name.of_string "k"
+let name_of_nonstrict_slack = Name.of_string "k"
+let name_of_strict_slack = Name.of_string "l"
 
 
 %}
@@ -46,7 +47,7 @@ let name_of_slack = Name.of_string "k"
 %token DROP CAN ASSERT EXIT SAVE RESTORE REMOVE FORGET RESET SYMTAB SIG VALID UNSAT
 %token TYPE SIGMA
 %token SOLVE HELP DEF PROP TOGGLE SET TRACE UNTRACE CMP FIND USE INV SOLUTION PARTITION
-%token SHOW CNSTRNT SYNTAX COMMANDS SPLIT SAT ECHO
+%token SHOW SIGN DOM SYNTAX COMMANDS SPLIT SAT ECHO
 %token DISEQ CTXT 
 %token IN TT FF DEF
 %token EOF
@@ -60,7 +61,7 @@ let name_of_slack = Name.of_string "k"
 %token <Name.t> PROPVAR
 
 %token IN
-%token BOT INT NONINT REAL BV TOP POS NEG NONNEG NONPOS ZERO
+%token BOT INT REAL BV TOP
 %token INF NEGINF
 %token ALBRA ACLBRA CLBRA
 
@@ -145,6 +146,9 @@ rat:
 
 name: IDENT            { Name.of_string $1 }
 
+namelist : name        { [$1] }
+| namelist COMMA name  { $3 :: $1 }
+
 funsym: 
   name                                   { Sym.Uninterp($1) }
 | PLUS                                   { Sym.Arith(Sym.Add) }
@@ -182,7 +186,6 @@ term:
 | array            { $1 }
 | bv               { $1 }
 | coproduct        { $1 }
-/* | boolean          { $1 } */
 | list             { $1 }
 | apply            { $1 }
 ;
@@ -191,22 +194,29 @@ var:
   name  { try
 	    match Symtab.lookup $1 (Istate.symtab()) with
 	      | Symtab.Def(Symtab.Term(a)) -> a
-	      | _ -> Term.mk_var $1
+	      | Symtab.Type(d)  -> Term.mk_var $1 (Some(d))
+	      | _ -> Term.mk_var $1 None
 	  with
-	      Not_found -> Term.mk_var $1 }
-| FRESH  { let (x, k) = $1 in 
-	   let n = Name.of_string x in
-	     if Name.eq n name_of_slack then
-	       Term.mk_slack(Some(k))
-	     else 
-	       Term.mk_fresh_var n (Some(k)) }
+	      Not_found -> Term.mk_var $1 None }
+| name LCUR dom RCUR { Term.mk_var $1 (Some($3))}
+| FRESH optdom  { let (x, k) = $1 in 
+		  let n = Name.of_string x in
+		    if Name.eq n name_of_strict_slack then
+		      Term.mk_slack (Some(k)) false $2
+		    else if Name.eq n name_of_nonstrict_slack then
+		      Term.mk_slack (Some(k)) true $2
+		    else 
+		      Term.mk_rename n (Some(k)) $2 }
 | FREE   { Term.Var(Var.mk_free $1) }
 ;
 
+optdom:   { None }
+| LCUR dom RCUR { Some($2) }
+
 
 app: 
-  funsym LPAR termlist RPAR     { Istate.sigma $1 (List.rev $3) }
-| constsym                      { Istate.sigma $1 [] }
+  funsym LPAR termlist RPAR     { Th.sigma $1 (List.rev $3) }
+| constsym                      { Th.sigma $1 [] }
 
 list: 
   term LISTCONS term            { Coproduct.mk_inj 1 (Tuple.mk_tuple [$1; $3]) }
@@ -216,7 +226,7 @@ list:
 
 apply: 
   term APPLY term               { Apply.mk_apply
-				    (Context.sigma (Context.empty))
+				    Th.sigma
                                      None $1 [$3] }
 
      
@@ -309,22 +319,11 @@ negatable:
 
 atom:
   negatable          { $1 }
-| term IN cnstrnt    { Atom.mk_in ($1, $3) }
 ;
 
-cnstrnt:
-  INT          { Sign.integer }
-| REAL         { Sign.real }
-| name         { match Istate.type_of $1 with
-		   | Some(c) -> Sign.domain c
-		   | None ->
-		       let str = Name.to_string $1 in
-			 raise (Invalid_argument ("No type definition for " ^ str)) }
-| POS          { Sign.pos }
-| NEG          { Sign.neg }
-| NONNEG       { Sign.nonneg }
-| NONPOS       { Sign.nonpos }
-| ZERO         { Sign.zero }
+dom:
+  INT          { Dom.Int }
+| REAL         { Dom.Real }
 ;
 
 
@@ -342,6 +341,7 @@ command:
 | ASSERT optname atom       { Result.Process(Istate.process $2 $3) }
 | DEF name ASSIGN term      { Result.Unit(Istate.def $2 (Symtab.Term($4))) }
 | PROP name ASSIGN prop     { Result.Unit(Istate.def $2 (Symtab.Prop($4))) }
+| SIG name COLON dom        { Result.Unit(Istate.typ [$2] $4) }
 | SIG name COLON signature  { Result.Unit(Istate.sgn $2 $4) }
 | RESET                     { Result.Unit(Istate.reset ()) }
 | SAVE name                 { Result.Name(Istate.save(Some($2))) }
@@ -366,7 +366,8 @@ command:
 		 	      with Not_found -> Result.Optterm(None) }
 | USE optname th term       { Result.Terms(Istate.use $2 $3 $4) }
 | SOLUTION optname th       { Result.Solution(Istate.solution $2 $3) }
-| CNSTRNT optname term      { Result.Cnstrnt(Istate.cnstrnt $2 $3) }
+| SIGN optname term         { Result.Cnstrnt(Istate.sign $2 $3) }
+| DOM optname term          { Result.Dom(Istate.dom $2 $3) }
 /* | DISEQ optname term        { Result.Terms(Istate.diseq $2 $3) } */
 | SPLIT optname             { Result.Atoms(Istate.split()) }
 | SOLVE th term EQUAL term  { Result.Solution(Istate.solve $2 ($3, $5)) }		

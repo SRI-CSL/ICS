@@ -50,6 +50,9 @@ val is_interp : Term.t -> bool
 val is_one : Term.t -> bool
   (** [is_one a] holds if [a] is syntactically equal to [mk_one]. *)
 
+val is_diophantine : Term.t -> bool
+  (** Are all variables interpreted over the integers. *)
+
 
 (** {6 Constructors.} *)
 
@@ -76,12 +79,12 @@ val mk_inv : Term.t -> Term.t
   (** [mk_inv pp] returns an inverse power product [qq] such that
     {!mk_mult}[(pp, qq)] is {!mk_one}. *)
 
+
 (** {6 Canonizer} *)
 
 val sigma : Sym.pprod -> Term.t list -> Term.t
 
 val map: (Term.t -> Term.t) -> Term.t -> Term.t
-
 
 
 (** {6 Iterators} *)

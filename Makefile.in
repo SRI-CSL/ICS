@@ -17,8 +17,6 @@ OCAMLYACC= @OCAMLYACC@
 OCAMLDEP = @OCAMLDEP@
 OCAMLDOC = @OCAMLDOC@
 
-HEVEA = @HEVEA@
-OCAMLWEB = @OCAMLWEB@
 OCAMLWEBSTY = $$HOME/tex/ocamlweb.sty
 
 WEBHOME = /homes/web/www.icansolve.com
@@ -65,7 +63,7 @@ LIBS = $(LIBGMPA)
 
 COBJS = mlgmp41.o ocaml-signals.o icsat.o
 
-CMO = sign.cmo three.cmo \
+CMO = three.cmo \
       gmp41.cmo mpa.cmo \
       binrel.cmo \
       hashcons.cmo \
@@ -74,15 +72,16 @@ CMO = sign.cmo three.cmo \
       trace.cmo \
       exc.cmo\
       bitv.cmo \
-      extq.cmo dom.cmo endpoint.cmo interval.cmo \
+      dom.cmo \
+      interval.cmo \
       name.cmo \
       var.cmo \
       sym.cmo \
       term.cmo \
+      sign.cmo \
       euclid.cmo \
-      arith.cmo \
-      cnstrnt.cmo \
       fact.cmo \
+      arith.cmo \
       tuple.cmo \
       coproduct.cmo \
       bitvector.cmo \
@@ -98,10 +97,10 @@ CMO = sign.cmo three.cmo \
       use.cmo \
       d.cmo \
       v.cmo \
-      ineq.cmo \
       c.cmo \
       partition.cmo \
       solution.cmo \
+      sl.cmo \
       context.cmo \
       prop.cmo \
       symtab.cmo istate.cmo \
@@ -232,7 +231,7 @@ $(OBJDIR)/icsat.c: $(SRCDIR)/icsat.c
 LICENSE = fm-license.pdf
 
 web:: ics.tar.gz $(BINDIR)/ics $(BINDIR)/ics.byte $(LIBDIR)/libics.so $(LIBDIR)/libics.a $(OBJDIR)/ics_stub.c $(LICENSE)
-	cp $(DOCDIR)/doc.ps.gz $(DOCDIR)/doc.pdf $(DOCDIR)/doc.html $(WEBHOME)
+	cp $(DOCDIR)/doc.ps.gz $(DOCDIR)/doc.pdf $(WEBHOME)
 	cp $(BINDIR)/ics $(WEBHOME)/download/$(ARCH)/ics  # Save these files before cleaning
 	cp $(BINDIR)/ics.byte $(WEBHOME)/download/$(ARCH)/ics.byte
 	cp $(LIBDIR)/libics.so $(WEBHOME)/download/$(ARCH)/libics.so
@@ -244,7 +243,7 @@ web:: ics.tar.gz $(BINDIR)/ics $(BINDIR)/ics.byte $(LIBDIR)/libics.so $(LIBDIR)/
 
 ICSDIR = $(shell basename $(PWD))
 
-ics.tar.gz:	distclean
+ics.tar.gz:
 	(tar -cvz --file=./ics.tar.gz \
                   --mode="u+rw" \
                   ./README ./Makefile.in ./configure ./configure.in \
@@ -258,6 +257,12 @@ ics.tar.gz:	distclean
                   ./chameleon/src/mli_parser.mly \
                   ./chameleon/src/mli_types.mli \
                   ./$(DOCDIR)/doc.ps.gz  ./$(DOCDIR)/doc.pdf \
+                  ./sat/Makefile.in \
+                  ./sat/src/*.cpp \
+	          ./sat/src/*.h \
+                  ./sat/src/*.d \
+                  ./sat/src/Makefile.in \
+                  ./sat/lib/ \
                   ./src/mlgmp41.c ./src/ocaml-signals.c \
                   ./src/parser.mly ./src/lexer.mll \
                   ./src/main.ml \
@@ -265,7 +270,7 @@ ics.tar.gz:	distclean
 
 ### Documention
 
-doc: $(DOCDIR)/doc.ps.gz $(DOCDIR)/doc.html $(DOCDIR)/doc.pdf
+doc: $(DOCDIR)/doc.ps.gz $(DOCDIR)/doc.pdf $(DOCDIR)/api.tex $(DOCDIR)/dep.ps 
 
 $(DOCDIR)/doc.dvi: $(DOCDIR)/dep.ps $(DOCDIR)/doc.tex $(DOCDIR)/api.tex
 	(cd $(DOCDIR); latex ./doc.tex  && bibtex ./doc && latex ./doc.tex && latex ./doc.tex)
@@ -274,7 +279,8 @@ $(DOCDIR)/dep.ps: $(SRC)
 	(cd src; $(OCAMLDEP) -native *.ml *.mli | ocamldot | dot -Tps > ../doc/dep.ps)
 
 $(DOCDIR)/api.tex: $(SRCDIR)/ics.mli
-	$(OCAMLDOC) -latex -latextitle 6,subsection -noheader -notrailer -o $(DOCDIR)/api.tex $(SRCDIR)/ics.mli
+	(cd $(OBJDIR); \
+	$(OCAMLDOC) -latex -noheader -notrailer -o ../../doc/api.tex ics.mli)
 
 $(DOCDIR)/doc.pdf: $(DOCDIR)/dep.ps $(DOCDIR)/doc.tex
 	(cd $(DOCDIR); pdflatex ./doc.tex  && pdflatex ./doc.tex)
@@ -287,10 +293,14 @@ $(DOCDIR)/doc.ps.gz:  $(DOCDIR)/doc.ps
 
 $(DOCDIR)/doc.pdf:  $(DOCDIR)/dep.ps $(DOCDIR)/doc.tex
 
-$(DOCDIR)/doc.html: $(DOCDIR)/doc.tex $(DOCDIR)/dep.gif $(DOCDIR)/doc.tex $(DOCDIR)/docheader.html
-	(cd $(DOCDIR); $(HEVEA) $(OCAMLWEBSTY) ./doc.tex -o ./doc.html)
-
 $(DOCDIR)/dep.gif: $(DOCDIR)/dep.ps
+
+### Literate Programming
+
+html:
+	(cd $(OBJDIR); \
+	$(OCAMLDOC) -html -all-params -colorize-code -d /homes/ruess/ics/doc/html $(CMO:.cmo=.ml) parser.mly lexer.mll)
+
 
 
 ### Emacs tags
@@ -307,7 +317,7 @@ tags:
 
 ### Generic rules
 
-.SUFFIXES: .ml .mli .cmi .cmo .cmx .mll .mly .prof .tex .dvi .ps .html .gif .pdf
+.SUFFIXES: .ml .mli .cmi .cmo .cmx .mll .mly .prof .tex .dvi .ps .gif .pdf
 
 .tex.dvi:
 	latex $< && latex $<
@@ -320,9 +330,6 @@ tags:
 
 .tex.pdf:
 	pdflatex $< && pdflatex $<
-
-.tex.html:
-	$(HEVEA) $< -o $@
 
 .c.o:
 	$(OCAMLC) -c -ccopt "-o $@" $(GMPINCLUDE)  $<
@@ -362,6 +369,7 @@ clean::
 	rm -rf $(SRCDIR)/parser.output
 	rm -rf obj/*  lib/* bin/*
 	rm -f $(DOCDIR)/*.aux  $(DOCDIR)/*.toc
+	rm -f $(DOCDIR)/api.tex
 	rm -f $(DOCDIR)/*.bbl $(DOCDIR)/*.log $(DOCDIR)/*.haux $(DOCDIR)/*.dvi
 	make -C chameleon clean
 	rm -f $(DOCDIR)/*.ppm $(DOCDIR)/*.blg $(DOCDIR)/*.brf $(DOCDIR)/*.out 

@@ -36,6 +36,14 @@ and is_mult = function
       (List.for_all (fun x -> is_expt x || is_var x) xl)
   | _ -> false
 
+let rec is_diophantine = function
+  | App(Pp(Mult), xl) ->
+      List.for_all is_diophantine xl
+  | App(Pp(Expt(n)), [x]) when n >= 0 ->
+      is_diophantine x
+  | a -> 
+      is_intvar a
+
 (** {6 Iterators} *)
 
 let rec fold f a e =
@@ -161,7 +169,6 @@ let sigma op l =
     | Expt(n), [x] -> mk_expt n x
     | Mult, xl -> mk_multl xl
     | _ -> assert false
-
 
 
 let rec map f a =   

@@ -94,7 +94,7 @@ let sigma op l =
 (** Fresh variables. *)
 let mk_fresh =
   let name = Name.of_string "t" in
-    fun () -> Var(Var.mk_fresh name None)
+    fun () -> Term.mk_fresh name None None
 
 (** Solving tuples. *) 
 let rec solve e =

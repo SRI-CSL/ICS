@@ -91,7 +91,7 @@ let is_equal s x y =
       try
 	let (i, _) = c s x 
 	and (j, _) = c s y in
-	  if Sign.is_zero i && Sign.is_zero j then
+	  if i = Sign.Zero && j = Sign.Zero then
 	    Three.Yes
 	  else if Sign.disjoint i j then
 	    Three.No

@@ -43,10 +43,6 @@ val use : t -> Term.t -> Term.Set.t
   (** [use s x] returns all [y] such that [y = a] in [s]
     and [x] is a variable in [Term.vars a]. *)
 
-val justification : t -> Term.t -> Term.t * Fact.justification option
-  (** [justification s x] returns [(b, j)] if [x=b] is in [s] with justification [j].
-    Raises [Not_found] if there is no such justification. *)
-
 val equality : t -> Term.t -> Fact.equal
 
 val inv : t -> Term.t -> Term.t
@@ -132,18 +128,3 @@ val compose : Th.t -> t -> Fact.equal list -> Term.Set.t * Fact.Equalset.t * t
     a non-variable term, in [sl]. If [b] is a variable, then
     it is added to [v'] and [ch'] is extended accordingly. *)
 
-
-module Changed: sig
-  type t = Term.Set.t Th.Array.arr
-
-  val reset : unit -> unit
-  val save : unit -> t
-  val restore : t -> unit
-  val stable : unit -> bool
-end 
-  (** Every modification or addition of an equality [x = a] to
-    a solution set [s]--- using {!Solution.union}, {!Solution.fuse}, 
-    or {!Solution.compose}---has the side-effect 
-    of adding [x] to the set of changed variables in [s]. This
-    set can be obtained by [changed s]. [reset s] resets the set of
-    changed variables in [s] to the empty set. *) 

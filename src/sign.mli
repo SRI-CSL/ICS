@@ -11,9 +11,7 @@
  * benefit corporation.
  *)
 
-(** {i Constraints} consist of a 
-  - domain of interpretation of type {!Dom.t}
-  - a sign interpretation in [{F, Zero, Pos, Neg, Nonneg, Nonpos, T}].
+(** {i Signs} are elements in [{F, Zero, Pos, Neg, Nonneg, Nonpos, T}].
   The denotation of a sign [s], denoted by {v D(s) v},  is a subset of
   the set of real numbers defined as follows:
   - [D(F)] is the empty set,
@@ -23,86 +21,17 @@
   - [D(Nonneg)] is the set of non-negative real numbers,
   - [D(Nonpos)] is the set of non-positive real numbers,
   - [D(T)] is the real number line
-  If the domain of interpretation is {!Dom.Int}, then these
-  interpretations are restricted to the integers.
 
   @author Harald Ruess
 *)
 
-type t
-  (** Elements of this type are called {b constraints}. They consist
-    of a {b domain constraint} and a {b sign constraint}. Each constraint
-    [c] determines a subset [D(c)] of the real number line as defined above. *)
+type t = F | Zero | Pos | Neg | Nonneg | Nonpos | T
 
 val pp : t Pretty.printer
   (** Pretty-printing of constraints. *)
 
-
-(** {6 Accessors} *)
-
-val dom : t -> Dom.t
-  (** Accessor for the domain part of a constraint. *)
-
-type sign = F | Zero | Pos | Neg | Nonneg | Nonpos | T
-
-val sign : t -> sign
-  (** Accessor for the sign part of a constraint. *)
-
-
-(** {6 Constructors} *)
-
-val make : Dom.t -> sign -> t
-  (** [make d s] constructs a constraint with domain [d] and sign [s]. *)
-
-val zero : t
-  (** [D(zero)] is the singleton [{0}]. *)
-
-
-val real : t
-  (** [D(real)] is the real number line. *)
-
-val pos : t
-  (** [D(pos)] is the set of positive reals. *)
-
-val posint : t
-  (** [D(posint)] is the set of positive integers. *)
-
-val neg : t
-  (** [D(neg)] is the set of negative reals. *)
-
-val nonneg : t
-  (** [D(nonneg)] is the set of nonnegative reals. *)
-
-val nonnegint : t
-  (** [D(nonnegint)] is the set of nonnegative integers. *)
-
-val nonpos : t
- (** [D(nonpos)] is the set of nonpositive reals. *)
-
-val domain : Dom.t -> t
- (** [D(domain d)] is the set of integers if [d] is {!Dom.Int} and
-   the real number line if [d] is {!Dom.Real}. *)
-
-val integer : t
-  (** [D(integer)] is the set of integers. *)
-
-val nat : t
-  (** [D(nat)] is the set of nonnegative integers. *)
-
 val of_q : Mpa.Q.t -> t
   (** [D(of_q q)] is the singleton set containing [q]. *)
-
-val is_empty : t -> bool
-  (** [is_empty c] is [true] iff [D(c)] is the empty set. *)
-
-val is_zero : t -> bool
-  (** [is_zero c] is [true] iff [D(c)] equals [D(zero)]. *)
-
-val is_nonneg : t -> bool
-  (** [is_nonneg c] is [true] iff [D(c)] equals [D(nonneg)]. *)
-
-val is_t : t -> bool
-  (** [is_t c] holds iff [D(c)] is either the integers or the reals. *)
 
 
 (** {6 Relations} *)
