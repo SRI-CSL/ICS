@@ -20,7 +20,7 @@
   - [lam] for functional abstraction, and
   - [cases] for definition by cases.
   
-  {i deBruijn} indices are used to in represent bound variables (see module {!Var}).  
+  {i deBruijn} indices are used to represent bound variables (see module {!Var}).  
   All terms not of the form [a $ b], [lam(a)], [cases(x, y, a, b)] are considered to be
   uninterpreted.
 
@@ -36,8 +36,6 @@
   unique for terms without any [cases].
 *)
 
-val d_interp : Term.t -> Sym.cl * Term.t list
-
 val mk_apply : Term.t -> Term.t -> Term.t
   (** [mk_apply c a al] builds an application with range type [c] by
     applying term [a] to an argument term [b].  In addition, it 
@@ -48,11 +46,11 @@ val mk_k : unit -> Term.t
 val mk_i : unit -> Term.t
 val mk_c : unit -> Term.t
 
-val abstract : Name.t -> Term.t -> Term.t
-  (** [abstract x a] lamgda-abstracts [a]. All free occurrences in [a] of 
+val abstract : Term.t -> Term.t -> Term.t
+  (** [abstract x a] lambda-abstracts [a]. All free occurrences in [a] of 
     free variables  of the form [!0] are bound by this abstraction. *)
 
-val sigma : Sym.cl -> Term.t list -> Term.t
+val sigma : Term.interp
   (** Depending on the function symbol [f], [sigma f al] uses the constructors
     {!Apply.mk_apply} to compute the normal-form of applying [f] to the 
     arguments [al]. *)
@@ -63,9 +61,9 @@ val map: (Term.t -> Term.t) -> Term.t -> Term.t
     subterm of [a] and rebuilds the term [a] by using the simplifying constructors
     [mk_apply] and [mk_abs]. *)
 
-val apply : (Term.t * Term.t) -> Term.t -> Term.t
 
-val disapply : Term.t * Term.t -> Term.t -> Term.t
-
-val solve : Term.Equal.t -> Term.Equal.t list
+val solve : Term.t -> Term.t -> Term.Set.t * Term.Subst.t
   (** Work in progress. Not yet used in an essential way. *)
+
+
+module Component: Shostak.COMPONENT

@@ -18,7 +18,7 @@
 *)
 
 
-module Infsys: (Infsys.EQ with type e = Solution.Set.t)
+module Infsys: Can.S
   (** Inference system for the theory {!Th.arr} of extensional arrays
     as defined in module {!Funarr}.
 
@@ -42,9 +42,3 @@ module Infsys: (Infsys.EQ with type e = Solution.Set.t)
     
     Here, [i<>j] are the known disequalities in a variable partition
     (see {!Partition.t}). *)
-
-
-module Ops: Can.OPS
-  (** Various operations with a set of flat equalities of the
-    form [u = x * y] as context. *)
-

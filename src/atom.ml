@@ -14,328 +14,275 @@
 
 (** Equality, disequality, and inequality atoms. *)
 
-let to_option f a =
-  try Some(f a) with Not_found -> None
-
-
-type atom =
+type t =
   | TT
   | Equal of Term.t * Term.t
   | Diseq of Term.t * Term.t
   | Nonneg of Term.t
   | Pos of Term.t
+  | Cnstrnt of Term.t * Cnstrnt.t
   | FF
 
-and t = atom * int
+let is_false = function FF -> true | _ -> false
 
-let atom_of (a, _) = a
-let index_of (_, i) = i
+let is_true = function TT -> true | _ -> false
 
-
-(** {6 Pretty-printing} *)
-
-let is_false = function FF, _ -> true | _ -> false
-
-let pp fmt (atm, _) =
-  (match atm with 
-    | TT -> Pretty.string fmt "tt"
-    | FF -> Pretty.string fmt "ff"
-    | Equal(a, b) -> Pretty.infix Term.pp "=" Term.pp fmt (a, b)
-    | Diseq(a, b) -> Pretty.infix Term.pp "<>" Term.pp fmt (a, b)
-    | Nonneg(a) -> Pretty.post Term.pp fmt (a, ">=0")
-    | Pos(a) -> Pretty.post Term.pp fmt (a, ">0"));
-  Format.pp_print_flush fmt ()
-
-
-let to_string a =
-  Pretty.to_string pp a
-
+type atom = t (* nickname *)
 
 (** Bindings [a |-> (a, i)] with [a] an atom and [i] a {i unique} index.
   That is, for  [a |-> (a, i)] and [b |-> (b, j)],  [i = j] iff [equal a b]. *)
-module AtomTbl = Hashtbl.Make(
+module Cache = Weak.Make(
   struct 
     type t = atom
-    let equal a b = 
+    let equal a b =  
       match a, b with
+	| Equal(s1, t1), Equal(s2, t2) -> Term.eq s1 s2 && Term.eq t1 t2
+	| Diseq(s1, t1), Diseq(s2, t2) -> Term.eq s1 s2 && Term.eq t1 t2
+	| Nonneg(s), Nonneg(t) -> Term.eq s t
+        | Pos(s), Pos(t) -> Term.eq s t
+	| Cnstrnt(s, c), Cnstrnt(t, d) -> Term.eq s t && c = d
 	| TT, TT -> true
 	| FF, FF -> true
-	| Equal(a1, b1), Equal(a2, b2) -> Term.eq a1 a2 && Term.eq b1 b2
-	| Diseq(a1, b1), Diseq(a2, b2) -> Term.eq a1 a2 && Term.eq b1 b2
-	| Nonneg(a), Nonneg(b) -> Term.eq a b
-	| Pos(a), Pos(b) -> Term.eq a b
 	| _ -> false
-    let hash = function
-      | TT -> 0
-      | Equal(a, b) -> (17 + Term.hash a + Term.hash b) land 0x3FFFFFFF
-      | Diseq(a, b) -> (631 + Term.hash a + Term.hash b) land 0x3FFFFFFF
-      | Nonneg(a) -> Term.hash a
-      | Pos(a) -> Term.hash a
-      | FF -> 1
+    let hash = Hashtbl.hash_param 2 2
   end)
   
-let heap = AtomTbl.create 117
-let index = Dynarray.make 2000
-let max = ref 0
+let universe = Cache.create 117
 
-let mk_true = (TT, 0)
-let mk_false = (FF, 1)
+let mk_true = TT
+let mk_false = FF
 
-let of_atom a =
-  try
-    AtomTbl.find heap a
-  with
-      Not_found ->
-	let i = Dynarray.length index in
-	let ai = (a, i) in
-	  AtomTbl.add heap a ai;
-	  Dynarray.add index ai;
-	  assert(Dynarray.get index i == ai);
-	  ai
+let hashcons a = 
+  try 
+    Cache.find universe a
+  with 
+      Not_found -> 
+	Cache.add universe a;
+	a
+	
+let mk_equal s t =
+  match Term.is_equal s t with
+    | Three.Yes -> mk_true
+    | Three.No -> mk_false
+    | Three.X -> 
+	let s, t = Term.orient (s, t) in
+	  hashcons (Equal(s, t))
+	 
+let mk_diseq s t =
+  match Term.is_equal s t with
+    | Three.Yes -> mk_false
+    | Three.No -> mk_true
+    | Three.X -> 
+	let s, t = Term.orient (s, t) in
+	  hashcons (Diseq(s, t))
 
-let of_index i = Dynarray.get index i
+let mk_nonneg t = 
+  match Term.is_nonneg t with
+    | Three.Yes -> mk_true
+    | Three.No -> mk_false
+    | Three.X -> hashcons(Nonneg(t))
+
+let mk_pos t = 
+  match Term.is_pos t with
+    | Three.Yes -> mk_true
+    | Three.No -> mk_false
+    | Three.X -> hashcons(Pos(t))
+
+let mk_cnstrnt t c =
+  match Term.is_cnstrnt t c with
+    | Three.Yes -> mk_true
+    | Three.No -> mk_false
+    | Three.X -> hashcons(Cnstrnt(t, c))
+
+(** Because of hashconsing, equality is just identity. *)
+let eq = (==) 
+
+let compare a b =
+  if a == b then 0 else Pervasives.compare a b
+
+let iter f = function
+  | TT -> ()
+  | FF -> ()
+  | Equal(s, t) -> f s; f t
+  | Diseq(s, t) -> f s; f t
+  | Nonneg(s) -> f s
+  | Pos(s) -> f s
+  | Cnstrnt(s, _) -> f s
+
+let for_all f = function
+  | TT -> true
+  | FF -> true
+  | Equal(s, t) -> f s && f t
+  | Diseq(s, t) -> f s && f t
+  | Nonneg(s) -> f s
+  | Pos(s) -> f s
+  | Cnstrnt(s, _) -> f s
+
+let exists f = function
+  | TT -> false
+  | FF -> false
+  | Equal(s, t) -> f s || f t
+  | Diseq(s, t) -> f s || f t
+  | Nonneg(s) -> f s
+  | Pos(s) -> f s
+  | Cnstrnt(s, _) -> f s
 
 
-(** [0] and [1] are reserved for [TT], [FF]. Then
-  initialize and register initialization for resetting. *)
-let _ = 
-  max := 2;
-  AtomTbl.add heap TT mk_true;
-  Dynarray.add index mk_true;
-  AtomTbl.add heap FF mk_false;
-  Dynarray.add index mk_false
 
+(** Pretty-printing *)
+let pp fmt a =
+  let term = Term.pp fmt
+  and string = Format.fprintf fmt
+  and cnstrnt = Cnstrnt.pp fmt in
+    string "@[";
+    (match a with
+       | TT -> string "tt"
+       | FF -> string "ff"
+       | Equal(s, t) -> term s; string " = "; term t
+       | Diseq(s, t) -> term s; string " <> "; term t
+       | Nonneg(s) -> term s; string " >=0"
+       | Pos(s) -> term s; string " >0"
+       | Cnstrnt(s, c) -> term s; string " in "; cnstrnt c);
+    string "@]@;"
 
-let equal (_, i) (_, j) = (i == j)
+let to_string a =
+  pp Format.str_formatter a;
+  Format.flush_str_formatter ()
 
-let compare (_, i) (_, j) = 
-  if i < j then -1 else if i == j then 0 else 1
-  
-let is_true = function TT, _ -> true | _ -> false
+let is_pure i = 
+  for_all (Term.is_pure i)
 
-let is_false = function FF, _ -> true | _ -> false
-
-let of_equal (a, b) = of_atom(Equal(a, b))
-let of_diseq (a, b) = of_atom(Diseq(a, b))
-let of_nonneg a = of_atom(Nonneg(a))
-let of_pos a = of_atom(Pos(a))
-
-
-(* Construct an equality atom. *)
-let rec mk_equal (a, b) =
-  if Term.eq a b then 
-    mk_true 
-  else if is_diseq_num a b then
-    mk_false
-  else 
-    of_equal (Term.orient(a, b))
-
-and is_diseq_num a b =
-  match a, b with
-    | Term.App((Sym.Arith(Sym.Num(q)), _), [], _), 
-      Term.App((Sym.Arith(Sym.Num(p)), _), [], _) ->
-	not(Mpa.Q.equal q p)
+let rec is_disjoint a1 a2 =
+  match a1, a2 with
+    | TT, FF -> true
+    | FF, TT -> true
+    | Equal(s1, t1), Diseq(s2, t2) ->
+	(Term.eq s1 s2 && Term.eq t1 t2) ||
+	(Term.eq s1 t2 && Term.eq t1 s2)
+    | Diseq(s1, t1), Equal(s2, t2) ->
+	(Term.eq s1 s2 && Term.eq t1 t2) ||
+	(Term.eq s1 t2 && Term.eq t1 s2)
+    | Cnstrnt(s1, c1), Cnstrnt(s2, c2) -> 
+	Term.eq s1 s2 && Cnstrnt.disjoint c1 c2
     | _ -> 
 	false
 
+let map f = 
+  let rec mapf a = 
+    match a with
+      | TT -> mk_true
+      | FF -> mk_false
+      | Equal(s, t) ->
+	  let s' = f s and t' = f t in
+	    if s == s' && t == t' then a else mk_equal s' t'
+      | Diseq(s, t) ->
+	  let s' = f s and t' = f t in
+	    if s == s' && t == t' then a else mk_diseq s' t'
+      | Nonneg(s) ->
+	  let s' = f s in
+	    if s == s' then a else mk_nonneg s'
+      | Pos(s) ->
+	  let s' = f s in
+	    if s == s' then a else mk_pos s'
+      | Cnstrnt(s, c) -> 
+	  let s' = f s in
+	    if s == s' then a else mk_cnstrnt s' c
+  in
+    mapf
 
-(** Boolean constants for normalizing some diequalities. *)
-module Boolean = struct
+let replace a b atm =
+  map (Term.replace a b) atm
 
-  let tt () = Sym.Bv.mk_const(Bitv.create 1 true)
-  let ff () =  Sym.Bv.mk_const(Bitv.create 1 false)
+let eval mdl = 
+  map (Term.Model.value mdl)
 
-  let mk_true () = Term.App.mk_const (tt())
-  let mk_false () = Term.App.mk_const (ff())
-
-  let is_true = function
-    | Term.App(f, [], _) when Sym.eq f (tt()) -> true
-    | _ -> false
-
-  let is_false = function
-    | Term.App(f, [], _) when Sym.eq f (ff()) -> true
-    | _ -> false
-
-end 
-
-let rec mk_diseq (a, b) =
-  if Term.eq a b then mk_false else
-    if Boolean.is_true a then
-      mk_equal (b, (Boolean.mk_false()))
-    else if Boolean.is_false a then
-      mk_equal (b, (Boolean.mk_true()))
-    else if Boolean.is_true b then
-      mk_equal (a, (Boolean.mk_false()))
-    else if Boolean.is_false b then
-      mk_equal (a, (Boolean.mk_true()))
-    else if is_diseq_num a b then
-      mk_true
-    else
-      of_diseq (Term.orient (a, b))
-
-and is_equal_num a b = 
-  match a, b with
-    | Term.App((Sym.Arith(Sym.Num(q)), _), [], _), 
-      Term.App((Sym.Arith(Sym.Num(p)), _), [], _) ->
-	Mpa.Q.equal q p
-    | _ -> 
-	false
-
-let mk_nonneg a = of_atom(Nonneg(a))
-
-let mk_pos a = of_atom(Pos(a))
-
-let map f atm =
-  match atom_of atm with
-    | TT -> atm
-    | FF -> atm
-    | Equal(a, b) -> 
-	let a' = f a and b' = f b in
-	  if a == a' && b == b' then atm else
-	    mk_equal (a', b')
-    | Diseq(a, b) -> 
-	let a' = f a and b' = f b in
-	  if a == a' && b == b' then atm else
-	    mk_diseq (a', b')
-    | Nonneg(a) -> 
-	let a' = f a in
-	  if a == a' then atm else mk_nonneg a'
-    | Pos(a) -> 
-	let a' = f a in
-	  if a == a' then atm else mk_pos a'
-	    
-let is_pure i (a, _) =
-  match a with 
+let validates mdl atm =
+  match eval mdl atm with
     | TT -> true
-    | Equal(a, b) -> Term.is_pure i a && Term.is_pure i b 
-    | Diseq(a, b) -> Term.is_pure i a && Term.is_pure i b 
-    | Nonneg(a) -> Term.is_pure i a
-    | Pos(a) -> Term.is_pure i a
-    | FF -> true
-
+    | _ -> false
 
 (** {6 Negations of atoms} *)
 
-let is_negatable _ = true
+let is_negatable = function
+  | Cnstrnt _ -> false
+  | _ -> true
+	
+let negate mk_neg = function
+  | TT -> mk_false
+  | FF -> mk_true
+  | Equal(s, t) -> mk_diseq s t
+  | Diseq(s, t) -> mk_equal s t
+  | Nonneg(t) -> mk_pos (mk_neg t)
+  | Pos(t) -> mk_nonneg (mk_neg t)
+  | _ -> invalid_arg "Atom.Negate: constraints not negatable"
 
-let negate mk_neg (a, _) =
-  match a with
-    | TT -> mk_false
-    | FF -> mk_true
-    | Equal(a, b) -> mk_diseq (a, b)
-    | Diseq(a, b) -> mk_equal (a, b)
-    | Nonneg(a) -> mk_pos (mk_neg a)  (* [not(a >= 0)] iff [-a > 0] *)
-    | Pos(a) -> mk_nonneg (mk_neg a)  (* [not(a > 0)] iff [-a >= 0] *)
 
-open Arith
+(** {6 Status} *)
 
+let status atm =
+  let binary a b =
+    let s = Term.status a in
+      match s with
+      | Term.Mixed _ -> s
+      | _ ->
+	  let t = Term.status b in
+	    match s, t with
+	      | _, Term.Mixed _ -> t
+	      | Term.Variable, Term.Variable -> Term.Variable
+	      | Term.Variable, Term.Pure _ -> t
+	      | Term.Pure _, Term.Variable -> s
+	      | Term.Pure(i), Term.Pure(j) ->
+		  if Theory.eq i j then s else Term.Mixed(i, a)
+	      | _ -> invalid_arg "Atom.status: unreachable."
+  in
+  let rec of_atom = function
+    | Equal(s, t) -> binary s t
+    | Diseq(s, t) -> binary s t
+    | Nonneg(s) -> Term.status s
+    | Pos(s) -> Term.status s
+    | Cnstrnt(s, _) -> Term.status s
+    | TT | FF -> invalid_arg "Atom.status: invalid argument."
+  in
+    of_atom atm
+	
 
 (** {6 Miscellaneous} *)
 
-let vars_of (a, _) =
-  match a with 
-    | TT -> Term.Var.Set.empty
-    | FF -> Term.Var.Set.empty
-    | Equal(a, b) -> Term.Var.Set.union (Term.vars_of a) (Term.vars_of b)
-    | Diseq(a, b) -> Term.Var.Set.union (Term.vars_of a) (Term.vars_of b)
-    | Nonneg(a) -> Term.vars_of a
-    | Pos(a) -> Term.vars_of a
-
+let vars_of a =
+  let xs = Term.Set.empty () in
+  let addvars t = Term.Set.union (Term.vars_of t) xs in
+    iter addvars a;
+    xs
+	  
 let list_of_vars a = 
-  Term.Var.Set.elements (vars_of a)
+  Term.Set.to_list (vars_of a)
 
-let occurs (x, atm) =
-  let rec term_occurs = function
-    | Term.Var _ as y -> Term.eq x y
-    | Term.App(_, sl, _) -> term_occurs_list sl
-  and term_occurs_list = function
-    | [] -> false
-    | s :: sl -> term_occurs s || term_occurs_list sl
+let occurs x a =
+  let rec occx b =
+    if Term.is_var b then 
+      Term.eq x b 
+    else
+      Term.Args.exists occx (Term.args_of b)
   in
-    match atm with
-      | TT -> false
-      | FF -> false
-      | Equal(a, b) -> term_occurs a || term_occurs b
-      | Diseq(a, b) -> term_occurs a || term_occurs b
-      | Nonneg(a) -> term_occurs a
-      | Pos(a) -> term_occurs a
-
-let rec is_connected =
-  let module Hash = Hashtbl.Make(
-      struct
-	type t = (atom * int) * (atom * int)
-	let equal (a1, a2) (b1, b2) = equal a1 b1 && equal a2 b2
-	let hash ((_, n), (_, m)) = (n + m) land 0x3FFFFFFF
-      end)
-    in
-    let table = Hash.create 17 in
-    let _ =  Tools.add_at_reset (fun () -> Hash.clear table) in 
-      fun atm1 atm2 ->
-	try
-	  Hash.find table (atm1, atm2)
-	with
-	    Not_found ->
-	      let result = is_connected0 atm1 atm2 in
-		Hash.add table (atm1, atm2) result; 
-		result
+    exists occx a
    
-and is_connected0 (atm1, _) (atm2, _) =  
-  let rec term_is_connected = function
-    | Term.Var _ as x -> occurs (x, atm2)
-    | Term.App(_, sl, _) -> List.exists term_is_connected sl
+let is_connected a1 a2 =  
+  let rec term_is_connected b =
+    if Term.is_var b then occurs b a2 else
+      Term.Args.exists term_is_connected (Term.args_of b)
   in
-    match atm1 with
-      | TT -> false
-      | FF -> false
-      | Equal(a, b) -> term_is_connected a || term_is_connected b
-      | Diseq(a, b) -> term_is_connected a || term_is_connected b
-      | Nonneg(a) -> term_is_connected a
-      | Pos(a) -> term_is_connected a
+    exists term_is_connected a1
 
-module Set = struct
-  type t = Ptset.t
-  type elt = atom * int
-  let empty = Ptset.empty
-  let is_empty = Ptset.is_empty
-  let mem (_, i) = Ptset.mem i
-  let add (_, i) = Ptset.add i
-  let singleton (_, i) = Ptset.singleton i
-  let remove (_, i) = Ptset.remove i
-  let union = Ptset.union
-  let subset = Ptset.subset
-  let inter = Ptset.inter
-  let diff = Ptset.diff
-  let equal = Ptset.equal
-  let compare = Ptset.compare
-  let elements s = Ptset.fold (fun i acc -> of_index i :: acc) s []
-  let choose s = of_index (Ptset.choose s)
-  let cardinal = Ptset.cardinal
-  let inj f i =  f (of_index i)
-  let iter f = Ptset.iter (inj f)
-  let fold f = Ptset.fold (inj f)
-  let for_all p = Ptset.for_all (inj p)
-  let exists p = Ptset.exists (inj p)
-  let filter p = Ptset.filter (inj p)
-  let partition p = Ptset.partition (inj p)
-  let max_elt s = of_index (Ptset.max_elt s)
-  let min_elt s = of_index (Ptset.max_elt s)
-end
+module Set = Sets.Make(
+  struct
+    type t = atom
+    let compare = compare
+    let pp = pp
+  end)
 
-
-module Map = struct
-  type (+'a) t = 'a Ptmap.t
-  type key = atom * int
-  let empty = Ptmap.empty
-  let add (_, i) = Ptmap.add i
-  let find (_, i) = Ptmap.find i
-  let remove (_, i) = Ptmap.remove i
-  let mem (_, i) = Ptmap.mem i
-  let inj f i =  f (of_index i)
-  let iter f = Ptmap.iter (inj f)
-  let map f =
-    let f' i = failwith "Idxatom.Map.map: to do"
-    in
-      Ptmap.map f'
-  let mapi f = Ptmap.mapi (inj f)
-  let fold f = Ptmap.fold (inj f)
-end
+module Map = Maps.Make(
+  struct
+    type t = atom
+    let compare = compare
+    let pp = pp
+  end)

@@ -20,57 +20,49 @@
   - one of the constants [True] or [False],
   - an equality [a = b],
   - a disequality [a <> b], or 
-  - an arithmetic inequality [a > 0] or [a >= 0]. *)
-type atom =
+  - an inequality [a >= b]. *)
+type t =
   | TT
   | Equal of Term.t * Term.t
   | Diseq of Term.t * Term.t
   | Nonneg of Term.t
   | Pos of Term.t
+  | Cnstrnt of Term.t * Cnstrnt.t
   | FF
-
-type t
-  (** For each atom, a {i unique index} is maintained. That is, 
-    - {!Atom.equal}[a b] holds iff [i = j] 
-    with [i], [j] the indices associated with [a], [b], respectively. *)
-
-val atom_of : t -> atom
-  (** Retrieve the atom from an atom-index pair. *)
-
-val index_of : t -> int
-  (** Retrieve the unique index from an atom-index pair. *)
-
-val of_atom : atom -> t
-  (** Construct an atom-index pair with unique index from an atom. *)
-
-val of_index : int -> t
-  (** [of_index n] returns an atom-index pair of index [n] if such and
-    atom-index pair has been created since the last {!Tools.do_at_reset}. 
-    Otherwise, the result is undefined. *)
-
+ 
 val mk_true : t
   (** Atom-index pair for representing the [true] atom. *)
 
 val mk_false : t
   (** Atom-index pair for representing the [false] atom. *)
 
-val mk_equal : Term.t * Term.t -> t
-  (** The atom-index pair [mk_equal (a, b)] represents the equality [a = b]. *)
+val mk_equal : Term.t -> Term.t -> t
+  (** The atom-index pair [mk_equal s t] represents the equality [s = t]. *)
 
-val mk_diseq : Term.t * Term.t -> t
-  (** The atom-index pair [mk_diseq (a, b)] represents the disequality [a <> b]. *)
+val mk_diseq : Term.t -> Term.t -> t
+  (** The atom-index pair [mk_diseq s t] represents the disequality [s <> t]. *)
 
 val mk_nonneg : Term.t -> t
-  (** The atom-index pair [mk_nonneg a] represents the nonnegativity 
-    constraint [a >= 0]. *)
+  (** The atom-index pair [mk_nonneg t] represents the arithmetic inequality [t >= 0]. *)
 
 val mk_pos : Term.t -> t
-  (** The atom-index pair [mk_nonneg a] represents the positivity
-    constraint [a > 0]. *)
+  (** The atom-index pair [mk_pos t] represents the arithmetic inequality [t > 0]. *)
+
+val mk_cnstrnt : Term.t -> Cnstrnt.t -> t
+  (** The atom-index pair [mk_cnstrnt a c] represents the constraint [a in c]. *)
 
 val map : (Term.t -> Term.t) -> t -> t
-  (** [map f atm] yields an atom where every term [a] in [atm] 
-    is replaced by [f a]. *)
+  (** [map f atm] replaces terms [a] in [atm] with [f a]. *)
+
+val replace: Term.t -> Term.t -> t -> t
+  (** [replace a b atm] replaces terms [a] by [b] in [atm]. *)
+
+val eval : Term.Model.t -> t -> t
+  (** [eval (i, alpha) atm] computes [atm] instantiated by the term model [(i, alpha)]. *)
+
+val validates : Term.Model.t -> t -> bool
+  (** [validates (i, alpha) atm] holds iff [i, alpha |= atm], that is,
+    [atm] evaluates to the trivially valid atom for the term model [(i, alpha)]. *)
 
 val is_true : t -> bool
   (** [is_true atm] holds iff [atm] represents the [true] atom. *)
@@ -78,18 +70,22 @@ val is_true : t -> bool
 val is_false : t -> bool
   (** [is_false atm] holds iff [atm] represents the [false] atom. *)
 
-val equal : t -> t -> bool
+val eq : t -> t -> bool
   (** Equality on atoms. *)
 
 val is_negatable : t -> bool
   (** [is_negatable atm] is always true. Not deleted,
     because it is called by SAT solver *)
 
+val is_disjoint : t -> t -> bool
+
 val negate : (Term.t -> Term.t) -> t -> t
   (** [negate f atm] ... *)
   
-val vars_of : t -> Term.Var.Set.t
+val vars_of : t -> Term.Set.t
   (** [vars_of atm] collects all variables in [atm]. *)
+
+val status : t -> Term.status
 
 val is_connected : t -> t -> bool
   (** [is_connected atm1 atm2] holds iff [vars_of atm1] and
@@ -101,8 +97,8 @@ val pp : t Pretty.printer
 val to_string : t -> string
   (** Pretty-printing an atom to a string. *)
 
-module Set : (Set.S with type elt = t)
+module Set : (Sets.S with type elt = t)
   (** Sets of atoms. *)
 
-module Map : (Map.S with type key = t)
+module Map : (Maps.S with type key = t)
   (** Maplets with atoms as keys. *)

@@ -84,5 +84,7 @@ val mem : Mpa.Q.t -> t -> bool
 
 val pp: t Pretty.printer
 
-
 val to_string : t -> string
+
+val to_index : t -> int
+val of_index : int -> t

@@ -22,15 +22,18 @@
 (** Specification of a signature [th] with one binary,
   {i associative-commutative} (AC) function symbol [f]. *)
 module type SIG = sig
-  val th : Th.t
-  val f : Sym.t
+  val th : string
+  val f : string
 end 
 
 (** Canonizer and iterators for AC theories. *)
 module type TERM = sig
 
-  val d_interp : Term.t -> Term.t * Term.t
-    (** If [a] is of the form [b*c], then [d_interp a] returns (b, c). *)
+  val arg1 : Term.t -> Term.t
+    (** If [a] is of the form [b*c], then [arg1 a] returns [b]. *)
+
+  val arg2 : Term.t -> Term.t
+    (** If [a] is of the form [b*c], then [arg2 a] returns [c]. *)
 
   val is_interp : Term.t -> bool
     (** [is_interp a] holds iff [a] is of the form [b*c]. *)
@@ -59,7 +62,7 @@ module type TERM = sig
     (** If [a] is of the form [x1^m1*(x2^m2*...*xn^mn)], then [iter f a]
       is [f x1 m1; f x2 m2; ...; f xn mn]. *)
 
-  val sigma : Sym.t -> Term.t list -> Term.t
+  val sigma : Funsym.t -> Term.t list -> Term.t
     (** If [f] equals [*], then [sigma f [a1; a2]] reduces
       to [make a1 a2]; otherwise the uninterpreted application [f(a1, a2)]
       is built. *)

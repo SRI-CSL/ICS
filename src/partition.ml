@@ -62,7 +62,8 @@ let eq p q =
 let choose p apply y = 
   if Term.is_var y then
     let rhs x = try Some(apply x) with Not_found -> None in
-      V.choose p.v rhs y
+      (* V.choose p.v rhs y *)
+      failwith "to do"
   else
     raise Not_found
 
@@ -70,12 +71,14 @@ let choose p apply y =
   class of [y]. *)
 let iter_if p f y =
   let f' x = try f x with Not_found -> () in
-    V.iter p.v f' y
+    failwith "to do"
+    (* V.iter p.v f' y *)
 
 let fold p f z acc = 
   let f' x (y, rho)= 
     f (Fact.Equal.make x y rho)
   in
+    assert(Term.is_var z);
   let (z, _) = V.find p.v z in
     acc  (* to do *)
   
@@ -117,7 +120,7 @@ let is_canonical p x =
 let is_int p x =
   try
     (match cnstrnt p x with
-       | Var.Cnstrnt.Real(Dom.Int), rho -> Some(rho)
+       | (Cnstrnt.Int | Cnstrnt.Zero), rho -> Some(rho)
        | _ -> None)
   with
       Not_found -> None
@@ -159,6 +162,8 @@ let rec merge p e =
     merge1 p e
 	  
 and merge1 p e =
+  failwith "to do" 
+(*
   let x, y, _ = e in
     if Term.eq x y then () else 
       let (d', ds') = D.merge e p.d in 
@@ -166,19 +171,7 @@ and merge1 p e =
 	V.merge e p.v;
 	p.equal <- e :: p.equal;
 	p.diseq <- Fact.Diseq.Set.union ds' p.diseq 
-
-(** Create a fresh variable that is smaller than [x] and [y]
-  according to variable ordering {!Var.cmp} and which incorporates
-  the intersection of the domains of [x] and [y]. *)
-and create_fresh_var d x y =
-  match Term.Var.is_slack x, Term.Var.is_slack y with
-    | false, false -> 
-	Term.Var.mk_rename (Name.of_string "w") None (Var.Cnstrnt.Real(d))
-    | _ ->
-	if Term.Var.is_zero_slack x || Term.Var.is_zero_slack y then
-	  Term.Var.mk_slack None Var.Zero
-	else 
-	  Term.Var.mk_slack None (Var.Nonneg(d))
+*)
 
 
 (** Add a disequality of the form [x <> y]. *)
@@ -198,7 +191,10 @@ let dismerge p d =
   disequalities and constraints are always in canonical form, only variable equalities
   need to be considered. *)
 let gc f p = 
+  failwith "to do" 
+(*
   V.gc f p.v
+*)
     
 (** Choose a fresh variable equality or disequality. *)
 let fresh_equal p =
@@ -213,12 +209,3 @@ let fresh_equal p =
 let fresh_diseq p =
   let d = Fact.Diseq.Set.choose p.diseq in
     p.diseq <- Fact.Diseq.Set.remove d p.diseq; d
-
-
-(** Difference. *)
-let diff p q =
-  let d' = D.diff p.d q.d
-  and v' = V.diff p.v q.v in
-    {p with v = v'; d = d'}   (* nondestructive *)
-  
-

@@ -20,79 +20,32 @@
 (** Specification of a signature [th] with one binary,
   {i associative-commutative} (AC) function symbol [f]. *)
 module type SIG = sig
-  val th : Th.t
-  val f : Sym.t
+  val th : Theory.t
+  val f : Funsym.t
 end 
 
-(** Canonizer and iterators for AC theories. *)
-module type TERM = sig
 
-  val d_interp : Term.t -> Term.t * Term.t
-    (** If [a] is of the form [b*c], then [d_interp a] returns (b, c). *)
-
+(** Specification of a theory with a single AC symbol by
+  means of canonizers and ground completion functions. 
+  The canonizers are obtained from [Make(Sig)] and the
+  completion functions perform forward chaining on
+  - [x' = z*u], [y = x*v], [x =v x'] ==> [y = z*u*v]. *)
+module T(Sig: SIG) : sig
+  val th : Theory.t
+  val lhs : Term.t -> Term.t
+  val rhs : Term.t -> Term.t
   val is_interp : Term.t -> bool
-    (** [is_interp a] holds iff [a] is of the form [b*c]. *)
-    
+  val is_pure : Term.t -> bool
   val make : Term.t -> Term.t -> Term.t
-    (** For canonical [a], [b], [make a b] returns a canonical 
-      term [c] with [AC |= c = a * b]. *)
-
-  val iterate : Term.t -> int -> Term.t
-    (** For [n>=1], [iterate a n] iterates [make a] [n-1] times.
-      We sometimes write [a^n] to denote this term. *)
-
-  val multiplicity: Term.t -> Term.t -> int
-    (** [multiplicity x a] counts the number 
-      of interpreted occurrences of [x] in [a]. *)
-    
-  val decompose : Term.t -> (Term.t * int) * Term.t option
-    (** Decompose [x*x*...*x*y*....] into [(x, n)] with [n] the
-      multiplicity of [x] in [a] and [y*...]. *)
- 
-  val fold : (Term.t -> int -> 'a -> 'a) -> Term.t -> 'a -> 'a
-    (** If [a] is of the form [x1^m1*(x2^m2*...*xn^mn)], then [fold f a e]
-      is [f x1 m1 (f x2 m2 (... (f xn mn e)...))]. *)
-
-  val iter : (Term.t -> int -> unit) -> Term.t -> unit
-    (** If [a] is of the form [x1^m1*(x2^m2*...*xn^mn)], then [iter f a]
-      is [f x1 m1; f x2 m2; ...; f xn mn]. *)
-
-  val sigma : Sym.t -> Term.t list -> Term.t
-    (** If [f] equals [*], then [sigma f [a1; a2]] reduces
-      to [make a1 a2]; otherwise the uninterpreted application [f(a1, a2)]
-      is built. *)
-
+  val pp : Format.formatter -> Funsym.t -> Term.t list -> unit
   val map : (Term.t -> Term.t) -> Term.t -> Term.t
-    (** [map f a] applies [f] at uninterpreted positions and 
-      recanonizes the result. *)
-end 
+  val sigma : Term.interp
+  val chains : Axioms.Chain.t list
+  val disjunction : Judgement.equal -> Judgement.disjunction
+end
 
 
-module Ops(Sig: SIG): Can.OPS
-  (** Various operations on flat equalities. *)
-
-
-module Make(Sig: SIG): TERM
-  (** Canonizer for a theory with one AC symbol, say [*]. 
-    A term [a] is said to be in in {i canonical} form if it is
-    of the form [x1 * (x2 * (x3 * ... (xn-1 * xn)...))] with [xi]
-    either variables or terms with a top-level symbol disequal from [*].
-    Furthermore, [xi << xj] for [i < j]. 
-    
-    For canonical terms [a], [b] it is the case that 
-    {!Term.eq}[a b] iff [AC |= a = b], that is [a] and [b]
-    are valid in the theory [AC]. *)
-
-
-module T(Sig: SIG): Can.T 
-  (** Specification of a theory with a single AC symbol by
-    means of canonizers and ground completion functions. 
-    The canonizers are obtained from [Make(Sig)] and the
-    completion functions perform forward chaining on
-    - [x' = z*u], [y = x*v], [x =v x'] ==> [y = z*u*v]. *)
-
-
-module Infsys(Sig: SIG): (Infsys.EQ with type e = Solution.Set.t)
+module Make(Sig: SIG): Can.INFSYS
   (** Inference system for a theory with a single AC symbol.
 
     An {i AC context} consists of equalities of the form [x = y*z] 

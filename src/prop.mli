@@ -71,7 +71,6 @@ val set_polarity_optimization : bool -> unit
 val set_clause_relevance : int -> unit
 val set_cleanup_period : int -> unit 
 val set_num_refinements : int -> unit
-val statistics : bool ref
 val show_explanations : bool ref
 
 (** Assignments for propositional formulas over literals

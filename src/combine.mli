@@ -15,144 +15,151 @@
 
   @author Harald Ruess
   @author N. Shankar 
-*)
 
-(** Inference system for the union of the theories
-  - {!Th.u} of uninterpreted functions,
-  - {!Th.la} of linear arithmetic,
-  - {!Th.nl} of nonlinear multiplication,
-  - {!Th.p} of products,
-  - {!Th.cop} of coproducts,
-  - {!Th.app} of combinatory logic,
-  - {!Th.arr} of functional arrays,
-  - {!Th.set} of propositional sets,
-  - {!Th.bv} of bitvectors. *)
+  Inference system for the union of the theories in {!Th.t}.
+  A {i configuration} consists of a triple [(g, e, p)] with
+  - [g] the input facts,
+  - [e] the equality sets for the individual theories
+  - [v] the shared variable equalities and disequalities. *)
 
 
-val sigma : Sym.t -> Term.t list -> Term.t
-  (** Theory-specific canonizers. *)
+module Config : sig
 
+  type t = { e: E.Config.t; v: V.Config.t; }
 
-val solve : Th.t -> Term.Equal.t -> Term.Subst.t
-  (** Theory-specific solvers. *)
-
-
-(** Combination of individual equality sets. *)
-module E : sig
-
-  type t
-    (** Combined equality set. *)
-
-    (** Projections to individual equality sets. *)
-  val u_of : t -> U.S.t
-  val la_of : t -> La.S.t
-  val nl_of : t -> Solution.Set.t
-  val p_of : t -> Solution.Set.t
-  val cop_of : t -> Solution.Set.t
-  val cl_of : t -> Solution.Set.t
-  val arr_of : t -> Solution.Set.t
-  val set_of : t -> Solution.Set.t
-
-  val empty: t 
-    (** The empty equality configuration. *)
-
-  val copy : t -> t
+  val shared : t -> V.Config.t
+  val components : t -> E.Config.t
  
-  val is_empty: t -> bool
-    (** Succeeds if all individual equality sets are empty. *)
+  val empty: unit -> t 
+    (** The empty configuration. *)
 
-  val eq : t -> t -> bool
-    (** Identity test for two equality sets. Failure does
-      imply that the argument equality sets are not logically equivalent. *)
-
-  val pp : t Pretty.printer
+  module Print : sig
+    val all : Format.formatter -> t -> unit
+      (** Pretty-printing of configuration. *)
+    val component : Theory.t -> Format.formatter -> t -> unit
+      (** Pretty-printing of theory-specific component *)
+    val shared : Format.formatter -> t -> unit
+      (** Pretty-printing of shared part of configuration. *)
+  end 
+  
+  val pp : Format.formatter -> t -> unit
     (** Pretty-printing of combined equality set. *)
 
-  val pp_i : Th.t -> t Pretty.printer
-    (** Pretty-printing of an individual equality set. *)
+  val dep : Theory.t -> t -> Term.t -> Dep.Set.t
+    (** Dependency index for variable [x] and theory [i]. *)
 
-  val find : t * Partition.t -> Th.t -> Jst.Eqtrans.t
-    (** [find s th x] is [a] if [x = a] is in the solution set for theory [th]
-      in [s]; otherwise, the result is just [x]. *)
+  (** Theory-specific lookups. *)
+  module Find : sig
 
-  val inv : t * Partition.t -> Jst.Eqtrans.t
-    (** [inv s a] is [x] if there is [x = a] in the solution set for
-      theory [th]; otherwise [Not_found] is raised. *)
+    val lookup : Theory.t -> t -> Term.t -> Term.t
+      (** [lookup s th x] is [a] if [x = a] is in the equality set for 
+	theory [th] in [s]; otherwise, the result is just [x]. *)
 
-  val dep : Th.t -> t -> Term.t -> Term.Var.Set.t
-    (** [dep i s x] returns a set [ys] of variables such that
-      [y] in [ys] iff there is an [x = a] in [s] with [y] a subterm of [a]. *)
+    val justify : Theory.t -> t -> Term.t -> Judgement.equal
+      (** [justify s th x] returns [e |- x = Find.lookup s th x]. *)
 
-  val diff : t -> t -> t
-    (** [diff s1 s2] returns the equality set [s] such that an equality [e]
-      is in [s] iff if it is in [s1] but not in [s2]. *)
+  end
 
-end 
+  (** Theory-specific inverse lookups. *)
+  module Inv : sig
+    
+    val lookup : t -> Term.t -> Term.t
+      (** [lookup s t] is [x] if there is [x = t] in the solution 
+	set for theory [th]; otherwise [Not_found] is raised. *)
+     
+    val justify : t -> Term.t -> Judgement.equal
+      (** [justify s th x] returns [e |- x = Inv.lookup s th x]. *)
 
+  end
 
-type t = E.t Infsys.Config.t
-    (** Configurations [(g, e, p)] for the combined inference system consist
-      - of a global input [g],
-      - a combined euqality set [e], and
-      - a variable partition [p]. *)
+  val occ : Theory.t -> t -> Term.t -> bool
+    (** [occ i s x] holds for a variable [x] if [x] occurs in the equality
+      set for theory [i]. *)
 
+  module Can : sig 
+    
+    val term : t -> Term.t -> Term.t
+      (** Given an equality set [e] and a partition [p] as obtained
+	from processing, [can (e, p) a] returns a term [b] equivalent
+	to [a] in [(e, p)] together with a justification [rho].  If
+	no further branching is applicable on [(e, p)], then [can (e, p)]
+	is a canonizer in the sense that [can (e, p) a] is syntactically
+	equal to [can (e, p) b] iff the equality [a = b] follows from [(e, p)]
+	in the supported union of theories. *)
 
-val process : Fact.t -> E.t * Partition.t -> E.t * Partition.t
-  (** Given a starting configuration [({fct}, e, p)], process applies
-    all rules of the combined inference system (except branching rules).
-    The source and target configuration of [process] are {i equivalent},
-    although the target configuration might contain internally generated
-    variables not present in the source configuration. *)
+    val justify : t -> Term.t -> Judgement.equal
+      (** [justify s t |- t = Can.term s t]. *)
 
-val is_sat :  E.t * Partition.t -> (E.t * Partition.t) option
-  (** [is_sat [c]] applies applicable {i branching rules} until 
-    it finds a satisfiable configuration [d] (with empty input) for 
-    which no branching rule is applicable; in this case [Some(d)] is returned.
-    Otherwise, all branching states are unsatisfiable, and [None] is returned. *)
+  end 
 
+  module Diseq : sig
 
-val dom : E.t * Partition.t -> Term.t -> Dom.t * Jst.t
-(** [dom p a] returns a domain [d] for a term [a] together with
-  a justification [rho] such that [rho |- a in d].  This function
-  is extended to arithmetic constraints using an abstract domain
-  interpretation. Raises [Not_found] if no domain constraint is found. *)
+    val test : t -> Term.t -> Term.t -> bool
 
-val can : E.t * Partition.t -> Jst.Eqtrans.t
-  (** Given an equality set [e] and a partition [p] as obtained
-    from processing, [can (e, p) a] returns a term [b] equivalent
-    to [a] in [(e, p)] together with a justification [rho].  If
-    no further branching is applicable on [(e, p)], then [can (e, p)]
-    is a canonizer in the sense that [can (e, p) a] is syntactically
-    equal to [can (e, p) b] iff the equality [a = b] follows from [(e, p)]
-    in the supported union of theories. *)
+    val justify : t -> Term.t -> Term.t -> Judgement.diseq
 
-val simplify : E.t * Partition.t -> Atom.t -> Atom.t * Jst.t
-  (** Simplification of atoms in a context [(e, p)] by canonizing
-    component terms using {!Combine.can}.  Simplification is
-    incomplete in the sense that there are 
-    - valid atoms [a] in [(e, p)] which do not reduce to {!Atom.mk_true},
-    - unsatisfiable atoms [a] in [(e, p)] which do not reduce to {!Atom.mk_false}. *)
+  end 
+
+  module Cnstrnt : sig
+
+    val test : t -> Term.t -> Cnstrnt.t -> bool
+
+    val justify : t -> Term.t -> Cnstrnt.t -> Judgement.cnstrnt
+
+  end 
 
 
-val cheap : bool ref
-  (** If [cheap] is set, {!Combine.simplify} only performs cheap 
-    simplifications for disequalities and inequalities. Setting [cheap]
-    to [false] make {!Combine.simplify} more complete. *)
+  module Nonneg : sig
+    
+    val test : t -> Term.t -> bool
+      
+    val justify : t -> Term.t -> Judgement.equal
+      
+  end 
 
-val gc : t -> unit
-  (** [gc c] garbage collects internal variables in configuration [c]
-    as introduced by {!Combine.process}. *)
-
-
-val maximize : E.t * Partition.t -> Jst.Eqtrans.t
-  (** [maximize c a] returns either
-    - [(b, rho)] such that [b+] is empty and [rho |- la => a = b], or
-    - raises {!La.Unbounded} if [a] is unbounded in the linear 
-    arithmetic [la] equality set of [c]. *)
-
-val minimize : E.t * Partition.t -> Jst.Eqtrans.t
-  (** Minimize is the dual of maximize. *)
+  module Pos : sig
+    
+    val test : t -> Term.t -> bool
+      
+    val justify : t -> Term.t -> Judgement.equal
+      
+  end 
 
 
-val model : E.t * Partition.t -> Term.t list -> Term.t Term.Map.t
-  (** Model construction. Experimental. *)
+
+  val model : t -> Term.Model.t
+    
+end
+
+module Infsys : sig
+
+  val initialize : Config.t -> unit
+  
+  val current : unit -> Config.t
+
+  val reset : unit -> unit
+  
+  val finalize : unit -> Config.t
+
+  val is_unchanged : unit -> bool
+
+  val process_equal : Judgement.equal -> unit
+
+  val process_diseq : Judgement.diseq -> unit
+
+  val process_nonneg : Judgement.nonneg -> unit
+
+  val process_pos : Judgement.pos -> unit
+
+  val process_cnstrnt : Judgement.cnstrnt -> unit
+
+ (* val process : Judgement.atom -> unit *)
+    (** Given a starting configuration [({fct}, e, p)], process applies
+      all rules of the combined inference system (except branching rules).
+      The source and target configuration of [process] are {i equivalent},
+      although the target configuration might contain internally generated
+      variables not present in the source configuration. *)
+
+  val model : unit -> Term.Model.t
+
+end

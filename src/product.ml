@@ -11,70 +11,195 @@
  * benefit corporation.
  *)
 
-let is_pure = Term.is_pure Th.p
+(** Theory definition. *)
+let theory = Theory.create "p"
 
-let is_interp = function
-  | Term.App(sym, _, _) -> Sym.theory_of sym = Th.p
-  | _ -> false
+let is_theory = Theory.eq theory 
 
-let is_cons = function
-  | Term.App(sym, [_;_], _) when Sym.Product.is_cons sym -> true
-  | _ -> false
+let _ = 
+  Theory.Description.add theory
+    "Theory of pairs and projections."
 
-let d_interp = function
-  | Term.App(sym, al, _) -> (Sym.Product.get sym, al)
-  | _ -> raise Not_found
+(** Signature for products. *)
+module Sig = struct
+  let th = theory
+  type t = Cons | Car | Cdr
+  let name = 
+    let cons = Name.of_string "cons"
+    and car = Name.of_string "car"
+    and cdr = Name.of_string "cdr" in
+      function 
+	| Cons -> cons
+	| Car -> car
+	| Cdr -> cdr
+end
 
-let d_cons a =
-  match d_interp a with
-    | Sym.Cons, [a; b] -> (a, b)
-    | _ -> raise Not_found
+module Op = Funsym.Make(Sig)
+
+let op t = Op.out (Term.sym_of t)
+let args t = Term.Args.to_list (Term.args_of t)
+
+let is_interp a =
+  try Op.is_interp (Term.sym_of a) with Not_found -> false
+
+let rec is_pure a =
+  try
+    (match op a, args a with
+       | Sig.Cons, [b1; b2] -> is_pure b1 && is_pure b2
+       | Sig.Car, [b] -> is_pure b
+       | Sig.Cdr, [b] -> is_pure b
+       | _ -> false)
+  with
+      Not_found -> Term.is_var a
+
+let is_car a =
+  try
+    (match op a, args a with
+       | Sig.Car, [_] -> true
+       | _ -> false)
+  with
+      Not_found -> false
+
+let is_cdr a =
+  try
+    (match op a, args a with
+       | Sig.Cdr, [_] -> true
+       | _ -> false)
+  with
+      Not_found -> false
+
+let is_cons a =
+  try
+    (match op a, args a with
+       | Sig.Cons, [_; _] -> true
+       | _ -> false)
+  with
+      Not_found -> false
 
 let d_car a =
-  match d_interp a with
-    | Sym.Car, [a] -> a
+  match op a, args a with
+    | Sig.Car, [b] -> b
     | _ -> raise Not_found
 
 let d_cdr a =
-  match d_interp a with
-    | Sym.Cdr, [a] -> a
+  match op a, args a with
+    | Sig.Cdr, [b] -> b
+    | _ -> raise Not_found
+
+let d_cons a =
+  match op a, args a with
+    | Sig.Cons, [b1; b2] -> b1, b2
+    | _ -> raise Not_found
+
+let fst a =
+  match op a, args a with
+    | Sig.Cons, [b1; _] -> b1
+    | _ -> raise Not_found
+
+let snd a =
+  match op a, args a with
+    | Sig.Cons, [_; b2] -> b2
     | _ -> raise Not_found
 
 
 (** [cons(car(x), cdr(x))] reduces to [x]. *)
-let mk_cons a b = 
-  try
-    let x = d_car a and x' = d_cdr b in
-      if Term.eq x x' then x else raise Not_found
-  with
-      Not_found -> 
-	Term.App.mk_app Sym.Product.mk_cons [a; b]
+let mk_cons = 
+  let f = Op.inj(Sig.Cons) in
+  let cons a b = Term.mk_binary f a b in
+    fun a b -> 
+      try
+	let x = d_car a and y = d_cdr b in
+	  if Term.eq x y then x else cons a b
+      with
+	  Not_found -> cons a b
 
-
-(** [car(cons(a, _))] reduces to [a]. *)
-let mk_car a = 
-  try
-    fst(d_cons a)
-  with
-      Not_found -> 
-	Term.App.mk_app Sym.Product.mk_car [a]
-  
+(** [car(cons(b, _))] reduces to [b]. *) 
+let mk_car =
+  let f = Op.inj(Sig.Car) in
+  let car a = Term.mk_unary f a in
+    fun a -> 
+      try
+	(match op a, args a with
+	   | Sig.Cons, [b; _] -> b
+	   | _  -> car a)
+      with
+	  Not_found -> car a
 
 (** [cdr(cons(_, b))] reduces to [b]. *)
-let mk_cdr a =
+let mk_cdr =
+  let f = Op.inj(Sig.Cdr) in 
+  let cdr a = Term.mk_unary f a in
+    fun a -> 
+      try
+	(match op a, args a with
+	   | Sig.Cons, [_; b] -> b
+	   | _  -> cdr a)
+      with
+	  Not_found -> cdr a
+
+(** Canonizer. *)
+let sigma f l =
+  assert(Op.is_interp f);
+  match Op.out f, Term.Args.to_list l with
+    | Sig.Cons, [a; b] -> mk_cons a b
+    | Sig.Car, [a] -> mk_car a
+    | Sig.Cdr, [b] -> mk_cdr b
+    | _ -> invalid_arg "Product.sigma: uninterpreted"
+
+
+(** Disequality test. *)
+let rec is_diseq a b =
   try
-    snd(d_cons a)
+    let f = op a and al = args a in
+      (try
+	 is_diseq_interp f al (op b) (args b)
+       with
+	   Not_found -> is_diseq_uninterp f al b)
   with
       Not_found -> 
-	Term.App.mk_app Sym.Product.mk_cdr [a]
+	(try 
+	   is_diseq_uninterp (op b) (args b) a
+	 with
+	     Not_found -> false)
 
+and is_diseq_interp f al g bl =
+  match f, al, g, bl with
+    | Sig.Cons, [a1; a2], Sig.Cons, [b1; b2] ->
+	is_diseq a1 b1 || is_diseq a2 b2
+    | Sig.Car, [a1], Sig.Car, [b1] ->
+	is_diseq a1 b1
+    | Sig.Cdr, [a1], Sig.Cdr, [b1] ->
+	is_diseq a1 b1
+    | _ ->
+	false
+
+and is_diseq_uninterp f al b =
+ let rec arg_of_iterated_destructor a =
+   try
+     (match op a, args a with
+	| (Sig.Car | Sig.Cdr), [b] -> arg_of_iterated_destructor b
+	| _ -> a)
+   with
+       Not_found -> a
+ in
+   match f, al with
+     | Sig.Cons, [a1; a2] -> Term.eq a1 b ||  Term.eq a2 b
+     | (Sig.Car | Sig.Cdr), [a1] -> Term.eq (arg_of_iterated_destructor a1) b
+     | _ -> false
+ 
+let _ = 
+  let m = Term.Methods.empty() in
+    m.Term.Methods.can <- Some(sigma);
+    m.Term.Methods.is_diseq <- Some(is_diseq);
+    Term.Methods.register theory m
+      
 
 (** Tuple constructors *)
 let rec mk_tuple = function
   | [a] -> a
   | [a; b] -> mk_cons a b
   | a :: al -> mk_cons a (mk_tuple al)
-  | [] -> assert false
+  | [] -> invalid_arg "Product.tuple: empty argument"
 
 (** Generalized projection *)
 let rec mk_proj i a =
@@ -87,207 +212,151 @@ let rec mk_proj i a =
 
 
 (** Apply term transformer [f] at uninterpreted positions. *)
-let rec map f a =
-  try
-     (match d_interp a with
-	| Sym.Cons, [b1; b2] ->
-	    let b1' = map f b1
-	    and b2' = map f b2 in
-	      if b1 == b1' && b2 == b2' then a else mk_cons b1' b2'
-	| Sym.Car, [b] ->
-	    let b' = map f b in
-	      if b == b' then a else mk_car b'
-	| Sym.Cdr, [b] ->
-	    let b' = map f b in
-	      if b == b' then a else mk_cdr b'
-	| _ ->
-	    f a)
-  with
-      Not_found -> f a
-
-
-let apply (x, b) =
-  map (fun y -> if Term.eq x y then b else y)
-
-
-let sigma op l =
-  match op, l with
-    | Sym.Cons, [a; b] -> mk_cons a b
-    | Sym.Car, [a] -> mk_car a
-    | Sym.Cdr, [b] -> mk_cdr b 
-    | _ -> assert false
-
-
-(** Reinitialized by solver. *)
-let fresh = ref []
-
-(** Fresh variables. *)
-let mk_fresh () =
-  let x = Term.Var.mk_fresh Th.p None Var.Cnstrnt.Unconstrained in
-    fresh := x :: !fresh;
-    x
-
-let is_fresh x =
-  let eqx = Term.eq x in
-    List.exists eqx !fresh
-
-
-(** Symbol table for renamings. *)
-module Symtab = struct
-
-  type t = (Term.t * (Term.t * Term.t)) list
-      (** Bindings [x |-> (k1, k2)] represent the equalities
-	[k1 = car(x)] and [k2 = cdr(y)]. *)
-
-  let empty = []
-
-  let pp =
-    Pretty.map Term.pp (Pretty.pair Term.pp Term.pp)
-      
-  let lookup rho x =
-    let rec search = function
-      | [] -> raise Not_found
-      | (y, (k1, k2)) :: l -> if Term.eq x y then (k1, k2) else search l
-    in
-      search rho 
-
-  let fold f =
-    let f' (x, (k1, k2)) = f (x, k1, k2) in
-      List.fold_right f'
-
-  (** replace [car(x)], [cdr(x)] in [a] inside out renaming context [rho] *)
-  let rec abstract (a, rho) =
+let map f =
+  let rec mapf a = 
     try
-      (match d_interp a with
-	 | Sym.Cons, [b1; b2] ->
-	     let b1', rho' = abstract (b1, rho) in
-	     let b2', rho'' = abstract (b2, rho') in
-	       (mk_cons b1' b2', rho'')
-	 | Sym.Car, [b] ->
-	     let (x, rho') = abstract (b, rho) in
-	     let (k1, _, rho'') = represents x rho' in (* [k1 = car(x)] *)
-	       (k1, rho'')
-	 | Sym.Cdr, [b] -> 
-	     let (x, rho') = abstract (b, rho) in
-	     let (_, k2, rho'') = represents x rho' in (* [k2 = cdr(x)] *)
-	       (k2, rho'')
-	 | _ ->
-	     (a, rho))
+      (match op a, args a with
+	 | Sig.Cons, [b1; b2] ->
+	     let b1' = mapf b1 and b2' = mapf b2 in
+	       if b1 == b1' && b2 == b2' then a else mk_cons b1' b2'
+	 | Sig.Car, [b] -> 
+	     let b' = mapf b in
+	       if b == b' then a else mk_car b'
+	 | Sig.Cdr, [b] -> 
+	     let b' = mapf b in
+	       if b == b' then a else mk_cdr b'
+	 | _ -> 
+	     f a)
     with
-	Not_found -> (a, rho)
-
-  and represents x rho = 
-    try
-      let (k1, k2) = lookup rho x in
-	(k1, k2, rho)
-    with
-	Not_found ->
-	  let k1 = mk_fresh () and k2 = mk_fresh () in
-	  let rho' = (x, (k1, k2)) :: rho in
-	    (k1, k2, rho')
-  
-end 
-
-
-(** Solving a pair equality.  For example [x = cons(car(x), y)] is 
-  solved as [y |-> p!2; x |-> cons(p!1, p!2)] with [p!1], [p!2] fresh. *)
- 
-let rec solve e =
-  fresh := [];                      (* reinitialize [is_fresh]. *)
-  let e0, sl0, rho = pre e in
-  let sl1 = solvel ([e0], sl0)in
-  let sl2 = post rho sl1 in
-    sl2
-
-(** Preprocess the input equality [e] to replace each term of the
-  form [car(x)] by [k1] with the solution [x = cons(k1, k2)] added
-  to [sl], and similarly,[cdr(x)] can be replaced with [k2], for
-  fresh [k2]. This completely eliminates [car] and [cdr] from the
-  input equality.  Thus, [pre (a, b)] returns a triple consisting of 
-  - an equality [a' = b'] such that [a'] and [b'] are built up from [cons]es only, 
-    and none of the variables in [a'], [b'] is in the domain of the initial solution set, and
-  - an initial solution set with equalities [x = cons(k1, k2)] for each entry *)
-and pre (a, b) =
-  let (a', rho) = Symtab.abstract (a, Symtab.empty) in (* Abstract [car(x)] and [cdr(x)]. *)
-  let (b', rho') = Symtab.abstract (b, rho) in         (* [a'] and [b'] do not contain [car], [cdr]. *)
-  let sl0 =                                            (* Add [x = cons(k1, k2) for each *)
-    Symtab.fold                                        (* renaming pair. *)
-      (fun (x, k1, k2) acc -> 
-	 (x, mk_cons k1 k2) :: acc)
-      rho' []
-  in      
-  let e0 = apply_to_eq sl0 (a', b') in                (* Apply these bindings. *)
-    (e0, sl0, rho')
-	
-    
-
-(** Repetitively apply the rules (symmetrically).
-  - Triv:  [a = a, el; sl] ==> [el; sl]
-  - Ext:   [cons(a', a'') = cons(b', b''), el; sl] ==> [a' = b', a'' = b'', el; sl]
-  - Bot:   [x = a, el; sl] ==> [bot] 
-              if [x] is a proper subterm of [a]
-  - Subst: [x = a, el; sl] ==> [sigma(el[a/x]); s o {x = a}] 
-              if [x] occurs in [el] but not in [a].
-  
-  Either a variable in [el] or a rhs in [sl] is eliminated (by Subst), or the 
-  size of [el] decreases, so the corresponding lexicographic measure yields 
-  termination. *)
-and solvel (el, sl) =
-  match el with
-    | [] -> sl
-    | (a, b) :: el1 ->
-	solve1 (a, b) (el1,  sl) 
-
-and solve1 (a, b) (el, sl) =
-  if Term.eq a b then                      (* Triv *)
-    solvel (el, sl) 
-  else                      
-    try          
-      let (a', a'') = d_cons a             (* Ext *)
-      and (b', b'') = d_cons b in
-	solvel (((a', b') :: (a'', b'') :: el), sl)
-    with
-	Not_found ->       
-	  assert(not(Term.eq a b)); 
-          let (x, a) = if is_cons a then (b, a) else (a, b) in
-	    assert(not(is_interp x));
-	    if Term.subterm x a then       (* Bot *) 
-	      raise Exc.Inconsistent
-	    else                           (* Subst *)
-	      let (x, a) = orient (x, a) in
-	      let el' = apply_to_eqs [(x, a)] el in
-	      let sl' = compose (x, a) sl in
-		solvel (el', sl')
-
-(** Ensure [y = x] with [y] fresh and [x] not fresh can not happen. *)
-and orient (a, b) =
-  if Term.is_var a && Term.is_var b then
-    if is_fresh a && not(is_fresh b) then
-      (b, a)
-    else 
-      Term.orient (a, b)
-  else
-    (a, b)
-
-and apply_to_trm rho =
-  let lookup x =
-    try Term.Subst.lookup rho x with Not_found -> x
+	Not_found -> f a
   in
-    map lookup 
-  
-and apply_to_eq rho (a1, a2) =
-  (apply_to_trm rho a1, apply_to_trm rho a2)
-  
-and apply_to_eqs rho a =
-  List.map (apply_to_eq rho) a
-       
-and compose (x, a) sl =
-  assert(not(is_interp x));
-  Term.Subst.compose apply (x, a) sl
+    mapf
 
-(** Postprocessing is needed to ensure that the solution does not
-  contain new variables. We can then discard any equations of the form 
-  [k = a] in [sl] for newly introduced [k]. The result does not necessarily
-  use a minimal number of fresh variables. *)
-and post rho sl =
-  List.filter (fun (x, _) -> not (is_fresh x)) sl
+let norm (x, a) = 
+  assert(Term.is_var x);
+  assert(not(Term.occurs x a));
+  let lookup z = if z == x then a else z in
+    map lookup
+
+(** Solver. *)
+
+let rec is_constructor_term a =
+  try
+    (match op a with
+       | Sig.Cons -> List.for_all is_constructor_term (args a)
+       | _ -> false)
+  with
+      Not_found -> Term.is_var a
+
+let rec solve a b = 
+  assert(is_pure a && is_pure b);
+  let rec solvel ks el sl = 
+    match el with
+      | [] -> ks, Term.Subst.of_list sl
+      | e :: el' -> solve1 ks e el' sl 
+  and solve1 ks ((a, b) as e) el sl =
+    if Term.eq a b then 
+      solvel ks el sl
+    else
+      try
+	let x = d_proj a in
+	  proj x ks (e :: el) sl
+      with
+	  Not_found ->
+	    (try
+	       let y = d_proj b in
+		 proj y ks (e :: el) sl
+	     with
+		 Not_found ->
+		   assert(is_constructor_term a && is_constructor_term b);
+		   (match is_cons a, is_cons b with
+		      | true, true -> 
+			  let (a1, a2) = d_cons a
+			  and (b1, b2) = d_cons b in
+			    decompose (a1, b1) (a2, b2) ks el sl
+		      | false, false -> 
+			  rename (a, b) ks el sl
+		      | false, true -> 
+			  constructor (a, b) ks el sl
+		      | true, false ->
+			  constructor (b, a) ks el sl))
+  and constructor ((x, b) as e) ks el sl =
+    assert(Term.is_var x);
+    assert(not(Term.eq x b));
+    assert(is_constructor_term b);
+    if Term.is_var_of x b then
+      raise Exc.Inconsistent
+    else 
+      let el' = replace e el 
+      and sl' = if Term.Set.mem x ks then fuse sl e else compose sl e in
+	solvel ks el' sl'
+  and proj x ks el sl =
+    assert(Term.is_var x);
+    assert(not(Term.Set.mem x ks));
+    let k1 = Term.mk_fresh_var "k"
+    and k2 = Term.mk_fresh_var "k" in
+    let e' = (x, mk_cons k1 k2) in
+    let ks' = Term.Set.add k1 ks; Term.Set.add k2 ks; ks 
+    and el' = replace e' el 
+    and sl' = compose sl e' in
+      solvel ks' el' sl'
+  and rename ((x, y) as e) ks el sl = 
+    assert(Term.is_var x && Term.is_var y);
+    let el' = replace e el
+    and sl' = replace e sl in
+      solvel ks el' sl'
+  and decompose e1 e2 ks el sl =
+    solvel ks (e1 :: e2 :: el) sl
+  in
+    solve1 (Term.Set.empty()) (a, b) [] []
+
+and fuse sl e = 
+  let norm_right (y, b) = 
+    let b' = norm e b in
+      if b == b' then e else (y, b')
+  in 
+    List.map norm_right sl
+
+
+and compose sl ((x, a) as e) =
+  assert(Term.is_var x);
+  assert(not(Term.occurs x a));
+  assert(not(List.exists (fun (y, _) -> Term.eq x y) sl));
+  let sl' = fuse sl e in
+    e :: sl'
+
+and replace e el =
+  let norm1 ((a, b) as eq) = 
+    let a' = norm e a and b' = norm e b in
+      if a == a' && b == b' then eq else (a', b')
+  in
+    List.map norm1 el
+  
+and d_proj a =
+  assert(is_pure a);
+  match op a, args a with
+    | (Sig.Car | Sig.Cdr), [a] ->
+	if Term.is_var a then a else d_proj a
+    | Sig.Cons, [a1; a2] -> 
+	(try d_proj a1 with Not_found -> d_proj a2)
+    | _ -> 
+	assert false
+  
+
+
+(** {6 Inference System} *)
+
+(** Description of the theory of products as a convex Shostak theory. *)
+module T = struct
+  let th = theory
+  let can = sigma
+  let map = map
+  let solve = solve
+  let disjunction _ = raise Not_found
+end
+
+(** Inference system for products as an 
+  instance of a Shostak inference system. *)
+module Component = Shostak.Make(T)
+module P = E.Equal(Component)
+

@@ -11,7 +11,7 @@
  * benefit corporation.
  *)
 
-(** Rudimentary tracing capability. 
+(** Rudimentary tracer
 
   @author Harald Ruess
 *)
@@ -20,27 +20,14 @@
   tracing output is determined by the the set of active {b trace levels}. 
 *)
 
-type level = string
-
-val registered : (level * string) list ref
+type level = int
 
 val reset : unit -> unit
   (** Reset the set of trace levels to the empty set, that is,
     all tracing is disabled. *)
 
-val add : level -> unit
+val set : int -> unit
   (** [add l] activates the trace level [l]. *)
-
-val is_active : level -> bool
-  (** Test if certain trace level is active. *)
-
-val remove : level -> unit
-  (** [remove l] deactivates the trace level [l]. *)
-
-
-val get : unit -> level list
-  (** [get ()] returns the set of currently active trace levels
-    as a list. *)
 
 val indent : int ref
 
@@ -53,6 +40,8 @@ val exit : level -> string -> 'a -> 'a Pretty.printer -> unit
  (** [exit l name arg pp] outputs a function exit trace message
     if [l] is currently active by first outputting [name] followed
     by printing [arg] using the [pp] printer. *)
+
+val exit0: level -> string -> unit
 
 val fail : level -> string -> exn -> unit
   (** [fail l exc] outputs a failure warining if [l] is curently

@@ -11,57 +11,80 @@
  * benefit corporation.
  *)
 
-
 (** Symbol table 
 
   @author Harald Ruess
+
+  This module provides functionality for manipulating a global symbol 
+  table with bindings [n |-> e] where {i key} [n] is a {Name.t} and [e]
+  is either 
+  - a {i definitional entry}, 
+  - a {i context} of type {!Context.t}, or 
+  - a {i theory specification} of type {!Spec.t}
 *)
 
+(** Keys of symbol table are names. *)
+type key = Name.t
 
-type entry = 
-  | Def of args * defn
-  | Arity of int
-  | Type of Var.Cnstrnt.t
-  | State of Context.t
+val reset : unit -> unit
+  (** Clear the current symbol table. *)
 
-and defn = 
-  | Term of  Term.t
-  | Prop of Prop.t
+val pp : Format.formatter -> unit
+  (** [pp fmt] prints the current symbol table. *)
 
-and args = Name.t list
+module Entry : sig
+  type t
+  val pp : Format.formatter -> t -> unit
+  (** [pp fmt e] prints entry [e]. *)
+end
 
-and t
+val lookup : key -> Entry.t
+  (** [lookup n] returns [e] if [n |-> e] in symbol table. 
+    Otherwise, [Not_found] is raised. *)
 
+val in_dom : Name.t -> bool
+  (** [in_dom n] holds iff there is a binding [n |-> .] in the current symbol table. *)
 
-val lookup : Name.t -> t -> entry
-  (** [lookup n s] lookup value [e] if binding [n |-> e] is in the table [s];
-    otherwise exception [Not_found] is raised. *)
+(** Accessing symbol table. *)
+module Get : sig
 
-val empty : unit -> t
-  (** Empty symbol table. *)
+  val term : key -> int -> Name.t list * Term.t
+    (** if key [n] is associated with a {i definitional entry}  [(xl, a)] for a term [a],
+      and if the length of the argument list [xl] is [len], then
+      [termDef n len] returns this entry [(xl, a)]; otherwise [Not_found] is raised. *)
+ 
+  val prop : key -> int -> Name.t list * Prop.t
+    (** if key [n] is associated with a {i definitional entry} for a propositional
+      formula, then [propDef n len] returns this entry [(xl, p)], where [xl] is the 
+      list of arguments and proposition [p] is the body; otherwise [Not_found] is raised. *)
+    
+  val spec : key -> Spec.t
+    (** if key [n] is associated with a {i theory specification}, then [specDef n]
+      returns this specification; otherwise [Not_found] is raised. *)
 
-val add : Name.t -> entry -> t -> t
-  (** Adding a binding [n |-> e] to a symbol table. Throws [Invalid_argument],
-    if [n] is already in the domain of the table. *)
+  val context : key -> Context.t
+    (** if key [n] is associated with a {i context}, then [context n]
+      returns this specification; otherwise [Not_found] is raised. *)
 
-val remove : Name.t -> t -> t
+end
+
+(** Extending symbol table. *)
+module Put : sig
+
+  val term : key -> Name.t list -> Term.t  -> unit
+    (** [term n xl a] adds a term definition [(xl, a)] for key [n]. *)
+
+  val prop : key -> Name.t list -> Prop.t  -> unit
+    (** [prop n xl p] adds a propositional definition [(xl, p)] for key [n]. *)
+
+  val spec : key -> Spec.t -> unit
+    (** [spec n xl p] adds a propositional definition [(xl, p)] for key [n]. *)
+  
+  val context : key -> Context.t -> unit
+    (** [context n ctxt] adds a binding [n |-> ctxt] to the symbol table,
+      or throws [Invalid_argument] if [in_dom n]. *)
+
+end
+
+val restrict : key -> unit
   (** Removing an entry [n |-> ...] from the symbol table. *)
-
-val filter : (Name.t -> entry -> bool) -> t -> t
-  (** [filter p s] builds a subtable of [s] with all bindings [n |-> e] satisfying 
-    predicate [p n e]. *)
-
-
-(** {6 Accessors} *)
-
-val def : t -> t      
-val arity : t -> t
-val typ : t -> t
-val state : t -> t
-
-
-(** {6 Pretty-printing} *)
-
-val pp : t Pretty.printer
-
-val pp_entry : entry Pretty.printer

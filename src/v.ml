@@ -11,418 +11,505 @@
  * benefit corporation.
  *)
 
-(** Elements of type {!V.t} represent sets of directed variable equalities [y = x] 
-  such that [x] is less than [y] according to the variable comparison {!Var.cmp}. 
-  These sets are functional in the sense that whenever both [x1 = y] and [x2 = y]
-  are represented, then [x1] equals [x2].  
-  - The [post] datastructure is used to represent equalities such as [x = y] 
-  by a binding [x |-> (y, rho)], where [rho] is a justification of the equality 
-  [x = y]; see also {!Jst.t}. 
-  - The [pre] map is used to memoize the inverse find, that is, [x] is in [pre s y] iff 
-  [x |-> (y, _)] is in [post]. 
-  - Finally, [removable] contains internally generated renaming variables that are
-  not canonical w.r.t to the given set of equalities.  These variables may be 
-  {i garbage collected}. 
-*)
+(** Finite maps and sets of term variables. *)
+module Map = Term.Map
+module Set = Term.Set
+
+(** Recognizer for variables. *)
+let is_var = Term.is_var
+
+(** Variable equality. *)
+let eq x y =
+  assert(is_var x && is_var y);
+  x == y
+    
+(** Variable ordering using ordering on names. It is always the
+  case that an internal variable is larger than an external one.
+  Thus, external variables are {i more canonical} than internal variables. *) 
+let cmp x y = 
+  try
+    let n = Term.name_of x and m = Term.name_of y in
+      if Term.is_external_varname n then Name.compare n m else 
+	if Term.is_external_varname m then  1 else (* internal [n] greater than external [m]*)
+	  Name.compare n m
+  with
+      Not_found -> invalid_arg "V.cmp: not a variable"
+
+module J = Judgement
+	
+(** {i Justifying union-find structure}.  Representation of a finite conjunction of 
+  variable equalities, variable disequalities, and variable constraints.
+  - Find structure [x |-> y] is interpreted as equality [x = y].
+  [x] is {i canonical} if it does not have such a successor. [x] and [y]
+  are said to be equal modulo such a structure [s] iff there are
+  paths from [x] and [y] with identical endpoints. 
+  - Proof structure [x |-> e] for [x |-> y] in find structure such that [e |- x = y]. 
+  - Disequalities [x' |-> (d |- y <> z)] with [x'] canonical and [y] and [x'] congruent modulo [s].
+  - Constraints [x' |-> (rho |- y in c)] with [x'] canonical and [x'] congruent [y] modulo [s]. 
+  - for canonical [x], [rank x] denotes the length of the potentially longest path 
+  from a variable [y] to the root [x] in the find structure. *)
+module Config = struct
   
+  type t = {
+    mutable parent: Term.t Map.t;
+    mutable prfs: J.equal Map.t;
+    mutable diseqs: J.diseq list Map.t;
+    mutable cnstrnts : J.cnstrnt Map.t;
+    mutable rank : int Map.t;  
+  }
+      
+  let empty () = {
+    parent = Map.empty();
+    prfs = Map.empty();
+    diseqs = Map.empty();
+    cnstrnts = Map.empty();
+    rank = Map.empty();
+  }
+		   
+  let is_empty s = 
+    Map.is_empty s.parent &&
+    Map.is_empty s.cnstrnts &&
+    Map.is_empty s.diseqs
+      
+  (** True if [x] is canonical representative. *)
+  let is_canonical s x =
+    assert(is_var x);
+    not(Map.mem x s.parent)
+      
+  let parent s x = 
+    assert(is_var x);
+    try Map.find x s.parent with Not_found -> x
 
-(** Switch for enabling/disabling garbage collection of noncanonical, internal
-  variables. *)
-let garbage_collection_enabled = ref true
-				   
+  let prf s x = 
+    assert(not(is_canonical s x));
+    try Map.find x s.prfs with Not_found -> J.mk_refl x
 
-(** The [pre] of a canonical term [x] contains all noncanonical terms [y]
-  equivalent with [x].  This set is represented as a tree with
-  terms at the leafs. A term does occur at most once in [pre].  This 
-  enables {!V.merge} to be fast, whereas {!V.restrict} requires a linear 
-  scan of [pre] but at most one node is changed. *)
-module Pre = struct
-
-  type t = 
-    | Empty
-    | Node of Term.t
-    | Union of t * t
-
-  let empty = Empty
-
-  let is_empty = function
-    | Empty -> true
-    | _ -> false
-
-  let singleton a = Node(a)
-
-  let add a p = 
-    match p with
-      | Empty -> Node(a)
-      | _ -> Union(Node(a), p)
-
-  let union p1 p2 = 
-    match p1, p2 with
-      | Empty, _ -> p2
-      | _, Empty -> p1
-      | _ -> Union(p1, p2)
-
-  let rec remove a p =
-    match p with
-      | Empty -> 
-	  Empty
-      | Node(b) -> 
-	  if Term.eq a b then Empty else p
-      | Union(p1, p2) ->
-	  let p1' = remove a p1 in
-	    if p1 == p1' then 
-	      let p2' = remove a p2 in
-		if p2 == p2' then p else
-		  union p1 p2'
-	    else  (* successful removal from [p1] *)
-	      union p1' p2
-	  
-  let fold f p e =
-    let rec loop acc = function
-      | Empty -> acc
-      | Node(b) -> f b acc
-      | Union(p1, p2) -> loop (loop acc p1) p2
+  (** Canonical representative. Includes path compression. *)
+  let find s = 
+    let rec fnd x =
+      try
+	let y = Map.find x s.parent in
+	  Map.set x (fnd y) s.parent; 
+	  (if not(is_canonical s y) then
+	    let e = J.mk_trans (prf s x) (prf s y) in
+	      assert(J.validates_equal e x y);
+	      Map.set x e s.prfs);
+	  y
+      with
+	  Not_found -> x
     in
-      loop e p
+      fnd
 
-  let elements p = 
-    let cons a al = a :: al in
-      fold cons p []
+  let is_compressed s x =
+    let y = parent s x in
+      eq (parent s y) y
+	
+  (** [justify s x |- x = find s x]. *)
+  let justify s x =
+    Format.eprintf "\nJustify <- %s@." (Term.to_string x);
+    assert(is_compressed s x);
+    let e = try Map.find x s.prfs with Not_found -> J.mk_refl x in
+      Format.eprintf "\nJustify ->"; 
+      e#pp Format.err_formatter;
+      Format.eprintf "@.";
+      assert(J.validates_equal e x (parent s x));
+      e
+	
+  let rank s x = 
+    try Map.find x s.rank with Not_found -> 0
+      
+  let diseqs s x =
+    assert(is_var x);
+    try Map.find (find s x) s.diseqs with Not_found -> []
+      
+  let is_equal s x y =
+    assert(is_var x && is_var y);
+    eq (find s x) (find s y)
+      
+  (** Least common ancestor of [x] and [y] by stepwise 
+    descending along find structure. Assumes, [x] and [y] are 
+    congruent modulo [s].*)
+  let lca s =
+    let rec descend x y =
+      assert(is_equal s x y);
+      let c = Term.compare x y in
+	if c = 0 then x else 
+	  if c > 0 then descend (parent s x) y else 
+	    descend x (parent s y)
+    in
+      descend
 
-  let rec iter f = function
-    | Empty -> ()
-    | Node(b) -> f b
-    | Union(p1, p2) -> iter f p1; iter f p2
+  let cnstrnt_of s x =
+    assert(is_var x);
+    let c = Map.find (find s x) s.cnstrnts in
+      assert(is_equal s x c#arg);
+      c
 
-  let rec for_all f = function
-    | Empty -> true
-    | Node(b) -> f b
-    | Union(p1, p2) -> for_all f p1 && for_all f p2
+  let cnstrnt s x = 
+    let c = cnstrnt_of s x in
+      c#cnstrnt
+ 
+  (** Holds iff [x<>y] is valid in [s]. Such valid disequalities are either
+   - {i explicit}, that is [x <> y] is explicitly stored, or
+   - {i implicit}, that is [x <> y] have incompatible constraints. *)
+  let rec is_diseq s x y =
+    assert(is_var x && is_var y);
+    is_explicit_diseq s x y ||
+    is_implicit_diseq s x y
+      
+  (** [x <> y] is an {i explicit disequality} in [s] if 
+    there is a disequality [x0 <> y0] in the disequality index 
+    for [x'] such that [eq y' y0]. *)
+  and is_explicit_diseq s x y = 
+    assert(is_var x && is_var y);
+    let is_explicit x y = 
+      let dx = diseqs s x in
+	dx <> [] &&
+	let y' = find s y in
+	  List.exists
+	    (fun d -> 
+	       assert(is_equal s x d#lhs);
+	       eq y' (find s d#rhs))
+	    dx
+    in
+      is_explicit x y || is_explicit y x
+	  
+  (** [x <> y] is an {i implicit disequality} iff
+    - [find s x] equals [x0] with constraint [x0 in c], 
+    - [find s y] equals [y0] with constraint [y0 in d], and
+    - constraints [c] and [d] are disjoint. *)
+  and is_implicit_diseq s x y =
+    try
+      let c = cnstrnt_of s x and d = cnstrnt_of s y in
+	Cnstrnt.disjoint c#cnstrnt d#cnstrnt
+    with
+	Not_found -> false
+	
+  (** Holds if interpration of [x] is explicitly constrained. *)  
+  let is_constrained s x = 
+    Map.mem (find s x) s.cnstrnts
+      
+  (** [x in c] holds iff there is a constraint [y in d] with
+    - [x] equals [y] modulo [s] and
+    - constraint [d] is stronger than [c]. *)
+  let has_cnstrnt s x c =
+    assert(is_var x);
+    try
+      let d = cnstrnt_of s x in
+	assert(is_equal s x d#arg);
+	Cnstrnt.sub d#cnstrnt c
+    with
+	Not_found -> false
+	  
+  (** Compute justifications for implied facts. *)
+  module Explain = struct
+    
+    let equal s x y =
+      assert(is_equal s x y);
+      assert(is_compressed s x);
+      assert(is_compressed s y);
+      if eq x y then J.mk_refl x else
+	let e1 = justify s x 
+	and e2 = justify s y in
+	  J.mk_join e1 e2
+	      
+    exception Found of J.diseq
+      
+    let explicit_diseq s x y =
+      assert(is_explicit_diseq s x y);
+      let explicit x y = 
+	let dx = diseqs s x in
+	  try
+	    List.iter
+	      (fun d ->                           (* [d |- x1 <> y1]. *)
+		 let x1 = d#lhs and y1 = d#rhs in
+		   assert(is_equal s x x1);
+		   if is_equal s y y1 then
+		     let e1 = equal s x1 x and e2 = equal s y1 y in
+		       raise(Found(J.mk_replace_in_diseq e1 e2 d)))
+	      dx;
+	    raise Not_found
+	  with
+	      Found(rho) -> rho
+      in
+	try explicit x y with Not_found -> 
+	  try explicit y x with Not_found -> 
+	    invalid_arg "V.Explicit: unreachable"
 
-  let rec exists f = function
-    | Empty -> false
-    | Node(b) -> f b
-    | Union(p1, p2) -> exists f p1 || exists f p2
+    let diseq = explicit_diseq
+	       
+    let implicit_diseq s x y = 
+      assert(is_implicit_diseq s x y);
+      let c = cnstrnt_of s x and d = cnstrnt_of s y in
+	J.mk_disjoint 
+	  (J.mk_replace_in_cnstrnt (equal s c#arg x) c) 
+	  (J.mk_replace_in_cnstrnt (equal s d#arg y) d)
+
+    let cnstrnt s x c =
+      assert(has_cnstrnt s x c);
+      let z_in_d = cnstrnt_of s x in   (* [z_in_d |- z in d] with [d sub c]. *)
+      let z = z_in_d#arg in
+	if eq x z then z_in_d else
+	  J.mk_replace_in_cnstrnt (equal s x z) z_in_d 
+
+  end
+  
+  let equalities s =
+    let es = J.Equals.empty () in
+      Map.iter 
+	(fun x y -> 
+	   let e = Explain.equal s x y in
+	     J.Equals.add e es) 
+	s.parent;
+      es
+	
+  let disequalities s =
+    let ds = J.Diseqs.empty () in
+      Map.iter 
+	(fun _ dl -> 
+	   List.iter (fun d -> J.Diseqs.add d ds) dl)
+	s.diseqs;
+      ds
+	
+  let cnstrnts s =
+    let cs = J.Cnstrnts.empty () in
+      Map.iter (fun _ c -> J.Cnstrnts.add c cs) s.cnstrnts;
+      cs
+  
+  (** Pretty-printing. *)
+  let rec pp fmt s = 
+    let es = equalities s and ds = disequalities s and cs = cnstrnts s in
+      Format.fprintf fmt "@[v:{"; J.Equals.pp fmt es;
+      if not(J.Diseqs.is_empty ds) then 
+	(Format.fprintf fmt "@[,@;<1 3>  "; 
+	 J.Diseqs.pp fmt ds;
+	 Format.fprintf fmt "@]");
+      if not(J.Cnstrnts.is_empty cs) then
+	(Format.fprintf fmt "@[,@;<1 3>  "; 
+	 J.Cnstrnts.pp fmt cs;
+	 Format.fprintf fmt "@]");
+      Format.fprintf fmt "}@]@;"
 
 end
 
 
-(** [x |-> (y, rho)] in [post] represents [rho |- x = y].
-  In such a case [x] is in the [pre] of [y]. Furthermore,
-  this data structure is {i maximally compressed} in that
-  whenever [x |-> (y, .)], then there is no [z] such that 
-  [y |-> (z, .)]. The set of removable terms is not 
-  represented as a list as this makes {!V.restrict} more 
-  expensive. *)
-type t = {
-  mutable post : (Term.t * Jst.t) Term.Var.Map.t; 
-  mutable pre : Pre.t Term.Var.Map.t; 
-  mutable cnstrnt : (Var.Cnstrnt.t * Jst.t) Term.Var.Map.t;
-  mutable removable: Term.Var.Set.t
-}
+module Infsys = struct
 
-let eq s t = s.post == t.post
+  (** Global state. *)
+  let config = ref (Config.empty())
+  let unchanged = ref true
 
-let empty = {
-  post = Term.Var.Map.empty;
-  pre = Term.Var.Map.empty;
-  cnstrnt = Term.Var.Map.empty;
-  removable = Term.Var.Set.empty;
-}
+  let initialize t =
+    unchanged := true;
+    config := t
+      
+  let reset () = 
+    config := Config.empty();
+    unchanged := true
 
-let is_empty s = (s.post == Term.Var.Map.empty)
+  let current () = !config
+		     
+  let is_unchanged () = !unchanged
 
-let copy s = {
-  post = s.post;
-  pre = s.pre;
-  cnstrnt = s.cnstrnt;
-  removable = s.removable
-}
+  let finalize () =
+    if !unchanged then !config else {
+      Config.parent = Map.copy !config.Config.parent;
+      Config.prfs = Map.copy !config.Config.prfs;
+      Config.cnstrnts = Map.copy !config.Config.cnstrnts;
+      Config.diseqs = Map.copy !config.Config.diseqs;
+      Config.rank = Map.copy !config.Config.rank
+    }
 
-let post s x = Term.Var.Map.find x s.post
+  (** Operations on global configuration. *)
+  let find x = Config.find !config x
+  let is_canonical x = Config.is_canonical !config x
+  let rank x' = Config.rank !config x'
+  let justify x = Config.justify !config x
+  let cnstrnt_of x = Config.cnstrnt_of !config x
+  let diseqs x = Config.diseqs !config x
+  let is_equal x y = Config.is_equal !config x y
+  let is_explicit_diseq x y = Config.is_explicit_diseq !config x y
+  let is_implicit_diseq x y = Config.is_implicit_diseq !config x y
+  let has_cnstrnt x c = Config.has_cnstrnt !config x c
+  let explain x y = Config.Explain.equal !config x y
 
-let pre s x = 
-  let ys = Term.Var.Map.find x s.pre in
-    assert(not(Pre.is_empty ys));
-    ys
+  (** Disequalities from external configurations. *)
+  let external_diseqs = ref []
+			  
+  let register_external_diseq deq =
+    external_diseqs := deq :: !external_diseqs
 
-
-(** Canonical representative of equivalence class for [x]. *)
-let find s x = 
-  match x with
-    | Term.Var _ ->
-	(try post s x with Not_found -> Jst.Eqtrans.id x)
-    | _ ->
-	Jst.Eqtrans.id x
-
-
-(** Totalized [pre]. *)
-let inv s x = 
-  assert(Term.is_var x);
-  try pre s x with Not_found -> Pre.empty
-
-
-(** Constraint associated with equivalence class [x]. *)
-let cnstrnt s x =
-  let (x, rho) = find s x in
-    try
-      let (c, tau) = Term.Var.Map.find x s.cnstrnt in
-	(c, Jst.dep2 rho tau)
-    with
-	Not_found -> 
-	  let c = Term.Var.cnstrnt_of x in
-	    (c, rho)
-
-
-(** Set of removable variables. *)
-let removable s = s.removable
-
-let to_list s =
-  Term.Var.Map.fold
-    (fun y xs acc ->
-       (y, (Pre.elements xs)) :: acc) 
-    s.pre []
-
-let to_equalities s =
-  Term.Var.Map.fold 
-    (fun x (y, rho) acc ->
-       Fact.Equal.make x y rho :: acc)
-    s.post []
-
-
-let pp fmt s =
-  if not(is_empty s) then
-    begin
-      if !Fact.print_justification then
-	Pretty.set Fact.Equal.pp fmt (to_equalities s)
-      else 
-	Pretty.map Term.pp (Pretty.set Term.pp) fmt (to_list s);
-      if not(s.cnstrnt == Term.Var.Map.empty) then
-	begin
-	  Pretty.string fmt "\nwith:";
-	  let l = Term.Var.Map.fold (fun x (c, _) acc -> (x, c) :: acc) s.cnstrnt [] in
-	    Pretty.map Term.pp Var.Cnstrnt.pp fmt l
-	end 
-    end  
-
-
-(** Variable equality modulo [s] *)
-let is_equal s x y = 
-  assert(Term.is_var x);
-  assert(Term.is_var y);
-  let (x', rho) = find s x         (* [rho |- x = x'] *)
-  and (y', tau) = find s y in 
-    if Term.eq x' y' then          (* [tau |- y = y'] *)
-      Some(Jst.dep2 rho tau)
+  let is_external_diseq x y =
+    assert(is_var x && is_var y);
+    let x' = find x and y' = find y in
+    let rec orelse = function
+      | [] -> None
+      | is_diseq :: rest -> 
+	  try 
+	    let d = is_diseq x' y' in            (* [d |- x' <> y']. *)
+	      Some(J.mk_replace_in_diseq (explain x' x) (explain y' y) d)
+	  with _ -> 
+	    orelse rest 
+    in
+      orelse !external_diseqs
+	
+  let is_diseq x y =
+    assert(is_var x && is_var y);
+    if is_explicit_diseq x y then
+      Some(Config.Explain.explicit_diseq !config x y)
+    else if is_implicit_diseq x y then
+      Some(Config.Explain.implicit_diseq !config x y)
     else 
-      None
+      is_external_diseq x y
+	
+  (** Merge two equivalence classes. *)
+  let rec process_equal e =                       (* [e |- x = y]. *)
+    let x = e#lhs and y = e#rhs in
+    let x' = find x and y' = find y in
+      if not(eq x' y') then 
+	match is_diseq x y with                   (* [d |- x <> y]. *)
+	  | Some(d) -> raise(J.Unsat(J.mk_contra e d))
+	  | None -> merge e x' y'
 
+  and merge e x' y' =
+    assert(is_canonical x' && is_canonical y' && not(eq x' y'));
+    let cmp = Pervasives.compare (rank x') (rank y') in
+      if cmp > 0 then merge1 e x' y' else
+	if cmp < 0 then merge1 (J.mk_sym e) y' x' else 
+	  if cmp > 0 then
+	    (merge1 e x' y'; 
+	     Map.set y' (rank y') !config.Config.rank)
+	  else
+	    (merge1 (J.mk_sym e) y' x'; 
+	     Map.set x' (rank x') !config.Config.rank)
 
-(** Checker for justifications. *)
-let check validates s =
-  Term.Var.Map.fold
-    (fun x (y, rho) acc ->
-       try
-	 let hyps = Jst.axioms_of rho in
-	 let concl = Atom.mk_equal (x, y) in
-	 let res = validates hyps concl in
-	   res
-       with
-	   Not_found -> true)
-    s.post true
-       
-
-(** A variable [x] is {i canonical} iff it is not in the domain
-  of the [post] function of [s]. In this case, {!V.find} is the
-  identity. *)
-let is_canonical s x =  
-  assert(Term.is_var x);
-  not(Term.Var.Map.mem x s.post)
-
-
-(** Iterating over all equalities [x = y]. *)
-let fold f s = Term.Var.Map.fold f s.post
-  
-
-(** Extension of the equivalence class for [x] contains
-  all [y] such that [x] and [y] are equal modulo [s].
-  Expensive operation, uses memory linear in the size of the
-  [pre] of [y]. *)
-let ext s x =
-  assert(Term.is_var x);
-  let (y, _) = find s x in
-    Pre.elements (Pre.add y (inv s y))
-
-
-(** Starting from the canonical representative [x' = find s x], the
-  function [f] is applied to each [y] in [ext s x'] and the results are
-  accumulated. *)
-let accumulate s f x e = 
-  assert(Term.is_var x);
-  let (y, _) = find s x in
-    Pre.fold f (inv s y) (f y e)
-
-
-(** Iteration on extension of equivalence class. *)
-let iter s f x =
-  assert(Term.is_var x);
-  let (y, _) = find s x in
-    f y;
-    Pre.iter f (inv s y)
-
-let exists s p x = 
-  assert(Term.is_var x);
-  let (y, _) = find s x in
-    p y || Pre.exists p (inv s y) 
-
-let for_all s p x =  
-  assert(Term.is_var x);
-  let (y, _) = find s x in
-    p y && Pre.for_all p (inv s y) 
-
-
-exception Found
-
-
-(** Choose an element satisfying some property. *)
-let choose s p x = 
-  assert(Term.is_var x);
-  let (y, _) = find s x in
-    match p y with
-      | Some(z) -> z
-      | None ->
-	  let result = ref (Obj.magic 1) in
-	    try     
-	      Pre.iter
-		(fun y ->
-		   match p y with
-		     | Some(z) -> 
-			 result := z;
-			 raise Found
-		     | None -> ())
-		(inv s y);
-	      raise Not_found
-	    with
-		Found -> !result
-
-
-(** Merging of two different canonical variables [x] and [y] *)
-let rec merge ((x, y, _) as e) s =            
-  assert (Fact.Equal.both_sides (is_canonical s) e);
-  if not(Term.eq x y) then
-    begin 
-      Trace.msg "v" "Union" e Fact.Equal.pp;
-      union s e
-    end 
-
-
-(** Merging [x = y] is performed by 
-  - adding [x |-> y] and 
-  - eager {i path compression} by replacing all links [z |-> x] with [z |-> y]. *)
-and union s (x, y, rho) = 
-  assert(not(Term.eq x y));            (* [rho |- x = y] *)
-  let removable' = 
-    if !garbage_collection_enabled &&
-      Term.Var.is_internal x 
-    then 
-      Term.Var.Set.add x s.removable
-    else 
-      s.removable
-  in 
-  let pre_of_x = inv s x in 
-  let post' = 
-    Pre.fold
-      (fun z ->                         (* [tau |- z = x] *)
-	 let (_, tau) = find s z in
-	 let sigma = Jst.dep2 tau rho in
-	   Term.Var.Map.add z (y, sigma))
-      pre_of_x
-      (Term.Var.Map.add x (y, rho) s.post)
-  in
-  let pre' = 
+  and merge1 e x' y' =
+    unchanged := false;
+    let e1 = justify e#lhs and e2 = justify e#rhs in
+    assert(J.validates_equal e1 e#lhs x');
+    assert(J.validates_equal e2 e#rhs y');
+    let e' = J.mk_trans3 (J.mk_sym e1) e e2 in
+      assert(J.validates_equal e' x' y');
+      Map.set x' e' !config.Config.prfs;
+      Map.set x' y' !config.Config.parent;
+      merge_cnstrnts x' y';
+      merge_diseqs x' y';
+      Propagate.Equal.put x' 
+	
+  and merge_cnstrnts x' y' =      
+    assert(is_equal x' y');
     try
-      let pre_of_y = pre s y in
-      let pre_of_y' = Pre.add x (Pre.union pre_of_y pre_of_x) in
-	Term.Var.Map.add y pre_of_y'
-	  (Term.Var.Map.remove x s.pre)
-    with
-	Not_found -> 
-	  Term.Var.Map.add y (Pre.add x (inv s x))
-	  (Term.Var.Map.remove x s.pre)
-  in
-  let cnstrnt' =
-    try
-      let (cx, tau) = cnstrnt s x in
-	(try
-	   let (cy, sigma) = cnstrnt s y in
-	     if Var.Cnstrnt.sub cy cx then
-	       Term.Var.Map.remove x s.cnstrnt
+      let c1 = cnstrnt_of x' in               (* [c1 |- x1 in c]. *)
+      let x1 = c1#arg and c = c1#cnstrnt in
+	assert(is_equal x' x1);  
+	Map.remove x' !config.Config.cnstrnts;
+	(try                                      
+	   let c2 = cnstrnt_of y' in          (* [c2 |- y1 in d]. *)
+	   let y1 = c2#arg and d = c2#cnstrnt in
+	     assert(is_equal y1 y'); 
+	     if Cnstrnt.sub c d then
+	       ()
 	     else 
-	       (try
-		  let c = Var.Cnstrnt.inter cx cy  in
-		    Term.Var.Map.add y (c, Jst.dep3 rho tau sigma) 
-		      (Term.Var.Map.remove x s.cnstrnt)
-		with
-		    Var.Cnstrnt.Empty -> 
-		      raise(Jst.Inconsistent(Jst.dep3 rho tau sigma)))   
+	       let e = explain x' y' in       (* [e |- x' = y']. *)
+		 if Cnstrnt.disjoint c d then   
+		   let d  =                   (* [d |- x' <> y']. *)
+		     J.mk_disjoint 
+		       (J.mk_replace_in_cnstrnt (explain x1 y') c1) 
+                       (J.mk_replace_in_cnstrnt (explain y1 y') c2)
+		   in
+		     raise(J.Unsat(J.mk_contra e d))
+	     else 
+	       let c = J.mk_inter (J.mk_replace_in_cnstrnt e c1) c2 in
+		 Map.set y' c !config.Config.cnstrnts
 	 with
-	     Not_found -> 
-	       Term.Var.Map.add y (cx, Jst.dep2 rho tau) 
-	            (Term.Var.Map.remove x s.cnstrnt))
+	     Not_found ->
+	       Map.set y' c1 !config.Config.cnstrnts)
     with
-	Not_found -> s.cnstrnt
-  in
-    s.post <- post'; 
-    s.pre <- pre'; 
-    s.cnstrnt <- cnstrnt';
-    s.removable <- removable'
+	Not_found -> ()
+
+  and merge_diseqs x y =
+    assert(is_equal x y);
+    try
+      let dx = Map.find x !config.Config.diseqs in
+	assert(dx <> []);
+	Map.remove x !config.Config.diseqs;
+	let dy' = 
+	  try
+	    let dy = Map.find y !config.Config.diseqs in
+	      List.fold_right 
+		(fun d acc -> 
+		   if is_redundant d dy then acc else d :: acc)
+		dx dy
+	  with
+	      Not_found -> dx
+	in
+	  Map.set y dy' !config.Config.diseqs
+    with
+	Not_found -> ()
+
+  and is_redundant d1 =
+    List.exists 
+      (fun d2 -> 
+	 assert(is_equal d1#rhs d2#rhs);
+	 is_equal d1#lhs d2#lhs)
+
+  let process_cnstrnt c1 =
+    let x = c1#arg and c = c1#cnstrnt in     (* [c1 |- x in c]. *)
+    let x' = find x in
+      try
+	let c2 = cnstrnt_of x in            
+	let y = c2#arg and d = c2#cnstrnt in (* [c2 |- y in d]. *)
+	  assert(is_equal x y);
+	  if Cnstrnt.sub d c then () else
+	      if Cnstrnt.disjoint d c then
+		raise(J.Unsat(J.mk_contra (explain x y) (J.mk_disjoint c1 c2)))
+	      else 
+		let c3 = J.mk_inter c1 (J.mk_replace_in_cnstrnt (explain x y) c2) in
+		  unchanged := false;        (* [c3 |- y in (c inter d)]. *)
+		  Map.set x' c3 !config.Config.cnstrnts;
+		  Propagate.Cnstrnt.put x'
+      with
+	  Not_found -> 
+	    unchanged := false;
+	    Map.set x' c1 !config.Config.cnstrnts;
+	    Propagate.Cnstrnt.put x'
+	      
+  (** Processing a disequality. *)
+  let rec process_diseq d =                 (* [d |- x <> y]. *)              
+    let x = d#lhs and y = d#rhs in
+    let x' = find x and y' = find y in
+      if eq x' y' then 
+	raise(J.Unsat(J.mk_contra (explain x y) d))
+      else if is_explicit_diseq y' x' then () else   
+        begin
+	  unchanged := false;
+	  Map.set x' (d :: diseqs x') !config.Config.diseqs;
+	  Propagate.Diseq.put (x', y')
+	end    
+
+   (** Normalizing the representation of a variable partitioning includes:
+     - garbage collection of noncanonical variables (currently disabled) *)
+   let normalize () =
+     ()
+
+   let can x = 
+     assert(Config.is_compressed (current()) x);
+     let e = Config.justify !config x in
+       assert(eq x e#lhs);
+       e#rhs, e
+     
+   (** Equality test. *)
+   let is_equal x y = 
+     if is_equal x y then
+       Some(explain x y)
+     else
+       None
+	 
+   let has_cnstrnt x c =
+     if has_cnstrnt x c then
+       Some(Config.Explain.cnstrnt !config x c)
+     else 
+       None
       
-      
-(** Remove a binding [x |-> y] *)
-let restrict s x =
-  assert(Term.is_var x);
-  assert(not(is_canonical s x));
-  try
-    let (y, rho) = post s x in
-      Trace.msg "v" "Remove" x Term.pp; 
-      assert(is_canonical s y); 
-      assert(not(Pre.is_empty (inv s y)));
-      let removable' = 
-	Term.Var.Set.remove x s.removable in
-      let post' = 
-	Term.Var.Map.remove x s.post in
-      let pre' =
-	let pre_of_y' = Pre.remove x (inv s y) in
-	  if Pre.is_empty pre_of_y' then
-	    Term.Var.Map.remove y s.pre
-	  else 
-	    Term.Var.Map.add y pre_of_y' s.pre
-      in
-	s.post <- post'; 
-	s.pre <- pre';
-	s.removable <- removable'
-  with
-      Not_found -> ()
-
-
-(** Garbage collection *)
-let gc f s =
-  let gc1 x =
-    assert(Term.is_var x);
-    if f x then restrict s x
-  in
-    Term.Var.Set.iter gc1 s.removable
-
-
-(** Difference. *)
-let diff s1 s2 =
-  let empty = copy empty in
-  fold
-    (fun x (y, rho) acc ->
-       match is_equal s2 x y with
-	 | Some _ -> 
-	     acc
-	 | None -> 
-	     union acc (x, y, rho);
-             acc)
-    s1 empty
+end
+  

@@ -25,8 +25,6 @@
   disequality [empty <> full].
 *)
 
-val d_interp : Term.t -> Sym.propset * Term.t list
-
 val is_empty : Term.t -> bool
 val is_full : Term.t -> bool
 
@@ -41,8 +39,7 @@ val mk_inter : Term.t -> Term.t -> Term.t
 val mk_union : Term.t -> Term.t -> Term.t
 val mk_compl : Term.t -> Term.t
 
-
-val sigma : Sym.propset -> Term.t list -> Term.t
+val sigma : Term.interp
   (** Canonizer. *)
 
 val map: (Term.t -> Term.t) -> Term.t -> Term.t
@@ -53,6 +50,20 @@ val map: (Term.t -> Term.t) -> Term.t -> Term.t
     and with [a] otherwise, followed by a sigmatization
     of all interpreted parts using [mk_sigma]. *)
 
-
-val solve : Term.Equal.t -> Term.Equal.t list
+val solve : Term.t -> Term.t -> Term.Set.t * Term.Subst.t
   (** Solver *)
+
+module Component: Shostak.COMPONENT
+ (** Inference system for the theory {!Th.set} of products 
+    as described in module {!Propset}.  This inference
+    system is obtained as an instantiation of the generic
+    Shostak inference system [Shostak.Infsys] with a
+    specification of the {i convex} product theory by
+    means of the 
+    - product canonizer {!Propset.map}
+    - product solver {!Propset.solve}
+
+    In particular, there is no branching for this theory,
+    and the inference system is complete as the product
+    solver itself is complete. *)
+

@@ -11,141 +11,40 @@
  * benefit corporation.
  *)
 
-open Name.Map
+module Inchannel = 
+  Ref.Make(Tools.Inchannel)
+    (struct
+       type t = Tools.Inchannel.t
+       let name = "inchannel"
+       let default = stdin
+       let description =  "Current value of input channel"
+     end)
 
-(** Global state. *)
+module Outchannel = 
+  Ref.Make(Tools.Outchannel)
+    (struct
+       type t = Tools.Outchannel.t
+       let name = "outchannel"
+       let default = Format.std_formatter
+       let description =  "Current value of output channel"
+     end)
+
+module Eot = 
+  Ref.String
+    (struct
+       type t = string
+       let name = "eot"
+       let default = ""
+       let description =  "End of terminal marker sent at end of every transmission"
+     end)
+
 
 let current = ref Context.empty
+
 let previous = ref Context.empty
-let symtab = ref (Symtab.empty())
-let inchannel = ref Pervasives.stdin
-let outchannel = ref Format.std_formatter
-let eot = ref "" 
-let counter = ref 0
-let prompt = ref "ics> "
-let diff = ref false
 
 let batch = ref false
 
-let set_prompt str =
-  prompt := str
-
-let set_eot str =
-  eot := str
-
-
-(** Some Translations. *)
-
-module Inchannel = struct
-  let of_string = function
-    | "stdin" -> Pervasives.stdin
-    | str -> Pervasives.open_in str
-
-  let to_string inch =
-    if inch == Pervasives.stdin then "stdin" else "<abst>"
-	
-end 
-
-module Outchannel = struct
-  let of_string = function
-    | "stdout" -> Format.std_formatter
-    | "stderr" -> Format.err_formatter
-    | str -> Format.formatter_of_out_channel (Pervasives.open_out str)
-
-  let to_string outch =
-    if outch == Format.std_formatter then "stdout"
-    else if outch == Format.err_formatter then "stderr"
-    else "<abst>"
-      
-end 
-
-
-(** Initialize. *)
-
-let initialize pp ch inch outch =
-  Pretty.flag := Pretty.Mode.Mixfix;
-  Var.pretty := pp;
-  eot := ch;
-  inchannel := inch;
-  outchannel := outch
-
-
-let lexing () = Lexing.from_channel !inchannel
-
-(** {6 Accessors} *)
-
-let current_of () = !current
-let symtab_of () = !symtab
-let inchannel_of () = !inchannel
-let outchannel_of () =  !outchannel
-let prompt_of () = !prompt
-
-let print_prompt () =
-  Format.fprintf !outchannel "\n%s " !prompt;
-  Format.pp_print_flush !outchannel ()
-
-
-(** Entry from symbol table. *)
-let entry_of n = 
-  Symtab.lookup n !symtab
-
-(** Type from the symbol table. *)
-let type_of n =
-  match Symtab.lookup n !symtab with
-    | Symtab.Type(c) -> c
-    | _ -> raise Not_found
-
-let termvar_of n = 
-  try
-    (match entry_of n with
-      | Symtab.Def([], Symtab.Term(a)) -> a
-      | Symtab.Type(c)  -> Term.Var.mk_var n c
-      | _ -> Term.Var.mk_var n Var.Cnstrnt.Unconstrained)
-  with
-      Not_found -> Term.Var.mk_var n Var.Cnstrnt.Unconstrained
-
-let termapp_of n al = 
-  try
-    (match entry_of n with
-       | Symtab.Def(xl, Symtab.Term(a)) 
-	   when List.length xl = List.length al ->
-	   Term.replace Combine.sigma a xl al
-       | _ -> 
-	   Term.App.mk_app (Sym.Uninterp.make n) al)
-  with
-      Not_found -> 
-	Term.App.mk_app (Sym.Uninterp.make n) al
-
-let propvar_of n =
-  try 
-    (match entry_of n with
-       | Symtab.Def([], Symtab.Prop(p)) -> p
-       | _ -> raise Not_found)
-  with
-      Not_found -> Prop.mk_var n
-
-
-(** Get context for name in symbol table *)
-let context_of n = 
-  match Symtab.lookup n !symtab with
-    | Symtab.State(c) -> c
-    | _ -> raise Not_found
-
-(** Getting the width of bitvector terms from the signature. *)
-let width_of a =
-  match Bitvector.width a with
-    | None when Term.is_var a -> 
-	let n = Term.Var.name_of a in
-	  (try
-	    (match Symtab.lookup n !symtab with
-	      | Symtab.Arity(i) -> Some(i)
-	      | _ -> None)
-	    with
-		Not_found -> None)
-    | res -> res
-
-
-(** {6 Pretty-printing results} *)
 
 let progress = ref false
 
@@ -156,413 +55,37 @@ module Out = struct
 
   let nl () = 
     if !batch then nothing () else 
-      Format.fprintf !outchannel "\n@?"
+      let out = Outchannel.get() in
+      Format.fprintf out "\n@?"
 
-  let unit () =
-    if !batch then nothing () else 
-      Format.fprintf !outchannel ":unit@?"
-
-  let tt () =
-    if !batch then nothing () else 
-      Format.fprintf !outchannel ":true@?"
-
-  let ff () =
-    if !batch then nothing () else 
-      Format.fprintf !outchannel ":false@?"
-
-  let boolean = function
-    | true -> tt()
-    | false -> ff()
-    
-  let three res =
-    if !batch then nothing () else 
-      Format.fprintf !outchannel ":%s@?"
-	(Pretty.to_string Pretty.three res)
-     
-  let string str =
-    if !batch then nothing () else 
-      Format.fprintf !outchannel ":string %s@?" str
-
-  let none () = 
-    if !batch then nothing () else 
-      Format.fprintf !outchannel ":none@?"
-
-  let trace sl =
+  let start str =
     if !batch then nothing () else
-      Format.fprintf !outchannel ":trace %s@?"
-	(Pretty.to_string (Pretty.list Pretty.string) sl)
+      Format.fprintf (Outchannel.get()) ":%s @?" str
 
-  let term0 a =
-    if !batch then nothing () else 
-      Format.fprintf !outchannel ":term %s@?" (Term.to_string a)
+  let final () =
+    Format.fprintf (Outchannel.get()) "@."
 
-  let term (a, rho) =
-    if !batch then nothing () else 
-      let fmt = !outchannel in
-	Format.fprintf fmt ":term "; Term.pp fmt a;
-	if not(Jst.Mode.is_none()) then
-	  begin
-	    Format.fprintf fmt "\n:justification ";
-	    Jst.pp fmt rho
-	  end ;
-	Format.fprintf fmt "@?"
-
-  let dom (d, rho) =
-    if !batch then nothing () else 
-      let fmt = !outchannel in
-	Format.fprintf fmt ":dom "; Dom.pp fmt d;
-	if not(Jst.Mode.is_none()) then
-	  begin
-	    Format.fprintf fmt "\n:justification ";
-	    Jst.pp fmt rho
-	  end ;
-	Format.fprintf fmt "@?"
-
-  let fact (a, j) =
-    if !batch then nothing () else 
-      let fmt = !outchannel in
-	Format.fprintf fmt "\n:atom "; 
-	Atom.pp fmt a;
-	if not(Jst.Mode.is_none()) then
-	  begin
-	    Format.fprintf fmt "\n:justification ";
-	    Jst.pp fmt j
-	  end;
-	Format.fprintf fmt "@?"
-
-  let ok n =
-    Format.fprintf !outchannel ":ok ";
-    Name.pp !outchannel n;
-    Format.fprintf !outchannel "@?"
-
-  let unsat j =
-    let fmt = !outchannel in
-      Format.fprintf fmt ":unsat @."; 
-      if Jst.Mode.is_none() then () else Jst.pp fmt j;
-      Format.fprintf fmt "@?" 
-
-  let valid j =
-    let fmt = !outchannel in
-      Format.fprintf fmt ":valid ";
-      if not(Jst.Mode.is_none()) then
-	begin
-	  Jst.pp fmt j
-	end;
-      Format.fprintf fmt "@?"
-	
-  let prop_unsat () =
-    let fmt = !outchannel in
-      Format.fprintf fmt ":unsat@?"
-    
-  let terms ts =
-    if !batch then nothing () else 
-      let fmt = !outchannel in
-	Format.fprintf fmt ":terms "; 
-	Pretty.set Term.pp fmt (Term.Var.Set.elements ts);
-	Format.fprintf fmt "@?"
-
-  let hypotheses hyps =
-    if !batch then nothing () else 
-      let fmt = !outchannel in
-	Format.fprintf fmt "\n:atoms "; 
-	Pretty.list Atom.pp fmt hyps;
-	Format.fprintf fmt "@?"
-
- let splits atms =
-    if !batch then nothing () else 
-      let fmt = !outchannel in
-	Format.fprintf fmt "\n:splits "; 
-	Pretty.list Atom.pp fmt atms;
-	Format.fprintf fmt "@?"
-
-  let incomplete () = 
-    if !batch then nothing () else 
-      Format.fprintf !outchannel ":incomplete@?"
-
-  let inconsistent () = 
-    if !batch then nothing () else 
-      Format.fprintf !outchannel ":unsat@?"
-
-  let name n =
-    if !batch then nothing () else
-      begin
-	Format.fprintf !outchannel ":name ";
-	Name.pp !outchannel n;
-	Format.fprintf !outchannel "@?"
-      end 
-
-  let invalid msg =
-    if !batch then nothing () else
-      Format.fprintf !outchannel ":invalid %s @?" msg
-
-  let assignment ml =
-    if !batch then nothing () else
-      begin
-	Format.fprintf !outchannel ":subst ";
-	Term.Subst.pp !outchannel ml;
-	Format.fprintf !outchannel "@?"
-      end 
-
-  let yes_or_no res =
-    if !batch then nothing () else
-      match res with
-	| Jst.Three.X ->
-	    Format.fprintf !outchannel ":unknown@?"
-	| Jst.Three.Yes(rho) ->
-	    Format.fprintf !outchannel ":yes ";
-	    if not(Jst.Mode.is_none()) then
-	      Jst.pp !outchannel rho;
-	    Format.fprintf !outchannel "@?"
-	| Jst.Three.No(rho) ->
-	    Format.fprintf !outchannel ":no ";
-	    if not(Jst.Mode.is_none()) then
-	      Jst.pp !outchannel rho;
-	    Format.fprintf !outchannel "@?"
-
-  let prop_sat (n, rho) =
-    Format.fprintf !outchannel ":sat ";
-    Name.pp !outchannel n;
-    Format.fprintf !outchannel "\n:model ";
-    Prop.Assignment.pp !outchannel rho;
-    Format.fprintf !outchannel "@?"
-
-  let prop p = 
-    if !batch then nothing () else
-      begin
-	Format.fprintf !outchannel ":prop ";
-	Prop.pp !outchannel p;
-	Format.fprintf !outchannel "@?"
-      end 
-
-  let symtab tab =
-    if !batch then nothing () else
-      begin
-	Format.fprintf !outchannel ":symtab ";
-	Symtab.pp !outchannel tab;
-	Format.fprintf !outchannel "@?"
-      end 
-
-  let int n = 
-    if !batch then nothing () else
-      Format.fprintf !outchannel ":int %d@?" n
-
-  let dom0 d =
-    if !batch then nothing () else
-      begin
-	Format.fprintf !outchannel ":dom ";
-	Dom.pp !outchannel d;
-	Format.fprintf !outchannel "@?"
-      end 
-
-  let cnstrnt0 c =
-    if !batch then nothing () else
-      begin
-	Format.fprintf !outchannel "cnstrnt ";
-	Var.Cnstrnt.pp !outchannel c;
-	Format.fprintf !outchannel "@?"
-      end
-
-  let context ctxt =
-     if !batch then nothing () else
-       begin
-	 if !diff then
-	   Format.fprintf !outchannel ":diff "
-	 else 
-	   Format.fprintf !outchannel ":state ";
-	 Context.pp !outchannel ctxt;
-	 Format.fprintf !outchannel "@?"
-       end 
-
-  let partition p =
-     if !batch then nothing () else
-       begin
-	 Format.fprintf !outchannel ":partition ";
-	 Partition.pp !outchannel p;
-	 Format.fprintf !outchannel "@?"
-       end 
-
-  let error msg =
-    let fmt = if !batch then Format.err_formatter else !outchannel in
-      Format.fprintf fmt ":error %s@." msg
-
-  let endmarker () =
-    let fmt = !outchannel in
-    let eot = !eot in
-      if eot = "" then
-	Format.pp_print_flush fmt ()
-      else 
-	begin
-	  Format.fprintf fmt "\n%s" eot;
-	  Format.pp_print_flush fmt ()
-	end 
-
- let outch ch =
-   if !batch then nothing () else
-     Format.fprintf !outchannel ":outchannel %s@?" (Outchannel.to_string ch)
-
- let inch ch =
-   if !batch then nothing () else
-     Format.fprintf !outchannel ":inchannel %s@?" (Inchannel.to_string ch)
+  let exc e = 
+    Format.fprintf (Outchannel.get()) ":error %s@." 
+      (Printexc.to_string e)
 
 end
 
+(** {6 Commands } *)
 
-(** {6 Registration of commands} *)
-
-let help_enabled = ref true
+open Help
 
 type help = 
   | All 
   | Command of string
   | Nonterminal of string
 
-(** Registration of nonterminals for help command. *)
-module Nonterminal = struct
-
-  let registration = ref []
-
-  let is_defined nt =
-    List.mem_assoc nt !registration
-
-  let register nt (alternatives: string list) description =
-      begin
-	assert(not(is_defined nt));
-	registration := (nt, (alternatives, description)) :: !registration
-      end 
-      
-  let definition_of nt =
-    try
-      List.assoc nt !registration
-    with
-	Not_found ->
-	  raise(Invalid_argument
-		  (Format.sprintf "No help available for nonterminal <%s>" nt))
-
-
-  let rec pp fmt (nt, defs, descr) =
-    Format.fprintf !outchannel "DEFINITION";
-    List.iter
-      (fun def -> 
-	 Format.fprintf !outchannel "\n     <%s> ::= %s" nt def)
-      defs;
-    if descr <> "" then
-      begin
-	Format.fprintf !outchannel "\nDESCRIPTION";
-	Format.fprintf !outchannel "\n%s" descr
-      end
-	
-end
-
-
-(** Commands are registered just for the purpose of producing
-  consistent help texts for commands. *)
-module Command = struct
-
-  module Description = struct
-
-    type description = {
-      args : string;
-      short : string;
-      description : string;
-      examples : (string * string) list;
-      seealso : string
-    }
-
-    let mk_short args short = {
-      args = args;
-      short = short;
-      description = "";
-      examples = [];
-      seealso = ""
-    }
-
-    let pp name fmt d =
-      Format.fprintf !outchannel "NAME";
-      Format.fprintf !outchannel "\n     %s - %s " name d.short;
-      Format.fprintf !outchannel "\nSYNOPSIS";
-      Format.fprintf !outchannel "\n     %s %s" name d.args;
-      if d.description <> "" then
-	Format.fprintf !outchannel "\nDESCRIPTION\n %s" d.description;
-      if d.examples <> [] then
-	 begin
-	   Format.fprintf !outchannel "\n%s"
-	     (if List.length d.examples <> 1 then "EXAMPLES" else "EXAMPLE");
-	   List.iter
-	     (fun (example, description) ->
-		if description = "" then
-		  Format.fprintf !outchannel "\n     %s" example
-		else
-		  Format.fprintf !outchannel "\n     %s - %s" example description)
-	     d.examples
-	 end;
-      if d.seealso <> "" then
-	Format.fprintf !outchannel "\nSEE ALSO\n %s" d.seealso;
-
-  end
-
-  open Description
-
-  let descriptions = ref []
-
-  let description_of name = 
-    try
-      List.assoc name !descriptions
-    with
-	Not_found -> raise (Invalid_argument (name ^ ": no such command@?"))
-
-  let register name proc descr =
-    if !help_enabled then
-      begin
-	assert(not(List.mem_assoc name !descriptions));
-	descriptions := (name, descr) :: !descriptions;
-      end;
-    proc
-
-
-  let rec help = function
-    | All -> 
-	helpall ()
-    | Command(name) -> 
-	help1 name
-    | Nonterminal(nt) ->
-	syntax nt
-
-  and help1 name =
-    Description.pp name !outchannel 
-      (description_of name)
-    
-
-  and helpall () =
-    let max = ref 10 in
-      List.iter
-	(fun (name, _) ->
-	   let n = String.length name in
-	     if n > !max then max := n)
-	!descriptions;
-      List.iter
-	(fun (name, d) ->
-	   let offset = ref (!max - String.length name) in
-	     Format.fprintf !outchannel "\n%s" name;
-	     while !offset >= 0 do 
-	       offset := !offset - 1; Format.fprintf !outchannel " " 
-	     done;
-	     Format.fprintf !outchannel "%s" d.args)
-	!descriptions
-
-  and syntax nt = 
-    let defn, descr = Nonterminal.definition_of nt in
-      Nonterminal.pp !outchannel (nt, defn, descr)
- 
-     
-end
-
-open Command.Description
-  
-(** {6 Commands } *)
-
 let do_help =
-  Command.register "help"
-    Command.help
+  Register.command "help"
+    (function
+       | All -> Help.commands ()
+       | Command(name) -> Help.command name
+       | Nonterminal(nt) -> Help.syntax nt)
     {args = "[<command>] | < <nonterminal> >"; 
      short = "Help about ICS interactor commands and syntactic categories.";   
      description = ""; 
@@ -572,27 +95,22 @@ let do_help =
        "help <term>", "Display definition of nonterminal <term>"; 
        "help assert", "Display description of command 'assert'"]; 
      seealso = ""}
-    
-
-    
-let symtab_all () = Out.symtab !symtab
-		  
-let symtab1 n =
-  try 
-    (match Symtab.lookup n !symtab with
-       | Symtab.Def(args, Symtab.Term(a)) -> Out.term0 a
-       | Symtab.Def(args, Symtab.Prop(p)) -> Out.prop p
-       | Symtab.Arity(n) -> Out.int n
-       | Symtab.Type(c) -> Out.cnstrnt0 c
-       | Symtab.State(s) -> Out.context s)
-  with
-      Not_found -> Out.none ()
 
 let do_symtab =
-  Command.register "symtab" 
+  Register.command "symtab" 
     (function 
-       | None -> symtab_all ()
-       | Some(n) -> symtab1 n)
+       | None -> 
+	   Out.start "symtab";
+	   Symtab.pp (Outchannel.get());
+	   Out.final ()
+       | Some(n) ->
+	   try
+	     let e = Symtab.lookup n in
+	       Out.start "entry";
+	       Symtab.Entry.pp (Outchannel.get()) e;
+	       Out.final()
+	   with
+	       Not_found -> Out.start "none"; Out.final())
     {args = "[<ident>]";
      short = "Display symbol table entries"; 
      description = "
@@ -604,17 +122,24 @@ let do_symtab =
      examples = []; 
      seealso = ""}
 
-  
 
-(** Adding to symbol table *)
+type define = 
+  | Term of Name.t list * Term.t
+  | Prop of Name.t list * Prop.t
+  | Spec of Spec.t
+  | Context of Context.t
 
-let do_def =
-  Command.register "def"
-    (fun (n, args, a) ->
-       let e = Symtab.Def(args, Symtab.Term(a)) in
-	 symtab := Symtab.add n e !symtab;
-	 Out.unit ())
-    {args = "<ident> ['(' <ident>,...,<ident> ')'] := <term>";
+let do_define =
+  Register.command "def"
+    (fun (n, def) ->
+       Out.start "def";
+       (match def with
+	 | Term(xl, a) -> Symtab.Put.term n xl a
+	 | Prop(xl, p) -> Symtab.Put.prop n xl p
+	 | Spec(sp) -> Symtab.Put.spec n sp
+	 | Context(ctxt) -> Symtab.Put.context n ctxt);
+       Out.final())
+    {args = "<ident> ['(' <ident>,...,<ident> ')'] := (<term> | <prop>)";
      short = "Extend symbol table with term definition"; 
      description = 
         "Extend the symbol table with a name <ident> and optional arguments
@@ -625,78 +150,25 @@ let do_def =
      seealso = ""}
 
 
-let do_prop =
-  Command.register "prop"
-    (fun (n, args, a) ->
-       let e = Symtab.Def(args, Symtab.Prop(a)) in
-	 symtab := Symtab.add n e !symtab;
-	 Out.unit ())
-    {args = "<ident> ['(' <ident>,...,<ident> ')'] := <propfml>";
-     short = "Extend symbol table with definition for proposition"; 
-     description = 
-        "Extend the symbol table with a definition <ident> for a proposition <propfml>.
-         In such a context, variables <ident> are macro-expanded to <term> 
-         but different <props>s obtained from the same definition are structure-shared."; 
-     examples = []; 
-     seealso = ""}
-  
-let do_sgn =
-  Command.register "sig"
-    (fun (n, a) ->
-       let e = Symtab.Arity(a) in
-	 symtab := Symtab.add n e !symtab;
-	 Out.unit ())
-    {args = "<ident> : <sig>";
-     short = "Extend symbol table with signature declaraction"; 
-     description = "
-       Declare a variable to be interpreted over the set of 
-       bitvectors of width [i] or the integers or the reals.
-       Notice that only bitvector variables have to be declared before use,
-       since context information is used for inferring parameters when applying
-       infix bitvector operators."; 
-     examples = [
-        "sig x, y : int", "Declare [x] and [y] to be integer variables";
-        "sig x : bitvector[5]", "Declare [x] to be a bitvector or length [5]"]; 
-     seealso = ""}
 
-let do_typ =
-  Command.register "typ"
-    (fun (nl, c) ->
-       let e = Symtab.Type(c) in
-	 List.iter
-	   (fun n ->
-	      symtab := Symtab.add n e !symtab)
-	   nl;
-	 Out.unit ())
-    {args = "<ident>, ..., <ident> : <dom>";
-     short = "Extend symbol table with type declarations"; 
-     description = "" ; 
-     examples = []; 
-     seealso = ""}
 
 (** Getting either current context or explicitly specified context. *)
 
-let get_context = function
+let context = function
   | None -> !current
-  | Some(n) -> context_of n
+  | Some(n) -> Symtab.Get.context n
 
-(** Set input and output channels. *)
-
-let do_set_inchannel =
-  (fun ch ->
-     inchannel := ch;
-     Out.unit ())
-
-let do_set_outchannel fmt = 
-  outchannel := fmt;
-  Out.unit ()
+let config n = Context.config (context n)
 
 
 (** Context. *)
 
 let do_cmp =
-  Command.register "cmp"
-    (fun (a, b) -> Out.int (Term.cmp a b))
+  Register.command "cmp"
+    (fun (a, b) -> 
+       Out.start "value";
+       Format.fprintf (Outchannel.get()) "%d" (Term.compare a b);
+       Out.final())
     {args = "<term> <term>";
      short = "Test term ordering."; 
      description = "" ; 
@@ -705,41 +177,93 @@ let do_cmp =
 
 
 let do_ctxt =
-  Command.register "ctxt"
+  Register.command "ctxt"
     (fun n ->
-       let hyps = match n with 
-	 | None -> Context.ctxt_of !current
-	 | Some(n) -> Context.ctxt_of (context_of n)
-       in
-	 Out.hypotheses hyps)
+       let s = context n in
+	 Out.start "ctxt";
+	 Pretty.set Atom.pp (Outchannel.get()) (Context.ctxt s);
+	 Out.final ())
     {args = "[@<ident>]";
      short = "Output logical context."; 
      description = 
           "'ctxt' returns the set of atoms asserted in the current 
            logical context, and 'ctxt@s' returns the set of asserted
-           atoms in state 's' from the symbol table. These atoms are not necessarily 
-           in canonical form."; 
+           atoms in state 's' from the symbol table. These atoms are not 
+           necessarily in canonical form."; 
+     examples = []; 
+     seealso = ""}
+
+let do_config =
+  Register.command "config"
+    (fun n ->
+       let cfg = Context.config (context n) in
+       let out = Outchannel.get() in
+	 Out.start "config"; Combine.Config.pp out cfg; Out.final ())
+    {args = "[@<ident>]";
+     short = "Output logical context."; 
+     description = 
+        "'config' returns the inference system configuration of the current context,
+         and 'config@s' returns the configuration configuration for the context with 
+         name [s] in the symbol table.";
+     examples = []; 
+     seealso = ""}
+
+let do_status =
+  Register.command "status"
+    (fun n ->
+       let st = Context.status (context n) in
+	 Out.start "status";
+	 Context.Status.pp (Outchannel.get()) st;
+	 Out.final ())
+    {args = "[@<ident>]";
+     short = "Output status of a context."; 
+     description = "";
      examples = []; 
      seealso = ""}
 
 let do_undo = 
-  Command.register "undo"
+  Register.command "undo"
     (fun () ->
-       let tmp = !current in
-	 current := !previous;
-	 previous := tmp)
-
+       current := !previous;
+       previous := Context.empty)
     {args = "";
      short = "Undo last state modifying command. Another consecutive undo
-              will yield the starting state"; 
+              returns to original context.";
      description = "" ; 
      examples = [];
      seealso = ""}
 
+
+(** Set to [Cmd.batch] in module {!Cmd}. *)
+let cmdBatch = ref (fun _ -> 0)
+    
 let do_load = 
-  Command.register "load"
+  Register.command "load"
     (fun (n, filename) ->
-       failwith "Loading of files: next version")
+       let inch = Pervasives.open_in filename in
+       let save_current = !current in   (* save variables changed by {!Cmd.batch}. *)
+       let save_previous = !previous in
+       let save_batch = !batch in
+       let save_linenumber = !Tools.linenumber in
+       let save_inch = Inchannel.get () in
+	 try
+	   Out.start ("loading " ^ filename); 
+	   previous := !current;
+	   current := context n;
+	   let res = !cmdBatch inch in
+	     batch := save_batch;
+	     Tools.linenumber := save_linenumber;
+	     Inchannel.set save_inch;
+	     Format.fprintf (Outchannel.get()) "end %d" res;
+	     Out.final ()
+	 with
+	     exc -> 
+	       current := save_current;
+	       previous := save_previous;
+	       batch := save_batch;
+	       Tools.linenumber := save_linenumber;
+	       Inchannel.set save_inch;
+	       raise exc)
     {args = "[@<ident>] <filename>";
      short = "Load commands from file.";
      description = "" ; 
@@ -748,21 +272,14 @@ let do_load =
 
 
 let do_show = 
-  Command.register "show"
-    (fun n th ->
-       let s = match n with
-	 | None -> if !diff then Context.diff !current !previous else !current
-	 | Some(n) -> (context_of n) 
-       in
-	 match th with
-	   | None -> 
-	       Out.context s
-	   | Some(th) -> 
-	       (match th with
-		  | None -> 
-		      Partition.pp !outchannel (Context.partition_of s)
-		  | Some(i) -> 
-		      Combine.E.pp_i i !outchannel (Context.eqs_of s)))
+  Register.command "show"
+    (fun (n, flag) -> 
+       let fmt = Outchannel.get()
+       and cfg = config n in
+	 match flag with
+	   | None -> Combine.Config.pp fmt cfg
+	   | Some(None) -> Combine.Config.Print.shared fmt cfg
+	   | Some(Some(i)) -> Combine.Config.Print.component i fmt cfg)
     {args = "[@<ident>] [<th>]'";
      short = "Output partition and theory-specific equality sets."; 
      description = "Display current logical state or parts of it. If parameter
@@ -775,98 +292,112 @@ let do_show =
      seealso = ""}
       
 
-(** Canonization w.r.t current state. *)
-
-let do_can =
-  Command.register "can"
-    (fun a ->
-       Out.term (Combine.can (Context.config_of !current) a))
-    {args = "<term>";
-     short = "Canonical term w.r.t. current context."; 
-     description =
-        "For a term 'a', 'can a' returns a term which is a canonical representative 
-        of the equivalence class of [a] as induced by the atoms in the current 
-        context. If proof generation is enabled, then also a justification of the
-        equality between 'a' and 'can a' is returned. There are no side effects.";
-     examples = [];
-     seealso = "simplify"}
-    
-
-    
 let do_sigma =
-  Command.register "sigma"
+  Register.command "sigma"
     (fun a ->
-       Out.term (Jst.Eqtrans.id a))
+       Out.start "term";
+       Term.pp (Outchannel.get()) a;
+       Out.final())
     {args = "<term>";
      short = "Theory-specific canonization"; 
      description = 
 	"[sigma a] computes the normal form of a term using
          theory-specific canonizers for terms in interpreted 
-         theories. This command leaves the current state unchanged."; 
+         theories. The outcome is independent from the current
+         logical state, and this command leaves the current state 
+         unchanged."; 
      examples = []; 
      seealso = ""}
 
-let do_simplify =
-  Command.register "simplify"
-    (fun a ->
-       Out.fact (Combine.simplify (Context.config_of !current) a))
-    {args = "<atom>";
-     short = "Simplification of atoms."; 
-     description = 
-       "[simplify a] returns an atom equivalent to [b] in the current
-        context. If proofmode is enabled, then, in addition, a justification
-        of this equivalence is returned."; 
+let do_can =
+  Register.command "can"
+    (fun (n, a) ->
+       let cfg = Context.config (context n) in
+       let e = Combine.Config.Can.justify cfg a in
+       let b = e#rhs in
+       let out = Outchannel.get () in
+	 Out.start "term";
+	 Term.pp out b;
+	 Out.nl ();
+	 Out.start "justification";
+	 e#pp out;
+	 Out.final ())
+    {args = "[<ident>] <term>";
+     short = "Canonical term w.r.t. current context."; 
+     description =
+        "For a term 'a', 'can a' returns a term which is a canonical representative 
+        of the equivalence class of [a] as induced by the atoms in the current 
+        context or the context with name [n]. If proof generation is enabled, 
+        then also a justification of the equality between 'a' and 'can a' is returned. 
+        There are no side effects.";
+     examples = [];
+     seealso = "simplify"}
+
+let do_eval =
+  Register.command "sigma"
+    (fun (n, atm) ->
+       let s = context n in
+	 Out.start "value";
+	 Atom.pp (Outchannel.get())(Context.eval s atm);
+	 Out.final ())
+    {args = "[@<ident>] <atom>";
+     short = "Theory-specific canonization"; 
+     description = "";
      examples = []; 
      seealso = ""}
 	
 
-(** Create a fresh name for a state. *)
+(** Create a fresh name [n] for the current context [ctxt] and 
+  install a binding [n |-> ctxt] into symbol table. *)
+module Save = struct
 
-let rec fresh_state_name () =
-  counter:=  !counter + 1;
-  let n = Name.of_string ("s" ^ (string_of_int !counter)) in
-  try
-    let _ = Symtab.lookup n !symtab in  (* make sure state name is really fresh. *)
-    fresh_state_name ()
-  with
-      Not_found -> 
-	n
+  let counter = ref 0
+  let _ = Tools.add_at_reset (fun () -> counter := 0)
 
-(** Change current state. *)
+  let rec fresh () =
+    incr counter;
+    let n = Name.of_string ("s" ^ (string_of_int !counter)) in
+      if Symtab.in_dom n then fresh () else n 
+	(* ensure name is really fresh. *)
 
-let save_state arg =
-  let n = match arg with
-    | None -> fresh_state_name ()
-    | Some(n) -> n
-  in
-  let e = Symtab.State !current in
-    symtab := Symtab.add n e !symtab;
-    n
+  (** Save current context. *)
+  let current arg =
+    let n = match arg with
+      | None -> fresh ()
+      | Some(n) -> n
+    in
+      Symtab.Put.context n !current;
+      n
+
+  let context s = 
+    let n = fresh () in
+      Symtab.Put.context n s
+
+end
   
 let do_save =
-  Command.register "save"
-    (fun arg -> 
-       Out.name (save_state arg))
+  Register.command "save"
+    (fun arg ->
+       Out.start "name";
+       Name.pp (Outchannel.get()) (Save.current arg);
+       Out.final())
     {args = "[<ident>]";
      short = "Save current state in symbol table."; 
      description = 
-       "[save s] adds a symbol table entry [s] for the current logical state" ; 
+       "[save] adds a symbol table entry [s] for the current logical state
+        by generating a fresh name, whereas [save n] install the
+        current state into the symbol table with key [n]. The
+        current logical state is left unchange." ; 
      examples = []; 
-     seealso = "symtab"}
+     seealso = "symtab, restore"}
     
 let do_restore =
-  Command.register "restore"
+  Register.command "restore"
     (fun n -> 
-       try
-	 match Symtab.lookup n !symtab with
-	   | Symtab.State(t) -> 
-	       previous := !current;
-	       current := t;
-	       Out.unit ()
-	   | _ -> 
-	       raise Not_found
-	 with
-	     Not_found -> Out.invalid (Pretty.to_string Name.pp n ^ ": not a state name"))
+       let ctxt = Symtab.Get.context n in
+	 previous := !current;
+	 current := ctxt;
+	 Out.start "unit"; Out.final())
     {args = "<ident>";
      short = "Restore logical state "; 
      description = 
@@ -876,10 +407,10 @@ let do_restore =
      seealso = "symtab"}
 
 let do_remove =  
-  Command.register "remove"
+  Register.command "remove"
     (fun n ->
-       symtab := Symtab.remove n !symtab;
-       Out.unit ())
+       Symtab.restrict n;
+       Out.start "unit"; Out.final())
     {args = "<ident>";
      short = "Remove logical state from symbol table"; 
      description = "[remove s] removes the symbol table entry for  name [s]"; 
@@ -888,71 +419,39 @@ let do_remove =
 
 
 let do_forget =
-  Command.register "forget"
+  Register.command "forget"
     (fun () ->
        previous := !current;
        current := Context.empty;
-       Out.unit ())
+       Out.start "unit"; Out.final())
     {args = "";
      short = "Clear out current state"; 
      description = 
        "Resets the current logical context to the empty 
-        context. In contrast to 'reset', all other
-        ICS data structures are left unchanged" ; 
+        context. In contrast to 'reset', the symbol table,
+        values of global variables, and other data structures 
+        are left unchanged." ; 
      examples = []; 
      seealso = "reset"}
 
-let do_trace =
-  Command.register "trace"
-    (fun levels ->
-       List.iter Trace.add levels;
-       Out.trace (Trace.get ()))
-    {args = "<levels>";
-     short = "Enable tracing";   
-     description = "Tracing of various levels from the
-      top-level rules of the Shostak integration down to
-      updates of individual solution sets."; 
-     examples = [
-       "trace rule", "Trace top-level integration methods";
-       "trace a", "Trace updates in linear arithmetic";
-       "trace la", "Trace Simplex methods";
-       "trace v", "Trace updates in variable partitioning"]; 
-     seealso = "untrace, <levels>"}
     
-
-let do_untrace =
-  Command.register "untrace"
-    (fun levels ->
-       (match levels with
-	  | None -> Trace.reset ()
-	  | Some(strs) -> List.iter Trace.remove strs);
-       Out.trace (Trace.get ()))
-    {args = "[<levels>]";
-     short = "Disable tracing"; 
-     description = "The given trace levels are disabled.
-       When no arguments are supplied, all tracing is disabled."; 
-     examples = []; 
-     seealso = "trace, reset, <levels>"}
-    
-
-
-(** Adding a new fact *)
-
 let do_process1 = 
-  Command.register "assert"
+  Register.command "assert"
     (fun (n, a) ->
-       let t = get_context n in
-	 match Context.add t a with  (* Update state and install new name in symbol table *)
-	   | Context.Status.Ok(t') -> 
-	       previous := !current;
-	       current := t';
-	       let n = save_state None in Out.ok n
-	   | Context.Status.Valid(rho) ->  Out.valid rho
-	   | Context.Status.Inconsistent(rho) ->
-	       begin
-		 Out.unsat rho;
-		 if !batch then raise End_of_file else ()
-	       end)
+       let s = context n in
+	 try
+	   let t = Context.add s a in
+	     previous := !current;
+	     current := t;
+	     Out.start "ok";
+	     Name.pp (Outchannel.get()) (Save.current None);
+             Out.final()
+	 with
+	   | Judgement.Valid(rho) ->  
+	       Out.start "valid"; rho#pp (Outchannel.get()); Out.final()
+	   | Judgement.Unsat(rho) ->
+	       Out.start "unsat"; rho#pp (Outchannel.get()); Out.final();
+	       if !batch then raise End_of_file else ())
     {args = "[@<ident>]  <atom>,...,<atom>";
      short = "Add an atom to a context"; 
      description = "
@@ -978,186 +477,49 @@ let do_process1 =
        :unsat", "The conjunction of these three assertions is inconsistent"]; 
      seealso = "symtab, split"}
 
-let do_process (n, al) =
-  let t = get_context n in
-    match Context.addl t al with  (* Update state and install new name in symbol table *)
-      | Context.Status.Ok(t') -> 
-	  previous := !current;
-	  current := t';
-	  let n = save_state None in Out.ok n
-      | Context.Status.Valid(rho) ->  Out.valid rho
-      | Context.Status.Inconsistent(rho) ->
-	  begin
-	    Out.unsat rho;
-	    if !batch then raise End_of_file else ()
-	  end
 
-
-let do_valid =
-  Command.register "valid"
-  (fun (n, a) ->
-     if Context.is_valid (get_context n) [a] then Out.tt () else Out.ff ())
-  {args = "[@<ident>] <atom>";
-   short = "Test if <atom> is valid in context <ident>. There are no side
-            effects on contexts."; 
-   description = "" ; 
-   examples = []; 
-   seealso = "assert, unsat"}
-
-
-let do_unsat =
-  Command.register "unsat"
-    (fun (n, a) ->
-       if Context.is_inconsistent (get_context n) [a] then 
-	 Out.tt ()
-       else 
-	 Out.ff ())
-    {args = "[@<ident>]  <atom>";
-     short = "Test if <atom> conjoined with context <ident> is unsatisfiable.
-              There are no side effects on contexts."; 
-     description = "" ; 
-     examples = []; 
-     seealso = "assert, valid"}
-
-
-let do_model =
-  Command.register "model"
-    (fun (n, xs) ->
+let do_process =
+  (fun (n, al) ->
+     let s = context n in
        try
-	 let m = Combine.model (Context.config_of (get_context n)) xs in
-	 let l = Term.Map.fold (fun x a acc -> (x, a) :: acc) m [] in
-	   Out.assignment l
+	 let t = Context.addl s al in
+	   previous := !current;
+	   current := t;
+	   Out.start "ok";
+	   Name.pp (Outchannel.get()) (Save.current None);
+           Out.final()
        with
-	   Not_found -> Out.none ())
-    {args = "[@<ident>]  <nameset>";
-     short = "Assignment with domain <nameset>, extendable to a model."; 
-     description = "" ; 
-     examples = []; 
-     seealso = ""}
-
-let do_check_sat =
-  Command.register "check"
+	 | Judgement.Valid(rho) ->  
+	     Out.start "valid";
+	     rho#pp (Outchannel.get());
+	     Out.final()
+	 | Judgement.Unsat(rho) ->
+	     Out.start "unsat";
+	     rho#pp (Outchannel.get());
+	     Out.final ();
+	     if !batch then raise End_of_file else ())
+ 
+let do_resolve =
+  Register.command "resolve"
     (fun n ->
-       let s = get_context n in
-	 match Context.check_sat s with
-	   | None ->
-	       Out.prop_unsat ()
-	   | Some(s') ->   
-	       let sn = fresh_state_name() in
-		 symtab := Symtab.add sn (Symtab.State(s')) !symtab;
-		   Out.ok sn)
+       let s = context n in
+	 Context.resolve s;
+	 Out.start "status";
+	 Context.Status.pp (Outchannel.get()) (Context.status s);
+	 Out.final())
     {args = "[@<ident>]";
-     short = "Perform complete case-split.";
-     description = "Check returns  ':unsat' if all case-splits fail and ':ok s'
-       if one complete case split is found to be satisfiable. In the latter case,
-       's' is a new name in the symbol table for the extension of the current
-       context with all the case splits.";
-     examples = []; 
-     seealso = ""}
-
-
-(** Accessors. *)
-
-let do_diseq =
-  Command.register "diseq"
-    (fun (n, a) ->
-       let s = get_context n in
-       let (b, rho1) = Combine.can (Context.config_of s) a in    (* [rho1 |- a = b] *)
-	 try
-	   let ds = Partition.diseqs (Context.partition_of s) b in
-	     D.Set.iter
-	       (fun (x, rho2) ->        (* [rho2 |- x <> b] *)
-		  let rho = Jst.dep2 rho2 rho1 in
-		    Out.term (x, rho))
-	       ds
-	 with
-	     Not_found -> Out.none ())
-    {args = "[@<ident>]  <term>";
-     short = "Return known disequalities."; 
+     short = "Resolve status of context <ident>."; 
      description = 
-       "Returns a list of variables known to be disequal to <term> in
-        the context <ident> or the current context if <ident> is not
-        specified. In addition, in proof generation mode, justifications
-        for each disequality are returned" ; 
-     examples = []; 
-     seealso = ""}
-
-
-let do_dom =
-  Command.register "dom"
-    (fun (n, a) ->
-       let s = get_context n in
-	 try
-	   let (d, rho) = Combine.dom (Context.config_of s) a in
-	     Out.dom (d, rho)
-	 with
-	     Not_found -> Out.none ())
-  {args = "[@<ident>]  <term>";
-   short = "Return domain constraint for <term>."; 
-   description = "" ; 
-   examples = []; 
-   seealso = ""}
-
-
-let do_sup =
-  Command.register "sup"
-  (fun (n, a) ->
-     let s = get_context n in
-       try
-	 let (b, rho) = Combine.can (Context.config_of !current) a in
-	 let (c, tau) = Combine.maximize (Context.config_of s) b in
-	   Out.term (c, Jst.dep2 rho tau)
-       with
-	   La.Unbounded -> Out.none ())
-  {args = "[@<ident>]  <term>";
-   short = "Maximize term"; 
-   description = 
-       "[sup a] returns a term [b] of the form [c0 - d1*x1 - ... - dn*xn] with
-        [di > 0] and all the [xi] slack variables or it returns
-        [:unbounded]. In the former case, [a] is maximized at [c0].
-        Also, a justification of the equality [a = b] in the current context 
-        is returned. " ; 
-   examples = []; 
-   seealso = ""}
-
-
-let do_inf =
-  Command.register "inf"
-    (fun (n, a) ->
-       let s = get_context n in
-	 try
-	   let (b, rho) = Combine.can (Context.config_of !current) a in
-	   let (c, tau) = Combine.minimize (Context.config_of s) b in
-	     Out.term (c, Jst.dep2 rho tau)
-	 with
-	     La.Unbounded -> Out.none ())
-  {args = "[@<ident>] <term>";
-   short = "Minimize term"; 
-   description =
-       "[inf a] returns a term [b] of the form [c0 + d1*x1 + ... + dn*xn] with
-        [di > 0] and all the [xi] slack variables or it returns
-        [:unbounded]. In the former case, [a] is minimized at [c0].
-        Also, a justification of the equality [a = b] in the current 
-        context is returned. " ; 
-   examples = []; 
-   seealso = ""}
-
-
-let do_split =
-  Command.register "split"
-    (fun n ->
-       let s = get_context n in
-	 (try
-	    let spl = failwith "Split not available in version 2.1" (* Combine.split (Context.config_of s) *) in
-	     (* Combine.Split.pp !outchannel spl *)
-	      ()
-	  with
-	      Not_found -> 
-		Format.fprintf !outchannel ":none");
-	 Format.fprintf !outchannel "@?")
-    {args = "[@<ident>]";
-     short = "Suggested case splits."; 
-     description = "" ; 
+        "The status of a context is either 'ok', 'sat', or 'unsat'.
+         In status 'sat' satisfiability has been established by 
+         the construction of a model for this context, and with status
+         'unsat' comes a proof of unsatisfiability of this context. 
+         The satisfiability or unsatisfiability of contexts with 
+         status 'ok' have not been established, and the command
+         'resolve' tries to resolve such 'ok' contexts to 'sat' 
+         or 'unsat'.  Resolve may fail since the logic underlying
+         ICS is indeed undecidable, but for the decidable fragment
+         'resolve' always succeeds.";
      examples = []; 
      seealso = ""}
 
@@ -1165,32 +527,47 @@ let do_split =
 (** Applying maps. *)
 
 let do_find =
-  Command.register "find"
+  Register.command "find"
     (fun (n, th, x) ->
-       let s = get_context n in
-       let (b, rho) = match th with
-	 | Some(i) -> Combine.E.find (Context.config_of s) i x
-	 | None -> Partition.find (Context.partition_of s) x
+       let cfg = Context.config (context n) in
+       let t, e = 
+	 match th with
+	   | Some(i) -> 
+	       let e = Combine.Config.Find.justify i cfg x in
+		 e#rhs, e
+	   | None -> 
+	       let v = Combine.Config.shared cfg in
+	       let e = V.Config.justify v x in
+		 assert(Term.eq x e#lhs);
+		 e#rhs, e
        in
-	 Out.term (b, rho))
+       let out = Outchannel.get() in
+	 Out.start "term"; Term.pp out t; Out.nl();
+	 Out.start "justification"; e#pp out; Out.final())
     {args = "[@<ident>] <th> <term> ";
      short = "Return theory-specific interpretation for a variable."; 
      description = 
-        "If the equality [x = t] is in the solution set [<th>] , say [a], 
+        "If the equality [x = t] is in the equality set [<th>] , say [a], 
          then [find a x] returns [t] and otherwise [x]. The addressing, 
          say, [find@s1 a x] may be used to address the solution set for the 
          arithmetic theory in the context [s1] in the symbol table. In case,
-         addressing is omitted, the current context is investigated."; 
+         addressing is omitted, the current context is investigated.  In addition,
+         a justification for the equality 'x = t' is returned."; 
      examples = []; 
      seealso = ""}
 
 let do_inv =
-  Command.register "inv"
-    (fun (n, i, b) -> 
-       try
-	 Out.term (Combine.E.inv (Context.config_of (get_context n)) b)
-       with
-	   Not_found -> Out.none ())
+  Register.command "inv"
+    (fun (n, i, t) -> 
+       let cfg = Context.config (context n) in
+	 try
+	   let e = Combine.Config.Inv.justify cfg t in
+	   let x = e#lhs in
+	   let out = Outchannel.get() in
+	     Out.start "term"; Term.pp out x; Out.nl();
+	     Out.start "justification"; e#pp out; Out.final()
+	 with
+	     Not_found -> Out.start "none"; Out.final())
     {args = "[@<ident>] <th> <term> ";
      short = "Returns a variable for interpreted terms."; 
      description = "
@@ -1204,11 +581,18 @@ let do_inv =
 
       
 let do_dep =
-  Command.register "dep"
-    (fun (n, i, a) -> 
-       Out.terms (Combine.E.dep i (Context.eqs_of (get_context n)) a))
+  Register.command "dep"
+    (fun (n, i, y) -> 
+       let cfg = Context.config (context n) in
+       let xs = 
+	 try 
+	   Combine.Config.dep i cfg y 
+	 with 
+	     Not_found -> Dep.Set.empty ()
+       in
+	 Out.start "terms"; Dep.Set.pp (Outchannel.get()) xs; Out.final())
     {args = "[@<ident>] <th> <term> ";
-     short = "Return the lhs dependencies for variable <term> in solution set <th>."; 
+     short = "Return the lhs dependencies for variable <term> in equality set <th>."; 
      description = "" ; 
      examples = []; 
      seealso = ""}
@@ -1217,14 +601,18 @@ let do_dep =
 (** Solver. *)
 
 let do_solve =
-  Command.register "solve"
-    (fun (i, e) -> 
+  Register.command "solve"
+    (fun (a, b) -> 
        try
-	 let al = Combine.solve i e in
-	   Out.assignment al
+	 let al = Term.solve a b in
+	   Out.start "solved";
+	   Term.Subst.pp (Outchannel.get()) al;
+	   Out.final()
        with
-	 | Exc.Inconsistent -> Out.inconsistent ()
-	 | Exc.Incomplete -> Out.incomplete ())
+	 | Exc.Inconsistent ->
+	     Out.start "unsat"; Out.final()
+	 | Exc.Incomplete ->
+	     Out.start "incomplete"; Out.final())
  {args = "<th> <term> = <term> ";
      short = "Solve a term equality"; 
      description = "
@@ -1242,20 +630,16 @@ let do_solve =
 
 (** Sat solver *)
 
-let do_sat =
-  Command.register "sat"
+let do_sat (n, p) = failwith "to do"
+(*
+  Register.command "sat"
     (fun (n, p) ->
-       let s = get_context n in
-       match Prop.sat s p with
-	 | None -> 
-	     Out.prop_unsat ()
-	 | Some(rho, s') -> 
-	     let n = fresh_state_name () in
-	       symtab := Symtab.add n (Symtab.State(s')) !symtab;
-	       Out.prop_sat (n, rho))
-    {args = "[@<ident>] <propfml> ";
-     short = "SAT Solver for propositional constraints."; 
-     description = 
+       let s = context n in
+         match Prop.sat s p with
+	   | None -> failwith "to do"
+           | Some _ -> failwith "to do")
+     { short = "SAT Solver for propositional constraints."; 
+       description = 
         "A satisfiability solver for propositional formulas over atoms.
          Returns [:unsat] if the formulas has been shown to be unsatisfiable or
          [:sat} together with an assignment to the Boolean variables and the
@@ -1266,199 +650,99 @@ let do_sat =
        ["sat x | y | [z & ~x] # y", "Boolean SAT problem";
 	"sat x > y & [y = 2 # ~[x <> 3]]", "Boolean constraint SAT problem"];
      seealso = ""}
+*)
       
 
 (** Errors *)
-	
-let do_error = Out.error 
-
-let do_parse_error n = 
-  Out.error ("Parse error on line" ^ string_of_int n)
 
 let do_quit =
   (fun n ->
      Tools.do_at_exit();
-     Out.endmarker())
-
-(** {6 Variables} *)
-
-
-module Parameters = struct 
-
-  type t = 
-    | Compactify
-    | Pretty
-    | Statistics
-    | Justifications
-    | Inchannel
-    | Outchannel
-    | Eot
-    | Prompt
-    | IntegerSolve
-    | Index
-    | Clock
-    | Diff
-
-  let to_string = function
-    | Compactify -> "compactify"
-    | Pretty -> "pretty"
-    | Statistics -> "statistics"
-    | Justifications -> "justifications"
-    | Inchannel -> "inchannel"
-    | Outchannel -> "outchannel"
-    | Eot -> "eot"
-    | Prompt -> "prompt"
-    | IntegerSolve -> "integersolve"
-    | Index -> "index"
-    | Clock -> "clock"
-    | Diff -> "showdiff"
-
-  let of_string = function
-    | "compactify" -> Compactify
-    | "pretty" -> Pretty
-    | "statistics" -> Statistics
-    | "justifications" -> Justifications
-    | "inchannel" -> Inchannel
-    | "outchannel" -> Outchannel
-    | "eot" -> Eot
-    | "prompt" -> Prompt
-    | "integersolve" -> IntegerSolve
-    | "index" -> Index
-    | "clock" -> Clock
-    | "showdiff" -> Diff
-    | str -> raise(Invalid_argument (str ^ " : no such variable"))
-
-  let get var =
-    match var with
-      | Compactify -> string_of_bool !V.garbage_collection_enabled
-      | Pretty ->  Pretty.Mode.to_string !Pretty.flag
-      | Statistics ->  string_of_bool !Prop.statistics
-      | Justifications -> string_of_bool !Fact.print_justification
-      | Inchannel -> Inchannel.to_string !inchannel
-      | Outchannel -> Outchannel.to_string !outchannel
-      | Eot -> !eot
-      | Prompt -> !prompt
-      | Index -> string_of_bool !Solution.pp_index
-      | IntegerSolve -> string_of_bool !Arith.integer_solve
-      | Clock -> 
-	  let times =  Unix.times() in
-	  let utime =  times.Unix.tms_utime in
-	  let systime = times.Unix.tms_stime in
-	    Format.sprintf "utime = %f, systime = %f" utime systime
-      | Diff -> 
-	  string_of_bool !diff
-	
-  let set var value =
-    match var with
-      | Compactify -> V.garbage_collection_enabled := bool_of_string value
-      | Index -> Solution.pp_index := bool_of_string value
-      | Statistics -> Prop.statistics := bool_of_string value
-      | Justifications -> Fact.print_justification :=  bool_of_string value
-      | Inchannel -> inchannel := Inchannel.of_string value
-      | Outchannel -> outchannel := Outchannel.of_string value
-      | Eot -> eot := value
-      | Prompt -> prompt := value 
-      | IntegerSolve -> Arith.integer_solve := bool_of_string value
-      | Pretty -> Pretty.flag := Pretty.Mode.of_string value
-      | Clock -> invalid_arg "Can not reset clock"
-      | Diff -> (diff := bool_of_string value;  Infsys.difference := bool_of_string value)
-	
-
-  let reset () = 
-    set Compactify "false";
-    set Statistics "false";
-    set Justifications "false";
-    set Inchannel "stdin";
-    set Outchannel "stdout";
-    set Eot "";
-    set Prompt "ics> ";
-    set IntegerSolve "true";
-    set Index "false";
-    set Pretty "mixfix";
-    set Diff "false"
-
-  let show fmt var =
-    Format.fprintf fmt "\n%s = %s" (to_string var) (get var)
-
-  let iter f =
-    f Compactify;
-    f Pretty;
-    f Statistics;
-    f Justifications;
-    f Inchannel;
-    f Outchannel;
-    f Eot;
-    f Prompt;
-    f Index;
-    f IntegerSolve;
-    f Diff
-
-
-  let description = function
-    | Compactify -> "Enables garbage collection of noncanonical, internal variables"
-    | Pretty -> "Enables infix/mixfix printing and suppression of domain restrictions"
-    | Statistics -> "Print statistics of propositional SAT solver"
-    | Justifications -> "Enables printing of justifications"
-    | Inchannel -> "Current value of input channel"
-    | Outchannel -> "Current value of output channel"
-    | Eot -> "End of terminal marker sent at end of every transmission"
-    | Prompt -> "Value of prompt"
-    | IntegerSolve -> "Enable integer solver"
-    | Index -> "Enable printing of indices"
-    | Clock -> "Current user and system time"
-    | Diff -> "Enable display of differences only in show command"
-      
-end
-
+     Out.start "exit"; Out.final();
+     exit n)
 
 let do_get =
-  Command.register "get"
-    (fun var -> 
-       try
-	 Out.string (Parameters.get var);
-	 Out.nl();
-	 Out.unit()
-       with
-
-	   exc -> Out.error(Printexc.to_string exc))
+  Register.command "get"
+    (function
+       | None -> 
+	   let out = Outchannel.get() in
+	     Out.start "parameters";
+	     Ref.iter 
+	       (fun n -> 
+		  let v = Ref.get n in
+		    Format.fprintf out "\n"; 
+		    Name.pp out n; 
+		    Format.fprintf out "\t%s" v);
+	     Out.final()
+       | Some(n) -> 
+	   let v = Ref.get n in
+	     Out.start "value"; 
+	     Format.fprintf (Outchannel.get()) "%s" v;
+	     Out.final())
     {args = "[<parameter>] ";
      short = "Get current value for <parameter>. "; 
      description = "" ; 
      examples = []; 
-     seealso = "<parameter>"}
+     seealso = "set"}
 
 
 let do_set =
-  Command.register "set"
-    (fun (var, value) ->
-       try
-	 Parameters.set var value;
-	 Out.unit()
-       with
-	   exc -> Out.error(Printexc.to_string exc))
+  Register.command "set"
+    (fun (n, v) ->
+       Ref.set n v;
+       Out.start "unit"; Out.final())
     {args = "[<parameter> := <value>] ";
-     short = "Set <value> for <parameter>."; description = "" ; examples = []; seealso = ""}
+     short = "Set <value> for <parameter>."; 
+     description = "" ; 
+     examples = []; 
+     seealso = "get"}
 
 
-let do_show_vars =
-  (fun () ->
-     Parameters.iter (Parameters.show !outchannel);
-     Format.fprintf !outchannel "\n";
-     Out.unit ())
+let do_register =
+  Register.command "register"
+    (fun sp -> 
+       let module Sp: Spec.SPEC = struct
+	 let th = sp.Spec.th
+	 let signature = sp.Spec.signature
+         module Axs = struct
+	   let chains = sp.Spec.chains
+	   let rewrites = sp.Spec.rewrites
+	 end
+       end
+       in
+       let module Unit = Spec.Register(Spec.Make(Sp)) in
+	 Out.start "unit"; Out.final())
+    {args = ".";
+     short = "Registering a new theory."; 
+     description = "" ; 
+     examples = [
+       "register 
+     theory crypt
+         description 
+           \"theory of encryption and decryption\"
+         signature 
+            enc, dec
+         axioms
+            ==> enc(dec(x)) = x,
+            ==> dec(enc(x)) = x
+     end.",
+        "Defines a new theory [crypt], defines new symbols, 
+         and installs corresponding inference system."]; 
+     seealso = ""}
 
 		   
 (** Resetting all of the global state. *)
 
 let do_reset = 
-  Command.register "reset"
+  Register.command "reset"
     (fun () -> 
        Tools.do_at_reset ();
+       Ref.reset ();
+       Symtab.reset ();
        previous := Context.empty;
        current := Context.empty;
-       symtab := Symtab.empty();
-       Parameters.reset ();
-       counter := 0;
-       Out.unit ())
+       batch := false;
+       Out.start "unit"; Out.final ())
     {args = "";
      short = "Reset ICS state."; 
      description = 
@@ -1470,42 +754,20 @@ let do_reset =
 
 
 
-(** Only protect logical context. *)
-let protect f a =
-  let save_current = !current
-  and save_previous = !previous
-  and save_symtab = !symtab 
-  and save_counter = !counter in
-    try
-      let b = f a in
-	previous := save_previous;
-	current := save_current;
-	symtab := save_symtab;
-	counter := save_counter;
-	b
-    with
-	exc ->
-          previous := save_previous;
-	  current := save_current;
-	  symtab := save_symtab;
-	  counter := save_counter;
-	  raise exc
-
-
-
-
+(*
 (** Sorting commands in alphabetic order. *)
 let _ =
   Command.descriptions :=
     (List.sort
        (fun (n1, _) (n2, _) -> Pervasives.compare n1 n2)
        !Command.descriptions)
+*)
 
 
 (** Register nonterminals. *)
 
 let _ = 
-  Nonterminal.register "term"
+  Register.nonterminal "term"
     ["<var>";
      "<app>";
      "(<term>)";
@@ -1528,7 +790,7 @@ let _ =
      sets (<propset>)."
 
 let _ = 
-  Nonterminal.register "var"
+  Register.nonterminal "var"
     ["<ident>";
      "<ident>{<dom>}";
      "<ident>!<intconst>";
@@ -1546,27 +808,27 @@ let _ =
      As with external variables, the domain of variables can be restricted."
 
 let _ = 
-  Nonterminal.register "app"
+  Register.nonterminal "app"
     ["<funsym>[(<term>,...,<term>)]"]
     "A term application in prefix form is either of the 
      form 'f(a1,...,an)' with 'f' a function symbol or simply
      a constant 'c' with 'c' a constant symbol."
 
 let _ = 
-  Nonterminal.register "funsym"
+  Register.nonterminal "funsym"
     ["<ident>"]
     "A function symbol <ident> is assumed to be uninterpreted,
      and all other function symbol are interpreted in some
      theory <th>. "
 
 let _ =
-  Nonterminal.register "product"
+  Register.nonterminal "product"
     ["cons(<term>, <term<.)"; "car(<term>"; "cdr(<term>)"]
     "'cons', 'car', and 'cdr' are the function symbols of the
      product rtheory 'p'."
 
 let _ = 
-  Nonterminal.register "coproduct"
+  Register.nonterminal "coproduct"
     ["inl(<term>)";
      "inr(<term>)";
      "outl(<term>)";
@@ -1576,14 +838,14 @@ let _ =
 
 
 let _ = 
-  Nonterminal.register "list"
+  Register.nonterminal "list"
     ["<term> :: <term>";
      "hd(<term>)";
      "tl(<term>)";
      "nil"]
     ""
 let _ = 
-  Nonterminal.register "apply"
+  Register.nonterminal "apply"
     ["S"; "K"; "I"; "C"; 
      "<term> $ <term>";
      "lambda x1,...,xn: <term>"]
@@ -1596,8 +858,8 @@ let _ =
      'lambda x: x $ y' is parsed as '(lambda x: x) $ y'."
 
 let _ = 
-  Nonterminal.register "arith"
-    ["<ratconst>";
+  Register.nonterminal "arith"
+    ["<rat>";
      "<term> + <term>";
      "<term> - <term>";
      "<term> * <term>";
@@ -1607,7 +869,7 @@ let _ =
      are interpreted in linear ('a') or nonlinear arithmetic 'nl'."
 
 let _ = 
-  Nonterminal.register "propset"
+  Register.nonterminal "propset"
     ["empty";
      "full";
       "<term> union <term>";
@@ -1616,13 +878,13 @@ let _ =
     ""
 
 let _ = 
-  Nonterminal.register "array"
+  Register.nonterminal "array"
     ["create(<term>)";
      "<term>[<term> := <term>]";
      "<term>[<term>]"]
     ""
 let _ = 
-  Nonterminal.register "bv"
+  Register.nonterminal "bv"
     ["0b[0|1]*";
      "<term> ++ <term>";
      "<term>[<intconst>:<intconst>]"]
@@ -1638,25 +900,25 @@ let _ =
      such as 'sig x : bitvector[5]'"
 
 let _ = 
-  Nonterminal.register "ident"
+  Register.nonterminal "ident"
     ["[A-Z | a-z][A-Z | a-z | ' |_ | 0-9]*"]
     "Identifiers are all the above minus keywords such as commands
      and identifiers that have been used up by other means."
 
 let _ = 
-  Nonterminal.register "intconst"
+  Register.nonterminal "int"
     ["[0-9]*"]
     "Natural numbers."
 
 
 let _ = 
-  Nonterminal.register "ratconst"
-    ["<intconst>/<intconst> "]
+  Register.nonterminal "rat"
+    ["<int>/<int> "]
     "Rational numbers."
 
 let _ = 
-  Nonterminal.register "propfml"
-    ["[<propfml>]";
+  Register.nonterminal "prop"
+    ["[<prop>]";
      "<ident>";
      "<propfml> & <propfml>";
      "<propfml> | <propfml>";
@@ -1677,7 +939,7 @@ let _ =
      an identifier is treated as a propositional variable."
 
 let _ = 
-  Nonterminal.register "atom"
+  Register.nonterminal "atom"
     ["ff";
      "tt";
      "<term> = <term>";
@@ -1691,34 +953,19 @@ let _ =
     one of the arithmetic inequality constraints, or a subset constraint."
 
 let _ = 
-  Nonterminal.register "dom"
+  Register.nonterminal "dom"
     ["int"; "real"]
     "The integer and real domains"
 
-let _ = 
-  Nonterminal.register "th"
-    (Th.fold (fun i acc -> Th.to_string i :: acc) [])
-    "Builtin equality theories"
-
-
+(**
 let _ =
-  Nonterminal.register "parameter"
-    (let params = ref [] in
-       Parameters.iter
-	 (fun x ->  params := Parameters.to_string x :: !params);
-       !params)
-    (let str = ref "" in
-       Parameters.iter
-	 (fun x ->
-	    let entry = Parameters.to_string x ^ "\t" ^ Parameters.description x ^ "\n" in
-	    str := entry ^ !str);
-       !str)
+  Register.nonterminal "th"
+    (Theory.fold (fun i acc -> Theory.to_string i :: acc) [])
+    "Builtin equality theories"
+*)
 
-let _ = 
-  Nonterminal.register "levels"
-     (List.map fst !Trace.registered)
-     (List.fold_right
-	(fun (name, descr) acc ->
-	   let entry = "     " ^ name ^ "\t" ^ descr ^ "\n" in
-	     entry ^ acc)
-	!Trace.registered "")
+
+(*
+let _ =
+  Register.nonterminal "parameters"
+*)

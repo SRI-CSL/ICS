@@ -11,50 +11,52 @@
  * benefit corporation.
  *)
 
-(** Solution sets.
+(** Combined equality sets.
 
   @author Harald Ruess
-  @author N. Shankar
+  
+  Cross product of equality sets indexed by theories in {Theory.t}. *)
 
-  A {b solution set} for theory [th] is a set of equalities of the 
-  form [x = a], where [x] is term variable and [a] is a [th]-pure
-  term application. For each such equality, a {i justification} [rho] 
-  of type {!Jst.t} is maintained.
-
-  As an invariant, solution sets [s] are kept in {i functional} form, 
-  that is, if [x = a] and [x = b] in [s], then [a] is identical with [b]. 
-  In addition, solution sets are {i injective}, that is, [x = a] and [y = a] 
-  are not in a solution set for [x <> y].
-
-  An equality set might have additional {i indices}. These are
-  sets of dependent variables [x = a] such that [a] satisfies
-  a specified constraint.
-
-  A {i constant index} is special in that disequalities [x <> y]
-  are generated for [x = c], [y = d] and [c], [d] two disequal
-  constants.
-*)
-
-
-(** Abstract interface of an equality set. *)
-module type SET = sig
+module Eqs : sig
   type t
-  val theories : Th.t list
-  val eq : t -> t -> bool
-  val pp : t Pretty.printer
-  val empty : t
-  val is_empty : t -> bool
-  val find : Th.t -> Partition.t * t -> Jst.Eqtrans.t
-  val inv : Th.t -> Partition.t * t -> Jst.Eqtrans.t 
-  val mem : Term.t -> t -> bool 
-  val fold : (Fact.Equal.t -> 'a -> 'a) -> t -> 'a -> 'a
-  val iter : (Fact.Equal.t -> unit) -> t -> unit
+  val theories : unit -> Theory.Set.t
+  val empty : unit -> t
+  val is_empty : Theory.t -> t -> bool
+  val pp : Theory.t -> Format.formatter -> t -> unit
+  val apply : Theory.t -> t -> Jst.Eqtrans.t
+  val inv : Theory.t -> t -> Jst.Eqtrans.t
+  val dep : Theory.t -> t -> Term.t -> Dep.Set.t
+  val mem : Theory.t -> Term.t -> t -> bool
+  val model : Theory.t -> t -> Term.Model.t
 end
 
-module Make(T: Solution.TH): SET
-  (** Construct an equality set from a theory specification. *)
+module type INFSYS = Infsys.IS
+module type EQS = Infsys.EQS
 
-module Cross(Left: SET) (Right: SET): (SET  with type t = Left.t * Right.t)
-  (** Cross product of two equality sets. *)
+(** Abstract interface of an {i inference system} for equality theories.
+  Such an inference system operates on configurations [(g, e, v)] with
+  - [g] the global inputs (see module {!G}),
+  - [e] a set of equalities of type {!Infsys.EQS}, and
+  - [v] a set of variable equalities, disequalities, and other constraints (see module {!V}). *)
+module Infsys: sig
+  module Eqs: EQS
+  val current : unit -> Eqs.t
+  val reset : unit -> unit
+  val initialize : Eqs.t -> unit
+  val is_unchanged : unit -> bool
+  val finalize : unit -> Eqs.t
+  val abstract : Theory.t -> Term.t -> Jst.Fact.t -> unit
+  val process_equal : Theory.t -> Jst.Equal.t -> unit
+  val process_diseq : Theory.t -> Jst.Diseq.t -> unit 
+  val process_ineq : Theory.t -> Jst.Ineq.t -> unit
+  val propagate_equal : Term.t -> unit 
+  val propagate_diseq : Jst.Diseq.t -> unit 
+  val propagate_cnstrnt : Term.t -> unit 
+  val propagate_nonneg : Term.t -> unit
+  val normalize : unit -> unit
+end
 
+module type TH = sig val th: Theory.t end
+
+module Register(Th: TH)(Is: INFSYS): sig end
 

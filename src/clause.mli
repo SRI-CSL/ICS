@@ -17,21 +17,26 @@
 
 *)
 
-
-type t = disjunction * Jst.t
+type t
 
 and disjunction
+
+val jst_of : t -> Jst.t
 
 val unsat : Jst.t -> t
 
 val is_unsat : t -> bool
 
+val is_valid : t -> bool
+
+val mk_binary : Atom.t -> Atom.t -> Jst.t -> t
+
 val of_list : Atom.t list * Jst.t -> t
 
-val singleton : Fact.t -> t
+val singleton : Jst.Fact.t -> t
 
 val pp : t Pretty.printer
 
 val eq : t -> t -> bool
 
-val d_singleton: t -> Fact.t
+val d_singleton: t -> Jst.Fact.t

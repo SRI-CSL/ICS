@@ -61,7 +61,7 @@ val diseqs : t -> Term.t -> D.Set.t
   in the variable disequality part [d] of the partitioning [s].  Disequalities as
   obtained from the constraint part [c] are not necessarily included. *)
 
-val cnstrnt : t -> Term.t -> Var.Cnstrnt.t * Jst.t
+val cnstrnt : t -> Term.t -> Cnstrnt.t * Jst.t
   (** [cnstrnt s x] returns a domain constraint on [x], or raises [Not_found]
     if the interpretation of [x] is unconstrained. *)
 
@@ -134,10 +134,3 @@ val copy : t -> t
     equal to [p].  It is used to protect partitions against destructive
     updates. That is, if [p'] is [copy p], then destructive updates in [p'] do not 
     affect [p]. *)
-
-
-val diff : t -> t -> t
-  (** [diff p q] contains all facts in [p] but not in [q]. *)
-
-
-

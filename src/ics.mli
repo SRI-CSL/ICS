@@ -32,835 +32,350 @@
   Besides functions for manipulating ICS datatypes, this interface also
   contains a number of standard datatypes such as channels, multiprecision 
   arithmetic, tuples, and lists.
+
+  Most of the API functions may throw exeptions in case of misuse of the
+  API conventions or other errors.
+
 *)
 
-
 val version : unit -> unit
-  (** Outputs this ICS's version number on [stdout]. *)
+  (** Outputs this ICS's version number on {i standard output}. *)
+
+type value = int
+    (** {i Values} are representations of all data returned by ICS functions in this API. 
+      - Every call to a function returning a value yields a {i unique} value.
+      - Values are {i monotonically increasing}, that is, if value [u] has been obtained
+      before [v] with calls to API functions, then [u < v]. This holds even if, 
+      for example, [Ics.deregister] is called in between. *)
+
+val is_registered : value -> value
+  (** [Ics.is_registered v] holds iff value [v] represents 
+    currently active ICS data. Most ICS interface functions
+    fail when called with a value that does not satisfy this predicate. *)
+
+val deregister : value -> value
+  (** [Ics.deregister v] frees the memory associated with the ICS object
+    for value [v].  If [Ics.is_registered v] does not hold, deregistration 
+    fails. *)
+
+val kind: value -> value
+  (** Values are {i partitioned} into {i kinds}, and
+    [Ics.kind v] returns a name value describing the 
+    partition [v] belongs to. *)
+
+val pp : value -> value
+  (** Print an arbitrary value to {i standard output}. *)
+
+val eq : value -> value -> value
+  (** [Ics.eq u v] holds iff values [u] and [v] point to the same object 
+    in the heap. In particular, [u = v] implies [Ics.eq u v] but [Ics.eq u v] 
+    may hold even though [u <> v]. *)
 
 
-(** {6 Parameters} *)
+(** {6 Boolean Values} *)
 
-(** The following flags determine the current {i configuration} of ICS. *)
+val is_bool : value -> value
+  (** If [Ics.is_bool v] equals [Ics.tt()], then [v] is 
+    called a {i Boolean value}. *)
 
-val set_profile : bool -> unit
-  (** Enable profiling of used time and memory resources for selected
-    functions. Used mainly for debugging. *)
+val ff : unit -> value
+  (** The Boolean value [Ics.ff()] value equals [0]. *)
 
-val set_pretty : string -> unit
-  (** Determine pretty-printing.
-    - [mixfix] enables pretty-printing in mixfix and infix form,
-    - [prefix] disables mixfix and infix printing, and
-    - [sexpr] enables printing in terms of S-expressions 
-      of the form {i (:op arg1 ... argn)}. *)
-
-val set_compactify : bool -> unit
-  (** [set_compactify false] disables garbage collection of
-    internally generated variables (default [true]). *)
-
-val set_assertion_frequency : int -> unit
-  (** [set_assertion_frequency n] determines how often (frequency) 
-    the SAT solver sends (the relevant) information to ground decision procedures. *)
-
-val set_verbose : bool -> unit
-  (** Using [set_verbose true], the SAT solver reports all kinds
-    of statistics and progress reports (default [false]). *)
-
-val set_remove_subsumed_clauses : bool -> unit
-  (** Internal configuration of the SAT solver. *)
-
-val set_validate: bool -> unit
-  (** With [set_validate] set to [true], the SAT solver validates
-    all generated assignments and all justifications for inconsistencies. *)
-
-val set_polarity_optimization: bool -> unit
-  (** Internal configuration of the SAT solver. *)
-
-val set_clause_relevance : int -> unit
-  (** Internal configuration of the SAT solver. *)
-
-val set_cleanup_period : int -> unit
-  (** Internal configuration of the SAT solver. *)
-
-val set_num_refinements : int -> unit
-  (** Internal configuration of the SAT solver. *)
-
-val set_statistic : bool -> unit
-  (** Enable/Disable SAT solver to print statistics (default [false]). *)
-
-val set_show_explanations : bool -> unit
-  (** Display explanations generated for SAT solver on {!Format.err_formatter}
-    when flag is enabled. *)
-
-val set_justifications : bool -> unit
-  (** Print justifications of internally generated facts (default [false]). *)
-
-val set_integer_solve : bool -> unit
-  (** Enable/disable integer solver (default [true]). Disabling the 
-    integer solver makes the procedure incomplete, but (usually) faster. *)
-
-val set_proofmode : string -> unit
-  (** ICS supports various proof modes.
-    - [No] disables generation of justifications
-    - [Dep] enables generation of dependencies (default).
-    - [Yes] enables generation of proof terms (disabled in ICS 2.0). *)
-
-val set_gc_mode : string -> unit
-  (** Various settings for garbage collection
-    - [Lazy] delay garbage collection
-    - [Eager] garbage collection. *)
-
-val set_gc_space_overhead : int -> unit
-  (** GC will work more if [space_overhead] is smaller (default 80). *)
-
-val set_gc_max_overhead : int -> unit
-  (** Controlling heap compaction (default 500), [gc_max_overhead >= 1000000] disables compaction. *)
+val tt : unit -> value
+  (** The Boolean value [Ics.tt()] value equals [1]. *)
 
 
-(** {6 Channels} *)
+(** {6 Integer values} *)
 
-type inchannel = in_channel
-    (** [inchannel] is the type of input channels. *)
+val is_int : value -> value
+  (** If [Ics.is_int v] holds, that is, equal to [Ics.tt()], then
+    [v] represents an {i integer value}. *)
 
-type outchannel = Format.formatter
-    (** Formattable output channel. *)
+val integerize : int -> value
+  (** Construct an integer value from an integer. *)
 
-val channel_stdin : unit -> inchannel
-  (** [channel_stdin] is the predefined standard input channel. *)
 
-val channel_stdout : unit -> outchannel
-  (** [channel_stdout] is the predefined standard output channel. *)
+(** {6 Name Values} *)
 
-val channel_stderr : unit -> outchannel
-  (** [channel_stdout] is the predefined standard error channel.
-    All ICS trace messages are put onto this channel. *)
+val is_name : value -> value
+  (** [Ics.is_name v] holds iff the value [v] represents a {i name};
+    in this case, [v] is a {i name value}.  Equality test [Ics.eq] 
+    on name values is constant-time. *)
 
-val inchannel_of_string : string -> inchannel 
-  (** [inchannel_of_string str] opens an input
-    channel for reading from a string (file name).  This function 
-    raises [Sys_error] in case such a channel can not be opened. *)
+val intern : string -> value
+  (** [Ics.intern str] constructs a corresponding name value [n] from 
+    a string. *)
 
-val outchannel_of_string : string -> outchannel
-  (** [outchannel_of_string str] opens an output
-    channel for writing from a string (file name).  This function 
-    raises [Sys_error] in case such a channel can not be opened. *)
+val extern : value -> string
+  (** [Ics.extern str v] constructs a string from a name value [v];
+    it is inverse to [Ics.intern]. *)
 
 
 (** {6 Multi-precision arithmetic} *)
 
-type q
-  (** Type for representing the rational numbers. *)
+val is_rat : value -> value 
+  (** If [Ics.is_rat v] holds, then [v] represents a 
+    multi-precision rational number. Notice that rational
+    values are disjoint from integer values. *)
 
-val num_of_int : int -> q
-  (** [num_of_int n] constructs a rational from the integer [n]. *)
+val rat_of_int : value -> value
+  (** [Ics.rat_of_int n] constructs a rational value from an integer value. *)
 
-val num_of_ints : int -> int -> q
-  (** [num_of_ints n m], for [m <> 0], constructs a normalized 
-    representation of the rational [n/m] in [q]. *)
+val rat_of_ints : value -> value -> value
+  (** If [u] represents a pair [(n, m)] of rational values, then [Ics.rat_of_ints u]
+    constructs a normalized  representation of the rational [n/m]. *)
 
-val ints_of_num : q -> string * string
-  (** [ints_of_num q] decomposes a rational with numerator [n] and
-    denumerator [m] into [("n", "m")]. *)
 
-val string_of_num : q -> string
-  (** [string_of_num q] constructs a string (usually for printout) of a
-    rational number *)
+(** {6 Pairs} *)
+
+val is_pair : value -> value
+ (** [Ics.is_pair v] holds if [v] reprents a pair of values. *)
+
+val pair : value -> value -> value
+  (** If [u1] is a value of kind [k1] and [u2] a value of kind [k2],
+    then the value [Ics.pair u1 u2] represents the {i pair} of [u1] and [u2]. *)
   
-val num_of_string : string -> q
-  (** [num_of_string s] constructs a rational, whenever
-    [s] is of the form [n/m] where [n] and [m] are integers. *)
+val fst : value -> value
+  (** If [u] is a pair value, then [Ics.fst u] returns the first
+    component of [u]. *)
   
-
-(** {6 Names} *)
-
-type name
-  (** Representation of strings with constant equality test. *)
-
-val name_of_string : string -> name
-  (** [name_of_string str] constructs a name [n] from a string
-    such that {!Ics.name_to_string}[(n)] yields [str]. *)
-
-val name_to_string : name -> string
-  (** [name_to_string n] is the inverse operation of {!Ics.name_of_string}. *)
-
-val name_eq : name -> name -> bool
-  (** [name_eq n m] holds iff the corresponding 
-    strings {!Ics.name_to_string}[(n)] and  {!Ics.name_to_string}[(m)]
-    are equal.  This equality test is constant in the length of strings. *)
+val snd : value -> value
+  (** If [u] is a pair value, then [Ics.snd u] returns 
+    the second component of [u]. *)
 
 
-(** {6 Arithmetic domains} *)
 
-type dom
-  (** Arithmetic domains *)
+(** {6 Lists} *)
 
+val is_list : value -> value
+  (** [Ics.is_list v] holds iff value [v] represents a {i list},
+    that is, [v] is built from [Ics.nil()] or from [Ics.cons()]. *)
 
-val dom_mk_int : unit -> dom
-val dom_mk_real : unit -> dom
-val dom_mk_nonint : unit -> dom
+val is_nil : value -> value
+  (** [Ics.is_nil v] holds iff [v] represents the empty list. *)
 
-val dom_is_int : dom -> bool
-val dom_is_real : dom -> bool
-val dom_is_nonint : dom -> bool
+val nil : unit -> value
+  (** [Ics.nil()] represents the empty list. 
+    [Ics.kind] is undefined for this value. *)
+
+val cons : value -> value -> value
+  (** [Ics.cons u v] builds a list from a value [u] of kind [k]
+    and a value [v] of kind [k list]. *)
+
+val head : value -> value
+  (** [head v] returns the first value in a list value [v]
+    representing the nonempty list. *)
+
+val tail : value -> value
+  (** [tail v] returns all but the first value in a list [v]
+    representing the nonempty list. *)
 
 
 (** {6 Theories} *)
 
-type th
-  (** A {b theory} is associated with each function symbol of terms.
-    - [u]    Theory of uninterpreted function symbols.
-    - [la]   Linear arithmetic theory.
-    - [p]    Product theory.
-    - [bv]   Bitvector theory.
-    - [cop]  Coproducts.
+val is_theory : value -> value
+  (** A {b theory} is associated with each function symbol and
+    [is_theory u] holds iff [u] is such a theory representation. *)
+
+val theory_of_name : value -> value
+ (** [Ics.theory_of_name s] returns theory [th] for
+   - [u]    Theory of uninterpreted function symbols.
+   - [la]   Linear arithmetic theory.
+   - [p]    Product theory.
+   - [bv]   Bitvector theory.
+   - [cop]  Coproducts.
     - [nl]   Power products. 
-    - [app]  Theory of function abstraction and application. 
-    - [arr]  Array theory. 
-    - [pset] Theory of propositional sets *)
+   - [app]  Theory of function abstraction and application. 
+   - [arr]  Array theory. 
+   - [pset] Theory of propositional sets *)
 
-val th_to_string : th -> string
-  (** [th_to_string th] returns the unique name associated to theory [th]. *)
-
-val th_of_string : string -> th
- (** [th_of_string s] returns theory [th] if [to_string th] is [s]; 
-   otherwise the result is unspecified. *)
+val description : value -> value
+  (** Given a theory value [th] such that [Ics.is_theory th],
+    [Ics.description th] print a description of this theory
+    on standard output. *)
 
 
 (** {6 Function symbols} *)
 
-type sym
-  (** Representation of function symbols. Function symbols
-    are partitioned into
-    - {i uninterpreted} function symbols (of theory [u]) and
-    - {i interpreted} function symbols from the theories 
-      [la], [p], [bv], [cop], [nl], [cop], [app], [arr], and [pset] above. *)
+val is_funsym : value -> value
+  (** Representation of {i function symbols}. *)
 
-val sym_theory_of : sym -> th
-  (** [sym_theory_of f] returns the theory [th] associated with
-    the function symbol [f]. *)
+val funsym_make : value -> value -> value
+  (** [Ics.sym_make u v] creates a function symbol from theory value [u]
+    and name value [v]. *)
 
-val sym_eq : sym -> sym -> bool
-  (** [sym_eq] tests, in constant time, for equality of two function 
-    symbols. *)
+val funsym_theory_of : value -> value
+  (** [funsym_theory_of f] returns the theory value [th] associated 
+    with the function symbol value [f]. *)
 
-val sym_cmp : sym -> sym -> int
-  (** [sym_cmp f g] provides a total ordering on function symbols.
-    If it returns
-    - a negative integer, then [f] is said to be smaller than [g],
-    - [0], then [f] is equal to [g] and {!Ics.sym_eq}[(f, g)], and
-    - a positive numbe, then [f] is said to be larger than [g]. *)
+val funsym_name_of : value -> value
+  (** [funsym_name_of f] returns the name value [n] associated 
+    with the function symbol value [f]. *)
 
+(** Add builtin function symbols. *)
 
-val sym_is_uninterp : sym -> bool
-  (** [sym_is_uninterp f] holds iff [f] is an uninterpreted
-    function symbol. *)
 
-val sym_d_uninterp : sym -> name
-  (** [sym_d_uninterp f] returns the name associated with
-    an uninterpreted function symbol [f]. This accessor is
-    undefined if {!Ics.sym_is_uninterp}[(f)] does not hold. *)
+(** {6 Constraints} *)
 
+val is_cnstrnt : value -> value
+  (** Representation of {i term constraints}. *)
 
-(** {b Linear arithmetic} function symbols are either 
-  - {i numerals} for representing all rational numbers, 
-  - the {i addition} symbols, 
-  - symbols for representing {i linear multiplication} by a 
-  rational of type {!Ics.q}. *)
+val cnstrnt_int : unit -> value
+  (** Integer constraint. *)
 
-val sym_mk_num : q -> sym
-  (** [sym_mk_num q] constructs a numeral symbol for representing [q]. *)
+val cnstrnt_real : unit -> value
+  (** Real number constraint. *)
 
-val sym_is_num : sym -> bool
-  (** [sym_is_num f] holds iff [f] represents a numeral. *)
-
-val sym_d_num : sym -> q
-  (** [sym_d_num f] returns the rational [q] if [f] represents [q].
-    This accessor is undefined if {!Ics.sym_is_num} does not hold. *)
-
-val sym_mk_add : unit -> sym
-  (** [sym_mk_add()] constructs the addition symbol. *)
-
-val sym_is_add : sym -> bool
-  (** [sym_is_add f] holds iff [f] represents the addition symbol. *)
-
-val sym_mk_multq : q -> sym
-  (** [sym_mk_multq q] constructs the symbol for linear multiplication
-    by a rational [q]. *)
-
-val sym_is_multq : sym -> bool
-  (** [sym_is_multq f] holds iff [f] represents a linear 
-    multiplication symbol. *)
-
-val sym_d_multq : sym -> q
-  (** [sym_d_multq f] returns [q] if [f] represents linear
-    multiplication by [q]. This accessor is undefined if 
-    {!Ics.sym_d_multq} does not hold. *)
-
-
-(** Symbols of the {b product theory} [p] consist of
-  - consing
-  - and first and second projections [car], [cdr]. *)
-
-val sym_mk_cons : unit -> sym
-  (** [sym_mk_cons()] constructs the symbol for tupling. *)
-
-val sym_is_cons : sym -> bool
-  (** [sym_is_cons f] holds iff [f] represents tupling. *)
-
-val sym_is_car : sym -> bool
-  (** [sym_is_car f] holds iff [f] represents a projection. *)
-
-val sym_mk_car : unit -> sym
-  (** [sym_mk_car()] constructs the symbol for the first projection *)
-
-val sym_is_cdr : sym -> bool
-  (** [sym_is_cdr f] holds iff [f] represents a projection. *)
-
-val sym_mk_cdr : unit -> sym
-  (** [sym_mk_cdr()] constructs the symbol for the first projection *)
-
-
-(** Symbols of the theory of {b coproducts} are eith
-  - left and right injections,
-  - left and right coinjections *)
-
-val sym_mk_inl : unit -> sym
-  (** [sym_mk_inl ()] constructs symbol for left injection. *)
-
-val sym_is_inl : sym -> bool
-  (** [sym_is_inl f] holds iff [f] represents left injection. *)
-
-val sym_mk_inr : unit -> sym
-  (** [sym_mk_inr ()] constructs symbol for right injection. *)
-
-val sym_is_inr : sym -> bool
-  (** [sym_is_inr f] holds iff [f] represents right injection. *)
-
-val sym_mk_outl : unit -> sym
-  (** [sym_mk_outl ()] constructs symbol for left injection. *)
-
-val sym_is_outl : sym -> bool
-  (** [sym_is_outl f] holds iff [f] represents left coinjection. *)
-
-val sym_mk_outr : unit -> sym
-  (** [sym_mk_outr ()] constructs symbol for right coinjection. *)
-
-val sym_is_outr : sym -> bool
-  (** [sym_is_outr f] holds iff [f] represents right coinjection. *)
-
-
-(** Symbols in the fixed-sized {b bitvector} theory include
-  - constant bitvectors of length [n >= 0],
-  - concatenation of a bitvector of width [n >= 0] with a bitvector of width [m >= 0],
-  - extraction of bits [i] through [j] of a bitvector of length [n >= 0],
-    ([0 <= i <= j < n]), and
-  - bitwise conditionals for bitvectors of length [n]. *)
-
-val sym_mk_bv_const : string -> sym
-  (** [sym_mk_bv_const str] constructs, say, a bitvector constant [01001]
-    from a string of the form ["01001"]. The result is undefined if characters
-    other than ['0'] or ['1'] appear in the string. *)
-
-val sym_is_bv_const : sym -> bool
-  (** [sym_is_bv_const f] holds iff [f] represents a bitvector constant symbol. *)
-
-val sym_mk_bv_conc : int -> int -> sym
-  (** [sym_mk_bv_conc n m] constructs a concatenation symbol with indices [n]
-    and [m], for [n, m >= 0], for concatenating a bitvector of width [n] with a 
-    bitvector of length [m]. *)
-
-val sym_is_bv_conc : sym -> bool
-  (** [sym_is_bv_conc f] holds iff [f] represents a concatenation symbol. *)
-
-val sym_d_bv_conc : sym -> int * int
-  (** [sym_d_bv_conc f] returns [(n, m)] iff [f] 
-    represents a concatenation symbol for bitvectors of width [n] with a
-    bitvector of width [m]. *)
-
-val sym_mk_bv_sub : int -> int -> int -> sym
-  (** [sym_mk_bv_sub i j n] constructs a bitvector extraction symbol for the
-    indices [0 <= i <= j < n]. *)
-
-val sym_is_bv_sub : sym -> bool
-  (** [sym_is_bv_sub f] holds iff [f] represents a bitvector extraction symbol. *)
-
-val sym_d_bv_sub : sym -> int * int * int
-  (** [sym_d_bv_sub f] returns [(i, j, n)] iff [f] represents a bitvector
-    extraction of bits [i] through [j] of a bitvector of width [n]. *)
-
-
-(** Symbols from the theory of {b power products} include
-  - Multi-ary nonlinear multiplication symbol
-  - Exponentiation with an integer. *)
-
-val sym_mk_mult : unit -> sym
-  (** [sym_mk_mult()] constructs the nonlinear multiplication symbol. *)
-
-val sym_is_mult : sym -> bool
-  (** [sym_is_mult f] holds iff [f] represents the nonlinear multiplication symbol. *)
-
-
-(** Symbols from the theory of {b function abstraction and application} include
-  - function abstraction
-  - function application
-
-  A function application symbol may have a constraint of type {!Ics.cnstrnt} associated
-  with it. *)
-
-val sym_mk_apply : unit -> sym
- (** [sym_mk_apply co] constructs a symbol for function application with associated
-   constraint [co]. *)
-
-val sym_is_apply : sym -> bool
-  (** [sym_is_apply f] holds iff [f] represents the function application symbol. *)
-
-val sym_mk_s : unit -> sym
-  (** [sym_mk_s()] constructs the symbol for the [S] combinator. *)
-
-val sym_is_s : sym -> bool
-  (** [sym_is_s f] holds iff [f] represents the [S] combinator. *)
-
-
-val sym_mk_k : unit -> sym
-  (** [sym_mk_s()] constructs the symbol for the [K] combinator. *)
-
-val sym_is_k : sym -> bool
-  (** [sym_is_k f] holds iff [f] represents the [K] combinator. *)
-
-
-val sym_mk_i : unit -> sym
-  (** [sym_mk_i()] constructs the symbol for the [I] combinator. *)
-
-val sym_is_i : sym -> bool
-  (** [sym_is_i f] holds iff [f] represents the [I] combinator. *)
-
-
-
-(** Symbols from the theory of {b arrays} include
-  - array updates (write)
-  - array selection (read) *)
-
-val sym_mk_select : unit -> sym
-  (** The array select symbol. *)
-
-val sym_is_select : sym -> bool
-  (** [sym_is_select f] holds iff [f] represents the array selection symbol. *)
-
-val sym_mk_update : unit -> sym
-  (** The array update symbol. *)
-
-val sym_is_update : sym -> bool
- (** [sym_is_update f] holds iff [f] represents the array update symbol. *)
-
-
-(** Symbols from the theory of {b propositional sets} include
-  - empty set
-  - full set
-  - conditional set. *)
-
-val sym_mk_empty : unit -> sym
-  (** The empty set symbol *)
-
-val sym_is_empty : sym -> bool
- (** [sym_is_empty f] holds iff [f] represents the empty set symbol. *)
-
-val sym_mk_full : unit -> sym
-  (** The full set symbol *)
-
-val sym_is_full : sym -> bool
- (** [sym_is_full f] holds iff [f] represents the full set symbol. *)
-
-val sym_mk_ite : unit -> sym
-  (** The conditional set symbol *)
-
-val sym_is_ite : sym -> bool
- (** [sym_is_ite f] holds iff [f] represents the conditional set constructor. *)
+val cnstrnt_nonint : unit -> value
+  (** Real but not integer constraint. *)
+  
+val cnstrnt_bv : value -> value
+  (** Bitvector constraint [cnstrnt u] with [u] an nonnegative integer
+    value for constraining the length of bitvectors.  *)
 
 
 (** {6 Terms} *)
-   
-(** Terms are either 
-  - variables or
-  - applications of function symbols of type {!Ics.sym} to a list of terms. *)
 
-type term
+val is_term : value -> value
+  (** [Ics.is_term t] holds iff value [t] represents a {i term},
+    where terms are either 
+    - variables or
+    - applications of function symbols to an argument list of terms. *)
 
-val term_of_string : string -> term
-  (** [term_of_string] parses a string according to the grammar 
+val term_mk_var : value -> value
+  (** Given a string [s], [Ics.term_mk_var s] constructs 
+    a {i term variable} with associated name [s]. The resulting
+    term value satisfies [Ics.is_term]. *)
+
+val term_mk_app : value -> value -> value
+  (** For a function symbol [f], a term list value [al],
+    (in particular, [Ics.is_list al] holds),
+    [Ics.term_mk_app s al] constructs an application of 
+    the function symbol with name [f] to the argument terms [al].  
+    The result satisfies [Ics.is_term]. *)
+
+val term_of_name : value -> value
+  (** [Ics.term_of_name] parses a name value according to the grammar 
     for the nonterminal {!Parser.termeof} (see its specification in 
-    file [parser.mly]) and builds a corresponding term. *)
+    file [parser.mly]) and builds a corresponding term. 
+    The resulting value satisfies [Ics.is_term]. *)
+val term_input : unit -> value
+  (** [Ics.term_input ()] builds a 
+    term value by reading from standard input.  This function is thus similar 
+    to [Ics.term_of_string] but input is obtained from a channel instead of
+    reading a string. The resulting value [Ics.term_input] satisfies
+    [Ics.is_term]. *)
 
-val term_input : inchannel -> term
-  (** [term_input inch] is similar to {!Ics.term_of_string} but builds a 
-    term by reading from input channel [inch]. *)
+val term_output : value -> value
+  (** If [Ics.is_term a] holds, then
+    [Ics.term_output a] prints term [a] on standard output. *)
 
-val term_output : outchannel -> term -> unit
-  (** [term_output outch a] prints term [a] on the output channel [out]. *)
+val term_to_name : value -> value
+  (** If [Ics.is_term a], then [Ics.term_to_string a] prints 
+    a term to a string. This string should be parsable 
+    by [Ics.term_of_string]. *)
 
-val term_to_string : term -> string
-  (** [term_to_string a] prints a term to a string. This string
-    is parsable by {!Ics.term_of_string}. *)
+(** {6 Derived Term Constructors} *)
 
-val term_pp : term -> unit
-  (** [term_pp a] is equivalent to [term_output (Ics.stdout()) a]. *)
-  
-val term_eq : term -> term -> bool
-  (** [term_eq a b] holds iff [a] and [b] are syntactically
-    equal, that is, either
-    - both [a] and [b] are variables of the same kind and their
-      associated names are equal
-    - both [a] and [b] are application terms with equal
-      function symbols (see {!Ics.sym_eq}), the number of
-      arguments in [a] and [b] is equal, and the respective
-      arguments at every position are term equal. *)
+val term_mk_num : value -> value
+val term_mk_multq : value -> value -> value
+val term_mk_add : value -> value -> value
+val term_mk_mult : value -> value -> value
 
-val term_cmp : term -> term -> int
-  (** Comparison [term_cmp a b] returns either
-    [-1], [0], or [1] depending on whether [a] is less than [b],
-    the arguments are equal, or [a] is greater than [b]. 
-    - Variables are always greater than applications, 
-    - variables are ordered according to {!Ics.var_cmp}, and 
-    - applications are ordered lexicographically using {!Ics.sym_cmp} 
-      on the function symbols and comparing respective term arguments. *)
-
-val term_mk_var : string -> term
-  (** Given a string [s], [term_mk_var s] constructs an 
-    {i external} variable with name [s]. *)
-
-val term_mk_dom_var : string -> dom -> term
-  (** Given a string [s] and a domain, [term_mk_var s dom] constructs an 
-    {i external} variable with name [s] and domain restriction [dom]. *)
-
-
-val term_mk_uninterp : string -> term list -> term
-  (** [term_mk_uninterp s al] constructs an application of an 
-    uninterpreted function symbol [s] to a list [al] of argument 
-    terms. *)
-
-
-(** {b Linear arithmetic terms} are built-up from rational constants,
-  linear multiplication of a rational with a variable, and n-ary
-  addition. 
-  
-  Linear arithmetic terms are always normalized as a {b sum-of-product}
-  [q0 + q1*x1+...+qn*xn] where the [qi] are rational constants and the
-  [xi] are variables (or any other term not interpreted in this
-  theory), which are ordered such that {!Ics.term_cmp}[xi xj] is
-  greater than zero for [i < j]. This implies that any such variable
-  occurs at most once. In addition, [qi], for [i > 0], is never zero.
-  If [qi] is one, we just write [xi] instead of [qi * xi], and if [q0]
-  is zero, it is simply omitted in the sum-of-product above.
-  
-  Terms in this theory include rational constants built from
-  [term_mk_num q], linear multiplication [term_mk_multq q a],
-  addition [term_mk_add a b] of two terms, n-ary 
-  addition [term_mk_addl al] of a list of terms [al],
-  subtraction [term_mk_sub a b] of term [b] from term [a],
-  negation [term_mk_unary_minus a], multiplication
-  [term_mk_mult a b], and exponentiation [term_mk_expt n a].
-  These constructors build up arithmetic terms in a canonical
-  form as defined in module [Arith]. [term_is_arith a] holds
-  iff the toplevel function symbol of [a] is any of the 
-  function symbols interpreted in the theory of arithmetic. *)
-
-
-val term_is_arith : term -> bool
-  (** [term_is_arith a] holds if the toplevel symbol of [a]
-    is interpreted in linear arithmetic. *)
-
-val term_mk_num : q -> term
-  (** [term_mk_num q] constructs a numeral term for representing
-    the rational [q]. *)
-
-val term_mk_multq : q -> term -> term
-  (** [term_mk_multq q a] constructs a term for representing
-    the term [a] multiplied by [q]. If [a] is in sum-of-product
-    form, then so is [term_mk_multq q a]. *)
-  
-val term_mk_add : term -> term -> term 
-  (** [term_mk_add a b] constructs a term for representing the
-    sum of [a] and [b]. If both [a] and [b] are in sum-of-product
-    form, then so is  [term_mk_add a b]. *)
-
-val term_mk_addl : term list -> term  
-   (** Iteration of binary addition
-     - [term_mk_addl []] is {!Ics.term_mk_num()},
-     - [term_mk_addl [a]] is [a], and
-     - [term_mk_addl (a :: al)] is [term_mk_add a (term_mk_addl al)]. *)
-
-val term_mk_sub : term -> term -> term
-  (** [term_mk_sub a b] represents the difference [a - b]. If
-    both [a] and [b] are in sum-of-product form, then so is the result. *)
-
-val term_mk_unary_minus : term -> term
-  (** [term_mk_unary_minus a] represents the negation of [a].
-    If [a] is in sum-of-product form, then so is the result. *)
-
-
-(** Tuple terms. Tuple terms in normal form do not contain 
-  (applicable) projections on tuples. *)
-   
-val term_mk_tuple : term list -> term
-  (** [term_mk_tuple [a1;...;an]] constructs tuple
-    term for respresenting the tuple [(a1,...,an)]. The
-    result is in tuple normal form, when all [ai] are in tuple normal
-    form  *)
-
-val term_mk_proj : int -> term -> term
-  (** [term_mk_proj i a] constructs, for [0 <= i < n], a term 
-    for representing the [i]-th projection of an [n]-tuple. If [a]
-    is in tuple normal form, then so is the result. *)
-
-
-(** {b Bitvector terms} are built up from bitvector constants, concatenation
-  of two bitvectors, extraction of a contiguous subrange from a bitvector,
-  and logical bitwise operations.  Each bitvector term has a nonnegative
-  {i width} associated with it, and bits in a bitvector of width [n] are
-  addressed from [0] to [n-1] in increasing order from left-to-right. All bitvector 
-  terms are in {i concatenation normal form}, that is, a left-associative 
-  concatenation of 
-  - terms uninterpreted in the bitvector theory
-  - bitvector constants (with adjacent constants merged)
-  - single extractions from uninterpreted terms in this theory
-  - bitvector BDDs, which are BDDs with nodes consisting of one
-  of the above classes of terms. 
-  
-  The constructors below all construct concatenation normal forms,
-  whenever their arguments are in this form.
-*)
-  
-val term_mk_bvconst : string -> term
-  (** [term_mk_bvconst str] constructs a bitvector constant. *)
-
-val term_mk_bvsub : (int * int * int) -> term -> term
-  (** [term_mk_bvsub i j n a] constructs, for [0 <= i <= j < n] a term 
-    for representing the extraction of the [j-i+1] bits from 
-    position [i] through [j] in a term of width [n]. *)
-
-val term_mk_bvconc : int * int -> term -> term -> term
-  (** [term_mk_bvconc n m a b] constructs the concatenation [a ++ b]
-    of bitvector terms [a] of width [n] with [b] of width [m]. *)
-
-
-(** {b Boolean Constants.} are [true] and [false]. *)
-    
-val term_mk_true  : unit -> term
-  (** The propositional constant [term_mk_true()] is encoded
-    as the bitvector constant of width [1] with a [1] at position [0]. *)
-
-val term_mk_false : unit -> term
-  (** The propositional constant [term_mk_false()] is encoded
-    as the bitvector constant of width [1] with a [0] at position [0]. *)
-
-val term_is_true : term -> bool
-  (** [term_is_true a] holds iff [a] is term equal to [term_mk_true()]. *)
-
-val term_is_false : term -> bool
-  (** [term_is_false a] holds iff [a] is term equal to [term_mk_false()]. *)
-
-
-(** {b Coproducts} consist of
-  - injections [inj n]
-  - outjections [out n]. *)
-
-val term_mk_inj : int -> term -> term
-  (** [term_mk_inj n a] constructs a term for [n]-ary injection. *)
-
-val term_mk_out : int -> term -> term
-  (** [term_mk_out n a] constructs a term for [n]-ary outjection. *)
-
-
-(** {b Array terms} are built up from
-  - constant arrays
-  - updates of arrays
-  - lookup of arrays. *)
- 
-val term_mk_create : term -> term
-  (** [term_mk_create a] represents an array with elements [a]. *)
-
-val term_mk_update : term -> term -> term -> term
-  (** [term_mk_update a i x] represent an array [a] updated at position [i]
-    with value [x]. *)
-
-val term_mk_select :  term -> term -> term
-  (** [term_mk_select a j] represents the value of array [a] at position [j]. *)
-
-
-(** {b Nonlinear terms} are sum-of-products with power products 
-  [a1^n1 * ... an^nk] with [ai] terms and [ni] integers at uninterpreted positions. *)
-
-val term_mk_mult : term -> term -> term
-  (** [term_mk_mult a b] constructs a nonlinear term for representing the multiplication
-    of [a] and [b]. *)
-
-val term_mk_multl : term list -> term
-  (** [term_mk_multl [a1;...;an]] constructs a nonlinear term for representing the 
-    multiplication [a1 * ... * an]. *)
-
-
-(** {b Function application} *)
-
-val term_mk_apply : term -> term -> term
-  (** [term_mk_apply a b] represents the application of [a], viewed as a function,
-    to the argument [b]. *)
-
-type terms
-  (** Representation of a set of terms. *)
-
-val terms_of_list : term list -> terms
-  (** Constructing a set of terms from a list of terms. *)
-
-val terms_to_list : terms -> term list
-  (** Converting a set of terms into a list of terms. *)
 
 
 (** {6 Atoms} *)
 
-type atom
-  (** An {b atom} is either
-    - the trivially true atom [atom_mk_true],
-    - the unsatisfiable [atom_mk_false],
-    - an equality atom [atom_mk_equal a b],
-    - a disequality atom [atom_mk_diseq a b], or
-    - a constraint atom [atom_mk_in a c], which
-      constrains [a] to be interpreted over the domain [D(c)] associated
-      with the constraint [c] of type {!Ics.cnstrnt}. *)
+val is_atom : value -> value
+  (** Recognizer for {i atom values} *)
 
-val atom_pp : atom -> unit
-  (** Pretty-printing an atom to [stdout]. *)
+val atom_of_name : value -> value
+  (** Parsing a name value to obtain an atom. *)
 
-val atom_of_string : string -> atom
-  (** Parsing a string to obtain an atom. *)
-
-val atom_to_string : atom -> string
-  (** Printing an atom to a string. *)
+val atom_to_name : value -> value
+  (** Printing an atom value to a name value. *)
      
-val atom_mk_true : unit -> atom
+val atom_mk_true : unit -> value
   (** Constructing the trivially true atom. *)
 
-val atom_mk_false : unit -> atom
-  (** Constructing an unsatisfiable atom. *)
+val atom_mk_false : unit -> value
+  (** Constructing the trivially unsatisfiable atom. *)
 
-val atom_mk_equal  : term -> term -> atom
-  (** [atom_mk_equal a b] constructs an atom for representing
-    the equality between [a] and [b]. *)
+val atom_mk_equal  : value -> value -> value
+  (** [atom_mk_equal a b] constructs an atom value for representing
+    the equality between term values [a] and [b]. *)
 
-val atom_mk_diseq  : term -> term -> atom
-  (** [atom_mk_diseq a b] constructs an atom for representing
-    the disequality of [a] and [b]. *)
+val atom_mk_diseq  : value -> value -> value
+  (** [atom_mk_diseq a b] constructs an atom value for representing
+    the disequality of term values [a] and [b]. *)
 
-val atom_mk_le : term -> term -> atom
-  (** [atom_mk_le a b] constructs an atom for representing [a <= b]. *)
+val atom_mk_le : value -> value -> value
+  (** [atom_mk_le a b] constructs an atom value for representing [a <= b]. *)
 
-val atom_mk_lt : term -> term -> atom
- (** [atom_mk_lt a b] constructs an atom for representing [a < b]. *)
+val atom_mk_lt : value -> value -> value
+ (** [atom_mk_lt a b] constructs an atom list value for representing [a < b]. *)
 
-val atom_mk_ge : term -> term -> atom
-  (** [atom_mk_ge a b] constructs an atom for representing [a >= b]. *)
+val atom_mk_ge : value -> value -> value
+  (** [atom_mk_ge a b] constructs an atom value for representing [a >= b]. *)
 
-val atom_mk_gt : term -> term -> atom
-  (** [atom_mk_gt a b] constructs an atom for representing [a > b]. *)
+val atom_mk_gt : value -> value -> value
+  (** [atom_mk_gt a b] constructs an atom list value for representing [a > b]. *)
 
-val atom_negate : atom -> atom
+val atom_negate : value -> value
   (** Constructs the negation of an atom. *)
 
 
 (** {6 Justifications} *)
 
-type justification
-  (** A {i justification} is either
-    - a tag [Unjustified] or
-    - a set of context atoms. *)
+val is_justification : value -> value
+  (** A {i Justification} is an unsatisfiable conjunction of atoms. *)
 
-val justification_pp : justification -> unit
-  (** Print a justification to [stdout]. *)
-
-val justification_to_axioms : justification -> atom list
-  (** Transform a justification into a list of atoms.  These
-    atoms are the axioms of a proof represented by the justication. 
-    Notice, that such a list is not necesarily minimal. *)
+val justification_to_atoms : value -> value
+  (** Returns a justification as an atom list value. *)
 
 
 (** {6 Processing} *)
 
-type context
+val is_context: value -> value
   (** A {i logical context} represents a conjunction of atoms. *)
 
-val context_pp : context -> unit
-  (** Pretty-printing a context to standard output. *)
-
-val context_ctxt_pp : context -> unit
-  (** Pretty-printing the logical context in a way that can be read in again 
-    by the parser. *)
-
-val context_eq : context -> context -> bool
-  (** [context_eq s1 s2] is a constant-time predicate for 
-    testing for identity of two states. Thus, whenever this 
-    predicate holds, its corresponding contexts are logically
-    equivalent. *)
-
-val context_ctxt_of : context -> atom list
+val context_ctxt_of : value -> value
   (** [context_ctxt_of s] returns the logical context of [s] as a set of atoms. *)
-
   
-val context_find : th -> context -> Term.t -> Term.t * justification
+val context_occ : value -> value -> value -> value
+  (** [context_occ th s x] iff [x] occurs in the is in the equality set 
+    for theory [th] in [s]. *)
+  
+val context_find : value -> value -> value -> value
   (** [find th s x] is [a] if [x = a] is in the solution set for theory [th]
     in [s]; otherwise, the result is just [x]. *)
   
-val context_inv : th -> context -> Term.t -> Term.t
-  (** [inv th s a] is [x] if there is [x = a] in the solution set for
+val context_inv : value -> value -> value
+  (** [inv s a] is [x] if there is [x = a] in the solution set for
     theory [th]; otherwise [Not_found] is raised. *)
   
-val context_use : th -> context -> Term.t -> Term.t list
+val context_use : value -> value -> value -> value
   (** [use th s x] consists of the set of all term variables [y] such
     that [y = a] in [s], and [x] is a variable [a]. *)
 
-val context_empty : unit -> context
+val context_empty : unit -> value
   (** [context_empty()] represents the empty logical context. *)
 
-type status
+val is_status : value -> value
   (** Inhabitants of type status are used as return values for {!Ics.process}.
     There are three possible outcomes.
     - [Redundant] implies the argument [a] in {!Ics.process}[s a] is valid in context [s].
     - [Inconsistent] implies the argument [a] conjoined with [s] in {!Ics.process}[s a] is inconsistent.
     - [Consistent] neither a redundancy nor an inconsistency could be detected. *)
     
-val is_consistent   : status -> bool
-  (** If [st] is the result of [process ctxt atm], then [is_consistent st] 
-    holds if [atm] has not been shown to be valid in [ctxt] and if [atm] conjoined
-    with [ctxt] has not been shown to be unsatisfiable.  Notice that, despite the
-    name of this function, this does not necessarily imply that [ctxt] extended 
-    with [atm] is indeed satisfiable, since [process] does not perform all the 
-    necessary case splits for some of the nonconvex theories such as integers.
-    Also, the support for nonlinear arithmetic is incomplete.  Therefore, one
-    can only be sure that a context is indeed satisfiable by explicitly 
-    constructing a model. *)
+val is_consistent   : value -> value
+val is_redundant    : value -> value
+val is_inconsistent : value -> value
 
-val is_redundant : status -> bool
-  (** If [st] is the result of [process ctxt atm], then [is_redundant st]
-    holds if [atm] could be shown to be valid in [ctxt]. *)
-
-val is_inconsistent : status -> bool
-  (** If [st] is the result of [process ctxt atm], then [is_inconsistent st]
-    holds if [atm] conjoined with [ctxt] is inconsistent. *)
-
-val d_consistent : status -> context
-  (** In case [is_consistent st] holds and [st] is the result of 
-    [process ctxt atm], [d_consistent st] returns 
-    the extended context for [ctxt] conjoined with [atm]. *)
-
-val d_redundant : status -> justification
-  (** In case [is_redundant st] and [st] is the result of [process ctxt atm],
-    then [d_redundant st] returns a justification [rho] for the fact that
-    [atm] is valid in context [ctxt]. *)
-
-val d_inconsistent : status -> justification
-  (** In case [is_inconsistent st] and [st] is the result of [process ctxt atm],
-    then [d_inconsistent st] returns a justification [rho] for the fact that
-    [atm] conjoined with the context [ctxt] is unsatisfiable. *)
-
+val d_consistent : value -> value
+  (** In case [is_consistent st] holds, [d_consistent st] returns the extended context. *)
     
-val process : context -> atom -> status
+val process : value -> value -> value
   (** The operation [process s a] adds a new atom [a] to a logical context [s].
     The codomain of this function is of type [status], elements of
     which represent the three possible outcomes of processing an atom
@@ -876,14 +391,12 @@ val process : context -> atom -> status
     imply that atom [a] is indeed satisfiable, since the theory of ICS is indeed
     undecidable.  Moreover, ICS includes a number of nonconvex theories, which
     requires case-splitting for completeness.  [process] does not perform these
-    case-splits in order to keep worst-case runtimes polynomial.  Instead, 
-    it is in the responsibility of the application programmer to perform 
-    these splits; see also {!Ics.split}. *)
+    case-splits in order to keep worst-case runtimes polynomial (with the notable
+    exception of canonization of logical bitwise operators).  Instead, it is in 
+    the responsibility of the application programmer to perform these splits;
+    see also {!Ics.split}. *)
 
-val split : context -> atom list
-  (** Suggested case splits. Not available in versions <= 2.1 *)
-
-val can : context -> term -> term * justification
+val can : value -> value -> value
   (** Given a logical context [s] and an atom [a],
     [can s a] computes a semicanonical form of [a] in [s], that is,
     - if [a] holds in [s] it returns [Atom.True], 
@@ -891,16 +404,9 @@ val can : context -> term -> term * justification
     - an equivalent normalized atom built up only from variables is returned. *)
 
 
-val dom : context -> term -> dom * justification
-  (** Given a logical context [s] and a term [a], [cnstrnt s a]
-    computes an arithmetic constraint for [a] in [s] using constraint 
-    information in [s] and abstraction interval interpretation.
-    If no such constraint can be deduced, [None] is returned. *)
-
-
 (** {6 Propositional logic} *)
 
-type prop
+val is_prop : value -> value
   (** Representation of propositional formulas with propositional 
     variables and atoms as literals. A propositional formual is either
     - one of the propositional constants [tt], [ff]
@@ -910,84 +416,50 @@ type prop
     - a disjunction [p1 | ... | pn],
     - a negation [~p]. *)
 
-val prop_pp : prop -> unit
-  (** Printing a propositional formula. *)
-
-val prop_of_string : string -> prop
+val prop_of_name : value -> value
   (** Parsing a string to obtain a propositional formula.
     The syntax of propositional formulas is roughly given by
     the grammar above, and brackets [[]] are used for grouping.
     For details of the grammar see file [parser.mly]. *)
 
-val prop_to_string  : prop -> string
+val prop_to_name : value -> value
   (** Pretty-print a propositional variable to a string. *)
  
-val prop_mk_true : unit -> prop
+val prop_mk_true : unit -> value
   (** The trivially true propositional formula. *)
 
-val prop_mk_false : unit -> prop
+val prop_mk_false : unit -> value
   (** The trivially false propositional formula. *)
 
-val prop_mk_var : name -> prop
-  (** Constructing a propositional variable. *)
+val prop_mk_var : value -> value
+  (** Given a name value [n], that is [Ics.is_name n] holds,
+    [Ics.prop_mk_var n] constructs a propositional variable [p].
+    In particular, [Ics.is_prop p] holds. *)
 
-val prop_mk_poslit : atom -> prop
+val prop_mk_poslit : value -> value
   (** Injecting an atom into a propositional formula. *)
 
-val prop_mk_neglit : atom -> prop
+val prop_mk_neglit : value -> value
  (** Injecting a negated atom into a propositional formula. *)
 
-val prop_mk_ite : prop -> prop -> prop -> prop
+val prop_mk_ite : value -> value -> value -> value
  (** [prop_mk_ite p q r] constructs a propositional formula
    equivalent to [prop_mk_disj (prop_mk_conj p q) (prop_mk_conj (prop_mk_neg p) r)]. *)
 
-val prop_mk_conj : prop list -> prop
+val prop_mk_conj : value -> value
   (** [prop_mk_conj [p1;...;pn]] constructs a representation of the 
     conjunction of [p1 & ... & pn] with the empty list [[]] equivalent to [prop_mk_true()]. *)
 
-val prop_mk_disj : prop list -> prop
+val prop_mk_disj : value -> value
  (** [prop_mk_disj p q] constructs a representation of the disjunction of [p] and [q]. *)
 
-val prop_mk_iff : prop -> prop ->prop
+val prop_mk_iff : value -> value ->value
  (** [prop_mk_iff p q] constructs a representation of the equivalence of [p] and [q]. *)
 
-val prop_mk_neg : prop -> prop
+val prop_mk_neg : value -> value
  (** [prop_mk_neg p] constructs a representation of the negation of [p]. *)
 
-(** Exactly one of the following recognizers is true for a propositional formula. *)
-val prop_is_true : prop -> bool
-val prop_is_false : prop -> bool
-val prop_is_var : prop -> bool
-val prop_is_atom : prop -> bool
-val prop_is_ite : prop -> bool
-val prop_is_disj : prop -> bool
-val prop_is_iff : prop -> bool
-val prop_is_neg : prop -> bool
-
-(** If the corresponding recognizer above holds, propositional formulas may
-  be destructured using the following. *)
-val prop_d_var : prop -> name
-val prop_d_atom : prop -> atom
-val prop_d_ite : prop -> prop * prop * prop
-val prop_d_disj : prop -> prop * prop
-val prop_d_iff : prop -> prop * prop
-val prop_d_neg : prop -> prop
-
-
-
-type assignment
-  (** Representation of assignments for propositional formulas. *)
-
-val assignment_pp : assignment -> unit
-  (** Pretty-printing assignments. *)
-
-val assignment_valuation : assignment -> (name * bool) list
-  (** Assignments to propositional variables. *)
-
-val assignment_literals : assignment -> atom list
-  (** Assignment to nonpropositional literas. *)
-
-val prop_sat : context -> prop -> assignment option
+val prop_sat : value -> value -> value
   (** [prop_sat s p] determines if the propositional formula 
     [p] is satisfiable in context [s].  It returns
     - [None], if [p] is unsatisfiable,
@@ -1002,7 +474,7 @@ val prop_sat : context -> prop -> assignment option
  output channels. A global [istate] variable is manipulated and
  destructively updated by commands. *)
 
-val init : int -> unit
+val init : value -> unit
   (** Initialization. [init n] sets the verbose level to [n]. The higher
     the verbose level, the more trace information is printed to [stderr]
     (see below). There are no trace messages for [n = 0]. In addition, 
@@ -1010,23 +482,31 @@ val init : int -> unit
     user interrupt [^C^C].  The [init] function should be called before
     using any other function in this API. *)
 
-val set_outchannel : outchannel -> unit
-val set_inchannel : inchannel -> unit
-val set_prompt : string -> unit
-val set_eot : string -> unit
-
 val cmd_rep : unit -> unit
   (** [cmd_rep] reads a command from the current input channel according
     to the grammar for the nonterminal [commandeof] in module [Parser] (see
     its specification in file [parser.mly], the current internal [istate] 
     accordingly, and outputs the result to the current output channel. *)
 
-val cmd_batch : inchannel -> int
-  (** Similar to {!Ics.cmd_rep}, but syntax error messages contain line numbers,
-    and processing is aborted after state is unsatisfiable. *)
+val cmd_batch : unit -> value
+  (** [Ics.cmd_batch ()] reads
+    commands from standard input. In contrast, to [Ics.cmd_rep],
+    however, syntax error messages contain line numbers and processing is 
+    aborted after state is unsatisfiable. *)
 
 val flush : unit -> unit
   (** Flush currently active output channel. *)
+
+
+
+(** {6 Parameters} *)
+
+val set : value -> value -> unit
+  (** [set name v] sets the value of parameter [name] to [v]. *)
+
+val get : value -> value
+  (** [get name] gets the value of parameter [name]. *)
+
 
 
 (** {6 Controls} *)
@@ -1039,75 +519,7 @@ val reset : unit -> unit
 val gc : unit -> unit
   (** [gc()] triggers a full major collection of ocaml's garbage collector. *)
 
-val sleep : int -> unit
+val sleep : value -> unit
   (** Sleeping for a number of seconds. *)
-
-
-(** {6 Tracing} *)
-
-(** Rudimentary control on trace messages, which are 
- sent to [stderr]. These functions are mainly included
- for debugging purposes, and are usually not being used
- by the application programmer. *)
-
-val trace_reset : unit -> unit
-  (** [trace_reset()] disables all tracing. *)
-
-val trace_add : string -> unit
-  (** [trace_add str] enables tracing of functions associated with trace level [str].
-    For example, [trace_add "rule"] traces the calls for processing all generated equalities,
-    disequalities, and constraints. *)
-
-val trace_remove : string -> unit
-  (** [trace_remove str] removes [str] from the set of active trace levels *)
-
-val trace_get : unit -> string list
-    (** [trace_get()] returns the set of active trace levels. *)
-
-
-(** {6 Lists} *)
-
-val is_nil : 'a list -> bool
-val cons : 'a -> 'a list -> 'a list
-val head : 'a list -> 'a
-val tail : 'a list -> 'a list
-
-
-(** {6 Pairs} *)
-
-val pair : 'a -> 'b -> 'a * 'b
-  (** [pair a b] builds a pair [(a,b)]. *)
-  
-val fst : 'a * 'b -> 'a
-  (** [fst p] returns [b] if [p] is equal to some [pair a _]. *)
-  
-val snd : 'a * 'b -> 'b
-  (** [snd p] returns [b] if [p] is equal to some [pair _ b]. *)
-
-
-(** {6  Triples}  *)
-
-val triple : 'a -> 'b -> 'c -> 'a * 'b * 'c
-val fst_of_triple : 'a * 'b *'c -> 'a
-val snd_of_triple : 'a * 'b *'c -> 'b
-val third_of_triple : 'a * 'b *'c -> 'c
-
-
-(** {6 Quadruples} *)
-
-val fst_of_quadruple : 'a * 'b * 'c *'d -> 'a
-val snd_of_quadruple : 'a * 'b * 'c *'d -> 'b
-val third_of_quadruple : 'a * 'b * 'c *'d -> 'c
-val fourth_of_quadruple : 'a * 'b * 'c *'d -> 'd
-
-(** {6 Option types} *) 
-
-(** An element of type ['a option] either satisfies
-  the recognizer [is_some] or [is_none].  In case, [is_some]
-  holds, a value of type ['a] can be obtained by [value_of].  *)
-
-val is_some : 'a option -> bool
-val is_none : 'a option -> bool
-val value_of : 'a option -> 'a
 
 

@@ -79,3 +79,18 @@ val accb : 'a list ref -> ('b -> 'a option) -> 'b -> bool
     [p b] is of the form [Some(a)], then [a] is consed to [acc] 
     as a side effect and the result [true] is returned. Otherwise,
     if [p b] is [None], there is no side effect, and [false] is returned. *)
+
+
+(** {6 Transformations} *)
+
+module Inchannel : sig
+  type t = Pervasives.in_channel
+  val of_string : string -> t
+  val to_string : t -> string
+end 
+
+module Outchannel : sig
+  type t = Format.formatter
+  val of_string : string -> t
+  val to_string : t -> string
+end 

@@ -14,12 +14,13 @@
 (** Operations on an AC symbol. *)
 
 module type SIG = sig
-  val th : Th.t
-  val f : Sym.t
+  val th : string
+  val f : string
 end 
 
 module type TERM = sig
-  val d_interp : Term.t -> Term.t * Term.t
+  val arg1: Term.t -> Term.t
+  val arg2: Term.t -> Term.t
   val is_interp : Term.t -> bool 
   val make : Term.t -> Term.t -> Term.t
   val iterate : Term.t -> int -> Term.t
@@ -27,37 +28,79 @@ module type TERM = sig
   val decompose : Term.t -> (Term.t * int) * Term.t option
   val fold : (Term.t -> int -> 'a -> 'a) -> Term.t -> 'a -> 'a
   val iter : (Term.t -> int -> unit) -> Term.t -> unit
-  val sigma : Sym.t -> Term.t list -> Term.t
+  val sigma : Funsym.t -> Term.t list -> Term.t
   val map : (Term.t -> Term.t) -> Term.t -> Term.t
 end
 
 module Make(Sig: SIG): TERM = struct
 
-  let d_interp a =
-    match Term.App.destruct a with
-      | f, [a1; a2] when Sym.eq f Sig.f ->
-	  (a1, a2)
-      | _ ->
-	  raise Not_found
+  (** Theory definition. *)
+  let theory = Theory.create Sig.th
 
-  let is_interp a = 
+  let is_theory = Theory.eq theory
+
+
+  (** Interpreted operations. *)
+  module Op = struct
+
+    let f: Funsym.t = Funsym.create theory Sig.f
+			
+    let pp fmt _ =
+      Format.fprintf fmt "%s" Sig.f
+	
+    let eq _ _ = true
+		   
+    let _ = Funsym.register theory (pp, eq)
+	      
+    let get f =
+      let i = Funsym.theory_of f in
+	if is_theory i then Funsym.get theory f else raise Not_found
+	  
+    let is_interp f = 
+      is_theory (Funsym.theory_of f)
+	
+    let unsafe_get f = 
+      assert(is_interp f);
+      Funsym.get theory f
+  end 
+    
+  let op a = Op.get (Term.sym_of a)
+
+  let is_interp a =
+    Op.is_interp (Term.sym_of a)
+      
+  let arg1 a =
+    if is_interp a then 
+      match Term.args_of a with
+	| [a1; _] -> a
+	| _ -> raise Not_found
+    else 
+      raise Not_found
+	
+  let arg2 a =
+    if is_interp a then 
+      match Term.args_of a with
+	| [_; a2] -> a2
+	| _ -> raise Not_found
+    else 
+      raise Not_found
+	
+  let rec is_pure a =
     try
-      (match Term.App.destruct a with
-	| f, [a1; a2] when Sym.eq f Sig.f -> true
-	| _ -> false)
+      is_interp a && is_pure (arg1 a) && is_pure (arg2 a)
     with
-	Not_found -> false
+	Not_found ->  Term.is_var a
 
   (** Ordered right-associative applications of AC symbol [f] *)
   let rec make a b =
     try
-      let (a1, a2) = d_interp a in
+      let a1 = arg1 a and a2 = arg2 a in
 	make a1 (make a2 b)
     with
 	Not_found -> 
 	  assert(not(is_interp a));
 	  try
-	    let (b1, b2) = d_interp b in
+	    let b1 = arg1 b and b2 = arg2 b in
 	    let cmp = Term.cmp a b1 in
 	      if Term.cmp a b1 <= 0 then   (* case [a <= b1] *)
 		mk_app a b
@@ -72,14 +115,14 @@ module Make(Sig: SIG): TERM = struct
 		  mk_app b a
 
   and mk_app a b = 
-    Term.App.mk_app Sig.f [a; b]
+    Term.mk_app Op.f [a; b]
       
 
   (** Number of occurrences of [x] in [a]. *)  
   let multiplicity x =
     let rec scan acc a =
       try
-	let (y, b) = d_interp a in
+	let y = arg1 a and b = arg2 a in
 	let cmp = Term.cmp x y in
 	  if cmp < 0 then        (* [x << y] *)
 	    scan acc b
@@ -98,10 +141,10 @@ module Make(Sig: SIG): TERM = struct
     if input term is not a multiplication. *)
   let decompose a =
     try
-      let (x, _) = d_interp a in  
+      let x = arg1 a in
       let rec scan acc post =
 	try
-	  let (y, b) = d_interp post in
+	  let y = arg1 post and b = arg2 post in
 	    if Term.eq x y then
 	      scan (acc + 1) b
 	    else 
@@ -143,19 +186,27 @@ module Make(Sig: SIG): TERM = struct
 	
 
   (** Sigma normal forms. *)
-  let sigma g = function
-    | [a; b] when Sym.eq Sig.f g -> make a b
-    | al -> Term.App.mk_app g al
+  let sigma g = 
+    assert(Op.is_interp g);
+    function
+      | [a; b] -> make a b
+      | al -> Term.mk_app g al
 
  
   (** Apply [f] to uninterpreted positions. *)
-  let rec map f a = 
-    try
-      let (a1, a2) = d_interp a in
-      let b1 = map f a1 and b2 = map f a2 in
-	if a1 == b1 && a2 == b2 then a else make b1 b2
-    with
+  let map f = 
+    let rec mapf a =
+      try
+	if is_interp a then
+	  let a1 = arg1 a and a2 = arg2 a in
+	  let b1 = mapf a1 and b2 = mapf a2 in
+	    if a1 == b1 && a2 == b2 then a else make b1 b2
+	else 
+	  f a
+      with
 	Not_found -> f a
+    in
+      mapf
 	  
 	  
   (** Replacing a variable with a term. *)

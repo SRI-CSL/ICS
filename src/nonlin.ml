@@ -16,12 +16,12 @@ open Mpa
 
 let rec mk_mult a b =
   try
-    let op, xl = Arith.d_interp a in
+    let op, xl = Linarith.d_interp a in
       mk_mult_arith op xl b
   with
       Not_found -> 
 	(try
-	   let op, yl = Arith.d_interp b in
+	   let op, yl = Linarith.d_interp b in
 	     mk_mult_arith op yl a
 	 with
 	     Not_found -> Pprod.mk_mult a b)
@@ -29,32 +29,32 @@ let rec mk_mult a b =
 and mk_mult_arith op yl b =
   match op, yl with
     | Sym.Num(q), [] -> 
-	Arith.mk_multq q b
+	Linarith.mk_multq q b
     | Sym.Multq(q), [x] -> 
-	Arith.mk_multq q (mk_mult x b)
+	Linarith.mk_multq q (mk_mult x b)
     | Sym.Add, _ ->
 	mk_mult_add b yl
     | _ ->
 	assert false
 
 and mk_mult_add a yl =
-  Arith.mk_addl (mapl (mk_mult a) yl)
+  Linarith.mk_addl (mapl (mk_mult a) yl)
 
 and mk_multl al =
-  List.fold_left mk_mult (Arith.mk_one()) al
+  List.fold_left mk_mult (Linarith.mk_one()) al
 
 and mk_expt a n =
   assert(n >= 0);
-  if n = 0 then Arith.mk_one() else 
+  if n = 0 then Linarith.mk_one() else 
     mk_mult a (mk_expt a (n - 1))
 
 
 (** Mapping a term transformer [f] over [a]. *)
 let rec map f a = 
-  if Arith.is_interp a then
-    Arith.map (Pprod.map f) a
+  if Linarith.is_interp a then
+    Linarith.map (Pprod.map f) a
   else if Pprod.is_interp a then
-    Pprod.map (Arith.map f) a
+    Pprod.map (Linarith.map f) a
   else 
     f a
 

@@ -9,11 +9,9 @@
  * is Copyright (c) SRI International 2003, 2004.  All rights reserved.
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
- * 
- * Author: Harald Ruess
  *)
 
-(** Application programming interface. *)
+(** {6 Initialization} *)
 
 open Format
 
@@ -45,831 +43,12 @@ let _ = Callback.register "init" init
 let version = Version.print
 let _ = Callback.register "version" version
 
+let api_error str = 
+  let str' = Format.sprintf "ICS API Error: %s.@." str in
+    invalid_arg str'
 
-(** {6 Parameters} *)
 
-let set_profile b = Tools.profiling := b
-let _ = Callback.register "set_profile" set_profile
-
-let set_pretty mode = Pretty.flag := Pretty.Mode.of_string mode
-let _ = Callback.register "set_pretty" set_pretty
-
-let set_compactify b =  V.garbage_collection_enabled := b
-let _ = Callback.register "set_compactify" set_compactify
-
-let set_verbose b = Prop.set_verbose b; Context.verbose := true
-let _ = Callback.register "set_verbose" set_verbose
-
-let set_assertion_frequency = Prop.set_assertion_frequency
-let _ = Callback.register "set_assertion_frequency" set_assertion_frequency
-
-let set_remove_subsumed_clauses = Prop.set_remove_subsumed_clauses
-let _ = Callback.register "set_remove_subsumed_clauses" set_remove_subsumed_clauses
-
-let set_validate = Prop.set_validate
-let _ = Callback.register "set_validate" set_validate
-
-let set_polarity_optimization = Prop.set_polarity_optimization
-let _ = Callback.register "set_polarity_optimization" set_polarity_optimization
-
-let set_clause_relevance = Prop.set_clause_relevance
-let _ = Callback.register "set_clause_relevance" set_clause_relevance
-
-let set_cleanup_period = Prop.set_cleanup_period
-let _ = Callback.register "set_cleanup_period" set_cleanup_period
-
-let set_num_refinements = Prop.set_num_refinements
-let _ = Callback.register "set_num_refinements" set_num_refinements
-
-let set_justifications b =  Fact.print_justification := b
-let _ = Callback.register "set_justifications" set_justifications
-
-let set_statistic b =  Prop.statistics := b
-let _ = Callback.register "set_statistic" set_statistic
-
-let set_show_explanations b =  Prop.show_explanations := b
-let _ = Callback.register "set_show_explanations" set_show_explanations
-
-let set_integer_solve b = Arith.integer_solve := b
-let _ = Callback.register "set_integer_solve" set_integer_solve
-
-let set_proofmode str = Jst.Mode.set(Jst.Mode.of_string str)
-let _ = Callback.register "set_proofmode" set_proofmode
-
-let set_gc_mode str =   
-  let control= Gc.get() in
-    match str with
-      | "lazy" -> Gc.set {control with Gc.space_overhead = 10000; Gc.max_overhead = 1000000}
-      | "eager" -> Gc.set {control with Gc.space_overhead = 10; Gc.max_overhead = 100}
-      | str -> raise(Invalid_argument "no such GC option")
-let _ = Callback.register "set_gc_mode" set_gc_mode
-
-let set_gc_space_overhead overhead =  
-  let control = Gc.get () in
-    Gc.set {control with Gc.space_overhead = overhead}
-let _ = Callback.register "set_gc_space_overhead" set_gc_space_overhead
-
-let set_gc_max_overhead overhead = 
-  let control = Gc.get () in
-    Gc.set {control with Gc.max_overhead = overhead}
-let _ = Callback.register "set_gc_max_overhead" set_gc_max_overhead
-
-
-
-(** {6 Channels} *)
-
-type inchannel = in_channel
-type outchannel = Format.formatter
-
-let channel_stdin () = Pervasives.stdin
-let _ = Callback.register "channel_stdin" channel_stdin
-
-let channel_stdout () = Format.std_formatter
-let _ = Callback.register "channel_stdout"  channel_stdout
-
-let  channel_stderr () = Format.err_formatter
-let _ = Callback.register "channel_stderr"  channel_stderr
-
-let inchannel_of_string = Pervasives.open_in
-let _ = Callback.register "inchannel_of_string" inchannel_of_string
-
-let outchannel_of_string str = 
-  Format.formatter_of_out_channel (Pervasives.open_out str)
-let _ = Callback.register "outchannel_of_string" outchannel_of_string
-
-
-(** {6 Names} *)
-
-type name = Name.t
-
-let name_of_string = Name.of_string
-let _ = Callback.register "name_of_string" name_of_string
-
-let name_to_string = Name.to_string
-let _ = Callback.register "name_to_string" name_to_string
-
-let name_eq = Name.eq
-let _ = Callback.register "name_eq" name_eq
-
-
-(** {6 Constrains} *)
-
-
-type dom = Dom.t
-
-let dom_mk_int () = Dom.Int
-let _ = Callback.register "dom_mk_int" dom_mk_int
-
-let dom_mk_real () = Dom.Real
-let _ = Callback.register "dom_mk_real" dom_mk_real
-
-let dom_mk_nonint () = Dom.Nonint
-let _ = Callback.register "dom_mk_nonint" dom_mk_nonint
-
-let dom_is_int d = (d = Dom.Int)
-let _ = Callback.register "dom_is_int" dom_is_int
-
-let dom_is_real d = (d = Dom.Real)
-let _ = Callback.register "dom_is_real" dom_is_real
-
-let dom_is_nonint d = (d = Dom.Nonint)
-let _ = Callback.register "dom_is_nonint" dom_is_nonint
-
-
-(** {6 Theories} *)
-
-type th = Th.t
-
-let th_to_string = Th.to_string
-let _ = Callback.register "th_to_string" th_to_string
-
-let th_of_string = Th.of_string
-let _ = Callback.register "th_of_string" th_of_string
-
-
-(** {6 Function Symbols} *)
-
-type sym = Sym.t
-(** Function symbols are partitioned into uninterpreted
- function symbols and function symbols interpreted in one of the
- builtin theories. For each interpreted function symbol there is
- a recognizer function [is_xxx].  Some values of type [sym] represent 
- families of function symbols. The corresponding indices can be obtained
- using the destructor [d_xxx] functions (only after checking that [is_xxx]
- holds. *)
-
-let sym_eq = Sym.eq
-let _ = Callback.register "sym_eq" sym_eq
-
-let sym_cmp = Sym.cmp
-let _ = Callback.register "sym_cmp" sym_cmp
-
-let sym_theory_of = Sym.theory_of
-let _ = Callback.register "sym_theory_of" sym_theory_of
-
-let sym_is_uninterp = Sym.Uninterp.is
-let _ = Callback.register "sym_is_uninterp" sym_is_uninterp
-
-let sym_d_uninterp = Sym.Uninterp.get
-let _ = Callback.register "sym_d_uninterp" sym_d_uninterp
-
-let sym_mk_num = Sym.Arith.mk_num
-let _ = Callback.register "sym_mk_num" sym_mk_num
-
-let sym_is_num = Sym.Arith.is_num
-let _ = Callback.register "sym_is_num" sym_is_num
-
-let sym_d_num = Sym.Arith.d_num
-let _ = Callback.register "sym_d_num" sym_d_num
-
-let sym_mk_multq = Sym.Arith.mk_multq
-let _ = Callback.register "sym_mk_multq" sym_mk_multq
-
-let sym_is_multq = Sym.Arith.is_multq
-let _ = Callback.register "sym_is_multq" sym_is_multq
-
-let sym_d_multq = Sym.Arith.d_multq
-let _ = Callback.register "sym_d_multq" sym_d_multq
-
-let sym_mk_add () = Sym.Arith.mk_add
-let _ = Callback.register "sym_mk_add" sym_mk_add
-
-let sym_is_add = Sym.Arith.is_add
-let _ = Callback.register "sym_is_add" sym_is_add
-
-let sym_mk_cons () = Sym.Product.mk_cons
-let _ = Callback.register "sym_mk_cons" sym_mk_cons
-
-let sym_is_cons = Sym.Product.is_cons
-let _ = Callback.register "sym_is_cons" sym_is_cons
-
-let sym_mk_car () = Sym.Product.mk_car
-let _ = Callback.register "sym_mk_car" sym_mk_car
-
-let sym_is_car  = Sym.Product.is_car
-let _ = Callback.register "sym_is_car" sym_is_car
-
-let sym_mk_cdr () = Sym.Product.mk_cdr
-let _ = Callback.register "sym_mk_cdr" sym_mk_cdr
-
-let sym_is_cdr = Sym.Product.is_cdr
-let _ = Callback.register "sym_is_cdr" sym_is_cdr
-
-let sym_mk_inl () = Sym.Coproduct.mk_inl
-let _ = Callback.register "sym_mk_inl" sym_mk_inl
-
-let sym_is_inl = Sym.Coproduct.is_inl
-let _ = Callback.register "sym_is_inl" sym_is_inl
-
-let sym_mk_inr () = Sym.Coproduct.mk_inr
-let _ = Callback.register "sym_mk_inr" sym_mk_inr
-
-let sym_is_inr = Sym.Coproduct.is_inr
-let _ = Callback.register "sym_is_inr" sym_is_inr
-
-let sym_mk_outl () = Sym.Coproduct.mk_outl
-let _ = Callback.register "sym_mk_outl" sym_mk_outl
-
-let sym_is_outl = Sym.Coproduct.is_outl
-let _ = Callback.register "sym_is_outl" sym_is_outl
-
-let sym_mk_outr () = Sym.Coproduct.mk_outr
-let _ = Callback.register "sym_mk_outr" sym_mk_outr
-
-let sym_is_outr = Sym.Coproduct.is_outr
-let _ = Callback.register "sym_is_outr" sym_is_outr
-
-let sym_mk_mult () = Sym.Pprod.mk_mult
-let _ = Callback.register "sym_mk_mult" sym_mk_mult
-
-let sym_is_mult = Sym.Pprod.is_mult
-let _ = Callback.register "sym_is_mult" sym_is_mult
-
-let sym_mk_bv_const s = Sym.Bv.mk_const (Bitv.from_string s)
-let _ = Callback.register "sym_mk_bv_const" sym_mk_bv_const
-
-let sym_is_bv_const = Sym.Bv.is_const
-let _ = Callback.register "sym_is_bv_const" sym_is_bv_const
-
-let sym_mk_bv_conc  = Sym.Bv.mk_conc
-let _ = Callback.register "sym_mk_bv_conc" sym_mk_bv_conc
-
-let sym_is_bv_conc = Sym.Bv.is_conc
-let _ = Callback.register "sym_is_bv_conc" sym_is_bv_conc
-
-let sym_d_bv_conc = Sym.Bv.d_conc
-let _ = Callback.register "sym_d_bv_conc" sym_d_bv_conc
-
-let sym_mk_bv_sub  = Sym.Bv.mk_sub
-let _ = Callback.register "sym_mk_bv_sub" sym_mk_bv_sub
-
-let sym_is_bv_sub = Sym.Bv.is_sub
-let _ = Callback.register "sym_is_bv_sub" sym_is_bv_sub
-
-let sym_d_bv_sub = Sym.Bv.d_sub
-let _ = Callback.register "sym_d_bv_sub" sym_d_bv_sub
-
-
-let sym_mk_update () = Sym.Array.mk_update
-let _ = Callback.register "sym_mk_update" sym_mk_update
-
-let sym_is_select = Sym.Array.is_select
-let _ = Callback.register "sym_is_select" sym_is_select
-
-let sym_mk_select () = Sym.Array.mk_select
-let _ = Callback.register "sym_mk_select" sym_mk_select
-
-let sym_is_update = Sym.Array.is_update
-let _ = Callback.register "sym_is_update" sym_is_update
-
-let sym_mk_apply () = Sym.Cl.apply
-let _ = Callback.register "sym_mk_apply" sym_mk_apply
-
-let sym_is_apply = Sym.Cl.is_apply
-let _ = Callback.register "sym_is_apply" sym_is_apply
-
-let sym_mk_s () = Sym.Cl.s
-let _ = Callback.register "sym_mk_s" sym_mk_s
-
-let sym_is_s = Sym.Cl.is_s
-let _ = Callback.register "sym_is_s" sym_is_s
-
-let sym_mk_k () = Sym.Cl.k
-let _ = Callback.register "sym_mk_k" sym_mk_k
-
-let sym_is_k = Sym.Cl.is_k
-let _ = Callback.register "sym_is_k" sym_is_k
-
-let sym_mk_i () = Sym.Cl.i
-let _ = Callback.register "sym_mk_i" sym_mk_i
-
-let sym_is_i = Sym.Cl.is_i
-let _ = Callback.register "sym_is_i" sym_is_i
-
-
-let sym_mk_empty () = Sym.Propset.mk_empty
-let _ = Callback.register "sym_mk_empty" sym_mk_empty
-
-let sym_is_empty = Sym.Propset.is_empty
-let _ = Callback.register "sym_is_empty" sym_is_empty
-
-let sym_mk_full () = Sym.Propset.mk_full
-let _ = Callback.register "sym_mk_full" sym_mk_full
-
-let sym_is_full = Sym.Propset.is_full
-let _ = Callback.register "sym_is_full" sym_is_full
-
-let sym_mk_ite () = Sym.Propset.mk_ite
-let _ = Callback.register "sym_mk_ite" sym_mk_ite
-
-let sym_is_ite = Sym.Propset.is_ite
-let _ = Callback.register "sym_is_ite" sym_is_ite
-
-
-(** {6 Terms} *)
-  
-type term = Term.t
-(** Terms are either variables, uninterpreted applications,
-  or interpreted applications including boolean terms. *)
-
-let term_of_string s =
-  let lb = Lexing.from_string s in Parser.termeof Lexer.token lb
-let _ = Callback.register "term_of_string" term_of_string
-
-let term_to_string = Pretty.to_string Term.pp 
-let _ = Callback.register "term_to_string" term_to_string
-
-let term_input ch =
-  let lb = Lexing.from_channel ch in Parser.termeof Lexer.token lb
-let _ = Callback.register "term_input" term_input
-
-let term_output = Term.pp
-let _ = Callback.register "term_output" term_output
-
-let term_pp a = Term.pp Format.std_formatter a; Format.print_flush ()
-let _ = Callback.register "term_pp" term_pp
-
-
-(** Construct a variable. *)
-let term_mk_var str =
-  let x = Name.of_string str in
-  Term.Var.mk_var x Var.Cnstrnt.Unconstrained
-let _ = Callback.register "term_mk_var" term_mk_var
-
-let term_mk_dom_var str dom =
-  let x = Name.of_string str in
-  Term.Var.mk_var x (Var.Cnstrnt.mk_real dom)
-let _ = Callback.register "term_mk_dom_var" term_mk_dom_var
-
-
-(** Uninterpred function application and function update. *)     
-let term_mk_uninterp x l =
-  let f = Sym.Uninterp.make (Name.of_string x) in
-  App.sigma f l
-let _ = Callback.register "term_mk_uninterp" term_mk_uninterp
-
-  
-(** Constructing arithmetic expressions. *)
-let term_mk_num = Arith.mk_num
-let _ = Callback.register "term_mk_num" term_mk_num
-
-let term_mk_multq q = Arith.mk_multq q
-let _ = Callback.register "term_mk_multq" term_mk_multq
-
-let term_mk_add = Arith.mk_add
-let _ = Callback.register "term_mk_add" term_mk_add
-
-let term_mk_addl = Arith.mk_addl
-let _ = Callback.register "term_mk_addl" term_mk_addl
-
-let term_mk_sub  = Arith.mk_sub
-let _ = Callback.register "term_mk_sub" term_mk_sub
-
-let term_mk_unary_minus  = Arith.mk_neg
-let _ = Callback.register "term_mk_unary_minus" term_mk_unary_minus
-
-let term_is_arith = Arith.is_interp
-let _ = Callback.register "iterm_s_arith" term_is_arith
-
-
-(** Constructing tuples and projections. *)
-let term_mk_tuple = Product.mk_tuple
-let _ = Callback.register "term_mk_tuple" term_mk_tuple
-
-let term_mk_proj i = Product.mk_proj i
-let _ = Callback.register "term_mk_proj" term_mk_proj
-
-
-(** Bitvector terms. *)
-let term_mk_bvconst s = Bitvector.mk_const (Bitv.from_string s)
-let _ = Callback.register "term_mk_bvconst" term_mk_bvconst
-
-let term_mk_bvsub (n,i,j) = Bitvector.mk_sub n i j
-let _ = Callback.register "term_mk_bvsub" term_mk_bvsub
-
-let term_mk_bvconc (n,m) = Bitvector.mk_conc n m
-let _ = Callback.register "term_mk_bvconc" term_mk_bvconc
-
-	  
-(** Boolean terms. *)
-let term_mk_true = Boolean.mk_true
-let _ = Callback.register "term_mk_true" term_mk_true
-
-let term_mk_false = Boolean.mk_false
-let _ = Callback.register "term_mk_false" term_mk_false
-
-(** Coproducts. *)
-let term_mk_inj = Coproduct.mk_inj
-let _ = Callback.register "term_mk_inj" term_mk_inj
-
-let term_mk_out = Coproduct.mk_out
-let _ = Callback.register "term_mk_out" term_mk_out
-
-
-(** {6 Atoms} *)
-
-type atom = Atom.t
-
-let atom_pp a = 
-  Atom.pp Format.std_formatter a;
-  Format.print_flush ()
-let _ = Callback.register "atom_pp" atom_pp
-
-let atom_of_string s = 
-  let lb = Lexing.from_string s in 
-  Parser.atomeof Lexer.token lb
-let _ = Callback.register "atom_of_string" atom_of_string
-
-let atom_to_string = Pretty.to_string Atom.pp
-let _ = Callback.register "atom_to_string" atom_to_string
-
-let atom_mk_equal a b = 
-  Atom.mk_equal (a, b)
-let _ = Callback.register "atom_mk_equal" atom_mk_equal  
-
-let atom_mk_diseq a b = 
-  Atom.mk_diseq (a, b)
-let _ = Callback.register "atom_mk_diseq" atom_mk_diseq
-
-let atom_mk_true () = Atom.mk_true
-let _ = Callback.register "atom_mk_true" atom_mk_true
-
-let atom_mk_false () = Atom.mk_false
-let _ = Callback.register "atom_mk_false" atom_mk_false
-
-
-let atom_mk_lt a b = Atom.mk_pos (Arith.mk_sub b a)
-let _ = Callback.register "atom_mk_lt"  atom_mk_lt
-
-let atom_mk_le a b = Atom.mk_nonneg (Arith.mk_sub b a)
-let _ = Callback.register "atom_mk_le"  atom_mk_le
-
-let atom_mk_gt a b =  Atom.mk_pos (Arith.mk_sub a b) 
-let _ = Callback.register "atom_mk_gt" atom_mk_gt
-
-let atom_mk_ge a b = Atom.mk_nonneg (Arith.mk_sub a b)
-let _ = Callback.register "atom_mk_ge" atom_mk_ge
-
-
-let atom_negate = Atom.negate Arith.mk_neg
-let _ = Callback.register "atom_negate" atom_negate
-
-
-let term_is_true = Boolean.is_true
-let _ = Callback.register "term_is_true" term_is_true
-
-let term_is_false = Boolean.is_false
-let _ = Callback.register "term_is_false" term_is_false
-
-
-(** {6 Propositions} *)
-
-type prop = Prop.t
-
-let prop_of_string s =
-  let lb = Lexing.from_string s in 
-    Parser.propeof Lexer.token lb
-let _ = Callback.register "prop_of_string" prop_of_string
-
-let prop_to_string = Pretty.to_string Prop.pp
-let _ = Callback.register "prop_to_string" prop_to_string
-
-let prop_pp = Prop.pp Format.std_formatter
-let _ = Callback.register "prop_pp" prop_pp
- 
-let prop_mk_true () = Prop.mk_true
-let _ = Callback.register "prop_mk_true" prop_mk_true
-
-let prop_mk_false () = Prop.mk_false
-let _ = Callback.register "prop_mk_false" prop_mk_false
-
-let prop_mk_var = Prop.mk_var
-let _ = Callback.register "prop_mk_var" prop_mk_var
-
-let prop_mk_poslit = Prop.mk_poslit
-let _ = Callback.register "prop_mk_poslit" prop_mk_poslit
-
-let prop_mk_neglit = Prop.mk_neglit
-let _ = Callback.register "prop_mk_neglit" prop_mk_neglit
-
-let prop_mk_ite = Prop.mk_ite
-let _ = Callback.register "prop_mk_ite" prop_mk_ite
-
-let prop_mk_conj = Prop.mk_conj
-let _ = Callback.register "prop_mk_conj" prop_mk_conj
-
-let prop_mk_disj = Prop.mk_disj
-let _ = Callback.register "prop_mk_disj" prop_mk_disj
-
-let prop_mk_iff = Prop.mk_iff
-let _ = Callback.register "prop_mk_iff" prop_mk_iff
-
-let prop_mk_neg = Prop.mk_neg
-let _ = Callback.register "prop_mk_neg" prop_mk_neg
-
-let prop_is_true = Prop.is_true
-let _ = Callback.register "prop_is_true" prop_is_true
-
-let prop_is_false = Prop.is_false
-let _ = Callback.register "prop_is_false" prop_is_false
-
-let prop_is_var = Prop.is_var
-let _ = Callback.register "prop_is_var" prop_is_var
-
-let prop_is_atom = Prop.is_atom
-let _ = Callback.register "prop_is_atom" prop_is_atom
-
-let prop_is_ite = Prop.is_ite
-let _ = Callback.register "prop_is_ite" prop_is_ite
-
-let prop_is_disj = Prop.is_disj
-let _ = Callback.register "prop_is_disj" prop_is_disj
-
-let prop_is_iff = Prop.is_iff
-let _ = Callback.register "prop_is_iff" prop_is_iff
-
-let prop_is_neg = Prop.is_neg
-let _ = Callback.register "prop_is_neg" prop_is_neg
-
-let prop_d_atom = Prop.d_atom
-let _ = Callback.register "prop_d_atom" prop_d_atom
-
-let prop_d_var = Prop.d_var
-let _ = Callback.register "prop_d_var" prop_d_var
-
-let prop_d_ite = Prop.d_ite
-let _ = Callback.register "prop_d_ite" prop_d_ite
-
-let prop_d_disj = Prop.d_disj
-let _ = Callback.register "prop_d_disj" prop_d_disj
-
-let prop_d_iff = Prop.d_iff
-let _ = Callback.register "prop_d_iff" prop_d_iff
-
-let prop_d_neg = Prop.d_neg
-let _ = Callback.register "prop_d_neg" prop_d_neg
-
-type assignment = Prop.Assignment.t
-
-let assignment_pp = Prop.Assignment.pp Format.std_formatter
-let _ = Callback.register "assignment_pp" assignment_pp
-
-let assignment_valuation x = x.Prop.Assignment.valuation
-let _ = Callback.register "assignment_valuation" assignment_valuation
-
-let assignment_literals x = 
-  Atom.Set.elements x.Prop.Assignment.literals
-let _ = Callback.register "assignment_literals" assignment_literals
-
-let prop_sat s p =
-  match Prop.sat s p with
-    | None -> None
-    | Some(rho, _) -> Some(rho)
-let _ = Callback.register "prop_sat" prop_sat
-
-let term_mk_mult = Pprod.mk_mult
-let _ = Callback.register "term_mk_mult" term_mk_mult
-
-let rec term_mk_multl = function
-  | [] -> Arith.mk_one()
-  | [a] -> a
-  | a :: b :: l -> term_mk_multl (term_mk_mult a b :: l)
-let _ = Callback.register "term_mk_multl" term_mk_multl
-
-
-let term_mk_create  = Funarr.mk_create
-let _ = Callback.register "term_mk_create" term_mk_create
-
-let term_mk_update  = Funarr.mk_update Term.is_equal
-let _ = Callback.register "term_mk_update" term_mk_update
-
-let term_mk_select = Funarr.mk_select Term.is_equal
-let _ = Callback.register "term_mk_select" term_mk_select
-
-let term_mk_apply = Apply.mk_apply
-let _ = Callback.register "term_mk_apply" term_mk_apply
-
-
-(** {6 Set of terms} *)
-
-type terms = Term.Set.t
-
-let terms_to_list = Term.Set.elements
-let _ = Callback.register "terms_to_list" terms_to_list
-
-let terms_of_list = List.fold_left (fun acc a -> Term.Set.add a acc) Term.Set.empty
-let _ = Callback.register "terms_of_list" terms_of_list
-
-
-(* {6 Term maps} *)
-
-type 'a map = 'a Term.Map.t
-	  
-
-(** Equalities. *)
-let term_eq = Term.eq
-let _ = Callback.register "term_eq" term_eq
-
-let term_cmp = Term.cmp
-let _ = Callback.register "term_cmp" term_cmp
-
-
-(** {6 Tracing} *)
-    
-type trace_level = string
-
-let trace_reset = Trace.reset
-let _ = Callback.register "trace_reset" trace_reset
-
-let trace_add = Trace.add
-let _ = Callback.register "trace_add" trace_add
-
-let trace_remove = Trace.add
-let _ = Callback.register "trace_remove" trace_remove
-
-let trace_get = Trace.get
-let _ = Callback.register "trace_get" trace_get
-
-
-
-(** {6 Justifications} *)
-
-type justification = Jst.t
-
-let justification_pp = Jst.pp Format.std_formatter
-let _ = Callback.register "justification_pp" justification_pp
-
-let justification_to_axioms jst = Atom.Set.elements (Jst.axioms_of jst)
-let _ = Callback.register "justification_to_axioms" justification_to_axioms
-
-
-(** {6 Logical contexts} *)
-
-type context = Context.t
-
-let context_eq = Context.eq
-let _ = Callback.register "context_eq" context_eq  
-
-let context_empty () =
-  license_check(); Context.empty
-let _ = Callback.register "context_empty" context_empty
-
-let context_ctxt_of s = Context.ctxt_of s
-let _ = Callback.register "context_ctxt_of" context_ctxt_of
-
-let context_use i s a =
-  Term.Var.Set.elements (Combine.E.dep i (Context.eqs_of s) a)
-let _ = Callback.register "context_use" context_use
-
-let context_inv i s a =
-  let (bs, _) = Combine.E.inv (Context.config_of s) a in
-    bs
-
-let _ = Callback.register "context_inv" context_inv
-
-let context_find i s = Combine.E.find (Context.config_of s) i
-let _ = Callback.register "context_find" context_find
-
-
-let context_pp s = Context.pp Format.std_formatter s; Format.print_flush()
-let _ = Callback.register "context_pp" context_pp
-
-let context_ctxt_pp s = 
-  let al = Context.ctxt_of s in
-  let fmt = Format.std_formatter in
-    List.iter
-      (fun a ->
-	 Pretty.string fmt "\nassert ";
-	 Atom.pp fmt a;
-	 Pretty.string fmt " .")
-      al;
-    Format.print_flush()
-let _ = Callback.register "context_ctxt_pp" context_ctxt_pp  
-
-(** Processing of new equalities. *)
-
-type status = Context.t Context.Status.t
-
-let is_consistent r = 
-  (match r with
-     | Context.Status.Ok _ -> true
-     | _ -> false)
-let _ = Callback.register "is_consistent" is_consistent
-
-let is_redundant = function
-  | Context.Status.Valid _ -> true
-  | _ -> false
-let _ = Callback.register "is_redundant" is_redundant
-
-let is_inconsistent = function
-  | Context.Status.Inconsistent _ -> true
-  | _ -> false
-let _ = Callback.register "is_inconsistent" is_inconsistent  
-
-let d_consistent = function
-  | Context.Status.Ok s -> s
-  | _ -> (context_empty())
-
-let d_inconsistent = function
-  | Context.Status.Inconsistent(rho) -> rho
-  | _ -> invalid_arg "Ics.d_inconsistent: fatal error"
-
-let d_redundant = function
-  | Context.Status.Valid(rho) -> rho
-  | _ -> invalid_arg "Ics.d_valid"
-
-	
-let _ = Callback.register "d_consistent" d_consistent 
-let _ = Callback.register "d_inconsistent" d_inconsistent 
-
-let process = Context.add
-
-let _ = Callback.register "process" process 
-  
-let split s = failwith "split: to do"
-let _ = Callback.register "split" split
-
-
-(** Normalization functions *)
-
-let can s = Combine.can (Context.config_of s)
-let _ = Callback.register "can" can
-
-let set_outchannel formatter =
-  Istate.outchannel := formatter
-let _ = Callback.register "set_outchannel" set_outchannel
-
-let set_inchannel inch =
-  Istate.inchannel := inch
-let _ = Callback.register "set_inchannel" set_inchannel
-
-let set_prompt str = Istate.prompt := str
-let _ = Callback.register "set_prompt" set_prompt
-
-let set_eot str = Istate.eot := str
-let _ = Callback.register "set_eot" set_eot
-
-(** Read-Eval-Print loop. *)
-let rec cmd_rep () =
-  Istate.batch := false;
-  try
-    while true do
-      Tools.linenumber := 0;    (* for error message *)
-      try
-	Istate.print_prompt ();
-	Parser.commands Lexer.token (Istate.lexing())
-      with
-	  Parsing.Parse_error -> Istate.do_parse_error !Tools.linenumber;	  
-    done 
-  with
-    | End_of_file -> 
-	Format.eprintf "\n:%s@." (Printexc.to_string End_of_file);
-	Istate.do_quit 0
-    | Sys.Break -> 
-	Format.eprintf "\n:%s@." (Printexc.to_string Sys.Break);
-	if !Istate.batch then
-	  Istate.do_quit 1
-	else 
-	  cmd_rep ()
-    | Failure("drop") -> 
-	()
-    | exc -> 
-	Istate.do_error ("Exception " ^ (Printexc.to_string exc));
-	cmd_rep ()
-
-(** Batch processor. *)
-and cmd_batch (inch) =
-  Istate.batch := true;
-  Tools.linenumber := 1;
-  Istate.inchannel := inch;
-  try
-    while true do
-      Parser.commandsequence Lexer.token (Istate.lexing())
-    done;
-    failwith "unreachable"
-  with
-    | Parsing.Parse_error ->
-	Format.fprintf !Istate.outchannel ":error (Parse error on line %d)@." !Tools.linenumber;
-	2
-    | End_of_file -> 
-	0
-    | Sys.Break -> 
-	Format.eprintf "\n:%s@." (Printexc.to_string Sys.Break);
-	1
-    | exc ->   
-	Format.fprintf !Istate.outchannel ":error %s@." (Printexc.to_string exc); 
-	(-2)
-
-let _ = Callback.register "cmd_rep" cmd_rep
-let _ = Callback.register "cmd_batch" cmd_batch
-
-
-(** Abstract sign interpretation. *)
-
-let dom s = Combine.dom (Context.config_of s)
- 
-
-(** {6 Tools} *)
+(** {6 Controls} *)
 
 let reset () = Tools.do_at_reset ()
 let _ = Callback.register "reset" reset
@@ -885,101 +64,849 @@ let sleep = Unix.sleep
 let _ = Callback.register "sleep" sleep
 
 
+(** {6 Status flag} *)
 
-(** {6 Lists} *)
+module Status = struct
 
-let is_nil = function [] -> true | _ -> false
-let _ = Callback.register "is_nil" is_nil
+  type t =
+    | Valid of Judgement.atom
+    | Unsat of Judgement.unsat
+    | Ok of Context.t
 
-let cons x l = x :: l
-let _ = Callback.register "cons" cons
+  let pp fmt = function
+    | Valid _ -> Format.fprintf fmt "valid"
+    | Unsat _ -> Format.fprintf fmt "unsat"
+    | Ok _ -> Format.fprintf fmt "ok"
 
-let head = List.hd
-let _ = Callback.register "head" head
+end
 
-let tail = List.tl
-let _ = Callback.register "tail" tail
+
+
+(** {6 Values and Kinds} *)
+
+type top
+  (** Encompassing all Ocaml objects. *)
+
+let inj (o: 'o) = ((Obj.magic o): top)
+let out (all: top) = Obj.magic all
+
+module Kind = struct
+
+  module Ground = struct
+
+    type t = 
+	Name | Bool | Int | Rat 
+      | Theory | Funsym | Term | Atom | Prop | Cnstrnt 
+      | Justification | Model
+      | Context | Status
+
+    let to_string = function
+      | Name -> "name"
+      | Bool -> "bool"
+      | Int -> "int"
+      | Rat -> "rat"
+      | Theory -> "theory"
+      | Funsym -> "funsym"
+      | Term -> "term"
+      | Atom -> "atom" 
+      | Prop -> "prop"
+      | Cnstrnt -> "cnstrnt"
+      | Justification-> "justification"
+      | Model -> "model"
+      | Context -> "context"
+      | Status -> "status"
+
+
+    let to_name (o: top) = ((out o) : Name.t)
+    let to_bool (o: top) = ((out o) : bool)
+    let to_int (o: top) = ((out o) : int)
+    let to_rat (o: top) = ((out o) : Mpa.Q.t)
+    let to_funsym (o: top) = ((out o) : Funsym.t)
+    let to_term (o: top) = ((out o) : Term.t)
+    let to_atom (o: top) = ((out o) : Atom.t)
+    let to_prop (o: top) = ((out o) : Prop.t)
+    let to_cnstrnt (o: top) = ((out o) : Cnstrnt.t)
+    let to_justification (o: top) = ((out o) : Judgement.atom)
+    let to_model (o: top) = ((out o) : Term.Model.t)
+    let to_theory (o: top) = ((out o) : Theory.t)
+    let to_context (o: top) = ((out o) : Context.t)
+    let to_status (o: top) = ((out o) : Status.t)
+
+
+    let eq k (o1: top) (o2: top) =
+      match k with
+	| Name -> Name.eq (to_name o1) (to_name o2)
+	| Bool -> to_bool o1 = to_bool o2
+	| Int -> to_int o1 = to_int o2
+	| Rat -> Mpa.Q.equal (to_rat o1) (to_rat o2)
+	| Funsym -> Funsym.eq (to_funsym o1) (to_funsym o2)
+	| Term -> Term.eq (to_term o1) (to_term o2)
+	| Atom -> Atom.eq (to_atom o1) (to_atom o2)
+	| Prop ->(to_prop o1) == (to_prop o2)
+	| Cnstrnt -> (to_cnstrnt o1) = (to_cnstrnt o2)
+	| Justification -> (to_justification o1) == (to_justification o2)
+	| Model -> (to_model o1) == (to_model o2)
+	| Theory -> Theory.eq (to_theory o1) (to_theory o2)
+	| Context -> Context.eq (to_context o1) (to_context o2)
+	| Status -> (to_status o1) == (to_status o2)
+
+    let pp k fmt (o: top) =
+      match k with
+	| Name -> Name.pp fmt (to_name o)
+	| Bool -> Pretty.bool fmt (to_bool o)
+	| Int -> Pretty.number fmt (to_int o)
+	| Rat -> Mpa.Q.pp fmt (to_rat o)
+	| Funsym -> Funsym.pp fmt (to_funsym o)
+	| Term -> Term.pp fmt (to_term o)
+	| Atom -> Atom.pp fmt (to_atom o)
+	| Prop -> Prop.pp fmt (to_prop o)
+	| Cnstrnt -> Cnstrnt.pp fmt (to_cnstrnt o)
+	| Justification -> Judgement.pp fmt (to_justification o)
+	| Model -> Term.Model.pp fmt (to_model o)
+	| Theory -> Theory.pp fmt (to_theory o)
+	| Context -> Context.pp fmt (to_context o)
+	| Status -> Status.pp fmt (to_status o)
+	
+  end 
+
+  type t =
+    | Ground of Ground.t
+    | Pair of t * t
+    | List of t
+
+  let mk_ground g = Ground(g)
+
+  let mk_name = mk_ground Ground.Name
+  let mk_int = mk_ground Ground.Int
+  let mk_bool = mk_ground Ground.Bool
+  let mk_rat = mk_ground Ground.Rat
+  let mk_funsym = mk_ground Ground.Funsym
+  let mk_term = mk_ground Ground.Term
+  let mk_atom = mk_ground Ground.Atom
+  let mk_prop = mk_ground Ground.Prop
+  let mk_cnstrnt = mk_ground Ground.Cnstrnt
+  let mk_justification = mk_ground Ground.Justification
+  let mk_model = mk_ground Ground.Model
+  let mk_theory = mk_ground Ground.Theory
+  let mk_status = mk_ground Ground.Status
+  let mk_context = mk_ground Ground.Context
+
+  let mk_pair k l = Pair(k, l)
+
+  let mk_list k = List(k)
+
+  let rec to_string = function
+    | Ground(g) -> Ground.to_string g
+    | Pair(k1, k2) -> Format.sprintf "(%s * %s)" (to_string k1) (to_string k2)
+    | List(k) -> Format.sprintf "%s list" (to_string k)
+
+  let compatible = (=)
+
+  let rec eq k (o1: top) (o2: top) =
+    match k with
+      | Ground(gnd) -> 
+	  Ground.eq gnd o1 o2
+      | Pair(k1, k2) ->
+	  eq k1 (fst (out o1)) (fst (out o2)) &&
+	  eq k2 (snd (out o1)) (snd (out o2))
+      | List(k) ->
+	  try 
+	    List.for_all2 (eq k) (out o1) (out o2) 
+	  with    
+	      Invalid_argument _ -> false
+
+  let rec pp k fmt (o: top) = 
+    match k with
+      | Ground(gnd) -> 
+	  Ground.pp gnd fmt o
+      | Pair(k1, k2) ->
+	  Pretty.pair (pp k1) (pp k2) fmt (out o)
+      | List(k) ->
+	  Pretty.list (pp k) fmt (out o)
+	  
+end 
+
+(** A {i value} is an index to a table which contains an index to a 
+  pair [(k, o)] where [k] is a kind and [o] a corresponding object. *)
+module Value = struct
+
+  type t = int
+
+  module Intmap = Hashtbl.Make(
+    struct
+      type t = int
+      let equal = (=)
+      let hash i = i
+    end)
+
+  type idx = int
+
+  let val2idx: idx Intmap.t = Intmap.create 1023               (* Bindings [v |-> i]. *)
+  let idx2pair: (Kind.t * top) Intmap.t = Intmap.create 1023 (* Bindings [i|->(k,o)]. *)
+  let freelist: idx list ref = ref []                        (* List of free indices. *)
+  let nonce = ref 2                                      (* New value uses only once. *)
+
+  let ff: t = 0    
+  let tt: t = 1
+
+  let reset () =
+    Intmap.clear val2idx;
+    Intmap.clear idx2pair;
+    freelist := [];
+    nonce := 2
+
+  let is_registered (v: t) =
+    Intmap.mem val2idx v
+
+  let get = function
+    | 0 -> (Kind.mk_bool, inj false)
+    | 1 -> (Kind.mk_bool, inj true)
+    | v -> 
+	try
+	  let idx = Intmap.find val2idx v in
+	    assert(Intmap.mem idx2pair idx);
+	    Intmap.find idx2pair idx
+	with
+	    Not_found -> invalid_arg ("Index " ^ string_of_int v ^ " not registered.")
+	
+  let rec register ko =
+    incr nonce;
+    assert(not(Intmap.mem val2idx !nonce));
+    let idx = find_free () in
+      assert(not(Intmap.mem idx2pair idx));
+      Intmap.add val2idx !nonce idx;
+      Intmap.add idx2pair idx ko;
+      !nonce
+
+  and find_free () =
+    match !freelist with
+      | [] ->  
+	  assert(not(Intmap.mem idx2pair !nonce));
+	  !nonce
+      | idx :: idxl -> 
+	  assert(not(Intmap.mem idx2pair idx));
+	  freelist := idxl;
+	  idx
+	  
+  let deregister = function
+    | 0 -> ()
+    | 1 -> ()
+    | v -> 
+	try
+	  let idx = Intmap.find val2idx v in
+	    assert(Intmap.mem idx2pair idx);
+	    Intmap.remove val2idx v;
+	    Intmap.remove idx2pair idx;
+	    freelist := idx :: !freelist
+	with
+	    Not_found -> ()
+
+  let is_kind (k: Kind.t) (v: t) = 
+    let l, _ = get v in
+      Kind.compatible k l
+
+  let pp fmt (v: t) = 
+    let k, o = get v in
+      Format.fprintf fmt "@[<addr=%d;@ kind=%s;@ ;val=" v (Kind.to_string k);
+      Kind.pp k fmt o;
+      Format.fprintf fmt ">@]@."
+
+  let to_bool = function
+    | 0 -> false
+    | 1 -> true
+    | v -> api_error ("Value " ^ string_of_int v ^ " not a Boolean value.")
+	
+  let of_bool = function true -> 1 | false -> 0
+   
+  (** Like [get] but with kind-checking. *)
+  let lookup (k: Kind.t) (v: t) =
+    let l, o = get v in
+      if Kind.compatible k l then o else 
+	api_error (Format.sprintf "Value %s of kind %s but %s expected"
+		     (string_of_int v) (Kind.to_string l) (Kind.to_string k))
+
+  let to_name (v: t) = out (lookup Kind.mk_name v)
+  let of_name (n: Name.t) = register (Kind.mk_name, inj n)
+
+  let to_int (v: t) = out (lookup Kind.mk_int v)
+  let of_int (i: int) = register (Kind.mk_int, inj i)
+
+  let to_rat (v: t) = out (lookup Kind.mk_rat v)
+  let of_rat (q: Mpa.Q.t) = register (Kind.mk_rat, inj q)
+
+  let to_funsym (v: t) = out (lookup Kind.mk_funsym v)
+  let of_funsym (f: Funsym.t) = register (Kind.mk_funsym, inj f)
+
+  let to_term (v: t) = out (lookup Kind.mk_term v)
+  let of_term (t: Term.t) = register (Kind.mk_term, inj t)
+
+  let to_atom (v: t) = out (lookup Kind.mk_atom v)
+  let of_atom (a: Atom.t) = register (Kind.mk_atom, inj a)
+
+  let to_prop (v: t) = out (lookup Kind.mk_prop v)
+  let of_prop (p: Prop.t) = register (Kind.mk_prop, inj p)
+
+  let to_cnstrnt (v: t) = out (lookup Kind.mk_cnstrnt v)
+  let of_cnstrnt (c: Cnstrnt.t) = register (Kind.mk_cnstrnt, inj c)
+
+  let to_justification (v: t) = out (lookup Kind.mk_justification v)
+  let of_justification (jst: Judgement.atom) = register (Kind.mk_justification, inj jst)
+
+  let to_model (v: t) = out (lookup Kind.mk_model v)
+  let of_model (jst: Judgement.atom) = register (Kind.mk_model, inj jst)
+
+  let to_theory (v: t) = out (lookup Kind.mk_theory v)
+  let of_theory (th: Theory.t) = register (Kind.mk_theory, inj th)
+
+  let to_context (v: t) = out (lookup Kind.mk_context v)
+  let of_context (ctxt: Context.t) = register (Kind.mk_context, inj ctxt)
+
+  let to_status (v: t) = out (lookup Kind.mk_status v)
+  let of_status (st: Status.t) = register (Kind.mk_status, inj st)
+
+  let is_nil u =
+    match get u with
+      | Kind.List _, o -> out o = []
+      | _ -> false
+
+  let to_list k (v: t) = out (lookup (Kind.mk_list k) v)
+  let of_list k (l: 'a list) = register (Kind.mk_list k, inj l)
+
+  let to_pair k1 k2 (v: t) = out (lookup (Kind.mk_pair k1 k2) v)
+  let of_pair k1 k2 (p: 'a * 'b) = register (Kind.mk_pair k1 k2, inj p)
+
+end
+
+(** {6 Values} *)
+
+type value = Value.t
+
+let is_registered u = Value.of_bool (Value.is_registered u)
+let _ = Callback.register "is_registered" is_registered
+
+let deregister (v: Value.t) = Value.deregister v; Value.tt
+let _ = Callback.register "deregister" deregister
+
+let kind v =
+  let k, _ = Value.get v in
+  let str = Kind.to_string k in
+    Value.of_name (Name.of_string str)
+let _ = Callback.register "kind" kind
+
+let pp v = 
+  let fmt = Format.std_formatter in
+    Value.pp fmt v; Value.tt
+let _ = Callback.register "pp" pp
+
+let eq u1 u2 =
+  let k1, o1 = Value.get u1 
+  and k2, o2 = Value.get u2 in
+    Value.of_bool (Kind.compatible k1 k2 && Kind.eq k1 o1 o2)
+let _ = Callback.register "eq" eq
+
+
+(** {6 Name Values} *)
+
+let is_name u = Value.of_bool (Value.is_kind Kind.mk_name u)
+let _ = Callback.register "is_name" is_name
+
+let intern str = Value.of_name (Name.of_string str)
+let _ = Callback.register "intern" intern
+
+let extern u = Name.to_string (Value.to_name u)
+let _ = Callback.register "extern" extern
+
+
+(** {6 Booleans} *)
+
+let is_bool u = Value.of_bool (Value.is_kind Kind.mk_bool u)
+let _ = Callback.register "is_bool" is_bool
+
+let ff () = Value.ff
+let _ = Callback.register "ff" ff
+
+let tt () = Value.tt
+let _ = Callback.register "tt" tt
+
+
+(** {6 Integers} *)
+
+let is_int u = Value.of_bool (Value.is_kind Kind.mk_int u)
+let _ = Callback.register "is_int" is_int
+
+let integerize = Value.of_int
+let _ = Callback.register "integerize" integerize  
+
+
+(** {6 Multi-precision rationals} *)
+
+let is_rat u = Value.of_bool (Value.is_kind Kind.mk_rat u)
+let _ = Callback.register "is_rat" is_rat
+
+let rat_of_int u = Value.of_rat (Mpa.Q.of_int (Value.to_int u))
+let _ = Callback.register "rat_of_int" rat_of_int
+
+let rat_of_ints u v = Value.of_rat (Mpa.Q.div (Value.to_int u) (Value.to_int v))
+let _ = Callback.register "rat_of_ints" rat_of_ints
 
 
 (** {6 Pairs} *)
 
-let pair x y = (x,y)
+let is_pair u =
+  match Value.get u with
+    | Kind.Pair _, _ -> Value.of_bool true
+    | _ -> Value.of_bool false
+let _ = Callback.register "is_pair" is_pair
+
+let pair u1 u2 = 
+  let k1, o1 = Value.get u1 and k2, o2 = Value.get u2 in
+  let k = Kind.mk_pair k1 k2 and o = inj (o1, o2) in
+    Value.register (k, o)
 let _ = Callback.register "pair" pair
 
-let fst = fst
+let fst u =
+  let k, o = Value.get u in
+    match k with
+      | Kind.Pair(k1, _) -> 
+	  let o1 = inj(fst(out o)) in
+	    Value.register (k1, o1)
+    | _ -> 
+	api_error(Format.sprintf "value %d not a pair" u)
 let _ = Callback.register "fst" fst
 
-let snd = snd
+let snd u = 
+  let k, o = Value.get u in
+    match k with
+      | Kind.Pair(_,k2) -> 
+	  let o2 = inj (fst(out o)) in
+	    Value.register (k2, o2)
+      | _ -> 
+	  api_error(Format.sprintf "value %d not a pair" u)  
 let _ = Callback.register "snd" snd
 
 
-(** {6 Triples} *)
+(** {6 Lists} *)
 
-let triple x y z = (x,y,z)
-let _ = Callback.register "triple" triple
+let is_list u = 
+  match Value.get u with
+    | Kind.List _, _ -> Value.of_bool true
+    | _ -> Value.of_bool false
+let _ = Callback.register "is_list" is_list
 
-let fst_of_triple = function (x,_,_) -> x
-let _ = Callback.register "fst_of_triple" fst_of_triple
-
-let snd_of_triple = function (_,y,_) -> y
-let _ = Callback.register "snd_of_triple" snd_of_triple
-
-let third_of_triple = function (_,_,z) -> z
-let _ = Callback.register "third_of_triple" third_of_triple
-  
-
-(** {6 Quadruples} *)
-   
-let fst_of_quadruple  = function (x1,_,_,_) -> x1
-let _ = Callback.register "fst_of_quadruple" fst_of_quadruple
-
-let snd_of_quadruple = function (_,x2,_,_) -> x2
-let _ = Callback.register "snd_of_quadruple" snd_of_quadruple
-
-let third_of_quadruple = function (_,_,x3,_) -> x3
-let _ = Callback.register "third_of_quadruple" third_of_quadruple
-
-let fourth_of_quadruple = function (_,_,_,x4) -> x4
-let _ = Callback.register "fourth_of_quadruple" fourth_of_quadruple
+let is_nil u = Value.of_bool (Value.is_nil u)
+let _ = Callback.register "is_nil" is_nil
     
+let is_cons u =
+ let k, o = Value.get u in
+    match k with
+      | Kind.List _ -> Value.of_bool (out o <> [])
+      | _ -> Value.of_bool false
+let _ = Callback.register "is_cons" is_cons
 
-(** {6 Options} *)
+let nil () =
+  let arbitrary = Kind.mk_bool in 
+  Value.register (Kind.mk_list arbitrary, inj [])
+let _ = Callback.register "is_nil" is_nil
 
-let is_some = function
-  | Some _ -> true
-  | None -> false
+let cons u1 u2 =
+  let k1, o1 = Value.get u1 in
+    if Value.is_nil u2 then  (* special case for [nil] as it contains arbitrary kind. *)
+      Value.register (Kind.mk_list k1, inj [o1])
+    else 
+      let k2, o2 = Value.get u2 in
+	match k2 with
+	  | Kind.List(l2) when Kind.compatible k2 l2 -> 
+	      Value.register (k2, inj (out o1 :: out o2))
+	  | _ ->
+	      api_error "value %d not a compatible list" u2
+let _ = Callback.register "cons" cons 
 
-let is_none = function
-  | None -> true
-  | _ -> false
+let head u =
+  let k, o = Value.get u in
+    match k with
+      | Kind.List(l) -> Value.register (l, inj (List.hd (out o)))
+      | _ -> api_error "value %d not a list" u
+let _ = Callback.register "head" head
 
-let value_of = function
-  | Some(x) -> x
-  | _ -> assert false
-	
-let _ = Callback.register "is_some" is_some
-let _ = Callback.register "is_none" is_none
-let _ = Callback.register "value_of" value_of
+let tail u =
+  let k, o = Value.get u in
+    match k with
+      | Kind.List(l) -> Value.register (l, inj (List.tl (out o)))
+      | _ -> api_error "value %d not a list" u
+let _ = Callback.register "tail" tail
 
 
-	 
-(** {6 Multi-precision arithmetic} *)
 
-open Mpa
+(** {6 Theories} *)
 
-type q = Q.t
+let is_theory u = Value.of_bool (Value.is_kind Kind.mk_theory u)
+let _ = Callback.register "is_theory" is_theory
 
-let ints_of_num q = (Z.to_string (Q.numerator q), Z.to_string (Q.denominator q))
-let _ = Callback.register "ints_of_num" ints_of_num
+let theory_of_name u =
+  Value.of_theory (Theory.of_string (Name.to_string (Value.to_name u)))
+let _ = Callback.register "theory_of_name" theory_of_name
 
-let num_of_int = Q.of_int
-let _ = Callback.register "num_of_int" num_of_int
-		   
-let num_of_ints i1 i2 = Q.div (num_of_int i1) (num_of_int i2)
-let _ = Callback.register "num_of_ints" num_of_ints
+let description u = 
+  Value.of_name (Name.of_string (Theory.Description.get (Value.to_theory u)))
+let _ = Callback.register "description" description
 
-let string_of_num = Q.to_string
-let _ = Callback.register "string_of_num" string_of_num
 
-let num_of_string = Q.of_string
-let _ = Callback.register "num_of_string" num_of_string
+(** {6 Function Symbols} *)
+
+let is_funsym u = Value.of_bool (Value.is_kind Kind.mk_funsym u)
+let _ = Callback.register "is_funsym" is_funsym
+  
+let funsym_make u v =
+  let th = Value.to_theory u in
+  let n = Value.to_name v in
+    Value.of_funsym (Funsym.create th n)
+let _ = Callback.register "funsym_make" funsym_make
+
+
+let funsym_theory_of u = 
+  let f = Value.to_funsym u in
+  let th = Funsym.theory_of f in
+    Value.of_name (Name.of_string (Theory.to_string th))
+let _ = Callback.register "funsym_theory_of" funsym_theory_of
+
+let funsym_name_of u = 
+  Value.of_name (Funsym.name_of (Value.to_funsym u))
+let _ = Callback.register "funsym_name_of" funsym_name_of
+
+
+(** {6 Terms} *)
+
+let is_term u =  Value.of_bool (Value.is_kind Kind.mk_term u)
+let _ = Callback.register "is_term" is_term
+
+let term_of_name u = 
+  let s = Name.to_string (Value.to_name u) in
+  let lb = Lexing.from_string s in 
+  let a = Parser.termeof Lexer.token lb in
+    Value.of_term a
+let _ = Callback.register "term_of_name" term_of_name
+
+let term_to_name u = 
+  Value.of_name (Name.of_string (Pretty.to_string Term.pp (Value.to_term u)))
+let _ = Callback.register "term_to_name" term_to_name
+
+let term_input () =
+  let ch = Istate.Inchannel.get() in
+  let lb = Lexing.from_channel ch in 
+    Value.of_term (Parser.termeof Lexer.token lb)
+let _ = Callback.register "term_input" term_input
+
+let term_output u = 
+  let ch = Istate.Outchannel.get() in
+  Term.pp ch (Value.to_term u); Value.tt
+let _ = Callback.register "term_output" term_output
+
+let term_mk_var u = 
+  Value.of_term (Term.mk_var (Value.to_name u))
+let _ = Callback.register "term_mk_var" term_mk_var
+
+let rec term_mk_app u v =
+  let f = Value.to_funsym u in
+  let args = Value.to_list Kind.mk_term v in 
+    Value.of_term (Term.sigma (Value.to_funsym u) args)
+let _ = Callback.register "term_mk_app" term_mk_app
+
+let term_funsym_of u =
+  Value.of_funsym (Term.sym_of (Value.to_term u))
+let _ = Callback.register "term_funsym_of" term_funsym_of
+
+let term_args_of u =
+  Value.of_list Kind.mk_term (Term.Args.to_list (Term.args_of (Value.to_term u)))
+let _ = Callback.register "term_args_of" term_args_of
+
+(** {6 Derived Term Constructors} *)
+
+let term_mk_num u = 
+  Value.of_term (Linarith.mk_num (Value.to_rat u))
+let _ = Callback.register "term_mk_num" term_mk_num
+
+let term_mk_multq u v = 
+  Value.of_term (Linarith.mk_multq (Value.to_rat u) (Value.to_term v))
+let _ = Callback.register "term_mk_multq" term_mk_multq
+
+let term_mk_add u v = 
+  Value.of_term (Linarith.mk_add (Value.to_term u) (Value.to_term v))
+let _ = Callback.register "term_mk_add" term_mk_add
+
+let term_mk_mult u v = 
+  Value.of_term (Nl.Nonlin.mk_mult (Value.to_term u) (Value.to_term v))
+let _ = Callback.register "term_mk_mult" term_mk_mult
+
+
+(** {6 Constraints} *)
+
+let is_cnstrnt u = Value.of_bool (Value.is_kind Kind.mk_cnstrnt u)
+let _ = Callback.register "is_cnstrnt" is_cnstrnt
+
+let cnstrnt_int () = Value.of_cnstrnt Cnstrnt.Int
+let _ = Callback.register "cnstrnt_int" cnstrnt_int
+
+let cnstrnt_real () = Value.of_cnstrnt Cnstrnt.Real
+let _ = Callback.register "cnstrnt_real" cnstrnt_real
+
+let cnstrnt_nonint () = Value.of_cnstrnt Cnstrnt.Nonint
+let _ = Callback.register "cnstrnt_nonint" cnstrnt_nonint
+
+let cnstrnt_bv u = 
+  Value.of_cnstrnt (Cnstrnt.Bitvector(Value.to_int u))
+let _ = Callback.register "cnstrnt_bv" cnstrnt_bv
+
+  
+(** {6 Atoms} *)
+
+let is_atom u = Value.of_bool (Value.is_kind Kind.mk_atom u)
+let _ = Callback.register "is_atom" is_atom
+
+let atom_of_name u = 
+  let s = Name.to_string (Value.to_name u) in
+  let lb = Lexing.from_string s in 
+  let atm = Parser.atomeof Lexer.token lb in
+    Value.of_atom atm
+let _ = Callback.register "atom_of_name" atom_of_name
+
+let atom_to_name u = 
+  Value.of_name (Name.of_string (Pretty.to_string Atom.pp (Value.to_atom u)))
+let _ = Callback.register "atom_to_name" atom_to_name
+
+let atom_mk_equal u v = 
+  Value.of_atom (Atom.mk_equal (Value.to_atom u) (Value.to_atom v))  (* CHANGE THIS!!! *)
+let _ = Callback.register "atom_mk_equal" atom_mk_equal  
+
+let atom_mk_diseq u v =  
+  Value.of_atom (Atom.mk_diseq (Value.to_atom u) (Value.to_atom v))
+let _ = Callback.register "atom_mk_diseq" atom_mk_diseq
+
+let atom_mk_true () = 
+  Value.of_atom Atom.mk_true
+let _ = Callback.register "atom_mk_true" atom_mk_true
+
+let atom_mk_false () =  
+  Value.of_atom Atom.mk_false
+let _ = Callback.register "atom_mk_false" atom_mk_false
+
+let atom_mk_lt u v =
+  Value.of_atom (Linarith.Atom.mk_lt (Value.to_term u) (Value.to_term v))
+let _ = Callback.register "atom_mk_lt"  atom_mk_lt
+
+let atom_mk_le u v = 
+  Value.of_atom (Linarith.Atom.mk_le (Value.to_term u) (Value.to_term v))
+let _ = Callback.register "atom_mk_le"  atom_mk_le
+
+let atom_mk_gt u v =
+  Value.of_atom (Linarith.Atom.mk_gt (Value.to_term u) (Value.to_term v))
+let _ = Callback.register "atom_mk_gt" atom_mk_gt
+
+let atom_mk_ge u v = 
+  Value.of_atom (Linarith.Atom.mk_ge (Value.to_term u) (Value.to_term v))
+let _ = Callback.register "atom_mk_ge" atom_mk_ge
+
+let atom_negate u = Value.of_atom (Atom.negate Linarith.mk_neg (Value.to_atom u))
+let _ = Callback.register "atom_negate" atom_negate
+
+
+(** {6 Propositions} *)
+
+let is_prop u = Value.of_bool (Value.is_kind Kind.mk_prop u)
+let _ = Callback.register "is_atom" is_atom
+
+let prop_of_name u = 
+  let s = Name.to_string (Value.to_name u) in
+  let lb = Lexing.from_string s in 
+  let p = Parser.propeof Lexer.token lb in
+    Value.of_prop p
+let _ = Callback.register "prop_of_name" prop_of_name
+
+let prop_to_name u = 
+  Value.of_name (Name.of_string (Pretty.to_string Prop.pp (Value.to_prop u)))
+let _ = Callback.register "prop_to_name" prop_to_name
+ 
+let prop_mk_true () = Value.of_prop Prop.mk_true
+let _ = Callback.register "prop_mk_true" prop_mk_true
+
+let prop_mk_false () = Value.of_prop Prop.mk_false
+let _ = Callback.register "prop_mk_false" prop_mk_false
+
+let prop_mk_var u = Value.of_prop (Prop.mk_var (Value.to_name u))
+let _ = Callback.register "prop_mk_var" prop_mk_var
+
+let prop_mk_poslit u = Value.of_prop (Prop.mk_poslit (Value.to_atom u))
+let _ = Callback.register "prop_mk_poslit" prop_mk_poslit
+
+let prop_mk_neglit u = Value.of_prop (Prop.mk_neglit (Value.to_atom u))
+let _ = Callback.register "prop_mk_neglit" prop_mk_neglit
+
+let prop_mk_ite u v w = 
+  Value.of_prop (Prop.mk_ite (Value.to_prop u) (Value.to_prop v) (Value.to_prop w))
+let _ = Callback.register "prop_mk_ite" prop_mk_ite
+
+let prop_mk_conj u = 
+  Value.of_prop (Prop.mk_conj (Value.to_list Kind.mk_prop u))
+let _ = Callback.register "prop_mk_conj" prop_mk_conj
+
+let prop_mk_disj u = 
+  Value.of_prop (Prop.mk_disj (Value.to_list Kind.mk_prop u))
+let _ = Callback.register "prop_mk_disj" prop_mk_disj
+
+let prop_mk_iff u v = 
+  Value.of_prop (Prop.mk_iff (Value.to_prop u) (Value.to_prop v))
+let _ = Callback.register "prop_mk_iff" prop_mk_iff
+ 
+let prop_mk_neg u = 
+  Value.of_prop (Prop.mk_neg (Value.to_prop u))
+let _ = Callback.register "prop_mk_neg" prop_mk_neg
+
+
+
+
+(** {6 Justifications} *)
+
+let is_justification u = Value.of_bool (Value.is_kind Kind.mk_justification u)
+let _ = Callback.register "is_justification" is_justification
+
+let justification_to_atoms u =
+  Value.of_list Kind.mk_atom (Atom.Set.to_list (failwith "to do"))
+          (* (Jst.axioms_of (Value.to_justification u))) *)
+let _ = Callback.register "justification_to_atoms" justification_to_atoms
+
+
+(** {6 Logical contexts} *)
+
+let is_context u =  Value.of_bool (Value.is_kind Kind.mk_context u)
+let _ = Callback.register "is_context" is_context
+
+let context_empty () =
+  license_check(); 
+  Value.of_context Context.empty
+let _ = Callback.register "context_empty" context_empty
+
+let context_ctxt_of u = 
+  Value.of_list Kind.mk_atom (Context.ctxt (Value.to_context u))
+let _ = Callback.register "context_ctxt_of" context_ctxt_of
+
+
+let context_use u v w = 
+  let th = Value.to_theory u
+  and c = Value.to_context v 
+  and x = Value.to_term w in
+  let ys = failwith "to do" (* Combine.Config.Component.dep th (Context.config c) x  *)in
+  let yl = failwith "to do" (* Term.Vset.to_list ys *) in
+   failwith "to do"
+(*
+    Value.of_list Kind.mk_term (Term.Vset.to_list ys)
+*)
+
+let _ = Callback.register "context_use" context_use
+
+let context_inv u v =
+  let c = Value.to_context u and a = Value.to_term v in
+  let cfg = Context.config c in
+    Value.of_term (Combine.Config.Inv.lookup cfg a)
+
+let _ = Callback.register "context_inv" context_inv
+
+let context_find u v w = 
+  let th = Value.to_theory u 
+  and c = Value.to_context v 
+  and a = Value.to_term w in
+    Value.of_term (Combine.Config.Find.lookup th (Context.config c) a)
+let _ = Callback.register "context_find" context_find
+
+let context_occ u v w =
+  Value.of_bool 
+    (Combine.Config.occ
+       (Value.to_theory u) 
+       (Context.config (Value.to_context v))
+       (Value.to_term w))
+let _ = Callback.register "context_occ" context_occ
+
+(** Processing of new equalities. *)
+
+let is_status u = Value.of_bool (Value.is_kind Kind.mk_status u)
+let _ = Callback.register "is_status" is_status
+
+let is_consistent u = 
+  Value.of_bool (match Value.to_status u with Status.Ok _ -> true | _ -> false)
+let _ = Callback.register "is_consistent" is_consistent
+
+let is_redundant u = 
+  Value.of_bool (match Value.to_status u with Status.Valid _ -> true | _ -> false)
+let _ = Callback.register "is_redundant" is_redundant
+
+let is_inconsistent u = 
+  Value.of_bool (match Value.to_status u with Status.Unsat _ -> true | _ -> false)
+let _ = Callback.register "is_inconsistent" is_inconsistent  
+
+let d_consistent u =
+  match Value.to_status u with
+    | Status.Ok s -> Value.of_context s
+    | _ -> raise Not_found
+
+let _ = Callback.register "d_consistent" d_consistent 
+
+let d_valid u =
+  match Value.to_status u with
+    | Status.Valid(j) -> Value.of_justification j
+    | _ -> raise Not_found
+let _ = Callback.register "d_valid" d_valid
+
+let d_inconsistent u =
+  match Value.to_status u with
+    | Status.Unsat(j) -> Value.of_justification j
+    | _ -> raise Not_found
+let _ = Callback.register "d_inconsistent" d_inconsistent
+
+let process u v =
+  let s = Value.to_context u 
+  and atm = Value.to_atom v in
+    let result = 
+      try
+	let s' = Context.add s atm in
+	  Status.Ok(s')
+      with
+	| Judgement.Unsat(rho) -> Status.Unsat(rho)
+	| Judgement.Valid(rho) -> Status.Valid(rho)
+    in
+      Value.of_status result
+
+let _ = Callback.register "process" process   
+
+
+let prop_sat u v =
+  let s = Value.to_context u and p = Value.to_prop v in
+    match Prop.sat s p with
+      | None -> Value.ff
+      | Some(rho, _) -> Value.tt
+let _ = Callback.register "prop_sat" prop_sat
+
+
+(** Eval-Print Loops. *)
+
+let cmd_rep = Cmd.rep
+let _ = Callback.register "cmd_rep" cmd_rep
+
+let cmd_batch () = 
+  let ch = Istate.Inchannel.get () in
+    Value.of_int (Cmd.batch ch)
+let _ = Callback.register "cmd_batch" cmd_batch
+
+
+let can u v = 
+  let s = Value.to_context u and a = Value.to_term v in
+    Value.of_term (Combine.Config.Can.term (Context.config s) a)
+let _ = Callback.register "can" can
+
+
+(** {6 Parameters} *)
+
+let set u v = 
+  Ref.set (Value.to_name u) (Name.to_string (Value.to_name v))
+let _ = Callback.register "set" set
+ 
+let get u = 
+  Value.of_name (Name.of_string (Ref.get (Value.to_name u)))
+let _ = Callback.register "set" set

@@ -11,75 +11,107 @@
  * benefit corporation.
 *)
 
-(** Datatype for symbol table. *)
+module Entry = struct
 
-type entry = 
-  | Def of args * defn
-  | Arity of int
-  | Type of Var.Cnstrnt.t
-  | State of Context.t
+  type  t = 
+    | Def of args * body
+    | Spec of Spec.t
+    | Context of Context.t
 
-and defn = 
-  | Term of  Term.t
-  | Prop of Prop.t
+  and body = 
+    | Term of  Term.t
+    | Prop of Prop.t 
 
-and args = Name.t list
+  and args = Name.t list
 
-and t = entry Name.Map.t
+  let pp fmt = function
+    | Def(args, Term(a)) -> 
+	Format.fprintf fmt "@[def("; 
+	Term.pp fmt a;
+	Format.fprintf fmt ")@]@;"
+    | Def(args, Prop(a)) -> 
+	Format.fprintf fmt "@[def("; 
+	Prop.pp fmt a;
+	Format.fprintf fmt ")@]@;"
+    | Spec(sp) -> 
+	Spec.pp fmt sp;
+    | Context(ctxt) -> 
+	Context.pp fmt ctxt
 
-let lookup = Name.Map.find
-	      
-let empty_name () = Name.of_string "empty"
-		      (* needs to be recreated after resets. *)
+end
 
-let empty () = 
-  Name.Map.add
-    (empty_name())
-    (State (Context.empty))
-    Name.Map.empty
+type key = Name.t
 
-let add n e s =
-  if Name.Map.mem n s then
+let table = Name.Hash.create 17
+
+let reset () = 
+  Name.Hash.clear table
+
+let _ = Tools.add_at_reset reset
+
+let to_list () =
+  let l = ref [] in
+    Name.Hash.iter (fun n e -> l := (n, e) :: !l) table;
+    !l
+
+let pp fmt =
+  Pretty.map Name.pp Entry.pp fmt (to_list ())
+
+let lookup n = Name.Hash.find table n
+	
+let in_dom n = Name.Hash.mem table n
+
+module Get = struct
+
+  let term n len =
+    match Name.Hash.find table n with
+      | Entry.Def(xl, Entry.Term(a)) when List.length xl = len -> xl, a
+      | _ -> raise Not_found
+
+  let prop n len =
+    match Name.Hash.find table n with
+      | Entry.Def(xl, Entry.Prop(p)) when List.length xl = len -> xl, p
+      | _ -> raise Not_found
+
+  let spec n =
+    match Name.Hash.find table n with
+      | Entry.Spec(sp) -> sp
+      | _ -> raise Not_found
+
+  let context n =
+    match Name.Hash.find table n with
+      | Entry.Context(ctxt) -> ctxt
+      | _ -> raise Not_found
+end
+
+(** Extending symbol table. *)
+module Put = struct
+
+  let error n = 
     let msg = "Name " ^ Pretty.to_string Name.pp n ^ " already in table" in 
-    raise (Invalid_argument msg)
-  else 
-    Name.Map.add n e s
+      raise (Invalid_argument msg)
 
-let remove n s = 
-  if Name.eq n (empty_name()) then s else Name.Map.remove n s
+  let term n xl a =
+    if in_dom n then error n else
+      Name.Hash.add table n (Entry.Def(xl, Entry.Term(a)))
 
-let filter p s = 
-  Name.Map.fold 
-    (fun n e acc -> 
-       if p n e then Name.Map.add n e acc else acc)
-    s
-    Name.Map.empty
+  let prop n xl p =
+    if in_dom n then error n else
+      Name.Hash.add table n (Entry.Def(xl, Entry.Prop(p)))
 
-let state = filter (fun _ e -> match e with State _ -> true | _ -> false)
-let def   = filter (fun _ e -> match e with Def _ -> true | _ -> false)
-let arity = filter (fun _ e -> match e with Arity  _ -> true | _ -> false)
-let typ   = filter (fun _ e -> match e with Type  _ -> true | _ -> false)
+  let spec n sp =
+    if in_dom n then error n else
+      Name.Hash.add table n (Entry.Spec(sp))
 
-let rec pp fmt s =
-  let ml = Name.Map.fold (fun n e acc -> (n, e) :: acc) s [] in
-    Pretty.map Name.pp pp_entry fmt ml 
+  let context n ctxt =
+    if in_dom n then error n else
+      Name.Hash.add table n (Entry.Context(ctxt))
 
-and pp_entry fmt e =
-  let pr a = 
-    if !pretty then () else Format.fprintf fmt a
-  in
-    match e with
-      | Def(args, Term(a)) -> 
-	  pr "@[def("; Term.pp fmt a; pr ")@]"
-      | Def(args, Prop(a)) -> 
-	  pr "@[def("; Prop.pp fmt a; pr ")@]"
-      | Arity(a) -> 
-	  pr "@[sig("; Format.fprintf fmt "%d" a; pr ")@]"
-      | Type(c) ->
-	  pr "@[type("; Var.Cnstrnt.pp fmt c; pr ")@]"
-      | State(s) -> 
-	  pr "@[state(";
-	  Pretty.list Atom.pp fmt (Context.ctxt_of s);
-	  pr ")@]"
+end
 
-and pretty = ref true
+let restrict n =
+  Name.Hash.remove table n
+
+
+
+

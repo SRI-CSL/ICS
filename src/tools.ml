@@ -89,3 +89,29 @@ let accb acc p a =
   match p a with 
     | None -> false
     | Some(side_effect) -> acc := side_effect :: !acc; true
+
+
+(** {6 Transformations} *)
+
+module Inchannel = struct 
+  type t = Pervasives.in_channel
+  let of_string = function
+    | "stdin" -> Pervasives.stdin
+    | str -> Pervasives.open_in str
+
+  let to_string inch =
+    if inch == Pervasives.stdin then "stdin" else "<abst>"
+end 
+
+module Outchannel = struct 
+  type t = Format.formatter
+  let of_string = function
+    | "stdout" -> Format.std_formatter
+    | "stderr" -> Format.err_formatter
+    | str -> Format.formatter_of_out_channel (Pervasives.open_out str)
+
+  let to_string outch =
+    if outch == Format.std_formatter then "stdout"
+    else if outch == Format.err_formatter then "stderr"
+    else "<abst>"     
+end 

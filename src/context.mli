@@ -11,97 +11,88 @@
  * benefit corporation.
  *)
 
-(** Logical contexts
+(** Logical contexts.
 
   @author Harald Ruess
-*)
 
-(** A {b logical context} is simply a conjunction [ctxt] of atoms.  When atoms 
-  are added to a logical context, the following datastructures are maintained.
-  - A {b partitioning} [p] of type {!Partition.t} consisting of variable 
-    equalities, variable disequalities, and variable constraints.
-  - A {b solution set} for every equality theory defined in {!Th}. 
-  - An upper bound on the indices of all fresh variables in all the data
-    structures above.
+  A {b logical context} is a conjunction [ctxt] of atoms (see module {!Atom}). 
+  This module  provides functionality
+  - for adding atoms to a context,
+  - for generating models of satisfiable contexts, and
+  - for generating {i small} (but not necessarily minimal) inconsistent 
+  subsets of unsatisfiable contexts.
 *)
 
 type t
-  (** Representation of logical contexts. *)
-
-(** Pretty-printing mode for processing. *)
-module Mode : sig
-  type t = Context | Internals | None
-  val value : t ref
-  val set : t -> ('a -> 'b) -> 'a -> 'b
-end 
-
+  (** Representation of a logical context. *)
 
 val pp : t Pretty.printer
   (** Pretty-printing the context of a state. *)
 
 val eq : t -> t -> bool
-  (** Identity test on contexts. *)
+  (** Constant time identity test on contexts. Failure does not imply 
+    that contexts are not logically equivalent. *)
 
+val ctxt : t -> Atom.t list
+  (** Returns the associated logical context. *)
+
+val config : t -> Combine.Config.t
+  (** [config ctxt] returns the configuration of the inference obtained by processing [ctxt].
+    This configuration is not necessarily {i irreducable}. *)
+
+(** Status flag for logical contexts. *)
+module Status : sig
+  type t =
+    | Sat of Term.Model.t
+    | Unsat of Judgement.unsat
+    | Unknown
+
+  val pp: Format.formatter -> t -> unit
+end
+
+val status : t -> Status.t
+  (** The {i status} associated with a context [ctxt] is either
+    - [Sat(mdl)], in which case [mdl] is a term model (see {!Term.Model.t}) 
+    of the atoms in [ctxt],
+    - [Unknown], indicating that the status of satisfiablity of [ctxt] has 
+    not been established, or
+    - [Unsat(jst)] with justications [jst] (see {!Jst.t}) an unsatisfiable 
+    subset of [ctxt]. *)
+  
 val empty : t
   (** The empty logical context *)
 
-val ctxt_of : t -> Atom.t list
-  (** [ctxt_of s] returns the logical context of [s] as a list of atoms. *)
+val add : t -> Atom.t -> t
+  (** [add ctxt a] returns a logical context for the conjunction of [ctxt] and the 
+    atom [a]. Notice that the [status] of the resulting context might not have been 
+    resolved, that is, the status might be [Unknown]. *)
 
-val partition_of : t -> Partition.t
-  (** [p_of s] returns the partitioning associated with [s]. *)
+val addl : t -> Atom.t list -> t
+  
+val resolve : t -> unit
+  (** [complete ctxt] resolves the status to either [Sat] or [Unsat]. *)
 
-val eqs_of : t -> Combine.E.t
+val model : t -> Term.Model.t
+  (** [model ctxt] 
+    - returns [Some(i, alpha)] with term model [i, alpha], with [dom(i, alpha)] a subset of the
+    variables in [ctxt],  validating all atoms [a] in [ctxt], or
+    - raises {!Jst.Inconsistent} together with an inconsistent subset [jst] of [ctxt]. *)
 
-val config_of : t -> Combine.E.t * Partition.t
+val eval : t -> Atom.t -> Atom.t
+  (** [eval ctxt atm] computes the value of [atm] for the model associated with
+    a satisfiable [ctxt]. *)
 
+val validates : t -> Atom.t -> bool
+  (** [validates ctxt atm] holds if [ctxt] is unsatisfiable or if the model associated 
+    with [ctxt] validates [atm]. *)
+  
+val is_inconsistent : t -> Atom.t list -> Judgement.atom option
+  (** [is_inconsistent ctxt al] returns
+    - [Some(jst)], for [jst] an inconsistent subset of the union of [ctxt] and [al],
+    if the conjunction of [ctxt] and the atoms in [al] is inconsistent, or
+    - [None] if the conjunction of [ctxt] and [al] is consistent. *)
 
-val upper_of : t -> int
-  (** [upper_of s] returns an upper bound on the indices of all fresh
-    variables in [s]. *)
-
-(** Result of processing. *)
-module Status : sig
-
-  type 'a t = 
-    | Valid of Jst.t
-    | Inconsistent of Jst.t
-    | Ok of 'a
-
-  val pp : 'a Pretty.printer -> 'a t Pretty.printer
-
-end
-
-
-val add : t -> Atom.t -> t Status.t
-  (** [process s a] extends the logical context [s] with an atom [a].
-    The return value is 
-    - [Valid] if [a] can be shown to be valid in [s],
-    - [Inconsistent] if [s] conjoined with [a] can be shown to be inconsistent, and 
-    - [Ok(s')] otherwise.  In this case, [s'] is a logical state equivalent 
-    to [s] conjoined with [a]. *)
-
-val statistics : bool ref
-val verbose : bool ref
-val coi_enabled : int ref
-val semantic_coi_min : int ref
-val syntactic_coi_min : int ref
-
-val addl : t -> Atom.t list -> t Status.t
-
-val is_inconsistent : t -> Atom.t list -> bool
-  (** [is_inconsistent s al] is [true] iff the conjunction of 
-    atoms in [al] is inconsistent in [s]. *)
-
-val is_valid : t -> Atom.t list -> bool
-  (** [is_valid s al] is [true] iff the conjunction of 
-    atoms in [al] is valid in [s]. *)
-
-val check_sat : t -> t option
-  (** [check_sat s] performs case-splitting and returns
-    - [Some(splits', s')] if there is a complete case-splitting path [splits']
-    yielding a satisfiable extension [s'] of [s].
-    - [None] if all case-splittinig paths yield an inconsistent context. *)
-
-val diff : t -> t -> t
-  (** Difference. *)
+val is_valid : t -> Atom.t -> Judgement.atom option
+  (** [is_valid ctxt a] returns
+    - [Some(jst)] for [jst] a subset of [ctxt] which implies atom [a], or
+    - [None] if [ctxt] does not imply [a]. *)

@@ -44,7 +44,6 @@ module Equal : sig
   val both_sides : (Term.t -> bool) -> t -> bool
   val is_var : t -> bool
   val is_pure : Th.t -> t -> bool
-  val status : t -> Term.status
   val map2 : Jst.Eqtrans.t * Jst.Eqtrans.t -> t -> t
   val map : Jst.Eqtrans.t -> t -> t
   val map_lhs : Jst.Eqtrans.t -> t -> t
@@ -63,7 +62,6 @@ module Diseq : sig
   val both_sides : (Term.t -> bool) -> t -> bool
   val is_var : t -> bool  
   val is_pure : Th.t -> t -> bool
-  val status : t -> Term.status
   module Set : (Set.S with type elt = t)            
 end
 
@@ -77,7 +75,6 @@ module Nonneg : sig
   val map : Jst.Eqtrans.t -> t -> t
   val is_var : t -> bool  
   val is_pure : Th.t -> t -> bool
-  val status : t -> Term.status
 end
 
 (** Nonnegativity facts *)
@@ -89,7 +86,6 @@ module Pos : sig
   val map : Jst.Eqtrans.t -> t -> t
   val is_var : t -> bool  
   val is_pure : Th.t -> t -> bool
-  val status : t -> Term.status
 end
 
 

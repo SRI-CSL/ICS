@@ -32,14 +32,14 @@ let sigma f al =
     | Sym.Propset(op) -> Propset.sigma op al
     | Sym.Cl(op) -> Apply.sigma op al
     | Sym.Pp(op) -> Pprod.sigma op al
-    | Sym.Uninterp _ -> Term.App.mk_app f al
+    | Sym.Uninterp _ -> Term.mk_app f al
     | Sym.Arrays(op) -> Funarr.sigma Term.is_equal op al
 
 let instantiate (b, c, rho) a =
   let rec inst a =
     if Term.eq a c then b else
       try
-	let (f, al) = Term.App.destruct a in
+	let (f, al) = Term.destruct a in
 	let bl = Term.mapl inst al in
 	  sigma f bl
       with
@@ -84,15 +84,6 @@ module Equal = struct
   let is_var = both_sides Term.is_var
   let is_pure i = both_sides (Term.is_pure i)
 
-  let status (a, b, _) =
-    match Term.status a, Term.status b with
-      | Term.Variable, Term.Variable -> Term.Variable
-      | (Term.Mixed _ as s1) , _ -> s1
-      | _, (Term.Mixed _ as s2) -> s2
-      | (Term.Pure(i) as s1), Term.Variable -> s1
-      | Term.Variable, (Term.Pure(j) as s2) -> s2
-      | Term.Pure(i), (Term.Pure(j) as s2) -> 
-	  if i = j then s2 else Term.Mixed(i, a)
 
 end
 
@@ -138,16 +129,6 @@ module Diseq = struct
 	  if c1 <> 0 then c1 else Term.compare b1 b2
     end)
 
-  let status (a, b, _) =
-    match Term.status a, Term.status b with
-      | (Term.Mixed _ as s1), _ -> s1
-      | _, (Term.Mixed _ as s2) -> s2
-      | Term.Variable, Term.Variable -> Term.Variable
-      | Term.Pure(i), (Term.Pure(j) as s2) -> 
-	  if i = j then s2 else Term.Mixed(i, a)
-      | (Term.Pure(i) as s1), Term.Variable -> s1
-      | Term.Variable, (Term.Pure(j) as s2) -> s2
-	  
 end
   
 
@@ -179,8 +160,6 @@ module Nonneg = struct
   let is_pure i nn =
     Term.is_pure i (term_of nn)
 
-  let status (a, _) = Term.status a
-
 end
 
 
@@ -211,8 +190,6 @@ module Pos = struct
 
   let is_pure i p =
     Term.is_pure i (term_of p)
-
-  let status (a, _) = Term.status a
 
 end
 

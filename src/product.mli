@@ -29,26 +29,31 @@
 
   The {i theory} [P] of pairs consists of the equalities which
   can be derived using the usual equality rules and the universally
-  quantified equations
+  quantified equations and disequalities.
   - [car(cons(s, t)) = s]
   - [cdr(cons(s, t)) = t]
   - [cons(car(s), cdr(s)) = s]
+  - [cons(s, t) <> s]
+  - [cons(s, t) <> t]
+  - [car(s) <> s]
+  - [car(cdr(s)) <> s]
+  - ...
 
   A term is said to be {i canonical} in [P], if it does not
   contain any redex of the form [car(cons(.,.))],  [cdr(cons(.,.))],
-  or [cons(car(.), cdr(.))]. For [a], [b] in canonical form: [a = b]
-  holds in [P] iff [a] is syntactically equal to [b] (that is,
-  {!Term.eq}[a b] holds).
+  or [cons(car(s), cdr(s))]. For [s], [t] in canonical form: [s = t]
+  holds in [P] iff [s] is syntactically equal to [t] (that is,
+  {!Term.eq}[s t] holds).
 
   This module provides
   - constructors {!Product.mk_car}, {!Product.mk_cdr}, and
     {!Product.mk_cons} for building up canonical terms in [P].
+  - a {!Product.map} function for homomorphically applying a function [f]
+    at all variable positions of a pure term.
   - a solver {!Product.solve} for solving equalities in [P].
 *)
 
-val is_interp : Term.t -> bool
-  (** [in_interp a] holds if the top-level function symbol is 
-    in the signature of [P]. *)
+val theory : Theory.t
 
 val is_pure : Term.t -> bool
   (** [is_pure a] holds if every function symbol in [a] is in [P];
@@ -85,18 +90,14 @@ val map: (Term.t -> Term.t) -> Term.t -> Term.t
     If [f] is the identity function on uninterpreted terms in [a], then
     [map f a] is [==] to [a]. *)
 
-val apply: Term.Equal.t -> Term.t -> Term.t
-  (** [apply (x, b) a] replaces uninterpreted occurrences 
-    of [x] in [a] with [b], and returns a canonical form. *)
-
-val sigma : Sym.product -> Term.t list -> Term.t
+val sigma : Term.interp
   (** [sigma op l] applies the function symbol [op] from the pair 
     theory to the list [l] of argument terms to build a canonical
     term equal to [op(l)]. *)
 
-val solve : Term.Equal.t -> Term.Equal.t list
+val solve : Term.t -> Term.t -> Term.Set.t * Term.Subst.t
   (** Given an equality [a = b], the pair solver [solve(a, b)] 
-    - raises the exception {!Exc.Inconsistent} iff the equality 
+    - raises exception {!Exc.Inconsistent} iff the equality 
     [a = b] does not hold in [P], or
     - returns a solved list of equalities [x1 = a1;...;xn = an] 
     with [xi] variables in [a] or [b], the [xi] are pairwise disjoint, 
@@ -105,3 +106,16 @@ val solve : Term.Equal.t -> Term.Equal.t list
     (see {!Term.Var.mk_fresh}). *)
 
 
+module Component: Shostak.COMPONENT
+  (** Inference system for the theory {!Th.p} of products 
+    as described in module {!Product}.  This inference
+    system is obtained as an instantiation of the generic
+    Shostak inference system [Shostak.Infsys] with a
+    specification of the {i convex} product theory by
+    means of the 
+    - product canonizer {!Product.map}
+    - product solver {!Product.solve}
+
+    In particular, there is no branching for this theory,
+    and the inference system is complete as the product
+    solver itself is complete. *)

@@ -13,6 +13,28 @@
 
 val on_help : unit -> unit
 
-val syntax : unit -> unit
+val syntax : string -> unit
+
+val command : string -> unit
 
 val commands : unit -> unit
+
+
+type command = {
+  args : string;
+  short : string;
+  description : string;
+  examples : (string * string) list;
+  seealso : string
+}
+
+val enabled : bool ref
+
+(** Registration of nonterminals for help command. *)
+module Register : sig
+
+  val nonterminal : string -> string list -> string -> unit
+
+  val command : string -> ('a -> unit) -> command -> ('a -> unit)
+
+end

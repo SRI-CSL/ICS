@@ -26,7 +26,7 @@ let keyword =
   List.iter 
     (fun (s,tk) -> Hashtbl.add kw_table s tk)
     [ "in", IN; "notin", NOTIN;
-      "int", INT; "real", REAL;
+      "int", INT; "real", REAL; "nonint", NONINT;
       "bitvector", BV; "with", WITH;
       "proj", PROJ;
       "cons", CONS; "car", CAR; "cdr", CDR;
@@ -34,12 +34,18 @@ let keyword =
       "drop", DROP; "simplify", SIMPLIFY; "can", CAN; "assert", ASSERT; "exit", EXIT; 
       "valid", VALID; "unsat", UNSAT;
       "save", SAVE; "restore", RESTORE; "remove", REMOVE; "forget", FORGET;
-      "reset", RESET; "sig", SIG; "type", TYPE; "def", DEF; "prop", PROP;
-      "sigma", SIGMA; "solve", SOLVE; "help", HELP; "model", MODEL; "check", CHECK;
-      "set", SET; "toggle", TOGGLE; "get", GET; "trace", TRACE;  "untrace", UNTRACE; 
+      "reset", RESET; "sig", SIG; "type", TYPE; 
+      "def", DEFTERM; "defterm", DEFTERM; 
+      "prop", DEFPROP; "defprop", DEFPROP;
+      "deftheory", DEFTHEORY;
+      "sigma", SIGMA; "solve", SOLVE; "help", HELP;
+      "set", SET; "toggle", TOGGLE; "get", GET; 
       "find", FIND; "inv", INV; "dep", USE; "solution", SOLUTION; "partition", PARTITION;
-      "syntax", SYNTAX; "commands", COMMANDS; "ctxt", CTXT; "diseq", DISEQ; "echo", ECHO; "undo", UNDO;
-      "show", SHOW; "symtab", SYMTAB; "sign", SIGN; "dom", DOM; "split", SPLIT; "sat", SAT; "load", LOAD;
+      "syntax", SYNTAX; "commands", COMMANDS; "ctxt", CTXT; "diseq", DISEQ; "echo", ECHO;
+      "undo", UNDO;
+      "config", CONFIG; "status", STATUS; "eval", EVAL; "register", REGISTER;
+      "theory", THEORY; "signature", SIGNATURE; "axioms", AXIOMS; "begin", BEGIN; "description", DESCRIPTION;
+      "show", SHOW; "symtab", SYMTAB; "sign", SIGN; "resolve", RESOLVE; "sat", SAT; "load", LOAD;
       "true", TRUE; "false", FALSE;
       "empty", EMPTY; "full", FULL; "union" , UNION; "inter", INTER; "diff", DIFF;
       "sub", SUBSET;
@@ -48,6 +54,7 @@ let keyword =
       "inr", INR; "inl", INL; "outr", OUTR; "outl", OUTL;
       "inj", INJ; "out", OUT;
       "hd", HEAD; "tl", TAIL;
+      "mod", MOD;
       "lambda", LAMBDA;
       "if", IF; "then", THEN; "else", ELSE; "end", END;
       "create", CREATE;
@@ -69,7 +76,7 @@ rule token = parse
   	         token lexbuf }
   | '%' [^ '\n']* {token lexbuf }
   | ident      { keyword (Lexing.lexeme lexbuf) }
-  | ['0'-'9']+ { INTCONST (int_of_string (Lexing.lexeme lexbuf)) }
+  | ['0'-'9']+ { INTCONST (Mpa.Z.of_string (Lexing.lexeme lexbuf)) }
   | ['0'-'9']+ '/' ['0'-'9']+ 
                { RATCONST (Mpa.Q.of_string (Lexing.lexeme lexbuf)) }
   | '-' ['0'-'9']+ '/' ['0'-'9']+ 
@@ -98,6 +105,7 @@ rule token = parse
   | '/'        { DIVIDE }
   | '\\'       { BACKSLASH }
   | '='        { EQUAL }
+  | "=="       { EQUAL2 }
   | ":="       { ASSIGN }
   | "<>"       { DISEQ }
   | "<"        { LESS }
@@ -123,5 +131,7 @@ rule token = parse
   | '$'        { APPLY }
   | '@'        { KLAMMERAFFE }
   | "'"        { QUOTE }
+  | "==>"      { REDUCE }
+  | "-->"      { REWRITE }
   | eof        { EOF }
   | _          { raise Parsing.Parse_error }

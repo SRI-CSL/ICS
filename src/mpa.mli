@@ -56,6 +56,7 @@ module Z : sig
   val pow : int -> int -> t
 
   val to_string : t -> string
+  val of_string : string -> t
 
   val pp : Format.formatter -> t -> unit
 end
@@ -131,6 +132,10 @@ module Q : sig
 
 end
 (** Multi-precision rationals. *)
+
+
+
+
 
 
 

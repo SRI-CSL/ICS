@@ -11,63 +11,41 @@
  * benefit corporation.
  *)
 
-type t = {
-  mutable facts : Fact.t list;
-  mutable clauses : Clause.t list
-}
+exception Empty
 
-let empty = { facts = []; clauses = [] }
+module Infsys = struct
 
-let is_empty g =
-  match g.facts, g.clauses with
-    | [], [] -> true
-    | _ -> false
+  let g = Stacks.create ()
 
-let eq g1 g2 = 
-  g1.facts == g2.facts &&
-  g1.clauses == g2.clauses
+  let is_empty () = 
+    Stacks.is_empty g
 
-let pp fmt g =
-  Pretty.set Fact.pp fmt g.facts;
-  if not(g.clauses = []) then
-    begin
-      Format.fprintf fmt "\nDisjunctions: \n";
-      Pretty.infixl Clause.pp "\n AND " fmt g.clauses
-    end 
+  let rec pp fmt () = 
+    let l = Stacks.to_list g in
+      Pretty.set pp_atom fmt l
 
-let get g =
-  match g.facts with
-    | [] -> raise Not_found
-    | fct :: fcts' ->
-	g.facts <- fcts'; fct
+  and pp_atom fmt a = a#pp fmt 
+
+  let reset () = 
+    Stacks.clear g
+	 
+  let initialize =
+    let push fct = Stacks.push fct g in
+      Trace.func 2 "G.initialize" (Pretty.set pp_atom) Pretty.unit
+	(fun fcts ->
+	   reset ();
+	   List.iter push fcts)
+
+  let get =
+    Trace.func 2 "G.get" Pretty.unit pp_atom
+      (fun () -> 
+	 try Stacks.pop g with Stacks.Empty -> raise Empty)
+
       
-let mem fct g =
-  let eq_fct fct' = Fact.eq fct fct' in
-    List.exists eq_fct g.facts
+  let put = 
+    Trace.proc 2 "G.put" pp_atom
+      (fun fct -> 
+	 Stacks.push fct g)
+ 
+end
 
-let put fct g = 
-  if not(mem fct g) then
-    g.facts <- fct :: g.facts
-
-let get_clause g =
-  match g.clauses with
-    | [] -> raise Not_found 
-    | cl :: cls ->
-	g.clauses <- cls; cl
-
-let put_clause cl g =
-  try
-    let fct = Clause.d_singleton cl in
-      put fct g
-  with
-      Not_found -> 
-	g.clauses <- cl :: g.clauses
-
-
-let replace e g =        (* don't replace in clauses. *)
-  let fcts' =  
-    List.map (Fact.replace e) g.facts
-  in
-    g.facts <- fcts'
-
-let copy g = { facts = g.facts; clauses = g.clauses }

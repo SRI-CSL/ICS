@@ -30,61 +30,51 @@
   - [a[j:=y][i:=x] = a[i:=x][j:=y]] if [i <>D j] and {!Term.(<<<)}[i j]. 
 *)
 
-val d_interp : Term.t -> Sym.arrays * Term.t list
-
-val d_update : Term.t -> Term.t * Term.t * Term.t
-
-val d_select : Term.t -> Term.t * Term.t
-
-val d_create : Term.t -> Term.t
-
-val d_select_update : Term.t -> Term.t * Term.t * Term.t * Term.t
-   (** [d_select a] returns [(b, i, x, j)] if [a] is of the form [a[i:=x][j]]. *)
-
-type equalRel = Term.t -> Term.t -> Three.t
+val theory : Theory.t
 
 val is_interp : Term.t -> bool
-
-
-(** {6 Constructors} *)
   
 val mk_create : Term.t -> Term.t
   
-val mk_select : equalRel -> Term.t -> Term.t -> Term.t
+val mk_select : Term.t -> Term.t -> Term.t
   (** [mk_select a j] constructs a canonical term equivalent
     to [App(select, [a; j])]. *)
   
-val mk_update : equalRel -> Term.t -> Term.t -> Term.t -> Term.t
+val mk_update : Term.t -> Term.t -> Term.t -> Term.t
   (** [mk_update a x i] constructs a canonical term equivalent
     to [App(update, [a;x;i])]. *)
   
   
-(** {6 Canonizer} *)
-
-val sigma : equalRel -> Sym.arrays -> Term.t list -> Term.t
-
+val sigma : Term.interp
   
-(** {6 Iterators} *)
-  
-val map: equalRel -> (Term.t -> Term.t) -> Term.t -> Term.t
+val map: (Term.t -> Term.t) -> Term.t -> Term.t
   (** Applying a term transformer at all uninterpreted positions
     - [map f (mk_select a j)] equals [mk_select (map f a) (map f j)]
     - [map f (mk_update a i x)] equals [mk_select (map f a) (map f i) (map f x)]
     - Otherwise, [map f x] equals [f x] *)
 
 
-(** {6 Flat terms} *)
+module Infsys: Can.INFSYS
+  (** Inference system for the theory {!Th.arr} of extensional arrays
+    as defined in module {!Funarr}.
 
-module Flat : sig
-
-  val is : Term.t -> bool
-
-  val mk_create : Term.t -> Term.t
-
-  val mk_update : Term.t -> Term.t -> Term.t -> Term.t
-
-  val mk_select : Term.t -> Term.t -> Term.t
-
-  val apply : Term.Equal.t -> Term.t -> Term.t
-
-end
+    A context consists of equalities of the form [x = b] with [x] a
+    variable and [b] a flat array term with variables as arguments:
+    - [create(a)] for creating a constant array with 'elements' [a]
+    - [a[i:=x]] for updating array [a] at position [i] with [x]
+    - [a[j]] for selection the value of array [a] at position [j]
+    
+    Right-hand sides of context equalities [x = a] are kept in 
+    canonical form.  That is, if the variable equality [y = z]
+    has been merged using [Arr.merge], then the noncanonical [y]
+    is not appearing on any right-hand side.
+    
+    Forward chaining is used to keep configurations {i confluent}.
+    - (1) [u = a[i:=x]] ==> [x = u[i]],
+    - (2) [i<>j], [u = a[i:=x]] ==> [u[j] = a[j]],
+    - (3) [i<>j], [v = a[i:=x][j:=y]] ==> [v = a[j:=y][i:=x]],
+    - (4) [u = a[i:=y][i:=x]] ==> [u = a[i:=x]],
+    - (5) [u = create(a)[j]] ==> [u = a]
+    
+    Here, [i<>j] are the known disequalities in a variable partition
+    (see {!Partition.t}). *)

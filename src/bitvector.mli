@@ -104,7 +104,7 @@ val is_diseq : Term.t -> Term.t -> bool
 
 (** {6 Canonizer} *)
 
-val sigma : Sym.bv -> Term.t list -> Term.t
+val sigma : Term.interp
   (** Given a bitvector symbol [f] (see module [Sym]) and a list
     [l] of arguments, [sigma f l] returns a concatenation normal form (CNF)
     of the application ['f(l)'].  A CNF is either a simple bitvector or a 
@@ -132,7 +132,7 @@ val map: (Term.t -> Term.t) -> Term.t -> Term.t
     and with [a] otherwise, followed by a sigmatization
     of all interpreted parts using [mk_sigma]. *)
 
-val apply : Term.Equal.t -> Term.t -> Term.t
+val apply : Term.t * Term.t -> Term.t -> Term.t
 
 
 (** {6 Solver} *)
@@ -145,5 +145,17 @@ val solve : Term.t * Term.t ->  (Term.t * Term.t) list
     the terms [ej], and, viewed as a conjunction of equivalences, the result
     is equivalent (in the theory of bitvectors) with [b]. The terms [ei] 
     may contain fresh bitvector constants. *)
+
+
+(** {6 Inference System} *)
+
+(*
+module Infsys: Shostak.S
+  (** Inference system for the bitvector theory {!Th.bv}
+    as defined in module {!Bitvector}.  This inference system
+    is a variation of the inference system {!Shostak.Make} 
+    for Shostak theories. *)
+    
+*)
 
 

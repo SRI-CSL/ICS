@@ -11,7 +11,6 @@
  * benefit corporation.
  *)
 
-
 (** ICS command line interpreter. *)
 
 let _ = Sys.catch_break true
@@ -21,41 +20,37 @@ let _ = Sys.catch_break true
 let timing_flag = ref false
 let portnum_flag = ref None
 
+
 let args () =
   let files = ref [] in
-  let set_true set = Arg.Unit (fun () -> set true)
-  and set_false set = Arg.Unit (fun () -> set false) in
+  let set_true set = Arg.Unit (fun () -> set (Ics.tt()))
+  and set_false set = Arg.Unit (fun () -> set (Ics.ff())) in
+  let arg_string f =
+    let f' str = f (Ics.intern str) in
+      Arg.String f'
+  in
     Arg.parse
       [ "-timings", Arg.Set timing_flag,          
 	"Print timings";
 	"-profiles", Arg.Set Tools.profiling,          
 	"Print profiles";
-	"-index", Arg.Set Solution.pp_index,          
-	"Print internal indices";
-	"-prompt", Arg.String Ics.set_prompt,
+(*
+	"-prompt", arg_string Ics.set_prompt,
 	"Set prompt";
-        "-pp", Arg.String Ics.set_pretty,
+        "-pp", arg_string Ics.set_pretty,
 	"Pretty-printing mode ([mixfix | prefix | sexpr]) ";	
-	"-nohelp", Arg.Clear Istate.help_enabled,
+	"-nohelp", Arg.Clear Help.enabled,
 	"Disable help feature";
-	"-trace", Arg.String Ics.trace_add,
-	"Enable tracing";
 	"-show_explanations", set_true Ics.set_show_explanations,
 	"Display explanations generated for SAT solver on stderr";
         "-version", Arg.Unit (fun () -> Version.print(); exit 0),
         "Display version number";
         "-compactify",  set_true Ics.set_compactify,
 	"Disable compactification in SAT solver";
-	"-proofmode", Arg.String Ics.set_proofmode,
+	"-proofmode", arg_string Ics.set_proofmode,
 	"Set proofmode to [No | Dep]";
-        "-eot", Arg.String Ics.set_eot, 
+        "-eot", arg_string Ics.set_eot, 
 	"Print string argument after each transmission";
-	"-cone_of_influence", Arg.Int(fun i -> Context.coi_enabled := i; Context.statistics := true), 
-	"Cone of influence reduction for explanations [0 = disabled; 1 = syntactic; 2 = semantic]";
-	"-syntactic_cone_of_influence", Arg.Int(fun i -> Context.syntactic_coi_min := i; Context.statistics := true), 
-	"Enable syntactic cone of influence deduction for explanations [>= n].";
-	"-semantic_cone_of_influence", Arg.Int(fun i -> Context.semantic_coi_min := i; Context.statistics := true), 
-	"Enable semantic cone of influence deduction for explanations [>= n].";
         "-server", Arg.Int (fun portnum -> portnum_flag := Some(portnum)), 
 	"Run in server mode";
 	"-verbose", set_true Ics.set_verbose,
@@ -82,8 +77,9 @@ let args () =
         "GC will work more if [space_overhead] is smaller (default 80)";
 	"-gc_max_overhead", Arg.Int(Ics.set_gc_max_overhead),
         "Controlling heap compaction (default 500), [gc_max_overhead >= 1000000] disables compaction";
-	"-gc", Arg.String (Ics.set_gc_mode),
+	"-gc", arg_string (Ics.set_gc_mode),
 	"Coarse-grained control over GC (lazy, eager)"
+*)
       ]
       (fun f -> files := f :: !files)
       "Usage: ics [args] <file> ... <file>";
@@ -97,6 +93,8 @@ let rec repl () =
   try
     Ics.cmd_rep ()
   with
+    | Failure "drop" ->
+	()
     | exc -> 
 	Format.eprintf "%s@." (Printexc.to_string exc);
 	Ics.cmd_rep ()
@@ -111,20 +109,21 @@ and usage () =
 (** {6 Batch Mode} *)
 
 and batch names =
-  Ics.set_prompt "";
-  List.iter batch1 names
+  let empty = Ics.intern "" in
+    Ics.set (Ics.intern "prompt") empty;
+    List.iter batch1 names
 
 and batch1 name =
-  let inch = Ics.inchannel_of_string name in
+  Ics.set (Ics.intern "inchannel") (Ics.intern name);
   let exit_code = 
     if !timing_flag then
       let start = (Unix.times()).Unix.tms_utime in
-      let code = Ics.cmd_batch (inch) in
+      let code = Ics.cmd_batch () in
       let time = (Unix.times()).Unix.tms_utime -. start in
 	Format.eprintf "\n%s processed in %f seconds.@." name time;
 	code
     else 
-      Ics.cmd_batch (inch)
+      Ics.cmd_batch ()
   in
     if exit_code <> 0 then
       begin
@@ -141,11 +140,12 @@ and server portnum =
   Unix.establish_server 
     (fun inch outch ->
        let formatter = Format.formatter_of_out_channel outch in
+(* to do
 	 Ics.set_inchannel inch;
 	 Ics.set_outchannel formatter;
+*)
 	 Ics.cmd_rep ())
     sockaddr
-
 
 let rec main () =
   Ics.init(0);
@@ -173,6 +173,8 @@ let rec main () =
 	exit (-1)
 	  
 let _ = Printexc.catch main ()
+
+
 
 
 

@@ -11,277 +11,120 @@
  * benefit corporation.
  *)
 
-
 module type SIG = sig
-  val th : Th.t
-  val f : Sym.t
+  val th : Theory.t
+  val f : Funsym.t
 end 
 
-
-module type TERM = sig
-  val d_interp : Term.t -> Term.t * Term.t
-  val is_interp : Term.t -> bool 
-  val make : Term.t -> Term.t -> Term.t
-  val iterate : Term.t -> int -> Term.t
-  val multiplicity: Term.t -> Term.t -> int
-  val decompose : Term.t -> (Term.t * int) * Term.t option
-  val fold : (Term.t -> int -> 'a -> 'a) -> Term.t -> 'a -> 'a
-  val iter : (Term.t -> int -> unit) -> Term.t -> unit
-  val sigma : Sym.t -> Term.t list -> Term.t
-  val map : (Term.t -> Term.t) -> Term.t -> Term.t
-end
-
 (** Term manipulations for pure AC terms. *)
-module Make(Sig: SIG): TERM = struct
+module T(Sig: SIG) = struct
 
-  let d_interp a =
-    match Term.App.destruct a with
-      | f, [a1; a2] when Sym.eq f Sig.f ->
-	  (a1, a2)
-      | _ ->
-	  raise Not_found
+  let th = Sig.th
 
-  let is_interp a = 
+  let is_f = Funsym.eq Sig.f
+
+  let is_interp t = 
     try
-      (match Term.App.destruct a with
-	| f, [a1; a2] when Sym.eq f Sig.f -> true
-	| _ -> false)
+      let f = Term.sym_of t and a = Term.args_of t in
+	is_f f && Term.Args.length a = 2
+    with
+	Not_found -> false
+
+  let lhs t =
+    assert(is_interp t);
+    Term.arg1 t
+
+  let rhs t = 
+    assert(is_interp t);
+    Term.arg2 t
+
+  let rec is_pure t = 
+    (Term.is_var t) ||
+    try
+      is_f (Term.sym_of t) &&
+      is_pure (lhs t) &&
+      is_pure (rhs t)
     with
 	Not_found -> false
 
   (** Ordered right-associative applications of AC symbol [f] *)
-  let rec make a b =
+  let rec make s t =
     try
-      let (a1, a2) = d_interp a in
-	make a1 (make a2 b)
+      let s1 = lhs s and s2 = rhs s in
+	make s1 (make s2 t)
     with
 	Not_found -> 
-	  assert(not(is_interp a));
 	  try
-	    let (b1, b2) = d_interp b in
-	    let cmp = Term.cmp a b1 in
-	      if Term.cmp a b1 <= 0 then   (* case [a <= b1] *)
-		mk_app a b
-	      else                         (* case [a > b1] *)
-		make b1 (make a b2)
+	    let t1 = lhs t and t2 = rhs t in
+	    let cmp = Term.compare s t1 in
+	      if le s t1  then   (* case [a <= b1] *)
+		mk_app s t
+	      else               (* case [a > b1] *)
+		make t1 (make s t2)
 	  with
 	      Not_found -> 
-		assert(not(is_interp b));
-		if Term.cmp a b <= 0 then
-		  mk_app a b
-		else
-		  mk_app b a
+		if le s t then mk_app s t else mk_app t s
 
-  and mk_app a b = 
-    Term.App.mk_app Sig.f [a; b]
+  and mk_app s t =
+    Term.mk_binary Sig.f s t
+
+  and le s t = 
+    Term.compare s t <= 0
+
+  let sigma f a =
+    assert(is_f f);
+    assert(Term.Args.length a = 2);
+    make (Term.Args.get a 0) (Term.Args.get a 1)
+
+  let can = sigma
+
+  let pp fmt f al =
+    assert(is_f f);
+    let rec infix = function
+      | [] -> ()
+      | [a] -> Term.pp fmt a
+      | a :: al -> Term.pp fmt a; Funsym.pp fmt f; infix al
+    in
+      Format.fprintf fmt "(";
+      infix al;
+      Format.fprintf fmt ")"
       
 
-  (** Number of occurrences of [x] in [a]. *)  
-  let multiplicity x =
-    let rec scan acc a =
-      try
-	let (y, b) = d_interp a in
-	let cmp = Term.cmp x y in
-	  if cmp < 0 then        (* [x << y] *)
-	    scan acc b
-	  else if cmp = 0 then   (* [x = y] *)
-	    scan (1 + acc) b
-	  else                   (* [x >> y] *)
-	    acc
-      with
-	  Not_found -> 
-	    if Term.eq x a then (1 + acc) else acc
-    in
-      scan 0
-	
-  (** Decompose [x*x*...*x*y*....] into [(x, n)] with [n] the
-    multiplicity of [x] in [a] and [y*...], or raise [Not_found]
-    if input term is not a multiplication. *)
-  let decompose a =
-    try
-      let (x, _) = d_interp a in  
-      let rec scan acc post =
-	try
-	  let (y, b) = d_interp post in
-	    if Term.eq x y then
-	      scan (acc + 1) b
-	    else 
-	      (acc, Some(post))
-	with
-	    Not_found -> 
-	      if Term.eq x post then (acc + 1, None) else  (acc, None)  
-      in
-      let (n, b) = scan 0 a in
-	((x, n), b)
-    with
-	Not_found -> ((a, 1), None)
-
-
-  let rec fold f a acc =
-    let ((x, n), b) = decompose a in
-    let acc' = f x n acc in
-      match b with
-	| None -> acc'
-	| Some(b') -> fold f b' acc'
-
-
-  let rec iter f a =
-    let ((x, n), b) = decompose a in
-      f x n;
-      match b with
-	| None -> ()
-	| Some(b') -> iter f b'
-	    
-
-  let rec iterate a n =
-    assert(n >= 1);
-    if n = 1 then a else make a (iterate a (n - 1))
-
-  let rec of_list = function
-    | [(a, n)] -> iterate a n
-    | (a, n) :: al -> make (iterate a n) (of_list al)
-    | [] -> invalid_arg "Sig.of_list: empty list"
-	
-
-  (** Sigma normal forms. *)
-  let sigma g = function
-    | [a; b] when Sym.eq Sig.f g -> make a b
-    | al -> Term.App.mk_app g al
-
- 
   (** Apply [f] to uninterpreted positions. *)
-  let rec map f a = 
-    try
-      let (a1, a2) = d_interp a in
-      let b1 = map f a1 and b2 = map f a2 in
-	if a1 == b1 && a2 == b2 then a else make b1 b2
-    with
-	Not_found -> f a
-	  
-	  
-  (** Replacing a variable with a term. *)
-  let apply (x, b) = 
-    map (fun y -> if Term.eq x y then b else y)
-  
+  let map f = 
+    let rec mapf a = 
+      try
+	let a1 = lhs a and a2 = rhs a in
+	let b1 = mapf a1 and b2 = mapf a2 in
+	  if a1 == b1 && a2 == b2 then a else make b1 b2
+      with
+	  Not_found -> f a
+    in
+      mapf
+
+  open Axioms
+
+  (** [x * (y * z) = (x * y) * z]. *)
+  let chains = 
+    let x = Lterm.Var (Name.of_string "x") in
+    let y = Lterm.Var (Name.of_string "y") in
+    let z = Lterm.Var (Name.of_string "z") in
+    let mk_lapp a b = Lterm.App(Sig.f, [a; b]) in
+      [Chain.mk_equal 
+	 (Name.of_string "A")
+	 []
+	 (mk_lapp x (mk_lapp y z)) 
+	 (mk_lapp (mk_lapp x y) z)]
+
+  let disjunction _ = 
+    raise Not_found
+	 
 end 
 
-
-module S = Solution.Set
-
-
-(** Specification of AC theory as a canonizable and ground
-  confluent theory. In particular, forward chaining on 
-  - [x' = z*u], [y = x*v], [x =v x'] ==> [y = z*u*v]
-  is used. *)
-module T(Sig: SIG): Can.T = struct
-
-  (**  AC canonizer for AC symbol in [Sig]. *)
-  module Ac = Make(Sig)
-      
-  let th = Sig.th
-	     
-  let map = Ac.map
-	      
-  let sigma = Ac.sigma
-
-
-  let d_flat e =
-    let (x, a, rho) = e in
-      (x, Ac.d_interp a, rho)
-
-  let fold s f =
-    let f' e acc =
-      try f (d_flat e) acc with Not_found -> acc
-    in
-      S.fold f' s []
-	
-
-  (** Forward chaining on an equality [x' = z*u]. *)
-  let rec of_equal e cfg =
-    let el1 = of_equal1 e cfg
-    and el2 = of_equal2 e cfg in
-      el1 @ el2
-	
-  and of_equal1 e (p, s) =
-    try
-      let (x', (z, u), rho) = d_flat e in      (* [rho |- x' = z*u]. *)
-	fold s
-	  (fun (y, (x, v), tau) acc ->         (* [tau |- y = x*v]. *)
-	     match Partition.is_equal p x x' with
-	       | Some(sigma) -> 
-		   let theta = Jst.dep3 rho tau sigma  in
-		   let e' = Fact.Equal.make u (Ac.make z (Ac.make u v)) theta in
-		     e' :: acc
-	       | None -> 
-		   acc)
-    with
-	Not_found -> []
-	  
-  (** Forward chaining on an equality [y = x*v]. *)
-  and of_equal2 e (p, s) =
-    try
-      let (y, (x, v) , rho) = d_flat e in       (* [rho |- y = x*v] *)
-	fold s
-	  (fun (x', (z, u), tau) acc ->         (* [tau |- x' = z*u] *)
-	     match Partition.is_equal p x x' with
-	       | None -> acc
-	       | Some(sigma) ->
-		   let theta = Jst.dep3 rho tau sigma in
-		   let e' = Fact.Equal.make u (Ac.make z (Ac.make u v)) theta in
-		     e' :: acc)
-    with
-	Not_found -> []
-	  
-	  
-  (** Forward chaining on variable equality [x =v x'] in
-    - [x' = z*u], [y' = x*v], [x =v x'] ==> [y = z*u*v] *)
-  let of_var_equal e (p, s) = 
-    assert(Fact.Equal.is_var e);
-    let (x0, rho) = Partition.find p (Fact.Equal.lhs_of e) in
-      S.Dep.fold s
-	(fun e1 acc ->
-	   try
-	     let (y', (x, v), tau) = d_flat e1 in
-	       if not(Term.eq x x0) then acc else
-		 Partition.fold p
-		   (fun e2 acc ->
-		      try
-			let (x', (z, u), sigma) = d_flat e2 in
-			  (match Partition.is_equal p x' x0 with
-			     | None -> acc
-			     | Some(theta) -> 
-				 let (y, ups) = Partition.find p y' in
-				 let eps = Jst.dep5 rho tau sigma theta ups in
-				 let e = Fact.Equal.make y' (Ac.make z (Ac.make u v)) eps in
-				   e :: acc)
-		      with
-			  Not_found -> acc)
-		   x0 acc
-	   with
-	       Not_found -> acc)
-	x0 []
-	
-      
-
-  (** No forward chaining on disequalities. *)
-  let of_var_diseq d (p, s) = 
-    assert(Fact.Diseq.is_var d);
-    []
-
-  (** No branching. *)
-  let disjunction (p, s) = 
-    raise Not_found
-
-end
-
-
-module Ops(Sig: SIG) : Can.OPS =
-  Can.Ops(T(Sig))
-  
-
-
 (** Inference system for AC theories. *)
-module Infsys(Sig: SIG): (Infsys.EQ with type e = Solution.Set.t) =
-  Can.Make(T(Sig))
+module Make(Sig: SIG): Can.INFSYS =
+  Can.Infsys(T(Sig))
+
+
 
 

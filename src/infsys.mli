@@ -11,48 +11,49 @@
  * benefit corporation.
  *)
 
-(** Definition and operations on inference systems.
+(** Definition of inference systems.
 
   @author Harald Ruess
 *)
 
-
-(** A {i configuration} [(g; e; p)] consists of
-  - Input facts [g],
-  - an equality set [e], and
-  - a variable partitioning [p]. *)
-module Config: sig
-
-  type 'e t = G.t * 'e * Partition.t
-  
-  val empty : 'e -> 'e t
-
-  val is_empty : ('e -> bool) -> 'e t -> bool
-    
-  val pp : 'e Pretty.printer -> 'e t Pretty.printer
-    (** Pretty-printing configurations. *)
-
+(** Equality sets inference systems are operating on. *)
+module type EQS = sig
+  type t
+  val is_empty : t -> bool
+  val pp : Format.formatter -> t -> unit
+  val apply : t -> Jst.Eqtrans.t
+  val inv : t -> Jst.Eqtrans.t
+  val dep : t -> Term.t -> Dep.Set.t
+  val mem : Term.t -> t -> bool
+  val occurs : Term.t -> t -> bool
+  val fold : (Jst.Equal.t -> 'a -> 'a) -> t -> 'a -> 'a
+  val iter : (Jst.Equal.t -> unit) -> t -> unit
+  val model : t -> Term.Model.t
 end
 
+(** Abstract interface of an {i inference system} for equality theories.
+  Such an inference system operates on configurations [(g, e, v)] with
+  - [g] the global inputs (see module {!G}),
+  - [e] a set of equalities of type {!Infsys.EQS}, and
+  - [v] a set of variable equalities, disequalities, and other constraints (see module {!V}). *)
+module type IS = sig
 
-(** Global variables for
-  - current input facts [g]
-  - current variable partitioning [p]. *)
-val g : G.t ref
-val p : Partition.t ref
+  module Eqs: EQS
 
+  val current : unit -> Eqs.t
+    (** Return current state of equality configuration. *)
 
-(** Abstract interface of an inference system for equality theories. *)
-module type EQ = sig
+  val reset : unit -> unit
+    (** Reset to empty equality configuration. *)
 
-  type e
-
-  val current : unit -> e
-
-  val initialize : e -> unit
+  val initialize : Eqs.t -> unit
     (** Intitialize inference system with equality set. *)
-  
-  val finalize : unit -> e
+
+  val is_unchanged : unit -> bool
+    (** Holds if equality configuration is unchanged since latest [initialize] 
+      or [reset]. *)
+
+  val finalize : unit -> Eqs.t
     (** Retrieve modified equality set. *)
 
   val abstract : Term.t -> unit
@@ -61,98 +62,40 @@ module type EQ = sig
       - [a] a nonvariable term, 
       - [a] an [i]-pure term, 
       - and [x] fresh. *)
-    
-  val merge : Fact.Equal.t -> unit
-    (** [(g, a = b; e; p)] ==> [(g; e'; p')] 
-      with 
-      - [a], [b] [i]-pure, 
-      - [|= e', p' <=> |= e, a = b, p]
-      - if [e' |= x = y] then [p' |= x = y]. *)
 
-  val propagate : Fact.Equal.t -> unit
-    (** [(g, e; p)] ==> [(g; e'; p)]
-      with 
-      - [e |= x = y], 
-      - not[p |= x = y], 
-      - [|= e, p <=> |= e', p']  *)
-  
-  val dismerge : Fact.Diseq.t -> unit
-    (** [(g, a <> a; e; p)] ==> [(g; e'; p')] 
-      with [a], [b] [i]-pure, [|= e', p' <=> |= e, p, a <> b]. *)
+  val process_equal : (Jst.Equal.t -> unit)
 
-  val propagate_diseq : Fact.Diseq.t -> unit
-    (** [(g; e; p)] ==> [(g; e'; p')] 
-      with 
-      - [p' |= x <> y]
-      - [|= e', p' <=> |= e, p]. *)
+  val process_diseq : (Jst.Diseq.t -> unit) 
 
-  val branch : unit -> unit
-    (** [(g; e; p)] ==> [(g, c1; e; p) | ... | (g, cn; e; p)]
-      with 
-      - [e, p |= c1 \/ ... \/ cn]
-      - not [e, p |= ci] *)
+  val process_ineq : (Jst.Ineq.t -> unit) 
+
+  val propagate_equal : (Term.t -> unit) 
+
+  val propagate_diseq : (Jst.Diseq.t -> unit) 
+
+  val propagate_cnstrnt : (Term.t -> unit) 
+
+  val propagate_nonneg : (Term.t -> unit) 
 
   val normalize : unit -> unit
-    (**  [(g; e; p)] ==> [(g'; e'; p')]
-      where source and target configuration are equivalent. *)
 
 end
 
+module Trace(Th: sig val th : Theory.t end)(Infsys: IS): IS
+   (** Tracing inference system. *)
 
 
-(** Abstract interface of an inference system for arithmetic theories
-  as an extension of the {!Infsys.EQ} signature. *)
-module type ARITH = sig
-
-  type e
-
-  val current : unit -> e
-       
-  val initialize : e -> unit
-  val finalize : unit -> e
-  val abstract : Term.t -> unit
-  val merge : Fact.Equal.t -> unit
-  val propagate : Fact.Equal.t -> unit
-  val dismerge : Fact.Diseq.t -> unit
-  val propagate_diseq : Fact.Diseq.t -> unit
-  val branch : unit -> unit
-  val normalize : unit -> unit
-    (** Above is identical to {!Infsys.EQ}. *)
-
-  val nonneg : Fact.Nonneg.t -> unit
-    (** [(g, a >= 0; e; p)] ==> [(g; e'; p')] 
-      with 
-      - [a] pure
-      - [|= e', p' <=> |= e, a >= 0, p]
-      - if [e' |= x = y] then [p' |= x = y]. *)
-
-  val pos : Fact.Pos.t -> unit
-    (** [(g, a > 0; e; p)] ==> [(g; e'; p')] 
-      with 
-      - [a] pure
-      - [|= e', p' <=> |= e, a > 0, p]
-      - if [e' |= x = y] then [p' |= x = y]. *)
-
-end
 
 
-module Empty: EQ
-  (** Inference system for the empty theory. *)
-  
 
-val difference : bool ref
 
-(** Specification of tracer for inference system. *)
-module type LEVEL = sig 
-  type t
-  val level : Trace.level
-  val eq: t -> t -> bool 
-  val diff : t -> t -> t
-  val pp : t Pretty.printer
-end
 
-module Trace(I: EQ)(L: (LEVEL with type t = I.e)): (EQ with type e = I.e)
-  (** Tracing rule applications. *)
 
-module TraceArith(I: ARITH)(L: (LEVEL with type t = I.e)): (ARITH with type e = I.e)
-  (** Tracing rule applications. *)
+
+
+
+
+
+
+
+

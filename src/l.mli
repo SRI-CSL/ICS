@@ -17,5 +17,5 @@
 *)
 
 
-module Infsys: (Infsys.EQ with type e = Solution.Set.t)
+module S: Shostak.S
 

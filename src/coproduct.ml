@@ -11,119 +11,123 @@
  * benefit corporation.
  *)
 
-open Sym
+(** Theory definition. *)
+let theory = Theory.create "cop"
 
-let is_interp = function
-  | Term.App(sym, _, _) -> Sym.Coproduct.is sym
-  | _ -> false
+let is_theory = Theory.eq theory
 
-let is_pure = Term.is_pure Th.cop
+let _ = 
+  Theory.Description.add theory
+    "Theory of coproducts (or direct sums).
+     Signature: 
+        inl, inr, outl, inl
+     Axioms:
+        inl(outl(t)) = t
+        inr(outr(t)) = t
+        outr(inr(t)) = t
+        outl(inl(t)) = t
+        inl(t) <> inr(t')
+        inl(t) <> t
+        inr(t) <> t"
 
-let d_interp = function
-  | Term.App(sym, [a], _) -> (Sym.Coproduct.get sym, a)
-  | _ -> raise Not_found
+type direction = Left | Right
 
-let destruct a = 
- try Some(d_interp a) with Not_found -> None
+(** Signature. *)
+module Sig = struct
+  let th = theory
+  type t =
+    | In of direction 
+    | Out of direction
+  let name = 
+    let inl = Name.of_string "inl"
+    and inr = Name.of_string "inr"
+    and outl = Name.of_string "outl"
+    and outr = Name.of_string "outr" in
+      function 
+	| In(Left) -> inl
+	| In(Right) -> inr
+	| Out(Left) -> outl
+	| Out(Right) -> outr
+end
 
-let d_outl a =
-  match d_interp a with
-    | Sym.Out(Left), b -> b
-    | _ -> raise Not_found
+module Op = Funsym.Make(Sig)
 
-let d_outr a =
-  match d_interp a with
-    | Sym.Out(Right), b -> b
-    | _ -> raise Not_found
+let op t = Op.out (Term.sym_of t)
 
-let d_inr a =
-  match d_interp a with
-    | Sym.In(Right), b -> b
-    | _ -> raise Not_found
+let arg t = 
+  if Term.is_unary t then
+    Term.Args.get (Term.args_of t) 0
+  else
+    raise Not_found
 
-let d_inl a =
-  match d_interp a with
-    | Sym.In(Left), b -> b
-    | _ -> raise Not_found
-
-let d_in a =
-  match d_interp a with
-    | Sym.In(d), b -> (d, b)
-    | _ -> raise Not_found
-
-let d_out a =
-  match d_interp a with
-    | Sym.Out(d), b -> (d, b)
-    | _ -> raise Not_found
-
-let mk_inl a =
+let is_interp t =
   try 
-    d_outl a 
+    Op.is_interp (Term.sym_of t) &&
+    Term.is_unary t
   with 
-      Not_found ->
-	Term.App.mk_app Sym.Coproduct.mk_inl [a]
+      Not_found -> true
 
-let mk_inr a =
-  try 
-    d_outr a 
-  with 
-      Not_found -> 
-	Term.App.mk_app Sym.Coproduct.mk_inr [a]
+let rec is_pure t =
+  try is_interp t && is_pure (arg t) with Not_found -> Term.is_var t
 
-let mk_outr a =
-  try
-    d_inr a 
-  with
-      Not_found -> 
-	Term.App.mk_app Sym.Coproduct.mk_outr [a]
+let destruct t = 
+ try Some(op t, arg t) with Not_found -> None
 
-let mk_outl a =
-  try
-    d_inl a 
-  with
-      Not_found -> 
-	Term.App.mk_app Sym.Coproduct.mk_outl [a]
+let d_out x t =
+  match op t with 
+    | Sig.Out(y) when x = y -> arg t 
+    | _ -> raise Not_found
 
-let mk_inX = function Sym.Left -> mk_inl | Sym.Right -> mk_inr
-let mk_outX = function Sym.Left -> mk_outl | Sym.Right -> mk_outr
+let d_in x t =
+  match op t with 
+    | Sig.In(y) when x = y -> arg t
+    | _ -> raise Not_found
 
+(** [in x (out x t) = t]. *)
+let mk_in x t = 
+  try d_out x t with Not_found -> 
+    Term.mk_unary (Op.inj(Sig.In(x))) t
 
-(** Generalize injection. *)
-let rec mk_inj i a = 
+(** [out x (in x t) = t]. *)
+let mk_out x t = 
+  try d_in x t with Not_found -> 
+    Term.mk_unary (Op.inj(Sig.Out(x))) t
+				  
+
+(** Iterated injection. *)
+let rec mk_iterated_inj i t = 
+  assert(i >= 0);
   if i <= 0 then
-    mk_inl a
+    mk_in Left t
   else if i = 1 then
-    mk_inr a
+    mk_in Right t
   else 
-    mk_inr (mk_inj (i - 1) a)
+    mk_in Right (mk_iterated_inj (i - 1) t)
 
 
-(** Generalized coinjection. *)
-let rec mk_out i a = 
+(** Iterated coinjection. *)
+let rec mk_iterated_out i t =
   if i <= 0 then
-    mk_outl a
+    mk_out Left t
   else if i = 1 then
-    mk_outr a
+    mk_out Right t
   else 
-    mk_outr (mk_out (i - 1) a)
+    mk_out Right (mk_iterated_out (i - 1) t)
 
 
 (** Canonical forms *)
-let sigma op l =
-  match op, l with
-    | Sym.In(Left), [x] -> mk_inl x 
-    | Sym.In(Right), [x] -> mk_inr x 
-    | Sym.Out(Left), [x] -> mk_outl x 
-    | Sym.Out(Right), [x] -> mk_outr x 
-    | _ -> assert false
-
+let sigma op a =
+  assert(Op.is_interp op);
+  match Op.out op with
+    | Sig.In(x) -> mk_in x (Term.Args.get a 0)
+    | Sig.Out(x) -> mk_out x (Term.Args.get a 0)
  
 (** Apply term transformer [f] at uninterpreted positions. *)
 let rec map f a =
   try
-    let op, x = d_interp a in
-    let x' = map f x in
-      if x == x' then a else sigma op [x']
+    let op = op a and b = arg a in
+    let b' = map f b in
+      if b == b' then a else sigma (Op.inj op) (Term.Args.make1 b')
   with
       Not_found -> f a
 
@@ -133,6 +137,14 @@ let apply (x, b) =
   let lookup y = if Term.eq x y then b else y in
     map lookup
 
+(** Test if unintepreted [x] occurs at an interpreted position of [t].
+  For example, [occurs x 'inl(x)'] succeeds whereas [occurs x 'inl(f(x))'] fails. *)
+let occurs x =
+  assert(not(is_interp x));
+  let rec occ t = 
+    try occ (arg t) with Not_found -> Term.eq x t
+  in
+    occ
 
 (** Solving equalities. A configuration [(el, sl)] consists
   of unsolved equalities [el] and a partial solution [sl].
@@ -152,73 +164,61 @@ let apply (x, b) =
   pattern.
 *)
 
-let rec solve e =
-  solvel ([e], [])
-
-and solvel (el, sl) =
-  match el with
-    | [] -> sl
-    | (a, b) :: el1 ->
-	solve1 (a, b) (el1, sl)
-
-and solve1 (a, b) (el, sl) = 
-  if Term.eq a b then                              (* [Triv] *)
-    solvel (el, sl)
-  else 
-    match destruct a, destruct b with
-      | Some(Sym.In(x), a'), Some(Sym.In(y), b') -> 
-	  if x = y then                            (* [Inj=] *)
-	    solvel ((a', b') :: el, sl)          
-	  else                                     (* [Inj/=] *)
-	    raise Exc.Inconsistent              
-      | Some(Sym.In(x), a'), Some _ ->             (* [Slv] left *)
-	  solvel ((a', mk_outX x b) :: el, sl)
-      | Some _, Some(Sym.In(x), b') ->             (* [Slv] right *)
-	  solvel ((b', mk_outX x a) :: el, sl)
-      | Some(Sym.Out(x), a'), Some(Sym.Out(y), b') -> 
-	  if x = y then                            (* [Out=] *)
-	    solvel ((a', b') :: el, sl)           
-	  else                                     (* [Out/=] *) 
-	    solvel ((a', mk_inX x b) :: el, sl)
-      | None, Some _ -> 
-	  if occurs a b then                       (* Bot *) 
-	    raise Exc.Inconsistent
-	  else 
-	    solvel (install (a, b) (el, sl))
-      | Some _, None -> 
-	  if occurs b a then                       (* Bot *) 
-	    raise Exc.Inconsistent
-	  else 
-	    solvel (install (b, a) (el, sl))
-      | None, None -> 
-	  solvel (install (Term.orient (a, b)) (el, sl))
-
-and install (x, b) (el, sl) =
-  assert(not(occurs x b));
-  let el' = substitute (x, b) el                  (* Subst *)
-  and sl' = Term.Subst.compose apply (x, b) sl in
-    (el', sl')
-
-and occurs x a =
-  assert(not(is_interp x));
-  try
-    let (_, b) = d_interp a in
-      occurs x b
-  with
-      Not_found -> Term.eq x a
-
-and substitute (x, b) el =
-  let apply2 (a1, a2) =
-    (apply (x, b) a1, apply (x, b) a2)
+let solve = 
+  let el = Stacks.create ()
+  and sl = Term.Subst.empty () in
+  let push e = Stacks.push e el in
+  let add x t = Term.Subst.compose sl x t in
+  let solve1 a b =
+    if Term.eq a b then () else                             (* [Triv] *)
+      match is_interp a, is_interp b with
+	| false, false ->                                   (* [Var]. *)
+	    if Term.compare a b <= 0 then add a b else add b a
+	| false, true ->                                 (* Subst/Bot *)
+	    if occurs a b then raise Exc.Inconsistent else add a b
+	| true, false ->                                 (* Subst/Bot *)
+	    if occurs b a then raise Exc.Inconsistent else add b a
+	| true, true -> 
+	    (match op a, op b with
+	       | Sig.In(x), Sig.In(y) ->
+		   if x = y then push (arg a, arg b) else   (* [Inj=] *)
+		     raise Exc.Inconsistent                (* [Inj/=] *)
+	       | Sig.In(x), Sig.Out _ -> 
+		   push (arg a, mk_out x b)             (* [Slv] left *)
+	       | Sig.Out _, Sig.In(x) ->                     
+		   push (arg b, mk_out x a)            (* [Slv] right *)
+	       | Sig.Out(x), Sig.Out(y) -> 
+		   if x = y then push (arg a, arg b) else   (* [Out=] *)
+		     push (arg a, mk_in x b))              (* [Out/=] *) 
   in
-    List.map apply2 el
-
+    fun t1 t2 -> 
+      Stacks.clear el;
+      Stacks.push (t1, t2) el;
+      while not(Stacks.is_empty el) do
+	let (t1, t2) = Stacks.pop el in
+	  solve1 (Term.Subst.apply sl t1) (Term.Subst.apply sl t2)
+      done;
+      sl
 
 (** Check for disequalities. *)
-let is_diseq a b =
+let rec is_diseq t1 t2 =
   try
-    let _ = solve (a, b) in
+    let _ = solve t1 t2 in
       false
   with
       Exc.Inconsistent -> true
  
+
+(** Encoding of the theory of coproducts as a Shostak theory. *)
+module T: Shostak.T = struct
+  let th = theory
+  let can = sigma
+  let solve t1 t2 = Term.Set.empty(), solve t1 t2
+  let disjunction _ = raise Not_found
+end
+
+(** Inference system for coproducts as an instance of a Shostak inference system. *)
+module Component = Shostak.Make(T)
+
+
+

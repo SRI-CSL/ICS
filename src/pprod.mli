@@ -35,7 +35,7 @@ val multiplicity: Term.t -> Term.t -> int
 val decompose : Term.t -> (Term.t * int) * Term.t option
 val fold : (Term.t -> int -> 'a -> 'a) -> Term.t -> 'a -> 'a
 val iter : (Term.t -> int -> unit) -> Term.t -> unit
-val sigma : Sym.pprod -> Term.t list -> Term.t
+val sigma : Funsym.t -> Term.t list -> Term.t
 val map : (Term.t -> Term.t) -> Term.t -> Term.t
   
 val mk_mult : Term.t -> Term.t -> Term.t
@@ -46,6 +46,7 @@ val mk_multl : Term.t list -> Term.t
   
 val mk_expt : Term.t -> int -> Term.t
   
+(*
 val dom : (Term.t -> Dom.t) ->  Sym.pprod -> Term.t list -> Dom.t
   (** [tau lookup op al] returns a constraint in [Cnstrnt.t] given a [lookup]
     function, which is applied to each noninterpreted term, and by
@@ -54,6 +55,7 @@ val dom : (Term.t -> Dom.t) ->  Sym.pprod -> Term.t list -> Dom.t
     subterm (not equal to [op(al)]), the result is [Cnstrnt.real]. *)
 
 val dom_of : Term.t -> Dom.t
+*)
   
 
 

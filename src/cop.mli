@@ -17,7 +17,7 @@
  *)
 
 
-module Infsys: (Infsys.EQ with type e = Solution.Set.t) 
+module S: Shostak.S
   (** Inference system for the theory {!Th.cop} of coproducts
     as defined in module {!Coproduct}.
 

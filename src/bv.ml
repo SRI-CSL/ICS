@@ -20,29 +20,38 @@ open Mpa
 (** Definition of a Shostak theory for bitvectors. Currently,
   no branching is performed. *)
 module T: Shostak.T = struct
-  let th = Th.bv
+  let th = Theory.of_string "bv"
   let map = Bitvector.map
   let solve e = 
     let (a, b, rho) = e in
       try
 	let sl = Bitvector.solve (a, b) in
-	let inj (a, b) = Fact.Equal.make a b rho in
-	  List.map inj sl
+	let inj (a, b) = (a, b, rho) in
+	  List.map inj sl, Term.Varset.empty
       with
 	  Exc.Inconsistent -> raise(Jst.Inconsistent(rho))
   let disjunction _ = raise Not_found
 end
 
 
-module P = Partition
+module P = V
 
 
 (** Inference system as a variant of Shostak inference systems. *)
-module Infsys = struct
+module S = struct
 
   module I = Shostak.Make(T)
 
-  type e = Solution.Set.t
+  let eq = I.eq
+  let empty = I.empty
+  let is_empty = I.is_empty
+  let pp = I.pp
+  let apply = I.apply
+  let inv = I.inv
+
+  let is_unchanged = I.is_unchanged
+
+  type t = I.t
 
   let current = I.current
   let initialize = I.initialize
@@ -91,6 +100,8 @@ module Infsys = struct
 	  None
 
   let can (p, s) a = 
+    failwith "to do"
+(*
     let hyps = ref Jst.dep0 in
     let lookup y = 
       try
@@ -98,15 +109,18 @@ module Infsys = struct
 	  hyps := Jst.dep2 rho !hyps; b
       with
 	  Not_found -> 
-	  let (x, rho) = Partition.find p y in
+	  let (x, rho) = V.find p y in
 	    hyps := Jst.dep2 rho !hyps; x
     in
     let b = Bitvector.map lookup a in
       (b, !hyps)
+*)
 
 
   let rec process_diseq (p, s) d =
-    assert(Fact.Diseq.is_var d);
+    failwith "to do"
+(*
+    (* assert(Fact.Diseq.is_var d); *)
     let to_option f a = try Some(f a) with Not_found -> None in
     let d = Fact.Diseq.map (can (p, s)) d in
     let (a, b, rho) = d in
@@ -145,19 +159,7 @@ module Infsys = struct
 	  let lo = Mpa.Z.zero
 	  and hi = two_to_the_n_sub_one l in
 	    (p, s)
+*)
 
 
 end
-
-(*
-(** Tracing inference system. *)
-module Infsys: (Infsys.IS with type e = E.t) =
-  Infsys.Trace(Infsys0)
-    (struct
-       type t = E.t
-       let level = "bv"
-       let eq = E.S.eq
-       let diff = E.S.diff
-       let pp = E.S.pp
-     end)
-*)

@@ -142,3 +142,14 @@ let inj =
       | Int -> int
       | Real -> real
       | Nonint -> nonint
+
+let to_index = function
+  | Int -> 0
+  | Nonint -> 1
+  | Real -> 2
+
+let of_index = function
+  | 0 -> Int
+  | 1 -> Nonint
+  | 2 -> Real
+  | i -> invalid_arg (Format.sprintf "Dom.of_index: no domain associated with %d" i)

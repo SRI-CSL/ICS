@@ -18,7 +18,7 @@
 *)
 
 
-module Infsys: (Infsys.EQ with type e = Solution.Set.t) 
+module S: Shostak.S
   (** Inference system for the theory {!Th.p} of products 
     as described in module {!Product}.  This inference
     system is obtained as an instantiation of the generic

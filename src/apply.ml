@@ -11,280 +11,329 @@
  * benefit corporation.
  *)
 
-let d_interp a =
-  match a with
-   | Term.App(sym, al, _) -> (Sym.Cl.get sym, al)
-   | _ -> raise Not_found
 
-let is_interp = function
-  | Term.App(sym, _, _) when Sym.Cl.is sym -> true
-  | _ -> false
+(** Theory definition. *)
+let theory = Theory.create "cl" 
 
-let destruct a =
-  try Some(d_interp a) with Not_found -> None
+let _ = 
+  Theory.Description.add theory
+    "Theory of combinatory logic.
+     Signature:
+       a $ b : application of 'a' to 'b'
+       I     : identity combinator
+       K     : first projection combinator
+       S     : 'S' combinator
+       C     : conditional combinator
+       'f'   : Family of reification combinators indexed by function symbols
+     Axioms: (a $ b) abbreviated as juxtaposition 'a b'
+                     I x = x
+                   K x y = x
+                 S x y z = (x z) (y z)
+               C x x a b = a
+               C x y a b = b    if x <> y
+               C x y a a = a
+       C x y (z y) (z x) = z x
+               C x y y x = x   
+   "
 
-let d_apply a =
+module Combinator = struct
+
+  type t =  S | K | I | C | Reify of Funsym.t * int
+
+  let name = 
+    let s = Name.of_string "S"
+    and k = Name.of_string "K"
+    and i = Name.of_string "I"
+    and c = Name.of_string "C" in
+      function
+	| S -> s
+	| K -> k
+	| I -> i
+	| C -> c
+	| Reify(f, _) ->
+	    Name.of_string (Format.sprintf "'%s'" (Funsym.to_string f))
+
+  let arity = function
+    | S -> 3
+    | K -> 2
+    | I -> 1
+    | C -> 4
+    | Reify(_, n) -> n
+
+  let maxarity = 4
+	
+end
+
+
+(** Interpreted function symbols in theory [l]. *)
+module Sig = struct
+
+  let th = theory
+
+  type t = 
+    | Apply
+    | Combinator of Combinator.t
+
+  let name = 
+    let app = Name.of_string "$" in
+      function
+	| Apply -> app 
+	| Combinator(c) -> Combinator.name c
+
+end
+
+module Op = struct
+
+  module O = Funsym.Make(Sig)
+
+  let inj = O.inj
+  let out = O.out
+  let is_interp = O.is_interp
+	    
+  let mk_apply = O.inj(Sig.Apply)
+
+  let mk_s = O.inj(Sig.Combinator(Combinator.S))
+  let mk_k = O.inj(Sig.Combinator(Combinator.K))
+  let mk_i = O.inj(Sig.Combinator(Combinator.I))
+  let mk_c = O.inj(Sig.Combinator(Combinator.C))
+  let mk_reify f n = O.inj(Sig.Combinator(Combinator.Reify(f, n)))
+
+  let mk_combinator = function
+    | Combinator.S -> mk_s
+    | Combinator.K -> mk_k
+    | Combinator.I -> mk_i
+    | Combinator.C -> mk_c
+    | Combinator.Reify(f, n) -> mk_reify f n
+
+  let rec arity = function
+    | Sig.Apply -> 2
+    | Sig.Combinator(c) -> Combinator.arity c
+
+end 
+
+let op t = Op.out (Term.sym_of t)
+
+let combinator t = 
+  match op t with
+    | Sig.Combinator(c) -> c
+    | Sig.Apply -> raise Not_found
+	
+let args = Term.args_of
+	     
+let is_apply t =
   try
-    match d_interp a with
-      | Sym.Apply, op :: al -> (op, al)
-      | _ -> (a, [])
-    with
-	Not_found -> (a, [])
+    (match op t with
+       | Sig.Apply -> Term.is_binary t
+       | _ -> false)
+  with
+      Not_found -> false
 
-let d_reify a =
-  match d_interp a with
-    | Sym.Reify(f, n), [] -> (f, n)
+let arg1 t =
+  assert(is_apply t);
+  Term.Args.get (Term.args_of t) 0
+
+let arg2 t =
+  assert(is_apply t);
+  Term.Args.get (Term.args_of t) 1
+
+let d_arg1 t = 
+  match op t with
+    | Sig.Apply -> arg1 t
     | _ -> raise Not_found
 
-let is_pure = Term.is_pure Th.app
+let d_arg2 t = 
+  match op t with
+    | Sig.Apply -> arg2 t
+    | _ -> raise Not_found
 
-let mk_s () = Term.App.mk_const Sym.Cl.s
-let mk_k () = Term.App.mk_const Sym.Cl.k
-let mk_i () = Term.App.mk_const Sym.Cl.i
-let mk_c () = Term.App.mk_const Sym.Cl.c
-let mk_reify (f, n) = Term.App.mk_const (Sym.Cl.reify (f, n))
+let is_interp t =
+  try
+    (match op t with
+       | Sig.Combinator _ -> Term.is_const t
+       | Sig.Apply -> Term.is_binary t)
+  with
+      Not_found -> false
+	
+let rec is_pure t =
+  try
+    (match op t with
+       | Sig.Combinator _ -> true
+       | Sig.Apply -> is_pure (arg1 t) && is_pure (arg2 t))
+  with
+      Not_found -> false
 
-let is_s = function
-  | Term.App(sym, [], _) when Sym.Cl.is_s sym -> true
-  | _ -> false
+let is_combinator c t = 
+  try
+    (match op t with
+       | Sig.Combinator(d) when c = d -> true
+       | _ -> false)
+  with
+      Not_found -> false
 
-let is_k = function
-  | Term.App(sym, [], _) when Sym.Cl.is_k sym -> true
-  | _ -> false
+let is_s = is_combinator Combinator.S
+let is_k = is_combinator Combinator.K
+let is_i = is_combinator Combinator.I
+let is_c = is_combinator Combinator.C
 
-let is_i = function
-  | Term.App(sym, [], _) when Sym.Cl.is_i sym -> true
-  | _ -> false
+let is_reify t n =
+  try
+    (match combinator t with
+       | Combinator.Reify(_, m) when n == m -> true
+       | _ -> false)
+  with
+      Not_found -> false
 
-let is_c = function
-  | Term.App(sym, [], _) when Sym.Cl.is_c sym -> true
-  | _ -> false
+let pp fmt f a = 
+  assert(Op.is_interp f);
+  match Op.out f with
+    | Sig.Apply -> 
+        Format.fprintf fmt "@[(";
+	Term.pp fmt (Term.Args.get a 0);
+	Format.fprintf fmt " $ ";
+	Term.pp fmt (Term.Args.get a 1);
+        Format.fprintf fmt ")@]";
+    | Sig.Combinator(c) ->
+	Format.fprintf fmt "%s" (Name.to_string (Combinator.name c))
 
-let is_redex_atom = function
-  | Term.App(sym, [], _) 
-      when Sym.Cl.is_s sym
-	|| Sym.Cl.is_k sym 
-	|| Sym.Cl.is_i sym 
-	|| Sym.Cl.is_c sym -> true
-  | _ -> false
+let destruct t =
+  if is_interp t then Some(op t) else None
 
-let is_reify a n =
-  match a with
-    | Term.App(sym, [], _) ->
-	(try
-	   let (_, m) = Sym.Cl.d_reify sym in
-	     n = m
-	 with
-	     Not_found -> false)
-    | _ -> 
-	false
+let d_reify t =
+  match combinator t with
+    | Combinator.Reify(f, n) -> (f, n)
+    | _ -> raise Not_found
 
-let reflection_enabled = ref true
+let mk_combinator c = 
+  Term.mk_const (Op.mk_combinator c)
+
+let mk_s () = Term.mk_const Op.mk_s
+let mk_k () = Term.mk_const Op.mk_k
+let mk_i () = Term.mk_const Op.mk_i
+let mk_c () = Term.mk_const Op.mk_c
+let mk_reify (f, n) = Term.mk_const (Op.mk_reify f n)
+
+(** [num_of args '(...((f $ a1) $ a2) $ ...) $ an'] equal [n]. *)
+let num_of_args = 
+  let rec loop n t =
+    try loop (n + 1) (d_arg1 t) with Not_found -> n
+  in
+    loop 0
 
 (** Reductions
-  - [I a = a],
-  - [K b a = b]
-  - [S c b a = (c $ a) $ (b $ a)]
-  - [C d c b a = b] when [d = c]
-  - [C d c b a = b] when [d <> c]
-  - [C d c (z b') (z a')  = z a'] when [d = a'], [c = b']
-  - [C d c b a = a] if [d = a], [c = b]
-  - [C d c b a = c] if [a = b]
+  - [I $ x = x],
+  - [(K $ x) $ y = x]
+  - [((S $ x) $ y) $ z = (x $ z) $ (y $ z)]
+  - [C $ x $ x $ a $ b = a]
+  - [C $ x $ y $ a $ b = b] if [x <> y]
+  - [C $ x $ y $ (z $ y) $ (z $ x) = z $ x]
+  - [C $ x $ y $ y $ x = x]   
+  - [C $ x $ y $ a $ a = a]
   - reflection, if enabled *)
-let rec mk_apply op a =
-  if is_i op then a else 
-    match d_apply op with
-      | k', [b] 
-	  when is_k k' -> 
-	  b
-      | s', [c; b] 
-	  when is_s s' ->
-	  mk_apply (mk_apply c a) (mk_apply b a)
-      | c', [d; c; b] 
-	  when is_c c' ->
-	  if Term.eq a b then a
-	  else (match Term.is_equal c d with
-	    | Three.Yes -> b
-	    | Three.No -> a
-	    | Three.X -> 
-		if Term.eq d a && Term.eq c b then a
-		else 
-		  (match d_apply b, d_apply a with
-		     | (z, [a']), (z', [b'])
-			 when Term.eq z z'
-			   && Term.eq d a'
-			   && Term.eq c b' -> mk_apply z a'
-		     | _ ->
-			 Term.App.mk_app Sym.Cl.apply [c'; d; c; b; a]))    
-      | f', bl ->
-	  (try
-	     if not(!reflection_enabled) then
-	       raise Not_found;
-	     let (op', n') = d_reify f' in
-	       if n' = List.length bl + 1 then
-		 reflect op' (bl @ [a])
-	       else
-		 raise Not_found
-	   with
-	       Not_found -> 
-		 Term.App.mk_app Sym.Cl.apply ([f'] @ bl @ [a]))
-	
+let rec mk_apply = 
+  let args = Stacks.create () in
+  let rec pattern n t = 
+    if n > Combinator.maxarity then raise Not_found else
+      match op t with
+	| Sig.Apply -> 
+	    Stacks.push (arg2 t) args;
+	    pattern (n + 1) (arg1 t)
+	| Sig.Combinator(c) -> 
+	    if Combinator.arity c = n then c else raise Not_found
+  in
+    (fun t1 t2 -> 
+      Stacks.clear args;
+      try
+	let c = pattern 0 t1 in
+	  assert(Combinator.arity c = Stacks.length args);
+	  (match c with
+	    | Combinator.I -> 
+		Stacks.pop args
+	    | Combinator.K -> 
+		Stacks.pop args
+	    | Combinator.S -> 
+		let x = Stacks.pop args in
+		let y = Stacks.pop args in
+		let z = Stacks.pop args in
+		  mk_apply (mk_apply x z) (mk_apply y z)
+	    | Combinator.C -> 
+		let x = Stacks.pop args in
+		let y = Stacks.pop args in
+		let a = Stacks.pop args in
+		let b = Stacks.pop args in
+		  if Term.eq a b then a else
+		    (match Term.is_equal x y with
+		       | Three.Yes -> a
+		       | Three.No -> b
+		       | Three.X -> 
+			   Term.mk_binary Op.mk_apply t1 t2)
+	    | Combinator.Reify(f, n) -> 
+		Term.sigma f (Term.Args.of_stack n args))
+      with
+	  Not_found -> 
+	    Term.mk_binary Op.mk_apply t1 t2)
 
-and mk_apply2 op a1 a2 =
-  mk_apply (mk_apply op a1) a2
+let is_redex_atom a = 
+  is_s a || is_k a || is_i a || is_c a
 
-and mk_apply3 op a1 a2 a3 =
-  mk_apply (mk_apply (mk_apply op a1) a2) a3 
-
-
-and mk_apply_star op = function
-  | [] -> op
-  | a :: al -> 
-      let op' = mk_apply op a in
-	mk_apply_star op' al
-
-and mk_cases a b c d =
+let mk_cases a b c d =
   mk_apply (mk_apply (mk_apply (mk_apply (mk_c()) a) b) c) d
 
+let sigma f a =
+  assert(Op.is_interp f);
+  assert(Term.Args.length a = Op.arity (Op.out f));
+  match Op.out f with
+    | Sig.Apply -> mk_apply (Term.Args.get a 0) (Term.Args.get a 1)
+    | Sig.Combinator _ -> Term.mk_const f
 
-and sigma op al =
-  Trace.msg "foo32" "Cl.sigma" (op, al) (Sym.Cl.pp Term.pp);
-  match op, al with
-    | Sym.Apply, [x; y] -> mk_apply x y
-    | Sym.S, [] -> mk_s ()
-    | Sym.K, [] -> mk_k ()
-    | Sym.I, [] -> mk_i ()
-    | Sym.C, [] -> mk_c ()
-    | Sym.Reify(f, n), [] -> mk_reify (f, n)
-    | Sym.C, [a; b; c; d] -> mk_cases a b c d
-    | Sym.S, [a; b; c] -> mk_apply3 (mk_s()) a b c
-    | Sym.K, [a; b] -> mk_apply2 (mk_k()) a b
-    | Sym.I, [a] -> mk_apply (mk_i()) a
-    | Sym.Apply, [c; a1; a2; a3; a4] when is_c(c) -> mk_cases a1 a2 a3 a4
-    | Sym.Apply, [s; a1; a2; a3] when is_s(s) -> mk_apply3 (mk_s()) a1 a2 a3
-    | Sym.Apply, [k; a1; a2] when is_k(k) -> mk_apply2 (mk_k()) a1 a2
-    | _ ->
-	assert false
-
-(** Build a first-order application of function symbol [f]. *)
-and reflect f al =  
-  match Sym.get f with
-    | Sym.Arith(op) -> Arith.sigma op al
-    | Sym.Product(op) -> Product.sigma op al
-    | Sym.Bv(op) -> Bitvector.sigma op al
-    | Sym.Coproduct(op) -> Coproduct.sigma op al
-    | Sym.Propset(op) -> Propset.sigma op al
-    | Sym.Cl(op) -> sigma op al
-    | Sym.Pp(op) -> Pprod.sigma op al
-    | Sym.Uninterp _ -> Term.App.mk_app f al
-    | Sym.Arrays(op) -> Funarr.sigma Term.is_equal op al
-
-
-(** Build a higher-order application of function symbol [f].
-  Thus reflection must be disabled here. *)
-and reify f al = 
-  let n = List.length al in
-  let op = mk_reify (f, n) in
-    try
-      reflection_enabled := false;
-      let b = mk_apply_star op al in
-	reflection_enabled := true;
-	b
-    with
-	exc -> 
-	  reflection_enabled := true;
-	  raise exc
-
-
-let d_binary_apply a =
-  let rec app acc = function
-    | [] -> raise Not_found
-    | [c] -> (acc, c)
-    | c :: cl -> 
-	let acc' = mk_apply acc c in
-	  app acc' cl
+(** Build a higher-order application for 
+  `first-order' function symbol [f]. *)
+let reify f a = 
+  assert(not(Op.is_interp f));
+  let n = Term.Args.length a in
+  let rec apply i acc =
+    if i = 0 then acc else
+      let i' = i - 1 in
+      let ai = Term.Args.get a i' in
+      let acc' = Term.mk_binary Op.mk_apply acc ai in
+	apply i' acc'
   in
-  let (b, cl) = d_apply a in
-    app b cl
-
+    apply n (mk_reify(f, n))
 
 let abstract x = 
-  let is_binding a =
-    try
-      (match Term.Var.d_external a with
-	 | y, Var.Cnstrnt.Unconstrained when Name.eq x y -> true
-	 | _ -> false)
-    with
-	Not_found -> false
-  in
-  let rec occurs_bound a =        (* check also for 'uninterpreted' occurrences. *)
-    is_binding a ||
-    try
-      let args = Term.App.args_of a in
-	List.exists occurs_bound args
-    with
-	Not_found -> false
-  in
-  let rec abst a =
-    Trace.msg "bar" "Abst(x)" a Term.pp; 
-    if is_binding a then                (* [[x]x = I] *)
+  assert(Term.is_var x);
+  let rec abst t =
+    if Term.eq x t then                (* [[x]x = I] *)
       mk_i()
-    else if not(occurs_bound a) then    (* [[x]a = K a] if [x] notin [a]. *)
-      mk_apply (mk_k()) a
+    else if not(Term.occurs x t) then  (* [[x]t = K t] if [x] notin [t]. *)
+      mk_apply (mk_k()) t
     else 
       try
-	let (a1, a2) = d_binary_apply a in
-	  if is_binding a2 && not(occurs_bound a1) then
-	    a1                          (* [[x]a1 x = a1] if [x] notin [a1]. *)
+	let t1 = d_arg1 t and t2 = d_arg2 t in
+	  if Term.eq x t2 && not(Term.occurs x t1) then
+	    t1                         (* [[x]t1 x = t1] if [x] notin [t1]. *)
 	  else 
-	    mk_apply2 (mk_s()) (abst a1) (abst a2)
-      with                              (* [[x]a1 a2 = S ([x]a1) ([x]a2)] *)
+	    mk_apply (mk_apply (mk_s()) (abst t1)) (abst t2)
+      with                             (* [[x]t1 t2 = S ([x]t1) ([x]t2)] *)
 	  Not_found -> 
-	    assert(Term.is_app a);            (* reify first-order terms *)
-	    let (f, al) = Term.App.destruct a in
-	      abst (reify f al)
+	    assert(Term.is_app t);     (* reify first-order terms *)
+	    abst (reify (Term.sym_of t) (Term.args_of t))
   in
     abst
-
-let abstract = Trace.func2 "bar" "Abstract" Name.pp Term.pp Term.pp abstract
-
-(** Propagate a disequalities [x <> y]. *)
-let disapply (x, y) a =
-  try
-    (match d_interp a with
-       | Sym.Apply, [c; a1; a2; _; b] when is_c c ->
-	   if Term.eq x a1 && Term.eq y a2
-	     || Term.eq x a2 && Term.eq y a1 
-	   then
-	     b
-	   else 
-	     a
-       | _ ->
-	   a)
-  with
-      Not_found -> a
-	     
-	       
-
-
-let rec map f a =
-  try
-    (match d_interp a with
-       | Sym.Apply, [x; y] ->
-	   let x' = map f x and y' = map f y in
-	     if x == x' && y == y' then a else
-	       mk_apply x' y'
-       | Sym.Apply, op :: al ->
-	   let op' = map f op in
-	   let al' = Term.mapl (map f) al in
-	     if op == op' && al == al' then a else 
-	       mk_apply_star op' al'
-       | _ , [] ->
-	   a
-       | _ ->
-	   f a)
-  with
-      Not_found -> f a
+	         
+let map f =
+  let rec mapf t = 
+    try
+      (match op t with
+	 | Sig.Apply ->
+	     let x = d_arg1 t and y = d_arg2 t in
+	     let x' = mapf x and y' = mapf y in
+	       if x == x' && y == y' then t else mk_apply x' y'
+	 | Sig.Combinator _ -> 
+	     t)
+    with
+	Not_found -> f t
+  in
+    mapf 
 
 (** Replacing a variable with a term. *)
 let apply (x, b) = 
@@ -298,52 +347,13 @@ let apply (x, b) =
   - [C], [C $ a], [C $ b $ a], [C $ c $ b $ a], and
   - [((('fn' $ a1) $ a2) $ ... $ am)] with [m < n] and ['fn'] a
     reified constant of arity [n]  *)
-let rec is_functional a =
-  let (op, al) = d_apply a in
-    try
-      let n = arity op
-      and m = List.length al in
-	m < n
-    with
-	Not_found -> false
-   
-and arity op =
-  match d_interp op with
-    | Sym.S, [] -> 3
-    | Sym.K, [] -> 2
-    | Sym.I, [] -> 1
-    | Sym.C, [] -> 4
-    | Sym.Reify(_, n), [] -> n
-    | _ -> raise Not_found
-    
-
-
-let fresh = ref []
-
-let mk_fresh () =
-  let x = Term.Var.mk_fresh Th.app None Var.Cnstrnt.Unconstrained in
-    fresh := x :: !fresh; x
-
-let is_fresh x = 
-  let eqx y = Term.eq x y in
-    List.exists eqx !fresh
-
-(** Test if [a] consists only of combinators and fresh variables. *)
-let rec is_pure a =
-  try
-    let (_, al) = d_interp a in
-      List.for_all is_pure al
+let rec is_functional t =
+  try 
+    let f = op t in
+      num_of_args t < Op.arity f
   with
-      Not_found -> is_fresh a
+      Not_found -> false
 
-let is_fo_app = function 
-  | Term.App(f, _, _) when not(Sym.Cl.is_apply f) -> true
-  | _ -> false
-
-
-let z() = Name.of_string  "____@@@z###$____"
-let mk_bound () = 
-  Term.Var.mk_var (z()) Var.Cnstrnt.Unconstrained
 
 (** Ordinary variables and reified non-constants are {i flexible}. *)
 let is_flexible x =
@@ -360,93 +370,196 @@ let is_flexible x =
   and [sl] a substitution.  The starting configuration
   is [(a = b; [])] where [[]] represents the identity 
   substitution. All terms are considered to be in normal form.
-  - Triv:   [a = a, el; sl] ==> [el; sl]
-  - ...
+  - Triv:  [t = t, el; sl] ==> [el; sl]
+  - Dec :  [c $ x1 $ ... $ xn = c $ y1 $ ... $ yn, el; sl] ==> [x1 = y1,...,xn = yn, el; sl]
+  - Ext :  [t1 = t2, el; sl] ==> [t1 $ z = t2 $ z] if [t1] is functional ([z] fresh)
+  - Imit:  [t1 $ t2 = s, el; sl] ==> [t1 = lam[z]C $ z $ s $ t $ (y $ z), el; sl]  
+               if [t1] not in [subterms[t]], [y] fresh.
 *)
 
+let solve =
+  let el = Stacks.create () in
+  let push e = Stacks.push e el in
+    (fun t1 t2 -> 
+       let sl = Term.Subst.empty () in
+       let fresh = Term.Set.empty () in
+       let rec solve1 t1 t2 =
+	 if Term.eq t1 t2 then () else
+	   try ext t1 t2 with Not_found -> 
+	     try first_order t1 t2 with Not_found -> 
+	       try decompose t1 t2 with Not_found -> 
+		 if is_pure t1 && is_pure t2 then raise Exc.Inconsistent else
+		   try imitate t1 t2 with Not_found -> 
+		     try imitate t2 t1 with Not_found -> 
+		       raise Exc.Incomplete
+       and ext t1 t2 = 
+	 if not(is_functional t1) && not(is_functional t2) then raise Not_found else
+	   let x = Term.mk_fresh_var "e" in  
+	     Term.Set.add x fresh;
+	     push (mk_apply t1 x, mk_apply t2 x)
+       and first_order t1 t2 = 
+	 let is_fo_app t = failwith "to do" in
+           if not(is_fo_app t1) && not(is_fo_app t2) then raise Not_found else
+	     try Term.Subst.iter (fun x a -> push (x, a)) (Term.solve t1 t2) with
+	       | Not_found -> raise Exc.Incomplete
+	       | Exc.Valid -> ()
+       and decompose t1 t2 =
+	 let rec dec acc t1 t2 =
+	   try
+	     let acc' = (d_arg2 t1, d_arg2 t2) :: acc in
+	       dec acc' (d_arg1 t1) (d_arg1 t2)
+	   with
+	       Not_found ->
+		 if Term.eq t1 t2 && is_redex_atom t1 then 
+		   List.iter push acc
+		 else
+		   raise Not_found
+	 in 
+	   dec [] t1 t2
+       and imitate t1 t2 =
+	 let f = d_arg1 t1 in
+	   if Term.occurs f t2 then raise Not_found else 
+	     let a = d_arg2 t1 in
+	     let y = Term.mk_fresh_var "a" in
+	     let z = Term.mk_fresh_var "bnd" in
+	       Term.Set.add y fresh;
+	       push (f, abstract z (mk_cases z a t2 (mk_apply y z)))
+       in
+	 Stacks.clear el;
+	 Stacks.push (t1, t2) el;
+	 while not(Stacks.is_empty el) do
+	   let t1, t2 = Stacks.pop el in
+	     solve1 (Term.Subst.apply sl t1) (Term.Subst.apply sl t2)
+	 done;
+	 (fresh, sl))
 
-let rec solve e =
-  fresh := [];
-  solvel ([e], [])
+(** Check for disequalities. *)
+let rec is_diseq t1 t2 =
+  try
+    let _ = solve t1 t2 in
+      false
+  with
+      Exc.Inconsistent -> true
 
-and solvel (el, sl) =
-  match el with
-    | [] -> sl
-    | (a, b) :: el1 -> solve1 (a, b) (el1, sl)
+let _ = 
+  let m = Term.Methods.empty() in
+    m.Term.Methods.printer <- Some(pp);
+    m.Term.Methods.can <- Some(sigma);
+    m.Term.Methods.is_diseq <- Some(is_diseq);
+ (*   m.Term.Methods.solve <- Some(solve); *)
+    Term.Methods.register theory m
 
-and solve1 (a, b) (el, sl) = 
-  Trace.msg "l" "Solve" (a, b) Term.Equal.pp;
-  if Term.eq a b then                        (* [Triv] *)
-    solvel (el, sl)
-  else if is_functional a || is_functional b then
-    let d = mk_fresh () in                   (* [Ext] *)
-    let e = (mk_apply a d, mk_apply b d) in
-      solvel (e :: el, sl)
-  else if is_fo_app a || is_fo_app b then
-    let sl' = solve_fo (a, b) in
-      solvel (List.fold_right install sl' (el, sl))
-  else 
-    let (f, al) = d_apply a
-    and (g, bl) = d_apply b in               (* [Decompose] *)
-      if Term.eq f g && 
-	is_redex_atom f && 
-	List.length al = List.length bl 
-      then
-	let el' = List.combine al bl in
-	  solvel (el' @ el, sl)
-      else if is_pure a && is_pure b then
-	raise Exc.Inconsistent
-      else if not(Term.occurs f b) then
-	solvel (install (imitate f al b) (el, sl))
-      else if not(Term.occurs g a) then
-	solvel (install (imitate g bl a) (el, sl))
-      else 
-	raise Exc.Incomplete
 
-and solve_fo ((a, b) as e) = 
-  let shostak_theory_of a =
-    match Term.App.theory_of a with
-      | Th.Shostak(i) -> i
-      | _ -> raise Not_found
-  in
+
+(** {6 Inference System} *)
+
+module T: Shostak.T = struct
+  let th = theory
+  let can = sigma
+  let solve = solve
+   
+  exception Found of Term.t * Term.t
+
+  let disjunction iter =
+    raise Not_found
+(*
+    let rec split_in_term a =
+      match op a, args a with
+	| Sig.Combinator(Sig.C), [b; c; _; _] -> 
+	    raise(Found(b, c))
+	| _, al ->
+	    List.iter split_in_term al
+    in
+      try
+	split_in_term a;
+	raise Not_found
+      with
+	  Found(b, c) -> 
+	    let e = Atom.mk_equal (b, c)
+	    and d = Atom.mk_diseq (b, c) in
+	      Clause.of_list ([e; d],Jst.dep0)
+*)
+
+end
+
+(*
+module Infsys: Shostak.INFSYS = struct
+
+  module I = Shostak.Infsys(T)
+
+  let reset = I.reset
+
+  let current = I.current
+  let initialize = I.initialize
+  let finalize = I.finalize
+  let is_unchanged = I.is_unchanged
+
+  (** Replace foreign first-order terms with variables. *)
+  let rec export () = ()
+(*
+    Solset.iter export1 (current())
+*)
+
+  and export1 x (a, rho) = ()
+(*
+    if is_first_order a then
+      begin
+	G.Infsys.put (Jst.Fact.of_equal (x, a, rho));
+	(* Solset.restrict (current()) x  *)
+	()
+      end 
+
+  and is_first_order a =
     try
-      let i = shostak_theory_of a in
-	solve_interp i (a, b)
+      let i = Term.theory_of a in
+	not(Theory.eq i theory)
     with
-	Not_found -> 
-	  let j = shostak_theory_of b in
-	    solve_interp j (a, b)
-		
-and solve_interp i e =
-    match i with
-      | Th.LA -> Arith.solve e
-      | Th.BV -> Bitvector.solve e
-      | Th.P -> Product.solve e
-      | Th.COP -> Coproduct.solve e
-      | Th.SET -> Propset.solve e
-      | _ -> invalid_arg "no solving for CL terms"
+	Not_found -> false
+*)
 
-and imitate x al b =
-  assert(not(Term.occurs x b));
-  match al with
-    | [] -> (x, b)
-    | [a] -> 
-	let y = mk_fresh () in
-	let zb = mk_bound () in
-	  (x, abstract (z()) (mk_cases zb a b (mk_apply y zb)))
-    | _ -> 
-	raise Exc.Incomplete
+  let abstract = I.abstract
 
-    
-and install (x, a) (el, sl) =
-  (substitute (x, a) el, compose (x, a) sl)
-
-and compose (x, b) sl =
-  Term.Subst.compose apply (x, b) sl
-
-and substitute (x, b) el =
-  let subst1 (a1, a2) =
-    (apply (x, b) a1, apply (x, b) a2)
-  in
-    List.map subst1 el
+  let branch = I.branch
  
+  let normalize () = 
+    I.normalize ();
+    export ()
+	
+   (** Apply disequality [x <> y] to [C x y a b]. *)
+  let propagate_diseq d = 
+    I.propagate_diseq d
+(*
+    let (x, y, rho) = d in
+    let disapply (z, a, tau) =
+      let a' = Apply.disapply (x, y) a in
+	if a == a' then () else 
+	  let e' = Fact.Equal.make z a' (Jst.dep2 rho tau) in
+	    failwith "l: to do"
+(*
+	    S.update (!p, current()) e'
+*)
+    in
+      failwith "l: to do"
+(*
+      S.Dep.iter (current()) disapply x;
+      S.Dep.iter (current()) disapply y;
+      export ()
+*)
+*)
+
+  let propagate_equal = I.propagate_equal
+  let propagate_diseq = I.propagate_diseq
+
+  let process_equal = I.process_equal
+  let process_diseq = I.process_diseq
+			  
+end
+*)
+
+module Component = 
+  Shostak.Make(T)
+
+(*
+module Unit = 
+  E.Register(Component)
+*)

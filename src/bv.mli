@@ -17,7 +17,7 @@
 *)
 
 
-module Infsys: (Infsys.EQ with type e = Solution.Set.t)
+module S: Shostak.S
   (** Inference system for the bitvector theory {!Th.bv}
     as defined in module {!Bitvector}.  This inference system
     is a variation of the inference system {!Shostak.Make} 

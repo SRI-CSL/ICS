@@ -66,15 +66,15 @@ let get (sym, _) = sym
 
 let theory_of (sym, _) =
   match sym with
-    | Uninterp _ -> Th.u
-    | Arith _ -> Th.la
-    | Product _ -> Th.p
-    | Bv _ -> Th.bv
-    | Coproduct _ -> Th.cop
-    | Arrays _ -> Th.arr
-    | Pp _ -> Th.nl
-    | Cl _ -> Th.app
-    | Propset _ -> Th.set
+    | Uninterp _ -> Th.U
+    | Arith _ -> Th.LA
+    | Product _ -> Th.P
+    | Bv _ -> Th.BV
+    | Coproduct _ -> Th.COP
+    | Arrays _ -> Th.ARR
+    | Pp _ -> Th.NL
+    | Cl _ -> Th.L
+    | Propset _ -> Th.SET
 
 let genidx =
   let idx = ref 100 in  (* indices below [100] for nonparametric symbols. *)
@@ -206,14 +206,10 @@ module Product = struct
   let is_cdr = function Product(Cdr), _ -> true | _ -> false
  
   let pp p fmt = function
-    | Cons, [a; b] -> 
-	Pretty.apply p fmt ("cons", [a; b])
-    | Car, [a] -> 
-	Pretty.apply p fmt ("car", [a])
-    | Cdr, [a] -> 
-	Pretty.apply p fmt ("cdr", [a])
-    | _ ->
-	invalid_arg "Ill-formed application in product theory"
+    | Cons, [a; b] -> Pretty.apply p fmt ("cons", [a; b])
+    | Car, [a] -> Pretty.apply p fmt ("car", [a])
+    | Cdr, [a] -> Pretty.apply p fmt ("cdr", [a])
+    | _ -> invalid_arg "Ill-formed application in product theory"
 
   let to_string = function
     | Cons -> "cons"
@@ -596,8 +592,8 @@ let pp p fmt ((sym, _),  al) =
     | Propset(op) -> Propset.pp p fmt (op, al)
 
 
-(** Function symbols are hash-consed, therefore equality coincides
-  with identity. *)
+(** Function symbols are hash-consed, therefore equality 
+  coincides with identity. *)
 let eq f g =
   assert(if f == g then equal f g else not(equal f g));
   f == g

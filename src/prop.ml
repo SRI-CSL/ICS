@@ -29,7 +29,7 @@ let is_false = function False -> true | _ -> false
 let is_var = function Var _ -> true | _ -> false
 let is_atom = function Atom _ -> true | _ -> false
 let is_disj = function Disj _ -> true | _ -> false
-let is_conj = function Conj _ -> true | _ -> false
+let is_conj = function Disj _ -> true | _ -> false
 let is_iff = function Iff _ -> true | _ -> false
 let is_ite = function Ite _ -> true | _ -> false
 let is_neg = function Neg _ -> true | _ -> false
@@ -70,8 +70,8 @@ let rec pp fmt = function
 let hash = function
   | True -> 0
   | False -> 1
-  | Var(n) -> Name.hash n
-  | Atom(a) -> Atom.index_of a
+  | Var(n) -> Name.idx n
+  | Atom(a) -> Hashtbl.hash_param 2 2 a
   | Disj(_, _, hsh) -> hsh
   | Iff(_, _, hsh) -> hsh
   | Neg(_, hsh) -> hsh
@@ -89,7 +89,7 @@ let rec equal p q =
      | Var(x), Var(y) -> 
 	 Name.eq x y
      | Atom(a), Atom(b) -> 
-	 Atom.equal a b
+	 Atom.eq a b
      | Disj(p1, q1, _), Disj(p2, q2, _) ->
 	 equal p1 p2 && equal q1 q2 
      | Iff(p1, q1, _), Iff(p2, q2, _) ->
@@ -129,8 +129,8 @@ let mk_poslit =
   let module Table = Hashtbl.Make(
     struct
       type t = Atom.t
-      let equal = Atom.equal
-      let hash = Atom.index_of
+      let equal = Atom.eq
+      let hash = Hashtbl.hash_param 2 2
     end)
   in
   let memo = Table.create 23 in
@@ -140,7 +140,7 @@ let mk_poslit =
 	Table.find memo a 
       with
 	  Not_found -> 
-	    let pl = match Atom.atom_of a with
+	    let pl = match a with
 	      | Atom.TT -> True
 	      | Atom.FF -> False
 	      | _ ->  Atom(a)
@@ -151,8 +151,8 @@ let mk_neglit =
   let module Table = Hashtbl.Make(
     struct
       type t = Atom.t
-      let equal = Atom.equal
-      let hash = Atom.index_of
+      let equal = Atom.eq
+      let hash = Hashtbl.hash_param 2 2
     end)
   in
   let memo = Table.create 23 in
@@ -162,48 +162,8 @@ let mk_neglit =
 	Table.find memo a 
       with
 	  Not_found ->
-	    let nl = mk_poslit (Atom.negate Arith.mk_neg a) in
+	    let nl = mk_poslit (Atom.negate Linarith.mk_neg a) in
 	      Table.add memo a nl; nl
-
-let mk_neg =
-  let module Table = Hashtbl.Make(
-    struct
-      type t = prp
-      let equal = (==)
-      let hash = hash
-    end)
-  in
-  let memo = Table.create 23 in
-  let _ = Tools.add_at_reset (fun () -> Table.clear memo) in
-    fun p -> 
-      try
-	Table.find memo p 
-      with
-	  Not_found -> 
-	    let np = match p with
-	      | Neg(q, _) -> q
-	      | Atom(a) -> 
-		  (match Atom.atom_of a with
-		     | Atom.TT ->
-			 mk_false
-		     | Atom.FF -> 
-			 mk_true
-		     | Atom.Diseq(s, t) -> (* [not(s <> t)] iff [s = t]. *)
-			 mk_poslit (Atom.mk_equal (s, t))
-		     | Atom.Pos(t) -> 
-			 let b = Atom.mk_nonneg (Arith.mk_neg t) in 
-			   mk_poslit b      (* [not(t > 0)] iff [-t >= 0]. *)
-		     | Atom.Nonneg(t) -> 
-			 let b = Atom.mk_pos (Arith.mk_neg t) in
-			   mk_poslit b      (* [not(t >= 0)] iff [-t > 0]. *)
-		     | Atom.Equal _ -> 
-			 let hsh = (1234 + hash p) land 0x3FFFFFFF in
-			   Neg(p, hsh))
-	      | _ -> 
-		  let hsh = (1234 + hash p) land 0x3FFFFFFF in
-		    Neg(p, hsh)
-	    in
-	      Table.add memo p np; np
 
 let mk_disj2 = 
   let simplified p1 p2 =
@@ -318,6 +278,44 @@ let mk_conj2 =
 	      Not_found -> 
 		let conj = simplified p q in
 		  Table.add memo pq conj; conj
+
+
+let mk_neg =
+  let module Table = Hashtbl.Make(
+    struct
+      type t = prp
+      let equal = (==)
+      let hash = hash
+    end)
+  in
+  let memo = Table.create 23 in
+  let _ = Tools.add_at_reset (fun () -> Table.clear memo) in
+    fun p -> 
+      try
+	Table.find memo p 
+      with
+	  Not_found -> 
+	    let np = match p with
+	      | Neg(q, _) -> q
+	      | Atom(a) -> 
+		  (match a with
+		     | Atom.TT ->
+			 mk_false
+		     | Atom.FF -> 
+			 mk_true
+		     | Atom.Diseq(s, t) -> (* [not(s <> t)] iff [s = t]. *)
+			 mk_poslit (Atom.mk_equal s t)
+		     | Atom.Nonneg(t) -> (* [not(t >= 0)] iff [-t > 0]. *)
+			 let negt = Linarith.mk_neg t in
+			   mk_poslit (Atom.mk_pos negt)
+		     | _ -> 
+			 let hsh = (1234 + hash p) land 0x3FFFFFFF in
+			   Neg(p, hsh))
+	      | _ -> 
+		  let hsh = (1234 + hash p) land 0x3FFFFFFF in
+		    Neg(p, hsh)
+	    in
+	      Table.add memo p np; np
 		    
 let rec mk_disj = function
   | [] -> mk_false
@@ -328,7 +326,6 @@ let rec mk_conj = function
   | [] -> mk_true
   | [p] -> p
   | p :: pl -> mk_conj2 p (mk_conj pl)
-
 
 
 let mk_iff =
@@ -509,18 +506,24 @@ let reduce_explanation = ref false
 
 (** Identification [a |-> i] of atoms [a] in a propositional
  formula with {i consecutive} natural numbers as required by ICSAT. *)
-let atom_to_id_tbl = ref Atom.Map.empty
+let atom_to_id_tbl = ref(Atom.Map.empty())
+
+let atom_index_of a = (* returns identifier [i] unique to [a]. *)
+  failwith "to do"
+
+let atom_of_index i =
+  failwith "to do"
 
 let atom_to_id a =
   try
     Atom.Map.find a !atom_to_id_tbl 
   with
       Not_found -> 
-	let b = Atom.negate Arith.mk_neg a in
-	let i = Atom.index_of a   (* returns identifier [i] unique to [a]. *)
-	and j = Atom.index_of b in
+	let b = Atom.negate Linarith.mk_neg a in
+	let i = atom_index_of a 
+	and j = atom_index_of b in
 	let id = icsat_mk_atom i j in
-	  atom_to_id_tbl := Atom.Map.add a id !atom_to_id_tbl; 
+	  Atom.Map.set a id !atom_to_id_tbl; 
 	  id
 
 (** Identification [n <-> i] of variable names [n] in a 
@@ -585,14 +588,16 @@ let current_boolean_valuation () =
     vartbl Name.Map.empty
 
 let current_atom_valuation () = 
-  Atom.Map.fold
-    (fun a id acc ->
-       (match icsat_get_assignment id with
-	  | (-1) -> Atom.Map.add a F acc  
-	  | 0 -> Atom.Map.add a X acc
-	  | 1 -> Atom.Map.add a T acc    
-	  | _ -> failwith "ICSAT: invalid return value of icsat_get_assignment"))
-    !atom_to_id_tbl Atom.Map.empty
+  let acc = Atom.Map.empty() in
+    Atom.Map.iter
+      (fun a id ->
+	 (match icsat_get_assignment id with
+	    | (-1) -> Atom.Map.set a F acc  
+	    | 0 -> Atom.Map.set a X acc
+	    | 1 -> Atom.Map.set a T acc    
+	    | _ -> failwith "ICSAT: invalid return value of icsat_get_assignment"))
+      !atom_to_id_tbl;
+    acc
 
 let is_model_of propval atomval =
  let module Table = Hashtbl.Make(
@@ -643,6 +648,7 @@ let is_model_of propval atomval =
 	neg (eval p)
  in
    eval
+
 
 
 (** Translate propositional formula to one understood by ICSAT. 
@@ -730,13 +736,13 @@ and d_disj_prop p =
 (** {6 Atoms} *)
 
 let is_connected i j =
-  let a = Atom.of_index i 
-  and b = Atom.of_index j in
+  let a = atom_of_index i 
+  and b = atom_of_index j in
     Atom.is_connected a b
 let _ = Callback.register "atom_is_connected" is_connected
 
 let atom_pp i =
-  let a = Atom.of_index i in
+  let a = atom_of_index i in
     Atom.pp Format.std_formatter a;
     Format.print_flush ()
 let _ = Callback.register "prop_atom_pp" atom_pp
@@ -798,7 +804,7 @@ module Explanation = struct
 
   let to_list () = 
     let l = ref [] in
-      Stack.iter (fun i -> l := (Atom.of_index i) :: !l) explanation;
+      Stack.iter (fun i -> l := (atom_of_index i) :: !l) explanation;
       !l
 
   let pp fmt () =
@@ -806,22 +812,9 @@ module Explanation = struct
 
   let is_inconsistent s =
     let l = to_list () in
-      Context.is_inconsistent s l
-
-  (** Following disabled. *)
-  let rec semantic_reduce hyps =
-    match Context.addl Context.empty (Atom.Set.elements hyps) with
-      | Context.Status.Inconsistent(rho) ->
-	  (try
-	     let hyps' = Jst.axioms_of rho in
-	       if 3 * (Atom.Set.cardinal hyps') < 2 * (Atom.Set.cardinal hyps) then
-		 semantic_reduce hyps'
-	       else 
-		 hyps' 
-	   with
-	       Not_found -> hyps)
-      | _ -> 
-	  hyps
+      match Context.is_inconsistent s l with
+	| Some _ -> true
+	| None -> false
 
   let install hyps =
     assert(not(Atom.Set.is_empty hyps));
@@ -829,13 +822,13 @@ module Explanation = struct
       assert(Stack.is_empty explanation);
       Atom.Set.iter
 	(fun a -> 
-	   let i =  Atom.index_of a in
+	   let i =  atom_index_of a in
 	     Stack.push i explanation)
 	hyps;
       if !show_explanations then
 	begin
 	  Format.eprintf "\nExplanation: \n";
-	  Pretty.set Atom.pp Format.err_formatter (Atom.Set.elements hyps)
+	  Pretty.set Atom.pp Format.err_formatter (Atom.Set.to_list hyps)
 	end;
       if !validate_explanations then
 	if not(is_inconsistent Context.empty) then
@@ -866,45 +859,49 @@ end
 
 let add i =
   let s = top() in
-  let a = Atom.of_index i in
-    match Context.add s a with
-      | Context.Status.Valid _ -> 
+  let a = atom_of_index i in
+    try
+      let s = Context.add s a in
+	(let (_, al) = Stack.pop stack in
+	   push (s, a :: al);
+	   Explanation.noinstall();
+	   1)
+    with
+      | Judgement.Valid _ -> 
 	  (let (s, al) = Stack.pop stack in
 	     push (s, a :: al);
 	     Explanation.noinstall();
 	     1)
-      | Context.Status.Inconsistent(rho) ->
+      | Judgement.Unsat(bot) ->
 	  (try
-	     let hyps = Jst.axioms_of rho in
+	     let hyps = Atom.Set.empty () in
+	       bot#assumptions hyps;
 	       Explanation.install hyps;
 	       0
 	   with
 	       Not_found ->   (* No explanation generated *)
-		   Explanation.noinstall();
+		 Explanation.noinstall();
 		 0)
-      | Context.Status.Ok(s) -> 
-	  (let (_, al) = Stack.pop stack in
-	     push (s, a :: al);
-	     Explanation.noinstall();
-	     1)
 
 let _ = Callback.register "prop_add" add
 
 
 (** Scratch state *)
 
-let scratch = ref Context.empty 
+let scratch = ref Context.empty
 
 let reset_scratch_context () = 
   scratch := Context.empty
 let _ = Callback.register "reset_scratch_context" reset_scratch_context
 
 let add_scratch_context i =
-  let a = Atom.of_index i in
-    match Context.add !scratch a with
-      | Context.Status.Valid _ -> 1
-      | Context.Status.Inconsistent _ -> 0
-      | Context.Status.Ok(s) -> (scratch := s; 1)
+  let a = atom_of_index i in
+    try
+      let s =  Context.add !scratch a in
+	scratch := s; 1
+    with
+      | Judgement.Valid _ -> 1
+      | Judgement.Unsat _ -> 0
 let _ = Callback.register "add_scratch_context" add_scratch_context
 
 
@@ -926,7 +923,7 @@ let initialize s =
       Stack.push (s, []) stack;
       initial := (s, []);    (* Initial context *)
       scratch := s;          (* Initialize scratch area *)
-      atom_to_id_tbl :=  Atom.Map.empty;
+      atom_to_id_tbl :=  Atom.Map.empty();
       Name.Hash.clear vartbl
     end 
 
@@ -934,7 +931,17 @@ let finalize () =
   icsat_finalize ();
   used := false
 
-let statistics = ref false
+
+module Statistics = 
+  Ref.Boolean(
+    struct
+      type t = bool
+      let name = "statistics"
+      let default = false
+      let description =  "Print statistics of propositional SAT solver"
+    end)
+ 
+
 
 module Assignment = struct
 
@@ -947,7 +954,7 @@ module Assignment = struct
     if rho.valuation <> [] then
 	Pretty.map Name.pp Pretty.bool fmt rho.valuation;
     if not(Atom.Set.is_empty rho.literals) then
-      Pretty.list Atom.pp fmt (Atom.Set.elements rho.literals)
+      Pretty.list Atom.pp fmt (Atom.Set.to_list rho.literals)
 
 end
 
@@ -955,7 +962,7 @@ let rec sat s p =
   try
     initialize s;
     let result =
-      let mode = Jst.Mode.get() != Jst.Mode.No in
+      let mode = true in
 	if icsat_sat (to_prop p) mode then
 	  begin
 	    debug_output();
@@ -965,7 +972,7 @@ let rec sat s p =
 	else 
 	  None
     in
-      if !statistics then
+      if Statistics.get() then
 	icsat_print_statistics();
       finalize();
       result
@@ -1015,13 +1022,15 @@ and assignment () =
       vartbl []
   in
   let literals = 
-    Atom.Map.fold
-      (fun a id acc ->
-	  (match icsat_get_assignment id with
-	     | (-1) -> Atom.Set.add (Atom.negate Arith.mk_neg a) acc  
-	     | 0 -> acc                      (* don't care *)
-	     | 1 -> Atom.Set.add a acc       (* true *)
-	     | _ -> failwith "ICSAT: invalid return value of icsat_get_assignment"))
-      !atom_to_id_tbl Atom.Set.empty
+    let acc = Atom.Set.empty () in
+      Atom.Map.iter
+	(fun a id ->
+	   (match icsat_get_assignment id with
+	      | (-1) -> Atom.Set.add (Atom.negate Linarith.mk_neg a) acc  
+	      | 0 -> ()                       (* don't care *)
+	      | 1 -> Atom.Set.add a acc       (* true *)
+	      | _ -> failwith "ICSAT: invalid return value of icsat_get_assignment"))
+	!atom_to_id_tbl;
+      acc
   in
     { Assignment.valuation = valuation; Assignment.literals = literals }

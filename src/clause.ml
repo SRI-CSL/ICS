@@ -15,9 +15,34 @@ type t = disjunction * Jst.t
 
 and disjunction = Atom.Set.t
 
+let jst_of (_, rho) = rho
+
 let unsat rho = (Atom.Set.empty, rho)
 
+let valid rho =
+  let d1 = Atom.Set.singleton Atom.mk_true in
+    (d1, rho)
+
 let is_unsat (ds, _) = Atom.Set.is_empty ds
+
+let is_valid (ds, _) = 
+  Atom.Set.for_all Atom.is_true ds
+
+let mk_unary a rho =
+  if Atom.is_false a then unsat rho 
+  else if Atom.is_true a then valid rho
+  else (Atom.Set.singleton a, rho)
+    
+
+let mk_binary a b rho =
+  if Atom.is_true a || Atom.is_true b then
+    valid rho
+  else if Atom.is_false a then
+    mk_unary b rho
+  else if Atom.is_false b then
+    mk_unary a rho
+  else 
+    (Atom.Set.add a (Atom.Set.singleton b), rho)
 
 let of_list (dl, rho) =
   let rec loop acc = function

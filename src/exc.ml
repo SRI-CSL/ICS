@@ -17,3 +17,6 @@ exception Inconsistent
 exception Valid
 
 exception Incomplete
+
+exception True
+exception False
