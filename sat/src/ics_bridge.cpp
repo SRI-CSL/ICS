@@ -22,6 +22,7 @@ int  SAT_clause_relevance = DEFAULT_CLAUSE_RELEVANCE;
 int  SAT_cleanup_period = DEFAULT_CLEANUP_PERIOD;
 extern int ICS_EXPLAIN_NUM_REFINEMENTS;
 double SAT_associated_formulas_time;
+int SAT_assertion_frequency = DEFAULT_NPC_THRESHOLD;
 
 extern "C" {
 	void sat_initialize() {
@@ -224,7 +225,7 @@ extern "C" {
 		sat_solver->enable_lookahead_optimization(false);
 		sat_solver->set_lookahead_relevance(DEFAULT_LOOKAHEAD_RELEVANCE);
 		sat_solver->enable_experimental_heuristics(false);
-		sat_solver->set_npc_threshold(DEFAULT_NPC_THRESHOLD);
+		sat_solver->set_npc_threshold(SAT_assertion_frequency);
 
 		clock_t start = clock();
 		bool result = sat_solver->is_satisfiable(root_id);
@@ -257,6 +258,9 @@ extern "C" {
 	}
 	void sat_set_remove_subsumed_clauses(bool flag) {
 		SAT_remove_subsumed_clauses = flag;
+	}
+	void sat_set_assertion_frequency(int freq) {
+		SAT_assertion_frequency = freq;
 	}
 	void sat_set_validate_counter_example(bool flag) {
 		SAT_validate_counter_example = flag;
