@@ -22,31 +22,26 @@ open Mpa
 (*i*)
 
 
-let is_bvsym f =
-  match Sym.destruct f with
-    | Sym.Interp(Sym.Bv _) -> true
-    | _ -> false
+let is_bvsym = function
+  | Bv _ -> true
+  | _ -> false
 
-let d_bvsym f =
-  match Sym.destruct f with
-    | Sym.Interp(Sym.Bv(op)) -> Some(op)
-    | _ -> None
+let d_bvsym = function
+  | Bv(op) -> Some(op)
+  | _ -> None
 
-let is_interp a =
-  not (Term.is_var a) &&
-  is_bvsym (Term.sym_of a)
+let is_interp = function
+  | App(Bv _, _) -> true
+  | _ -> false
 
-let d_interp a =
-  if is_var a then None else
-  match d_bvsym (Term.sym_of a) with
-    | Some(op) -> Some(op, Term.args_of a)
-    | _ -> None
+let d_interp = function
+  | App(Bv(op), l) -> Some(op, l)
+  | _ -> None
 
 (* Constant bitvectors *)
 
-let mk_const c = 
-  let f = Sym.mk_bv_const c in
-  Term.mk_const f
+let mk_const c =
+  Term.mk_const(Bv(Const(c)))
 
 let mk_eps = 
   mk_const(Bitv.from_string "")
@@ -202,9 +197,9 @@ and build_fun n (s1,s2,s3) =
 	let (pos3,neg3) = cofactors x s3 in
 	let pos = build n (pos1,pos2,pos3) in
 	let neg = build n (neg1,neg2,neg3) in
-	if Term.eq pos neg then pos else Term.mk_app (Sym.mk_bv_bitwise n) [x;pos;neg]
+	if Term.eq pos neg then pos else Term.mk_app (Bv(Bitwise(n))) [x;pos;neg]
     | None ->
-	Term.mk_app (Sym.mk_bv_bitwise n) [s1;s2;s3]
+	Term.mk_app (Bv(Bitwise(n))) [s1;s2;s3]
 
 (*s Term constructors. *)
 
@@ -216,11 +211,11 @@ let rec mk_sub n i j a =
     mk_eps
   else 
     match d_interp a with
-      | Some(Sym.Const(b), []) -> 
+      | Some(Const(b), []) -> 
 	  mk_const(Bitv.sub b i (j-i+1))
-      | Some(Sym.Sub(m,k,l), [x]) ->
+      | Some(Sub(m,k,l), [x]) ->
 	  mk_sub m (k+i) (k+j) x
-      | Some(Sym.Conc(n,m), [x;y]) ->
+      | Some(Conc(n,m), [x;y]) ->
 	  if j < n then
 	    mk_sub n i j x
 	  else if n <= i then
@@ -230,10 +225,10 @@ let rec mk_sub n i j a =
             let t = mk_sub n i (n-1) x in
 	    let u = mk_sub m 0 (j-n) y in
 	    mk_conc (n-i) (j-n+1) t u)
-      | Some(Sym.Bitwise(n), [x;y;z]) ->
+      | Some(Bitwise(n), [x;y;z]) ->
 	  mk_bitwise (j-i+1) (mk_sub n i j x) (mk_sub n i j y) (mk_sub n i j z) 
       | None ->
-	  Term.mk_app (Sym.mk_bv_sub n i j) [a]
+	  Term.mk_app (Bv(Sub(n, i, j))) [a]
       | Some _ ->
 	  failwith "Bv.mk_sub: ill-formed expression"
 	
@@ -245,7 +240,7 @@ and mk_conc n m a b =
     | false, true -> a
     | false, false ->
 	(match merge n m a b with
-	   | None -> Term.mk_app (Sym.mk_bv_conc n m) [a;b]
+	   | None -> Term.mk_app (Bv(Conc(n,m))) [a;b]
 	   | Some(c) -> c)
 
 and merge n m a b =
@@ -307,8 +302,7 @@ and lift n a =
   if is_bvbdd a then 
     a 
   else
-    let f = Sym.mk_bv_bitwise n in
-    Term.mk_app f [a;mk_one n;mk_zero n]
+    Term.mk_app (Bv(Bitwise(n))) [a;mk_one n;mk_zero n]
 
 and drop a =
  match d_bitwise a with
