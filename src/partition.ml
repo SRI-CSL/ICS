@@ -55,10 +55,10 @@ let pp fmt s =
 
 (*s Test if states are unchanged. *)
 
-let unchanged s t =
-  V.unchanged s.v t.v &&
+let eq s t =
+  V.eq s.v t.v &&
   D.unchanged s.d t.d &&
-  C.unchanged s.c t.c
+  C.eq s.c t.c
  
 
 (*s Equality test. *)
@@ -88,11 +88,16 @@ let is_int s x =
 
 let merge e s =
   Trace.msg "p" "Merge" e Fact.pp_equal;
-  let v' = V.merge e s.v in
-  let d' = D.merge e s.d in
-  let c' = C.merge e s.c in
-  let s' = {s with v = v'; d = d'; c = c'} in
-  s'
+  let (x, y, _) = Fact.d_equal e in
+  match is_equal s x y with
+    | Three.Yes -> s
+    | Three.No -> raise Exc.Inconsistent
+    | Three.X -> 
+	let v' = V.merge e s.v in
+	let d' = D.merge e s.d in
+	let c' = C.merge e s.c in
+	let s' = {s with v = v'; d = d'; c = c'} in
+	s'
 
 
 (*s Add a constraint. *)
@@ -100,16 +105,32 @@ let merge e s =
 let add c s =
   Trace.msg "p" "Add" c Fact.pp_cnstrnt;
   let c' = C.add c s.c in
-  let s' = {s with c = c'} in
-  s'
+  if C.eq s.c c' then 
+    s 
+  else
+    let s' = {s with c = c'} in
+    s'
 
 (*s Add a disequality. *)
 
 let diseq d s = 
   Trace.msg "p" "Diseq" d Fact.pp_diseq;
-  let d' = D.add d s.d in
-  let s' = {s with d = d'} in
-  s'
+  let (x, y, _) = Fact.d_diseq d in
+  match is_equal s x y with
+    | Three.Yes -> 
+	raise Exc.Inconsistent
+    | Three.No -> 
+	s
+    | Three.X -> 
+	let d' = D.add d s.d in
+	let s' = {s with d = d'} in
+	s'
+
+(*s Triple of changes in the equality, disequality, and constraint parts
+ (in this order). *) 
+
+let changed s =
+  (V.changed s.v, D.changed s.d, C.changed s.c)
 
 (*s Resetting the [changed] indices. *)
 
