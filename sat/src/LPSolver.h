@@ -17,6 +17,7 @@
 #include"queue.h"
 #include"ics_interface.h"
 #include"lisp.h"
+#include<hash_set.h>
 
 #define TICK_FREQUENCY 2000
 
@@ -208,6 +209,8 @@ private:
 	//
 	// end of heuristic support variables
 	//
+
+	hash_set<unsigned int> relevant_atoms;
 
 	// bool * in_to_process_queue;
 	queue<unsigned int> to_process;
@@ -493,6 +496,8 @@ private:
 	// End of Temporary (Scratch) arrays
 	//
 
+
+
 public:
 	LPSolver(LPFormulaManager * f_manager, unsigned int initial_capacity = INITIAL_NUMBER_OF_FORMULAS,
 					 unsigned int initial_number_of_clauses = INITIAL_NUMBER_OF_CLAUSES,
@@ -512,6 +517,12 @@ public:
 			v = assignments[sign ? -f : f];
 		}
 		return f;
+	}
+
+	void LPSolver::compute_relevant_atoms(LPFormulaId f);
+
+	bool is_relevant_atom(unsigned int idx) {
+		return relevant_atoms.find(idx) != relevant_atoms.end();
 	}
 
 	LPFormulaId canonical_formula(int * aux_assignments, LPFormulaId f) {

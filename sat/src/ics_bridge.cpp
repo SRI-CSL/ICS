@@ -136,7 +136,10 @@ extern "C" {
 
 	// return 0, 1 or -1 (Unknown, True, or False)
 	int sat_get_assignment(LPFormulaId f) {
-		return sat_solver->get_formula_value(f);
+		if (sat_solver->is_relevant_atom(absolute(f)))
+			return sat_solver->get_formula_value(f);
+		else
+			return 0;
 	}
 
 	void sat_print_statistics() {
@@ -201,6 +204,8 @@ extern "C" {
 
 		clock_t start = clock();
 		bool result = sat_solver->is_satisfiable(root_id);
+		if (result)
+			sat_solver->compute_relevant_atoms(root_id);
 		clock_t end = clock();
 		SAT_total_solver_time = ((double) (end - start)) / CLOCKS_PER_SEC;		
 		// cout << "result = " << result << endl;

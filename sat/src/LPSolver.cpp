@@ -664,6 +664,7 @@ void LPSolver::initialize_solver() {
 	cleanup_period_counter = 0;
 	num_lookahead_optimization_assignments = 0;
 	lookahead_optimization_time = 0.0;
+	relevant_atoms.clear();
 }
 
 void LPSolver::setup_ics(unsigned int f_idx)
@@ -870,6 +871,72 @@ bool LPSolver::is_satisfiable(LPFormulaId f)
 bool LPSolver::prove(LPFormulaId f) 
 {
 	return !is_satisfiable(-f); /* f is a theorem iff -f is unsatisfiable */ 
+}
+
+void LPSolver::compute_relevant_atoms(LPFormulaId f)
+{
+	queue<unsigned int> & to_dump = tmp_queue;
+	to_dump.reset();
+
+	assert(check_marks());
+
+	queue_push(to_dump, absolute(f));
+	while (!to_dump.is_empty()) {
+		unsigned int curr_idx = to_dump.pop();
+		// process children...
+		const LPFormula * formula = formula_manager->get_formula(curr_idx);
+		switch (formula->get_kind()) {
+		case LP_OR: {
+			int val = get_formula_value(curr_idx);
+			unsigned int n = formula->get_num_arguments();
+			if (val == 1) {
+				// add only the first positive (true) child
+				for (unsigned int i = 0; i < n; i++) {
+					LPFormulaId child = formula->get_argument(i);
+					if (get_formula_value(child) == 1) {
+							queue_push(to_dump, absolute(child));
+							break;
+					}
+				}
+			}
+			else {
+				assert(val == -1);
+				for (unsigned int i = 0; i < n; i++)
+					queue_push(to_dump, absolute(formula->get_argument(i)));
+			}
+			break;
+		}
+		case LP_IFF: 
+			queue_push(to_dump, absolute(formula->get_iff_lhs()));
+			queue_push(to_dump, absolute(formula->get_iff_rhs()));
+			break;
+		case LP_ITE: {
+			LPFormulaId c = formula->get_cond();
+			int c_val = get_formula_value(c);
+			if (c_val == 1) { 
+				queue_push(to_dump, absolute(c));
+				queue_push(to_dump, absolute(formula->get_then()));
+			}
+			else if (c_val == -1) {
+				queue_push(to_dump, absolute(c));
+				queue_push(to_dump, absolute(formula->get_else()));
+			}
+			break;
+		}
+		case LP_EXISTS:
+			feature_not_implemented_yet();
+		case LP_EQ:
+			// perform an extra check for non-propositional constraints
+			assert(IMPLY(formula_manager->get_formula(curr_idx)->is_eq(), processed[curr_idx])); 
+		case LP_PROPOSITION: {
+			relevant_atoms.insert(curr_idx);
+			break; 
+		}
+		default:
+			assert(false);
+		}
+	}
+	remove_marks_from_tmp_queue();
 }
 
 void LPSolver::dump_atomic_formula_values(ostream & target, LPFormulaId f)
