@@ -17,14 +17,27 @@
 (*s Module [Builtin]:  Normalizing constructors for some builtin
  functions. *)
 
-val mk_unsigned : Term.t -> Term.t
+val is_builtin : Term.t -> bool
+
+type tests = {
+  is_equal : Term.t -> Term.t -> bool;
+  is_diseq : Term.t -> Term.t -> bool;
+  cnstrnt : Term.t -> Cnstrnt.t option;
+  find : Theories.t -> Term.t -> Term.t option
+}
+
+val mk_unsigned : tests -> Term.t -> Term.t
+
+val mk_select : tests -> Term.t -> Term.t -> Term.t
+val mk_update : tests -> Term.t -> Term.t -> Term.t -> Term.t
+
+val mk_div : tests -> Term.t -> Term.t -> Term.t
+
+val mk_sin : tests -> Term.t -> Term.t
+val mk_cos : tests -> Term.t -> Term.t
+
+val mk_floor : tests -> Term.t -> Term.t
+val mk_ceiling : tests -> Term.t -> Term.t
 
 
-val mk_select : Term.t -> Term.t -> Term.t
-val mk_update : Term.t -> Term.t -> Term.t -> Term.t
-
-val mk_sin : Term.t -> Term.t
-val mk_cos : Term.t -> Term.t
-
-
-
+val sigma : tests -> Sym.t -> Term.t list -> Term.t

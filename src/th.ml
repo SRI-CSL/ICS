@@ -16,40 +16,9 @@
 
 (*i*)
 open Term
+open Interp
 (*i*)
 
-(*s Indices for interpreted theories. *)
-
-type i = 
-  | A        (*s Arithmetic. *)
-  | T        (*s Tuples. *)
-  | B        (*s Boolean. *)
-  | BV       (*s Bitvectors. *)
-
-let name_of = function
-  | A -> "a"
-  | T -> "t"
-  | B -> "b"
-  | BV -> "bv"
-
-let of_name = function
-  | "a" -> A
-  | "b" -> B
-  | "t" -> T
-  | "bv" -> BV
-  | str -> raise (Invalid_argument (str ^ "not an interpreted theory name."))
-
-
-let index f =
-  match Sym.destruct f with
-    | Sym.Interp(op) ->
-	Some(match op with
-	       | Sym.Arith _ -> A
-	       | Sym.Tuple _ -> T
-	       | Sym.Boolean _ -> B
-	       | Sym.Bv _ -> BV)
-    | _ ->
-	None
 
 (*s Context for interpreted equalities. *)
 
@@ -90,20 +59,24 @@ let pp fmt s =
 
 (*s Canonizer for purely interpreted terms. *)
 
-let sigma i f l = 
+let sigma tests f l = 
   match Sym.destruct f with
-    | Sym.Interp(Sym.Arith(op)) when i = A -> Arith.sigma op l
-    | Sym.Interp(Sym.Tuple(op)) when i = T -> Tuple.sigma op l
-    | Sym.Interp(Sym.Boolean(op)) when i = B -> Boolean.sigma op l
-    | Sym.Interp(Sym.Bv(op)) when i = BV -> Bitvector.sigma op l
-    | _ -> App.sigma f l
+    | Sym.Interp(Sym.Arith(op)) -> Arith.sigma op l
+    | Sym.Interp(Sym.Tuple(op)) -> Tuple.sigma op l
+    | Sym.Interp(Sym.Boolean(op)) -> Boolean.sigma op l
+    | Sym.Interp(Sym.Bv(op)) -> Bitvector.sigma op l
+    | _ -> App.sigma tests f l
 
-let solve i =
+let solve i e =
   match i with
-    | A -> Arith.solve 
-    | T -> Tuple.solve
-    | B -> Boolean.solve
-    | BV -> Bitvector.solve
+    | A ->
+	let p x = not (A.is_slack x) in
+	(match Arith.solve p e with 
+	   | None -> [] 
+	   | Some(x,b) -> [(x,b)])
+    | T -> Tuple.solve e
+    | B -> Boolean.solve e
+    | BV -> Bitvector.solve e
 
 let find i s =
   match i with
@@ -182,5 +155,3 @@ let add (x,c) s =
   mergel es' {s with a = a'} es'
 
 let cnstrnt s = A.cnstrnt s.a
-
-let cnstrnts s = A.cnstrnt_of s.a

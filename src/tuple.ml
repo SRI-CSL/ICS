@@ -97,7 +97,7 @@ let freshvars = ref Term.Set.empty
 let _ =  Tools.add_at_reset (fun () -> freshvars := Term.Set.empty)
 
 let mk_fresh () = 
-  let x = Term.mk_fresh (Name.of_string "t") in
+  let x = Term.mk_fresh (Name.of_string "t") None in
   freshvars := Term.Set.add x !freshvars;
   x
   

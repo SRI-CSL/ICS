@@ -28,6 +28,8 @@ val singleton : Veq.t -> t
 
 val add : Term.t -> Term.t -> t -> t
 
+val remove : Veq.t -> t -> t
+
 val union : t -> t -> t
 
 val fold : (Term.t -> Term.t -> 'a -> 'a) -> t -> 'a -> 'a

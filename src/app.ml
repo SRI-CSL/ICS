@@ -19,24 +19,11 @@ open Term
 open Hashcons
 (*i*)
 
-let sigma f l =
-  match l with
-    | [a] when Sym.eq f Sym.mk_unsigned -> (* Some builtin simplifications *)
-	Builtin.mk_unsigned a              (* for unsigned interpretation. *)
- (*   | [a; b] when Sym.eq f Sym.mk_expt ->
-	Arith.mk_expt a b *)
-    | [a;b] when Sym.eq f Sym.mk_mult ->
-	Arith.mk_mult a b
-    | [a;b] when Sym.eq Sym.mk_select f ->
-	Builtin.mk_select a b
-    | [a;b;c] when Sym.eq Sym.mk_update f ->
-	Builtin.mk_update a b c
-    | [a] when Sym.eq Sym.mk_sin f ->
-	Builtin.mk_sin a
-    | [a] when Sym.eq Sym.mk_cos f ->
-	Builtin.mk_cos a
-    | _ ->
-	Term.mk_app f l
+let sigma tests f l =
+  if Sym.is_builtin f then
+    Builtin.sigma tests f l
+  else 
+    Term.mk_app f l
 	  
 let is_uninterp a =
   not(Term.is_var a) &&

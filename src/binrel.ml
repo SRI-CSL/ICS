@@ -14,10 +14,10 @@
  * Author: Harald Ruess
  i*)
 
-type t = 
+type 'a t = 
   | Same 
   | Disjoint 
   | Sub 
   | Super 
   | Singleton of Mpa.Q.t 
-  | Overlap
+  | Overlap of 'a

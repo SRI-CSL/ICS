@@ -85,6 +85,13 @@ let d_expt a =
     | Some(Sym.Expt(n), [x]) -> Some(n,x)
     | _ -> None
 
+let monomials a =
+  match d_add a with
+    | Some(l) -> l
+    | None -> [a]
+
+
+
 
 (*s Recognizers. *)
 
@@ -128,7 +135,7 @@ let poly_of a =
     | Some(op,l)  ->
 	(match op, l with
 	   | Num(q), [] -> (q, [])
-	   | Expt _ , [] -> (Q.zero, [a])
+	   | Expt _ , [_] -> (Q.zero, [a])
 	   | Mult, _ -> (Q.zero, [a])
 	   | Add, ((x :: xl') as xl) ->
 	       (match d_num x with
@@ -159,7 +166,6 @@ let of_mono q x =
     match d_num x with
       | Some(p) -> mk_num (Q.mult q p) 
       | None -> Term.mk_app Sym.mk_mult [mk_num q; x]
-
 
 (*s Constructors. *)
 
@@ -300,8 +306,22 @@ and mk_expt n a =
 		  | Some(xl) ->
 		      mk_multl (List.map (mk_expt n) xl)
 		  | None ->
-		      Term.mk_app (Sym.mk_expt n) [a]))
+		      (match d_num a with
+			 | Some(q) -> 
+			     mk_num (Mpa.Q.expt q n)
+			 | None ->
+			     Term.mk_app (Sym.mk_expt n) [a])))
 
+(*s Decomposition. *)
+
+let decompose a =
+  let (q, al) = poly_of a in
+  match al with
+    | [] -> 
+	(q, None)
+    | m :: ml ->
+	let (p,x) = mono_of m in
+	(q, Some(p, mk_add x (mk_multq (Q.inv p) (mk_addl ml))))
 
 (*s Apply term transformer [f] at uninterpreted positions. *)
 
@@ -339,7 +359,7 @@ let rec sigma op l =
     | Add, _ :: _ :: _ -> mk_addl l
     | Mult, [x;y] ->
 	(match d_num x with
-	   | Some(q) -> mk_multq q x
+	   | Some(q) -> mk_multq q y
 	   | None -> mk_mult x y)
     | Mult, _ -> mk_multl l
     | Expt(n), [x] -> mk_expt n x
@@ -349,26 +369,41 @@ let rec sigma op l =
 (*s Solving of an equality [a = b] in the rationals and the integers. 
   Solve for largest term. *)
 
-let rec solve (a,b) =
-  let pred x =                        (* solve for maximal monomial. *)
-     is_linear x                      (* which is linear and not a slack variable. *)
-  in             
-  let (q,l) = poly_of (mk_sub a b) in
-  if l = [] then
-    if Q.is_zero q then [] else raise(Exc.Inconsistent)
-  else
-    let ((p,x), ml) = destructure pred l in
-    assert(not(Q.is_zero p));             (*s case [q + p * x + ml = 0] *)
-    let b = mk_multq (Q.minus (Q.inv p)) (of_poly q ml) in
-    if Term.eq x b then [] else [orient x b]
+let rec solve p e =
+  Trace.call 7 "Solve(a)" e (Pretty.eqn Term.pp);
+  let sl = solve1 p e in
+  Trace.exit 7 "Solve(a)" sl pp_solved;
+  sl
 
-and orient x b =
+and solve1 p (a,b) =
+  let pred x =                       (* solve for maximal monomial. *)
+     is_var x &&                     (* which is linear and satisfies [p] *)
+     p x
+  in   
+  let orient x b =
   if is_interp b then
     (x, b)
-  else if x <<< b then
+  else if x <<< b && pred b then
     (b, x)
   else 
-    (x,b)
+    (x, b)
+  in
+  let (q,l) = poly_of (mk_sub a b) in
+  if l = [] then
+    if Q.is_zero q then None else raise(Exc.Inconsistent)
+  else
+    try
+      let ((p,x), ml) = destructure pred l in
+      assert(not(Q.is_zero p));             (*s case [q + p * x + ml = 0] *)
+      let b = mk_multq (Q.minus (Q.inv p)) (of_poly q ml) in
+      if Term.eq x b then None else Some(orient x b)
+    with
+	Not_found -> raise Exc.Unsolved
+
+and pp_solved fmt sl =
+  match sl with
+    | None -> Pretty.solution Term.pp fmt []
+    | Some(x,a) -> Pretty.solution Term.pp fmt [(x,a)]
 
 
 (*s Destructuring a polynomial into the monomial which satisfies predicate [f]
@@ -377,15 +412,14 @@ and orient x b =
 and destructure pred l =
    let rec loop acc l =   
      match l with 
-       | [m] -> 
-             (mono_of m, List.rev acc)
        | m :: ml ->
 	   let (p,x) = mono_of m in
 	   if pred x then
 	     ((p, x), List.rev acc @ ml)
 	   else
 	     loop (m :: acc) ml
-       | _ -> assert false
+       | [] -> 
+	   raise Not_found
    in
    loop [] l
 

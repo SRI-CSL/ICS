@@ -50,7 +50,7 @@ and usage () =
   Format.eprintf "\nCopyright (c) 2001,2002 SRI International.";
   Format.eprintf "\nType 'help.' for help about help, and 'Ctrl-d' to exit.@."
  
-and exiting n = (*s Exiting the system (on Ctrl-C or Ctrl-D) *)
+and exiting n = 
   if !stat_flag then 
     Ics.do_at_exit ();
   Ics.cmd_flush ();

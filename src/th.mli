@@ -18,28 +18,13 @@
  of interpreted theories. *)
 
 
-(*s The interpreted theories are linear arithmetic [LA], tuples [T],
- bitvectors [BV], and nonlinear arithmetic [NLA]. *)
-
-type i = A | T | B | BV
-
-val name_of : i -> string
-val of_name : string -> i
-
-
-(*s For an interpreted function symbol [op], [index op] returns the 
- corresponding name of the interpreted theory. *)
-
-val index : Sym.t -> i option
-
-
 (*s [sigma op l] is the combined sigmatizer for the interpreted theories. *)
 
-val sigma : i -> Sym.t -> Term.t list -> Term.t
+val sigma : Builtin.tests -> Sym.t -> Term.t list -> Term.t
 
 (*s Component solvers. *)
 
-val solve : i -> Term.t * Term.t -> (Term.t * Term.t) list
+val solve : Interp.t -> Term.t * Term.t -> (Term.t * Term.t) list
 
 (*s Type of the context for the interpreted theories. *)
 
@@ -52,7 +37,7 @@ val empty : t
 
 (*s Return the solution set for a theory. *)
 
-val solution : i -> t -> (Term.t * Term.t) list
+val solution : Interp.t -> t -> (Term.t * Term.t) list
 
 (*s Pretty-printing. *)
 
@@ -64,17 +49,17 @@ val pp : Format.formatter -> t -> unit
   [a |-> b], and [b] otherwise. [use s a] returns the set of rhs in [s] which
   contain [a] as a subterm. *)
 
-val find : i -> t -> Term.t -> Term.t
+val find : Interp.t -> t -> Term.t -> Term.t
 
-val inv : i -> t -> Term.t -> Term.t
+val inv : Interp.t -> t -> Term.t -> Term.t
 
-val use : i -> t -> Term.t -> Term.Set.t
+val use : Interp.t -> t -> Term.t -> Term.Set.t
 
 (*s [extend s (a,b)] installs a new binding [a |-> b] into [s]. 
   It assumes that [a] is not yet in the domain of [s]. 
   Also, [a],[b] must be valid lhs and rhs, respectively. *)
 
-val extend : i -> Term.t -> t -> Term.t * t
+val extend : Interp.t -> Term.t -> t -> Term.t * t
 
 (*s [process solve f (a,b) s] installs an equality [a = b], where at least one of [a],[b] is
   a tuple term, into the tuple context [s]. Abstractly, the manipulations on [s] can be 
@@ -94,7 +79,5 @@ val add : Term.t * Cnstrnt.t -> t -> t * Veqs.t
 
 
 (*s Constraint. *)
-
-val cnstrnts : t -> (Term.t * Supinf.t) list
 
 val cnstrnt : t -> Term.t -> Cnstrnt.t option

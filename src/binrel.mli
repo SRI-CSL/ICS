@@ -14,6 +14,10 @@
  * Author: Harald Ruess
  i*)
 
-type t = Same | Disjoint | Sub | Super | Overlap
-
-val union: t -> t -> t
+type 'a t = 
+  | Same 
+  | Disjoint 
+  | Sub 
+  | Super 
+  | Singleton of Mpa.Q.t 
+  | Overlap of 'a

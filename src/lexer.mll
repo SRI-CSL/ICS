@@ -33,7 +33,6 @@ let keyword =
       "bv", BV; "with", WITH;
       "proj", PROJ;
       "cons", CONS; "car", CAR; "cdr", CDR; "nil", NIL;
-      "if", IF; "then", THEN; "else", ELSE; "end", END; "tt", TT; "ff", FF;
       "conc", CONC; "sub", SUB; 
       "bwite", BWITE; "bwand", BWAND; "bwor", BWOR;
       "bwxor", BWXOR; "bwnot", BWNOT;
@@ -41,11 +40,11 @@ let keyword =
       "save", SAVE; "restore", RESTORE; "remove", REMOVE; "forget", FORGET;
       "reset", RESET; "sig", SIG; "type", TYPE; "def", DEF;
       "sigma", SIGMA; "solve", SOLVE; "help", HELP;
-      "set", SET; "toggle", TOGGLE; "pretty", PRETTY; "verbose", VERBOSE; 
-      "find", FIND; "inv", INV; "use", USE; "solution", SOLUTION;
-      "prop", PROP; "ctxt", CTXT; "diseq", DISEQ; "show", SHOW;
-      "symtab", SYMTAB; "cnstrnt", CNSTRNT; "sat", SAT; "check", CHECK; 
-      "compress", COMPRESS
+      "set", SET; "toggle", TOGGLE; "verbose", VERBOSE; 
+      "find", FIND; "inv", INV; "use", USE; "solution", SOLUTION; "partition", PARTITION;
+      "syntax", SYNTAX; "commands", COMMANDS; "ctxt", CTXT; "diseq", DISEQ; 
+      "show", SHOW; "symtab", SYMTAB; "cnstrnt", CNSTRNT;
+      "gc", GC; "true", TRUE; "false", FALSE
     ];
   fun s ->
     try Hashtbl.find kw_table s with Not_found -> IDENT s
@@ -71,10 +70,12 @@ rule token = parse
   | "0b" ['0'-'1']*
                { let s = Lexing.lexeme lexbuf in 
 		 BVCONST (String.sub s 2 (String.length s - 2)) }
-  | "v!" int   { let s = Lexing.lexeme lexbuf in
-		 LABEL (int_of_string (String.sub s 2 (String.length s - 2))) }
-  | "k!" int   { let s = Lexing.lexeme lexbuf in
-		 SLACK (int_of_string (String.sub s 2 (String.length s - 2))) }
+  | ident '!' int  { let s = Lexing.lexeme lexbuf in
+		     let n = String.length s in
+                     let i = String.rindex s '!' in
+                     let x = String.sub s 0 i in
+		     let k = int_of_string (String.sub s (i + 1) (n - i - 1)) in
+		       FRESH (x, k) }
   | ','        { COMMA }
   | '('        { LPAR }
   | ')'        { RPAR }
@@ -102,12 +103,6 @@ rule token = parse
   | "&&"       { BWANDI }
   | "||"       { BWORI }
   | "##"       { BWXORI }
-  | '~'        { NEG }
-  | '&'        { CONJ }
-  | '|'        { DISJ }
-  | '#'        { XOR }
-  | "=>"       { IMPL }
-  | "<=>"      { BIIMPL}
   | '_'        { UNDERSCORE } 
   | "<<"       { CMP }
   | '.'        { DOT }

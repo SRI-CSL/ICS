@@ -33,6 +33,19 @@ let add x y el =
   assert(Term.is_var x && Term.is_var y);
   Veq.make x y :: el
 
+let mem e = List.exists (Veq.eq e)
+
+let remove e el =
+  if mem e el then 
+    List.fold_right 
+      (fun e' acc ->
+	 if Veq.eq e e' then acc else e' :: acc)
+      el
+      []
+  else 
+    el
+  
+
 let union = (@)
 
 let fold f = 
