@@ -24,7 +24,8 @@ type t =
   | Disj of t list
   | Iff of t * t
   | Ite of t * t * t
-  | Neg of t
+  | Neg of t 
+  | Let of Name.t * t * t
 
 (** {6 Constructors} *)
  
@@ -38,8 +39,18 @@ val mk_conj : t list -> t
 val mk_disj : t list -> t
 val mk_iff : t -> t -> t
 val mk_neg : t -> t
+val mk_let : Name.t -> t -> t -> t
 
 
 (** {6 Satisfiability checker} *)
+
+(** Parameter settings for SAT solver *)
+
+val set_verbose : bool -> unit
+val set_remove_subsumed_clauses : bool -> unit
+val set_validate_counter_example : bool -> unit
+val set_polarity_optimization : bool -> unit
+val set_clause_relevance : int -> unit
+val set_cleanup_period : int -> unit
 
 val sat : Context.t -> t -> Atom.Set.t option

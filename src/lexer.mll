@@ -26,7 +26,7 @@ let keyword =
   List.iter 
     (fun (s,tk) -> Hashtbl.add kw_table s tk)
     [ "arith", ARITH; "tuple", TUPLE;
-      "in", IN; "inf", INF;
+      "let", LET; "in", IN; "inf", INF;
       "bot", BOT; "int", INT; "nonint", NONINT; "real", REAL; "top", TOP;
       "bitvector", BV; "with", WITH;
       "proj", PROJ;
@@ -121,6 +121,7 @@ rule token = parse
   | '_'        { UNDERSCORE } 
   | "<<"       { CMP }
   | "::"       { LISTCONS }
+  | ":="       { DEF }
   | "[]"       { NIL }
   | '.'        { DOT }
   | '$'        { APPLY }

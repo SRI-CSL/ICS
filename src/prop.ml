@@ -20,6 +20,7 @@ type t =
   | Iff of t * t
   | Ite of t * t * t
   | Neg of t
+  | Let of Name.t * t * t
 
 let mk_true = True
 let mk_false = False
@@ -31,7 +32,26 @@ let mk_iff p q = Iff(p, q)
 let mk_ite p q r = Ite(p, q, r)
 let mk_neg p = Neg(p)
 let mk_conj pl = mk_neg (mk_disj (List.map mk_neg pl))
+let mk_let x p q = Let(x, p, q)
 
+let rec apply rho q =
+  match q with
+    | Var(x) -> 
+	(try
+	   List.assoc x rho
+	 with
+	     Not_found -> q)
+    | (True | False | Atom _) -> q
+    | Disj(ql) ->
+	mk_disj (List.map (apply rho) ql)
+    | Iff(q1, q2) -> 
+	mk_iff (apply rho q1) (apply rho q2)
+    | Ite(q1, q2, q3) -> 
+	mk_ite (apply rho q1) (apply rho q2) (apply rho q3)
+    | Neg(q1) ->
+	mk_neg (apply rho q1)
+    | Let(x, q1, q2) -> 
+	apply ((x, q1) :: rho) q2
 
 
 (** {6 Translations to/from ICSAT propositions} *)
@@ -68,6 +88,17 @@ external icsat_d_atom : prop -> int = "icsat_d_atom"
 external icsat_d_not : prop -> prop = "icsat_d_not"
 external icsat_num_arguments : prop -> int = "icsat_num_arguments"
 external icsat_get_argument : prop -> int -> prop = "icsat_get_argument"
+
+external icsat_get_assignment : int -> int = "icsat_get_assignment"
+
+(** Parameter settings for SAT solver *)
+
+external set_verbose : bool -> unit = "icsat_set_verbose"
+external set_remove_subsumed_clauses : bool -> unit = "icsat_set_remove_subsumed_clauses"
+external set_validate_counter_example : bool -> unit = "icsat_set_validate_counter_example"
+external set_polarity_optimization : bool -> unit = "icsat_set_polarity_optimization"
+external set_clause_relevance : int -> unit = "icsat_set_clause_relevance"
+external set_cleanup_period : int -> unit = "icsat_set_cleanup_period"
 
 
 (** Translating to and from propositions *)
@@ -110,27 +141,41 @@ let id_to_atom i =
   with
       Not_found -> failwith "Fatal error: no atom for ICSAT identifier"
 
-let rec to_prop = function
-  | True -> 
-      icsat_mk_true()
-  | False -> 
-      icsat_mk_false()
-  | Var(x) -> 
-      icsat_mk_var (Name.to_string x)
-  | Atom(a) -> 
-      assert(Atom.is_negatable a);
-      let b = Atom.negate a in
-      let i = atom_to_id a in
-      let j = atom_to_id b in
-	icsat_mk_atom i j
-  | Disj(pl) ->
-      icsat_mk_or (List.map to_prop pl)
-  | Iff(p, q) ->
-      icsat_mk_iff (to_prop p) (to_prop q)
-  | Ite(p, q, r) ->
-      icsat_mk_ite (to_prop p) (to_prop q) (to_prop r)
-  | Neg(p) ->
-      icsat_mk_not (to_prop p)
+let to_prop p =
+  let rec translate rho p =
+    match p with
+      | True -> 
+	  icsat_mk_true()
+      | False -> 
+	  icsat_mk_false()
+      | Var(x) -> 
+	  (try
+	     let q = List.assoc x rho in
+	       translate rho q
+	   with
+	       Not_found -> icsat_mk_var (Name.to_string x))
+      | Atom(a) -> 
+	  assert(Atom.is_negatable a);
+	  let b = Atom.negate a in
+	  let i = atom_to_id a in
+	  let j = atom_to_id b in
+	    icsat_mk_atom i j
+      | Let(x, p, q) ->
+	  (match p with
+	     | Var _ ->
+		 raise (Invalid_argument "No variable definitions")
+	     | _ ->
+		 translate ((x, p) :: rho) q)
+      | Disj(pl) ->
+	  icsat_mk_or (List.map (translate rho) pl)
+      | Iff(p, q) ->
+	  icsat_mk_iff (translate rho p) (translate rho q)
+      | Ite(p, q, r) ->
+	  icsat_mk_ite (translate rho p) (translate rho q) (translate rho r)
+      | Neg(p) ->
+	  icsat_mk_not (translate rho p)
+  in
+    translate [] p
 
 let rec of_prop p =
   if icsat_is_true p then
@@ -208,7 +253,8 @@ let _ = Callback.register "prop_pop" pop
 let top () = Stack.top stack
 let _ = Callback.register "prop_top" top
 
-let add a =
+let add i =
+  let a = id_to_atom i in
   match Context.add (top()) a with
     | Context.Status.Valid -> 1
     | Context.Status.Inconsistent -> 0
@@ -267,7 +313,7 @@ let rec sat s p =
 	raise exc
         
 and assignment p acc = 
-  match p with
+  match apply [] p with
     | True -> acc
     | False -> acc
     | Var _ -> acc
@@ -282,3 +328,5 @@ and assignment p acc =
 	assignment p (assignment q (assignment r acc))
     | Neg(p) ->
 	assignment p acc
+    | Let _ ->
+	failwith "Failed invariant: 'let' not eliminated"

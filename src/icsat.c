@@ -91,11 +91,10 @@ void icsat_pop() {
   CAMLreturn0;
 }
 
-int icsat_assert(value x1) {
-  CAMLparam1(x1);
+int icsat_assert(int x1) {
   static value * closure = NULL;
   if (closure == NULL) { closure = caml_named_value("prop_add"); }
-  CAMLreturn(Int_val(callback(*closure, x1)));
+  return(Int_val(callback(*closure, Val_int(x1))));
 }
 
 
@@ -107,19 +106,18 @@ void icsat_reset_scratch_context() {
   CAMLreturn0;
 }
 
-void icsat_add_scratch_context(int x1) {
+int icsat_add_scratch_context(int x1) {
   static value * closure = NULL;
   if (closure == NULL) { closure = caml_named_value("add_scratch_context"); }
-  callback(*closure, Val_int(x1));
+  return(Int_val(callback(*closure, Val_int(x1))));
 }
 
 /* Atoms. */
 
 int icsat_is_connected(int x1, int x2) {
-  CAMLparam2(x1, x2);
   static value * closure = NULL;
   if (closure == NULL) { closure = caml_named_value("atom_is_connected"); }
-  CAMLreturn(Bool_val(callback2(*closure, Val_int(x1), Val_int(x2))));
+  return(Bool_val(callback2(*closure, Val_int(x1), Val_int(x2))));
 }
 
 
@@ -330,3 +328,49 @@ value icsat_sat (value x1) {
   CAMLparam1(x1);
   CAMLreturn(Bool_val(ics_sat(Int_val(x1))));
 }
+
+
+/** Parameter settings for SAT solver */
+
+void icsat_set_verbose(value x1) {
+  CAMLparam1(x1);
+  sat_set_verbose(Bool_val(x1));
+  CAMLreturn0;
+}
+
+void icsat_set_remove_subsumed_clauses(value x1) {
+  CAMLparam1(x1);
+  sat_set_remove_subsumed_clauses(Bool_val(x1));
+  CAMLreturn0;
+}
+
+void icsat_set_validate_counter_example(value x1) {
+  CAMLparam1(x1);
+  sat_set_remove_validate_counter_example(Bool_val(x1));
+  CAMLreturn0;
+}
+
+void icsat_set_polarity_optimization(value x1) {
+  CAMLparam1(x1);
+  sat_set_polarity_optimization(Bool_val(x1));
+  CAMLreturn0;
+}
+
+void icsat_set_clause_relevance(value x1) {
+  CAMLparam1(x1);
+  sat_set_clause_relevance(Int_val(x1));
+  CAMLreturn0;
+}
+
+void icsat_set_cleanup_period(value x1) {
+  CAMLparam1(x1);
+  sat_set_cleanup_period(Int_val(x1));
+  CAMLreturn0;
+}
+
+
+value icsat_get_assignment(value int) {
+  CAMLparam1(x1);
+  CAMLreturn(Val_int(sat_get_assignment(Int_val(x1))));
+}
+
