@@ -12,13 +12,19 @@
  * ICS License for more details.
  i*)
 
-(*s Module [Atom]: Simplification of connectives on atoms. *)
+(*s The module [Atom] implements constructors for atomic predicates. *)
+
+val is_atom : Term.t -> bool
+
+(*s Constructors for atoms. *)
+
+val equal : Term.t * Term.t -> Term.t
+
+val diseq : Term.t * Term.t -> Term.t
+
+val cnstrnt : Term.cnstrnt -> Term.t -> Term.t
 
 
-val conj : Term.t -> Term.t -> Term.t option
+(*s Check for inconsistency of two atoms. *)
 
-val disj : Term.t -> Term.t -> Term.t option
-
-val neg : Term.t -> Term.t option
-
-val neg_conj : Term.t -> Term.t -> Term.t option
+val inconsistent : Term.t -> Term.t -> bool

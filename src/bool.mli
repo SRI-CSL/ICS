@@ -18,41 +18,15 @@
 
 val is_bool : Term.t -> bool
 
+(*s Apply [f] at top-level uninterpreted positions. *)
+
+val iter : (Term.t -> unit) -> Term.t -> unit
+
     (*s The true [tt()] and false [ff()] constants. [is_tt a]
      tests if the argument [a] is the true constant; similarly for [is_ff]. *)
 
 val tt : unit -> Term.t
 val ff : unit -> Term.t
-   
-val is_tt : Term.t -> bool
-val is_ff : Term.t -> bool
-
-    
-    (*s Constructor for equalities with simplifications
-          \begin{tabular}{lcll}
-          [equal a a] & = & [tt()] & \\
-          [equal c d] & = & [ff()] & for different constants [c], [d]. \\
-          [equal a b] & = & [iff a b] & if one of [a],[b] is an [ite] structure.
-          \end{tabular}
-      [iff] is the constructor for propositional equivalence below.
-      [is_equal a] holds iff the node of [a] is of the form [Equal(x,y)];
-      for these terms [d_equal a] is defined and returns the pair [(x,y)]
-      consisting of the lhs and the rhs. *)   
-
-val equal : Term.t * Term.t -> Term.t
-val is_equal : Term.t -> bool
-val d_equal : Term.t -> Term.t * Term.t
-
-
-    (*s The [diseq a b] reduces to [neg(equal a b)], where [neg] is
-      the constructor for boolean negation. The recognizer [is_diseq a]
-      holds iff the node of [a] is of the form [Ite(Equal(x,y),ff(),tt())];
-      in these cases, the destructor [d_diseq a] returns [(x,y)]. *)
-
-val diseq : Term.t -> Term.t -> Term.t
-val is_diseq : Term.t -> bool
-val d_diseq : Term.t -> Term.t * Term.t  
-
     
     (*s Representations of propositional connectives are built using
       the [ite a b c] constructor. This constructor, together with [tt()]
@@ -81,10 +55,6 @@ val d_diseq : Term.t -> Term.t * Term.t
     *)
       
 val ite : Term.t * Term.t * Term.t -> Term.t
-val is_ite : Term.t -> bool
-val d_ite : Term.t -> Term.t * Term.t * Term.t
-
-val cond : Term.t * Term.t * Term.t -> Term.t
 
     (*s Constructors for negation [neg], conjunction [conj], disjunction [disj],
         exclusive or [xor], implication [imp], and equivalence [iff]
@@ -137,6 +107,10 @@ val d_iff : Term.t -> Term.t * Term.t
 val conjl : Term.t list -> Term.t
 val disjl : Term.t list -> Term.t
 
+    (*s Sigmatizing. *)
+
+val sigma : Term.boolean -> Term.t list -> Term.t
+
     
     (* Given an equation [(a,b)], where at least one of [a] and [b] is an [Ite]-structure,
        [solve (a,b)] either fails, in which case [a = b] is unsatisfiable in the theory of
@@ -146,7 +120,7 @@ val disjl : Term.t list -> Term.t
        (in the theory of booleans) with the equation to be solved. The terms [ei] may contain
        fresh variables. *)
        
-val solve : Term.t -> Term.eqn list
+val solve : Eqn.t -> Eqn.t list
 
     (*s Lifting conditionals. *)
 
@@ -155,10 +129,35 @@ val binary_lift_ite : (Term.t * Term.t -> Term.t) -> Term.t * Term.t -> Term.t
 val ternary_lift_ite : (Term.t * Term.t * Term.t -> Term.t) -> Term.t * Term.t * Term.t -> Term.t
 val nary_lift_ite : (Term.t list -> Term.t) -> Term.t list -> Term.t
     
+  
+   (*s State. *)
+
+type t
+
+val empty: unit -> t
+val copy: t -> t
+
+val subst_of : t -> Subst.t
+val use_of : t -> Term.ts Term.Map.t
+val term_of : t -> Term.t
+
+val apply: t -> Term.t -> Term.t
+
+val find: t -> Term.t -> Term.t
+
+val inv : t -> Term.t -> Term.t
+val use : t -> Term.t -> Term.ts
 
 
+val norm: t -> Term.t -> Term.t
 
+val extend : t -> Eqn.t -> unit
 
+type derived = Eqn.t list * (Term.t * Term.t) list * (Cnstrnt.t * Term.t) list
+
+val add_eqn: t -> Eqn.t -> derived
+
+val add_eqns: t -> Eqn.t list -> derived
 
 
 

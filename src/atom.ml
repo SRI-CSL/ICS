@@ -1,182 +1,57 @@
 
 (*i*)
-open Hashcons
 open Term
+open Hashcons
 (*i*)
 
-let is_num a = 
+let is_atom a =
   match a.node with
-    | Arith(Num _) -> true
+    | App({node=Pred _},_) -> true
     | _ -> false
 
-let d_num a =
-  match a.node with
-    | Arith(Num(q)) -> q
-    | _ -> assert false
-
-(*s Simplification of the disjunction of two atoms. *)
-
-let rec disj a b =
-  match a.node, b.node with
-    | Bool(True), _ ->
-	Some(tt())
-    | _, Bool(True) ->
-	Some(ff())
-    | Bool(False), _ ->
-	Some(b)
-    | _, Bool(False) ->
-	Some(a)
-    | Bool(x), Bool(y) ->
-	disj_bool_bool x y
-    | Bool(Equal(x1,y1)),
-      App({node=Set(Cnstrnt(c2))},[x2]) ->
-	disj_equal_app (x1,y1) (c2,x2)
-    | App({node=Set(Cnstrnt(c1))},[x1]),
-      Bool(Equal(x2,y2)) ->
-	disj_equal_app (x2,y2) (c1,x1)
-    | App({node=Set(Cnstrnt(c1))},[x1]),
-      App({node=Set(Cnstrnt(c2))},[x2]) when x1 === x2 ->
-	Some(Cnstrnt.app (Interval.union c1 c2) x1)
-    | _ ->
-	None
-
-and disj_bool_bool a b =
-  match a, b with
-    | Equal(x1,y1), Equal(x2,y2) ->
-	if x1 === x2 && y1 === y2 then
-	  Some(hc(Bool(a)))
-	else if x1 === x2 && is_num y1 && is_num y2 then
-	  let n1 = d_num y1 and n2 = d_num y2 in
-	  Some(Cnstrnt.app (Interval.union (Interval.singleton n1) (Interval.singleton n2)) x1)
-        else 
-	  None
-    | Ite({node=Bool(Equal(x1,y1))},{node=Bool False},{node=Bool True}),
-      Equal(x2,y2) ->
-	disj_diseq_equal (x1,y1) (x2,y2)
-    | Equal(x1,y1),
-      Ite({node=Bool(Equal(x2,y2))},{node=Bool False},{node=Bool True}) ->
-	disj_diseq_equal (x2,y2) (x1,y1)
-    | _ ->
-	None
-
-and disj_diseq_equal (x1,y1) (x2,y2) =
-  if x1 === x2 && y1 === y2 then        (*s [x <> y disj x = y] equivalent to [tt] *)
-    Some(tt())
-  else if x1 === y2 && y1 === x2 then   (*s [x <> y disj y = x] equivalent to [tt] *)
-    Some(tt())
-  else
-    None
-
-and disj_equal_app (x1,y1) (c2,x2) =
-  if x1 === x2  then
-    Some(Cnstrnt.app c2 y1)
-  else
-    None
-
-      
-(*s Simplification of the conjunction of two atoms. *)
-    
-let conj_equal_equal (x1,y1) (x2,y2) =
-  if x1 === x2 then
-    (match y1.node, y2.node with
-       | Arith(Num q1), Arith(Num q2) when not(Mpa.Q.equal q1 q2) -> Some(hc(Bool(False)))
-       | _ -> None)
-  else if y1 === y2 then
-    (match x1.node, x2.node with
-       | Arith(Num q1), Arith(Num q2) when not(Mpa.Q.equal q1 q2) -> Some(hc(Bool(False)))
-       | _ -> None)
-  else
-    None
-
-let conj_equal_app (x1,y1) (c2,x2) =
-  if x1 === x2 then
-    if (* is_tt(Term.mem y1 c2) *) false then Some(hc(Bool(Equal(x1,y1)))) else None
-  else if y1 === x2 then
-    if (* is_tt(Term.mem x1 c2) *) false then Some(hc(Bool(Equal(x1,y1)))) else None
-  else
-    None
-
-let conj_diseq_equal (x1,y1) (x2,y2) =
-  if (x1 === x2 && y1 === y2) || (x1 === y2 && x2 === y1) then
-    Some(hc(Bool(False)))
-  else if x1 === x2 && is_const y1 && is_const y2 then   (* thus: [y1 =/= y2] *)
-    Some(hc(Bool(Equal(x2,y2))))
-  else if y1 === y2 && is_const x1 && is_const x2 then   (* thus: [x1 =/= x2] *)
-    Some(hc(Bool(Equal(x1,y1))))
-  else
-    None
-
-let conj_bool_bool a b =
-  match a, b with
-    | Equal(x1,y1),
-      Equal(x2,y2) ->
-	conj_equal_equal (x1,y1) (x2,y2)
-    | Ite({node=Bool(Equal(x1,y1))},{node=Bool False},{node=Bool True}),
-      Equal(x2,y2) ->
-	conj_diseq_equal (x1,y1) (x2,y2)
-    | Equal(x1,y1),
-      Ite({node=Bool(Equal(x2,y2))},{node=Bool False},{node=Bool True}) ->
-	conj_diseq_equal (x2,y2) (x1,y1)
-    | _ ->
-	None
-	
-
-let conj a b =                   (* conjunction of [a] and [b] *)
+let rec equal (a,b) =
   if a === b then
-    Some(a)
+    mk_tt()
+  else if is_const a && is_const b then
+    mk_ff()
+  else if is_equal a && is_tt b then
+    equal (d_equal a)
+  else if is_tt a && is_equal b then
+    equal (d_equal b)
+  else 
+    Term.mk_equal (if a <<< b then (a,b) else (b,a))
+
+let rec cnstrnt c a =
+  if Cnstrnt.is_singleton c then
+    equal (a, mk_num(Cnstrnt.d_singleton c))
   else
-    match a.node, b.node with
-      | Bool(True), _ ->
-	  Some(b)
-      | _, Bool(True) ->
-	  Some(a)
-      | Bool(False), _ ->
-	  Some(hc(Bool(False)))
-      | _, Bool(False) ->
-	  Some(hc(Bool(False)))
-      | Bool(x), Bool(y) ->
-	  conj_bool_bool x y
-      | App({node=Set(Cnstrnt(c1))},[x1]),
-	App({node=Set(Cnstrnt(c2))},[x2]) when x1 === x2 ->
-	  Some(Cnstrnt.app (Interval.inter c1 c2) x1)
-      | Bool(Equal(x1,y1)),
-	App({node=Set(Cnstrnt(c2))},[x2]) ->
-	  conj_equal_app (x1,y1) (c2,x2)
-      | App({node=Set(Cnstrnt(c1))},[x1]),
-	Bool(Equal(x2,y2)) ->
-	  conj_equal_app (x2,y2) (c1,x1)
-      | _ ->
-	  None
+    match Cnstrnt.mem a c with
+      | Cnstrnt.Yes -> mk_tt()
+      | Cnstrnt.No -> mk_ff()
+      | Cnstrnt.X -> mk_cnstrnt (Cnstrnt.inter (Cnstrnt.of_interp a) c) a
 
+let rec diseq (a,b) =
+  if a === b then
+    mk_ff()
+  else if is_const a && is_const b then
+    mk_tt()
+  else if is_equal a && is_tt b then
+    diseq (d_equal a)
+  else if is_tt a && is_equal b then
+    diseq (d_equal b)
+  else if is_num a then
+    cnstrnt (Cnstrnt.diseq (d_num a)) b
+  else if is_num b then
+    cnstrnt (Cnstrnt.diseq (d_num b)) a
+  else 
+    Term.mk_diseq (if a <<< b then (a,b) else (b,a))
 
-let rec neg a =
-  match a.node with
-    | Bool(x) ->
-	bool_neg x
-    | _ ->
-	None
+(*s Inconsistency check. Rather incomplete... *)
 
-and bool_neg a =
-  match a with
-    | True ->
-	Some(ff())
-    | False ->
-	Some(tt())
-    | Equal(x,y) ->
-	Some(hc(Bool(Ite(hc(Bool(Equal(x,y))),ff(),tt()))))
-    | Ite(x,{node=Bool False}, {node=Bool True}) ->
-	Some(x)
-    | _ ->
-	None
-      
-
-let neg_conj a c =                 (* intersection of [not(a)] and [c] *)
-  match neg a with
-    | None -> None
-    | Some(a') -> conj a' c
-
-
-
-
-
-
+let inconsistent a b =         (*s Tests if equality [a = b] between atoms is inconsistent. *)
+     (is_tt a && is_ff b)      (*s Only used for 'quick' detection of inconsistencies. *)
+  || (is_ff a && is_tt b)
+  || (is_equal a && is_equal b &&
+      let (a1,a2) = d_equal a in
+      let (b1,b2) = d_equal b in
+      a1 === b1 && not(a2 === b2) && is_const b1 && is_const b2)
