@@ -40,10 +40,10 @@ let keyword =
       "save", SAVE; "restore", RESTORE; "remove", REMOVE; "forget", FORGET;
       "reset", RESET; "sig", SIG; "type", TYPE; "def", DEF;
       "sigma", SIGMA; "solve", SOLVE; "help", HELP;
-      "set", SET; "toggle", TOGGLE; "verbose", VERBOSE; 
+      "set", SET; "toggle", TOGGLE; "trace", TRACE;  "untrace", UNTRACE; 
       "find", FIND; "inv", INV; "use", USE; "solution", SOLUTION; "partition", PARTITION;
       "syntax", SYNTAX; "commands", COMMANDS; "ctxt", CTXT; "diseq", DISEQ; 
-      "show", SHOW; "symtab", SYMTAB; "cnstrnt", CNSTRNT;
+      "show", SHOW; "symtab", SYMTAB; "cnstrnt", CNSTRNT; "split", SPLIT;
       "gc", GC; "true", TRUE; "false", FALSE
     ];
   fun s ->

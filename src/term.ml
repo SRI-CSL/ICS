@@ -174,7 +174,7 @@ let rec for_all p a  =
 
 let rec subterm a b  =
   eq a b ||
-  (not(is_var b) ||
+  (not(is_var b) &&
    List.exists (subterm a) (args_of b))
 
 

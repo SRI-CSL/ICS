@@ -61,6 +61,7 @@ val use : Interp.t -> t -> Term.t -> Term.Set.t
 
 val extend : Interp.t -> Term.t -> t -> Term.t * t
 
+
 (*s [process solve f (a,b) s] installs an equality [a = b], where at least one of [a],[b] is
   a tuple term, into the tuple context [s]. Abstractly, the manipulations on [s] can be 
   described by [s o solve(norm s a, norm s b)], where the composition [o] operator 
@@ -80,4 +81,9 @@ val add : Term.t * Cnstrnt.t -> t -> t * Veqs.t
 
 (*s Constraint. *)
 
-val cnstrnt : t -> Term.t -> Cnstrnt.t option
+val cnstrnt : t -> Term.t -> Cnstrnt.t
+
+
+(*s List all constraints with finite extension. *)
+
+val split : t -> Atom.t list

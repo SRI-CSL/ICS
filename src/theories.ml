@@ -24,8 +24,12 @@ let index a =
   match Interp.index (Term.sym_of a) with
     | Some(i) -> Interp(i)
     | None -> 
-	if C.is_slack a then
+	if A.is_slack a then
 	  Interp(Interp.A)
+	else if Tuple.is_fresh a then
+	  Interp(Interp.T)
+	else if Bitvector.is_fresh a then
+	  Interp(Interp.BV)
 	else 
 	  Uninterp
 

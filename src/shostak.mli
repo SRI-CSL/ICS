@@ -29,7 +29,7 @@ val can : Context.t -> Atom.t -> Context.t * Atom.t
 
 (*s Test for equality. *)
 
-val is_equal : Context.t -> Term.t -> Term.t -> bool
+val eq : Context.t -> Term.t -> Term.t -> bool
 
 (*s Processing *)
 
@@ -41,7 +41,3 @@ type 'a status =
 
 val process: Context.t -> Atom.t -> Context.t status
 
-
-(*s Compressing the state. *)
-
-val compress : Context.t -> Context.t

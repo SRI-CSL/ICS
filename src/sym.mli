@@ -123,6 +123,8 @@ val is_arith : t -> bool
 val is_tuple : t -> bool
 val is_interp : t -> bool
 
+val d_arith : t -> arith option
+
 val is_uninterp : t -> bool
 val d_uninterp : t -> Name.t
 val d_interp : t -> interp option

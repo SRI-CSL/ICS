@@ -22,6 +22,8 @@ val apply : t -> Term.t -> Term.Set.t
 
 val find : t -> Term.t -> Term.Set.t
 
+val set : Term.t -> Term.Set.t -> t -> t
+
 (*s [empty] use lists. *)
 
 val empty : t

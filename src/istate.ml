@@ -147,7 +147,7 @@ let process a =
 (*s State compression. *)
 
 let compress () =
-  s.current <- Shostak.compress s.current
+  s.current <- Context.compress s.current
 
 (*s Change current state. *)
 
@@ -174,11 +174,18 @@ let forget () =
 
 let diseq a =
   let a' = cant a in
-  Term.Set.elements (D.deq (s.current.Context.d) a')
+  try
+    Term.Set.elements (Term.Map.find a' (Cc.diseqs (s.current.Context.u)))
+  with
+      Not_found -> []
 
 let cnstrnt a =
   let a' = cant a in
-  Context.cnstrnt s.current a'
+  try
+    Some(Context.cnstrnt s.current a')
+  with
+      Not_found -> None
+
 
 (*s Applying maps. *)
 
@@ -202,10 +209,17 @@ let partition () =
 (*s Equality/disequality test. *)
 
 let is_equal a b =
-  Shostak.is_equal s.current a b
+  Shostak.eq s.current a b
 
 let is_int a =
-  match Context.cnstrnt s.current a with
-    | Some(c) -> Cnstrnt.dom_of c = Dom.Int
-    | None -> false
+  try
+    let c = Context.cnstrnt s.current a in
+     Cnstrnt.dom_of c = Dom.Int
+  with
+      Not_found -> false
 	
+
+(*s Splitting. *)
+
+let split () =
+  Context.split s.current

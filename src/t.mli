@@ -39,6 +39,7 @@ val empty : t
 
 val extend : Term.t -> t -> Term.t * t
 
+
 (*s [merge (a,b) s] installs an equality [a = b] into [s]. *)
 
 val merge : Veq.t -> t -> (t * Veqs.t)

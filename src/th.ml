@@ -42,7 +42,7 @@ let empty = {
 
 let solution i s =
   match i with
-    | A -> A.solution_of s.a
+    | A -> A.solutions s.a
     | T -> T.solution_of s.t
     | B -> B.solution_of s.b
     | BV -> Bv.solution_of s.bv
@@ -70,9 +70,9 @@ let sigma f l =
 let solve i e =
   match i with
     | A ->
-	(match Arith.solve Term.is_var e with 
+	(match Arith.solve (fun _ -> Cnstrnt.mk_real) e with 
 	   | None -> [] 
-	   | Some(x,b) -> [(x,b)])
+	   | Some(sl, _) -> sl)
     | T -> Tuple.solve e
     | B -> Boolean.solve e
     | BV -> Bitvector.solve e
@@ -99,28 +99,17 @@ let use i s =
     | BV -> Bv.use s.bv
 
 
-(*s Tracing. *)
-
-let call funname i = 
-  Trace.call 5 (funname ^ "(" ^ (name_of i) ^ ")")
-
-let exit funname i = 
-  Trace.exit 5 (funname ^ "(" ^ (name_of i) ^ ")")
-
-
 (*s Extending the state. *)
 
 let extend i b s =
-  call "Extend" i b Term.pp;
-  let (x,s') = 
+  let (x',s') = 
    match i with
-     | A -> let (x,a') = A.extend b s.a in (x, {s with a = a'})
-     | T -> let (x,t') = T.extend b s.t in (x, {s with t = t'})
-     | B -> let (x,b') = B.extend b s.b in (x, {s with b = b'})
-     | BV -> let (x,bv') = Bv.extend b s.bv in (x, {s with bv = bv'})
+     | A -> let (x', a') = A.extend b s.a in (x', {s with a = a'})
+     | T -> let (x', t') = T.extend b s.t in (x', {s with t = t'})
+     | B -> let (x', b') = B.extend b s.b in (x', {s with b = b'})
+     | BV -> let (x', bv') = Bv.extend b s.bv in (x', {s with bv = bv'})
   in
-  exit "Extend" i x Term.pp;
-  (x, s')
+  (x', s')
 
 
 (*s Merging variables. *)
@@ -144,7 +133,7 @@ and merge1 e s =
 
 let merge e s =
   let (s',es') = merge1 e s in
-  (s',es')
+  (s', Veqs.remove e es')
 
 
 (*s Add a constraint. *)
@@ -153,4 +142,12 @@ let add (x,c) s =
   let (a',es') = A.add (x,c) s.a in
   mergel es' {s with a = a'} es'
 
-let cnstrnt s = A.to_cnstrnt s.a
+(*s Constraint of a term. *)
+
+let cnstrnt s = A.cnstrnt s.a
+
+
+(*s List all constraints with finite extension. *)
+
+let split s = 
+  List.map (fun (x, i) -> Atom.mk_in i x) (A.split s.a)

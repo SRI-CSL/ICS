@@ -27,6 +27,8 @@ let apply u a = Map.find a u
 let find u a =
   try Map.find a u with Not_found -> Set.empty
 
+let set = Map.add
+
 (*s empty use list. *)
 
 let empty = Map.empty

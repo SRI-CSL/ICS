@@ -21,7 +21,6 @@ open Term
 (*i*)
 
 let init n =
-  Trace.set_verbose n;
   Sys.catch_break true                 (*s raise [Sys.Break] exception upon *)
                                        (*s user interrupt. *)
 
@@ -145,6 +144,9 @@ let term_of_string s =
   Parser.termeof Lexer.token lb
 let _ = Callback.register "term_of_string" term_of_string
 
+let term_to_string = Pretty.to_string Term.pp 
+let _ = Callback.register "term_to_string" term_to_string
+
 let term_input ch =
   let lb = Lexing.from_channel ch in 
   Parser.termeof Lexer.token lb
@@ -243,6 +245,8 @@ let _ = Callback.register "term_mk_true" term_mk_true
 let term_mk_false () = Boolean.mk_false
 let _ = Callback.register "term_mk_false" term_mk_false
 
+(*s Atoms. *)
+
 type atom = Atom.t
 type atoms = Atom.Set.t
 
@@ -251,6 +255,13 @@ let atom_pp a =
   Format.print_flush ()
 let _ = Callback.register "atom_pp" atom_pp
 
+let atom_of_string s = 
+  let lb = Lexing.from_string s in 
+  Parser.atomeof Lexer.token lb
+let _ = Callback.register "atom_of_string" atom_of_string
+
+let atom_to_string = Pretty.to_string Atom.pp
+let _ = Callback.register "atom_to_string" atom_to_string
 
 let atom_mk_equal = Atom.mk_equal
 let _ = Callback.register "atom_mk_equal" atom_mk_equal  
@@ -353,10 +364,24 @@ let _ = Callback.register "term_eq" term_eq
 let term_cmp = Term.cmp
 let _ = Callback.register "term_cmp" term_cmp
 
-(*s Verbose level. *)
+(*s Trace level. *)
+    
+type trace_level = string
 
-let set_verbose = Trace.set_verbose
-let _ = Callback.register "set_verbose" set_verbose
+let trace_reset = Trace.reset
+let _ = Callback.register "trace_reset" trace_reset
+
+let trace_add = Trace.add
+let _ = Callback.register "trace_add" trace_add
+
+let trace_remove = Trace.add
+let _ = Callback.register "trace_remove" trace_remove
+
+let trace_get = Trace.get
+let _ = Callback.register "trace_get" trace_get
+
+
+
 
 
 (*s States. *)
@@ -401,6 +426,8 @@ let _ = Callback.register "d_consistent" d_consistent
 let process = Shostak.process 
 let _ = Callback.register "process" process   
 
+let split = Context.split 
+let _ = Callback.register "split" split
 
 
 (*s Normalization functions *)
@@ -442,6 +469,11 @@ let _ = Callback.register "cmd_nl" cmd_nl
 let cmd_can  = Istate.can
 let _ = Callback.register "cmd_can" cmd_can
 
+let cmd_split  = Istate.split
+let _ = Callback.register "cmd_split" cmd_split
+
+
+
 let cmd_process = Istate.process
 let _ = Callback.register "cmd_process" cmd_process
 
@@ -475,7 +507,11 @@ let _ = Callback.register "cmd_eval" cmd_eval
 
 (*s Abstract sign interpretation. *)
 
-let cnstrnt s a = Context.cnstrnt s a
+let cnstrnt s a = 
+  try
+    Some(Context.cnstrnt s a)
+  with
+      Not_found -> None
  
 
 (*s Tools *)

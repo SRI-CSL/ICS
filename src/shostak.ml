@@ -17,6 +17,7 @@
 (*i*)
 open Term
 open Context
+open Three
 (*i*)
 
 (*s Sigma normal forms with builtin uninterpreted functions. *)
@@ -39,27 +40,28 @@ let find i s x =
     | Theories.Uninterp -> x
 
 
-(*s Abstracting a term [a] in theory [i]. *)
+(*s Abstracting a term [a] in theory [i]
+ by introducing a new name for it. *)
 
-let abs s a =
+let extend s a =
   match Theories.index a with
     | Theories.Uninterp -> 
-	let (x,u') = Cc.extend a s.u in
-	({s with u = u'}, x)
+	let (x',u') = Cc.extend a s.u in
+	({s with u = u'}, x')
     | Theories.Interp(th) ->
-	let (x,i') = Th.extend th a s.i in
-	({s with i = i'}, x)
+	let (x',i') = Th.extend th  a s.i in
+	({s with i = i'}, x')
 
 
 (*s Canonization of terms. *)
 
 let rec can_t s a =
   let (s',a') = can_term s a in
-  if is_var a' then (s', a') else abs s' a'
+  if is_var a' then (s', a') else extend s' a'
 
 and can_term s a =
   if is_var a then
-    (s, v s a)
+    can_var s a
   else 
     let f, l = destruct a in
     let i = Theories.index a in  
@@ -68,8 +70,10 @@ and can_term s a =
     try
       (s', v s' (inv i s' a'))
     with
-	Not_found ->
-	  (s', a')
+	Not_found -> (s', a')
+
+and can_var s x =
+  (s, v s x)
  
 and can_list i s l =
   List.fold_right 
@@ -77,16 +81,17 @@ and can_list i s l =
        let (s', x') = can_term s x in
        let x'' = find i s x' in (*i not [s'] i*)
        if Term.is_var x'' || 
-          (i <> Theories.Uninterp && i = Theories.index x'') 
+          (i <> Theories.Uninterp && 
+	   i = Theories.index x'') 
        then
 	 (s', x'' :: l)
        else 
-	 let (s'', x''') = abs s' x'' in
+	 let (s'', x''') = extend s' x'' in
 	 (s'', x''' :: l))
     l
     (s, [])
 
-and is_equal s a b =
+and eq s a b =
   let (s',a') = can_t s a in
   let (_, b') = can_t s' b in
   Term.eq a' b'
@@ -94,7 +99,7 @@ and is_equal s a b =
 (*s Canonization of atoms. *)
 
 let rec can s a = 
-  Trace.call 3 "Can" a Atom.pp;
+  Trace.call "top" "Can" a Atom.pp;
   let (s',a') = match a with
     | Atom.True -> (s, Atom.mk_true)
     | Atom.Equal(x,y) -> can_e s (x,y)
@@ -102,62 +107,44 @@ let rec can s a =
     | Atom.In(c,x) -> can_c s c x
     | Atom.False -> (s, Atom.mk_false)
   in
-  Trace.exit 3 "Can" a' Atom.pp;
+  Trace.exit "top" "Can" a' Atom.pp;
   (s',a')
 	  
-and can_e s (a,b) =
-  let (s', x) = can_t s a in
-  let (s'', y) = can_t s' b in
-  let p = 
-    if Term.eq x y then
-      Atom.mk_true
-    else if is_diseq s'' x y then
-      Atom.mk_false
-    else
-      Atom.mk_equal x y
-  in
-  (s'', p)
+and can_e s (a, b) =
+  let (s', x') = can_t s a in
+  let (s'', y') = can_t s' b in
+  match Context.is_equal s'' x' y' with
+    | Yes -> (s'', Atom.mk_true)
+    | No -> (s'', Atom.mk_false)
+    | _ -> (s'', Atom.mk_equal x' y')
+ 
 
-and can_d  s (a,b) =
-  let (s', x) = can_t s a in   
-  let (s'', y) = can_t s' b in
-  let p = 
-    if Term.eq x y then 
-      Atom.mk_false
-    else if is_diseq s'' x y then
-      Atom.mk_true
-    else
-      Atom.mk_diseq x y
-  in
-    (s'', p)
+and can_d s (a, b) =
+  let (s', x') = can_t s a in
+  let (s'', y') = can_t s' b in
+  match Context.is_equal s'' x' y' with
+    | Yes -> (s'', Atom.mk_false)
+    | No -> (s'', Atom.mk_true)
+    | X -> (s'', Atom.mk_diseq x' y')
 
 and can_c s c a =
-  if Cnstrnt.is_empty c then
-    (s, Atom.mk_false)
-  else  
-    let (s,x) = can_t s a in
-    match Cnstrnt.d_singleton c with
-      | Some(q) -> 
-	  let (s,y) = can_t s (Arith.mk_num q) in
-	  (s, Atom.mk_equal x y)
-      | None ->
-	  (match cnstrnt s x with
-	     | None -> 
-		 (s, Atom.mk_in c x)
-	     | Some(d) -> 
-		 (match Cnstrnt.cmp c d with
-		    | Binrel.Sub -> 
-			(s, Atom.mk_in c x)
-		    | (Binrel.Super | Binrel.Same) ->
-			(s, Atom.mk_true)
-		    | Binrel.Disjoint ->
-			(s, Atom.mk_false)
-		    | Binrel.Singleton(q) ->
-			let (s',y) = can_t s (Arith.mk_num q) in
-			(s', Atom.mk_equal x y)
-		    | Binrel.Overlap(cd) ->
-			assert(Cnstrnt.d_singleton(cd) = None);
-			(s, Atom.mk_in cd x)))
+  let (s', a') = can_term s a in
+  try                 
+    let d = cnstrnt s' a' in
+    match Cnstrnt.cmp c d with
+      | Binrel.Sub -> 
+	  (s', Atom.mk_in c a')
+      | (Binrel.Super | Binrel.Same) ->
+	  (s', Atom.mk_true)
+      | Binrel.Disjoint ->
+	  (s', Atom.mk_false)
+      | Binrel.Singleton(q) ->
+	  can_e s' (a', Arith.mk_num q)
+      | Binrel.Overlap(cd) ->
+	  (s', Atom.mk_in cd a')
+  with
+      Not_found -> 
+	(s', Atom.mk_in c a')
 
 
 (*s Processing an atom *)
@@ -168,25 +155,18 @@ type 'a status =
   | Satisfiable of 'a
 
 let rec process s a =  
-  Trace.msg 1 "Process" a Atom.pp;
-  let (s', a') = can s a in
-  match a' with
-    | Atom.True -> Valid
-    | Atom.False -> Inconsistent
-    | _ -> 
-	(try 
-	   Satisfiable(process1 s' a')
-	 with 
-	     Exc.Inconsistent -> Inconsistent)
-
-and process1 s a =
+  Trace.msg "top" "Process" a Atom.pp;
   let s = {s with ctxt = Atom.Set.add a s.ctxt} in
-  match a with
-    | Atom.Equal(x,y) -> merge s (x,y)
-    | Atom.Diseq(x,y) -> diseq s (x,y)
-    | Atom.In(c,x) -> add s c x
-    | Atom.True -> s  (* ignore. *)
-    | Atom.False -> raise Exc.Inconsistent
+  let (s', a') = can s a in
+  try
+    match a' with
+      | Atom.True -> Valid
+      | Atom.False -> Inconsistent
+      | Atom.Equal(x,y) -> Satisfiable(merge s' (x,y))
+      | Atom.Diseq(x,y) -> Satisfiable(diseq s' (x,y))
+      | Atom.In(c,a) -> Satisfiable(add s' c a)
+  with 
+      Exc.Inconsistent -> Inconsistent
 
 and merge s ((x,y) as e) = 
   mergel s (Veqs.singleton (Veq.make x y))
@@ -196,24 +176,25 @@ and mergel s es =
     s
   else 
     let (e', es') = Veqs.destruct es in
-    let (s', acc') = merge1 s e' in
-    mergel s' (Veqs.union es' acc')
+    let (s', es'') = merge1 s e' in
+    mergel s' (Veqs.union es' es'')
 
 and merge1 s e =
-  let (u',el') = Cc.merge e s.u 
-  and (i',el'') = Th.merge e s.i
-  and d' = D.merge e s.d in
-  ({s with u = u'; i = i'; d = d'},  
-   Veqs.union el' el'')
+  Trace.call "top" "Merge" e Veq.pp;
+  let (u',es') = Cc.merge e s.u 
+  and (i',es'') = Th.merge e s.i in
+  let es''' =  Veqs.union es' es'' in
+  Trace.exit "top" "Merge" es''' Veqs.pp;
+  ({s with u = u'; i = i'}, es''')
 
-and add s c x =
-  let (i',es') = Th.add (x,c) s.i in
+and add s c a =
+  Trace.call "top" "Add" (a,c) pp_in;
+  let (i',es') = Th.add (a,c) s.i in
+  Trace.exit "top" "Add" es' Veqs.pp;
   mergel {s with i = i'} es'
 
 and diseq s (x,y) =
-  {s with d = D.add (x,y) s.d}
-
-(*s Compression. *)
-
-let compress s =
-  {s with u = Cc.compress s.u}
+  Trace.call "top" "Diseq" (x,y) pp_diseq;
+  let (u', es') = Cc.diseq (x,y) s.u in
+  Trace.exit "top" "Diseq" es' Veqs.pp;
+  mergel {s with u = u'} es'  

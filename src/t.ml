@@ -53,7 +53,9 @@ let use s = T.use s
 let rec merge e s =
   let (x,y) = Veq.destruct e in
   if T.occurs s x then           (* 'forget' equalities between internal variables. *)
-    let (s', es') = T.compose s (Tuple.solve (T.norm s x, T.norm s y)) in
+    let a' = T.norm s x in
+    let b' = T.norm s y in
+    let (s', es', _) = T.compose s (Tuple.solve (a',b')) in
     (s', Veqs.remove e es')
   else
     (s, Veqs.empty)
@@ -62,14 +64,14 @@ let rec merge e s =
 
 let extend = T.extend
 
+
 (*s Pretty-printing. *)
 
 let pp fmt s = 
   if not(s == empty ) then
     begin
-      Pretty.string fmt "t:";
-      T.pp fmt s;
-      Pretty.string fmt "\n"
+      Pretty.string fmt "\nt:";
+      T.pp fmt s
     end
 
 

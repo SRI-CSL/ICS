@@ -92,7 +92,7 @@ val is_interp_const : t -> bool
 val is_diseq : t  -> t -> bool
 
 
-(*s Fold operator on ts. *)
+(*s Fold operator on terms. *)
 
 val fold : (t -> 'a -> 'a) -> t -> 'a -> 'a
 

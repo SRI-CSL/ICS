@@ -228,6 +228,11 @@ let is_arith f =
     | Interp(Arith _) -> true
     | _ -> false
 
+let d_arith f = 
+  match f.node with
+    | Interp(Arith(op)) -> Some(op)
+    | _ -> None
+
 let is_tuple f =
   match f.node with
     | Interp(Tuple _) -> true

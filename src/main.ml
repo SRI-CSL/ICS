@@ -61,11 +61,10 @@ let args () =
   Arg.parse
       [ "-s", Arg.Set stat_flag,           "  Print statistics";
 	"-t", Arg.Set timing_flag,         "  Print timings";
-	"-v", Arg.Int Ics.set_verbose,     "  Verbose levels 0,1,2,...";
 	"-p", Arg.Set disable_prompt_flag, "  Disable printing of prompt"
       ]
       (fun f -> files := f :: !files)
-      "usage: ics [-stvph] [files]";
+      "usage: ics [-stph] [files]";
   List.rev !files
 
 let rec main () =

@@ -41,8 +41,8 @@ let equal_width_of a b =
 
 %token DROP CAN ASSERT EXIT SAVE RESTORE REMOVE FORGET RESET SYMTAB SIG
 %token TYPE SIGMA
-%token SOLVE HELP DEF TOGGLE SET VERBOSE CMP FIND USE INV SOLUTION PARTITION
-%token SHOW CNSTRNT SYNTAX COMMANDS
+%token SOLVE HELP DEF TOGGLE SET TRACE UNTRACE CMP FIND USE INV SOLUTION PARTITION
+%token SHOW CNSTRNT SYNTAX COMMANDS SPLIT
 %token DISEQ CTXT GC
 %token EOF
 
@@ -301,6 +301,7 @@ command:
 				| Some(c) -> Cnstrnt.pp (out()) c
 				| None -> Pretty.string (out()) "None." }
 | DISEQ term                { Pretty.list Term.pp (out()) (Istate.diseq $2) }
+| SPLIT                     { Pretty.list Atom.pp (out()) (Istate.split ()) }
 | SOLVE ith term EQUAL term
                             { try
 				let el = Th.solve $2 ($3, $5) in
@@ -308,9 +309,14 @@ command:
                               with
 				| Exc.Unsolved -> Pretty.string (out()) "Unsolved."
 			        | Exc.Inconsistent -> Pretty.string (out()) "Unsat." }
-| VERBOSE INTCONST          { Trace.set_verbose $2 }
+| TRACE identlist           { List.iter Trace.add $2 }
+| UNTRACE                   { Trace.reset () }
 | help                      { $1 }
 ;
+
+identlist :
+  IDENT                     { [$1] }
+| identlist COMMA IDENT     { $3 :: $1 }
 
 ith: IDENT                  { Interp.of_name $1 }   /* may raise [Invalid_argument]. */
 		

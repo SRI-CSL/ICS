@@ -57,11 +57,17 @@ val init : int -> unit
 val reset : unit -> unit
     
 val gc : unit -> unit
-    
-val set_verbose : int -> unit
 
 val do_at_exit : unit -> unit
- 
+
+(*s Rudimentary control on tracing. *)
+     
+type trace_level = string
+
+val trace_reset : unit -> unit
+val trace_add : trace_level -> unit
+val trace_remove : trace_level -> unit
+val trace_get : unit -> trace_level list
 
 (*s Channels. [inchannel] is the type of input channels. A channel
  of name [str] is opened with [in_of_string str]. This function 
@@ -201,6 +207,7 @@ val cnstrnt_div : cnstrnt -> cnstrnt -> cnstrnt
 type term
 
 val term_of_string : string -> term
+val term_to_string : term -> string
 val term_input : inchannel -> term
 val term_output : outchannel -> term -> unit
 val term_pp : term -> unit
@@ -292,6 +299,9 @@ val term_mk_bwnot : int -> term -> term
 type atom
 
 val atom_pp : atom -> unit
+
+val atom_of_string : string -> atom
+val atom_to_string : atom -> string
       
 val atom_mk_equal  : term -> term -> atom
 val atom_mk_diseq  : term -> term -> atom
@@ -367,6 +377,9 @@ val d_consistent : status -> context
     
 val process : context -> atom -> status
 
+(*s Suggesting finite case split. *)
+
+val split : context -> atom list
 
 (*s Canonization. Given a logical context [s] and an atom [a],
  [can s a] computes a semicanonical form of [a] in [s], that is,
@@ -437,6 +450,10 @@ val cmd_can : atom -> atom
 (*s [cmd_process a] adds atom [a] to the current logical context. *)
 
 val cmd_process : atom -> status
+
+(*s Splitting on current state. *)
+
+val cmd_split : unit -> atom list
 
 (*s Install the intial [istate] with an empty context
  and flush internal data structures. *)

@@ -109,3 +109,7 @@ val cnstrnt : Term.t -> Cnstrnt.t option
 (*s Equality/disequality test. *)
 
 val is_equal : Term.t -> Term.t -> bool
+
+(*s Splitting. *)
+
+val split : unit -> Atom.t list
