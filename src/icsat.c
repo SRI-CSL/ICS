@@ -62,7 +62,15 @@ value icsat_tail(value x1) {
   CAMLreturn((value)(callback(*closure, x1)));
 }
 
+/* Explanation function returns a list of atoms. Should only be called immediately after */
+/* inconsistent processing. */
 
+value icsat_explain(value x1) {
+  CAMLparam1(x1);
+  static value * closure = NULL;
+  if (closure == NULL) { closure = caml_named_value("prop_explain"); }
+  CAMLreturn((value)(callback(*closure, x1)));
+}
 
 
 /* Stack manipulations */
