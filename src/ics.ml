@@ -25,6 +25,9 @@ let init (n) =
 
 let _ = Callback.register "init" init
 
+let version () = Version.version
+let _ = Callback.register "version" version
+
 
 (** {6 Parameters} *)
 
@@ -67,9 +70,8 @@ let _ = Callback.register "set_justifications" set_justifications
 let set_statistic b =  Prop.statistics := b
 let _ = Callback.register "set_statistic" set_statistic
 
-let set_reduce_explanation b =  Prop.reduce_explanation := b
-let _ = Callback.register "set_reduce_explanation" set_reduce_explanation
-
+let set_show_explanations b =  Prop.show_explanations := b
+let _ = Callback.register "set_show_explanations" set_show_explanations
 
 let set_integer_solve b = Arith.integer_solve := b
 let _ = Callback.register "set_integer_solve" set_integer_solve

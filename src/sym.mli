@@ -57,7 +57,7 @@ and sym =
   There is no {i arity} associated with it. *)
 and uninterp = Name.t
 
-(** Function symbols for linear arithmetic {!Th.a} are
+(** Function symbols for linear arithmetic {!Th.la} are
   - [Num(q)] for representing rational number [q],
   - [Add] for addition,
   - [Multq(q)] for multiplication by a rational [q]. *)
@@ -182,7 +182,7 @@ end
   raises [Not_found] otherwise.
   - [pp p fmt (op, al)] pretty-prints the appliation of [op] to the list of 
   arguments [al] depending on the value of {!Pretty.flag}. In particular,
-  if {!Pretty.flag} is set to {!Pretty.Mixfix}, then the application of 
+  if {!Pretty.flag} is set to [Pretty.Mixfix], then the application of 
   addition is printed infix. See also {!Pretty.apply}. It assumes a 
   {i constant} application to [Num _], a {i unary} application to [Multq _], 
   and an {i nary} application to [Add]. *)

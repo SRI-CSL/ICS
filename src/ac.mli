@@ -17,19 +17,6 @@
   @author N. Shankar
 *)
 
-(**
-  This module provides
-  - functions for accessing nonlinear contexts,
-  - a canonizer for nonlinear products,
-  - procedure {!Nl.process} for propagating equalities over pure 
-  nonlinear terms,
-  - {!Nl.merge} for propagating variable equalities,
-  - and {!Nl.propagate} for propagating linear equalities 
-  into a nonlinear context.
-*)
-
-
-
 (** Specification of a signature [th] with one binary,
   {i associative-commutative} (AC) function symbol [f]. *)
 module type SIG = sig

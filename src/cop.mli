@@ -18,7 +18,7 @@
 
 
 module Infsys: (Infsys.EQ with type e = Solution.Set.t) 
-  (** Inference system for the theory {!Th.cop of coproducts
+  (** Inference system for the theory {!Th.cop} of coproducts
     as defined in module {!Coproduct}.
 
     This inference system maintains a set of directed 
@@ -26,7 +26,7 @@ module Infsys: (Infsys.EQ with type e = Solution.Set.t)
     and none of the right-hand side variables occurs in any of the left-hand sides. 
 
     This inference system is obtained as an instantiation of the generic
-    Shostak inference system {!Shostak.Infsys} with a specification of the 
+    Shostak inference system [Shostak.Infsys] with a specification of the 
     coproduct theory by means of the 
     - coproduct canonizer {!Coproduct.map}
     - coproduct solver {!Coproduct.solve} *)

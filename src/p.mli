@@ -22,7 +22,7 @@ module Infsys: (Infsys.EQ with type e = Solution.Set.t)
   (** Inference system for the theory {!Th.p} of products 
     as described in module {!Product}.  This inference
     system is obtained as an instantiation of the generic
-    Shostak inference system {!Shostak.Infsys} with a
+    Shostak inference system [Shostak.Infsys] with a
     specification of the {i convex} product theory by
     means of the 
     - product canonizer {!Product.map}

@@ -28,7 +28,8 @@ bindir = @bindir@
 libdir = @libdir@
 includedir = @includedir@
 
-### end of configuration part ################################################
+
+### end of configuration part ###
 
 
 ifeq ($(MAKELEVEL),0)
@@ -38,20 +39,21 @@ ifeq ($(MAKELEVEL),0)
 	BINDIR = ./bin/$(ARCH)
 	LIBDIR = ./lib/$(ARCH)
 	SRCDIR = ./src
+        INCDIR = ./include
 	DOCDIR = ./doc
-	LABDIR = /csl/ics
 	SATDIR = ./sat
 else
 	OBJDIR = .
 	BINDIR = ../../bin/$(ARCH)
 	LIBDIR = ../../lib/$(ARCH)
 	SRCDIR = ../../src
+	INCDIR = ../../include
 	DOCDIR = ../../doc
-	LABDIR = /csl/ics
 	SATDIR = ../../sat
 endif
 
-# Flags
+
+### Compilation flags ###
 
 INCLUDE =
 CFLAGS = 
@@ -64,16 +66,19 @@ else
   OFLAGS = $(INCLUDE)	
 endif
 
-# Object files
+
+### Object files ###
 
 COBJS = mlgmp41.o ocaml-signals.o icsat.o
 
 OBJS = ics_all.o ics_stub.o ocaml-signals.o mlgmp41.o icsat.o
 
-CMO = three.cmo \
-      dynarray.cmo \
-      ptset.cmo ptmap.cmo rbset.cmo \
-      gmp41.cmo mpa.cmo \
+LISPERROROBJ = ics_lisp_error.o
+
+FOREIGNCMO = dynarray.cmo ptset.cmo ptmap.cmo rbset.cmo gmp41.cmo 
+
+CORECMO = three.cmo \
+      mpa.cmo \
       version.cmo \
       tools.cmo \
       pretty.cmo \
@@ -122,7 +127,11 @@ CMO = three.cmo \
       cop.cmo \
       combine.cmo \
       context.cmo \
-      prop.cmo \
+      prop.cmo
+    
+
+CMO = $(FOREIGNCMO) \
+      $(CORECMO) \
       symtab.cmo istate.cmo \
       parser.cmo lexer.cmo \
       ics.cmo
@@ -134,13 +143,20 @@ CMX = $(CMO:.cmo=.cmx)
 SRC = $(addprefix $(SRCDIR)/,$(CMO:.cmo=.ml))
 SRCMLI = $(addprefix $(SRCDIR)/,$(CMO:.cmo=.mli))
 
-### ICSAT Library ###
 ICSAT= $(SATDIR)/lib/$(ARCH)/icsat.a
 
-TARGETS=$(BINDIR)/ics $(LIBDIR)/libics.a $(BINDIR)/ics.byte $(LIBDIR)/ics.cmxa $(LIBDIR)/libicsall.so   
+
+### Top level ###
+
+ifeq ($(ARCH), powerpc-apple-darwin6.6)
+  TARGETS=$(BINDIR)/ics $(LIBDIR)/libics.a $(BINDIR)/ics.byte $(LIBDIR)/ics.cmxa 
+else
+  TARGETS=$(BINDIR)/ics $(LIBDIR)/libics.a $(BINDIR)/ics.byte $(LIBDIR)/ics.cmxa $(LIBDIR)/libicsall.so   
+endif
+
 
 .PHONY : all all-chdir
-all: $(OBJDIR) $(LIBDIR) $(BINDIR) $(ICSAT)
+all: $(OBJDIR) $(LIBDIR) $(BINDIR) $(INCDIR) $(ICSAT)
 	$(MAKE) -C chameleon all
 	$(MAKE) -C $(OBJDIR) -f ../../Makefile all-chdir
 
@@ -178,40 +194,60 @@ ics_all.o: $(CMX)
 	$(OCAMLOPT) -output-obj -o $@ unix.cmxa $(CMX)
 
 
-$(LIBDIR)/libics.a: $(OBJS) $(SATDIR)/obj/$(ARCH)/*.o
-	(cd $(OBJDIR); \
-	 $(OCAMLMKLIB) -oc ics -linkall $(OBJS) $(OBJDIR)/$(CMX) $(SATDIR)/obj/$(ARCH)/*.o; \
-	 mv libics.a $(LIBDIR))
+$(LIBDIR)/libics.a: $(OBJS)
+	$(LD) -r -o $@ $(OBJS) $(ICSAT) \
+        $(LIBCPP) \
+	$(OCAMLSTDLIB)/libunix.a \
+        $(LIBGMPA) $(LIBGCCA) \
+	$(OCAMLSTDLIB)/libasmrun.a
 
 $(LIBDIR)/ics.cmxa: $(OBJS) $(SATDIR)/obj/$(ARCH)/*.o $(ICSAT)
 	(cd $(OBJDIR); \
 	 $(OCAMLMKLIB) -custom -linkall -o ics unix.cma $(OBJS) $(OBJDIR)/$(CMX) $(SATDIR)/obj/$(ARCH)/*.o \
 	               -cclib $(LIBGMPA) -cclib -licsat -cclib $(LIBCPP); \
-         mv ics.cmxa ics.cmi ics.a $(LIBDIR); \
-	 cp $(ICSAT) $(LIBDIR))
+         cp ics.cmxa ics.cmi ics.a $(LIBDIR); \
+	 cp $(ICSAT) $(LIBDIR)/libicsat.a)
 
-$(LIBDIR)/libicsall.so: $(OBJS) $(SATDIR)/obj/$(ARCH)/*.o # For use with Lisp everything has to be included
-	$(LD) -r -o $@ $(OBJS) \
-	$(SATDIR)/obj/$(ARCH)/*.o \
-	$(OCAMLSTDLIB)/libunix.a \
-	$(OCAMLSTDLIB)/libasmrun.a
+                   # For use with Lisp everything, including error function, has to be included
+$(LIBDIR)/libicsall.so: $(OBJS) $(SATDIR)/obj/$(ARCH)/*.o $(OBJDIR)/ics_lisp_error.o
+	$(CC) -shared -o $(LIBDIR)/libicsall.so $(OBJS) \
+	  $(OCAMLSTDLIB)/libunix.a \
+	  $(LIBGMPA) \
+          $(ICSAT) \
+          $(LIBCPP) \
+          $(OBJDIR)/ics_lisp_error.o \
+          $(OCAMLSTDLIB)/libasmrun.a
 
-#$(LIBDIR)/libics.so: $(OBJS)
-#	echo "Target for $(POSIXOS) = $(TARGETS)"
-#	$(CC) -shared -o $(LIBDIR)/libics.so $(OBJS) \
-#	  $(OCAMLSTDLIB)/libunix.a \
-#	  $(LIBGMPA) \
-#          $(OCAMLSTDLIB)/libasmrun.a
+
+# Following deprecated.
+# $(LIBDIR)/libics.a: $(OBJS) $(SATDIR)/obj/$(ARCH)/*.o
+#	(cd $(OBJDIR); \
+#	 $(OCAMLMKLIB) -oc ics -linkall $(OBJS) $(OBJDIR)/$(CMX) $(SATDIR)/obj/$(ARCH)/*.o \
+#                       -cclib $(LIBGMPA) -cclib -cclib $(LIBCPP); \
+#	mv libics.a $(LIBDIR))
+
+
+# Following deprecated.
+#$(LIBDIR)/libics.so: $(OBJS) $(SATDIR)/obj/$(ARCH)/*.o
+#	$(LD) -r -o $@ $(OBJS) \
+#	$(SATDIR)/obj/$(ARCH)/*.o \
+#	$(OCAMLSTDLIB)/libunix.a \
+#	$(OCAMLSTDLIB)/libasmrun.a
+
 
 ics_stub.c ics.h ics.lisp: ics.ml ics.mli ../../chameleon/$(ARCH)/chameleon
 	../../chameleon/$(ARCH)/chameleon ics.ml
+	cp ics.h $(INCDIR)
+	cp ics.lisp $(INCDIR)
 
 
 GENERATED = lexer.ml parser.mli parser.ml
 
+
 ### build ICSAT ###
 $(ICSAT) : 
 	@(cd $(SATDIR); $(MAKE))
+
 
 ### Directories
 
@@ -227,13 +263,20 @@ $(LIBDIR):
 	-umask 022; if test '!' -d $(LIBDIR) ; then \
            mkdir -p $(LIBDIR); fi;
 
+$(INCDIR):
+	-umask 022; if test '!' -d $(INCDIR) ; then \
+           mkdir -p $(INCDIR); fi;
+
+
+
 
 ### Source file links
 
 .PRECIOUS : $(OBJDIR)/%.ml $(OBJDIR)/%.mli $(OBJDIR)/%.mly 
 .PRECIOUS : $(OBJDIR)/%.mll $(OBJDIR)/mlgmp41.c
 .PRECIOUS : $(OBJDIR)/%.mll $(OBJDIR)/ocaml-signals.c
-.PRECIOUS : $(OBJDIR)/%.mll $(OBJDIR)/icsat.c
+.PRECIOUS : $(OBJDIR)/%.mll $(OBJDIR)/icsat.c 
+.PRECIOUS : $(OBJDIR)/%.mll $(OBJDIR)/ics_lisp_error.c
 
 $(OBJDIR)/%.ml: $(SRCDIR)/%.ml
 	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
@@ -256,10 +299,14 @@ $(OBJDIR)/ocaml-signals.c: $(SRCDIR)/ocaml-signals.c
 $(OBJDIR)/icsat.c: $(SRCDIR)/icsat.c
 	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
 
+$(OBJDIR)/ics_lisp_error.c: $(SRCDIR)/ics_lisp_error.c
+	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
+
+
 # Distribution
 
 ics-2-0.tar.gz:
-	(tar -cvz --file=./ics.tar.gz \
+	(tar -cvz --file=./ics-2-0.tar.gz \
                   --mode="u+rw" \
                   ./README ./Makefile.in ./configure ./configure.in \
                   ./config.guess \
@@ -315,7 +362,9 @@ $(DOCDIR)/dep.gif: $(DOCDIR)/dep.ps
 
 ### Literate Programming
 
-DOCSOURCES = $(CMO:.cmo=.mli) $(CMO:.cmo=.ml) parser.mly lexer.mll
+DOCSOURCES = $(CORECMO:.cmo=.mli) $(CORECMO:.cmo=.ml)
+
+.PHONY: html man
 
 html:
 	(cd $(OBJDIR); \

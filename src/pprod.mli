@@ -48,11 +48,11 @@ val mk_expt : Term.t -> int -> Term.t
 val divide : Term.t -> (Term.t * int) -> Term.t
   
 val dom : (Term.t -> Dom.t) ->  Sym.pprod -> Term.t list -> Dom.t
-  (** [tau lookup op al] returns a constraint in {!Cnstrnt.t} given a [lookup]
+  (** [tau lookup op al] returns a constraint in [Cnstrnt.t] given a [lookup]
     function, which is applied to each noninterpreted term, and by
     propagation using abstract domain operations for the interpreted
     symbols. If [lookup] raises [Not_found] for one uninterpreted 
-    subterm (not equal to [op(al)]), the result is {!Cnstrnt.real}. *)
+    subterm (not equal to [op(al)]), the result is [Cnstrnt.real]. *)
 
 val dom_of : Term.t -> Dom.t
   

@@ -99,6 +99,9 @@ module type SET = sig
   val for_all : (Fact.Equal.t -> bool) -> t -> bool
     (** [for_all f s] checks if [f e] holds for all equalities [e] in [s]. *)
 
+  val exists : (Fact.Equal.t -> bool) -> t -> bool
+    (** [exists f s] checks if [f e] holds for all equalities [e] in [s]. *)
+
   val to_list : t -> Fact.Equal.t list
     (** [to_list s] builds up a list of equalities from the solved form [s]. *)
 

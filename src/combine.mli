@@ -130,8 +130,8 @@ val simplify : E.t * Partition.t -> Atom.t -> Atom.t * Jst.t
   (** Simplification of atoms in a context [(e, p)] by canonizing
     component terms using {!Combine.can}.  Simplification is
     incomplete in the sense that there are 
-    - valid atoms [a] in [(e, p)] which do not reduce to {!Atom.true},
-    - unsatisfiable atoms [a] in [(e, p)] which do not reduce to {!Atom.false}. *)
+    - valid atoms [a] in [(e, p)] which do not reduce to {!Atom.mk_true},
+    - unsatisfiable atoms [a] in [(e, p)] which do not reduce to {!Atom.mk_false}. *)
 
 
 val cheap : bool ref

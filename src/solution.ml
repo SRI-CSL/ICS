@@ -37,6 +37,7 @@ module type SET = sig
   val iter : (Fact.Equal.t -> unit) -> t -> unit
   val fold : (Fact.Equal.t -> 'a -> 'a) -> t -> 'a -> 'a
   val for_all : (Fact.Equal.t -> bool) -> t -> bool
+  val exists : (Fact.Equal.t -> bool) -> t -> bool
   val to_list : t -> Fact.Equal.t list 
   val equality : t -> Term.t -> Fact.Equal.t
   val apply : t -> Jst.Eqtrans.t
@@ -181,6 +182,18 @@ module Make(Ext: EXT): (SET with type ext = Ext.t) = struct
 	true
       with
 	  Not_holds -> false
+
+  exception Holds
+
+  let exists f s = 
+    let f' _ e = f e in
+      try
+	Term.Var.Map.iter 
+	  (fun _ e -> if f e then raise Holds)
+	  s.find;
+	false
+      with
+	  Holds -> true
 
   let to_list s = 
     let cons e l = e :: l in
@@ -424,6 +437,7 @@ module Proj(S: SET): SET0 = struct
   let iter = S.iter
   let fold = S.fold
   let for_all = S.for_all
+  let exists = S.exists
   let to_list = S.to_list
   let is_empty = S.is_empty
   let is_dependent = S.is_dependent

@@ -34,7 +34,7 @@ type t =
 type trm = t  (* nickname *)
 
 val hash : t -> int
-  (** [hash a] returns a hash value such that {!Term.equal}[a b] implies 
+  (** [hash a] returns a hash value such that {!Term.eq}[a b] implies 
     [hash a = hash b].  Furthermore, [hash] restricted to variables is {i injective}. *)
 
 
@@ -258,12 +258,15 @@ val fold : (t -> 'a -> 'a) -> t -> 'a -> 'a
   (** Fold operator [fold f a e] on terms applies 
     argument function [f] to all variables in [a]
     and accumulates the results starting with [e]. 
-    Thus, if {!Term.var_of}[a] is of the form [{x1,...,xn}]
+    Thus, if [vars_of a] is of the form [{x1,...,xn}]
     with the order of variables unspecified,
     then [fold f a e] reduces to [f x1 (f x2 ... (f xn e))]. *) 
 
 val iter : (t -> unit) -> t -> unit
   (** Iteration operator on terms. *)
+
+val for_all : (t -> bool) -> t -> bool
+  (** [forall p a] holds if [p x] for all variables in [a]. *)
 
 val mapl : (t -> t) -> t list -> t list  
   (** Mapping over list of terms. Avoids unnecessary consing. *)

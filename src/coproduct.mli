@@ -18,10 +18,10 @@
 
 (** The {i signature} [COP] consists of the {b unary} function 
   symbols for 
-  - left injection ({!Sym.Coproduct.inl}),
-  - right injection ({!Sym.Coproduct.inr}),
-  - left coinjection ({!Sym.Coproduct.outl}), and
-  - right coinjection ({!Sym.Coproduct.outr}).
+  - left injection ([Sym.Coproduct.inl]),
+  - right injection ([Sym.Coproduct.inr]),
+  - left coinjection ([Sym.Coproduct.outl]), and
+  - right coinjection ([Sym.Coproduct.outr]).
   
   The {i theory} [COP] is the set of equalities and disequalities
   which can be derived using the usual equality and disequality 

@@ -55,7 +55,7 @@ val merge : Fact.Equal.t -> t -> t * Fact.Diseq.Set.t
 val add : Fact.Diseq.t -> t -> t * Fact.Diseq.Set.t
   (** [add d s] adds a disequality [d] of the form
     [x <> y] to the disequality context [s]. As a side
-    effect, both [x] and [y] are added to the set {!D.changed}.
+    effect, both [x] and [y] are added to the set [D.changed].
     The second argument returns newly generated disequalities (at most one). *)
 
 val diff : t -> t -> t

@@ -164,35 +164,52 @@ let rec add s atm =
     if Atom.is_true atm' then
       Status.Valid(rho')
     else if Atom.is_false atm' then
-      let tau = Jst.dep2 rho' (Jst.axiom atm) in
+      let rho = Jst.dep2 rho' (Jst.axiom atm) in    
+      let tau = cone_of_influence s atm rho in
 	Status.Inconsistent(tau)
     else 
       (try
 	 Term.Var.k := s.upper;         (* Install fresh variable index. *)
 	 let fct' =  (atm', Jst.dep2 rho' (Jst.axiom atm)) in
 	 let (eqs', p') = Combine.process fct' (s.eqs, s.p) in
-	   let s' = {
-	     ctxt = atm :: s.ctxt;
-	     upper = !Term.Var.k;
-	     p = p';
-	     eqs = eqs'
-	   } 
-	   in
-	     Status.Ok(s')
+	   if Combine.E.eq s.eqs eqs' && 
+	     Partition.eq s.p p' 
+	   then
+	     Status.Valid(rho')
+	   else 
+	     let s' = {
+	       ctxt = atm :: s.ctxt;
+	       upper = !Term.Var.k;
+	       p = p';
+	       eqs = eqs'
+	     } 
+	     in
+	       Status.Ok(s')
        with
 	 | Jst.Inconsistent(rho) -> 
-	     let tau = 
-	       if !coi_enabled <= 0 then rho
-	       else if !coi_enabled = 1 then 
-		 syntactic_cone_of_influence atm rho
-	       else 
-		 semantic_cone_of_influence atm rho
-	     in
+	     let tau = cone_of_influence s atm rho in
 	       Status.Inconsistent(tau))
 
+and cone_of_influence s atm rho = 
+  if !coi_enabled <= 0 then 
+    rho
+  else 
+    let inconsistency = match Jst.Mode.get () with
+      | Jst.Mode.Dep -> Jst.axioms_of rho
+      | Jst.Mode.No -> Atom.Set.add atm (ctxt2atoms s)
+    in
+    let inconsistency' = 
+      if !coi_enabled = 1 then 
+	syntactic_cone_of_influence atm inconsistency
+      else 
+	semantic_cone_of_influence atm inconsistency
+    in
+      Jst.of_axioms inconsistency'
 
-and syntactic_cone_of_influence atm rho =
-  let allatms = Jst.axioms_of rho in
+and ctxt2atoms s =
+  List.fold_right Atom.Set.add s.ctxt Atom.Set.empty
+
+and syntactic_cone_of_influence atm inconsistency =
   let visited = ref (Atom.Set.singleton atm) in
   let todo = Stack.create () in
   let rec loop () =
@@ -207,19 +224,18 @@ and syntactic_cone_of_influence atm rho =
 		 visited := Atom.Set.add atm !visited;
 		 Stack.push atm todo
 	       end)
-	  allatms;
+	  inconsistency;
 	loop ()
     with
 	Stack.Empty -> !visited
   in
     Stack.push atm todo;
-    let atms = loop () in  
-      trace_coi atms allatms;
-      Jst.of_axioms atms
+    let inconsistency' = loop () in  
+      trace_coi inconsistency' inconsistency;
+      inconsistency'
 
 
-and semantic_cone_of_influence atm rho =
-  let allatms = Jst.axioms_of rho in
+and semantic_cone_of_influence atm inconsistency =
   let visited = ref (Atom.Set.singleton atm) in
   let s = ref empty in
   let todo = Stack.create () in
@@ -239,7 +255,7 @@ and semantic_cone_of_influence atm rho =
 		     Stack.push atm todo
 		 | Status.Inconsistent _ -> 
 		     raise(Found(Atom.Set.add atm !visited)))
-	  allatms;
+	  inconsistency;
 	loop ()
     with
 	Stack.Empty -> !visited
@@ -248,10 +264,10 @@ and semantic_cone_of_influence atm rho =
     let proofmode = Jst.Mode.get () in
       try
 	Jst.Mode.set Jst.Mode.No;
-	let atms = try loop () with Found(atms) -> atms in
-	  trace_coi atms allatms;
+	let inconsistency' = try loop () with Found(atms) -> atms in
+	  trace_coi inconsistency' inconsistency;
 	  Jst.Mode.set proofmode;
-	  Jst.of_axioms atms
+	  inconsistency'
       with
 	  exc -> 
 	    Jst.Mode.set proofmode;

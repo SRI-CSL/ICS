@@ -14,6 +14,7 @@
 module P = Partition
 module S = Solution.Set
 
+module Tr = Trace
 
 type config = P.t * S.t
 
@@ -292,6 +293,7 @@ struct
 
 
   and fuse1 e =
+    Tr.msg "foo" "fuse1" e Fact.Equal.pp;
     assert(Fact.Equal.is_var e);
     let (x, y, rho) = e in
     let norm a = Ops.apply e a in 
@@ -302,7 +304,8 @@ struct
 	x
 
 
-  and update e = 
+  and update e =   
+    Tr.msg "foo" "update" e Fact.Equal.pp;
     if not(!protected) then
       begin
 	s := S.copy !s;
@@ -335,13 +338,11 @@ struct
 	  end 
 
 
-  let propagate e =
+  let propagate e = 
+    Tr.msg "foo" "Propagate" e Fact.Equal.pp;
     assert(Fact.Equal.is_var e);
     if not(S.is_empty !s) then
-      let e = Fact.Equal.map find e in
-      let (a, b, _) = e in
-	if not(Term.eq a b) then
-	  merge_i e
+      merge_v e
 	      
 
   (** Close state on fresh variable disequalities *)
@@ -378,7 +379,6 @@ struct
     with
 	Not_found -> ()
 	  
-
   let normalize c = ()
 		      
 end 

@@ -35,6 +35,9 @@
 *)
 
 
+val version : unit -> string
+  (** Returns this ICS's version number. *)
+
 (** The following flags determine the current {i configuration} of ICS. *)
 
 val set_profile : bool -> unit
@@ -82,8 +85,12 @@ val set_num_refinements : int -> unit
 val set_statistic : bool -> unit
   (** Enable/Disable SAT solver to print statistics (default [false]). *)
 
+val set_show_explanations : bool -> unit
+  (** Display explanations generated for SAT solver on {!Format.err_formatter}
+    when flag is enabled. *)
+
 val set_justifications : bool -> unit
-  (** Print justifications of internally generated facts (default [false]). *)
+  (** Print justifications of internally xgenerated facts (default [false]). *)
 
 val set_integer_solve : bool -> unit
   (** Enable/disable integer solver (default [true]). Disabling the 
@@ -105,10 +112,6 @@ val set_gc_space_overhead : int -> unit
 
 val set_gc_max_overhead : int -> unit
   (** Controlling heap compaction (default 500), [gc_max_overhead >= 1000000] disables compaction. *)
-
-val set_reduce_explanation: bool -> unit
-  (** Enable/disable reduction of justifications of inconsistencies in SAT solver (default [false]). *)
-
 
 type inchannel = in_channel
     (** [inchannel] is the type of input channels. *)

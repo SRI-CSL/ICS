@@ -40,12 +40,12 @@ let args () =
 	"Disable help feature";
 	"-trace", Arg.String Ics.trace_add,
 	"Enable tracing";
+	"-show_explanations", set_true Ics.set_show_explanations,
+	"Display explanations generated for SAT solver on stderr";
         "-version", Arg.Unit (fun () -> Format.eprintf "%s@." Version.version; exit 0),
         "Display version number";
         "-compactify",  set_true Ics.set_compactify,
 	"Disable compactification in SAT solver";
-        "-expensive_simplify", Arg.Clear Combine.cheap,
-	"Expensive but more complete simplification";
 	"-proofmode", Arg.String Ics.set_proofmode,
 	"Set proofmode to [No | Dep]";
         "-eot", Arg.String Ics.set_eot, 
@@ -68,14 +68,10 @@ let args () =
         "Deletion of conflict clauses (default 50) in SAT";
         "-cleanup_period", Arg.Int(Ics.set_cleanup_period),
         "Garbage collection for SAT after number of conflicts (default 2000)";
-        "-refinements", Arg.Int(Ics.set_num_refinements),
-        "Number of refinement steps in SAT solver (disabled when proof mode is turned on)";
 	"-frequency", Arg.Int(Ics.set_assertion_frequency),
-        "Frequency of asserting ground atoms in SAT solver";
+        "Minimal frequency of asserting ground atoms in SAT solver";
         "-statistics", set_true Ics.set_statistic,
         "Print statistics for SAT solver";
-	"-reduce_explanation", set_true Ics.set_reduce_explanation,
-        "Try to further reduce explanations in SAT solving";
 	"-integersolve", set_false Ics.set_integer_solve,
         "Disables Solving for the integers (incomplete)";
 	"-gc_space_overhead",  Arg.Int(Ics.set_gc_space_overhead),

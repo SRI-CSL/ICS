@@ -68,11 +68,15 @@ module Infsys = struct
   (** [is_diseq (p, s) a b] iff adding [a = b] to [(p, s)] yields inconsistency. *)
   let is_diseq (p, s) a b =
     try
-      let e = Fact.Equal.make a b Jst.dep0 in
 (*
-      let _ = merge e (G.empty, p, s) in
+      let e = Atom.mk_equal (a, b) in
+      let p = Partition.copy p 
+      and s = Solution.Set.copy s
+      and g = G.copy G.empty in
+	G.put (e, Jst.axiom e) g;
+	let _ = I.merge (g, p, s) in
 *)
-	None
+	  None
     with
 	Jst.Inconsistent(sigma) -> Some(sigma)
 
@@ -86,7 +90,20 @@ module Infsys = struct
       | None ->
 	  None
 
-  let can (p, s) = failwith "can: to do"
+  let can (p, s) a = 
+    let hyps = ref Jst.dep0 in
+    let lookup y = 
+      try
+	let (b, rho) = Solution.Set.apply s y in
+	  hyps := Jst.dep2 rho !hyps; b
+      with
+	  Not_found -> 
+	  let (x, rho) = Partition.find p y in
+	    hyps := Jst.dep2 rho !hyps; x
+    in
+    let b = Bitvector.map lookup a in
+      (b, !hyps)
+
 
   let rec process_diseq (p, s) d =
     assert(Fact.Diseq.is_var d);

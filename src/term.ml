@@ -536,7 +536,6 @@ let rec status = function
 	loop al
 
 
-
 (** {6 Sets and maps of terms.} *)
 
 module Set2 = Set.Make(

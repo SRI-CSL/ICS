@@ -138,6 +138,7 @@ external set_num_refinements : int -> unit = "icsat_set_num_refinements"
 let debug = (Version.debug <> 0)
 
 let validate_explanations = ref false
+let show_explanations = ref false
 
 let set_validate b =
   validate_explanations := b;
@@ -242,7 +243,7 @@ and d_disj_prop p =
     done;
     !args
 
- 
+
 
 (** {6 Atoms} *)
 
@@ -325,6 +326,7 @@ module Explanation = struct
     let l = to_list () in
       Context.is_inconsistent s l
 
+  (** Following disabled. *)
   let rec semantic_reduce hyps =
     match Context.addl Context.empty (Atom.Set.elements hyps) with
       | Context.Status.Inconsistent(rho) ->
@@ -341,9 +343,6 @@ module Explanation = struct
 
   let install hyps =
     assert(not(Atom.Set.is_empty hyps));
-    let hyps =
-      if !reduce_explanation then semantic_reduce hyps else hyps
-    in
       explained := true;
       assert(Stack.is_empty explanation);
       Atom.Set.iter
@@ -351,6 +350,11 @@ module Explanation = struct
 	   let i =  Atom.index_of a in
 	     Stack.push i explanation)
 	hyps;
+      if !show_explanations then
+	begin
+	  Format.eprintf "\nExplanation: \n";
+	  Pretty.set Atom.pp Format.err_formatter (Atom.Set.elements hyps)
+	end;
       if !validate_explanations then
 	if not(is_inconsistent Context.empty) then
 	  begin

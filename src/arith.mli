@@ -132,11 +132,11 @@ val nonconstant_monomials_of : Term.t -> Term.t list
 
 val d_num : Term.t -> Mpa.Q.t
   (** [d_num a] return [q] if [a] is a constant with
-    function symbol {!Sym.Num}[(q)], and raises [Not_found] otherwise. *)
+    function symbol [Sym.Num(q)], and raises [Not_found] otherwise. *)
 
 val d_add : Term.t -> Term.t list
   (** [d_add a] returns [Some(bl)] if [a] is a function application
-    with symbol {!Sym.Add}. *)
+    with symbol [Sym.Add]. *)
   
 val coefficient_of : Term.t -> Term.t -> Mpa.Q.t
    
