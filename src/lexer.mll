@@ -69,8 +69,13 @@ rule token = parse
   | ident      { keyword (Lexing.lexeme lexbuf) }
   | "-inf"     { NEGINF }
   | ['0'-'9']+ { INTCONST (int_of_string (Lexing.lexeme lexbuf)) }
+  | '-' ['0'-'9']+ { let s = Lexing.lexeme lexbuf in
+		       INTCONST (-(int_of_string (String.sub s 1 (String.length s - 1)))) }
   | ['0'-'9']+ '/' ['0'-'9']+ 
                { RATCONST (Mpa.Q.of_string (Lexing.lexeme lexbuf)) }
+  | '-' ['0'-'9']+ '/' ['0'-'9']+ 
+               { let s = Lexing.lexeme lexbuf in
+		   RATCONST(Mpa.Q.of_string (String.sub s 1 (String.length s - 1))) }
   | "0b" ['0'-'1']*
                { let s = Lexing.lexeme lexbuf in 
 		 BVCONST (String.sub s 2 (String.length s - 2)) }
