@@ -78,7 +78,7 @@ let is_restricted_equality e =
       
 let is_unrestricted a = not (is_restricted a)
 
-let choose_unrestricted a = 
+let choose_unrestricted a =
   let is_unrestr (_, z) = is_unrestricted z in
     snd(Arith.Monomials.choose is_unrestr a)
 
@@ -97,43 +97,30 @@ let replace_zero_slacks =
     Arith.map lookup 
 
 
-(** {6 Slack variables} *)
-
-(** Create fresh {i nonnegative slack} variable *)
-let mk_nonneg_slack a rho =
-  let dom = try Arith.dom_of a with Not_found -> Dom.Real in
-  let k = Term.Var.mk_slack None (Var.nonneg dom) in
-    (k, rho)
-
-(** Create fresh {i zero slack} variable *)
-let mk_zero_slack a rho = 
-  let k = Term.Var.mk_slack None Var.Zero in
-    (k, rho)
-
-
 
 (** {6 Arithmetic operations} *)
 
 (** [solve e] returns a list of equivalent solved equalities [[e1;...;en]]
   with [ei] of the form [xi = ai] such that [xi] are variables in [e], all
   the [xi] are pairwise disjoint, no [xi] occurs in any of the [ai]. *)
-let solve = 
-  Fact.Equal.equivn Arith.solve
+let solve =
 
-let solve = 
-  Trace.func "la'" "Solve"  Fact.Equal.pp (Pretty.list Fact.Equal.pp)
-    solve
+
+  Trace.func "la'" "Solve"  
+    Fact.Equal.pp 
+    (Pretty.list Fact.Equal.pp)
+    (Fact.Equal.equivn Arith.solve)
 
 (**  Solve for an unrestricted variable if possible. *)
 let resolve e =
   let (a, b, rho) = Fact.Equal.destruct e in
-    if is_unrestricted_var a then Some(e) else 
-      match Arith.qsolve (a, b) with
-	| None -> 
-	    None
-	| Some(x, c) -> 
-	    let e = Atom.Equal.make (x, c) in
-	      Some(Fact.Equal.of_equal (e, rho))
+    if is_unrestricted_var a then Some(e) else
+      try
+	let (x, c) = Arith.qsolve (a, b) in 
+	let e = Atom.Equal.make (x, c) in
+	  Some(Fact.Equal.of_equal (e, rho))
+      with
+	  Exc.Valid -> None
 
 
 (** [apply e a], for [e] is of the form [x = b], applies the
@@ -150,6 +137,20 @@ let isolate x e =
     Fact.Equal.equiv (Arith.isolate x) e
   with 
       Not_found -> failwith "Fatal Error: arithmetic isolation failed"
+
+(** Fusing an equality [x = a] into right-hand sides of a solved list. *)
+let solved_fuse e =
+  let (x, a, rho) = Fact.Equal.destruct e in
+  let rec loop acc = function
+    | [] -> acc
+    | s :: sl -> 
+	let (y, b, tau) = Fact.Equal.destruct s in
+	let b' = Arith.apply (x, a) b in
+	let s' = if b == b' then s else Fact.Equal.make (y, b', Jst.dep2 rho tau) in
+	let acc' = s' :: acc in
+	  loop acc' sl
+  in
+    loop []
 
 
 (** [mk_diff e] for [e] of the form [a = b] constructs the difference
@@ -239,7 +240,8 @@ module T: (Eqs.SET with type ext = Eqs.index * UseExt.t) =
 
 
 (** Combined solution set [S = (R; T)]. *)
-module S = Eqs.Union(R)(T)
+module S =
+  Eqs.Union(struct let th = Th.la end)(R)(T)
 
 type t = S.t
 
@@ -355,6 +357,8 @@ module Negdep = struct
     S.Dep.iter t s f' y
   
 end 
+
+
   	 
 (** [x] is {i unbounded} in [s] if [x] does not occur positively in [t], 
   that is, every coeffient of independent [x] is positive. *)
@@ -394,7 +398,11 @@ and gain0 x (k, a) =
  
 
 let apply s x =
-  try S.apply t s x with Not_found -> S.apply r s x
+  if is_restricted_var x then
+     S.apply t s x
+  else 
+    S.apply r s x
+
 
 let find s x =
   try apply s x with Not_found -> Jst.Eqtrans.id x  
@@ -404,7 +412,12 @@ let inv s a =
 
 let dep s x =
   Term.Var.Set.union (S.dep r s x) (S.dep t s x)
- 
+
+let equality tag =
+  match tag with
+    | S.Left -> S.equality r
+    | S.Right -> S.equality t
+
 
 (** [replace s a] substitutes dependent variables [x]
   in [a] with their right hand side [b] if [x = b] in [s].
@@ -421,6 +434,29 @@ let interp (p, s) =
 
 let uninterp (_, s) =
   Jst.Eqtrans.totalize (inv s)
+
+
+(** {6 Slack variables} *)
+
+(** Create fresh {i nonnegative slack} variable *)
+let rec mk_nonneg_slack cfg a rho =
+  let (d, tau) = dom_of cfg a in
+  let k = Term.Var.mk_slack None (Var.nonneg d) in
+    (k, Jst.dep2 tau rho)
+
+and dom_of cfg a =
+  try
+    let (x, rho) = uninterp cfg a in
+      (try (Arith.dom_of x, rho) with Not_found -> (Dom.Real, Jst.dep0))
+  with
+      Not_found -> 
+	((try Arith.dom_of a with Not_found -> Dom.Real), Jst.dep0)
+  
+
+(** Create fresh {i zero slack} variable *)
+let mk_zero_slack a rho = 
+  let k = Term.Var.mk_slack None Var.Zero in
+    (k, rho)
 
 
 (** {6 Iterators} *)
@@ -509,21 +545,42 @@ let name ((p, s) as cfg) a =
 
 (** Fusing a list of solved equalities into solution set for mode [m]. *)
 let fuse1 tag cfg e =
-  Trace.msg "la'" "Fuse" e Fact.Equal.pp;
   match tag with
     | S.Left -> S.fuse r cfg [e] 
     | S.Right -> S.fuse t cfg [e]
 	
 
 (** Composing a list of solved equalities into solution set for mode [m]. *)
-let compose1 tag cfg e =
-  Trace.msg "la'" "Compose" e Fact.Equal.pp;
+let fuse_in_r = ref Term.Set.empty
+
+let rec compose1 tag cfg e =
   match tag with
     | S.Left ->
 	S.compose r cfg [e] 
     | S.Right -> 
-	S.fuse r cfg [e];     (* to do: add lazy fusion for R. *)
+	(* S.fuse r cfg [e];     (* to do: add lazy fusion for R. *) *)
+	lazy_fuse cfg e;
 	S.compose t cfg [e]
+
+and lazy_fuse cfg e =
+  let k = Fact.Equal.lhs_of e in
+    fuse_in_r := Term.Set.add k !fuse_in_r
+
+and complete_fuse_in_r ((_, s) as cfg) =
+  Term.Set.iter
+    (fun k ->
+       try
+	 let e = equality t s k in
+	   S.fuse r cfg [e]
+       with
+	   Not_found -> ())
+    !fuse_in_r
+
+let initialize () = 
+  fuse_in_r := Term.Set.empty
+
+let finalize cfg =
+  complete_fuse_in_r cfg
 	
 
 (** Process an equality [e].
@@ -557,38 +614,60 @@ let compose1 tag cfg e =
      in [T] and repeat with [k = a''].  Eventually, all the negative variables will have been
      eliminated or we are back to one of the previous cases.  Note that [|a'|] will never 
      go below [0] in this process. *)
-let rec merge ((p, s) as cfg) e =  
+let rec merge cfg e =  
+  initialize ();
+  merge1 cfg e;
+  finalize cfg
+
+and merge1 ((p, s) as cfg) e =
   let e = Fact.Equal.map (replace s) e in
     Trace.msg "la" "Process" e Fact.Equal.pp;
-    let el = solve e in (* because of resolving, dependent variables *)
-      List.iter         (* must be plugged in again. *)
-	(fun e ->                    
-	   let e = Fact.Equal.map (replace s) e in
-	     match resolve e with
-	       | None -> ()
-	       | Some(e) -> process_solved cfg e)
-	el
+    process_solved_list cfg (solve e)
+
+and process_solved_list cfg = 
+  function
+    | [] -> ()
+    | e :: sl -> process_solved cfg e sl
       
-and process_solved ((p, s) as cfg) e = 
+(** Process an equality [e] by trying to solve for an unrestricted
+  variable. In this case, the equation is composed to [r]. Otherwise,
+  the [e] consists only of unrestricted variables. *)
+and process_solved ((p, s) as cfg) e sl = 
   Trace.msg "la'" "Process_solved" e Fact.Equal.pp;
-  let (x, a, rho) = Fact.Equal.destruct e in
-    assert(Term.is_var x);
-    assert(if is_restricted x then not(is_unrestricted_var a) else true);
-    if is_unrestricted_var x then 
-      if Term.Var.is_fresh Th.la x then
-	fuse1 r cfg e
-      else 
-	compose1 r cfg e
-    else
-      process_solved_restricted cfg e
+  let (x, a, _) = Fact.Equal.destruct e in
+    if is_unrestricted_var x then
+      begin
+	compose_unrestricted cfg e;
+	process_solved_list cfg sl
+      end 
+    else  
+      try
+	let y = choose_unrestricted a in
+	let e' = isolate y e in
+	let (y', _, _) = Fact.Equal.destruct e' in
+	  assert(Term.eq y y');
+	  let sl' = solved_fuse e' sl in
+	    begin
+	      if Term.Var.is_fresh Th.la y' then
+		fuse1 r cfg e'
+	      else 
+		compose_unrestricted cfg e';
+	      process_solved_list cfg sl'
+	    end 
+      with
+	  Not_found -> 
+	    assert(is_restricted a);
+	    process_solved_restricted cfg e;
+	    process_solved_list cfg sl
+
 
 and process_solved_restricted ((p, s) as cfg) e =
   assert(is_restricted_equality e);
   if is_lhs_unbounded s e then
-    compose1 t cfg e
+    compose_restricted cfg e
   else 
     try
-      compose1 t cfg 
+      compose_restricted cfg 
 	(try_isolate_rhs_unbounded s e)
     with
 	Not_found -> 
@@ -597,8 +676,6 @@ and process_solved_restricted ((p, s) as cfg) e =
 	    let (k, tau) = mk_zero_slack diff rho in       (* [tau |- k = diff] *)
 	      add_to_t cfg (Fact.Equal.make (k, diff, tau));    
 	      infer cfg; 
-	      if Fact.Equal.is_diophantine e then
-		gomory_cut cfg e;
 	      (try
 		 let (a', rho') = S.apply t s k in         (* [rho' |- k = a'] *)
 		 let e' = Fact.Equal.make (k, a', rho') in
@@ -607,11 +684,11 @@ and process_solved_restricted ((p, s) as cfg) e =
 		     raise(Jst.Inconsistent (Jst.dep3 rho rho' tau))
 		   else if cmp = 0 then            (* II. [|a'| = 0] *)
 		     (try 
-			compose1 t cfg 
+			compose_restricted cfg 
 			  (isolate (choose a') e');
 			let sigma = Jst.dep3 rho rho' tau in
 			let e0 = Fact.Equal.make(k, Arith.mk_zero(), sigma) in
-			  compose1 t cfg e0
+			  compose_restricted cfg e0
 		    with 
 			Not_found -> ())  (* skip *)
 		   else                            (* III. [|a'| > 0] *)
@@ -622,7 +699,7 @@ and process_solved_restricted ((p, s) as cfg) e =
 			  let y = choose_negvar_with_no_smaller_gain s a' in
 			    pivot cfg y;
 			    let sigma = Jst.dep3 rho rho' tau in
-			      compose1 t cfg 
+			      compose_restricted cfg 
 				(Fact.Equal.make (k, Arith.mk_zero(), sigma))
 			with
 			    Not_found -> 
@@ -634,7 +711,21 @@ and process_solved_restricted ((p, s) as cfg) e =
 		   Not_found ->  (* [k] is not a dependent variable *)
 		     let sigma = Jst.dep2 rho tau in
 		     let e0 = Fact.Equal.make (k, Arith.mk_zero(), sigma) in
-		       compose1 t cfg e0)
+		       compose_restricted cfg e0)
+
+and compose_restricted cfg e =  
+  Trace.msg "la'" "Compose(t)" e Fact.Equal.pp;
+  compose1 t cfg e;
+  if !Arith.integer_solve && Fact.Equal.is_diophantine e then
+    gomory_cut cfg e
+      
+and compose_unrestricted cfg e =
+  Trace.msg "la'" "Compose(r)" e Fact.Equal.pp;
+  let (x, _, _) = Fact.Equal.destruct e in
+    if Term.Var.is_fresh Th.la x then
+      fuse1 r cfg e
+    else 
+      compose1 r cfg e
 
 (* If [a'] contains negative variables, then we see 
    if there is a negative variable [y] in [a'] such that the 
@@ -671,10 +762,13 @@ and gomory_cut ((_, s) as cfg) e =
     process_nonneg1 cfg nn'
   
 (** Process a nonnegativity constraint [nn] of the form [a >= 0]. *)
-and process_nonneg ((_, s) as cfg) nn = 
+and process_nonneg ((_, s) as cfg) nn =  
+  initialize();
+  Trace.msg "la" "Process" nn Fact.Nonneg.pp;
   let nn = Fact.Nonneg.map (replace s) nn in
     Trace.msg "la" "Process" nn Fact.Nonneg.pp;
-    process_nonneg1 cfg nn
+    process_nonneg1 cfg nn;
+    finalize cfg
 
 and process_nonneg1 ((_, s) as cfg) nn =
   let (a, rho) = Fact.Nonneg.destruct nn in          (* [rho |- a >= 0] *)
@@ -684,22 +778,20 @@ and process_nonneg1 ((_, s) as cfg) nn =
       | Three.No -> 
 	  raise(Jst.Inconsistent rho)
       | Three.X -> 
-	  let (k, tau) = mk_nonneg_slack a rho in    (* [tau |- k = a] *)
+	  let (k, tau) = mk_nonneg_slack cfg a rho in (* [tau |- k = a] *)
 	  let e = Fact.Equal.make (k, a, tau) in
 	    try
 	      let e' = isolate (choose_unrestricted a) e in
-		compose1 r cfg e'
+		compose_unrestricted cfg e'
 	    with
 		Not_found ->
 		  (try
-		     compose1 t cfg 
-		       (try_isolate_rhs_unbounded s e)
+		     compose_restricted cfg 
+		       (try_isolate_rhs_unbounded s e);
 		   with
 		       Not_found -> 
 			 add_to_t cfg e;
-			 if Fact.Equal.is_diophantine e then
-			   gomory_cut cfg e;
-			   infer cfg)
+			 infer cfg)
 	      
 and add_to_t ((_, s) as cfg) e =
   let (k, a, rho) = Fact.Equal.destruct e in
@@ -707,7 +799,7 @@ and add_to_t ((_, s) as cfg) e =
     Trace.msg "la'" "Add_to_t" e Fact.Equal.pp;
     let c = Arith.constant_of a in
       if Q.is_nonneg (Arith.constant_of a) then
-	compose1 t cfg e
+	compose_restricted cfg e
       else if  Arith.Monomials.Pos.is_empty a then
 	raise(Jst.Inconsistent rho)
       else
@@ -717,9 +809,9 @@ and add_to_t ((_, s) as cfg) e =
 	    if Term.Var.is_zero_slack k then
 	      let b' = replace_zero_slacks b in
 	      let e'' = Fact.Equal.make (y, b', rho) in     (* [rho |-y=b[k:=0]] *) 
-		compose1 t cfg e''
+		compose_restricted cfg e''
 	    else 
-		compose1 t cfg e'
+		compose_restricted cfg e'
 	with
 	    Not_found ->  
 	      assert(not(Arith.Monomials.Pos.is_empty a));
@@ -881,11 +973,14 @@ let rec is_nonpos cfg a =
 	Jst.Inconsistent(rho) -> Some(rho)
 
 and process_pos ((_, s) as cfg) c =
+  initialize ();
   let c = Fact.Pos.map (replace s) c in 
     Trace.msg "la'" "Process" c Fact.Pos.pp;
-    let (a, rho) = Fact.Pos.destruct c in           (* [rho |- a >= 0] *)
-      dismerge cfg (Fact.Diseq.make (a, Arith.mk_zero(), Jst.dep1 rho));
-      process_nonneg cfg (Fact.Nonneg.make (a, Jst.dep1 rho))
+    (let (a, rho) = Fact.Pos.destruct c in           (* [rho |- a >= 0] *)
+      dismerge1 cfg (Fact.Diseq.make (a, Arith.mk_zero(), Jst.dep1 rho));
+      process_nonneg1 cfg (Fact.Nonneg.make (a, Jst.dep1 rho)));
+    finalize cfg
+     
 
 
 (** Test if [a < 0] by asserting [a >= 0]. If this fails,
@@ -930,10 +1025,15 @@ and is_gt cfg (a, b) =
 (** Processing disequalities only deals with integer disequalities,
   which are maintained in the form [e <> n] where [n] is a natural 
   number. *) 
-and dismerge ((p, s) as cfg) d =
+and dismerge cfg d =
+  initialize ();
+  dismerge1 cfg d;
+  finalize cfg
+
+and dismerge1 ((p, s) as cfg) d =
   Trace.msg "la" "Process" d Fact.Diseq.pp;
   let d = Fact.Diseq.map (replace s) d in    (* replace dependent variables. *)
-    if Fact.Diseq.is_diophantine d then
+    if !Arith.integer_solve && Fact.Diseq.is_diophantine d then
       process_diophantine_diseq cfg d
     else 
       process_nondiophantine_diseq cfg d 
@@ -965,24 +1065,32 @@ and process_nondiophantine_diseq ((p, s) as cfg) d =
 and process_diophantine_diseq cfg d =
   assert(Fact.Diseq.is_diophantine d);
   let (e, n, rho) = Fact.Diseq.d_diophantine d in
-  let (min, max, taus) =                   (* [taus] together prove *)
-    contiguous_diseq_segment cfg (e, n)    (* [e] not in interval [[min..max]]. *)
-  in
-  let l = Arith.mk_num (Q.sub min Q.one)
-  and h = Arith.mk_num (Q.add max Q.one) in
     try
-      case_process_le cfg (e, l);           (* try [e <= l] *)
-      (try
-	 case_process_ge cfg (e, h);        (* try [e >= h] *)
-	 process_nondiophantine_diseq cfg d
-       with
-	   Jst.Inconsistent(tau) -> (* [tau |- e < h] *)
-	     let sigma = Jst.dep (tau :: taus) in
-	       process_le cfg (e, l, sigma))  (* [sigma |- e <= l] *)
+      let m = Arith.d_num e in
+	if Q.equal n m then
+	  raise(Jst.Inconsistent(rho))
+	else   
+	  ()   (* skip *)
     with
-	Jst.Inconsistent(tau) ->   (* [tau |- e > l] *)
-	  let sigma = Jst.dep (tau :: taus) in
-	    process_ge cfg (e, h, sigma)   (* [sigma |- e >= h] *)
+	Not_found -> 
+	  let (min, max, taus) =                   (* [taus] together prove *)
+	    contiguous_diseq_segment cfg (e, n)    (* [e] not in interval [[min..max]]. *)
+	  in
+	  let l = Arith.mk_num (Q.sub min Q.one)
+	  and h = Arith.mk_num (Q.add max Q.one) in
+	    try
+	      case_process_le cfg (e, l);           (* try [e <= l] *)
+	      (try
+		 case_process_ge cfg (e, h);        (* try [e >= h] *)
+		 process_nondiophantine_diseq cfg d
+	       with
+		   Jst.Inconsistent(tau) -> (* [tau |- e < h] *)
+		     let sigma = Jst.dep (tau :: taus) in
+		       process_le cfg (e, l, sigma))  (* [sigma |- e <= l] *)
+	    with
+		Jst.Inconsistent(tau) ->   (* [tau |- e > l] *)
+		  let sigma = Jst.dep (tau :: taus) in
+		    process_ge cfg (e, h, sigma)   (* [sigma |- e >= h] *)
 
 and process_le cfg (a, b, rho) =
   let nn = Fact.Nonneg.make (Arith.mk_sub b a, rho) in
@@ -1256,7 +1364,7 @@ type mode = Max | Min
 
 let rec model ((_, s) as cfg) xl =
   try
-    Format.eprintf "\nWarning: model generation is work in progress...";
+    Format.eprintf "\nWarning: model generation is work in progress...@?";
     let s = S.copy s in             (* protect state against updates. *)
     let m = ref Term.Map.empty in
       List.iter
@@ -1320,7 +1428,3 @@ and interp_of_unrestricted ((_, s) as cfg) (x, mode) =
 	     Arith.mk_num (Q.add n (Arith.constant_of w'))
 	   with
 	       Not_found -> Arith.mk_neginf())
-  
-
-
-

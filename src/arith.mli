@@ -245,12 +245,12 @@ val sigma : Sym.arith -> Term.t list -> Term.t
 
 (** {6 Solver} *)
 
-val qsolve : Term.t * Term.t -> (Term.t * Term.t) option
+val qsolve : Term.t * Term.t -> (Term.t * Term.t) 
   (**  [solve e] solves the equation [e] of the form [a = b] over the 
     rationals. If [e] is inconsistent, then {!Exc.Inconsistent} is
     raised. In case the equation holds trivially it returns the 
-    empty solution [None].  Otherwise, it returns a solution [e']
-    of the form [x = t]  as [Some(e')], where [x] is a variable
+    empty solution by raising {!Exc.Valid}.  Otherwise, it returns
+    a solution [(x, t)] of the form [x = t], where [x] is a variable
     already contained in [e], and [t] is a linear arithmetic term 
     not containing [x]. *)
   

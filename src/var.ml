@@ -157,7 +157,7 @@ let domcmp d e =
     | Bitvector _, _ -> -1
     | _, Bitvector _ -> 1
 
-(** slack < external < fresh < renaming < bound *)
+(** slack < fresh < external < renaming < bound *)
 let rec cmp x y =
   match x, y with
     | Slack(i, sl1), Slack(j, sl2) ->
@@ -171,12 +171,7 @@ let rec cmp x y =
 		 if c1 != 0 then c1 else
 		   Pervasives.compare i j)
     | Slack _, _ ->  -1
-    | _, Slack _ -> 1
-    | External(n, d), External(m, e) -> 
-	let c1 = domcmp d e in
-	  if c1 != 0 then c1 else Name.compare n m
-    | External _, _ -> -1
-    | _, External _ -> 1
+    | _, Slack _ -> 1 
     | Fresh(n, i, d), Fresh(m, j, e) ->
 	let c1 = domcmp d e in
 	  if c1 != 0 then c1 else 
@@ -184,6 +179,11 @@ let rec cmp x y =
 	      if c2 != 0 then c2 else Pervasives.compare n m
     | Fresh _, _ -> -1
     | _, Fresh _ -> 1
+    | External(n, d), External(m, e) -> 
+	let c1 = domcmp d e in
+	  if c1 != 0 then c1 else Name.compare n m
+    | External _, _ -> -1
+    | _, External _ -> 1
     | Rename(n, i, d), Rename(m, j, e) -> 
 	let c1 = domcmp d e in
 	  if c1 != 0 then c1 else 
@@ -227,7 +227,7 @@ let d_free = function
 
 (** {6 Pretty Printer} *)
 
-let pretty = ref true
+let pretty = ref false
 
 let rec pp fmt x =
   Name.pp fmt (name_of x);

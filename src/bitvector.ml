@@ -47,13 +47,19 @@ and nat2bitv_rec n i =
 
 let is_pure = Term.is_pure Th.bv
 
-let is_interp = function
-  | Term.App(sym, _, _) -> Sym.theory_of sym = Th.bv
-  | _ -> false
-
 let d_interp = function
   | Term.App(sym, l, _) -> (Sym.Bv.get sym, l)
   | _ -> raise Not_found
+
+let is_interp a =
+  try
+    (match d_interp a with
+       | Sym.Const _, [] -> true
+       | Sym.Sub _, [_] -> true
+       | Sym.Conc _, [_; _] -> true
+       | _ -> false)
+  with
+      Not_found -> false
 
 let d_const a =
   match d_interp a with
@@ -102,13 +108,6 @@ let is_one a =
   try Bitv.all_ones (d_const a) with Not_found -> false
 
 
-(** Creating fresh bitvector variables for solver. 
- The index variable are always reset to the current value
- when solver is called. *)
-let mk_fresh n =
-  assert (n >= 0);
-  if n = 0 then mk_eps () else 
-    Term.Var.mk_fresh Th.bv None (Var.Cnstrnt.Bitvector(n))
 
 let rec iter f a =
   try
@@ -205,21 +204,6 @@ and cut n i a =
   (mk_sub n 0 (i - 1) a, mk_sub n i (n - 1) a)
 
 
-(** Two terms are disequal iff there is at least one
-  position on which bitconstants differ. *)
-let rec is_diseq a b =
-  match width a, width b with
-    | Some(n), Some(m) -> 
-	(n <> m) ||
-	(try
-	   let c = d_const a 
-	   and d = d_const b in
-	     not(Bitv.equal c d)
-	 with
-	     Not_found -> true)
-    | _ -> 
-	false
-
 
 
 (** Mapping over bitvector terms. *)
@@ -300,23 +284,46 @@ let decompose e =
   loop [] [e] 
 
 
-let rec solve e  =
-  solvel ([e], [])
+let fresh = ref []
+
+(** Creating fresh bitvector variables for solver. 
+ The index variable are always reset to the current value
+ when solver is called. *)
+let mk_fresh n =
+  assert (n >= 0);
+  if n = 0 then mk_eps () else 
+    let x = Term.Var.mk_fresh Th.bv None (Var.Cnstrnt.mk_bitvector(n)) in
+      fresh := x :: !fresh;
+      x
+
+let is_fresh x =
+  let eqx = Term.eq x in
+    List.exists eqx !fresh
+
+
+let rec solve ((a, b) as e) =
+  match width a, width b with
+    | Some(n), Some(m) when n <> m -> 
+	raise Exc.Inconsistent
+    | _ -> 
+	fresh := [];         (* initialize fresh variables. *)
+	solvel ([e], [])
   
-and solvel (el,sl) =
+and solvel (el, sl) =
+  Trace.msg "bv'" "Solve" (el, sl) (Pretty.pair Term.Subst.pp Term.Subst.pp);
   match el with
     | [] -> sl
     | (a, b) :: el when Term.eq a b ->
 	solvel (el,sl)
     | (a, b) :: el ->
 	(match to_option d_interp a, to_option d_interp b  with   
-	   | None, Some _ when not(Term.subterm a b) ->  (* Check if solved. *)
+	   | None, Some _ when not(occurs a b) ->      (* Check if solved. *)
 	       solvel (add a b (el, sl))
-	   | Some _, None  when not(Term.subterm b a) ->
+	   | Some _, None  when not(occurs b a) ->
 	       solvel (add b a (el, sl))
 	   | Some(Sym.Conc _, _), _                    (* Decomposition of [conc] *)
 	   | _, Some(Sym.Conc _, _) ->
-	       solvel (decompose (a,b) @ el, sl)
+	       solvel (decompose (a, b) @ el, sl)
 	   | Some(Sym.Const(c), []), Some(Sym.Const(d), []) ->
 	       if Pervasives.compare c d = 0 then 
 		 solvel (el,sl)
@@ -326,7 +333,7 @@ and solvel (el,sl) =
 	       assert(n = m);
 	       let (x, b) = solve_sub_sub x n i j k l in
 		 solvel (add x b (el,sl))
-	   | Some(Sym.Sub(n,i,j),[x]), _ ->
+	   | Some(Sym.Sub(n,i,j),[x]),  Some(Sym.Const _, []) ->
 	       assert(n-j-1 >= 0);
 	       assert(i >= 0);
 	       let b' = 
@@ -334,18 +341,21 @@ and solvel (el,sl) =
 		   (mk_fresh i) b (mk_fresh (n-j-1)) 
 	       in
 		 solvel (add x b' (el,sl))
-	   | _, Some(Sym.Sub(n,i,j), [x]) -> 
+	   | Some(Sym.Const _, []), Some(Sym.Sub(n,i,j), [x]) -> 
                assert(n-j-1 >= 0); 
 	       assert(i >= 0);
-	       let b' = mk_conc3 i (j-i+1) (n-j-1) (mk_fresh i) 
-			  b (mk_fresh (n-j-1)) in
-	       solvel (add x b' (el,sl))
+	       let a' = mk_conc3 i (j-i+1) (n-j-1) (mk_fresh i) 
+			  a (mk_fresh (n-j-1)) in
+	       solvel (add x a' (el,sl))
 	   | _ ->
-	       let a, b = Term.orient(a,b) in
+	       assert(not(is_interp a));
+	       assert(not(is_interp b));
+	       let a, b = Term.orient(a, b) in
 		 solvel (add a b (el,sl)))
 
 (* Solving [xn[i:j] = xn[k:l]] *)
-and solve_sub_sub x n i j k l =      
+and solve_sub_sub x n i j k l =  
+  Trace.msg "bv'" "Solve(sub)" (mk_sub n i j x, mk_sub n k l x) (Pretty.pair Term.pp Term.pp);
   assert (n >= 0 && i < k && j-i = l-k);
   let lhs = 
     mk_sub n i l x 
@@ -363,46 +373,68 @@ and solve_sub_sub x n i j k l =
       let c = mk_iterate (h + h') (mk_conc h' h b a) nc in
       mk_conc h (nc * (h' + h)) a c
   in
-  (lhs, rhs)
+    Trace.msg "bv'" "Solve(sub)" (lhs, rhs) (Pretty.pair Term.pp Term.pp);
+    (lhs, rhs)
+
+
+and occurs x a =
+  assert(not(is_interp x));
+  try
+    let (_, bl) = d_interp a in
+      List.exists (occurs x) bl
+  with
+      Not_found -> Term.eq x a
 
 
 (** Adding a solved pair [a |-> b] to the list of solved forms [sl],
  and propagating this new binding to the unsolved equalities [el] and 
  the rhs of [sl]. It also makes sure that fresh variables [a] are never
  added to [sl] but only propagated. *)
-and add a b (el, sl) =
-  assert(not(is_interp a));
-  if Term.eq a b then 
+and add x b (el, sl) =
+  assert(not(is_interp x));
+  if Term.eq x b then 
     (el, sl)
-  else if inconsistent a b then
+  else if inconsistent x b then
     raise Exc.Inconsistent
   else 
-    match is_fresh_bv_var a, is_fresh_bv_var b with 
-      | false, false ->
-	  (inste el a b, (a, b) :: insts sl a b)
-      | true, true -> 
-	  (inste el a b, insts sl a b)
-      | true, false -> 
-	  if is_interp b then
-	    (inste el a b, insts sl a b)
-	  else
-	    (inste el b a, insts sl b a)
-      | false, true ->
-	  (inste el b a, insts sl b a) 
-
-and is_fresh_bv_var _ = false    
+    let (x, b) = orient (x, b) in
+    let el' = subst el (x, b) 
+    and sl' = compose sl (x, b) in
+      (el', sl')
+		
+(** Ensure [y = x] with [y] fresh and [x] not fresh can not happen. *)
+and orient (a, b) =
+  if Term.is_var a && Term.is_var b then
+    if is_fresh a && not(is_fresh b) then
+      (b, a)
+    else 
+      Term.orient (a, b)
+  else
+    (a, b)
      
-and inste el a b = 
-  List.map (fun (x,y) -> (apply1 x a b, apply1 y a b)) el
+and subst el (x, a) = 
+  let apply_to_eq (b1, b2) =
+    (apply (x, a) b1, apply (x, a) b2)
+  in
+    List.map apply_to_eq el
 
-and insts sl a b =
-  List.map (fun (x,y) -> (x, apply1 y a b)) sl 
-  
+and compose sl (x, a) =
+  if is_fresh x && is_fresh a then   (* equality between fresh variables *)
+    Term.Subst.fuse apply (x, a) sl  (* can be dropped. *)
+  else 
+    Term.Subst.compose apply (x, a) sl
+
 and inconsistent a b =
   match width a, width b with
     | Some(n), Some(m) -> n <> m
     | _ -> false
 
-and apply1 a x b =      (* substitute [x] by [b] in [a]. *)
-  map (fun y -> if Term.eq x y then b else y) a
 
+(** Two terms are disequal iff there is at least one
+  position on which bitconstants differ. *)
+let is_diseq a b =
+  try
+    let _ = solve (a, b) in
+      false
+  with
+      Exc.Inconsistent -> true

@@ -27,12 +27,18 @@ type dt
 let get p = p
 
 let rec pp fmt = function
-  | True -> Pretty.string fmt "tt"
-  | False -> Pretty.string fmt "ff"
-  | Var(x) -> Name.pp fmt x
-  | Atom(a) -> Atom.pp fmt a
-  | Disj(pl) -> Pretty.infixl pp " | " fmt pl
-  | Iff(p, q) -> Pretty.infix pp " <=> " pp fmt (p, q)
+  | True -> 
+      Pretty.string fmt "tt"
+  | False -> 
+      Pretty.string fmt "ff"
+  | Var(x) -> 
+      Name.pp fmt x
+  | Atom(a) -> 
+      Atom.pp fmt a
+  | Disj(pl) -> 
+      Pretty.infixl pp " | " fmt pl
+  | Iff(p, q) -> 
+      Pretty.infix pp " <=> " pp fmt (p, q)
   | Neg(p) -> 
       Pretty.string fmt "~("; pp fmt p; Pretty.string fmt ")"
   | Let(x, p, q) ->
@@ -49,13 +55,16 @@ let mk_poslit a =
     | Atom.FF -> False
     | _ ->  Atom(a)
 let mk_neglit a = mk_poslit (Atom.negate a)
-let mk_disj pl = Disj(pl)
+let mk_disj = function
+  | [] -> False
+  | pl -> Disj(pl)
 let mk_iff p q = Iff(p, q)
 let mk_ite p q r = Ite(p, q, r)
 let mk_neg p = Neg(p)
-let mk_conj pl = mk_neg (mk_disj (List.map mk_neg pl))
+let mk_conj = function
+  | [] -> True
+  | pl -> mk_neg (mk_disj (List.map mk_neg pl))
 let mk_let x p q = Let(x, p, q)
-
 let is_true = function True -> true | _ -> false
 let is_false = function False -> true | _ -> false
 let is_var = function Var _ -> true | _ -> false
@@ -364,8 +373,10 @@ module Explanation = struct
 
 end 
 
+let progress = ref false
 
 let add i =
+  if !progress then Format.eprintf ".@?";
   let s = top() in
   let a = Atom.of_index i in
     match Context.add s a with

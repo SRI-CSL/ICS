@@ -39,6 +39,8 @@ module Equal = struct
 
   let make (a, b, rho) = (Atom.Equal.make (a, b), rho)
 
+  let make_inorder (a, b, rho) = (Atom.Equal.make_inorder (a, b), rho)
+
   let map2 (f, g) ((e, rho) as fct) = 
     let (a, b) = Atom.Equal.destruct e in
     let (a', alpha') = f a 
@@ -82,8 +84,8 @@ module Equal = struct
   let equivn f (e, rho) =
     let (a, b) = Atom.Equal.destruct e in
       try
-	let el = f (a, b) in
-	let inj e = (Atom.Equal.make e, rho) in
+	let el = f (a, b) in              (* don't turn equalities around *)
+	let inj e = (Atom.Equal.make_inorder e, rho) in
 	  List.map inj el
       with
 	  Exc.Inconsistent -> 

@@ -44,6 +44,7 @@ module Equal : sig
   val pp : t Pretty.printer
     (** Pretty-printing equality constaints. *)
   val make : Term.t * Term.t -> t
+  val make_inorder: Term.t * Term.t -> t
   val destruct : t -> Term.t * Term.t
   val both_sides : (Term.t -> bool) -> t -> bool
   val is_var : t -> bool

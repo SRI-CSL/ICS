@@ -102,7 +102,7 @@ let rec pp fmt s =
 	Partition.pp fmt s.p;
         Th.iter (fun i -> Combine.pp i fmt s.eqs)
     | Mode.Context -> 
-	Pretty.set Atom.pp fmt s.ctxt
+	Pretty.set Atom.pp fmt (List.rev s.ctxt)
     | Mode.None -> 
 	()
 

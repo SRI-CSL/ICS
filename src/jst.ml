@@ -165,7 +165,8 @@ module Eqtrans = struct
     let lookup y = 
       try
 	let (b, rho) = f y in
-	  tau := dep2 rho !tau;
+	  if not(rho == dep0) then
+	    tau := dep2 rho !tau;
 	  b
       with
 	  Not_found -> y

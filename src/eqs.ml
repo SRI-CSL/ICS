@@ -13,6 +13,13 @@
 
 let pp_index = ref false
 
+let publish th p e =
+  let (x, y, _) = Fact.Equal.destruct e in 
+    if not(Term.Var.is_fresh th x)      (* fresh variables of theory are *)
+      || not(Term.Var.is_fresh th y)    (* considered to be internal. *)
+    then 
+      Partition.merge p e
+
 
 (** {6 Dependency Index} *)
 
@@ -349,11 +356,13 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
    end
 
    (** {6 Internal Update Functions} *)
+
+   let trace_level = Th.nickname ^ "''"
      
    type config = Partition.t * t
 	 
    let add (p, s) e =   
-     Trace.msg Th.nickname "Update" e Fact.Equal.pp; 
+     Trace.msg trace_level "Update" e Fact.Equal.pp; 
      assert(synchronized s);
      (let (x, b, rho) = Fact.Equal.destruct e in
        assert(Term.is_var x);
@@ -384,7 +393,7 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
      assert(synchronized s);
      try
        let (b, rho) = Term.Var.Map.find x s.find in
-	 Trace.msg Th.nickname "Restrict" x Term.pp;
+	 Trace.msg trace_level "Restrict" x Term.pp;
 	 assert(Term.Var.Map.mem x s.find); 
 	 assert(Term.Map.mem b s.inv);
 	 s.find <- Term.Var.Map.remove x s.find; 
@@ -404,7 +413,7 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
 	 restrict (p, s) x 
        else if Term.is_var b then
 	 begin
-	   publish p e;      (* propagate new variable equality. *)
+	   publish Th.th p e;       (* propagate new variable equality. *)
 	   merge (p, s) e           (* and merge in solution set *)
 	 end 
        else
@@ -412,7 +421,7 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
 	   let (y, rho2) = inv s b in             (* [rho2 |- y = b]. *)
 	     if not(Term.eq x y) then
 	       let tau = Jst.dep2 rho1 rho2 in    (* [tau |- x = y]. *)          
-		 publish p (Fact.Equal.make (x, y, tau));
+		 publish Th.th p (Fact.Equal.make (x, y, tau));
 		 if Term.(<<<) y x then 
 		   restrict (p, s) x 
 		 else 
@@ -423,13 +432,6 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
 	 with
 	     Not_found -> 
 	       add (p, s) e
-
-   and publish p e =
-     let (x, y, _) = Fact.Equal.destruct e in 
-       if not(Term.Var.is_fresh Th.th x)   (* fresh variables of theory are *)
-	 || not(Term.Var.is_fresh Th.th y) (* considered to be internal. *)
-       then 
-	 Partition.merge p e
 	       
    and merge (p, s) e =
      let (x, y, rho1) = Fact.Equal.destruct e in
@@ -626,7 +628,7 @@ module type SET2 = sig
 end
 
 
-module Union(Left: SET)(Right: SET) = 
+module Union(Th: sig val th: Th.t end)(Left: SET)(Right: SET) = 
 struct
 
   type t = {                    (* to do: establish confluence across theories. *)
@@ -702,12 +704,12 @@ struct
 	   | Right ->
 	       let (y, tau) = Left.inv s.left a in        (* [tau |- y = a] *)
 	       let  sigma = Jst.dep2 tau rho in
-		 Partition.merge p (Fact.Equal.make (x, y, sigma));
+		 publish Th.th p (Fact.Equal.make (x, y, sigma));
 		 Left.restrict (p, s.left) y              (* restrict [y = a] in [Left]. *)
 	   | Left ->
 	       let (y, tau) = Right.inv s.right a in      (* [tau |- y = a] *)
 	       let  sigma = Jst.dep2 tau rho in
-		 Partition.merge p (Fact.Equal.make (x, y, sigma));
+		 publish Th.th p (Fact.Equal.make (x, y, sigma));
 		 Left.restrict (p, s.left) x)             (* restrict [x = a] in [Left] *)
       with
 	  Not_found -> ()

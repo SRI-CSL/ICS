@@ -54,6 +54,7 @@ module Equal : sig
   val rhs_of : t -> Term.t
   val pp : t Pretty.printer
   val make : Term.t * Term.t * Jst.t -> t
+  val make_inorder : Term.t * Term.t * Jst.t -> t
   val of_equal : Atom.Equal.t * Jst.t -> t
   val destruct : t -> Term.t * Term.t * Jst.t
   val both_sides : (Term.t -> bool) -> t -> bool

@@ -23,6 +23,9 @@ module Equal = struct
    let make (a, b) =   
      let cm e = if !crossmultiply then Nonlin.crossmultiply e else e in
        Term.orient (cm (a, b))
+   let make_inorder (a, b) =   
+     let cm e = if !crossmultiply then Nonlin.crossmultiply e else e in
+       cm (a, b)
    let destruct e = e
    let both_sides p (a, b) = p a && p b
    let is_var = both_sides Term.is_var
@@ -173,7 +176,7 @@ let index_of (_, i) = i
 
 let is_false = function FF, _ -> true | _ -> false
 
-let pp fmt (atm, i) =   (* this causes an occasional segmentation fault (why???) *)
+let pp fmt (atm, i) =
   match atm with 
     | TT -> Pretty.string fmt "tt"
     | FF -> Pretty.string fmt "ff"

@@ -494,6 +494,8 @@ let rec dom_of a =
   with
       Not_found -> Term.Var.dom_of a
 
+let dom_of = Trace.func "foobar" "Arith.dom_of" Term.pp Dom.pp dom_of
+
 let is_int a =
   try
     Dom.sub (dom_of a) Dom.Int
@@ -515,15 +517,20 @@ let rec qsolve ((a, b) as e) =
   let p, ml = poly_of (mk_sub a b) in
     match ml with
       | [] -> 
-	  if Q.is_zero p then None else raise Exc.Inconsistent
+	  raise (if Q.is_zero p then Exc.Valid else Exc.Inconsistent)
+      | [m] ->                             (* [p + q * x = 0] *)
+	  let (q, x) = mono_of m in
+	    (x, mk_num (Q.div (Q.minus p) q))
+      | [m1; m2] ->                        (* [p + q1 * x1 + m2 = 0] *)
+	  let (q1, x1) = mono_of m1 in
+	    (x1, mk_addq (Q.div (Q.minus p) q1) (mk_multq (Q.minus (Q.inv q1)) m2))
       | m :: ml -> 
 	  let (q, x) = mono_of m in         (* [p + q * x + ml = 0] *)
 	  let b = mk_addq (Q.minus (Q.div p q))
 		    (mk_multq (Q.minus (Q.inv q))
 		       (mk_addl ml))
 	  in
-	  let (x, b) = orient (x, b) in
-	    Some(x, b)
+	    orient (x, b)
 
 and orient (x, b) =
   if Term.is_var b then
@@ -531,11 +538,21 @@ and orient (x, b) =
   else 
     (x, b)
 
+
 (** {6 Integer solver} *)
 
+let fresh = ref []
+
 let mk_fresh =
-  let d = Var.Cnstrnt.Real(Dom.Int) in
-    fun () -> Term.Var.mk_fresh Th.la None d
+  let d = Var.Cnstrnt.mk_real(Dom.Int) in
+    fun () -> 
+      let x = Term.Var.mk_fresh Th.la None d in
+	fresh := x :: !fresh;
+	x
+
+let is_fresh x =
+  let eqx = Term.eq x in
+    List.exists eqx !fresh
 
 
 module Euclid = Euclid.Make(
@@ -553,7 +570,8 @@ module Euclid = Euclid.Make(
   end)
 
 
-let rec zsolve (a, b) =    
+let rec zsolve (a, b) = 
+  fresh := [];           (* reinitialize fresh variable generation. *)
   if Term.eq a b then [] else
     if Term.is_var a && Term.is_var b then
       [Term.orient(a, b)]
@@ -572,7 +590,8 @@ let rec zsolve (a, b) =
 	  | _ ->
 	      let (cl, xl) = vectorize ml in     (* [cl * xl = ml] in vector notation *)
 		(match Euclid.solve cl (Q.minus q) with
-		   | None -> raise Exc.Inconsistent
+		   | None -> 
+		       raise Exc.Inconsistent
 		   | Some(d, pl) -> 
 		       let gl = general cl (d, pl) in
 			 combine xl gl)
@@ -580,7 +599,7 @@ let rec zsolve (a, b) =
 and vectorize ml =
   let rec loop (ql, xl) = function
     | [] -> 
-	(List.rev ql, List.rev xl) 
+	(ql, xl)
     | m :: ml ->
 	let (q, x) = mono_of m in
 	  loop (q :: ql, x :: xl) ml
@@ -588,22 +607,7 @@ and vectorize ml =
     loop ([], []) ml
 
 and combine xl bl =
-  let renames = ref [] in
-  let rec merge l m =
-    match l, m with 
-      | [], [] -> []
-      | x :: l', b :: m' ->
-	  assert(Term.is_var x && not(Term.Var.is_fresh Th.la x));
-	  if Term.Var.is_fresh Th.la b then
-	    (renames := (b, x) :: !renames;
-	     merge l' m')
-	  else 
-	    (x, b) :: merge l' m'
-      | _ -> invalid_arg "Arith.combine_merge"
-  in
-  let sl = merge xl bl in
-    List.fold_right (Term.Subst.fuse apply) !renames sl
-    
+  List.combine xl bl
 
 
 (** Compute the general solution of a linear Diophantine
@@ -631,13 +635,15 @@ and general al (d, pl) =
 
 let integer_solve = ref true
 
-let solve e =
+let rec solve e =
   if !integer_solve && is_diophantine_equation e then
     zsolve e
   else 
-    match qsolve e with
-      | None -> []
-      | Some(c, d) -> [(c, d)]
+    try
+      let e' = qsolve e in
+	[e']
+    with
+	Exc.Valid -> []
 
 
 (** Decompose [a] into [pre + q * y + post]. *)

@@ -312,6 +312,6 @@ end
 (** Combining two equality sets [Left] and [Right] and close with the
   specified extension. Most operators work component-wise and are parameterized
   with respect to {!Eqs.tag}. *)
-module Union(Left: SET)(Right: SET)
+module Union(Th: sig val th: Th.t end)(Left: SET)(Right: SET)
  : (SET2 with type lext = Left.ext 
          with type rext = Right.ext)

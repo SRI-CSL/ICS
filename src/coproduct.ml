@@ -109,40 +109,6 @@ let rec mk_out i a =
     mk_outr (mk_out (i - 1) a)
 
 
-(** Two coproduct terms [a], [b] are disequal if
-  - the prefix chains of [a] and [b] are different, or
-  - [b] is of the form [in(.)(a)] or [out(.)(a)], or
-  - [a] is of the form [in(.)(b)] or [out(.)(a)], . *)
-let rec is_diseq a b =
-  prefix_diseq a b ||
-  inj_diseq a b ||
-  inj_diseq b a ||
-  out_diseq a b ||
-  out_diseq b a 
-  
-  
-and prefix_diseq a b = 
-  try
-    let (f, a') = d_in a
-    and (g, b') = d_in b in
-      if f = g then prefix_diseq a' b' else true
-  with
-      Not_found -> false
- 
-and inj_diseq a b =
-  try
-    let (_, b') = d_in b in
-      Term.eq a b'
-  with
-      Not_found -> false
-
-and out_diseq a b =
- try
-    let (_, b') = d_out b in
-      Term.eq a b'
-  with
-      Not_found -> false
-
 
 (** Canonical forms *)
 let sigma op l =
@@ -189,53 +155,54 @@ let apply (x, b) =
 *)
 
 let rec solve e =
-  solvel [e] []
+  solvel ([e], [])
 
-and solvel el sl =
+and solvel (el, sl) =
   match el with
     | [] -> sl
     | (a, b) :: el1 ->
-	solve1 (a, b) el1 sl
+	solve1 (a, b) (el1, sl)
 
-and solve1 (a, b) el sl = 
+and solve1 (a, b) (el, sl) = 
   if Term.eq a b then                              (* [Triv] *)
-    solvel el sl
+    solvel (el, sl)
   else 
-   match destruct a, destruct b with
+    match destruct a, destruct b with
       | Some(Sym.In(x), a'), Some(Sym.In(y), b') -> 
 	  if x = y then                            (* [Inj=] *)
-	    solvel ((a', b') :: el) sl           
+	    solvel ((a', b') :: el, sl)          
 	  else                                     (* [Inj/=] *)
 	    raise Exc.Inconsistent              
       | Some(Sym.In(x), a'), Some _ ->             (* [Slv] left *)
-	  solvel ((a', mk_outX x b) :: el) sl
+	  solvel ((a', mk_outX x b) :: el, sl)
       | Some _, Some(Sym.In(x), b') ->             (* [Slv] right *)
-	  solvel ((b', mk_outX x a) :: el) sl
+	  solvel ((b', mk_outX x a) :: el, sl)
       | Some(Sym.Out(x), a'), Some(Sym.Out(y), b') -> 
 	  if x = y then                            (* [Out=] *)
-	    solvel ((a', b') :: el) sl           
+	    solvel ((a', b') :: el, sl)           
 	  else                                     (* [Out/=] *) 
-	    solvel ((a', mk_inX x b) :: el) sl
+	    solvel ((a', mk_inX x b) :: el, sl)
       | None, Some _ -> 
 	  if occurs a b then                       (* Bot *) 
 	    raise Exc.Inconsistent
 	  else 
-	    solvevar (a, b) el sl
+	    solvel (install (a, b) (el, sl))
       | Some _, None -> 
 	  if occurs b a then                       (* Bot *) 
 	    raise Exc.Inconsistent
 	  else 
-	    solvevar (b, a) el sl
+	    solvel (install (b, a) (el, sl))
       | None, None -> 
-	  solvevar (Term.orient (a, b)) el sl
+	  solvel (install (Term.orient (a, b)) (el, sl))
 
-and solvevar (x, b) el sl =
+and install (x, b) (el, sl) =
   assert(not(occurs x b));
   let el' = substitute (x, b) el                  (* Subst *)
   and sl' = Term.Subst.compose apply (x, b) sl in
-    solvel el' sl'
+    (el', sl')
 
 and occurs x a =
+  assert(not(is_interp x));
   try
     let (_, b) = d_interp a in
       occurs x b
@@ -247,3 +214,13 @@ and substitute (x, b) el =
     (apply (x, b) a1, apply (x, b) a2)
   in
     List.map apply2 el
+
+
+(** Check for disequalities. *)
+let is_diseq a b =
+  try
+    let _ = solve (a, b) in
+      false
+  with
+      Exc.Inconsistent -> true
+ 

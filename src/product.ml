@@ -119,11 +119,19 @@ let sigma op l =
     | _ -> assert false
 
 
+(** Reinitialized by solver. *)
+let fresh = ref []
+
 (** Fresh variables. *)
 let mk_fresh () =
-  Term.Var.mk_fresh Th.p None Var.Cnstrnt.Unconstrained
+  let x = Term.Var.mk_fresh Th.p None Var.Cnstrnt.Unconstrained in
+    fresh := x :: !fresh;
+    x
 
-let is_fresh = Term.Var.is_fresh Th.p 
+let is_fresh x =
+  let eqx = Term.eq x in
+    List.exists eqx !fresh
+
 
 (** Symbol table for renamings. *)
 module Symtab = struct
@@ -180,24 +188,6 @@ module Symtab = struct
 	    (k1, k2, rho')
 
 
-  (** Replace every occurrence of fresh variables [k] with
-    corresponding representation. *)
-  let concretize rho =
-    let lookup rho k =
-      try
-	let rec search = function
-	  | [] -> raise Not_found
-	  | (x, (k1, k2)) :: l -> 
-	      if Term.eq k k1 then mk_car(x)
-	      else if Term.eq k k2 then mk_cdr(x)
-	      else search l
-	in
-	  search rho
-      with
-	  Not_found -> k
-    in
-      map (lookup rho)
-
   
 end 
 
@@ -206,6 +196,7 @@ end
   solved as [y |-> p!2; x |-> cons(p!1, p!2)] with [p!1], [p!2] fresh. *)
  
 let rec solve e =
+  fresh := [];                      (* reinitialize [is_fresh]. *)
   let e0, sl0, rho = pre e in
   let sl1 = solvel ([e0], sl0)in
   let sl2 = post rho sl1 in
