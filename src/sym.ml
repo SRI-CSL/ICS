@@ -15,6 +15,8 @@
 
 open Mpa
 
+type uninterp = Name.t
+
 type arith = 
   | Num of Mpa.Q.t  
   | Add
@@ -44,8 +46,8 @@ type arrays =
   | Update
 
 
-type t = 
-  | Uninterp of Name.t
+type sym = 
+  | Uninterp of uninterp
   | Arith of arith
   | Pair of pair
   | Coproduct of coproduct
@@ -54,9 +56,16 @@ type t =
   | Fun of apply
   | Arrays of arrays 
 
-type sym = t
+type t = sym * int
+
+let hash (_, hsh) = hsh
+
 
 module Uninterp = struct
+
+  let get = function 
+    | Uninterp(op), _ -> op
+    | _ -> raise Not_found
 
   let uninterp =
     let table = Name.Hash.create 17 in
@@ -66,7 +75,8 @@ module Uninterp = struct
 	  Name.Hash.find table n
 	with
 	    Not_found ->
-	      let f = Uninterp(n) in
+	      let hsh = (2 + Name.hash n) land 0x3FFFFFFF in
+	      let f = (Uninterp(n), hsh) in
 		Name.Hash.add table n f; f
 
 end
@@ -75,8 +85,8 @@ module Arith = struct
 
   type t = arith
 
-  let d_sym = function
-    | Arith(op) -> op
+  let get = function 
+    | Arith(op), _ -> op
     | _ -> raise Not_found
 
   let num = 
@@ -87,7 +97,8 @@ module Arith = struct
 	  Mpa.Q.Hash.find table q 
 	with
 	    Not_found ->
-	      let c = Arith(Num(q)) in
+	      let hsh = (3 + Mpa.Q.hash q) land 0x3FFFFFFF in
+	      let c = (Arith(Num(q)), hsh) in
 		Mpa.Q.Hash.add table q c; c
 
   let multq =
@@ -98,10 +109,20 @@ module Arith = struct
 	  Mpa.Q.Hash.find table q 
 	with
 	    Not_found ->
-	      let c = Arith(Multq(q)) in
+	      let hsh = (5 + Mpa.Q.hash q) land 0x3FFFFFFF in
+	      let c = (Arith(Multq(q)), hsh) in
 		Mpa.Q.Hash.add table q c; c
 
-  let add = Arith(Add)
+  let add = (Arith(Add), 77)
+
+  let d_num = function
+    | Arith(Num(q)), _ -> q
+    | _ -> raise Not_found
+
+  let d_multq = function
+    | Arith(Multq(q)), _ -> q
+    | _ -> raise Not_found
+
 
   let pp fmt = function
     | Num(q) -> Mpa.Q.pp fmt q 
@@ -114,28 +135,35 @@ module Arith = struct
     | Add, al -> Pretty.infixl pp " + " fmt al
     | Multq(q) , [x] -> Pretty.infix Mpa.Q.pp "*" pp fmt (q, x)
     | _ -> raise (Invalid_argument "not interpreted in arithmetic")
-
+	  
 end
 
 module Pair = struct
 
-  let cons = Pair(Cons)
-  let car = Pair(Car)
-  let cdr = Pair(Cdr)
+  let get = function 
+    | Pair(op), _ -> op
+    | _ -> raise Not_found
+
+  let cons = (Pair(Cons), 371)
+  let car = (Pair(Car), 379)
+  let cdr = (Pair(Cdr), 381)
 
   let pp fmt = function
     | Cons -> Format.fprintf fmt "cons"
     | Car -> Format.fprintf fmt "car"
     | Cdr -> Format.fprintf fmt "cdr"
-
 end
 
 module Coproduct = struct
 
-  let inl = Coproduct(InL)
-  let inr = Coproduct(InR)
-  let outl = Coproduct(OutL)
-  let outr = Coproduct(OutR)
+  let get = function 
+    | Coproduct(op), _ -> op
+    | _ -> raise Not_found
+
+  let inl = (Coproduct(InL), 177)
+  let inr = (Coproduct(InR), 183)
+  let outl = (Coproduct(OutL), 191)
+  let outr = (Coproduct(OutR), 193)
 
   let pp fmt = function
     | InL -> Format.fprintf fmt "inl"
@@ -146,8 +174,12 @@ module Coproduct = struct
 end
 
 module Pprod = struct
+
+  let get = function
+    | Pp(op), _ -> op
+    | _ -> raise Not_found
   
-  let mult = Pp(Mult)
+  let mult = (Pp(Mult), 731)
 
   let expt = 
     let table = Hashtbl.create 17 in
@@ -157,16 +189,19 @@ module Pprod = struct
 	  Hashtbl.find table n
 	with
 	    Not_found ->
-	      let op = Pp(Expt(n)) in
+	      let hsh = (17 + n) land 0x3FFFFFFF in
+	      let op = (Pp(Expt(n)), hsh) in
 		Hashtbl.add table n op; op
 
-  let is_expt = function
-    | Pp(Expt _) -> true
-    | _ -> false
+  let is_expt (sym, _) =
+    match sym with
+      | Pp(Expt _) -> true
+      | _ -> false
 
-  let d_expt = function
-    | Pp(Expt(n)) -> n
-    | _ -> assert false
+  let d_expt (sym, _) = 
+    match sym with
+      | Pp(Expt(n)) -> n
+      | _ -> raise Not_found
 
   let pp fmt = function
     | Mult -> Format.fprintf fmt "."
@@ -175,6 +210,10 @@ module Pprod = struct
 end 
 
 module Bv = struct
+
+  let get = function 
+    | Bv(op), _ -> op
+    | _ -> raise Not_found
 
   module BitvHash = Hashtbl.Make(
     struct
@@ -191,7 +230,8 @@ module Bv = struct
 	  BitvHash.find table b
 	with
 	    Not_found ->
-	      let op = Bv(Const(b)) in
+	      let hsh = Hashtbl.hash b in
+	      let op = (Bv(Const(b)), hsh) in
 		BitvHash.add table b op; op
 
   let conc = 
@@ -202,7 +242,8 @@ module Bv = struct
 	  Hashtbl.find table (n, m)
 	with
 	    Not_found ->
-	      let op = Bv(Conc(n, m)) in
+	      let hsh = (542 + n + m) land 0x3FFFFFFF in
+	      let op = (Bv(Conc(n, m)), hsh) in
 		Hashtbl.add table (n, m) op; op
 
   let sub = 
@@ -213,7 +254,8 @@ module Bv = struct
 	  Hashtbl.find table (n, i, j)
 	with
 	    Not_found ->
-	      let op = Bv(Sub(n, i, j)) in
+	      let hsh = (97 + n + i + j) land 0x3FFFFFFF in
+	      let op = (Bv(Sub(n, i, j)), hsh) in
 		Hashtbl.add table (n, i, j) op; op
 
   let pp fmt = function
@@ -236,9 +278,13 @@ end
 
 module Array = struct
 
-  let create = Arrays(Create)
-  let update = Arrays(Update)
-  let select = Arrays(Select)
+  let get = function 
+    | Arrays(op), _ -> op
+    | _ -> raise Not_found
+
+  let create = (Arrays(Create), 27)
+  let update = (Arrays(Update), 47)
+  let select = (Arrays(Select), 65)
 
   let pp fmt = function
     | Create -> Format.fprintf fmt "create"
@@ -249,15 +295,19 @@ end
 
 module Fun = struct
 
-  let abs = Fun(Abs)
+  let get = function 
+    | Fun(op), _ -> op
+    | _ -> raise Not_found
+
+  let abs = (Fun(Abs), 111)
 
   let apply = 
-    let apply0 = Fun(Apply(None)) 
-    and apply_int = Fun(Apply(Some(Dom.Int)))
-    and apply_nonint = Fun(Apply(Some(Dom.Nonint)))
-    and apply_real = Fun(Apply(Some(Dom.Real))) in
+    let apply0 = (Fun(Apply(None)), 115) 
+    and apply_int = (Fun(Apply(Some(Dom.Int))), 117)
+    and apply_nonint = (Fun(Apply(Some(Dom.Nonint))), 119)
+    and apply_real = (Fun(Apply(Some(Dom.Real))), 123) in
       function
-	| None -> Fun(Apply(None))
+	| None -> apply0
 	| Some(d) ->
 	    (match d with
 	       | Dom.Int -> apply_int
@@ -272,40 +322,31 @@ module Fun = struct
     | Abs -> 
 	Pretty.string fmt "lambda"
 
+  let is_abs = function
+    | Fun(Abs), _ -> true
+    | _ -> false
+
+  let is_apply = function
+    | Fun(Apply _), _ -> true
+    | _ -> false
+
 end
 
 let eq = (==)
 
-let cmp = Pervasives.compare
+let cmp f g =
+  if f == g then 0 else if hash f < hash g then -1 else 1
 
-let hash = function
-  | Uninterp(x) -> (2 + Hashtbl.hash x) land 0x3FFFFFFF
-  | Arith(f) -> (3 + Hashtbl.hash f) land 0x3FFFFFFF
-  | Pair(f) -> (5 + Hashtbl.hash f) land 0x3FFFFFFF
-  | Coproduct(f) -> (7 + Hashtbl.hash f) land 0x3FFFFFFF
-  | Bv(f) -> (11 + Hashtbl.hash f) land 0x3FFFFFFF
-  | Pp(f) -> (17 + Hashtbl.hash f) land 0x3FFFFFFF
-  | Fun(f) -> (23 + Hashtbl.hash f) land 0x3FFFFFFF
-  | Arrays(f) -> (29 + Hashtbl.hash f) land 0x3FFFFFFF
-
-
-module Hash = Hashtbl.Make(
-  struct
-    type t = sym
-    let equal = eq
-    let hash = hash
-  end)
-
-
-let pp fmt = function
-  | Uninterp(f) -> Name.pp fmt f
-  | Arith(op) -> Arith.pp fmt op
-  | Pair(op) -> Pair.pp fmt op
-  | Bv(op) -> Bv.pp fmt op
-  | Coproduct(op) -> Coproduct.pp fmt op
-  | Arrays(op) -> Array.pp fmt op
-  | Pp(op) -> Pprod.pp fmt op
-  | Fun(op) -> Fun.pp fmt op
+let pp fmt (sym, _) =
+  match sym with
+    | Uninterp(f) -> Name.pp fmt f
+    | Arith(op) -> Arith.pp fmt op
+    | Pair(op) -> Pair.pp fmt op
+    | Bv(op) -> Bv.pp fmt op
+    | Coproduct(op) -> Coproduct.pp fmt op
+    | Arrays(op) -> Array.pp fmt op
+    | Pp(op) -> Pprod.pp fmt op
+    | Fun(op) -> Fun.pp fmt op
 
 
 let to_string = Pretty.to_string pp
@@ -325,28 +366,43 @@ let pp p fmt (f, l) =
   let infixl x = Pretty.infixl p x fmt in
     if not(!pretty) then
       app f l 
-    else match f, l with
-      | Arith(Num q), [] -> 
-	  Mpa.Q.pp fmt q
-      | Arith(Add), _ -> 
-	  infixl " + " l
-      | Arith(Multq(q)) , [x] -> 
-	  Pretty.infix Mpa.Q.pp "*" p fmt (q, x)  
-      | Pp(Mult), [] ->
-	  str "1"
-      | Pp(Mult), xl ->
-	  infixl "*" xl
-      | Pp(Expt _), [x] ->
-	  arg x; sym f
-      | Bv(Const(b)), [] -> 
-	  str ("0b" ^ Bitv.to_string b)
-      | Bv(Conc _), l -> 
-	  infixl " ++ " l
-      | Bv(Sub(_,i,j)), [x] ->
-	  arg x; Format.fprintf fmt "[%d:%d]" i j
-      | Arrays(Update), [x;y;z] ->
-	  arg x; str "["; arg y; str " := "; arg z; str "]"
-      | Arrays(Select), [x; y] ->
-	  arg x; str "["; arg y; str "]"
-      | _ -> 
-	  app f l
+    else 
+      match fst(f), l with
+	| Arith(Num q), [] -> 
+	    Mpa.Q.pp fmt q
+	| Arith(Add), _ -> 
+	    infixl " + " l
+	| Arith(Multq(q)) , [x] -> 
+	    Pretty.infix Mpa.Q.pp "*" p fmt (q, x)  
+	| Pp(Mult), [] ->
+	    str "1"
+	| Pp(Mult), xl ->
+	    infixl "*" xl
+	| Pp(Expt _), [x] ->
+	    arg x; sym f
+	| Bv(Const(b)), [] -> 
+	    str ("0b" ^ Bitv.to_string b)
+	| Bv(Conc _), l -> 
+	    infixl " ++ " l
+	| Bv(Sub(_,i,j)), [x] ->
+	    arg x; Format.fprintf fmt "[%d:%d]" i j
+	| Arrays(Update), [x;y;z] ->
+	    arg x; str "["; arg y; str " := "; arg z; str "]"
+	| Arrays(Select), [x; y] ->
+	    arg x; str "["; arg y; str "]"
+	| _ -> 
+	    app f l
+
+
+let theory_of (sym, _) =
+  match sym with
+    | Uninterp _ -> Th.u
+    | Arith _ -> Th.a
+    | Pair _ -> Th.p
+    | Bv _ -> Th.bv
+    | Coproduct _ -> Th.cop
+    | Arrays _ -> Th.arr
+    | Pp _ -> Th.nl
+    | Fun _ -> Th.app
+
+let get (sym, _) = sym
