@@ -179,7 +179,20 @@ module Supinf = struct
 	  lt b a
       | High.Bound(b, _), Low.Bound(_, a) -> 
 	  le b a
-  
+
+  let less (l, gamma, u) =
+    match l, u with
+      | Low.Neginf, _ -> 
+	  Arith.True
+      | _, High.Posinf -> 
+	  Arith.True
+      | Low.Bound(alpha, a), High.Bound(b, beta) ->
+	  let delta = alpha && beta && gamma in
+	    if less (a, delta, b) then
+	      Arith.True
+	    else
+	      Arith.mk_less (a, delta, b)
+	
 end 
 
 
