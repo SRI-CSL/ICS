@@ -7,9 +7,7 @@
      demoura - Aug 8, 2002: Created.
 
   Comiling using static library:
-     g++ -o bakery -L ../lib/i686-pc-linux-gnu/ \
-                   -I ../obj/i686-pc-linux-gnu/ \
-                   -lics bakery.cpp
+     g++-2 -o bakery -L ../lib/i686-pc-cygwin/ -I ../obj/i686-pc-cygwin/ -lics bakery.cpp
 
   Compiling using dynamic library:
      g++ -o bakery -L ../lib/i686-pc-linux-gnu/ \
@@ -108,15 +106,7 @@ int MAX_DEPTH = 0;
 
 bool printed = false;
 
-#define ERROR() {			  
-  if (!printed) {								  
-    ics_context_pp(state);
-    printed = true;								
-  }				    
-  cout << endl;
-  cout << "pc1 = " << pc1 << ", pc2 = " << pc2 << ", at depth = " << depth << endl; 
-  return 0;	   
-}
+#define ERROR() {	if (!printed) {	 ics_context_pp(state);  printed = true;   } cout << endl; cout << "pc1 = " << pc1 << ", pc2 = " << pc2 << ", at depth = " << depth << endl; return 0;	}
 
 int bakery_step(int pc1, int pc2, int depth, value * state)
 {
