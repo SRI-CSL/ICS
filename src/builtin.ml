@@ -146,4 +146,22 @@ let sigma s f l =
     | _ -> assert false
 
 
+let map s f = function
+  | App(Builtin(op), l) ->
+      (match op, l with
+	| Sym.Unsigned, [x] -> mk_unsigned s (map s f x)
+	| Sym.Select, [x;y] -> mk_select s (map s f x) (map s f y)
+	| Sym.Update, [x;y;z] -> mk_update s (map s f x) (map s f y) (map s f z)
+	| Sym.Sin, [x] -> mk_sin s (map s f x)
+	| Sym.Cos, [x] -> mk_cos s (map s f x)
+	| Sym.Floor, [x] -> mk_floor s (map s f x)
+	| Sym.Ceiling, [x] -> mk_ceiling s (map s f x)
+	| Sym.Div, [x;y] -> mk_div s (map s f x) (map s f y)
+	| Sym.Mult, [x; y] -> mk_mult s (map s f x, map s f y)
+	| _ -> assert false)
+  | a ->
+      f a
+
+
+
 

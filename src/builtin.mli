@@ -32,5 +32,4 @@ val mk_cos : Context.t -> Term.t -> Term.t
 val mk_floor : Context.t -> Term.t -> Term.t
 val mk_ceiling : Context.t -> Term.t -> Term.t
 
-
 val sigma : Context.t -> Sym.t -> Term.t list -> Term.t
