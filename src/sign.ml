@@ -65,8 +65,8 @@ let inter s t =
 
 let complement = function
   | F -> T
-  | Pos -> Nonneg
-  | Neg -> Nonpos
+  | Pos -> Nonpos
+  | Neg -> Nonneg
   | Nonneg -> Pos
   | Nonpos -> Neg
   | T -> F
