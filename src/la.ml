@@ -217,14 +217,15 @@ end
 
 (** [R.t] represents solution sets of the form [x = a], where [x] is
   unrestricted, and [a] is an arithmetic term. *)
-module R: Eqs.SET0 = 
-  Eqs.Make0(
+module R: Eqs.SET = 
+  Eqs.MakeCnstnt(
     struct
       let th = Th.a
       let nickname = Th.to_string Th.a
       let apply = Arith.apply
       let is_infeasible = is_infeasible
     end)
+    (QIdx)
 
 
 (** Specification for an index for the variable [x] such that
@@ -239,8 +240,8 @@ end
   variable [k] and terms [a] containing only slack variables.  
   We maintain an index [zero t] such that [k] is in [zero t] iff 
   [k = a] with  constant summand of [a] is  [0]. *)
-module T: (Eqs.SET with type ext = Term.Set.t) = 
-  Eqs.MakeIndex
+module T: (Eqs.SET with type ext = Term.Set.t * (Term.t * Justification.t) Term.Map.t) = 
+  Eqs.MakeIndexCnstnt
     (struct
        let th = Th.a
        let nickname = "t"
@@ -248,6 +249,7 @@ module T: (Eqs.SET with type ext = Term.Set.t) =
        let is_infeasible = is_infeasible
      end)
     (ZeroIdx)
+    (QIdx)
 
 
 (** Combined solution set [S = (R; T)]. *)
@@ -283,7 +285,7 @@ module Zero = struct
   (** [zero t] returns the set of [x] with [x = a] in [t] such that
     the constant monomial of [a] is [0]. *)
   let get s = 
-    let (_, _, zero) = S.ext s in
+    let (_, _, (zero, _)) = S.ext s in
       zero
  
   (** Apply [f e] to all equalities [k = a] in [t] such that [|a| = 0]. *)
