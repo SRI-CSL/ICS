@@ -45,17 +45,17 @@ let rec repl inch =
               !end_of_transmission,
               inch,
               Ics.channel_stdout());
-    let outch = Ics.channel_stdout () in
-      while true do
-	prompt ();
-	Ics.cmd_rep ()
-      done
+    Tools.linenumber := 1;
+    while true do
+      prompt ();
+      Ics.cmd_rep ()
+    done
   with
     | Failure "drop" -> ()
 
 and prompt () =
   if not(!disable_prompt_flag) then 
-    Format.eprintf "\nics> @?"
+    Format.eprintf "\n%d ics> @?" !Tools.linenumber
 
 and usage () =
   if not(!disable_usage_flag) then
@@ -66,8 +66,24 @@ and usage () =
     end
 
 and batch l =
+  usage();
   disable_prompt_flag := true;
-  List.iter (fun x -> repl (Ics.inchannel_of_string x)) l
+  List.iter 
+    (fun x -> 
+       let inch = Ics.inchannel_of_string x in
+	 Ics.init (1, 
+		   not !disable_pretty_print_flag,
+		   !end_of_transmission,
+		   inch,
+		   Ics.channel_stdout());
+	 Tools.linenumber := 1;
+	 while true do
+	   prompt ();
+	   Ics.cmd_batch ()
+	 done)
+    l;
+  Ics.flush();
+
 
 and server portnum = 
   let addr = Unix.inet_addr_any in
@@ -100,15 +116,21 @@ let args () =
   List.rev !files
 
 let rec main () =
-  let l = args () in
-    Rule.maxclose := !maxloops_flag;
-    match !portnum_flag with
-      | None ->   
-	  (match l with
-	     | [] -> repl (Ics.channel_stdin ())
-	     | l -> batch l)
-      | Some(portnum) ->
-	  server portnum
+  try
+    let l = args () in
+      Rule.maxclose := !maxloops_flag;
+      (match !portnum_flag with
+	| None ->   
+	    (match l with
+	       | [] -> repl (Ics.channel_stdin ())
+	       | l -> batch l)
+	| Some(portnum) ->
+	    server portnum);
+      Ics.do_at_exit()
+  with
+      exc ->
+	Ics.do_at_exit();
+	raise exc
 
 let _ = Printexc.catch main ()
 
