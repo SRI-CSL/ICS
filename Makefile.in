@@ -49,18 +49,26 @@ LIBS = -cclib "-lunix $(LIBGMPA)"
 
 COBJS = mlgmp.o
 
-CMO = cmp.cmo gmp.cmo mpa.cmo \
+CMO = cmp.cmo gmp.cmo mpa.cmo qext.cmo \
       hashcons.cmo hasht.cmo \
       ptset.cmo ptmap.cmo \
       tools.cmo binrel.cmo \
       trace.cmo \
-      interval.cmo cnstrnt.cmo \
+      interval.cmo \
       bitv.cmo term.cmo exc.cmo\
       var.cmo bdd.cmo \
-      euclid.cmo poly.cmo  atom.cmo bool.cmo sets.cmo conc.cmo bv.cmo pretty.cmo arith.cmo \
+      cnstrnt.cmo \
+      atom.cmo bool.cmo \
+      euclid.cmo poly.cmo arith.cmo \
+      sets.cmo \
+      conc.cmo bv.cmo \
       tuple.cmo app.cmo \
-      funsym.cmo subst.cmo \
-      state.cmo solve.cmo process.cmo can.cmo ics.cmo
+      pretty.cmo  \
+      subst.cmo \
+      funsym.cmo \
+      state.cmo solve.cmo process.cmo \
+      can.cmo \
+      ics.cmo
 
 CMI = $(CMO:.cmo=.cmi)
 
@@ -213,25 +221,28 @@ cprofile:
 	$(BINDIR)/ics.byte $(CPROFFILE)
 	$(MAKE) process.prof
 
-### User Manual
+### Tar file
 
-manual: $(DOCDIR)/manual.ps.gz $(DOCDIR)/manual.pdf  $(DOCDIR)/manual.html
-	cp $(DOCDIR)/manual.ps.gz $(DOCDIR)/manual.pdf  $(DOCDIR)/manual.html $(WEBHOME)
+.PHONY : web
 
-$(DOCDIR)/manual.dvi: $(DOCDIR)/manual.tex
-	(cd $(DOCDIR); latex ./manual.tex  && latex ./manual.tex)
+LICENSE = ICS-License-and-NDA.doc
 
-$(DOCDIR)/manual.pdf: $(DOCDIR)/manual.tex
-	(cd $(DOCDIR); pdflatex ./manual.tex && pdflatex ./manual.tex)
+HTMLFILES = \
+       $(DOCDIR)/index.html \
+       $(DOCDIR)/introduction.html \
+       $(DOCDIR)/people.html \
+       $(DOCDIR)/status.html \
+       $(DOCDIR)/syntax.html \
+       $(DOCDIR)/downloading.html \
+       $(DOCDIR)/demonstration.html
 
-$(DOCDIR)/manual.ps:  $(DOCDIR)/manual.dvi
-
-$(DOCDIR)/manual.ps.gz:  $(DOCDIR)/manual.ps
-	gzip -f $(DOCDIR)/manual.ps
-
-$(DOCDIR)/manual.html: $(DOCDIR)/manual.tex
-	(cd $(DOCDIR); $(HEVEA) $(OCAMLWEBSTY) ./manual.tex -o ./manual.html)
-
+web::
+	cp $(HTMLFILES) $(WEBHOME) 
+	cp $(LICENSE) $(WEBHOME)
+	cp -R ./tests $(WEBHOME)
+	make distclean 
+	tar cf $(WEBHOME)/ics.tar .
+	gzip $(WEBHOME)/ics.tar.gz
 
 ### Documention
 
@@ -250,21 +261,21 @@ $(DOCDIR)/literal/%.mli.tex: $(SRCDIR)/%.mli
 doc:  $(DOCDIR)/doc.ps.gz $(DOCDIR)/doc.pdf $(DOCDIR)/doc.html
 	cp $(DOCDIR)/doc.ps.gz $(DOCDIR)/doc.pdf $(DOCDIR)/doc.html $(WEBHOME)
 
-$(DOCDIR)/doc.dvi: $(LITERAL)  $(DOCDIR)/dep.ps
+$(DOCDIR)/doc.dvi: $(LITERAL)  $(DOCDIR)/dep.ps $(DOCDIR)/doc.tex
 	(cd $(DOCDIR); latex ./doc.tex  && latex ./doc.tex)
 
-$(DOCDIR)/doc.pdf: $(LITERAL)  $(DOCDIR)/dep.ps
+$(DOCDIR)/doc.pdf: $(LITERAL)  $(DOCDIR)/dep.ps $(DOCDIR)/doc.tex
 	(cd $(DOCDIR); pdflatex ./doc.tex  && pdflatex ./doc.tex)
 
-$(DOCDIR)/doc.ps:  $(DOCDIR)/doc.dvi  $(DOCDIR)/dep.ps
+$(DOCDIR)/doc.ps:  $(DOCDIR)/doc.dvi  $(DOCDIR)/dep.ps $(DOCDIR)/doc.tex
 	(cd $(DOCDIR); dvips ./doc.dvi -o doc.ps)
 
 $(DOCDIR)/doc.ps.gz:  $(DOCDIR)/doc.ps
 	gzip -f $(DOCDIR)/doc.ps
 
-$(DOCDIR)/doc.pdf:  $(LITERAL) $(DOCDIR)/dep.ps
+$(DOCDIR)/doc.pdf:  $(LITERAL) $(DOCDIR)/dep.ps $(DOCDIR)/doc.tex
 
-$(DOCDIR)/doc.html: $(DOCDIR)/doc.tex $(LITERAL) $(DOCDIR)/dep.gif
+$(DOCDIR)/doc.html: $(DOCDIR)/doc.tex $(LITERAL) $(DOCDIR)/dep.gif $(DOCDIR)/doc.tex
 	(cd $(DOCDIR); $(HEVEA) $(OCAMLWEBSTY) ./doc.tex -o ./doc.html)
 
 $(DOCDIR)/dep.ps: $(SRC)
@@ -334,11 +345,16 @@ tags:
 .PHONY: clean distclean
 
 clean::
+	rm -f gmon.out
+	rm -f profile.out
+	rm -r $(SRCDIR)/parser.output
 	rm -f $(BINDIR)/ics $(BINDIR)/ics.byte 
 	rm -rf $(OBJDIR) $(LIBDIR)
-	rm -rf $(DOCDIR)/*.aux  $(DOCDIR)/*.toc  $(DOCDIR)/*.bbl $(DOCDIR)/*.log $(DOCDIR)/*.haux $(DOCDIR)/*.dvi
+	rm -f $(DOCDIR)/*.aux  $(DOCDIR)/*.toc
+	rm -f $(DOCDIR)/*.bbl $(DOCDIR)/*.log $(DOCDIR)/*.haux $(DOCDIR)/*.dvi
 	make -C chameleon clean
-	rm -rf $(DOCDIR)/doc/literal/*.tex
+	rm -f $(DOCDIR)/*.ppm $(DOCDIR)/*.blg $(DOCDIR)/*.brf $(DOCDIR)/*.out 
+	rm -rf $(DOCDIR)/doc/literal/*.tex 
 
 distclean:: clean
 	rm -f config.cache config.log confdefs.h config.status
