@@ -97,9 +97,7 @@ module type TH = sig
   val is_infeasible : Justification.Pred2.t
 end
 
-type effects = 
-    (equality -> unit) * 
-    (equality -> unit)
+type effects = (equality -> unit) * (equality -> unit)
 
 and equality = Term.t * Term.t * Justification.t
 
@@ -203,9 +201,6 @@ module Make(Th: TH): SET = struct
     let (b, rho) = apply s a in
       Fact.Equal.make (a, b, rho)
 
-  let equality s =
-    Trace.func "foo8" "equality" Term.pp Fact.Equal.pp (equality s)
-
   let find s a =
     match a with
       | Term.App _ -> 
@@ -272,8 +267,8 @@ module Make(Th: TH): SET = struct
 	 | None ->
 	     (try                  (* restrict, then update. *)
 		let (b', rho') = apply s x in 
-		  s.dep <- Use.remove_but b x b' s.dep;  (* this needs to be fixed. *)
-		  (* s.dep <- Use.remove x b' s.dep; *)
+		  (* s.dep <- Use.remove_but b x b' s.dep; *)  (* this needs to be fixed. *)
+		  s.dep <- Use.remove x b' s.dep;
 		  s.dep <- Use.add x b s.dep; 
 		  !do_restrict (x, b, rho');
 		  s.find <- Term.Map.add x (b, rho) s.find;
@@ -606,7 +601,6 @@ module MakeIndexCnstnt(Th: TH)(Idx: INDEX)(C: CNSTNT) = struct
       Term.Set.iter                    (* [rho |- x = a] *)
 	(fun y ->
 	   let (b, tau) = find s y in  (* [tau |- y = b] *)
-	    (* assert(C.is_const b && not(y == b)); *)
 	     if C.is_diseq a b then       (* [sigma |- x <> y] *)
 	       let sigma = Justification.dependencies [rho; tau] in
 	       let d = Fact.Diseq.make (x, y, sigma) in
@@ -614,7 +608,7 @@ module MakeIndexCnstnt(Th: TH)(Idx: INDEX)(C: CNSTNT) = struct
 	(cnstnt s)
     in
       proc (do_add', do_restrict) (p, s)
-
+	
   let name = with_extended_effects Eqs.name
   let restrict = with_extended_effects Eqs.restrict
   let update = with_extended_effects Eqs.update
@@ -704,7 +698,10 @@ module type EXT = sig
 end
 
 
-module Extend(Set: SET)(Ext: EXT with type t = Set.t): (SET0 with type ext = Ext.ext) = struct
+module Extend
+  (Set: SET)
+  (Ext: EXT with type t = Set.t): (SET0 with type ext = Ext.ext) = 
+struct
   type t = {eqs : Set.t; mutable ext : Ext.ext}
   type ext = Ext.ext
   let eq s t = Set.eq s.eqs t.eqs && Ext.eq s.ext t.ext
