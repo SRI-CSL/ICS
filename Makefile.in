@@ -20,76 +20,148 @@ OCAMLWEBSTY = $$HOME/tex/inputs/ocamlweb.sty
 
 ### end of configuration part ################################################
 
-INCLUDE = -I src # -I unify -I fol -I qe
+
+
+ifeq ($(MAKELEVEL),0)
+	ARCH := $(shell bin/config.guess)
+        export ARCH
+	OBJDIR = ./obj/$(ARCH)
+	BINDIR = ./bin/$(ARCH)
+	LIBDIR = ./lib/$(ARCH)
+	SRCDIR = ./src
+	DOCDIR = ./doc
+else
+	OBJDIR = .
+	BINDIR = ../../bin/$(ARCH)
+	LIBDIR = ../../lib/$(ARCH)
+	SRCDIR = ../../src
+	DOCDIR = ../../doc
+endif
+
+# Flags
+
+INCLUDE = # -I unify -I fol -I qe
 CFLAGS = 
 BFLAGS = -g $(INCLUDE) # -noassert
 OFLAGS = $(INCLUDE) # -noassert
-
 LIBS = -cclib "$(GMPPATH) -lunix -lgmp"
 
-### targets
+# Object files
 
-BIN = ./bin
-LIB = ./lib
-SRC = ./src
-DOC = ./doc
+COBJS = mlgmp.o
 
+CMI = hashcons.cmi hasht.cmi ptset.cmi \
+      ptmap.cmi tools.cmi seqs.cmi \
+      gmp.cmi mpa.cmi bitv.cmi term.cmi \
+      tset.cmi tmap.cmi pp.cmi bdd.cmi \
+      euclid.cmi poly.cmi bool.cmi equal.cmi \
+      arith.cmi ineq.cmi prop.cmi congstate.cmi \
+      tuple.cmi arrays.cmi conc.cmi bv.cmi \
+      sets.cmi solve.cmi can.cmi process.cmi ics.cmi
 
-COBJS = $(SRC)/mlgmp.o
-
-CMO = $(SRC)/hashcons.cmo $(SRC)/hasht.cmo $(SRC)/ptset.cmo \
-      $(SRC)/ptmap.cmo $(SRC)/tools.cmo $(SRC)/seqs.cmo \
-      $(SRC)/gmp.cmo $(SRC)/mpa.cmo $(SRC)/bitv.cmo $(SRC)/term.cmo \
-      $(SRC)/tset.cmo $(SRC)/tmap.cmo $(SRC)/pp.cmo $(SRC)/bdd.cmo \
-      $(SRC)/euclid.cmo $(SRC)/poly.cmo $(SRC)/bool.cmo $(SRC)/equal.cmo \
-      $(SRC)/arith.cmo $(SRC)/ineq.cmo $(SRC)/prop.cmo $(SRC)/congstate.cmo \
-      $(SRC)/tuple.cmo $(SRC)/arrays.cmo $(SRC)/conc.cmo $(SRC)/bv.cmo \
-      $(SRC)/sets.cmo $(SRC)/morphisms.cmo $(SRC)/solve.cmo \
-      $(SRC)/can.cmo $(SRC)/process.cmo $(SRC)/ics.cmo
+CMO = hashcons.cmo hasht.cmo ptset.cmo \
+      ptmap.cmo tools.cmo seqs.cmo \
+      gmp.cmo mpa.cmo bitv.cmo term.cmo \
+      tset.cmo tmap.cmo pp.cmo bdd.cmo \
+      euclid.cmo poly.cmo bool.cmo equal.cmo \
+      arith.cmo ineq.cmo prop.cmo congstate.cmo \
+      tuple.cmo arrays.cmo conc.cmo bv.cmo \
+      sets.cmo morphisms.cmo solve.cmo \
+      can.cmo process.cmo ics.cmo
 
 CMX = $(CMO:.cmo=.cmx)
 
-all: ics $(LIB)/ics.so $(LIB)/libics.a
+.PHONY : all all-chdir
+all: $(OBJDIR) $(LIBDIR) $(BINDIR)
+	$(MAKE) -C $(OBJDIR) -f ../../Makefile all-chdir
 
-TOPCMO = $(CMO) $(SRC)/cmd.cmo $(SRC)/parser.cmo \
-	 $(SRC)/lexer.cmo $(SRC)/main.cmo
+all-chdir: ics $(LIBDIR)/libics.so $(LIBDIR)/libics.a ics.byte
+	@echo 
+	@echo ICS Build complete
+	@echo 
+
+
+TOPCMO = $(CMO) cmd.cmo parser.cmo lexer.cmo main.cmo
+TOPCMI = $(CMI) cmd.cmi parser.cmi 
 
 TOPCMX = $(TOPCMO:.cmo=.cmx)
 
-ics: $(COBJS) $(TOPCMX)
-	$(OCAMLOPT) $(OFLAGS) -o $(BIN)/$@ unix.cmxa $(TOPCMX) $(COBJS) $(LIBS)
+ics: $(COBJS) $(TOPCMI) $(TOPCMX)
+	$(OCAMLOPT) $(OFLAGS) -o $(BINDIR)/$@ unix.cmxa $(TOPCMX) \
+                    $(COBJS) $(LIBS)
 
-ics.byte: $(COBJS) $(TOPCMO)
-	$(OCAMLLINK) -g -custom -o $(BIN)/$@ unix.cma $(TOPCMO) $(COBJS) $(LIBS)
+ics.byte: $(COBJS) $(TOPCMI) $(TOPCMO)
+	$(OCAMLLINK) -g -custom -o $(BINDIR)/$@ unix.cma $(TOPCMO) \
+                    $(COBJS) $(LIBS)
 
-OBJS = $(SRC)/ics_all.o $(SRC)/ics_stub.o $(SRC)/ics_error.o $(SRC)/mlgmp.o
+OBJS = ics_all.o ics_stub.o ics_error.o mlgmp.o
 
-$(SRC)/ics_all.o: $(CMX)
+ics_all.o: $(CMX)
 	$(OCAMLOPT) -output-obj -o $@ unix.cmxa $(CMX)
 
-$(LIB)/ics.so: $(OBJS)
-	gcc -shared -o $(LIB)/ics.so $(OBJS) \
+$(LIBDIR)/libics.so: $(OBJS)
+	gcc -shared -o $(LIBDIR)/libics.so $(OBJS) \
 	  $(OCAMLSTDLIB)/libunix.a \
 	  $(LIBGMPA) \
           $(OCAMLSTDLIB)/libasmrun.a
 
-$(LIB)/libics.a: $(OBJS)
-	cp $(OCAMLSTDLIB)/libasmrun.a $(LIB)/libics.a
-	ar r $(LIB)/libics.a $(OBJS)
+$(LIBDIR)/libics.a: $(OBJS)
+	cp $(OCAMLSTDLIB)/libasmrun.a $(LIBDIR)/libics.a
+	ar r $(LIBDIR)/libics.a $(OBJS)
 
-$(SRC)/ics_stub.c $(SRC)/ics.h $(SRC)/ics.lisp: $(SRC)/ics.ml $(SRC)/ics.mli chameleon/chameleon
-	chameleon/chameleon $(SRC)/ics.ml
+ics_stub.c ics.h ics.lisp: ics.ml ics.mli ../../chameleon/$(ARCH)/chameleon
+	../../chameleon/$(ARCH)/chameleon ics.ml
 
-GENERATED = $(SRC)/lexer.ml $(SRC)/parser.mli $(SRC)/parser.ml
+GENERATED = lexer.ml parser.mli parser.ml
 
+# don't know what this one does
 top: $(COBJS) $(CMO)
 	ocamlmktop -o top -custom unix.cma $(CMO) $(COBJS) $(LIBS)
 
-CHAMELEONSRC = chameleon/mli_parser.mly chameleon/mli_lexer.mll \
-               chameleon/chameleon.ml
+../../chameleon/$(ARCH)/chameleon:
+	make -C ../../chameleon all
 
-chameleon/chameleon: $(CHAMELEONSRC)
-	make -C chameleon chameleon
+### Directories
+
+$(BINDIR):	
+	-umask 022; if test '!' -d $(BINDIR) ; then \
+                      mkdir $(BINDIR); fi;
+
+$(OBJDIR):
+	-umask 022; if test '!' -d $(OBJDIR) ; then \
+           mkdir $(OBJDIR); fi; 
+
+$(LIBDIR):
+	-umask 022; if test '!' -d $(LIBDIR) ; then \
+           mkdir $(LIBDIR); fi; 
+  
+### Source file links
+
+.PRECIOUS : $(OBJDIR)/%.ml $(OBJDIR)/%.mli $(OBJDIR)/%.mly 
+.PRECIOUS : $(OBJDIR)/%.mll $(OBJDIR)/mlgmp.c
+.PRECIOUS : $(OBJDIR)/ics-pvs.lisp $(OBJDIR)/ics_error.c
+
+
+$(OBJDIR)/%.ml: $(SRCDIR)/%.ml
+	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
+	
+$(OBJDIR)/%.mli: $(SRCDIR)/%.mli
+	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
+	
+$(OBJDIR)/%.mly: $(SRCDIR)/%.mly
+	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
+	
+$(OBJDIR)/%.mll: $(SRCDIR)/%.mll
+	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
+	
+$(OBJDIR)/mlgmp.c: $(SRCDIR)/mlgmp.c
+	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
+
+$(OBJDIR)/ics_error.c: $(SRCDIR)/ics_error.c
+	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
+
+$(OBJDIR)/ics-pvs.lisp: $(SRCDIR)/ics-pvs.lisp
+	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
 
 ### Automatic tests
 
@@ -100,14 +172,14 @@ check:: consistent inconsistent
 consistent: ics
 	@for f in `find tests/consistent/ -maxdepth 1 -type f -print`; do \
 	echo -n $$f"..."; \
-	./bin/ics $$f > /dev/null; if [ $$? = 0 ]; then echo "Ok"; else \
+	$(BINDIR)/ics $$f > /dev/null; if [ $$? = 0 ]; then echo "Ok"; else \
           echo "Error! (Should be consistent)"; exit $$?; fi \
 	done
 
 inconsistent: ics
 	@for f in `find tests/inconsistent/ -maxdepth 1 -type f -print`; do \
 	echo -n $$f"..."; \
-	./bin/ics $$f > /dev/null; if [ $$? = 3 ]; then echo "Ok"; else \
+	$(BINDIR)/ics $$f > /dev/null; if [ $$? = 3 ]; then echo "Ok"; else \
           echo "Error! (Should be inconsistent)"; exit $$?; fi \
 	done
 
@@ -119,7 +191,7 @@ BENCHFILES=linsys-005 linsys-006 linsys-007 linsys-008 linsys-009 linsys-010 \
 benchmarks: ics
 	@for f in $(BENCHFILES); do \
 	echo -n "bench file $$f..."; \
-	time -f "user = %U system = %S" ./bin/ics tests/bench/$$f > /dev/null;\
+	time -f "user = %U system = %S" $(BINDIR)/ics tests/bench/$$f > /dev/null;\
 	done
 
 PROFFILE = tests/bench/linsys-010
@@ -127,14 +199,14 @@ PROFFILE = tests/bench/linsys-010
 profile:
 	make clean
 	make OFLAGS=-p ics
-	$(BIN)/ics $(PROFFILE)
-	gprof $(BIN)/ics gmon.out > profile.out
+	$(BINDIR)/ics $(PROFFILE)
+	gprof $(BINDIR)/ics gmon.out > profile.out
 
 CPROFFILE = tests/bench/trans-1000
 
 cprofile:
 	make BFLAGS="" OCAMLC="ocamlcp -p fmt" OCAMLLINK="ocamlcp -p fmt" clean ics.byte
-	$(BIN)/ics.byte $(CPROFFILE)
+	$(BINDIR)/ics.byte $(CPROFFILE)
 	make find.prof shostak.prof
 
 ### literate programming
@@ -199,7 +271,7 @@ tags:
 	$(HEVEA) $< -o $@
 
 .c.o:
-	$(OCAMLC) -c -ccopt "-o $@" $(GMPINCLUDE) $<
+	$(OCAMLC) -c -ccopt "-o $@" $(GMPINCLUDE)  $<
 
 .mli.cmi:
 	$(OCAMLC) $(BFLAGS) -c $<
@@ -213,41 +285,29 @@ tags:
 .mll.ml:
 	$(OCAMLLEX) $<
 
+.mll.mli:
+	$(OCAMLLEX) $<
+
 .mly.ml:
 	$(OCAMLYACC) $<
+
 .mly.mli:
 	$(OCAMLYACC) $<
 
 .ml.prof:
 	ocamlprof $< > $@
 
-### clean and depend
-
-archclean::
-	rm -f *.cmx *.o *.so *.a
-	make -C chameleon archclean
+.PHONY: clean
 
 clean::
-	rm -f *~ *.cm[iox] *.o *.prof
-	rm -f $(SRC)/*.cm[iox] $(SRC)/*~
-	rm -f $(SRC)/unify/*~ $(SRC)/unify/*.cm[iox]
-	rm -f $(SRC)/unify/*.o $(SRC)/unify/*.prof
-	rm -f tests/consistent/*~ tests/inconsistent/*~ tests/bench/*~
-	rm -f $(DOC)/*.aux $(DOC)/*.log
-	rm -f $(DOC)/doc.tex $(DOC)/doc.dvi $(DOC)/doc.ps
-	rm -f $(GENERATED)
-	rm -f ics ics.byte
-	rm -f $(LIB)/ics.so $(LIB)/libics.a
-	rm -f *.prof ocamlprof.dump gmon.out profile.out
+	rm -f $(BINDIR)/ics $(BINDIR)/ics.byte 
+	rm -rf $(OBJDIR) $(LIBDIR)
 	make -C chameleon clean
 
-depend: $(GENERATED)
-	$(OCAMLDEP) $(INCLUDE) $(SRC)/*.mli $(SRC)/*.ml > .depend
-	make -C chameleon depend
+# Static dependencies for the generated files.   There are no
+# strange dependencies in the  manually generated files, so don't 
+# bother with depend.
 
-include .depend
-
-
-
-
+lexer.ml:  lexer.mll
+parser.mli parser.ml: parser.mly
 

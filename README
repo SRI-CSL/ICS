@@ -19,6 +19,11 @@ autoconf configure.in > configure
 ./configure
 make
 
+Binaries will be in ./bin/$(ARCH)/ 
+Libraries in ./lib/$(ARCH)/
+
+Build directory is ./obj/$(ARCH)/
+
 Credits:
 --------
 

@@ -5,10 +5,7 @@ AC_INIT(src/ics.mli)
 
 AC_PREFIX_DEFAULT(/usr)
 
-# AC_CONFIG_AUX_DIR(./support)
-# need support/install-sh
-# need support/missing
-# need support/mkinstalldirs
+#AC_CONFIG_AUX_DIR(./config)
 
 dnl Check for programs
 
