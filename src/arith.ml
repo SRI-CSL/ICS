@@ -421,9 +421,9 @@ let rec map f a =
        Not_found -> f a
 
 (** Replacing a variable with a term. *)
-let apply sl = Term.Subst.apply map sl
 
-let apply1 (x, b) =
+
+let apply (x, b) =
   let lookup y = if Term.eq x y then b else y in
     map lookup
 
@@ -525,7 +525,7 @@ let rec zsolve (a, b) =
 	    match Euclid.solve cl (Q.minus q) with
 	      | None -> raise Exc.Inconsistent
 	      | Some(d, pl) -> 
-		  let (kl, gl) = general cl (d, pl) in
+		  let gl = general cl (d, pl) in
 		    List.combine xl gl
 	     
 and vectorize ml =
@@ -548,22 +548,20 @@ and vectorize ml =
   any basis of the vector space of solutions [xl] of the 
   equation [al * xl = 0] would be appropriate. *)
 and general al (d, pl) =
-  let fl = ref [] in
   let rec loop al zl =
     match al, zl with
       | [_], [_] -> zl
       | a0 :: ((a1 :: al'') as al'),  z0 :: z1 :: zl'' ->
           let k = mk_fresh () in
-	    fl := k :: !fl;
-            let e0 = mk_add z0 (mk_multq (Q.div a1 d) k) in
-            let e1 = mk_add z1 (mk_multq (Q.div (Q.minus a0) d) k) in
-              e0 :: loop al' (e1 :: zl'')
+          let e0 = mk_add z0 (mk_multq (Q.div a1 d) k) in
+          let e1 = mk_add z1 (mk_multq (Q.div (Q.minus a0) d) k) in
+            e0 :: loop al' (e1 :: zl'')
       | _ -> assert false
   in
-    (!fl, loop al (List.map mk_num pl))
+    loop al (List.map mk_num pl)
 
 
-let integer_solve = ref false
+let integer_solve = ref true
 
 let solve e =
   if !integer_solve && 
