@@ -147,7 +147,7 @@ and sigma_select_update s a =     (* throws [Not_found] if no pattern matches. *
 
 let rec extend s a =
   let x = Term.mk_fresh_var (Name.of_string "v") None in 
-  Trace.msg "context" "Extend" (x, a) Term.pp_equal;
+  Trace.msg "tac" "Extend" (x, a) Term.pp_equal;
   match Theories.index a with
     | Theories.Uninterp ->
 	(x, {s with u = Solution.union (x, a) s.u})
@@ -193,7 +193,7 @@ let rec close s =
   (repeat close1 &&& normalize) s
 
 and close1 s =
-  Trace.msg "context" "Close" () (fun _ _ -> ());
+  Trace.msg "tac" "Close" () (fun _ _ -> ());
   let vfocus = V.changed s.p.Partition.v
   and dfocus = D.changed s.p.Partition.d
   and afocus = Solution.changed s.a
@@ -223,7 +223,7 @@ and prop focus s =
   Set.fold 
     (fun x -> 
        let e = (x, V.find s.p.Partition.v x) in 
-       Trace.msg "context" "Prop" e Term.pp_equal;
+       Trace.msg "tac" "Prop" e Term.pp_equal;
        u_prop e &&&
        arith_prop e &&&
        tuple_prop e &&&
@@ -394,21 +394,26 @@ and cnstrnt_diseq d s =
  [z1 = z3], where [z3 = select(a,j)]. *)
 
 and array_diseq d s =
-  Trace.msg "context" "Array diseq" d Fact.pp_diseq;
+  Trace.msg "tac" "Array diseq" d Fact.pp_diseq;
   let (i,j,_) = Fact.d_diseq d in
   select_update_diseq (i, j)
-    (select_update_diseq (i, j) s)
+    (select_update_diseq (j, i) s)
 
 and select_update_diseq (i, j) s =
   Set.fold
    (fun z1 s1 -> 
+      Trace.msg "foo" "z1" z1 Term.pp;
+      Trace.msg "foo" "s1" s1.u Solution.pp;
       try
-	let (u, j') = d_select (Solution.apply s1.u z1) in
+	let (u, j') = d_select (Solution.apply s1.u z1) in 
+        Trace.msg "foo" "u" u Term.pp;
+        Trace.msg "foo" "j'" j' Term.pp;
 	if not(V.eq (v_of s1) j j') then
 	  s1
 	else 
 	  V.fold (v_of s1)
 	    (fun z2 s2  ->
+	       Trace.msg "foo" "z2" z2 Term.pp;
 	       try
 		 let (a,i',x) = d_update (Solution.apply s2.u z2) in
 		 if not(V.eq (v_of s2) i i') then
@@ -435,14 +440,14 @@ and select_update_diseq (i, j) s =
    s
 
 and deduce focus s = 
-  Trace.msg "context" "Deduce" (Set.elements focus) (Pretty.set Term.pp);
+  Trace.msg "tac" "Deduce" (Set.elements focus) (Pretty.set Term.pp);
   let s = {s with a = Solution.reset s.a} in
   let c' = 
     Set.fold
       (fun x acc ->
 	 let y = V.find (v_of s) x in
 	 let e = (y, Solution.find s.a y) in
-	 C.deduce e (acc, s.p.Partition.d))
+	 C.deduce e acc)
       focus
       s.p.Partition.c
   in
@@ -451,22 +456,60 @@ and deduce focus s =
 
 and infer focus s =
   let s = {s with p = {s.p with Partition.c = C.reset (c_of s)}} in
-  s
-(*
-  Set.iter
+  Set.fold
     (fun x s -> 
-       Trace.msg "context" "Consistent" x Term.pp;
+       Trace.msg "tac" "Consistent" x Term.pp;
        try
-	 match Cnstrnt.d_singleton (C.apply (c_of s) (V.find (v_of s) x)) with
-	   | None -> ()
-	   | Some(q) ->
-	       let (p', a') = Solution.compose Arith.map (s.p, s.a) [x, Arith.mk_num q] in
-	       {s with a = a'; p = p'}
+	 let i = C.apply (c_of s) (V.find (v_of s) x) in
+	 singleton_infer (x, i)
+            (diseq_infer (x, i)
+                (equal_infer (x, i) s))
        with
-	   Not_found -> ())
-    focus;
-  s
- *)
+	   Not_found -> s)
+    focus
+    s
+
+and equal_infer (x, i) s =
+  try
+    let b = Solution.apply s.a x in
+    let c' = C.deduce (x, b) s.p.Partition.c in
+    let p' = {s.p with Partition.c = c'} in
+    {s with p = p'}
+  with
+      Not_found ->
+	Set.fold
+	  (fun y s ->
+	     try
+	       let b = Solution.apply s.a y in
+	       let c' = C.deduce (y, b) s.p.Partition.c in
+	       let p' = {s.p with Partition.c = c'} in
+	       {s with p = p'}
+	     with
+		 Not_found -> s)
+	  (Solution.use s.a x)
+	  s
+	       
+and diseq_infer (x, i) s =
+  match Cnstrnt.d_singleton i with
+    | None -> s
+    | Some(q) ->
+	let j = Cnstrnt.mk_diseq q in
+	Set.fold
+	  (fun y s ->
+	     let c' = C.add (Fact.mk_cnstrnt y j None) s.p.Partition.c in
+	     let p' = {s.p with Partition.c = c'} in
+	     {s with p = p'})
+	  (D.deq s.p.Partition.d x)
+	  s
+  
+and singleton_infer (x, i) s = 
+  match Cnstrnt.d_singleton i with
+    | None ->
+	s
+    | Some(q) ->
+	let (p', a') = Solution.compose Arith.map (s.p, s.a) [x, Arith.mk_num q] in
+	{s with a = a'; p = p'}
+
 
 (*s List all constraints with finite extension. *)
 
