@@ -41,7 +41,7 @@ endif
 
 # Flags
 
-INCLUDE = # -I unify -I fol -I qe
+INCLUDE =
 CFLAGS = 
 BFLAGS = -g $(INCLUDE) # -noassert
 OFLAGS = $(INCLUDE) # -noassert
@@ -51,27 +51,47 @@ LIBS = -cclib "-lunix $(LIBGMPA)"
 
 COBJS = mlgmp.o
 
-CMO = cmp.cmo gmp.cmo mpa.cmo \
+CMO = sign.cmo binrel.cmo three.cmo \
+      gmp.cmo mpa.cmo \
       hashcons.cmo hasht.cmo \
       ptset.cmo ptmap.cmo \
-      tools.cmo binrel.cmo \
+      tools.cmo status.cmo \
       trace.cmo \
-      interval.cmo \
-      term.cmo eqn.cmo\
       exc.cmo\
-      pretty.cmo  \
+      bitv.cmo \
+      extq.cmo allen.cmo dom.cmo interval.cmo intervals.cmo \
+      name.cmo \
+      number.cmo type.cmo \
+      arity.cmo sym.cmo \
+      term.cmo \
       cache.cmo \
-      subst.cmo \
-      th.cmo \
-      bdd.cmo \
+      rename.cmo \
+      linarith.cmo \
+      enum.cmo \
+      bool.cmo \
+      tuple.cmo \
+      bv.cmo \
+      nonlin.cmo \
+      builtin.cmo \
+      uninterp.cmo \
       cnstrnt.cmo \
       atom.cmo \
-      bool.cmo \
-      euclid.cmo pproduct.cmo arith.cmo \
-      builtin.cmo \
-      tuple.cmo app.cmo \
-      cc.cmo \
+      prop.cmo \
+      pretty.cmo \
+      subst.cmo \
+      pending.cmo \
+      c.cmo \
+      d.cmo \
+      u.cmo \
+      th.cmo \
+      theory.cmo \
       dp.cmo \
+      can.cmo \
+      purify.cmo \
+      process.cmo \
+      check.cmo \
+      symtab.cmo state.cmo \
+      parser.cmo lexer.cmo \
       ics.cmo
 
 
@@ -91,8 +111,8 @@ all-chdir: ics $(LIBDIR)/libics.so $(LIBDIR)/libics.a ics.byte
 	@echo 
 
 
-TOPCMO = $(CMO) cmd.cmo parser.cmo lexer.cmo main.cmo
-TOPCMI = $(CMI) cmd.cmi parser.cmi 
+TOPCMO = $(CMO) main.cmo
+TOPCMI = $(CMI) 
 
 TOPCMX = $(TOPCMO:.cmo=.cmx)
 
@@ -125,13 +145,13 @@ endif
 ics_all.o: $(CMX)
 	$(OCAMLOPT) -output-obj -o $@ unix.cmxa $(CMX)
 
-$(LIBDIR)/libics.so: $(OBJS)  $(LISPOBJS)
+$(LIBDIR)/libics.so: $(OBJS) # $(LISPOBJS)
 	gcc -shared -o $(LIBDIR)/libics.so $(OBJS) \
 	  $(OCAMLSTDLIB)/libunix.a \
 	  $(LIBGMPA) \
           $(OCAMLSTDLIB)/libasmrun.a
 
-$(LIBDIR)/libics.a: $(OBJS) $(LISPOBJS)
+$(LIBDIR)/libics.a: $(OBJS) # $(LISPOBJS)
 	cp $(OCAMLSTDLIB)/libasmrun.a $(LIBDIR)/libics.a
 	ar r $(LIBDIR)/libics.a $(OBJS)
 
