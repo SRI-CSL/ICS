@@ -21,14 +21,14 @@ open Name.Map
 (*s Global state. *)
 
 type t = {
-  mutable current : Shostak.t;
+  mutable current : Context.t;
   mutable symtab : Symtab.t;
   mutable inchannel : in_channel;
   mutable outchannel : Format.formatter
 }
 
 let init () = {
-  current = Shostak.empty;
+  current = Context.empty;
   symtab = Symtab.empty;
   inchannel = Pervasives.stdin;
   outchannel = Format.std_formatter
@@ -39,7 +39,7 @@ let s = init ()
 (*s Context. *)
 
 let ctxt_of () = 
-  Atom.Set.elements s.current.Shostak.ctxt
+  Atom.Set.elements s.current.Context.ctxt
 
 (*s Accessors to components of global state. *)
 
@@ -96,7 +96,7 @@ let width_of a =
 
 let reset () = 
   Tools.do_at_reset ();
-  s.current <- Shostak.empty;
+  s.current <- Context.empty;
   s.symtab <- Symtab.empty;
   s.inchannel <- Pervasives.stdin;
   s.outchannel <- Format.std_formatter
@@ -128,7 +128,7 @@ let cant p =
   b
 
 let sigma f l =
-  Shostak.sigma s.current f l
+  Context.sigma s.current f l
 
 
 (*s Adding a new fact *)
@@ -167,28 +167,28 @@ let remove n =
   s.symtab <- Symtab.remove n s.symtab
 
 let forget () =
-  s.current <- Shostak.empty
+  s.current <- Context.empty
 
 
 (*s Accessors. *)
 
 let diseq a =
   let a' = cant a in
-  Term.Set.elements (D.deq (s.current.Shostak.d) a')
+  Term.Set.elements (D.deq (s.current.Context.d) a')
 
 let cnstrnt a =
   let a' = cant a in
-  Shostak.cnstrnt s.current a'
+  Context.cnstrnt s.current a'
 
 (*s Applying maps. *)
 
-let find e = Shostak.find e s.current
-let inv e = Shostak.inv e s.current
-let use e = Shostak.use e s.current
+let find e = Context.find e s.current
+let inv e = Context.inv e s.current
+let use e = Context.use e s.current
 
 (*s Solution sets. *)
 
-let solution e = Shostak.solution e s.current
+let solution e = Context.solution e s.current
 
 (*s Variable partitioning. *)
 
@@ -196,23 +196,16 @@ let partition () =
   Term.Map.fold
     (fun x y acc ->
        (x,y) :: acc)
-    (Shostak.partition s.current)
+    (Context.partition s.current)
     []
  
 (*s Equality/disequality test. *)
 
 let is_equal a b =
-  let t = current () in
-  let (t',a') = Shostak.can_t t a in
-  let (_,b') = Shostak.can_t t' b in
-  Term.eq a' b'
-
-let is_diseq a b =
-  Shostak.is_diseq s.current a b
+  Shostak.is_equal s.current a b
 
 let is_int a =
-  match Shostak.cnstrnt s.current a with
+  match Context.cnstrnt s.current a with
     | Some(c) -> Cnstrnt.dom_of c = Dom.Int
     | None -> false
 	
-let tests () = Shostak.tests s.current

@@ -166,8 +166,8 @@ sexpr:
 
 
 array: 
-  term LBRA term ASSIGN term RBRA { Builtin.mk_update (Istate.tests()) $1 $3 $5 }
-| term LBRA term RBRA             { Builtin.mk_select (Istate.tests()) $1 $3 }  
+  term LBRA term ASSIGN term RBRA { Builtin.mk_update (Istate.current()) $1 $3 $5 }
+| term LBRA term RBRA             { Builtin.mk_select (Istate.current()) $1 $3 }  
 ;
 
 boolean:
@@ -286,7 +286,7 @@ command:
 | term CMP term             { let cmp = Term.cmp $1 $3 in
 			      let str = if cmp < 0 then "Less." else if cmp = 0 then "Equal." else "Greater." in
 			      Pretty.string (out()) str }
-| SHOW                      { Shostak.pp (out()) (Istate.current()) }
+| SHOW                      { Context.pp (out()) (Istate.current()) }
 | FIND th term              { Term.pp (out()) (Istate.find $2 $3) }
 | INV th term               { try Term.pp (out()) (Istate.inv $2 $3)
 		 	      with Not_found -> pr "Undef." }

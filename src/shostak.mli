@@ -15,82 +15,21 @@
  i*)
 
 
-(*s Module [Dp]: maintaining the logical context of the decision procedures. *)
+(*s Module [Shostak]: Maintaining the logical context of decision procedures. *)
 
-(*s A logical context is given by a tuple [(u,c,a,t,bv,fa,d,nla)] where
-       \begin{itemize}
-       \item [u] consists of a set of equalities [x = y] over terms [x], [y]
-             which are either uninterpreted or interpreted constants (see
-             module [U]).
-       \item [c] consists of constraints of the form [x in d] where [x] is
-             an uninterpreted term and [d] is a type constraints.  Moreover, [x] 
-             is a canonical representative of an equivalence class in [u];
-             that is, [U.can x === x]. 
-       \item [a], [t], [bv], [fa] are the contexts for the interpreted 
-             equality theories linear arithmetic ([a]), tuples ([t]), bitvectors ([bv]),
-             and functional arrays [(fa)]. Each of these contexts consists of
-             equalities [x |-> b] where [x] is uninterpreted, and [b] is 
-             a con-constant term built entirely from interpreted function symbols
-             of the theory under consideration (see module [Th]).
-       \item [d] stores the known disequalities over uninterpreted terms (see
-             module [D]).
-       \item [nla] is basically a symbol table for nonlinear terms of the 
-             form [x |-> a] where [x] is uninterpreted and [a] is built from
-             exponentiation and nonlinear multiplication.
-       \end{itemize}
- *)
+(*s Sigma normal forms with builtin simplifications. *)
 
-type t = {
-  ctxt : Atom.Set.t;    (* Current context. *)
-  u : Cc.t;             (* Congruence closure data structure. *)
-  i : Th.t;             (* Interpreted theories. *)
-  d : D.t               (* Disequalities. *)
-}
-
-(*s Pretty-printing the context of a state. *)
-
-val pp : t Pretty.printer
-
-(*s For an term [a] which is either uninterpreted or an interpreted
- constant, [type_of s a] returns the most refined type as obtained
- from both static information encoded in the arity of uninterpreted
- function symbols (see module [Sym]) and the constraint context
- [c_of s]. *)
-
-val cnstrnt : t -> Term.t -> Cnstrnt.t option
-
-val is_diseq : t -> Term.t -> Term.t -> bool
-
-val tests : t -> Builtin.tests
-
-val sigma : t -> Sym.t -> Term.t list -> Term.t
-
-
-(*s Variable partitioning. *)
-
-val partition: t -> Term.t Term.Map.t
-
-(*s Solution sets for equality theories. *)
-
-val solution :Theories.t-> t -> (Term.t * Term.t) list
-
-
-(*s Parameterized operators *)
-
-val find : Theories.t-> t -> Term.t -> Term.t
-val inv : Theories.t-> t -> Term.t -> Term.t
-val use : Theories.t-> t -> Term.t -> Term.Set.t
+val sigma : Context.t -> Sym.t -> Term.t list -> Term.t
 
 (*s Canonization. *)
 
-val can_t : t -> Term.t -> t * Term.t
+val can_t : Context.t -> Term.t -> Context.t * Term.t
 
-val can : t -> Atom.t -> t * Atom.t
+val can : Context.t -> Atom.t -> Context.t * Atom.t
 
+(*s Test for equality. *)
 
-(*s The empty logical context. *)
-
-val empty : t 
+val is_equal : Context.t -> Term.t -> Term.t -> bool
 
 (*s Processing *)
 
@@ -100,9 +39,9 @@ type 'a status =
   | Satisfiable of 'a
 
 
-val process: t -> Atom.t -> t status
+val process: Context.t -> Atom.t -> Context.t status
 
 
 (*s Compressing the state. *)
 
-val compress : t -> t
+val compress : Context.t -> Context.t

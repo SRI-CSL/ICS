@@ -20,7 +20,7 @@
 
 (*s [sigma op l] is the combined sigmatizer for the interpreted theories. *)
 
-val sigma : Builtin.tests -> Sym.t -> Term.t list -> Term.t
+val sigma : Sym.t -> Term.t list -> Term.t
 
 (*s Component solvers. *)
 

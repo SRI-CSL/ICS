@@ -16,82 +16,27 @@
 
 (*i*)
 open Term
+open Context
 (*i*)
 
-(*s Decision procedure state. *)
+(*s Sigma normal forms with builtin uninterpreted functions. *)
 
-type t = {
-  ctxt : Atom.Set.t;    (* Current context. *)
-  u : Cc.t;             (* Congruence closure data structure. *)
-  i : Th.t;             (* Interpreted theories. *)
-  d : D.t               (* Disequalities. *)
-}
+let sigma s f l =
+  match Interp.index f with 
+    | Some _ -> 
+	Th.sigma f l
+    | None -> 
+	if Sym.is_builtin f then
+	  Builtin.sigma s f l
+	else 
+	  App.sigma f l
 
-let empty = {
-  ctxt = Atom.Set.empty;
-  u = Cc.empty;
-  i = Th.empty;
-  d = D.empty
-}
-
-
-(*s Canonical variables module [s]. *)
-
-let v s = Cc.v s.u
-
-
-(*s Constraint of [a] in [s]. *)
-
-let cnstrnt s = Th.cnstrnt s.i
-
-let deq s = D.deq_of s.d
-
-
-(*s Pretty-printing. *)
-  
-let pp fmt s =
-  Cc.pp fmt s.u;
-  Th.pp fmt s.i;
-  D.pp fmt s.d
-
-
-(*s [is_diseq s a b] holds iff if [a] and [b] are known to be
- disequal in context [s]. *)
-
-let is_diseq s a b =
-  Term.is_diseq a b || D.is_diseq s.d a b
-
-
-(*s Parameterized operations. *)
-
-let inv i s = 
-  match i with
-    | Theories.Uninterp -> Cc.inv s.u 
-    | Theories.Interp(i) -> Th.inv i s.i
+(*s Only interpreted find. *)
 
 let find i s x =
   match i with
     | Theories.Interp(i) -> Th.find i s.i x
-    | Theories.Uninterp ->  x
-
-let use i s = 
-  match i with
-    | Theories.Interp(i) -> Th.use i s.i
-    | Theories.Uninterp -> Cc.use s.u
-
-
-	
-(*s Return solution sets. *)
-
-let solution e s =
-  match e with
-    | Theories.Uninterp -> Cc.solution s.u
-    | Theories.Interp(i) -> Th.solution i s.i 
-
-
-(*s Variable partitioning. *)
-
-let partition s = Cc.partition s.u
+    | Theories.Uninterp -> x
 
 
 (*s Abstracting a term [a] in theory [i]. *)
@@ -145,22 +90,6 @@ and is_equal s a b =
   let (s',a') = can_t s a in
   let (_, b') = can_t s' b in
   Term.eq a' b'
-
-and sigma s f =
-  match Interp.index f with
-    | None -> App.sigma (tests s) f
-    | Some _ -> Th.sigma (tests s) f
-
-and tests s = {
-    Builtin.is_equal = is_equal s;
-    Builtin.is_diseq = is_diseq s;
-    Builtin.cnstrnt = cnstrnt s;
-    Builtin.find = 
-		 fun i x -> 
-		   let y = find i s x in
-		   if eq x y then None else Some(y)
-  }
-  
 
 (*s Canonization of atoms. *)
 

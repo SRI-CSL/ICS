@@ -32,3 +32,9 @@ let name_of = function
 let of_name = function
   | "u" -> Uninterp
   | x -> Interp(Interp.of_name x)  (* might raise [Invalid_argument] *)
+
+let a = Interp(Interp.A)
+let t = Interp(Interp.T)
+let b = Interp(Interp.B)
+let bv = Interp(Interp.BV)
+let u = Uninterp

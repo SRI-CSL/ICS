@@ -72,7 +72,6 @@ CMO = sign.cmo three.cmo \
       arith.cmo \
       tuple.cmo \
       bitvector.cmo \
-      builtin.cmo \
       app.cmo \
       atom.cmo \
       subst.cmo \
@@ -84,6 +83,8 @@ CMO = sign.cmo three.cmo \
       d.cmo \
       cc.cmo \
       th.cmo \
+      context.cmo \
+      builtin.cmo \
       shostak.cmo \
       symtab.cmo istate.cmo \
       help.cmo \

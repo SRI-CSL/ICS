@@ -19,25 +19,18 @@
 
 val is_builtin : Term.t -> bool
 
-type tests = {
-  is_equal : Term.t -> Term.t -> bool;
-  is_diseq : Term.t -> Term.t -> bool;
-  cnstrnt : Term.t -> Cnstrnt.t option;
-  find : Theories.t -> Term.t -> Term.t option
-}
+val mk_unsigned : Context.t -> Term.t -> Term.t
 
-val mk_unsigned : tests -> Term.t -> Term.t
+val mk_select : Context.t -> Term.t -> Term.t -> Term.t
+val mk_update : Context.t -> Term.t -> Term.t -> Term.t -> Term.t
 
-val mk_select : tests -> Term.t -> Term.t -> Term.t
-val mk_update : tests -> Term.t -> Term.t -> Term.t -> Term.t
+val mk_div : Context.t -> Term.t -> Term.t -> Term.t
 
-val mk_div : tests -> Term.t -> Term.t -> Term.t
+val mk_sin : Context.t -> Term.t -> Term.t
+val mk_cos : Context.t -> Term.t -> Term.t
 
-val mk_sin : tests -> Term.t -> Term.t
-val mk_cos : tests -> Term.t -> Term.t
-
-val mk_floor : tests -> Term.t -> Term.t
-val mk_ceiling : tests -> Term.t -> Term.t
+val mk_floor : Context.t -> Term.t -> Term.t
+val mk_ceiling : Context.t -> Term.t -> Term.t
 
 
-val sigma : tests -> Sym.t -> Term.t list -> Term.t
+val sigma : Context.t -> Sym.t -> Term.t list -> Term.t

@@ -19,11 +19,8 @@ open Term
 open Hashcons
 (*i*)
 
-let sigma tests f l =
-  if Sym.is_builtin f then
-    Builtin.sigma tests f l
-  else 
-    Term.mk_app f l
+let sigma f l =
+  Term.mk_app f l
 	  
 let is_uninterp a =
   not(Term.is_var a) &&

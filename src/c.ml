@@ -101,7 +101,7 @@ let normalize (a, c) =
 (*s Adding a constraint. *)
     
 let rec add (a,c) s =
-  let (a, c) = normalize (a, c) in
+  (* let (a, c) = normalize (a, c) in *)
   Trace.msg 6 "Add(c)" (a,c) Term.pp_in;
   if is_var a then
     add_var (a,c) (s, [])

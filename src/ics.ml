@@ -170,8 +170,7 @@ let _ = Callback.register "term_mk_var" term_mk_var
          
 let term_mk_uninterp x l =
   let f = Sym.mk_uninterp (Name.of_string x) in
-  let tests = Shostak.tests Shostak.empty in
-  App.sigma tests f l
+  App.sigma f l
 let _ = Callback.register "term_mk_uninterp" term_mk_uninterp
 
   
@@ -310,30 +309,28 @@ let _ = Callback.register "term_mk_expt" term_mk_expt
 
 (*s Builtin applications. *)
 
-let emptytest = Shostak.tests Shostak.empty
-
-let term_mk_unsigned = Builtin.mk_unsigned emptytest
+let term_mk_unsigned = Builtin.mk_unsigned
 let _ = Callback.register "term_mk_unsigned" term_mk_unsigned
 
-let term_mk_update = Builtin.mk_update emptytest
+let term_mk_update = Builtin.mk_update
 let _ = Callback.register "term_mk_update" term_mk_update
 
-let term_mk_select = Builtin.mk_select emptytest
+let term_mk_select = Builtin.mk_select
 let _ = Callback.register "term_mk_select" term_mk_select
 
-let term_mk_div = Builtin.mk_div emptytest
+let term_mk_div = Builtin.mk_div
 let _ = Callback.register "term_mk_div" term_mk_div
 
-let term_mk_floor = Builtin.mk_floor emptytest
+let term_mk_floor = Builtin.mk_floor
 let _ = Callback.register "term_mk_floor" term_mk_floor
 
-let term_mk_ceiling = Builtin.mk_ceiling emptytest
+let term_mk_ceiling = Builtin.mk_ceiling
 let _ = Callback.register "term_mk_ceiling" term_mk_ceiling
 
-let term_mk_sin = Builtin.mk_sin emptytest
+let term_mk_sin = Builtin.mk_sin
 let _ = Callback.register "term_mk_sin" term_mk_sin
 
-let term_mk_cos = Builtin.mk_cos emptytest
+let term_mk_cos = Builtin.mk_cos
 let _ = Callback.register "term_mk_cos" term_mk_cos
 
 
@@ -367,24 +364,24 @@ let _ = Callback.register "set_verbose" set_verbose
 
 open Shostak
 
-type state = Shostak.t
+type context = Context.t
 
-let state_eq = (==)
-let _ = Callback.register "state_eq" state_eq  
+let context_eq = (==)
+let _ = Callback.register "context_eq" context_eq  
 
-let state_empty () = Shostak.empty
-let _ = Callback.register "state_empty" state_empty
+let context_empty () = Context.empty
+let _ = Callback.register "context_empty" context_empty
 
-let state_ctxt_of s = (Atom.Set.elements s.Shostak.ctxt)
-let _ = Callback.register "state_ctxt_of" state_ctxt_of
+let context_ctxt_of s = (Atom.Set.elements s.Context.ctxt)
+let _ = Callback.register "context_ctxt_of" context_ctxt_of
 
-let state_pp s = Shostak.pp Format.std_formatter s; Format.print_flush()
-let _ = Callback.register "state_pp" state_pp
+let context_pp s = Context.pp Format.std_formatter s; Format.print_flush()
+let _ = Callback.register "context_pp" context_pp
 	  
 
 (*s Processing of new equalities. *)
 
-type status = Shostak.t Shostak.status
+type status = Context.t Shostak.status
 
 let is_consistent = function Shostak.Satisfiable _ -> true | _ -> false
 let _ = Callback.register "is_consistent" is_consistent
@@ -479,7 +476,7 @@ let _ = Callback.register "cmd_eval" cmd_eval
 
 (*s Abstract sign interpretation. *)
 
-let cnstrnt s a = Shostak.cnstrnt s a
+let cnstrnt s a = Context.cnstrnt s a
  
 
 (*s Tools *)

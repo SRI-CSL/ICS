@@ -24,3 +24,9 @@ val index : Term.t -> t
 val name_of : t -> string
 
 val of_name : string -> t
+
+val u : t
+val a : t
+val t : t
+val bv : t
+val b : t

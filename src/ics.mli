@@ -281,21 +281,6 @@ val term_mk_bwor : int -> term -> term -> term
 val term_mk_bwnot : int -> term -> term
 
 
-(*s Builtin simplifying constructors. *)
-
-val term_mk_unsigned : term -> term
-
-val term_mk_update : term -> term -> term -> term
-val term_mk_select : term -> term -> term
-
-val term_mk_div : term -> term -> term
-val term_mk_floor : term -> term
-val term_mk_ceiling : term -> term
-
-val term_mk_sin : term -> term
-val term_mk_cos : term -> term
-
-
 (*s Atoms. [atom_mk_true()] is the trivially true atom,
  [atom_mk_false()] is the trivially false atom, and 
  given terms [a], [b], the constructor [mk_equal a b]
@@ -340,15 +325,30 @@ val atom_mk_ge : term -> term -> atom
  context [s] are obtained with [state_ctxt_of s]. *)
  
 
-type state
+type context
 
-val state_eq : state -> state -> bool
+val context_eq : context -> context -> bool
  
-val state_empty : unit -> state
+val context_empty : unit -> context
 
-val state_ctxt_of : state -> atom list
-val state_pp : state -> unit
-  
+val context_ctxt_of : context -> atom list
+val context_pp : context -> unit
+
+
+(*s Builtin simplifying constructors. *)
+
+val term_mk_unsigned : context -> term -> term
+
+val term_mk_update : context -> term -> term -> term -> term
+val term_mk_select :  context ->term -> term -> term
+
+val term_mk_div :  context -> term -> term -> term
+val term_mk_floor : context -> term -> term
+val term_mk_ceiling : context -> term -> term
+
+val term_mk_sin : context -> term -> term
+val term_mk_cos : context -> term -> term
+
 
 (*s The operation [process s a] adds a new atom [a] to a logical context [s].
   The codomain of this function is of type [status], elements of
@@ -363,9 +363,9 @@ val is_consistent   : status -> bool
 val is_redundant    : status -> bool
 val is_inconsistent : status -> bool
 
-val d_consistent : status -> state
+val d_consistent : status -> context
     
-val process : state -> atom -> status
+val process : context -> atom -> status
 
 
 (*s Canonization. Given a logical context [s] and an atom [a],
@@ -375,14 +375,14 @@ val process : state -> atom -> status
  equivalent normalized atom built up only from variables is 
  returned. The returned logical state might contain fresh variables. *)
 
-val can : state -> atom -> state * atom
+val can : context -> atom -> context * atom
 
 (*s Given a logical context [s] and a term [a], [cnstrnt s a]
  computes the best possible arithmetic constraint for [a] in [s]
  using constraint informatin in [s] and abstraction interval interpretation.
  If no such constraint can be deduced, [None] is returned. *)
 
-val cnstrnt : state -> term -> Cnstrnt.t option
+val cnstrnt : context -> term -> Cnstrnt.t option
 
 
 (*s An imperative state [istate] does not only include a logical 
@@ -394,7 +394,7 @@ type istate
 
 (*s [cmd_current ()] returns the current logical state. *)
 
-val cmd_current : unit -> state
+val cmd_current : unit -> context
 
 (*s [cmd_def n a] adds a definition [n] for [a] to the symbol table. *)
 

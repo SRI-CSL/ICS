@@ -24,16 +24,12 @@ let is_builtin a =
   not (is_var a) &&
   Sym.is_builtin (sym_of a)
 
-type tests = {
-  is_equal : Term.t -> Term.t -> bool;
-  is_diseq : Term.t -> Term.t -> bool;
-  cnstrnt : Term.t -> Cnstrnt.t option;
-  find : Theories.t -> Term.t -> Term.t option
-}
 
 (*s Division. *)
 
-let mk_div tests a b =
+let mk_div s a b =
+  let a = Context.find Theories.a s a in
+  let b = Context.find Theories.a s b in
   match Arith.d_num b with
     | Some(q) ->
 	Arith.mk_multq (Mpa.Q.inv q) a
@@ -42,7 +38,8 @@ let mk_div tests a b =
 
 (*s Unsigned interpretation. *)
 
-let rec mk_unsigned tests a =
+let rec mk_unsigned s a =
+  let a = Context.find Theories.bv s a in  (* look for bitvector interpretation. *)
   if is_var a then
     Term.mk_app Sym.mk_unsigned [a]
   else 
@@ -55,7 +52,7 @@ let rec mk_unsigned tests a =
 	     | Sym.Sub(n,i,j), [x] -> 
 		 mk_unsigned_sub n i j x
 	     | Sym.Conc(n,m), [x;y] -> 
-		 mk_unsigned_conc tests n m x y
+		 mk_unsigned_conc s n m x y
              | Sym.Bitwise(n), [x;y;z] -> 
 		 Term.mk_app Sym.mk_unsigned [a]
 	     | _ -> assert false)
@@ -72,29 +69,29 @@ and mk_unsigned_const b =
 and mk_unsigned_sub n i j x =
   Term.mk_app Sym.mk_unsigned [Bitvector.mk_sub n i j x]
 
-and mk_unsigned_conc tests n m x y =
-  let ux = mk_unsigned tests x in
-  let uy = mk_unsigned tests y in
+and mk_unsigned_conc s n m x y =
+  let ux = mk_unsigned s x in
+  let uy = mk_unsigned s y in
   let two_expt_m = Q.of_z (Z.expt (Z.of_int 2) m) in
   Arith.mk_add (Arith.mk_multq two_expt_m ux) uy
   
 
 (*s Update/Select *)
 
-let mk_update tests a i e =
+let mk_update s a i e =
   Term.mk_app Sym.mk_update [a;i;e]
 
-let rec mk_select tests a x =
+let rec mk_select s a x =
   if is_var a then
     Term.mk_app Sym.mk_select [a;x]
   else 
     match Term.destruct a with
       | f, [b;y;e] 
 	  when Sym.eq f Sym.mk_update ->
-	    if  tests.is_equal x y then 
+	    if  Context.is_equal s x y then 
 	      e
-	    else if tests.is_diseq x y then
-	      mk_select tests b x
+	    else if Context.is_diseq s x y then
+	      mk_select s b x
 	    else 
 	      Term.mk_app Sym.mk_select [a;x]
       | _ -> 
@@ -102,28 +99,26 @@ let rec mk_select tests a x =
 
 (* Sine and Cosine *)
 
-let rec mk_sin tests a =
+let rec mk_sin s a =
+  let a = Context.find Theories.a s a in
   match Arith.d_add a with
     | Some([x;y]) ->
-	Arith.mk_add (Arith.mk_mult (mk_sin tests x) (mk_cos tests y))
-	             (Arith.mk_mult (mk_cos tests x) (mk_sin tests y))
+	Arith.mk_add (Arith.mk_mult (mk_sin s x) (mk_cos s y))
+	             (Arith.mk_mult (mk_cos s x) (mk_sin s y))
     | _ ->
 	Term.mk_app Sym.mk_sin [a]
 
-and mk_cos tests a = 
+and mk_cos s a =   
+  let a = Context.find Theories.a s a in
   Term.mk_app Sym.mk_cos [a]
 
 
 (*s Floor function. *)
 
-let is_int tests x = 
-  match tests.cnstrnt x with
-    | Some(c) -> Cnstrnt.dom_of c = Dom.Int
-    | None -> false
-
-let mk_floor tests a =
+let mk_floor s a = 
+  let a = Context.find Theories.a s a in
   let ms = Arith.monomials a in
-  let (ints,nonints) = List.partition (is_int tests) ms in
+  let (ints,nonints) = List.partition (Context.is_int s) ms in
   let nonint' = Arith.mk_addl nonints in
   let fl = match Arith.d_num nonint' with
     | Some(q) -> Arith.mk_num (Mpa.Q.of_z (Mpa.Q.floor q))
@@ -131,23 +126,24 @@ let mk_floor tests a =
   in
   Arith.mk_addl (fl :: ints)
 
-let mk_ceiling tests a =
+let mk_ceiling s a = 
+  let a = Context.find Theories.a s a in
   Term.mk_app Sym.mk_ceiling [a]
  
 
 (*s Sigmatizing builtin functions. *)
 
-let sigma tests f l =
+let sigma s f l =
   assert(Sym.is_builtin f);
   match Sym.builtin f, l with
-    | Sym.Unsigned, [x] -> mk_unsigned tests x
-    | Sym.Select, [x;y] -> mk_select tests x y
-    | Sym.Update, [x;y;z] -> mk_update tests x y z
-    | Sym.Sin, [x] -> mk_sin tests x
-    | Sym.Cos, [x] -> mk_cos tests x
-    | Sym.Floor, [x] -> mk_floor tests x
-    | Sym.Ceiling, [x] -> mk_ceiling tests x
-    | Sym.Div, [x;y] -> mk_div tests x y
+    | Sym.Unsigned, [x] -> mk_unsigned s x
+    | Sym.Select, [x;y] -> mk_select s x y
+    | Sym.Update, [x;y;z] -> mk_update s x y z
+    | Sym.Sin, [x] -> mk_sin s x
+    | Sym.Cos, [x] -> mk_cos s x
+    | Sym.Floor, [x] -> mk_floor s x
+    | Sym.Ceiling, [x] -> mk_ceiling s x
+    | Sym.Div, [x;y] -> mk_div s x y
     | _ -> assert false
 
 

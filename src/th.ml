@@ -59,13 +59,13 @@ let pp fmt s =
 
 (*s Canonizer for purely interpreted terms. *)
 
-let sigma tests f l = 
+let sigma f l = 
   match Sym.destruct f with
     | Sym.Interp(Sym.Arith(op)) -> Arith.sigma op l
     | Sym.Interp(Sym.Tuple(op)) -> Tuple.sigma op l
     | Sym.Interp(Sym.Boolean(op)) -> Boolean.sigma op l
     | Sym.Interp(Sym.Bv(op)) -> Bitvector.sigma op l
-    | _ -> App.sigma tests f l
+    | _ -> App.sigma f l
 
 let solve i e =
   match i with

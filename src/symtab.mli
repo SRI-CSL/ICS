@@ -20,7 +20,7 @@ type entry =
   | Def of Term.t
   | Arity of int
   | Type of Cnstrnt.t
-  | State of Shostak.t
+  | State of Context.t
 
 and t
 

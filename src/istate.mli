@@ -16,7 +16,7 @@
 
 type t 
 
-val current : unit -> Shostak.t
+val current : unit -> Context.t
 val symtab : unit -> Symtab.t
 val inchannel : unit -> in_channel
 val outchannel : unit -> Format.formatter
@@ -69,7 +69,7 @@ val sigma : Sym.t -> Term.t list -> Term.t
 
 (*s Adding a new fact *)
 
-val process : Atom.t -> Shostak.t Shostak.status
+val process : Atom.t -> Context.t Shostak.status
 
 (*s Compress the current state. *)
 
@@ -109,6 +109,3 @@ val cnstrnt : Term.t -> Cnstrnt.t option
 (*s Equality/disequality test. *)
 
 val is_equal : Term.t -> Term.t -> bool
-val is_diseq : Term.t -> Term.t -> bool
-
-val tests : unit -> Builtin.tests
