@@ -139,12 +139,12 @@ val process_diseq : config -> Fact.Diseq.t -> unit
 
 exception Unbounded
 
-val maximize : config -> Justification.Eqtrans.t
-  (** [max s a] returns either
+val upper : config -> Justification.Eqtrans.t
+  (** [upper s a] returns either
     - [(b, rho)] such that [b+] is empty and [rho |- a = b], or
     - raises [Unbounded] if [a] is unbounded in [s]. *)
 
-val minimize : config -> Justification.Eqtrans.t
+val lower : config -> Justification.Eqtrans.t
 
 val is_nonpos : config -> Justification.Pred.t
   (** [is_nonpos s a] returns [Some(rho)] if [a <= 0] holds in [s]. 
@@ -194,8 +194,9 @@ module Finite : sig
 	
 end 
 
+type mode = Max | Min
 
-val model : config -> Term.Set.t -> Term.t Term.Map.t
+val model : config -> (Term.t * mode option) list -> Term.t Term.Map.t
   (** [model (p, s) xs] returns an assignment [rho]
     for the variables in [xs] with bindings [x |-> q].
     [q] is either a rational number or a rational 
