@@ -158,11 +158,13 @@ end
 
 (** {6 Justifications} *)
 
+
 type t =
   | Unjustified
   | Dependency of Atom.Set.t
   | Proof of Proof.t
 
+ 
 let axioms_of = function
   | Unjustified -> raise Not_found
   | Dependency(axms) -> axms
@@ -174,13 +176,19 @@ let proof_of = function
 
 let pp fmt j =
   match !proofmode with
-    | No -> Format.fprintf fmt "Unjustified"
-    | Dep -> Pretty.set Atom.pp fmt (Atom.Set.elements (axioms_of j))
+    | No -> 
+	Pretty.string fmt "Unjustified"
+    | Dep ->
+	let axms = axioms_of j in
+	  Pretty.set Atom.pp fmt (Atom.Set.elements axms)
     | Yes ->
 	(match j with
-	   | Unjustified -> Format.fprintf fmt "Unjustified"
-	   | Dependency(axms) -> Pretty.set Atom.pp fmt (Atom.Set.elements axms)
-	   | Proof(prf) -> Proof.pp fmt prf)
+	   | Unjustified -> 
+	       Pretty.string fmt "Unjustified"
+	   | Dependency(axms) ->
+	       Pretty.set Atom.pp fmt (Atom.Set.elements axms)
+	   | Proof(prf) -> 
+	       Proof.pp fmt prf)
 
 exception Inconsistent of t
 exception Valid of t
@@ -212,24 +220,27 @@ let mk_dependency2 j1 j2 =
   else if j2 = mk_dependency0 then j1
   else 
     try
-      let axms1 = axioms_of j1 and axms2 = axioms_of j2 in
+      let axms1 = axioms_of j1
+      and axms2 = axioms_of j2 in
       let axms = Atom.Set.union axms1 axms2 in
 	if axms == axms1 then j1
-	else if axms == axms2 then j2 
-	else Dependency(axms)
+	else if axms == axms2 then j2 else
+	  Dependency(axms)
     with
 	Not_found -> mk_none()
 
-let mk_dependency jl =
-  try
-    let axms = 
-      List.fold_left 
-	(fun acc j -> Atom.Set.union (axioms_of j) acc) 
-	Atom.Set.empty jl
-    in
-      Dependency(axms)
-  with
-      Not_found -> mk_none()
+let mk_dependency3 j1 j2 j3 =
+  mk_dependency2 j1 (mk_dependency2 j2 j3)
+
+let mk_dependency =
+  let rec loop acc = function
+    | [] -> acc
+    | [j] -> mk_dependency2 acc j
+    | [j1; j2] -> mk_dependency3 j1 j2 acc
+    | j :: jl -> loop (mk_dependency2 acc j) jl
+  in
+    loop mk_dependency0 
+
 
 let mk_axiom a = Proof(Proof.Axiom(a))
 
@@ -279,14 +290,14 @@ let is_refl = function
 
 let full = ref false
 
-let sym (a, b) j =
+let sym a b j =
   if Term.eq a b then j else 
     match !proofmode with
       | No -> mk_none()
       | Dep -> mk_dependency1 j
       | Yes -> if !full then mk_apply1 (Rule.Sym(a, b)) j else j
 	  
-let trans (a, b, c) j1 j2 = 
+let trans a b c j1 j2 = 
   if Term.eq a b then j2
   else if Term.eq b c then j1
   else match !proofmode with
@@ -474,10 +485,10 @@ let dependencies2 j1 j2 =
 (** {6 Derived Rules} *)
 
 let trans3 (a, b, c, d) j1 j2 j3 =
-  if a == b then trans (b, c, d) j2 j3
-  else if b == c then trans (a, c, d) j1 j3
-  else if c == d then trans (a, b, c) j1 j2
-  else trans (a, b, d) j1 (trans (b, c, d) j2 j3)
+  if a == b then trans b c d j2 j3
+  else if b == c then trans a c d j1 j3
+  else if c == d then trans a b c j1 j2
+  else trans a b d j1 (trans b c d j2 j3)
 
 let subst_equal (a, b) j jl =
   match !proofmode with
@@ -556,7 +567,7 @@ module Eqtrans = struct
   let compose f g a =
     let (b, rho) = g a in           (* [rho |- a = b] *)
     let (c, tau) = f b in           (* [tau |- b = c] *)
-    let sigma = trans (a, b, c) rho tau in
+    let sigma = trans a b c rho tau in
       (c, sigma)
 
   let compose3 f g h = (compose f (compose g h))
@@ -566,7 +577,7 @@ module Eqtrans = struct
       let (b, rho) = g a in
 	(try
 	  let (c, tau) = f b in
-	  let sigma = trans (a, b, c) rho tau in
+	  let sigma = trans a b c rho tau in
 	    (c, sigma)
 	with
 	    exc -> 

@@ -49,14 +49,8 @@ exception Valid of t
 
 val axiom : Atom.t -> t
 
-val refl : Term.t -> t
-  (* [refl a |- a = a] *)
-
-val sym : Term.t * Term.t -> t -> t
-  (* If [j |- b = a], then [sym (a, b) j |- a = b] *)
-
-val trans : Term.t * Term.t * Term.t -> t -> t -> t
-  (* If [j1 |- a = b] and [j2 |- b = c], then [trans (a, b, c) j1 j2 |- a = c]. *)
+val trans : Term.t -> Term.t -> Term.t -> t -> t -> t
+  (* If [j1 |- a = b] and [j2 |- b = c], then [trans a b c j1 j2 |- a = c]. *)
 
 val apply : Term.t * Term.t -> t list -> t
 val apply1 : Term.t * Term.t -> t -> t
