@@ -537,7 +537,7 @@ let to_prop p =
   let module Table = Hashtbl.Make(
     struct
       type t = prp
-      let equal = (==)
+      let equal = eq
       let hash = hash
     end)
   in
