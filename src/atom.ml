@@ -151,3 +151,20 @@ module Set = Set.Make(
     let compare a b =
       if eq a b then 0 else Pervasives.compare a b
   end)
+
+
+(*s [trace str hyps concl] traces generation of facts. 
+    [str] is the name of the rule, [hyps] is the set of
+     hypothesis and [concl] is the set of conclusions. *)
+
+let footprint str hyps concls =
+  Trace.msg "footprint"
+    (str ^ " :")
+    (hyps, concls)
+    (fun fmt (hyps, concls) ->
+       Format.fprintf fmt "@[";
+       Pretty.list pp fmt hyps;
+       Pretty.string fmt " ==> ";
+       Pretty.list pp fmt concls;
+       Format.fprintf fmt "@]\n")
+
