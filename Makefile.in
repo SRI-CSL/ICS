@@ -202,7 +202,7 @@ $(LIBDIR)/libics.a: $(OBJS)
 	$(LD) -r -o $@ $(OBJS) $(ICSAT) \
         $(LIBCPP) \
 	$(OCAMLSTDLIB)/libunix.a \
-        $(LIBS) $(MINUS_L_LIBS) $(LIBGCCA) \
+        $(LIBS) $(LIBGCCA) \
 	$(OCAMLSTDLIB)/libasmrun.a
 
 $(LIBDIR)/ics.cmxa: $(OBJS) $(ICSAT) $(LISPERROROBJ)
