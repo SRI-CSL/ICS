@@ -36,3 +36,17 @@ val select : Context.t -> Term.t * Term.t -> Term.t
 
 val sin : Context.t -> Term.t -> Term.t
 val cos : Context.t -> Term.t -> Term.t
+
+(*s [cancel s (a, b)] cancels a power products [a] and [b]. *)
+
+val cancel : Context.t -> Term.t * Term.t -> Term.t * Term.t
+
+(*s Applications. *)
+
+val apply : Context.t -> Sym.range option -> Term.t -> Term.t list -> Term.t
+
+val lambda : Context.t -> Var.t -> Term.t -> Term.t
+
+(*s Sigma-normal forms. *)
+
+val sigma : Context.t -> Sym.builtin -> Term.t list -> Term.t
