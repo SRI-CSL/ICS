@@ -54,7 +54,7 @@ and prompt () =
 and usage () =
   if not(!disable_usage_flag) then
     begin
-      Format.eprintf "ICS 1.1: Integrated Canonizer and Solver.";
+      Format.eprintf "ICS 1.1 (Experimental, Fri Mar 28) : Integrated Canonizer and Solver.";
       Format.eprintf "\nCopyright (c) 2003 SRI International.";
       Format.eprintf "\nType 'help.' for help about help, and 'Ctrl-d' to exit.@."
     end

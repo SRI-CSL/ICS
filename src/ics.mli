@@ -868,6 +868,8 @@ val cnstrnt : context -> term -> cnstrnt
 (** {6 Propositions} *)
 
 type prop
+
+val prop_pp : prop -> unit
  
 val prop_mk_true : unit -> prop
 val prop_mk_false : unit -> prop
@@ -880,11 +882,7 @@ val prop_mk_disj : prop list -> prop
 val prop_mk_iff : prop -> prop ->prop
 val prop_mk_neg : prop -> prop
 
-type assignment
 
-val prop_sat : context -> prop -> assignment option
-
-(*
 val prop_is_true : prop -> bool
 val prop_is_false : prop -> bool
 val prop_is_var : prop -> bool
@@ -893,6 +891,7 @@ val prop_is_ite : prop -> bool
 val prop_is_disj : prop -> bool
 val prop_is_iff : prop -> bool
 val prop_is_neg : prop -> bool
+val prop_is_let : prop -> bool
 
 val prop_d_var : prop -> name
 val prop_d_atom : prop -> atom
@@ -900,8 +899,20 @@ val prop_d_ite : prop -> prop * prop * prop
 val prop_d_disj : prop -> prop list
 val prop_d_iff : prop -> prop * prop
 val prop_d_neg : prop -> prop
-*)
+val prop_d_let : prop -> name * prop * prop
 
+
+(** {6 Propositional Satisfiability} *)
+
+type assignment
+
+val assignment_pp : assignment -> unit
+
+val assignment_valuation : assignment -> (name * bool) list
+val assignment_literals : assignment -> atom list
+
+
+val prop_sat : context -> prop -> assignment option
 
 
 (** {6 Commands} *)

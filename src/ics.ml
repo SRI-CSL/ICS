@@ -547,6 +547,9 @@ let _ = Callback.register "term_is_false" term_is_false
 (** Propositions *)
 
 type prop = Prop.t
+
+let prop_pp = Prop.pp Format.std_formatter
+let _ = Callback.register "prop_pp" prop_pp
  
 let prop_mk_true () = Prop.mk_true
 let _ = Callback.register "prop_mk_true" prop_mk_true
@@ -578,51 +581,65 @@ let _ = Callback.register "prop_mk_iff" prop_mk_iff
 let prop_mk_neg = Prop.mk_neg
 let _ = Callback.register "prop_mk_neg" prop_mk_neg
 
-(*
-let prop_is_true = Prop.is_true
+let prop_is_true = function Prop.True -> true | _ -> false
 let _ = Callback.register "prop_is_true" prop_is_true
 
-let prop_is_false = Prop.is_false
+let prop_is_false = function Prop.False -> true | _ -> false
 let _ = Callback.register "prop_is_false" prop_is_false
 
-let prop_is_var = Prop.is_var
+let prop_is_var = function Prop.Var _ -> true | _ -> false
 let _ = Callback.register "prop_is_var" prop_is_var
 
-let prop_is_atom = Prop.is_atom
+let prop_is_atom = function Prop.Atom _ -> true | _ -> false
 let _ = Callback.register "prop_is_atom" prop_is_atom
 
-let prop_is_ite = Prop.is_ite
+let prop_is_ite = function Prop.Ite _ -> true | _ -> false
 let _ = Callback.register "prop_is_ite" prop_is_ite
 
-let prop_is_disj = Prop.is_disj
+let prop_is_disj = function Prop.Disj _ -> true | _ -> false
 let _ = Callback.register "prop_is_disj" prop_is_disj
 
-let prop_is_iff = Prop.is_iff
+let prop_is_iff = function Prop.Iff _ -> true | _ -> false
 let _ = Callback.register "prop_is_iff" prop_is_iff
 
-let prop_is_neg = Prop.is_neg
+let prop_is_neg = function Prop.Neg _ -> true | _ -> false
 let _ = Callback.register "prop_is_neg" prop_is_neg
 
-let prop_d_atom = Prop.d_atom
+let prop_is_let = function Prop.Let _ -> true | _ -> false
+let _ = Callback.register "prop_is_let" prop_is_let
+
+let prop_d_atom =  function Prop.Atom(a) -> a | _ -> assert false
 let _ = Callback.register "prop_d_atom" prop_d_atom
 
-let prop_d_var = Prop.d_var
+let prop_d_var = function Prop.Var(x) -> x | _ -> assert false
 let _ = Callback.register "prop_d_var" prop_d_var
 
-let prop_d_ite = Prop.d_ite
+let prop_d_ite = function Prop.Ite(x, y, z) -> (x, y, z) | _ -> assert false
 let _ = Callback.register "prop_d_ite" prop_d_ite
 
-let prop_d_disj = Prop.d_disj
+let prop_d_disj = function Prop.Disj xl -> xl | _ -> assert false
 let _ = Callback.register "prop_d_disj" prop_d_disj
 
-let prop_d_iff = Prop.d_iff
+let prop_d_iff = function Prop.Iff(x, y) -> (x, y) | _ -> assert false
 let _ = Callback.register "prop_d_iff" prop_d_iff
 
-let prop_d_neg = Prop.d_neg
+let prop_d_neg = function Prop.Neg(x) -> x | _ -> assert false
 let _ = Callback.register "prop_d_neg" prop_d_neg
-*)
+
+let prop_d_let = function Prop.Let(x, p, q) -> (x, p, q) | _ -> assert false
+let _ = Callback.register "prop_d_let" prop_d_let
+
 
 type assignment = Prop.Assignment.t
+
+let assignment_pp = Prop.Assignment.pp Format.std_formatter
+let _ = Callback.register "assignment_pp" assignment_pp
+
+let assignment_valuation x = x.Prop.Assignment.valuation
+let _ = Callback.register "assignment_valuation" assignment_valuation
+
+let assignment_literals x = x.Prop.Assignment.literals
+let _ = Callback.register "assignment_literals" assignment_literals
 
 let prop_sat s p =
   match Prop.sat s p with

@@ -995,6 +995,9 @@ and close_v chv =
 				merge_i i e s)
 			 Th.interp s
 	     in
+	     let s' = fuse Th.u e s' in       (* new *) 
+             let s' = fuse Th.arr e s' in     (* new *) 
+             let s' = fuse Th.bvarith e s' in (* new *) 
 	     let s'' = arrays_equal e s' in
 	     let s''' = bvarith_equal e s'' in
 	       s''')
@@ -1387,6 +1390,7 @@ and split_arrays s =
 	 | _ -> acc1)
     (eqs_of s arr)
     Atom.Set.empty
+
 
 (** {6 Model construction} *)
 

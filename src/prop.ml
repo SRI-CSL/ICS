@@ -93,7 +93,6 @@ let rec apply rho q =
     | Let(x, q1, q2) -> 
 	apply ((x, q1) :: rho) q2
 
-
 (** {6 Translations to/from ICSAT propositions} *)
 
 type prop = int
