@@ -134,7 +134,6 @@ let mk_select = Funarr.mk_select Term.is_equal
 
 let mk_update = Funarr.mk_update Term.is_equal
 
-
 let d_update cfg a = 
   let (a', alpha') = interp cfg a in
   let (b, i, j) = Funarr.d_update a' in
@@ -144,6 +143,11 @@ let d_update cfg a =
 type config = Partition.t * t
 
 let arr = Th.to_string Th.arr
+
+let merge p e =
+  Trace.msg arr "Merge" e Fact.Equal.pp;
+  Partition.merge p e
+
 
 let name cfg a =
   let (x, rho) = A.name cfg a in
@@ -167,20 +171,21 @@ let rec abstract cfg a =
 let rec process_equal cfg e =
   assert(Fact.Equal.is_pure Th.arr e);
   Trace.msg arr "Process" e Fact.Equal.pp;
-  let e' = Fact.Equal.map (abstract cfg) e in
-    A.fuse cfg [e'];   (* keep rhs canonical *)
-    arr1_eq cfg e';    (* and forward chain on equality precondition. *)
-    arr3_eq cfg e';
-    arr4_eq cfg e'
+  let e = Fact.Equal.map (abstract cfg) e in
+    A.fuse cfg [e];   (* keep rhs canonical *)
+    arr1_eq cfg e;    (* and forward chain on equality preconditions. *)
+    arr3_eq cfg e;
+    arr4_eq cfg e
 
 
 and process_diseq cfg d =
   assert(Fact.Diseq.is_var d);
   Trace.msg arr "Process" d Fact.Diseq.pp;
-  arr2_deq cfg d;      (* forward chain on disequality precondition. *)
-  arr4_deq cfg d;
-  arr5_deq cfg d;
-  arr6_deq cfg d
+  let d = Fact.Diseq.map (abstract cfg) d in
+    arr2_deq cfg d;      (* forward chain on disequality precondition. *)
+    arr4_deq cfg d;
+    arr5_deq cfg d;
+    arr6_deq cfg d
 
 
 (** I. [a[i:=x][i] = x] *)
@@ -194,7 +199,7 @@ and arr1_eq ((p, s) as cfg) e =
 	    if Term.eq i i' then              (* ==> [phi |- u = x] *)
 	      let phi = Justification.dependencies [rho; tau; sigma] in
 	      let e' = Fact.Equal.make (u, x, phi) in
-		Partition.merge p e';
+		merge p e';
 		A.restrict cfg u))
   in
     propagate (i, j);
@@ -229,7 +234,7 @@ and arr3_eq ((p, _) as cfg) e =
 	       if Term.eq j j' then             (* ==> [phi' |- x = y] *)
 		 let phi' = Justification.dependencies [rho; tau; sigma] in
 		 let e' = Fact.Equal.make (x, y, phi') in
-		   Partition.merge p e')))          
+		   merge p e')))          
 	  
 
 (** IV. [a[j:=x] = b[k:=y]], [i<>j], [i<>k] implies [a[i] = b[i]] *)
@@ -246,7 +251,7 @@ and arr4_eq ((p, _) as cfg) e =
 			   if Term.eq i i' then  
 			     let phi'' = Justification.dependencies [rho; tau; sigma; phi; theta] in
 			     let e'' = Fact.Equal.make (mk_select a i, mk_select b i, phi'') in
-			       Partition.merge p (Fact.Equal.map (name cfg) e''))
+			       merge p (Fact.Equal.map (name cfg) e''))
 			(diseqs cfg k)))
 	           (diseqs cfg j)))
       
@@ -265,7 +270,7 @@ and arr4_deq ((p, s) as cfg) d =
 			   if not(Term.eq a b) then
 			     let theta = Justification.dependencies [rho; tau; sigma; ups; phi] in
 			     let e = Fact.Equal.make (mk_select a i, mk_select b i, theta) in
-			       Partition.merge p (Fact.Equal.map (name cfg) e))))
+			       merge p (Fact.Equal.map (name cfg) e))))
 		  (diseqs cfg i)))
 	    (diseqs cfg j)))
   in 
@@ -293,7 +298,7 @@ and arr5_deq ((p, s) as cfg) d =
 			        let phil = [rho; rho1; rho2; tau; sigma; theta] in
 			        let phi = Justification.dependencies phil in
 			        let e = Fact.Equal.make (v1, v2, phi) in
-				  Partition.merge p e))
+				  merge p e))
 	                 (diseqs cfg i)))
   in
     propagate (i, j);
@@ -316,28 +321,29 @@ and arr6_deq ((p, s) as cfg) d =
 		   let phi = Justification.dependencies 
 			       [rho; tau1; sigma1; tau2; sigma2] 
 		   in
-		     Partition.merge p (Fact.Equal.make (u, v, phi))))))
+		     merge p (Fact.Equal.make (u, v, phi))))))
 	
 
 
 (** {6 Splitting} *)
 
-let splits ((p, s) as cfg) = failwith "to do"
-(*
+let splits ((p, s) as cfg) =
   A.fold
     (fun v (b, rho) acc ->
        try
 	 let (u, j) = Funarr.d_select b in
+	 let acc' = ref acc in
 	   Iter.update cfg u 
 	     (fun (u, (a, i, x), _) ->
 		let (i, j) = Term.orient (i, j) in
-		  (* Term.Set2.add (i, j) acc *)
-                  failwith "to do")
+		  acc' := Term.Set2.add (i, j) !acc');
+	   !acc'
        with
 	   Not_found -> acc)
     s
     Term.Set2.empty
-*)
        
 
- 
+let process_complete ((p, s)  as cfg) = 
+  failwith "Arr.process_complete: to do"
+  
