@@ -254,6 +254,7 @@ let _ = Callback.register "term_mk_true" term_mk_true
 let term_mk_false = Boolean.mk_false
 let _ = Callback.register "term_mk_false" term_mk_false
 
+
 (*s Atoms. *)
 
 type atom = Atom.t
@@ -387,6 +388,24 @@ let trace_get = Trace.get
 let _ = Callback.register "trace_get" trace_get
 
 
+(*s Solution sets. *)
+
+type solution = Solution.t
+
+let solution_apply = Solution.apply
+
+let solution_find = Solution.find
+
+let solution_inv = Solution.inv
+
+let solution_mem = Solution.mem
+
+let solution_occurs = Solution.occurs
+
+let solution_use = Solution.use
+
+let solution_is_empty = Solution.is_empty
+
 
 
 
@@ -396,7 +415,7 @@ open Shostak
 
 type context = Context.t
 
-let context_eq = (==)
+let context_eq = Context.eq
 let _ = Callback.register "context_eq" context_eq  
 
 let context_empty () = Context.empty
@@ -404,6 +423,18 @@ let _ = Callback.register "context_empty" context_empty
 
 let context_ctxt_of s = (Atom.Set.elements s.Context.ctxt)
 let _ = Callback.register "context_ctxt_of" context_ctxt_of
+
+let context_u_of s = s.Context.u
+let _ = Callback.register "context_u_of" context_u_of
+
+let context_a_of s = s.Context.a
+let _ = Callback.register "context_a_of" context_a_of
+
+let context_t_of s = s.Context.t
+let _ = Callback.register "context_t_of" context_t_of
+
+let context_bv_of s = s.Context.bv
+let _ = Callback.register "context_bv_of" context_bv_of
 
 let context_pp s = Context.pp Format.std_formatter s; Format.print_flush()
 let _ = Callback.register "context_pp" context_pp
