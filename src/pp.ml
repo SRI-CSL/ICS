@@ -311,11 +311,6 @@ let lcm (pp, qq) =
     let (pl, ql, lcm) = lcmloop ([], [], []) (to_list pp, to_list qq) in
       (mk_multl pl, mk_multl ql, mk_multl lcm)
 
-let lcm =
-  Trace.func "foo7" "lcm"
-    (Pretty.pair Term.pp Term.pp)
-    (Pretty.triple Term.pp Term.pp Term.pp)
-    lcm
 
 
 (**  {6 Divisibility.} *)

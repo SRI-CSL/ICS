@@ -202,7 +202,10 @@ let mk_dependency1 j =
   match j with
     | Unjustified -> j
     | Dependency _ -> j
-    | Proof(prf) -> Dependency(Proof.axioms_of prf)
+    | Proof(prf) -> 
+	let axms = Proof.axioms_of prf in
+	  if Atom.Set.is_empty axms then mk_dependency0 else
+	    Dependency(axms)
 
 let mk_dependency2 j1 j2 =
   if j1 == mk_dependency0 then j2

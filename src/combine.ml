@@ -331,20 +331,10 @@ and uninterp ((p, _) as cfg) a =
       Not_found -> Partition.find p a
  
 
-(** Tracing [can]. *)
-let can s =
-  Trace.func "rule" "Can" 
-    Term.pp 
-    (Pretty.pair Term.pp Justification.pp) 
-    (can s)
-
-
 (** {6 Predicates} *)
 
 (** Test if terms [a] and [b] are equal or disequal in [s]. *)
 let is_equal ((p, _) as cfg) =
-  Justification.Rel2.apply
-    (can cfg)
     (Partition.is_equal_or_diseq p)
 
 let is_pos (p, s) a = 

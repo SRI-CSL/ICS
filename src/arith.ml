@@ -239,7 +239,6 @@ module Monomials = struct
 
   module Pos = struct
     let is_empty = is_empty is_pos
-    let is_empty = Trace.func "foo6" "pos_is_empty" Term.pp Pretty.bool is_empty
     let for_all p = for_all (is_neg ||| p)
     let exists p = exists (p &&& is_pos)
     let mem x = exists (is_var x)
