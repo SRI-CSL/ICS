@@ -43,3 +43,7 @@ val ok: int -> string -> unit
     (*s [exc n str a p] is used to indicate that an exception [str] has
       been raised, whenever [n] is greater than the current verbose level. *)
 val exc : int -> string -> 'a -> 'a pp -> unit
+
+    (*s [msg n str a pp] outputs a trace message. *)
+
+val msg : int -> string -> 'a -> 'a pp -> unit

@@ -1,115 +1,153 @@
 
 (*i
- * ICS - Integrated Canonizer and Solver
- * Copyright (C) 2001-2004 SRI International
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the ICS license as published at www.icansolve.com
+ * The contents of this file are subject to the ICS(TM) Community Research
+ * License Version 1.0 (the ``License''); you may not use this file except in
+ * compliance with the License. You may obtain a copy of the License at
+ * http://www.icansolve.com/license.html.  Software distributed under the
+ * License is distributed on an ``AS IS'' basis, WITHOUT WARRANTY OF ANY
+ * KIND, either express or implied. See the License for the specific language
+ * governing rights and limitations under the License.  The Licensed Software
+ * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
+ * ``ICS'' is a trademark of SRI International, a California nonprofit public
+ * benefit corporation.
  * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * ICS License for more details.
- *
  * Author: Harald Ruess
  i*)
 
 (*i*)
 open Hashcons
+open Sym
 open Term
-open Eqn
 (*i*)
 
 let is_tuple a =
-  match a.node with
-    | App({node=Interp(Tuple _)},_) -> true
+  match destruct a with
+    | {node=Interp(Tuple _)}, _ -> true
     | _ -> false
 
-(* apply [f] at uninterpreted positions. *)
+let d_tuple a =
+  match destruct a with
+    | f, xl when f === Sym.mk_tuple -> Some(xl)
+    | _ -> None
+
+let d_proj a =
+  match destruct a with
+    | {node=Interp(Tuple(Proj(i,n)))}, [x] -> Some(i,n,x)
+    | _ -> None
+
+
+(* Apply [f] at uninterpreted positions. *)
 
 let rec iter f a = 
-  match a.node with
-    | App({node=Interp(Tuple(op))},l) ->
+  match destruct a with
+    | {node=Interp(Tuple(op))},l ->
 	(match op, l with
-	   | Product, _::_::_ -> List.iter (iter f) l
+	   | Product, _ -> List.iter (iter f) l
 	   | Proj _, [x] -> f x
 	   | _ -> assert false)
     | _ ->
 	f a
  
-
 (*s Smart constructors for tuples and projections. *)
 
-let tuple = mk_tuple
+let mk_tuple = function
+  | [x] -> x
+  | l -> Term.make(Sym.mk_tuple,l)
 
-let rec proj i n a =
-  match a.node with
-    | App({node=Interp(Tuple(Product))},l) ->
-	List.nth l i
-    | _ ->
-	mk_proj i n a
+let rec mk_proj i n a =
+  match d_tuple a with
+    | Some(xl) -> List.nth xl i
+    | None -> Term.make(Sym.mk_proj i n,[a])
 
+
+(*s Apply term transformer [f] at uninterpreted positions. *)
+
+let norm f =
+  let rec loop x =
+    match destruct x with
+      | {node=Interp(Tuple(op))},l ->
+	  (match op, l with
+	     | Product, _ -> mk_tuple (Term.mapl loop l)
+	     | Proj(i,n), [y] -> mk_proj i n (loop y)
+	     | _ -> failwith "Tuple.fold: ill-formed tuple expression")
+      | _ ->
+	  f x
+  in
+  loop
 
 (*s Sigmatizing. *)
 
 let sigma op l =
   match op, l with
-    | Product, _::_::_ -> tuple l
-    | Proj(i,n), [x] -> proj i n x
+    | Product, _ -> mk_tuple l
+    | Proj(i,n), [x] -> mk_proj i n x
     | _ -> assert false
 
-(*s Normalize a term with respect to a given substitution. *)
+(*s Fresh variables. *)
 
-let norm s a =
-  let rec loop a =
-    match a.node with
-      | App({node=Interp(Tuple(op))},l) ->
-	  (match op, l with
-	     | Product, _::_::_ -> 
-		 homl a tuple loop l 
-	     | Proj(i,n), [x] ->
-		 hom1 a (proj i n) loop x
-	     | _ ->
-		 failwith "Tuple.norm: not a tuple expression")
-      | _ ->
-	  try
-	    Subst.apply s a
-	  with
-	      Not_found -> a
-  in
-  loop a
+let fresh = ref Ptset.empty
+
+let _ = Tools.add_at_reset (fun () -> fresh := Ptset.empty)
+
+let mk_fresh () =
+  let sgn = Arity.mk_constant (Type.mk_top) in 
+  let f = Sym.mk_fresh ("t",sgn) in
+  let a = Term.make(f,[]) in
+  fresh := Ptset.add a !fresh;
+  a
+
+let is_fresh a =
+  Ptset.mem a !fresh
 
 (*s Solving tuples. *) 
 
-let add ((a,b) as e) el =
-  if a === b then 
-    el
-  else
-    match b.node with
-      | App({node=Interp(Tuple(Product))},l)
-	  when List.exists (fun y -> a === y) l ->
-	    raise Exc.Inconsistent
-      | _ -> e :: el
+let rec solve e =
+  solvel [e] []
 
-(*s [solve (s, (t0,...,tn)) = \list{(proj s 0, t0),...,(proj s n, tn)}] *)
+and solvel el sl =
+  match el with
+    | [] -> sl
+    | (a,b) :: el1 ->
+	if a === b then 
+	  solvel el1 sl
+	else 
+	  match d_proj a with
+	    | Some(i,n,x) ->
+		solvel (proj_solve i n x b :: el1) sl
+	    | None ->
+		(match d_proj b with
+		   | Some(j,n,y) ->
+		       solvel (proj_solve j n y a :: el1) sl
+		   | None ->
+		       (match d_tuple a, d_tuple b with
+			  | Some(al), Some(bl) ->
+			      solvel (tuple_tuple_solve al bl @ el1) sl
+			  | Some(al), None ->
+			      if is_consistent b al then
+				solvel el1 (add (b,a) sl)
+			      else 
+				raise Exc.Inconsistent
+			  | None, Some(bl) ->
+			      if is_consistent a bl then
+				solvel el1 (add (a,b) sl)
+			      else
+				raise Exc.Inconsistent
+			  | None, None ->
+			      let sl1 = add (Term.order a b) sl in
+			      solvel el1 sl1))
 
-let tuple_solve s l =
-  let n = List.length l in
-  let (eqs, _) = 
-    List.fold_right
-      (fun t (acc, i) -> (add (proj i n s, t) acc, i + 1)) l ([], 0)
-  in
-  eqs
+and is_consistent a bl =
+  not(List.exists (fun y -> a === y) bl)
 
 (*s [solve ((s0,...,sn), (t0,...,tn)) = [(s0,t0),...(sn,tn)] *)  
 
-let tuple_tuple_solve al bl = 
+and tuple_tuple_solve al bl = 
    List.fold_right2 (fun a b acc -> add (a, b) acc) al bl []
 
 (*s [solve (proj i n s, t) = (s, \list{c0,...,t,...cn-1})]
      where [ci] are fresh, [s] at [i]-th position. *)
 
-let proj_solve i n s t =
+and proj_solve i n s t =
   let rec args j acc =
     if j = -1 then acc
     else
@@ -117,123 +155,18 @@ let proj_solve i n s t =
 	if i = j
 	then t
 	else
-	  mk_rename_var "_p" (proj j n s)
+	  mk_fresh () (* equals [mk_proj j n s] *)
       in
       args (j - 1) (a :: acc)
   in
-  add (s, tuple (args (n - 1) [])) []
+  (s, mk_tuple (args (n - 1) []))
 
-let solve ((a,b) as e) =
-  match a.node, b.node with
-    | App({node=Interp(Tuple(Product))},al),
-      App({node=Interp(Tuple(Product))},bl) ->
-	tuple_tuple_solve al bl
-    | App({node=Interp(Tuple(Proj(i,n)))},[x]),_ ->
-	proj_solve i n x b
-    | _, App({node=Interp(Tuple(Proj(i,n)))},[y]) ->
-	proj_solve i n y a
-    | App({node=Interp(Tuple(Product))},al), _ ->
-	tuple_solve b al
-    | _, App({node=Interp(Tuple(Product))},bl) ->
-	tuple_solve a bl
-    | _ ->
-	if a <<< b then [(b,a)] else [e]
+and add (a,b) el =
+  if a === b then 
+    el
+  else
+    let el' = List.map (fun (x,y) -> (x, subst1 y a b)) el in 
+    (a,b) :: el'
 
-
-module T = Th.Make(
-  struct
-    let name = "t"
-    let is_th = is_tuple
-    let iter = iter
-  end)
-
-
-(*s Database of arithmetic facts. *)
-
-type t = { find: T.t }
-
-let empty () = { find = T.empty () }
-
-let copy s = { find = T.copy s.find }
-
-let subst_of s = T.subst_of s.find
-let use_of s = T.use_of s.find
-
-let apply s = T.apply s.find
-let find s = T.find s.find
-let inv s = T.inv s.find
-let use s = T.use s.find
-
-let nrm s = norm (T.subst_of s.find)
-
-let is_external (a,b) =
-  not(is_tuple a) && not(is_tuple b)
-
-(*s Interpreted equations are the ones that are installed into the database.
- Notice, that equalities between two fresh variables are not considered to be
- interpreted, since they only need propagation, but they are not
- installed into the database. An uninterpreted equation is one that
- is propagated. Equalities between fresh variables just need to be propagated.
- Install equality [x = e], where [x] is uninterpreted, and [e] is interpreted.
- Equalities between uninterpreted term are added to set of generated equalities.
- Now, propagate the equality [a = b] for all bindings [inv s u |-> u] such that
- [a] occurs interpreted in [u]. *)
-
-let merge s e = 
-  Trace.call 7 "Merge(t)" e Pretty.eqn;
-  let eqs = ref [] in
-  let rec loop ((a,b) as e) =
-    if not(a === b) then
-      begin
-	if not(is_tuple a) && is_tuple b then
-	  (try 
-	     let a' = T.inv s.find b in   
-	     assert(not(is_tuple a'));
-	     eqs := cons (a,a') !eqs
-	   with
-	      Not_found ->
-		T.union s.find e);         
-	Term.Set.iter                        
-	  (fun u ->   
-	     let a' = inv s u in 
-	     assert(not(is_tuple a'));
-             let b' = nrm s u in
-	     if not(is_tuple b') then
-	       begin
-		 T.restrict s.find a';
-		 eqs := cons e !eqs
-	       end; 
-	     loop (a',b'))
-	  (use s a)
-      end
-  in
-  loop e;
-  !eqs
-
-let ( *** ) s =      
-  List.fold_left (fun acc e -> merge s e @@ acc) []
-
-let extend s ((a,b) as e) = 
-  Trace.call 7 "Ext(t)" e Pretty.eqn;
-  T.extend s.find e
-
-let process s ((a,b) as e) =
-  Trace.call 7 "Add(t)" e Pretty.eqn;
-  let sl = solve (nrm s a, nrm s b) in
-  let el1 = List.filter is_external sl in
-  let el2 = s *** sl in
-  Trace.exit 7 "Add(t)" (el1 @@ el2) (Pretty.list Pretty.eqn);
-  el1 @@ el2
-
-(*s Propagating  a set of uninterpreted equalities. *)
-
-let propagate1 s ((a,b) as e) =                      
-  Trace.call 7 "Prop(t)" e Pretty.eqn;
-  let sl = solve (nrm s a, nrm s b) in
-  let el1 = Eqn.remove e (List.filter is_external sl) in
-  let el2 = s *** sl in
-  Trace.exit 7 "Prop(t)" (el1 @@ el2) (Pretty.list Pretty.eqn);
-  el1 @@ el2
-
-let propagate s =
-  List.fold_left (fun acc e -> propagate1 s e @@ acc) []
+and subst1 a x b =      (* substitute [x] by [b] in [a]. *)
+  norm (fun y -> if x === y then b else y) a

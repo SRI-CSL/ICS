@@ -56,6 +56,14 @@ let exc trace_level op res pp =
       Format.fprintf fmt "%s" str;
       Format.fprintf fmt "@.";
     end
+
+let msg trace_level op args pp =
+  if Tools.get_verbose () >= trace_level then
+    begin
+      Format.fprintf fmt "%s:\t" op;
+      pp fmt args;
+      Format.fprintf fmt "@." 
+    end
     
 
 

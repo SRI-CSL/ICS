@@ -14,7 +14,17 @@
  * Author: Harald Ruess
  i*)
 
-(*s Module [Builtin]:  Normalizing constructors for some builtin
- functions. *)
-
-val mk_unsigned : Term.t -> Term.t
+type t =
+  | Before   
+  | After    
+  | Meets    
+  | MetBy    
+  | Overlaps 
+  | OverlappedBy
+  | Sub      
+  | Super    
+  | Starts    
+  | StartedBy 
+  | Finishes  
+  | FinishedBy
+  | Equals
