@@ -1,4 +1,4 @@
-
+
 (*i
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
@@ -138,7 +138,7 @@ let union i e s =
 
 let extend i b s = 
   let x = Term.mk_fresh_var (Name.of_string "s") None in
-  let e = Fact.mk_equal x b None in
+  let e = Fact.mk_equal x b (Fact.mk_rule "extend" []) in
     Trace.msg (to_string i) "Extend" e Fact.pp_equal;
     (x, union i e s)
 
@@ -166,14 +166,36 @@ let name i (b, s) =
       Not_found -> extend i b s
 
 
-let rec norm i r = 
-  Th.map i (fun x -> assoc x r)
+let rec norm i r a = 
+  let eqs = ref [] in
+  let assoc x = function
+    | [] -> x
+    | e :: el -> 
+	let (a, b, prf) = Fact.d_equal e in
+	  if Term.eq x a then 
+	    begin
+	      eqs := prf :: !eqs;
+	      b 
+	    end
+	  else 
+	    assoc x el
+  in
+  let b = Th.map i (fun x -> assoc x r) a in
+    (b, !eqs)
 
 and assoc x = function
   | [] -> x
   | e :: el -> 
-      let (a, b, _) = Fact.d_equal e in
-	if Term.eq x a then b else assoc x el
+      let (a, b, prf) = Fact.d_equal e in
+	if Term.eq x a then 
+	  begin
+	    eqs := prf :: !eqs;
+	    b 
+	  end
+	else 
+	  assoc x el
+
+and eqs = ref []
 
 (*s Fuse. *)
 
@@ -182,10 +204,10 @@ let rec fuse i (p, s) r =
   Set.fold 
     (fun x acc ->
        try
-	 let b = apply s x in
-	 let b' = norm i r b in
-	 let e' = Fact.mk_equal x b' None in
-	 update i e' acc
+	 let (b, prf) = justification s x in     (* [prf |- x = b]. *)
+	 let (b', prfs) = norm i r b in          (* [prfs |- b = b']. *)
+	 let e' = Fact.mk_equal x b' (Fact.mk_rule "trans" (prf :: prfs)) in
+	   update i e' acc
        with
 	   Not_found -> acc)
     (dom s r)
@@ -200,29 +222,15 @@ and dom s r =
     r Set.empty
 
 and update i e (p, s) =
-  let (x, b, _) = Fact.d_equal e in
+  let (x, b, prf1) = Fact.d_equal e in            (* [prf1 |- x = b]. *)
   assert(is_var x);
   if Term.eq x b then
     (p, restrict i x s)
   else if is_var b then
-    let p' = Partition.merge e p in
-    let s' = 
-      try
-	let a = apply s b in
-	if b <<< x then
-	  restrict i x s
-	else 
-	  let e' = Fact.mk_equal x a None in
-	  let s' = restrict i b s in
-	  union i e' s'
-      with
-	  Not_found -> 
-	    restrict i x s 
-    in
-    (p', s')
+    vareq i e (p, s)
   else
     try
-      let y = inv s b in
+      let y = inv s b in 
 	if Term.eq x y then (p, s) else 
 	  let e' = Fact.mk_equal x y None in
 	  let p' = Partition.merge e' p in
@@ -239,12 +247,33 @@ and update i e (p, s) =
 	  let s' = union i e s in
 	    (p, s')
 
+and vareq i e (p, s) = 
+  let (x, y, prf1) = Fact.d_equal e in          (* [prf1 |- x = y]. *)
+  let p' = Partition.merge e p in
+  let s' = 
+    try
+      let (a, prf2) = justification s y in       (* [ prf2 |- y = a]. *)
+	if y <<< x then
+	  restrict i x s
+	else 
+	  let e' = Fact.mk_equal x a (Fact.mk_rule "trans" [prf1; prf2]) in
+	  let s' = restrict i y s in
+	    union i e' s'
+    with
+	Not_found -> 
+	  restrict i x s 
+  in
+    (p', s')
+
+
 
 (*s Composition. *)
 
 let compose i (p, s) r =
-  Trace.msg (Th.to_string i) "Compose" r (Pretty.list Fact.pp_equal);
+  Trace.call (Th.to_string i) "Compose" r (Pretty.list Fact.pp_equal);
   let (p', s') = fuse i (p, s) r in
-  List.fold_right (update i) r (p', s')
+  let (p'', s'') = List.fold_right (update i) r (p', s') in
+    Trace.exit (Th.to_string i) "Compose" () Pretty.unit;
+    (p'', s'')
 
 
