@@ -33,9 +33,7 @@ let keyword =
       "bitvector", BV; "with", WITH;
       "proj", PROJ;
       "cons", CONS; "car", CAR; "cdr", CDR; "nil", NIL;
-      "conc", CONC; "sub", SUB; 
-      "bwite", BWITE; "bwand", BWAND; "bwor", BWOR;
-      "bwxor", BWXOR; "bwnot", BWNOT;
+      "conc", CONC; "sub", SUB; "ite", BWITE;
       "drop", DROP; "can", CAN; "assert", ASSERT; "abstract", ABSTRACT; "exit", EXIT; 
       "valid", VALID; "unsat", UNSAT;
       "save", SAVE; "restore", RESTORE; "remove", REMOVE; "forget", FORGET;
@@ -45,7 +43,8 @@ let keyword =
       "find", FIND; "inv", INV; "use", USE; "solution", SOLUTION; "partition", PARTITION;
       "syntax", SYNTAX; "commands", COMMANDS; "ctxt", CTXT; "diseq", DISEQ; 
       "show", SHOW; "symtab", SYMTAB; "cnstrnt", CNSTRNT; "split", SPLIT;
-      "true", TRUE; "false", FALSE
+      "true", TRUE; "false", FALSE;
+      "floor", FLOOR; "ceiling", CEILING; "sin", SIN; "cos", COS; "unsigned", UNSIGNED 
     ];
   fun s ->
     try Hashtbl.find kw_table s with Not_found -> IDENT s
@@ -88,6 +87,7 @@ rule token = parse
   | '-'        { MINUS }
   | '*'        { TIMES }
   | '/'        { DIVIDE }
+  | '\\'       { BACKSLASH }
   | '='        { EQUAL }
   | ":="       { ASSIGN }
   | "<>"       { DISEQ }
