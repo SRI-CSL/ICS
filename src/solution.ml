@@ -143,7 +143,8 @@ let rec fuse map (p, s) r =
     (fun x acc ->
        try
 	 let b = apply s x in
-	 update (x, norm b) acc
+	 let b' = norm b in
+	 update (x, b') acc
        with
 	   Not_found -> acc)
     focus
