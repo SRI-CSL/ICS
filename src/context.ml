@@ -293,7 +293,7 @@ let check_sat s =
   let rec check splits s =
     try
       (match Combine.split (s.p, s.eqs) with
-	 | Combine.Split.Finint(fin) -> 
+	 | Combine.Split.Finint(x, fin) -> 
 	     invalid_arg "Splits on integers: to do"
 	 | Combine.Split.Equal(i, j) -> 
 	     let e = Atom.mk_equal (i, j)

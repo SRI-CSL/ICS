@@ -238,7 +238,17 @@ let is_equal ((p, s) as cfg) a b =
 let is_diseq ((p, s) as cfg) =
   Jst.Pred2.orelse
     (Partition.is_diseq p)
-    (La.is_diseq (p, s.a))
+    (Jst.Pred2.orelse
+       (La.is_diseq (p, s.a))
+       (Jst.Pred2.orelse
+	  (P.is_diseq (p, s.p))
+	  (Jst.Pred2.orelse
+	     (Cop.is_diseq (p, s.cop))
+	     (Jst.Pred2.orelse
+		(Pset.is_diseq (p, s.pset))
+		(L.is_diseq (p, s.app))))))
+			    
+
       
 
 (** Test if terms [a] and [b] are equal or disequal in [s]. *)
@@ -547,13 +557,17 @@ let minimize (p, s) = La.lower (p, s.a)
 module Split = struct
 
   type t = 
-    | Finint of La.Finite.t
+    | Finint of Term.t * La.Finite.t
     | Equal of Term.t * Term.t
 
 
   let pp fmt = function
-    | Finint(fin) -> La.Finite.pp fmt fin
-    | Equal(i, j) -> Term.Equal.pp fmt (i, j)
+    | Finint(x, fin) -> 
+	Term.pp fmt x;
+	Pretty.string fmt " in "; 
+	La.Finite.pp fmt fin
+    | Equal(i, j) -> 
+	Term.Equal.pp fmt (i, j)
 
 end 
 
@@ -564,6 +578,6 @@ let split (p, s) =
       Split.Equal(i, j)
   with
       Not_found ->
-	let fin = La.Finite.split (p, s.a) in
+	let (x, fin) = La.Finite.split (p, s.a) in
 	  Trace.msg "spl" "Split" fin La.Finite.pp;
-	  Split.Finint(fin)
+	  Split.Finint(x, fin)

@@ -47,6 +47,8 @@ val fold : (Term.t -> Term.t * Jst.t -> 'a -> 'a) -> t -> 'a -> 'a
     [rho] in [s] and accumulates the result starting with [e]. The order of
     application is unspecified. *)
 
+val is_diseq : Partition.t * t -> Jst.Pred2.t
+
 
 (** {6 Updates} *)
 

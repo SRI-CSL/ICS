@@ -135,7 +135,7 @@ val model : Partition.t * t -> (Term.t * La.mode option) list -> Term.t Term.Map
 module Split : sig
 
   type t = 
-    | Finint of La.Finite.t
+    | Finint of Term.t * La.Finite.t
     | Equal of Term.t * Term.t
 
   val pp : t Pretty.printer

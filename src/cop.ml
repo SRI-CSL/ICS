@@ -74,6 +74,19 @@ let replace s =
   Jst.Eqtrans.replace Coproduct.map (find s)
 
 
+(** [a <> b] if [solve(S[a] = S[b])] is inconsistent. *)
+let is_diseq ((_, s) as cfg) a b =
+  if is_empty s || not(Term.is_pure Th.cop a) || not(Term.is_pure Th.cop b) then
+    None
+  else 
+    let (a', rho) = replace s a
+    and (b', tau) = replace s b in
+      try
+	let _ = Coproduct.solve (a', b') in
+	  None
+      with
+	  Exc.Inconsistent -> Some(Jst.dep2 rho tau)
+
 let merge ((p, s) as cfg) e =  
   let e' = Fact.Equal.map (replace s) e in
     Trace.msg "cop" "Process" e' Fact.Equal.pp;

@@ -51,6 +51,21 @@ let name = S.name
   The result is canonized. *)
 let replace s = Jst.Eqtrans.replace Product.map (find s)
 
+
+(** [a <> b] if [solve(S[a] = S[b])] is inconsistent. *)
+let is_diseq ((_, s) as cfg) a b =
+  if is_empty s || not(Term.is_pure Th.p a) || not(Term.is_pure Th.p b) then
+    None
+  else 
+    let (a', rho) = replace s a
+    and (b', tau) = replace s b in
+      try
+	let _ = Product.solve (a', b') in
+	  None
+      with
+	  Exc.Inconsistent -> Some(Jst.dep2 rho tau)
+
+
 let solve = Fact.Equal.equivn Product.solve
 
 let merge ((p, s) as cfg) e =  
@@ -58,3 +73,11 @@ let merge ((p, s) as cfg) e =
     Trace.msg "p" "Process" e' Fact.Equal.pp;
     let sl = solve e' in
       S.compose (p, s) sl
+
+
+
+
+
+
+
+

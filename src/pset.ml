@@ -63,6 +63,19 @@ let replace s =
   Jst.Eqtrans.replace Propset.map (find s)
 
 
+(** [a <> b] if [solve(S[a] = S[b])] is inconsistent. *)
+let is_diseq ((_, s) as cfg) a b =
+  if is_empty s || not(Term.is_pure Th.set a) || not(Term.is_pure Th.set b) then
+    None
+  else 
+    let (a', rho) = replace s a
+    and (b', tau) = replace s b in
+      try
+	let _ = Propset.solve (a', b') in
+	  None
+      with
+	  Exc.Inconsistent -> Some(Jst.dep2 rho tau)
+
 let name = S.name
 
 let solve sl = 

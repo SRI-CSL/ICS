@@ -59,6 +59,20 @@ let replace (p, s) =
   Jst.Eqtrans.replace Apply.map 
     (Jst.Eqtrans.totalize
        (Partition.choose p (apply s)))
+
+(** [a <> b] if [solve(S[a] = S[b])] is inconsistent. *)
+let is_diseq ((_, s) as cfg) a b =
+  if is_empty s || not(Term.is_pure Th.cop a) || not(Term.is_pure Th.cop b) then
+    None
+  else 
+    let (a', rho) = replace cfg a
+    and (b', tau) = replace cfg b in
+      try
+	let _ = Apply.solve (a', b') in
+	  None
+      with
+	  Exc.Inconsistent -> Some(Jst.dep2 rho tau)
+
   
 let solve = 
   Trace.func "l" "Solve" Fact.Equal.pp (Pretty.list Fact.Equal.pp)

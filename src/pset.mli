@@ -45,6 +45,11 @@ val fold : (Term.t -> Term.t * Jst.t -> 'a -> 'a) -> t -> 'a -> 'a
     application is unspecified. *)
 
 
+val is_diseq : Partition.t * t -> Jst.Pred2.t
+  (** [is_diseq (_, s) a b] holds iff [s] implies a <> b] in the theory
+    of propositional sets. *)
+  
+
 (** {6 Updates} *)
 
 val copy : t -> t

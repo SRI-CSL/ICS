@@ -918,7 +918,7 @@ and is_neg cfg a =
 
 (** [a <> b] if [solve(S[a] = S[b])] is inconsistent. *)
 and is_diseq ((_, s) as cfg) a b =
-  if not(Term.is_pure Th.la a) || not(Term.is_pure Th.la b) then
+  if is_empty s || not(Term.is_pure Th.la a) || not(Term.is_pure Th.la b) then
     None
   else 
     let (a', rho) = replace s a
@@ -1260,7 +1260,7 @@ module Finite = struct
       Zset.empty
 
   
-  exception Found of t
+  exception Found of Term.t * t
 
   (** Find a finite interpretation for one of the variables [x] in [a]. *)
   let of_term cfg a =
@@ -1268,24 +1268,24 @@ module Finite = struct
       (Term.iter
 	 (fun x ->
 	    try
-	      let fin = of_var cfg x in raise(Found(fin))
+	      let fin = of_var cfg x in raise(Found(x, fin))
 	    with 
 		Not_found -> ())
 	 a);
       raise Not_found
     with
-	Found(fin) -> fin
+	Found(x, fin) -> (x, fin)
 
   let split ((_, s) as cfg) =
     let of_equal (x, a) = 
       try
 	let fin = of_var cfg x in
-	  raise(Found(fin))
+	  raise(Found((x, fin)))
       with
 	  Not_found -> 
 	    (try
-	       let fin = of_term cfg a in
-		 raise(Found(fin))
+	       let (x, fin) = of_term cfg a in
+		 raise(Found(x, fin))
 	     with
 		 Not_found -> ())
     in
@@ -1293,7 +1293,7 @@ module Finite = struct
 	iter (fun x (a, _) -> of_equal (x, a)) s;
 	raise Not_found
       with
-	  Found(fin) -> fin
+	  Found(x, fin) -> (x, fin)
 end 
 
 type mode = Max | Min
