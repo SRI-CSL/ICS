@@ -60,8 +60,6 @@ let to_string = Pretty.to_string pp
 
 (** {6 Variables} *)
 
-let varcmp = Var.cmp  (* avoid name clash *)
-
 module Var = struct
 
   (** Constructing hashconsed external variables *)
@@ -218,6 +216,10 @@ module Var = struct
     | Var.Slack(i, m) -> mk_slack (Some(i)) m
     | Var.Fresh(th, i, d) -> mk_fresh th (Some(i)) d
     | Var.Bound(n) -> mk_free n
+
+  let cmp x y = 
+    if x == y then 0 else Var.cmp x y 
+
 end 
 
 module App = struct
@@ -286,12 +288,30 @@ and eql al bl =
     
 let rec cmp a b = 
   match a, b with  
-    | Var(x, _), Var(y, _) -> varcmp x y
+    | Var(x, _), Var(y, _) -> Var.cmp x y
     | Var _, App _ -> 1
     | App _, Var _ -> -1
     | App(f, l, _), App(g, m, _) ->
-	let c1 = Sym.cmp f g in
-	if c1 != 0 then c1 else cmpl l m
+	(match l, m with
+	   | [], [] -> 
+	       Sym.cmp f g
+	   | [], _ -> -1
+	   | _, [] -> 1
+	   | [x], [y] -> 
+	       let c1 = Sym.cmp f g in 
+		 if c1 <> 0 then c1 else cmp x y
+	   | [_], _ -> -1
+	   | _, [_] -> 1
+	   | [x1; x2], [y1; y2] ->
+	       let c1 = Sym.cmp f g in 
+		 if c1 <> 0 then c1 else
+		   let c2 = cmp x1 y1 in
+		     if c2 <> 0 then c2 else cmp x2 y2
+	   | [_; _], _ -> -1
+	   | _, [_; _] -> 1
+	   | _ ->
+	       let c1 = Sym.cmp f g in
+		 if c1 != 0 then c1 else cmpl l m)
  
 and cmpl l m =
   let rec loop c l m =
@@ -307,7 +327,6 @@ and cmpl l m =
   in
   loop 0 l m
 
-
 let (<<<) a b = (cmp a b <= 0)
 
 let orient ((a, b) as e) =
@@ -318,11 +337,14 @@ let orient ((a, b) as e) =
 
 (** [compare] is faster than [cmp] and is used for building sets
   and maplets. It does not obey the variable ordering {!Var.cmp} *)
-let compare a b = (* cmp a b *)         (* syntactic comparison does not work. why? *)
-  let res = Pervasives.compare (hash a) (hash b) in
-    if res <> 0 then res else
-      if eq1 a b then 0 else cmp a b
-
+let compare a b =
+  let ha = hash a and hb = hash b in
+    if ha = hb then
+      if eq1 a b then 0 else Pervasives.compare a b
+    else if ha < hb then
+      -1
+    else 
+      1
   
 
 
