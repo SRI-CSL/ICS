@@ -1,5 +1,21 @@
 
 (* Simplified version of caml types. *)
 
-type mltype = Int | Bool | Unit | String | Abstract
-type mlarity = { args : mltype list; result : mltype }
+
+
+type t = {
+  dom : ground list; 
+  cod : ground 
+}
+
+and ground = 
+  | Int 
+  | Bool 
+  | Unit 
+  | String 
+  | Value
+
+val pp : Format.formatter -> t -> unit
+
+val to_string : t -> string
+

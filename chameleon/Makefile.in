@@ -20,7 +20,7 @@ endif
 
 ### targets
 
-CMO = mli_parser.cmo mli_lexer.cmo chameleon.cmo
+CMO = mli_types.cmo mli_parser.cmo mli_lexer.cmo chameleon.cmo
 CMX = $(CMO:.cmo=.cmx)
 
 .PHONY : all 
@@ -34,7 +34,7 @@ chameleon: $(CMX)
 $(ARCH):
 	mkdir $(ARCH)
 
-.PRECIOUS : chameleon.ml mli_lexer.mll mli_parser.mly mli_types.mli
+.PRECIOUS : chameleon.ml mli_lexer.mll mli_parser.mly mli_types.ml mli_types.mli
 
 chameleon.ml: ../src/chameleon.ml
 	@ln -sf ../src/$(@F) .
@@ -46,6 +46,9 @@ mli_parser.mly: ../src/mli_parser.mly
 	@ln -sf ../src/$(@F) .
 
 mli_types.mli: ../src/mli_types.mli
+	@ln -sf ../src/$(@F) .
+
+mli_types.ml: ../src/mli_types.ml
 	@ln -sf ../src/$(@F) .
 
 GENERATED = mli_parser.ml mli_parser.mli mli_lexer.ml
@@ -88,5 +91,5 @@ chameleon.cmx: mli_lexer.cmx mli_types.cmi
 mli_lexer.cmo: mli_parser.cmi 
 mli_lexer.cmx: mli_parser.cmx 
 mli_parser.cmo: mli_types.cmi mli_parser.cmi 
-mli_parser.cmx: mli_types.cmi mli_parser.cmi 
+mli_parser.cmx: mli_types.cmi mli_parser.cmi
 

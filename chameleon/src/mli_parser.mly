@@ -1,4 +1,4 @@
-/* A simplified parser for caml types. */
+/* A simplified parser for interface declarations. */
 
 %{
   open Mli_types
@@ -6,46 +6,38 @@
 
 %token <string> IDENT
 %token <string> LONGIDENT
-%token INT BOOL UNIT STRING
-%token QUOTE LPAR RPAR ARROW STAR COMMA EOF
-%right prec_type_arrow
-%type <Mli_types.mlarity> mlarity
-%start mlarity
+%token VAL COLON
+%token INT BOOL UNIT STRING VALUE ARROW EOF
+%right ARROW
+%type <Mli_types.t> signature
+%type <string * Mli_types.t> declaration
+%start declaration
+%start signature
 
 %%
-mlarity:
-  | core_type EOF { $1 }
+
+declaration: VAL IDENT COLON signature { ($2, $4) }
+
+signature:
+  constant EOF  { $1 } 
+| functional EOF { $1 }
 ;
 
-core_type:
-  | simple_core_type          { { args = []; result = $1 } }
-  | core_type ARROW core_type %prec prec_type_arrow 
-     { let arg = if $1.args = [] then $1.result else Abstract in
-       { args = arg :: $3.args; result = $3.result } }
-  | core_type_tuple           { { args = []; result = Abstract } }
+constant : ground            { { dom = []; cod = $1 } }
+
+functional: dom ARROW ground { { dom = List.rev $1; cod = $3 } }
+
+dom:
+  ground           { [$1] }
+| dom ARROW ground { $3 :: $1 }
 ;
 
-simple_core_type:
+ground:
   | INT                                  { Int }
   | BOOL                                 { Bool }
   | UNIT                                 { Unit }
   | STRING                               { String }
-  | QUOTE IDENT                          { Abstract }
-  | IDENT                                { Abstract }
-  | simple_core_type IDENT               { Abstract }
-  | LPAR core_type_comma_list RPAR IDENT { Abstract }
-  | LPAR core_type RPAR                  { Abstract }
-
-;
-
-core_type_tuple:
-  | simple_core_type STAR simple_core_type      { () }
-  | core_type_tuple  STAR simple_core_type      { () }
-;
-
-core_type_comma_list:
-  | core_type            COMMA core_type        { () }
-  | core_type_comma_list COMMA core_type        { () }
+  | VALUE                                { Value }
 ;
 
 %%
