@@ -141,7 +141,6 @@ AC_PROG_CXX
 AC_PROG_MAKE_SET
 AC_PROG_RANLIB
 AC_CHECK_PROG(AR, ar, ar) 
-CXX=g++-2
 # are on AIX needs to know the object file format
 case "$target" in
   powerpc64*-*-aix*)
