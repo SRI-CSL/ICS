@@ -1,4 +1,19 @@
 
+(*i
+ * The contents of this file are subject to the ICS(TM) Community Research
+ * License Version 1.0 (the ``License''); you may not use this file except in
+ * compliance with the License. You may obtain a copy of the License at
+ * http://www.icansolve.com/license.html.  Software distributed under the
+ * License is distributed on an ``AS IS'' basis, WITHOUT WARRANTY OF ANY
+ * KIND, either express or implied. See the License for the specific language
+ * governing rights and limitations under the License.  The Licensed Software
+ * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
+ * ``ICS'' is a trademark of SRI International, a California nonprofit public
+ * benefit corporation.
+ * 
+ * Author: Jean-Christophe Filliatre
+ i*)
+
 (*s {\bf chameleon.} Automatic C stub code generation for an ocaml library. *)
 
 open Filename
@@ -312,6 +327,7 @@ let output_code l =
   cprintf "#include <caml/callback.h>\n#include <caml/memory.h>\n";
   cprintf "#include <setjmp.h>\n";
   cprintf "#include <signal.h>\n";
+  cprintf "extern void ics_error(char *, char *);";
   cprintf "jmp_buf catch;\n";
   cprintf "void (*old_handler)(int);\n";
   cprintf "\n/* Values registered from Caml. */\n";
@@ -358,7 +374,16 @@ let output_code l =
   cprintf "   return_value = ics_process(x1,x2);\n";
   cprintf "   signal(SIGINT,old_handler);\n";
   cprintf "   return return_value;\n";
-  cprintf "}\n\n"
+  cprintf "}\n\n";
+  cprintf "/* Test function for interrupts. */\n";
+  cprintf "void ics_sleep_wrapper (value* n) {\n";
+  cprintf "   auto value* return_value;\n";
+  cprintf "   if ((setjmp(catch)) == 0) { \n";
+  cprintf "      old_handler = signal(SIGINT,new_handler);\n";
+  cprintf "      ics_sleep(n);\n";
+  cprintf "      signal(SIGINT,old_handler);\n";
+  cprintf "}}\n\n"
+
 
   
 
