@@ -79,6 +79,7 @@ module Eqs =
 	 let th = Th.bv
 	 let nickname = Th.to_string Th.bv
 	 let apply = Bitvector.apply
+	 let is_infeasible _ _ = None
        end)
        (Cnstnt))
 

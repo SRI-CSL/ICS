@@ -19,6 +19,7 @@ module A: Eqs.SET0 =
 	let th = Th.arr
 	let nickname = Th.to_string Th.arr
 	let apply = Funarr.apply Term.is_equal
+	let is_infeasible _ _ = None
       end))
 
 type t = A.t
