@@ -36,8 +36,8 @@ let empty = Map.empty
 (*s [add x a use] adds [x] to the use of [y] for each toplevel
  uninterpreted term in [a]. *)
 
-let add fold x =
-  fold 
+let add x =
+  Term.fold
     (fun y acc ->
        try 
 	 let uy = Map.find y acc in
@@ -50,8 +50,8 @@ let add fold x =
 (*s [remove x a s] deletes [x] from the use of [y] for each toplevel
  uninterpreted term in [a]. *)
 
-let remove fold x =
-  fold
+let remove x =
+  Term.fold
     (fun y acc ->
        try 
 	 let uy = Map.find y acc in

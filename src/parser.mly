@@ -39,7 +39,7 @@ let equal_width_of a b =
 
 %}
 
-%token DROP CAN ASSERT EXIT SAVE RESTORE REMOVE FORGET RESET SYMTAB SIG
+%token DROP CAN ASSERT EXIT SAVE RESTORE REMOVE FORGET RESET SYMTAB SIG VALID UNSAT
 %token TYPE SIGMA
 %token SOLVE HELP DEF TOGGLE SET TRACE UNTRACE CMP FIND USE INV SOLUTION PARTITION
 %token SHOW CNSTRNT SYNTAX COMMANDS SPLIT
@@ -57,19 +57,20 @@ let equal_width_of a b =
 %token INF NEGINF
 %token ALBRA ACLBRA CLBRA
 
-%token LPAR RPAR LBRA RBRA LCUR RCUR UNDERSCORE AT
+%token LPAR RPAR LBRA RBRA LCUR RCUR UNDERSCORE KLAMMERAFFE
 %token COLON COMMA DOT DDOT ASSIGN UNION TO ENDMARKER
 
 %token <string> BVCONST 
 %token <string * int> FRESH
 
-%token CONC SUB BWITE BWAND BWOR BWXOR BWNOT
-%token BVCONCI BWANDI BWORI BWXORI
+%token CONC SUB BWITE BWAND BWOR BWXOR BWIMP BWIFF BWNOT
+%token BVCONC 
 %token EQUAL DISEQ
 %token TRUE FALSE
 %token PLUS MINUS TIMES DIVIDE EXPT
 %token LESS GREATER LESSOREQUAL GREATEROREQUAL
 %token WITH CONS CAR CDR NIL
+%token DISJ XOR IMPL BIIMPL CONJ NEG
 %token PROJ
 %token UNSIGNED
 
@@ -80,9 +81,9 @@ let equal_width_of a b =
 %left MINUS PLUS
 %left TIMES DIVIDE
 %right EXPT
-%right BVCONCI
-%right BWORI BWXORI
-%left BWANDI
+%right BVCONC
+%right BWOR BWXOR BWIMP
+%left BWAND BWIFF
 %nonassoc TO
 %nonassoc IN NOTIN
 %nonassoc LCUR
@@ -92,18 +93,21 @@ let equal_width_of a b =
 %type <Term.t> termeof
 %type <Atom.t> atomeof
 %type <Cnstrnt.t> cnstrnteof
-%type <unit> commands
+%type <Result.t> commands
+%type <Result.t> commandseof
 
 %start termeof
 %start atomeof
 %start cnstrnteof
 %start commands
+%start commandseof
 
 %%
 
 termeof : term EOF           { $1 }
 atomeof : atom EOF           { $1 }
 cnstrnteof : cnstrnt EOF     { $1 }
+commandseof : command EOF    { $1 }
 
 commands : command DOT       { $1 }
 | EOF                        { raise End_of_file }
@@ -116,36 +120,59 @@ rat:
 
 name: IDENT            { Name.of_string $1 }
 
+funsym: 
+  name                                   { Sym.mk_uninterp $1 }
+| PLUS                                   { Sym.mk_add }
+| TIMES                                  { Sym.mk_mult }
+| DIVIDE                                 { Sym.mk_div }
+| EXPT LBRA INTCONST RBRA                { Sym.mk_expt $3 }
+| TUPLE                                  { Sym.mk_tuple }
+| PROJ LBRA INTCONST COMMA INTCONST RBRA { Sym.mk_proj $3 $5 }
+| CONS                                   { Sym.mk_tuple  }
+| CAR                                    { Sym.mk_proj 0 2 }
+| CDR                                    { Sym.mk_proj 1 2 }
+| CONC LBRA INTCONST COMMA INTCONST RBRA               { Sym.mk_bv_conc $3 $5 }
+| SUB LBRA INTCONST COMMA INTCONST COMMA INTCONST RBRA { Sym.mk_bv_sub $3 $5 $7 }
+| BWITE LBRA INTCONST RBRA                             { Sym.mk_bv_bitwise $3 }
+;
+
+constsym: 
+  rat       { Sym.mk_num $1 }
+| NIL       { Sym.mk_tuple }
+| TRUE      { Sym.mk_bv_const (Bitv.from_string "1") }
+| FALSE     { Sym.mk_bv_const (Bitv.from_string "0") }  
+| BVCONST   { Sym.mk_bv_const (Bitv.from_string $1) }
+;
+
+
+
 term:
   var              { $1 }
-| fresh            { $1 }
 | app              { $1 }
-| arith            { $1 }
-| tuple            { $1 }
+| LPAR term RPAR   { $2 }
+| arith            { $1 }     /* infix/mixfix syntax */
 | array            { $1 }
-| sexpr            { $1 }
 | bv               { $1 }
 | boolean          { $1 }
-| LPAR term RPAR   { $2 }
 ;
 
-var: name  { try
-		 match Symtab.lookup $1 (Istate.symtab()) with
-		   | Symtab.Def(a) -> a
-		   | _ -> Term.mk_var $1
-	       with
-		   Not_found -> Term.mk_var $1 }
+var:
+  name  { try
+	    match Symtab.lookup $1 (Istate.symtab()) with
+	      | Symtab.Def(a) -> a
+	      | _ -> Term.mk_var $1
+	  with
+	      Not_found -> Term.mk_var $1 }
+| FRESH  { let (x,k) = $1 in 
+	   Term.mk_fresh_var (Name.of_string x) (Some(k)) }
 ;
 
-fresh : 
-  FRESH            { let (x,k) = $1 in Term.mk_fresh_var (Name.of_string x) (Some(k)) }
-| FRESH LPAR RPAR  { let (x,k) = $1 in Term.mk_fresh_param x (Some(k)) }
 
-
-app: name LPAR termlist RPAR       { Istate.sigma (Sym.mk_uninterp $1) $3 }
+app: 
+  funsym LPAR termlist RPAR     { Istate.sigma $1 (List.rev $3) }
+| constsym                      { Istate.sigma $1 [] }
      
-arith: 
-  rat                              { Arith.mk_num $1 }
+arith:
 | term PLUS term                   { Arith.mk_add $1 $3 }
 | term MINUS term                  { Arith.mk_sub $1 $3 }
 | term TIMES term                  { Arith.mk_mult $1 $3 }
@@ -154,48 +181,15 @@ arith:
 | term EXPT INTCONST               { Arith.mk_expt $3 $1 }
 ;
 
-tuple:
-  LPAR termlist RPAR               { Tuple.mk_tuple(List.rev $2) }
-| PROJ LBRA INTCONST COMMA INTCONST RBRA  LPAR term RPAR
-                                   { Tuple.mk_proj $3 $5 $8 }
-;
 
-sexpr:
-  NIL                            { Tuple.mk_tuple [] }
-| CONS LPAR term COMMA term RPAR { Tuple.mk_tuple [$3; $5] }
-| CAR LPAR term RPAR             { Tuple.mk_proj 0 2 $3 }
-| CDR LPAR term RPAR             { Tuple.mk_proj 1 2 $3 }
-;
-
-
-array: 
+array:
   term LBRA term ASSIGN term RBRA { Builtin.mk_update (Istate.current()) $1 $3 $5 }
-| term LBRA term RBRA             { Builtin.mk_select (Istate.current()) $1 $3 }  
+| term LBRA term RBRA             { Builtin.mk_select (Istate.current()) $1 $3 } 
 ;
 
-boolean:
-  TRUE      { Boolean.mk_true() }
-| FALSE     { Boolean.mk_false() }
-;
 
 bv:
-  BVCONST             { Bitvector.mk_const (Bitv.from_string $1) }
-| CONC LBRA INTCONST COMMA INTCONST RBRA LPAR term COMMA term RPAR 
-                      { Bitvector.mk_conc $3 $5 $8 $10 }
-| SUB LBRA INTCONST COMMA INTCONST COMMA INTCONST RBRA LPAR term RPAR
-                      { Bitvector.mk_sub $3 $5 $7 $10 }
-| BWITE LBRA INTCONST RBRA LPAR term COMMA term COMMA term RPAR
-                      { Bitvector.mk_bitwise $3 $6 $8 $10 }
-| BWAND LBRA INTCONST RBRA LPAR term COMMA term RPAR
-                      { Bitvector.mk_bitwise $3 $6 $8 (Bitvector.mk_zero $3) }
-| BWOR LBRA INTCONST RBRA LPAR term COMMA term RPAR
-                      { Bitvector.mk_bitwise $3 $6 (Bitvector.mk_one $3) $8 }
-| BWXOR LBRA INTCONST RBRA LPAR term COMMA term RPAR
-                      { Bitvector.mk_bitwise $3 $6 
-			  (Bitvector.mk_bitwise $3 $8 (Bitvector.mk_zero $3) (Bitvector.mk_one $3)) $8 }
-| BWNOT LBRA INTCONST RBRA LPAR term RPAR 
-                      { Bitvector.mk_bitwise $3 $6 (Bitvector.mk_zero $3) (Bitvector.mk_one $3) }
-| term BVCONCI term   { match Istate.width_of $1, Istate.width_of $3 with
+  term BVCONC term   { match Istate.width_of $1, Istate.width_of $3 with
 			  | Some(n), Some(m) -> Bitvector.mk_conc n m $1 $3
 			  | Some _, _ -> raise (Invalid_argument (Term.to_string $3 ^ " not a bitvector."))
 			  | _ -> raise (Invalid_argument (Term.to_string $1 ^ " not a bitvector.")) }
@@ -203,13 +197,17 @@ bv:
                       { match Istate.width_of $1 with
 			  | Some(n) -> Bitvector.mk_sub n $3 $5 $1
 			  | None ->  raise (Invalid_argument (Term.to_string $1 ^ " not a bitvector.")) }
-| term BWANDI term    { let n = equal_width_of $1 $3 in
-		        Bitvector.mk_bitwise n $1 $3 (Bitvector.mk_zero n) }
-| term BWORI term     { let n = equal_width_of $1 $3 in
-		        Bitvector.mk_bitwise n $1 (Bitvector.mk_one n) $3 }
-| term BWXORI term    { let n = equal_width_of $1 $3 in
-		        Bitvector.mk_bitwise n $1 
-			  (Bitvector.mk_bitwise n $3 (Bitvector.mk_zero n) (Bitvector.mk_one n)) $1}
+| term BWAND term     { Bitvector.mk_bwconj (equal_width_of $1 $3) $1 $3 }
+| term BWOR term      { Bitvector.mk_bwdisj (equal_width_of $1 $3) $1 $3 }
+| term BWIMP term     { Bitvector.mk_bwimp (equal_width_of $1 $3) $1 $3 }
+| term BWIFF term     { Bitvector.mk_bwiff (equal_width_of $1 $3) $1 $3 }
+;
+
+boolean:
+| term CONJ term            { Boolean.mk_conj $1 $3 }
+| term DISJ term            { Boolean.mk_disj $1 $3 }
+| term XOR term             { Boolean.mk_xor $1 $3 }
+| NEG term %prec prec_unary { Boolean.mk_neg $2 }
 ;
 
 
@@ -264,68 +262,65 @@ signature:
 ;
 
 command: 
-  CAN atom                  { Atom.pp (out()) (Istate.can $2) }
-| CAN term                  { Term.pp (out()) (Istate.cant $2) }
-| ASSERT atom               { match Istate.process $2 with
-				| Shostak.Valid -> pr "Valid."
-				| Shostak.Inconsistent -> pr "Unsat."
-				| Shostak.Satisfiable _ -> pr "Ok." }
-| DEF name ASSIGN term      { Istate.def $2 $4 }
-| SIG name COLON signature  { Istate.sgn $2 $4 }
-| TYPE name ASSIGN cnstrnt  { Istate.typ $2 $4 }
-| RESET                     { Istate.reset (); }
-| SAVE name                 { Istate.save $2 }         
-| RESTORE name              { Istate.restore $2 }
-| REMOVE name               { Istate.remove $2 }
-| FORGET                    { Istate.forget () }
+  CAN atom                  { Result.Atom(Istate.can $2) }
+| CAN term                  { Result.Term(Istate.cant $2) }
+| ASSERT optname atom       { Result.Process(Istate.process $2 $3) }
+| DEF name ASSIGN term      { Result.Unit(Istate.def $2 $4) }
+| SIG name COLON signature  { Result.Unit(Istate.sgn $2 $4) }
+| TYPE name ASSIGN cnstrnt  { Result.Unit(Istate.typ $2 $4) }
+| RESET                     { Result.Unit(Istate.reset ()) }
+| SAVE name                 { Result.Name(Istate.save(Some($2))) }
+| SAVE                      { Result.Name(Istate.save(None)) }        
+| RESTORE name              { Result.Unit(Istate.restore $2) }
+| REMOVE name               { Result.Unit(Istate.remove $2) }
+| FORGET                    { Result.Unit(Istate.forget()) }
+| VALID optname atom        { Result.Bool(Istate.valid $2 $3) }
+| UNSAT optname atom        { Result.Bool(Istate.unsat $2 $3) }
 | EXIT                      { raise End_of_file }
 | DROP                      { failwith "drop" }
-| SYMTAB                    { Symtab.pp (out()) (Istate.symtab()) }
+| SYMTAB                    { Result.Symtab(Istate.symtab()) }
 | SYMTAB name               { match Istate.entry_of $2 with
-				| Some(e) -> Symtab.pp_entry (out()) e
+				| Some(e) -> Result.Entry(e)
 				| None -> raise (Invalid_argument (Name.to_string $2 ^ "not in symbol table")) }
-| CTXT                      { Pretty.list Atom.pp (out()) (Istate.ctxt_of ()) }
-| SIGMA term                { pr "val: "; Term.pp (out()) $2 }
-| GC                        { Istate.compress () }
-| term CMP term             { let cmp = Term.cmp $1 $3 in
-			      let str = if cmp < 0 then "Less." else if cmp = 0 then "Equal." else "Greater." in
-			      Pretty.string (out()) str }
-| SHOW                      { Context.pp (out()) (Istate.current()) }
-| FIND th term              { Term.pp (out()) (Istate.find $2 $3) }
-| INV th term               { try Term.pp (out()) (Istate.inv $2 $3)
-		 	      with Not_found -> pr "Undef." }
-| USE th term               { Pretty.set Term.pp  (out()) (Term.Set.elements (Istate.use $2 $3)) }
-| SOLUTION th               { Pretty.solution Term.pp (out()) (Istate.solution $2) }
-| PARTITION                 { Pretty.map Term.pp (Pretty.set Term.pp) (out()) (Istate.partition ()) }
-| CNSTRNT term              { match Istate.cnstrnt $2 with
-				| Some(c) -> Cnstrnt.pp (out()) c
-				| None -> Pretty.string (out()) "None." }
-| DISEQ term                { Pretty.list Term.pp (out()) (Istate.diseq $2) }
-| SPLIT                     { Pretty.list Atom.pp (out()) (Istate.split ()) }
-| SOLVE ith term EQUAL term
-                            { try
-				let el = Th.solve $2 ($3, $5) in
-				Pretty.list (Pretty.eqn Term.pp) (out()) el
-                              with
-				| Exc.Unsolved -> Pretty.string (out()) "Unsolved."
-			        | Exc.Inconsistent -> Pretty.string (out()) "Unsat." }
-| TRACE identlist           { List.iter Trace.add $2 }
-| UNTRACE                   { Trace.reset () }
-| help                      { $1 }
+| CTXT optname              { Result.Atoms(Istate.ctxt_of $2) }
+| SIGMA term                { Result.Term($2) }
+| GC                        { Result.Name(Istate.compress()) }
+| term CMP term             { Result.Int(Term.cmp $1 $3) }
+| SHOW optname              { Result.Context(Istate.get_context $2) }
+| FIND optname th term      { Result.Term(Istate.find $2 $3 $4) }
+| INV optname th term       { try Result.Optterm(Some(Istate.inv $2 $3 $4))
+		 	      with Not_found -> Result.Optterm(None) }
+| USE optname th term       { Result.Terms(Istate.use $2 $3 $4) }
+| SOLUTION optname th       { Result.Solution(Istate.solution $2 $3) }
+| CNSTRNT optname term      { match Istate.cnstrnt $2 $3 with
+				| Some(c) -> Result.Cnstrnt(Some(c))
+				| None -> Result.Cnstrnt(None) }
+| DISEQ optname term        { Result.Terms(Istate.diseq $2 $3) }
+| SPLIT optname             { Result.Atoms(Istate.split()) }
+| SOLVE ith term EQUAL term { Result.Solve(Th.solve $2 ($3, $5)) }		
+| TRACE identlist           { Result.Unit(List.iter Trace.add $2) }
+| UNTRACE                   { Result.Unit(Trace.reset ()) }
+| help                      { Result.Unit($1) }
 ;
 
 identlist :
   IDENT                     { [$1] }
 | identlist COMMA IDENT     { $3 :: $1 }
 
-ith: IDENT                  { Interp.of_name $1 }   /* may raise [Invalid_argument]. */
+ith: IDENT            { Interp.of_name $1 } /* may raise [Invalid_argument]. */
 		
-th: IDENT                   { Theories.of_name $1 } /* may raise [Invalid_argument]. */
+th: IDENT             { Theories.of_name $1 } /* may raise [Invalid_argument]. */
 
 help:
   HELP                      { Help.on_help () }
 | HELP SYNTAX               { Help.syntax () }
 | HELP COMMANDS             { Help.commands () }
 ;
+
+
+optname:                    { None }
+| KLAMMERAFFE name          { Some($2) }
+;
+
 
 %%

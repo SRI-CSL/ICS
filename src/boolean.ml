@@ -16,29 +16,17 @@
 
 (*s Boolean constants. *)
 
-let mk_true () = Term.mk_const Sym.mk_true
-let mk_false () = Term.mk_const Sym.mk_false
+let mk_true () = Bitvector.mk_one 1
+let mk_false () = Bitvector.mk_zero 1
 
-let is_true a = Term.eq a (mk_true())
-let is_false a = Term.eq a (mk_false())
+let is_true a = (Term.eq a (mk_true()))
+let is_false a = (Term.eq a (mk_false()))
 
-let is_interp a = is_true a || is_false a
+(*s Boolean connectives. *)
 
-let sigma f l =
-  match f, l with
-    | Sym.True, [] -> mk_true()
-    | Sym.False, [] -> mk_false()
-    | _ -> assert false
-
-let solve (a,b) =
-  if Term.eq a b then []
-  else if is_true a && is_false b then
-    raise Exc.Inconsistent
-  else if is_false a && is_true b then
-    raise Exc.Inconsistent
-  else if is_interp a then
-    [(b,a)]
-  else if is_interp b then
-    [(a,b)]
-  else 
-    [Term.orient (a,b)]
+let mk_conj a b = Bitvector.mk_bitwise 1 a b (mk_false())
+let mk_disj a b = Bitvector.mk_bitwise 1 a (mk_true()) b
+let mk_xor a b = Bitvector.mk_bitwise 1  a
+		   (Bitvector.mk_bitwise 1 b (mk_false()) (mk_true()))
+		   a
+let mk_neg a = Bitvector.mk_bitwise 1 a (mk_false()) (mk_true())

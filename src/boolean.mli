@@ -17,14 +17,13 @@
 (*s Module [Boolean]: Manipulating Boolean constants 
  [mk_true] and [mk_false]. *)
 
-val is_interp : Term.t -> bool
-
 val mk_true : unit -> Term.t
 val mk_false : unit -> Term.t
 
 val is_true : Term.t -> bool
 val is_false : Term.t -> bool
 
-val sigma : Sym.boolean -> Term.t list -> Term.t
-
-val solve : Term.t * Term.t -> (Term.t * Term.t) list
+val mk_conj : Term.t -> Term.t -> Term.t
+val mk_disj : Term.t -> Term.t -> Term.t
+val mk_xor : Term.t -> Term.t -> Term.t
+val mk_neg : Term.t -> Term.t

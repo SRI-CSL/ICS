@@ -37,15 +37,10 @@ type bv =
   | Sub of int * int * int
   | Bitwise of int
 
-type boolean =
-  | True
-  | False
-
 type interp = 
   | Arith of arith
   | Tuple of tuple
   | Bv of bv
-  | Boolean of boolean
 
 (*s Symbols. *)
 
@@ -99,8 +94,6 @@ and interp_equal sym1 sym2 =
 	   | Bitwise(n1), Bitwise n2 ->
 	       n1 = n2
 	   | _ -> false)
-    | Boolean(b1), Boolean(b2) -> 
-	b1 = b2
     | _ -> false
 
 (*s Initial size of hashconsing tables. *)
@@ -128,7 +121,6 @@ let pp fmt s =
       | Interp(Arith(op)) -> arith op
       | Interp(Tuple(op)) -> tuple op
       | Interp(Bv(op)) -> bv op
-      | Interp(Boolean(op)) -> boolean op
 
   and arith op =
     match op with
@@ -149,11 +141,6 @@ let pp fmt s =
       | Conc(n,m) -> Format.printf "conc[%d,%d]" n m
       | Sub(n,i,j) -> Format.printf "sub[%d,%d,%d]" n i j
       | Bitwise(n) -> Format.printf "bitwise[%d]" n
-
-  and boolean op =
-    match op with
-      | True -> Format.fprintf fmt "true"
-      | False -> Format.fprintf fmt "false"
   in
   sym s
 
@@ -177,8 +164,6 @@ let mk_bv_conc n m = make(Interp(Bv(Conc(n,m))))
 let mk_bv_sub n i j = make(Interp(Bv(Sub(n,i,j))))
 let mk_bv_bitwise n = make(Interp(Bv(Bitwise(n))))
 
-let mk_true = make(Interp(Boolean(True)))
-let mk_false = make(Interp(Boolean(False)))
 
 (*s Builtin function symbols. *)
 

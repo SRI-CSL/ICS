@@ -41,6 +41,5 @@ let of_name = function
 
 let a = Interp(Interp.A)
 let t = Interp(Interp.T)
-let b = Interp(Interp.B)
 let bv = Interp(Interp.BV)
 let u = Uninterp

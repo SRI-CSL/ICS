@@ -36,6 +36,19 @@ let d_interp a =
       | _ -> None
 
 
+
+(*s Set of subterms not interpreted in linear arithmetic. *)
+
+let rec uninterps a =
+  if not(is_interp a) then
+    Set.singleton a
+  else
+    List.fold_right
+      (fun b -> Set.union (uninterps b)) 
+      (Term.args_of a)
+      Set.empty
+
+
 (*s Fold functional *)
 
 let rec fold f a e =        
@@ -164,6 +177,8 @@ let of_mono q x =
     match d_num x with
       | Some(p) -> mk_num (Q.mult q p) 
       | None -> Term.mk_app Sym.mk_mult [mk_num q; x]
+
+
 
 (*s Constructors. *)
 
@@ -404,6 +419,7 @@ let rec sigma op l =
 (*s Abstract interpretation in the domain of constraints. *)
 
 let rec cnstrnt ctxt a =
+  Trace.msg "arith" "Arith.Cnstrnt" a Term.pp;
   match d_interp a with
     | Some(op, l) -> 
 	let c = 
@@ -425,6 +441,39 @@ let rec cnstrnt ctxt a =
     | _ ->
 	ctxt a
 
+
+(*s Split a term into the part with constraints and the unconstraint part.
+ Also, return the constraint for the term with a constraint. *)
+
+let split ctxt a =
+  let (constr, unconstr) = 
+    List.fold_right
+      (fun x (constr, unconstr) ->
+	 try
+	   let i = cnstrnt ctxt x in
+	   let constr' =  (match constr with
+	     | None -> Some([x], i)
+	     | Some(yl, j) -> Some(x :: yl, Cnstrnt.add i j))
+	   in
+	   (constr', unconstr)
+	 with
+	     Not_found ->
+	       let unconstr' = match unconstr with
+		 | None -> Some([x])
+		 | Some(yl) -> Some(x :: yl)
+	       in
+	       (constr, unconstr'))
+      (monomials a)
+      (None, None)
+  in
+  let constr' = match constr with
+    | Some(xl, i) -> Some(mk_addl xl, i)
+    | None -> None
+  and unconstr' = match unconstr with
+    | Some(yl) -> Some(mk_addl yl)
+    | None -> None
+  in
+  (constr', unconstr')
 
 
 
@@ -505,3 +554,37 @@ and destructure pred l =
 	   raise Not_found
    in
    loop [] l
+
+
+(* Folding over [a] such that [a] always equal [pre + q * x + post]. *)
+
+let foldall f a e =
+  let rec loop pre post acc =
+    match post with
+      | [] -> acc
+      | m :: post' -> 
+	  let (q, x) = mono_of m in
+	  let acc' = f (mk_addl pre) q x (mk_addl post) acc in
+	  loop (m :: pre) post' acc'
+  in
+  loop [] (monomials a) e
+
+
+(*s Normalize a constraint. *)
+
+let normalize (a, i) = 
+ let norm q p =           
+    if Mpa.Q.is_zero q && Mpa.Q.is_one p then i
+    else if Mpa.Q.is_zero q then Cnstrnt.multq (Mpa.Q.inv p) i
+    else Cnstrnt.multq (Mpa.Q.inv p) (Cnstrnt.addq (Mpa.Q.minus q) i)
+  in
+  if is_var a then
+    (a, i)
+  else 
+    match decompose a with     
+      | Const(q) -> 
+	  (a, i)
+      | One(q, p, x) ->          
+	  (x, norm q p)
+      | Many(q, p, x, y) -> 
+	  (mk_add x y, norm q p)

@@ -31,8 +31,10 @@
 
 type t = {
   ctxt : Atom.Set.t;    (* Current context. *)
-  u : Cc.t;             (* Congruence closure data structure. *)
-  i : Th.t;             (* Interpreted theories. *)
+  v : V.t;              (* Variable equalities. *)
+  d : D.t;              (* Variable disequalities. *)
+  u : U.t;              (* Congruence closure data structure. *)
+  i : Th.t              (* Interpreted theories. *)
 }
 
 val empty : t
@@ -57,11 +59,13 @@ val is_int : t -> Term.t -> bool
 
 val v : t -> Term.t -> Term.t
 
-val partition: t -> Term.Set.t Term.Map.t
+val deq : t -> Term.t -> Term.Set.t
+
+val partition: t -> V.t * D.t
 
 (*s Solution sets for equality theories. *)
 
-val solution :Theories.t-> t -> (Term.t * Term.t) list
+val solutions : Theories.t -> t -> Solution.t
 
 
 (*s Parameterized operators *)
@@ -73,6 +77,26 @@ val use : Theories.t-> t -> Term.t -> Term.Set.t
 (*s [sigma] normal form. *)
 
 val sigma : t -> Sym.t -> Term.t list -> Term.t
+
+(*s Merge variable equality. *)
+
+val merge : Fact.equal -> t -> t * Focus.t
+
+(*s Add a constraint. *)
+
+val add : Fact.cnstrnt -> t -> t * Focus.t
+
+(*s Add a disequality. *)
+
+val diseq : Fact.diseq -> t -> t * Focus.t
+
+(*s Close. *)
+
+val close : t * Focus.t -> t * Focus.t
+
+(*s Extension. *)
+
+val extend : t -> Term.t -> t * Term.t
 
 
 (*s List all constraints with finite extension. *)

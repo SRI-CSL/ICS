@@ -20,37 +20,12 @@ open Context
 open Three
 (*i*)
 
-(*s Sigma normal forms with builtin uninterpreted functions. *)
-
-let sigma s f l =
-  match Interp.index f with 
-    | Some _ -> 
-	Th.sigma f l
-    | None -> 
-	if Sym.is_builtin f then
-	  Builtin.sigma s f l
-	else 
-	  App.sigma f l
-
 (*s Only interpreted find. *)
 
 let find i s x =
   match i with
     | Theories.Interp(i) -> Th.find i s.i x
     | Theories.Uninterp -> x
-
-
-(*s Abstracting a term [a] in theory [i]
- by introducing a new name for it. *)
-
-let extend s a =
-  match Theories.index a with
-    | Theories.Uninterp -> 
-	let (x',u') = Cc.extend a s.u in
-	({s with u = u'}, x')
-    | Theories.Interp(th) ->
-	let (x',i') = Th.extend th  a s.i in
-	({s with i = i'}, x')
 
 
 (*s Canonization of terms. *)
@@ -99,7 +74,6 @@ and eq s a b =
 (*s Canonization of atoms. *)
 
 let rec can s a = 
-  Trace.call "top" "Can" a Atom.pp;
   let (s',a') = match a with
     | Atom.True -> (s, Atom.mk_true())
     | Atom.Equal(x,y) -> can_e s (x,y)
@@ -107,7 +81,6 @@ let rec can s a =
     | Atom.In(c,x) -> can_c s c x
     | Atom.False -> (s, Atom.mk_false())
   in
-  Trace.exit "top" "Can" a' Atom.pp;
   (s',a')
 	  
 and can_e s (a, b) =
@@ -127,7 +100,7 @@ and can_d s (a, b) =
     | X -> (s'', Atom.mk_diseq x' y')
 
 and can_c s c a =
-  let (s', a') = can_term s a in  (* result not necessarily a variable. *) 
+  let (s', a') = can_t s a in
   try                 
     let d = cnstrnt s' a' in
     match Cnstrnt.cmp c d with
@@ -153,47 +126,33 @@ type 'a status =
   | Inconsistent 
   | Satisfiable of 'a
 
-let rec process s a =  
-  Trace.msg "top" "Process" a Atom.pp;
+let rec process s a =
   let s = {s with ctxt = Atom.Set.add a s.ctxt} in
   let (s', a') = can s a in
   try
     match a' with
       | Atom.True -> Valid
       | Atom.False -> Inconsistent
-      | Atom.Equal(x,y) -> Satisfiable(merge s' (x,y))
-      | Atom.Diseq(x,y) -> Satisfiable(diseq s' (x,y))
-      | Atom.In(c,a) -> Satisfiable(add s' c a)
+      | Atom.Equal(x,y) -> Satisfiable(merge x y s')
+      | Atom.Diseq(x,y) -> Satisfiable(diseq x y s')
+      | Atom.In(i,a) -> Satisfiable(add a i s')
   with 
       Exc.Inconsistent -> Inconsistent
 
-and merge s ((x,y) as e) = 
-  mergel s (Veqs.singleton (Veq.make x y))
-  
-and mergel s es =
-  if Veqs.is_empty es then
+and merge x y s = 
+  let e = Fact.mk_equal x y None in
+  close_star (Context.merge e s)
+
+and add x i s = 
+  let c = Fact.mk_cnstrnt x i None in
+  close_star (Context.add c s)
+
+and diseq x y s =
+  let d = Fact.mk_diseq x y None in
+  close_star (Context.diseq d s)
+
+and close_star (s, focus) =
+  if Focus.is_empty focus then
     s
   else 
-    let (e', es') = Veqs.destruct es in
-    let (s', es'') = merge1 s e' in
-    mergel s' (Veqs.union es' es'')
-
-and merge1 s e =
-  Trace.call "top" "Merge" e Veq.pp;
-  let (u',es') = Cc.merge e s.u 
-  and (i',es'') = Th.merge e s.i in
-  let es''' =  Veqs.union es' es'' in
-  Trace.exit "top" "Merge" es''' Veqs.pp;
-  ({s with u = u'; i = i'}, es''')
-
-and add s c a =
-  Trace.call "top" "Add" (a,c) pp_in;
-  let (i',es') = Th.add (a,c) s.i in
-  Trace.exit "top" "Add" es' Veqs.pp;
-  mergel {s with i = i'} es'
-
-and diseq s (x,y) =
-  Trace.call "top" "Diseq" (x,y) pp_diseq;
-  let (u', es') = Cc.diseq (x,y) s.u in
-  Trace.exit "top" "Diseq" es' Veqs.pp;
-  mergel {s with u = u'} es'  
+    close_star (Context.close (s, focus))

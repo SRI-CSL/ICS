@@ -55,6 +55,7 @@ val mk_const : Sym.t -> t
 val mk_app : Sym.t -> t list -> t
 
 val mk_fresh_var : Name.t -> int option -> t
+val is_fresh_var : t -> bool
 val mk_fresh_param : string -> int option -> t
 
 val name_of : t -> Name.t
@@ -123,10 +124,22 @@ val assq : t -> (t * 'a) list -> 'a
 
 (*s Printer. *)
 
+val set_pretty_print : bool -> unit
+
 val pp : Format.formatter -> t -> unit
 
 val to_string : t -> string
 
+
+(*s [d_select s a] succeeds when [a] is equal to 
+ the pattern [select(x, y)] and throws [Not_found] otherwise. *)
+
+val d_select : t -> t * t
+
+(*s [d_update s a] succeeds when [a] is equal to 
+ the pattern [update(x, y,z)] in [s]. *)
+
+val d_update : t -> t * t * t
 
 (*s Pretty-printing pairs as equalities/disequalities/constraints. *)
 

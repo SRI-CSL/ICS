@@ -17,10 +17,6 @@
 
 (*s Module [Shostak]: Maintaining the logical context of decision procedures. *)
 
-(*s Sigma normal forms with builtin simplifications. *)
-
-val sigma : Context.t -> Sym.t -> Term.t list -> Term.t
-
 (*s Canonization. *)
 
 val can_t : Context.t -> Term.t -> Context.t * Term.t
@@ -38,6 +34,4 @@ type 'a status =
   | Inconsistent 
   | Satisfiable of 'a
 
-
 val process: Context.t -> Atom.t -> Context.t status
-

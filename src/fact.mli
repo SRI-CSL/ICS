@@ -14,32 +14,27 @@
  * Author: Harald Ruess
  i*)
 
-(*s Module [T]: Tuple equations. *)
 
 type t
 
-val solution_of : t -> (Term.t * Term.t) list
+type rule = string
 
-val apply : t -> Term.t -> Term.t
-val find : t -> Term.t -> Term.t
-val inv : t -> Term.t -> Term.t
-val use : t -> Term.t -> Term.Set.t
+type justification = rule * t list
 
-(*s Pretty-printing. *)
+type equal
+type diseq
+type cnstrnt
 
-val pp : Format.formatter -> t -> unit
+val mk_equal : Term.t -> Term.t -> justification option -> equal
+val mk_diseq : Term.t -> Term.t -> justification option -> diseq
+val mk_cnstrnt : Term.t -> Cnstrnt.t -> justification option -> cnstrnt
 
-(*s Empty state. *)
+val d_equal : equal -> Term.t * Term.t * justification option
+val d_diseq : diseq -> Term.t * Term.t * justification option
+val d_cnstrnt : cnstrnt -> Term.t * Cnstrnt.t * justification option
 
-val empty : t
+val of_equal : equal -> t
+val of_diseq : diseq -> t
+val of_cnstrnt : cnstrnt -> t
 
-(*s [extend s (a,b)] installs a new binding [a |-> b] into [s]. 
-  It assumes that [a] is not yet in the domain of [s]. 
-  Also, [a],[b] must be valid lhs and rhs, respectively. *)
-
-val extend : Term.t -> t -> Term.t * t
-
-
-(*s [merge (a,b) s] installs an equality [a = b] into [s]. *)
-
-val merge : Veq.t -> t -> (t * Veqs.t)
+val pp : t Pretty.printer

@@ -14,6 +14,10 @@
  * Author: Harald Ruess
 i*)
 
+(*i*)
+open Ics
+(*i*)
+
 (*s Module [Main]: Toplevel of ICS command line interpreter. *)
 
 let _ = Sys.catch_break true
@@ -23,68 +27,79 @@ let _ = Sys.catch_break true
 let stat_flag = ref false
 let timing_flag = ref false
 let disable_prompt_flag = ref false
+let disable_usage_flag = ref false
+let disable_pretty_print_flag = ref false
+let end_of_transmission = ref ""
+let portnum_flag = ref None
      
 (*s Interactive toplevel. Read commands from standard input and evaluate them. *)
 
 let rec repl inch =
   usage ();
-  let outch = Ics.stdout () in
-  Ics.cmd_set_in_channel inch;
-  Ics.cmd_set_out_channel outch;
-  try
-    while true do
-      prompt outch;
-      Ics.cmd_eval ();
-      Ics.cmd_flush ();
-    done
-  with 
-    | End_of_file -> exiting 0
-    | Sys.Break -> exiting 1
-    | Failure "drop" -> ()
+  Ics.init (1, 
+            not !disable_pretty_print_flag,
+            !end_of_transmission,
+            inch,
+            Ics.channel_stdout());
+  let outch = Ics.channel_stdout () in
+  while true do
+    prompt ();
+    Ics.cmd_rep ()
+  done
 
-and prompt outch =
-  if not(!disable_prompt_flag) then Format.printf "\nics> @?"
+and prompt () =
+  if not(!disable_prompt_flag) then 
+    Format.eprintf "\nics> @?"
 
 and usage () =
-  Format.eprintf "ICS: Integrated Canonizer and Solver.";
-  Format.eprintf "\nCopyright (c) 2001,2002 SRI International.";
-  Format.eprintf "\nType 'help.' for help about help, and 'Ctrl-d' to exit.@."
- 
-and exiting n = 
-  if !stat_flag then 
-    Ics.do_at_exit ();
-  Ics.cmd_flush ();
-  exit n
+  if not(!disable_usage_flag) then
+    begin
+      Format.eprintf "ICS: Integrated Canonizer and Solver.";
+      Format.eprintf "\nCopyright (c) 2001,2002 SRI International.";
+      Format.eprintf "\nType 'help.' for help about help, and 'Ctrl-d' to exit.@."
+    end
+
+and batch l =
+  disable_prompt_flag := true;
+  List.iter (fun x -> repl (Ics.inchannel_of_string x)) l
+
+and server portnum = 
+  let addr = Unix.inet_addr_any in
+  let sockaddr = Unix.ADDR_INET (addr, portnum) in
+  Unix.establish_server 
+    (fun inch outch ->
+       let formatter = Format.formatter_of_out_channel outch in
+       Ics.init (0, false, !end_of_transmission, inch, formatter);
+       while true do
+	 Ics.cmd_rep ()
+       done)
+    sockaddr
 
 let args () =
   let files = ref [] in
   Arg.parse
-      [ "-s", Arg.Set stat_flag,           "  Print statistics";
-	"-t", Arg.Set timing_flag,         "  Print timings";
-	"-p", Arg.Set disable_prompt_flag, "  Disable printing of prompt"
+      [ "-timings", Arg.Set timing_flag,          "Print timings";
+	"-prompt", Arg.Set disable_prompt_flag,   "Disable printing of prompt";
+        "-pp", Arg.Set disable_pretty_print_flag, "Disable Pretty-Printing of terms";
+        "-usage", Arg.Set disable_usage_flag,     "Disable printing of usage message";
+        "-eot", Arg.String (fun str -> end_of_transmission := str), "Print string argument after each transmission";
+        "-server", Arg.Int (fun portnum -> portnum_flag := Some(portnum)), "Run in server mode";
       ]
       (fun f -> files := f :: !files)
-      "usage: ics [-stph] [files]";
+      "usage: ics [-h] [-timings] [-prompt] [-pp] [-usage] [-eot <string>] [-server <portnum>] [files]";
   List.rev !files
 
 let rec main () =
-  match args () with
-    | [] -> repl (Ics.stdin ())
-    | l -> batch l
-
-and batch l =
-  disable_prompt_flag := true;
-  List.iter 
-    (fun x ->
-       try
-	 repl (Ics.in_of_string x)
-       with
-	 | Sys_error str -> Format.eprintf "\nSys_error(%s)@?" str)
-    l
+  let l = args () in
+  match !portnum_flag with
+    | None ->   
+	(match l with
+	   | [] -> repl (Ics.channel_stdin ())
+	   | l -> batch l)
+    | Some(portnum) ->
+	server portnum
 
 let _ = Printexc.catch main ()
-
-
 
 
 

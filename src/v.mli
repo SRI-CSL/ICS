@@ -14,7 +14,7 @@
  * Author: Harald Ruess, N. Shankar
 i*)
 
-(*s Module [V]: Equalities and disequalities over variables. *)
+(*s Module [V]: Equalities over variables. *)
 
 type t
 
@@ -25,12 +25,9 @@ type t
 
 val partition : t -> Term.Set.t Term.Map.t
 
-(*s [diseqs s] lists the set of known disequalities in the
- form of a map with associates with a variable [x]
-  the set of all variables known to be disequal to [x]. *)
- 
-val diseqs : t -> Term.Set.t Term.Map.t
+(*s Remove all internal variables. *)
 
+val external_of : t -> t
 
 (*s [find s x] returns the canonical representative of [x]
  with respect ot the partitioning of the variables in [s].
@@ -41,33 +38,56 @@ val find : t -> Term.t -> Term.t
 
 val find' : t -> Term.t -> t * Term.t
 
-
-(*s Variable equality/disequality modulo [s]. *)
+(*s Variable equality modulo [s]. *)
 
 val eq : t -> Term.t -> Term.t -> bool
-
-val deq : t -> Term.t -> Term.t -> bool
-
-(*s [is_equal s x y] is [Yes] if [eq s x y] holds,
- [No] if [x <> y] is a known disequality in [s], and [X]
- for ``don't know'' otherwise. *)
-
-val is_equal : t -> Term.t -> Term.t -> Three.t
 
 (*s The empty context. *)
 
 val empty : t
 
-(*s Adding a variable equality [x = y] to a context [s].
- May throw [Exc.Inconsistent]. *)
 
-val merge : Veq.t -> t -> t
+(*s A representation of the set of variables whose [find] changes. *)
 
-(*s Adding a disequality. May throw [Exc.Inconsistent]. *)
+type focus
 
-val diseq : Term.t * Term.t -> t -> t
- 
+module Focus: sig
+  val empty : focus
+  val is_empty : focus -> bool
+  val singleton : Term.t * t -> focus
+  val add : Term.t * t ->  focus -> focus
+  val union : focus -> focus -> focus
+  val fold : (Term.t -> 'a -> 'a) -> focus -> 'a -> 'a
+end
+
+(*s Adding a variable equality [x = y] to a context [s]. *)
+
+val merge : Fact.equal -> t -> t * focus
 
 (*s Pretty-printing. *)
 
 val pp : t Pretty.printer
+
+(*s Folding over the members of a specific equivalence class. *)
+
+val fold : t -> (Term.t -> 'a -> 'a) -> Term.t -> 'a -> 'a
+
+(*s Iterate over the extension of an equivalence class. *)
+
+val iter : t -> (Term.t -> unit) -> Term.t -> unit
+
+(*s [exists s p x] holds if [p y] holds for some [y] congruent
+ to [x] modulo [s]. *)
+
+val exists : t -> (Term.t -> bool) -> Term.t -> bool
+
+(*s [for_all s p x] holds if [p y] holds for all [y] congruent
+ to [x] modulo [s]. *)
+
+val for_all : t -> (Term.t -> bool) -> Term.t -> bool
+
+(*s [choose s p x] chooses a [y] which is congruent to [x] modulo [s]
+  which satisfies [p]. If there is no such [y], the exception [Not_found]
+  is raised. *)
+
+val choose : t -> (Term.t -> bool) -> Term.t -> Term.t

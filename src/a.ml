@@ -20,442 +20,389 @@ open Term
 
 (*s An arithmetic context consists of a a representation of a
  solution set [e] of equations of the form [x = a], where [x] is a 
- variable and [a] is an arithmetic term not containing any of the rhs. *)
+ variable and [a] is an arithmetic term not containing any of the rhs,
+ and a set of constraints [x in i],  for [i] an interval 
+ constraints, in the constraint context [cnstrnt].  Inequality
+ reasoning introduces so-called slack variables of name [k!i], where
+ [i] is some integer. *)
 
-
-module A = Subst.Make(
-  struct
-    let name = "a"
-    let fold = Arith.fold
-    let map = Arith.map
-  end)
-
-(*s The pair [(e, c)] represents an arithmetic context consisting
- of equalities [x = a], for [a] purely interpreted in arithmetic,
- in the [e] part, and constraints [x in i],  for [i] an interval 
- constraints, in the constraint context [c]. *)
 
 type t = {
-  solution : A.t;
-  cnstrnt : C.t;
-  slacks : Set.t
+  a : Solution.t;
+  c : C.t
 }
 
+let solutions s = s.a
+let cnstrnts s = s.c
 
-(*s [solution (e,_)] and [domain (_,c)] conjoined form
- the arithmetic context represented by [(e,_)]. *)
-
-let solutions s = A.solution s.solution
-
-let domains s =  C.domains s.cnstrnt
-
-(*s List of split predicates. *)
-
-let split s = C.split s.cnstrnt
-
-(*s Pretty-printing. *)
-
-let pp fmt s =
-  if not(A.is_empty s.solution) then
-    (Format.fprintf fmt "\na:"; A.pp fmt s.solution);
-  if not(C.is_empty s.cnstrnt) then
-    (Format.fprintf fmt "\nc:"; C.pp fmt s.cnstrnt)
-
-
-(*s Accessors. *)
-
-let apply s = A.apply s.solution
-let find s = A.find s.solution
-let inv s = A.inv s.solution
-let mem s = A.mem s.solution
-
-let use s a = 
-  if is_var a then A.use s.solution a else Set.empty
-
-(*s Canonical form modulo the solution set in [e]. 
- Returns a variable whenever possible. *)
-
-let can e =
-  let rec canvar a = 
-    a 
-  and canterm a =
-    if is_var a then
-      canvar a
-    else 
-      let f, l = destruct a in
-      match Sym.d_arith f with
-	| None -> a
-	| Some(op) ->
-	    let l' = Term.mapl (fun b -> A.find e (canterm b)) l in
-	    let a' = Arith.sigma op l' in
-	    try A.inv e a' with Not_found -> a'
-  in
-  canterm
+let apply s = Solution.apply s.a
+let find s = Solution.find s.a
+let inv s = Solution.inv s.a
+let use s = Solution.use s.a
+let mem s = Solution.mem s.a
 
 
 (* Constraint of a term is obtained from the constraint of 
  an equivalent variable or by abstract interpretation of
  the arithmetic operators in the domain of constraints. *)
 
-let cnstrnt s a =
-  let a' = can s.solution a in
-  Arith.cnstrnt (C.apply s.cnstrnt) a'
+let lookup (v, s) x = 
+  Map.find (V.find v x) s.c
 
-(*s [occurs (e, c) x] holds if [x] occurs in a solution in [e]
- or if it is a member of the domain of [c]. *)
+let cnstrnt (v, s) = Arith.cnstrnt (lookup (v, s))
 
-let occurs (e, c) x =
-  A.occurs e x || C.mem x c
+
+(*s Test if a variable [x] has a constraint associated with it
+ by looking up the canonical representative of [x] w.r.t. to [v]. *)
+
+let is_unconstrained (v, s) x =
+  is_var x && not(Map.mem (V.find v x) s.c)
+
+
+(*s Split a term into the part with constraints and the unconstraint part.
+ Also, return the constraint for the term with a constraint. *)
+
+let split (v, s) = Arith.split (lookup (v, s)) 
 
 (*s Empty context. *)
 
 let empty = {
-  solution = A.empty;
-  cnstrnt =  C.empty;
-  slacks = Set.empty
+  a = Solution.empty;
+  c = Map.empty
 }
 
-(*s [name e a] returns a variable [x] if there is
- a solution [x = a]. Otherwise, it creates a new name
- [x'] and installs a solution [x' = a] in [e]. *)
+let is_empty s =
+  Solution.is_empty s.a &&
+  (s.c == Map.empty)
 
-type status =
-    | Name of Term.t
-    | Fresh of Term.t * A.t
 
-let name b e =
+(*s Extend. Rename [b] with a fresh variable [x]. [b] is assumed
+ to be canonical. Also make sure that  [x] has a constraint associated 
+ if [b] has one. *)
+
+let extend b s =
+  let (x', a') = Solution.extend b s.a in
+  Trace.msg "a" "Extend" (x', b) Term.pp_equal;
+  let c' = 
+    try
+      let i' = cnstrnt (V.empty, s) b in  (* variable are assumed to be canonical. *)
+      Term.Map.add x' i' s.c              (* thus it suffices to use [V.empty]. *)
+    with
+	Not_found -> s.c
+  in
+  let s' = {s with a = a'; c = c'} in
+  (x', s')
+
+(*s Solver. First try to solve for variables [x] which occur at
+ least twice on the rhs of terms in the solution set in order to
+ propagate constraints. At the next stage try to solve for variables
+ which occur in the solution set. If there are no variables in [a = b],
+ that is, if every noninterpreted subterm is a nonlinear term, then
+ [Exc.Unsolved] is thrown. *)
+
+let solve (v, s) (a, b) = 
+  let occurs_at_least_twice_on_rhs (v, s) x = 
+    is_var x && (Set.cardinal (use s x) > 1)
+  in
+  let occurs_on_rhs (v, s) x = 
+    is_var x && (not(Set.is_empty (use s x)))
+  in
+  let dom s x = is_var x && mem s x in
   try
-    Name(A.inv e b)
+    match Arith.solve_for (occurs_at_least_twice_on_rhs (v,s)) (a, b) with
+      | None -> []
+      | Some(x', b') -> [(x', b')]
   with
-      Not_found ->
-	let (x', e') = A.extend b e in 
-	Fresh(x', e')
+      Exc.Unsolved ->
+	try
+	  match Arith.solve_for (occurs_on_rhs (v,s)) (a, b) with
+	    | None -> []
+	    | Some(x', b') -> [(x', b')]
+	with
+	    Exc.Unsolved ->
+	      try
+		match Arith.solve_for (dom s) (a, b) with
+		  | None -> []
+		  | Some(x', b') -> [(x', b')]
+	      with
+		 Exc.Unsolved -> 
+		   match Arith.solve_for is_var (a, b) with
+		     | None -> []
+		     | Some(x', b') -> [(x', b')]
 
 
-(*s Slack variables *)
-
-let mk_slack =
-  let name = Name.of_string "k" in
-  fun () -> Term.mk_fresh_var name None
-
-let is_slack slacks x =
-  Set.mem x slacks
-
-let is_var_and_not_slack slacks x = 
-  is_var x && not (is_slack slacks x)
+(*s The following functions are state transformers for 
+ the state/configuration [(v, d, s, focus)], where [v]
+ contains the currently known variable equalities, [d] is
+ the set of disequalities, [s] consists of the arithmetic
+ solution set [s.a] and the constraint map [s.c], and [focus]
+ contains the set of variables with an updated canonical
+ representative in [v] and the newly induced disequalities. *)
 
 
-(*s Normalize constraint such as ['q + p * x' in 'c'] 
- to ['x' in '1/p ** (c -- q)'], where ['**'], ['--'] are abstract interval 
- operations for linear multiplication and subtraction. *)
+(*s Merging a variable equality [x = y] by composing the
+ current solution set with the solved form of [a = b] where
+ [a] is the find of [x] in [s] and [b] is the find of [y]. *)
 
-let normalize q p c =           
-  if Mpa.Q.is_zero q && Mpa.Q.is_one p then
-    c
-  else if Mpa.Q.is_zero q then
-    Cnstrnt.multq (Mpa.Q.inv p) c
-  else 
-    Cnstrnt.multq (Mpa.Q.inv p) (Cnstrnt.addq (Mpa.Q.minus q) c)
+let rec merge_a (x, y) ((v, _, s, _) as acc) =
+  Trace.msg "a" "Merge" (x, y) Term.pp_equal;
+  let a = find s x in
+  let b = find s y in
+  equality (a, b) acc
 
-(*s Propagation of equalities and constraints works by
- transforming states of the form [(es, cs, e, c, veqs)] until
- saturation. Here, [es] is a list of equalities and [cs] is a 
- list of constraints [a in i]. [es] and [cs] include facts
- which still have to be propagated. Thus, states is saturated
- only if [es] and [cs] are both empty. Together, [e] and [c] form 
- the current arithmetic context [(e, c)] of type [t] above,
- and [veqs] is the list of newly generated equalities. *)
+and equality (a, b) ((v, d, s, focus) as acc) =
+  Trace.msg "a" "Equality" (a, b) Term.pp_equal;
+  try
+    match solve (v, s) (a, b) with
+      | [] -> acc
+      | sl -> compose sl acc
+  with
+      Exc.Unsolved -> acc
 
-type state = {
-  es : (Term.t * Term.t) list;
-  cs : (Term.t * Cnstrnt.t) list;
-  e : A.t;
-  c : C.t;
-  slcks : Set.t;
-  v : V.t;
-  veqs : Veqs.t
-}
-
-let pp_state fmt s =
-  let sep () = Format.fprintf fmt ", @;" in
-  Format.fprintf fmt "@[(";
-  Pretty.list pp_equal fmt s.es; sep();
-  Pretty.list pp_in fmt s.cs; sep();
-  A.pp fmt s.e; sep();
-  C.pp fmt s.c; sep();
-  Veqs.pp fmt s.veqs;
-  Format.fprintf fmt ")@]"
-
-(*s Generating new equalities. *)
-
-let add_generated_eq s a b es = 
-  let a' = can s.e a and b' = can s.e b in
-  if eq a' b' then es
-  else if List.exists (fun (x, y) -> (eq a' x) && (eq b' y)) es then
-    es
-  else 
-    (a', b') :: es
-
-let rec union_generated_eq s es1 es2 =
-  match es1 with
-    | [] -> es2
-    | (x1, y1) :: es1 -> add_generated_eq s x1 y1 (union_generated_eq s es1 es2)
-
-let add_generated_cnstrnt s a i cs =
-  let a' = can s.e a in
-  if List.exists (fun (b,j) -> eq a' b && Cnstrnt.sub j i) cs then
-    cs
-  else
-    (a', i) :: cs
+and compose sl (v, d, s, focus) = 
+  Trace.msg "a" "Compose" sl (Pretty.list Term.pp_equal);
+  let vfocus = Focus.v focus in
+  let (v', a', vfocus', ch') = Solution.compose Arith.map (v, s.a, sl, vfocus) in 
+  let s' = {s with a = a'} in
+  let focus' = Focus.make vfocus' (Focus.d focus) in
+  deduce ch' (update vfocus' (v', d, s', focus'))  
+          (* update should actually be called only on the new equalities in v. *)
+          (* thus there is way too much work done here!. *)
 
 
-(*s Toplevel processing function. *)  
+(*s Update the constraint part with the new variable equalities.
+  [x] has a new canonical representative in [v] and this information
+  needs to be propagated in order to keep the invariant that the
+  constraint map has only canonical variables in the domain. *)
 
-let rec process s =
-  Trace.msg "a'" "Process" s pp_state;
-  match s.es, s.cs with
-    | [], [] -> 
-	({solution = s.e; cnstrnt = s.c; slacks = s.slcks}, 
-	 s.veqs)
-    | _, (a, i) :: cs' ->
-	process (add a i {s with cs = cs'})
-    | (a, b) :: es', _ ->
-	process (equality a b {s with es = es'})
+and update vfocus = V.Focus.fold update1 vfocus
 
-and add a i s =
+and update1 x ((v, d, s, focus) as acc) =
+  Trace.msg "a" "Update" x Term.pp;
+  try
+    let y = V.find v x in
+    if Term.eq x y then acc else merge_c (x, y) acc
+  with
+      Not_found -> acc
+
+
+(*s Deduce possible new constraints from equalities [x = b],
+ where [b] has changed recently. Decompose [b] into two parts
+ [b'] and [b''] such that [b = b' + b''] and [b'] has a constraint
+ [j'] associated with it, while none of the monomials in [b''] 
+ have constraints. Now, if [x] has constraint [i], then we
+ obtain the new constraint [b'' in i -- j'], which is propagated
+ using the state transformer [termcnstrnt]. *)
+
+
+and deduce ch = Set.fold deduce1 ch
+
+and deduce1 x ((v, d, s, focus) as acc) =
+  Trace.msg "a" "Deduce" x Term.pp;
+  try
+    let b = apply s x in
+    match split (v, s) b with
+      | None, None -> acc          (* Case: unreachable. *)
+      | None, Some _ ->            (* Case: [b] is unconstrained. *)
+	  (try 
+	     let i = lookup (v, s) x in
+	     termcnstrnt (b, i) acc
+	   with
+	       Not_found -> acc)
+      | Some(_, j), None ->       (* Case: [b] is constrained. *)
+	  (try 
+	     let i = lookup (v, s) x in
+	     match Cnstrnt.cmp i j with
+	       | Binrel.Disjoint -> raise Exc.Inconsistent
+	       | Binrel.Same -> acc
+	       | Binrel.Super -> varcnstrnt (x, j) acc
+	       | Binrel.Sub -> termcnstrnt (b, i) acc
+	       | Binrel.Overlap(ij) -> termcnstrnt (b, ij) (varcnstrnt (x, ij) acc)
+	       | Binrel.Singleton(q) -> 
+		   let n = Arith.mk_num q in
+		   compose [(x, n)] (equality (b, n) acc)
+	  with
+	      Not_found -> varcnstrnt (x, j) acc)
+      | Some(b', j'), Some(b'') ->  (* [b = b' + b''], [b' in j'] *)
+	  (try                      (* and [b''] is unconstrained *) 
+	     let i = lookup (v, s) x in
+	     termcnstrnt (b'', Cnstrnt.subtract i j') acc
+	   with
+	       Not_found -> 
+		 let a' = find s x in  (* make sure that all variables in [s] are prop. *)
+		 termcnstrnt (Arith.mk_sub a' b'', j') acc) (* important for termination*)
+  with
+      Not_found -> acc
+
+(*s Add a new constraint [x' in i], where [x] is a variable,
+ and [x'] is the canonical representative of [x]. If [i] is
+ a singleton constraint with element [q], then a new variable
+ [b = q], where [x = b] in [s.a], is propagated. *)
+
+and varcnstrnt (x, i) ((v, d, s, focus) as acc) = 
+  Trace.msg "a" "Var cnstrnt" (x, i) Term.pp_in;
   match Cnstrnt.status i with
     | Status.Empty ->
 	raise Exc.Inconsistent
     | Status.Singleton(q) ->
-	let num = Arith.mk_num q in
-	{s with es = add_generated_eq s a num s.es}
-    | _ ->
-	let a' = can s.e a in    (* returns a variable whenever possible. *)
-	if is_var a' then
-	  addcnstrnt a' i s
-	else                
-	  match Arith.decompose a' with     
-	    | Arith.Const(q) ->                 (* Case: [q in i] *)
-		if Cnstrnt.mem q i then s else raise Exc.Inconsistent
-	    | Arith.One(q, p, x) ->              (* Case: [q + p * x in i] *)
-		addcnstrnt x (normalize q p i) s (* iff [x in 1/p * (i - q)] *)  
-	    | Arith.Many _ ->                    (* Case: new slack *)     
-		let k' = mk_slack () in 
-		let es' = add_generated_eq s k' a' s.es in
-		let slcks' = Set.add k' s.slcks in
-		addcnstrnt k' i {s with es = es'; slcks = slcks'}
-    
-and addcnstrnt x i s =
-  let (c', eq) =  C.add x i s.c in
-  if consistent (s.e, c') x then 
-    let s' = 
-      match eq with
-	| None -> {s with c = c'}
-	| Some(x', n') -> {s with es = add_generated_eq s x' n' s.es; c = c'}
-    in
-    deduce (A.use s.e x) s' (*s deduce constraints e.g. for [z] in [z=x+y]. *) 
-  else 
-    raise Exc.Inconsistent
-
-and equality a b s = 
-  let a' = A.norm s.e a and b' = A.norm s.e b in
-  try
-    match Arith.solve_for (is_var_and_not_slack s.slcks) (a', b') with
-      | None -> s
-      | Some(x',b') -> compose x' b' s
-  with
-      Exc.Unsolved -> 
+	let n = Arith.mk_num q in
+	let acc' = compose [(x, n)] acc in
 	(try
-	   (match Arith.solve_for (is_slack s.slcks) (a', b') with
-	     | None -> s
-	     | Some(k', b') -> compose k' b' s)
+	   let b = apply s x in
+	   equality (b, n) acc'
 	 with
-	     Exc.Unsolved -> 
-	       abstract a' b' s)
+	     Not_found -> acc')
+    | _ ->
+	let c' = Map.add (V.find v x) i s.c in
+	let s' = {s with c = c'} in 
+	let acc' = (v, d, s', focus) in
+	acc'
 
-(*s Merging a constraint equality. *)
+(*s Add a constraint [a in i], where [a] can now be an arbitrary
+ arithmetic term. If [a] is a variable, then this function
+ reduces to [varcnstrnt] above, and if there is a [x = a] in
+ the solution set, then the constraint [x in i] is again propagated
+ using [varcnstrnt]. Otherwise, a fresh name [x'] is created for 
+ the term [a], and the equality [x' = a] is propagated using the
+ [equality] transformer after extending the constraint part with [x' in i]. *)
 
-and compose x a s =
-  assert(is_var x);
-  let (e', veqs, ys) = A.compose s.e [(x, a)] in
-  let s' = {s with e = e'; veqs = Veqs.union veqs s.veqs} in
-  deduce ys (cmerge (x, a) veqs s')
+and termcnstrnt (a, i) ((v, d, s, focus) as acc) = 
+  Trace.msg "a" "Term cnstrnt" (a, i) Term.pp_in;
+  let (a, i) = Arith.normalize (a, i) in
+  match Cnstrnt.status i with
+    | Status.Empty ->
+	raise Exc.Inconsistent
+    | Status.Singleton(q) ->
+	equality (a, Arith.mk_num q) acc
+    | _ ->
+	if is_var a then
+	  varcnstrnt (a, i) acc
+	else 
+	  try
+	    let x = V.find v (inv s a) in
+	    varcnstrnt (x, i) acc
+	  with                         (* generate new variable. *)
+	      Not_found -> 
+		let x' = Term.mk_fresh_var (Name.of_string "v") None in
+		equality (x', a)
+		  (varcnstrnt (x', i) acc)
+		
 
-and cmerge (x, a) veqs s =
-  let eqs = (x, a) :: Veqs.to_list veqs in  (* equalities to be propagated *)
-  let (c', es', ch') = C.merge eqs s.c in
-  if Set.for_all (consistent (s.e, c')) ch' then  
-    let focus = Set.fold (fun y -> Set.union (A.use s.e y)) ch' ch' in
-    let s' = {s with es = union_generated_eq s es' s.es; c = c'} in
-    deduce focus s' (* e.g. if [z = x + y] and constraint for [x] changes *)
-  else              (* then the constraint for [z] might change, too. *)
-    raise Exc.Inconsistent
+(*s Merge a variable equality [x = y] in the constraint map by
+ adding [x in ij] for the canonical variable [x], where [x in i],
+ [y in j] are in the constraint map and [ij] is the intersection of
+ [i] and [j], and by removing the constraint for [y]. In case, [ij]
+ is a singleton constraint with element [q], an equality [x = q] is
+ generated. Singleton constraints are always retained in the constraint
+ map in order to keep the invariant that the best available constraint
+ are always associated with canonical variables. *)
 
-
-(*s Test if the value for [x] in [e] and its constraint are consistent. *)
-
-and consistent (e, c) x =
+and merge_c (x, y) (v, d, s, focus) = 
+  Trace.msg "a" "Cnstrnt merge" (x, y) Term.pp_equal;
   try
-    let i = C.apply c x in
-    match Arith.d_num (A.apply e x) with
-      | Some(q) -> Cnstrnt.mem q i
-      | None -> true
-  with
-      Not_found -> true
-
-(*s Deduce a new constraint from the equality [x = a] in [s]. *)
-    
-and deduce1 x a s =
-    try  
-      let j = Arith.cnstrnt (C.apply s.c) a in (* ??? *)
-      try
-	let i = C.apply s.c x in
-	match Cnstrnt.cmp i j with
-	  | Binrel.Disjoint ->
-	      raise Exc.Inconsistent
-	  | Binrel.Sub | Binrel.Same ->
-	      s
-	  | Binrel.Super ->
-	      {s with cs = add_generated_cnstrnt s x j s.cs}
-	  | Binrel.Overlap(ij) ->
-	      {s with cs = add_generated_cnstrnt s x ij s.cs}
-	  | Binrel.Singleton(q) ->
-	      let num = Arith.mk_num q in
-	      {s with es = add_generated_eq s x num 
-			     (add_generated_eq s a num s.es)}
-      with
-	  Not_found ->
-	    (match Cnstrnt.status j with
-	       | Status.Empty ->
-		   raise Exc.Inconsistent
-	       | Status.Singleton(q) ->
-		   {s with es = add_generated_eq s x (Arith.mk_num q) s.es}
-	       | _ ->
-		   {s with cs = add_generated_cnstrnt s x j s.cs})
+    let i = Map.find x s.c in
+    try
+      let j = Map.find y s.c in
+      match Cnstrnt.cmp i j with
+	| Binrel.Disjoint ->
+	    raise Exc.Inconsistent
+	| (Binrel.Same | Binrel.Super) ->
+	    let c' = Map.remove x s.c in
+	    let s' = {s with c = c'} in
+	    (v, d, s', focus)
+	| Binrel.Sub ->
+	    let c' = Map.add y i (Map.remove x s.c) in
+	    let s' = {s with c = c'} in
+	    (v, d, s', focus)
+	| Binrel.Singleton(q) ->
+	    let i' = Cnstrnt.mk_singleton q in
+	    let c' = Map.add y i' (Map.remove x s.c) in
+	    let s' = {s with c = c'} in
+	    compose [(x, Arith.mk_num q)] (v, d, s', focus)
+	| Binrel.Overlap(ij) ->
+	    let c' = Map.add y ij (Map.remove x s.c) in
+	    let s' = {s with c = c'} in
+	    (v, d, s', focus)
     with
-	Not_found -> s
-	
-
-(*s [xs] is a set of variables for which the [find] in [e] has changed. *)
-
-and deduce xs =  
-  Trace.msg "a''" "Deduce" (Set.elements xs) (Pretty.set Term.pp);
-  Set.fold
-    (fun x s ->
-       try deduce1 x (A.apply s.e x) s with Not_found -> s)
-    xs
-       
-
-
-(*s Both [a] or [b] are nonlinear.  In this case, abstract [a] and [b] with 
- possibly new variables, which are merged. Termination only when new variables 
- are introduced rather lazily. *)
-
-and abstract a b s =
-  match name a s.e with
-    | Name(x) ->
-	(match name b s.e with
-	   | Name(y) -> s
-	   | Fresh(y', e') -> 
-	       let veqs' = Veqs.add (Veq.make x y') s.veqs in
-	       {s with e = e'; veqs = veqs'})
-    | Fresh(x', e') ->
-	(match name b e' with
-	   | Name(y) -> 
-	       let veqs' = Veqs.add (Veq.make x' y) s.veqs in
-	       {s with e = e'; veqs = veqs'}
-	   | Fresh(y', e'') ->
-	       let veqs' = Veqs.add (Veq.make x' y') s.veqs in
-	       {s with e = e''; veqs = veqs'})
-
-
-
-(*s Merging in an equation between two variables ['x = y']. 
- In the resulting context, [x] does not occur any more, and
- new equalities between variables may be infered. *)
-
-let rec merge veq ecs = 
-  let (x, _) = Veq.destruct veq in
-  if not(occurs (ecs.solution, ecs.cnstrnt) x) then   
-    (ecs, Veqs.empty)
-  else 
-    begin
-      Trace.call "a" "Merge" veq Veq.pp;
-      let (ecs', veqs') = merge1 veq ecs in
-      Trace.exit "a" "Merge" veqs' Veqs.pp;
-      (ecs', veqs')
-    end
-
-and merge1 veq ecs = 
-  let s = {
-    es = [Veq.destruct veq]; 
-    cs = []; 
-    e = ecs.solution;
-    c = ecs.cnstrnt;
-    v = V.empty;
-    slcks = ecs.slacks;
-    veqs = Veqs.empty} 
-  in
-  let (ecs', veqs') = process s in
-  (ecs', Veqs.remove veq veqs')         (* remove input equality [e]. *)
-
-
-(*s Adding a constraint ['x in i'] to [s]. *)
-
-let rec add (a, i) ecs = 
-  Trace.call "a" "Add" (a, i) pp_in;
-  let s = {
-    es = []; 
-    cs = [(a, i)]; 
-    e = ecs.solution; 
-    c = ecs.cnstrnt;
-    v = V.empty;
-    slcks = ecs.slacks;
-    veqs = Veqs.empty}
-  in
-  let (s', veqs') = process s in
-  Trace.exit "a" "Add" veqs' Veqs.pp;
-  (s', veqs')
-
-
-(*s Extend. Rename [b] with a variable [x]. *)
-
-let extend b ecs =
-  let e = ecs.solution and c = ecs.cnstrnt in
-  try
-    (A.inv e b, ecs)
+	Not_found ->         
+	  let c' = Map.add y i (Map.remove x s.c) in
+	  let s' = {s with c = c'} in
+	  (v, d, s', focus)
   with
       Not_found ->
-	Trace.call "a" "Extend" b Term.pp;
-	let (x', e') = A.extend b e in
-	let c' = 
-	  try            (* no deduced eqs, since [x'] is fresh. *)
-	    let i = cnstrnt ecs b in
-	    let (c', _) = C.add x' i c in
-	    c'
-	  with
-	      Not_found -> c
-	in
-	Trace.exit "a" "Extend" x' Term.pp;
-	(x', {ecs with solution = e'; cnstrnt = c'})
+	(v, d, s, focus)
 
-(*s Interpret variable as a slack. *)
 
-let slackify b ecs =
-  Trace.call "a" "Slackify" b Term.pp;
-  let k = mk_slack () in
-  let s = {
-    es = [(k, b)];
-    cs = []; 
-    e = ecs.solution;
-    c = ecs.cnstrnt;
-    v = V.empty;
-    slcks = Set.add k ecs.slacks;
-    veqs = Veqs.empty} 
-  in
-  let (ecs', _) = process s in
-  Trace.exit "a" "Slackify" k Term.pp;
-  (k, ecs')
+(*s Adding a new constraint [x in i] by first adding [k in i]
+ for a fresh variable followed by propagating [x = k]. In effect,
+ the introduction of the fresh [k] triggers the constraint propagation
+ through equality reasoning, since [a = k] will usually be solved for
+ a variable occuring in the solution set.  See also the definition 
+ of [solve]. *)
 
-let is_slack s x =
-  Set.mem x s.slacks
+let add c (v, d, s) =
+  let (x, i,_) = Fact.d_cnstrnt c in
+  if Cnstrnt.is_empty i then
+    raise Exc.Inconsistent
+  else 
+    let k' = Term.mk_fresh_var (Name.of_string "k") None in
+    let c' = Map.add k' i s.c in
+    let s' = {s with c = c'} in
+    merge_a (x, k') (v, d, s', Focus.empty)
+
+
+
+(*s Merge first in the solution then in the constraint part. *)
+
+let merge (x, y) acc =
+  merge_c (x, y) (merge_a (x, y) acc)
+
+
+(*s Propagate disequalities to the constraint part. The following
+ is not complete and should be extended to all finite constraints,
+ but the disequality sets might become rather large then. *)
+
+let diseq (x, y) ((v, d, s, focus) as acc) =
+  Trace.msg "a" "Diseq" (x, y) Term.pp_diseq;
+  try
+    let i = lookup (v, s) x in
+    let j = lookup (v, s) y in
+    match Cnstrnt.d_singleton i, Cnstrnt.d_singleton j with
+      | Some(q), Some(p) ->
+	  if Mpa.Q.equal q p then
+	    raise Exc.Inconsistent
+	  else 
+	    acc
+      | Some(q), None ->
+	  let j' = Cnstrnt.inter j (Cnstrnt.mk_diseq q) in
+	  varcnstrnt (y, j') acc
+      | None, Some(q) -> 
+	  let i' = Cnstrnt.inter i (Cnstrnt.mk_diseq q) in
+	  varcnstrnt (x, i') acc
+      | None, None ->
+	  acc
+  with
+      Not_found -> acc
+
+(*s Merging in new equalities and disequalities in the [focus] set. *)
+
+let rec close acc =
+  close_v (close_d acc)
+
+and close_v (v, d, s, focus) = 
+  Focus.fold_v 
+    (fun x (v, d, s, focus) ->
+       merge (x, V.find v x) (v, d, s, focus))
+    focus 
+    (v, d, s, Focus.empty)
+
+and close_d ((_, _, _, focus) as acc) =
+  Focus.fold_d diseq focus acc
+   
+
+(*s Instantiate the lhs variables in the solution set with
+ their canonical representative. *)
+
+let inst v s =
+  let a' = Solution.inst v s.a in
+  {s with a = a'}

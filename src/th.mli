@@ -24,7 +24,12 @@ val sigma : Sym.t -> Term.t list -> Term.t
 
 (*s Component solvers. *)
 
-val solve : Interp.t -> Term.t * Term.t -> (Term.t * Term.t) list
+type solvedform =
+  | Solved of (Term.t * Term.t) list
+  | Unsat
+  | Unsolved
+
+val solve : Interp.t -> Term.t * Term.t -> solvedform
 
 (*s Type of the context for the interpreted theories. *)
 
@@ -37,7 +42,7 @@ val empty : t
 
 (*s Return the solution set for a theory. *)
 
-val solution : Interp.t -> t -> (Term.t * Term.t) list
+val solutions : Interp.t -> t -> Solution.t
 
 (*s Pretty-printing. *)
 
@@ -62,28 +67,23 @@ val use : Interp.t -> t -> Term.t -> Term.Set.t
 val extend : Interp.t -> Term.t -> t -> Term.t * t
 
 
-(*s [process solve f (a,b) s] installs an equality [a = b], where at least one of [a],[b] is
-  a tuple term, into the tuple context [s]. Abstractly, the manipulations on [s] can be 
-  described by [s o solve(norm s a, norm s b)], where the composition [o] operator 
-  includes new bindings [x |-> e] for each equality in the solved form 
-  [solve(norm s a, norm s b)], and all rhs of [s] are normalized, using [norm] above, 
-  with respect to the this solved form.  In addition, if the rhs of a newly introduced 
-  binding reduces to an uninterpreted term (excluding fresh variables), then the 
-  corresponding binding is removed and returned as a newly infered equality between 
-  uninterpreted terms. *)
-
-val merge : Veq.t -> t -> (t * Veqs.t)
-
 (*s Add a constraint. *)
 
-val add : Term.t * Cnstrnt.t -> t -> t * Veqs.t
+val add : Fact.cnstrnt -> V.t * D.t * t -> V.t * D.t * t * Focus.t
 
+(*s Propagating new equalities. *)
+
+val close: V.t * D.t * t * Focus.t -> V.t * D.t * t * Focus.t
 
 (*s Constraint. *)
 
-val cnstrnt : t -> Term.t -> Cnstrnt.t
+val cnstrnt : V.t * t -> Term.t -> Cnstrnt.t
 
 
 (*s List all constraints with finite extension. *)
 
 val split : t -> Atom.t list
+
+(*s Instantiation. *)
+
+val inst : V.t -> t -> t

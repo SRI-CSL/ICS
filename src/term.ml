@@ -44,6 +44,10 @@ let mk_app f l = App(f,l)
 
 let mk_fresh_var x k = Var(Var.mk_fresh x k)
 
+let is_fresh_var = function
+  | Var(x) -> Var.is_fresh x
+  | _ -> false
+
 let mk_fresh_param x k = App(Sym.mk_fresh x k, [])
 
 
@@ -178,13 +182,37 @@ let rec subterm a b  =
    List.exists (subterm a) (args_of b))
 
 
+(*s [d_select s a] succeeds when [a] is equal to 
+ the pattern [select(x, y)] and throws [Not_found] otherwise. *)
+
+let d_select a =
+  if is_var a then raise Not_found  else
+    match destruct a with
+      | f, [x;y] when Sym.eq f Sym.mk_select -> (x,y)
+      | _ -> raise Not_found
+
+(*s [d_update s a] succeeds when [a] is equal to 
+ the pattern [update(x, y,z)] in [s]. *)
+
+let d_update a =
+  if is_var a then raise Not_found else
+    match destruct a with
+      | f, [x;y;z] when Sym.eq f Sym.mk_update -> (x,y,z)
+      | _ -> raise Not_found
+
+
 (*s Printer. *)
+
+let pretty = ref true 
+
+let set_pretty_print pp =
+  pretty := pp
 
 let rec pp fmt a =
   match a with
     | Var(x) -> 
 	Var.pp fmt x
-    | App(f,l) ->
+    | App(f,l) when !pretty ->
 	(match Sym.destruct f, l with
 	  | Sym.Interp(Sym.Arith(Sym.Num q)), [] -> 
 	      Mpa.Q.pp fmt q
@@ -209,10 +237,6 @@ let rec pp fmt a =
 	      Pretty.string fmt ", ";
 	      pp fmt y;
 	      Pretty.string fmt ")"
-	  | Sym.Interp(Sym.Boolean(Sym.True)), [] -> 
-	      Pretty.string fmt "true"
-	  | Sym.Interp(Sym.Boolean(Sym.False)), [] -> 
-	      Pretty.string fmt "false"
 	  | Sym.Interp(Sym.Bv(Sym.Const(b))), [] -> 
 	      Format.fprintf fmt "0b%s" (Bitv.to_string b)
 	  | Sym.Interp(Sym.Bv(Sym.Conc _)), l -> 
@@ -233,9 +257,12 @@ let rec pp fmt a =
 	      Pretty.string fmt "]"
 	  | _, [x;y] when Sym.eq f Sym.mk_div ->
 	      pp fmt x; Pretty.string fmt " / "; pp fmt y
-	  | _ ->
+	  | _ -> 
 	      Sym.pp fmt f; 
 	      Tools.ppl ("(", ", ", ")") pp fmt l)
+    | App(f, l) ->
+	Sym.pp fmt f; 
+	Tools.ppl ("(", ", ", ")") pp fmt l
 
 let to_string = 
   Pretty.to_string pp

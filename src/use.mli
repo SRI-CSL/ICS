@@ -28,14 +28,10 @@ val set : Term.t -> Term.Set.t -> t -> t
 
 val empty : t
 
-(*s [add x a use] adds [x] to the use of [y] for each toplevel
- uninterpreted term in [a]. *)
+(*s [add x a use] adds [x] to the use of [y] for each variable in [a]. *)
 
-val add : ((Term.t -> t -> t) -> Term.t -> t -> t) 
-             -> Term.t -> Term.t -> t -> t
+val add : Term.t -> Term.t -> t -> t
 
-(*s [remove x a s] deletes [x] from the use of [y] for each toplevel
- uninterpreted term in [a]. *)
+(*s [remove x a s] deletes [x] from the use of [y] for each variable in [a]. *)
 
-val remove : ((Term.t -> t -> t) -> Term.t -> t -> t)
-               -> Term.t -> Term.t -> t -> t
+val remove : Term.t -> Term.t -> t -> t

@@ -33,15 +33,10 @@ type bv =
   | Sub of int * int * int
   | Bitwise of int
 
-type boolean =
-  | True
-  | False
-
 type interp = 
   | Arith of arith
   | Tuple of tuple
   | Bv of bv
-  | Boolean of boolean
 
 type sym = 
   | Uninterp of Name.t
@@ -78,11 +73,6 @@ val mk_expt : int -> t
 
 val mk_tuple : t
 val mk_proj : int -> int -> t
-
-(*s Symbols from theory of Booleans. *)
-
-val mk_true : t
-val mk_false : t
 
 
 (*s Symbols from theory of bitvectors. *)

@@ -40,16 +40,26 @@ val is_diseq: t -> Term.t -> Term.t -> bool
 
 val empty : t
 
+(*s Set of changed disequalities. *)
 
-(*s [merge f (a,b) s] merges an equality [a = b] over uninterpreted 
-  terms [a], [b] and calls [f] on each derived equality. *)
+type focus
 
-val merge : Veq.t -> t -> t
+module Focus : sig
+  val empty : focus
+  val is_empty : focus -> bool
+  val singleton : Term.t * Term.t -> focus
+  val add : Term.t * Term.t -> focus -> focus
+  val union : focus -> focus -> focus
+  val fold : (Term.t * Term.t -> 'a -> 'a) -> focus -> 'a -> 'a
+end
+
+(*s [merge e s] merges a variable equality ['x = y'] *)
+
+val merge : Fact.equal -> t -> t
 
 (*s [add (a,b) s] disequality [a <> b] to the disequality context [s]. *)
 
-val add : Term.t * Term.t -> t -> t
-
+val add : Fact.diseq -> t -> t * focus
 
 (*s Replace all [x |-> {x1,...,xn}] with [y |-> {y1,...,yn}] where [yi] is [find xi]. *)
 

@@ -37,6 +37,7 @@ let keyword =
       "bwite", BWITE; "bwand", BWAND; "bwor", BWOR;
       "bwxor", BWXOR; "bwnot", BWNOT;
       "drop", DROP; "can", CAN; "assert", ASSERT; "exit", EXIT; 
+      "valid", VALID; "unsat", UNSAT;
       "save", SAVE; "restore", RESTORE; "remove", REMOVE; "forget", FORGET;
       "reset", RESET; "sig", SIG; "type", TYPE; "def", DEF;
       "sigma", SIGMA; "solve", SOLVE; "help", HELP;
@@ -53,7 +54,7 @@ let keyword =
 }
 (*i*)
 
-let ident = ['A'-'Z' 'a'-'z'] ['A'-'Z' 'a'-'z' '\'' '0'-'9']*
+let ident = ['A'-'Z' 'a'-'z'] ['A'-'Z' 'a'-'z' '\'' '_' '0'-'9']*
 
 let space = [' ' '\t' '\r' '\n']
 
@@ -99,13 +100,18 @@ rule token = parse
   | '^'        { EXPT }
   | ".."       { DDOT }
   | "+++"      { UNION }
-  | "++"       { BVCONCI }
-  | "&&"       { BWANDI }
-  | "||"       { BWORI }
-  | "##"       { BWXORI }
+  | "++"       { BVCONC }
+  | "&&"       { BWAND }
+  | "||"       { BWOR }
+  | "##"       { BWXOR }
+  | '&'        { CONJ }
+  | '|'        { DISJ }
+  | '#'        { XOR }
+  | '~'        { NEG }
   | '_'        { UNDERSCORE } 
   | "<<"       { CMP }
   | '.'        { DOT }
+  | '@'        { KLAMMERAFFE }
   | eof        { EOF }  
   | _          { raise Parsing.Parse_error }
 

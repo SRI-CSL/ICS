@@ -29,4 +29,3 @@ val u : t
 val a : t
 val t : t
 val bv : t
-val b : t

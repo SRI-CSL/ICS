@@ -16,7 +16,6 @@ i*)
 
 (*i*)
 open Sym
-open Term
 open Mpa
 open Status
 (*i*) 
@@ -25,9 +24,9 @@ open Status
   The function is closed in that forall [x], [y] such that [x |-> {...,y,...} ]
   then also [y |-> {....,x,....}] *)
 
-type t = Set.t Map.t
+type t = Term.Set.t Term.Map.t
 
-let empty = Map.empty
+let empty = Term.Map.empty
 
 let deq_of s = s
 
@@ -53,71 +52,89 @@ let pp fmt s =
       Pretty.list Term.pp_diseq fmt l
     end
 
+
 (*s All terms known to be disequal to [a]. *)
 
 let deq s a =
-  try Map.find a s with Not_found -> Set.empty
+  try Term.Map.find a s with Not_found -> Term.Set.empty
 
 
 (*s Check if two terms are known to be disequal. *)
 
 let is_diseq s a b =
-  Set.mem b (deq s a)
+  Term.Set.mem b (deq s a)
 
 
-(*s Adding a disequality over uninterpreted terms. *)
+(*s Set of changed disequalities. *)
 
-let add1 (x,y) s =
+module Pairs = Set.Make(
+  struct
+    type t = Term.t * Term.t
+    let compare = Pervasives.compare
+  end)
+
+type focus = Pairs.t
+
+module Focus = struct
+  let empty = Pairs.empty
+  let is_empty = Pairs.is_empty
+  let singleton = Pairs.singleton
+  let add = Pairs.add
+  let union = Pairs.union
+  let fold = Pairs.fold
+end
+
+(*s Adding a disequality over variables *)
+
+let add d s =
+  let (x,y,_) = Fact.d_diseq d in
   let xd = deq s x in
   let yd = deq s y in
-  let xd' = Set.add y xd in
-  let yd' = Set.add x yd in
+  let xd' = Term.Set.add y xd in
+  let yd' = Term.Set.add x yd in
   match xd == xd', yd == yd' with
-    | true, true -> s
-    | true, false -> Map.add y yd' s
-    | false, true -> Map.add x xd' s
-    | false, false -> Map.add x xd' (Map.add y yd' s)
-
-let add (x,y) s =
-  let s' = add1 (x,y) s in
-  s'
+    | true, true -> (s, Focus.empty)
+    | true, false -> (Term.Map.add y yd' s, Focus.singleton (x,y))
+    | false, true -> (Term.Map.add x xd' s, Focus.singleton (x, y))
+    | false, false -> (Term.Map.add x xd' (Term.Map.add y yd' s),
+                       Focus.singleton (x, y))
 
 
 (*s Propagating an equality between uninterpreted terms. *)
 
 let merge e s =
-  let (a,b) = Veq.destruct e in
+  let (a,b,_) = Fact.d_equal e in
   let da = deq s a and db = deq s b in
-  if Set.mem a db || Set.mem b da then
+  if Term.Set.mem a db || Term.Set.mem b da then
     raise Exc.Inconsistent
   else
-    let dab = Set.union da db in
+    let dab = Term.Set.union da db in
     if db == dab then
-      Map.remove a s
+      Term.Map.remove a s
     else
-      let s' = Map.remove a s in
-      Map.add b dab s'
+      let s' = Term.Map.remove a s in
+      Term.Map.add b dab s'
 
 
 (*s Removing disequalities for [a] by recursively 
- removing [a |-> {...,x,...}] and all [x |-> ...]. 
- Also infer constraints [a in ((-inf..q) | (q..inf))]. *)
+ removing [a |-> {...,x,...}] and all [x |-> ...]. *)
 
 and remove a c (s, derived) =
   Term.Set.fold 
     (fun x (acc,derived) ->
-       (Map.remove x acc, Atom.mk_in c x :: derived))
+       (Term.Map.remove x acc, Atom.mk_in c x :: derived))
     (deq s a)
-    (Map.remove a s, derived)
+    (Term.Map.remove a s, derived)
 
 
 (*s Instantiation. *)
 
 let inst f s =
-  Map.fold
+  Term.Map.fold
     (fun x ys ->
        let x' = f x in
-       let ys' = Set.fold (fun y -> Set.add (f y)) ys Set.empty in
-       Map.add x' ys')
+       assert(Term.is_var x');
+       let ys' = Term.Set.fold (fun y -> Term.Set.add (f y)) ys Term.Set.empty in
+       Term.Map.add x' ys')
     s
-    Map.empty
+    Term.Map.empty

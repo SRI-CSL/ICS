@@ -14,51 +14,29 @@
  * Author: Harald Ruess, N. Shankar
 i*)
 
-(*i*)
-open Term
-open Three
-(*i*)
-
 type t = {
-  e : Term.t Map.t;
-  d : D.t;
+  find : Term.t Term.Map.t;
+  inv : Term.Set.t Term.Map.t
 }
 
-(*s Accessors. *)
 
-let partition s = 
-  Map.fold
-    (fun x y acc -> (* [y] is ``more'' canonical than [x]. *)
-       try
-	 let xs = Map.find x acc in
-	 try
-	   let ys = Map.find y acc in
-	   Map.add y (Set.add y (Set.union xs ys)) (Map.remove x acc)
-	 with
-	     Not_found ->
-	       Map.add y (Set.add y (Set.add x xs)) (Map.remove x acc)
-       with
-	   Not_found ->
-	     try
-	       let ys = Map.find y acc in
-	       Map.add y (Set.add y (Set.add x ys)) acc
-	     with
-		 Not_found ->
-		   Map.add y (Set.add y (Set.singleton x)) acc)
-    s.e
-    Map.empty
+(*s Canonical representative of equivalence class containing [x] *)
 
-let diseqs s = D.deq_of s.d
-
-
-(*s Canonical representative of a variable *)
-
-let rec find s x = 
+let rec find s x =
   try 
-    let y = Map.find x s.e in
-    if eq x y then y else find s y
+    let y = Term.Map.find x s.find in
+    if Term.eq x y then y else find s y
   with 
       Not_found -> x
+
+
+(*s Union of equivalence classes. *)
+
+let union x y s =
+  let find' = Term.Map.add x y s.find in
+  let invy = Term.Set.add x (try Term.Map.find y s.inv with Not_found -> Term.Set.empty) in
+  let inv' = Term.Map.add y invy s.inv in
+  {s with find = find'; inv = inv'}
 
 
 (*s Canonical representative with dynamic path compression. *)
@@ -66,8 +44,8 @@ let rec find s x =
 let find' s x =
   let rec loop acc x =
     try
-      let y = Map.find x s.e in
-      if eq x y then
+      let y = Term.Map.find x s.find in
+      if Term.eq x y then
 	(acc, y)
       else 
 	loop (x :: acc)  y
@@ -75,8 +53,7 @@ let find' s x =
 	Not_found -> (acc, x)
   in
   let (xl, y) = loop [] x in
-  let e' = List.fold_right (fun x -> Map.add x y) xl s.e in
-  let s' = {s with e = e'} in
+  let s' = List.fold_right (fun x -> union x y) xl s in
   (s', y)
 
 
@@ -85,58 +62,161 @@ let find' s x =
 let eq s x y = 
   Term.eq (find s x) (find s y)
 
-let deq s x y =
-  D.is_diseq s.d (find s x) (find s y)
-
-let is_equal s x y = 
-  let x' = find s x and y' = find s y in
-  if Term.eq x' y' then Yes
-  else if D.is_diseq s.d x' y' then No
-  else X
-
 
 (*s The empty context. *)
 
 let empty = {
-  e = Map.empty;
-  d = D.empty;
+  find = Term.Map.empty;
+  inv = Term.Map.empty
 }
+
+let is_empty s = 
+  (s.find == Term.Map.empty)
+
+
+
+(*s Starting from the canonical representative [x' = find s x], the
+  function [f] is applied to each [y] in [inv s x'] and the results are
+  accumulated. *)
+
+let fold s f x =
+  let rec loop y acc =
+    let acc' = f y acc in
+    try
+      Term.Set.fold loop (Term.Map.find y s.inv) acc'
+    with
+	Not_found -> acc'
+  in
+  loop (find s x)
+
+(*s Only external variables. *)
+
+let external_of s =
+  Term.Map.fold 
+    (fun x y acc ->
+       if Term.is_fresh_var x && not(Term.is_fresh_var y) then
+	 acc
+       else 
+	 union x y acc)
+    s.find
+    empty
+
+
+(*s A representation of the set of variables whose [find] changes. *)
+
+type focus = (Term.t * t) list
+
+module Focus = struct
+  let empty = []
+
+  let is_empty = function [] -> true  | _ -> false
+
+  let singleton (x,v) = [(x, v)]
+
+  let add (x, v) focus = (x, v) :: focus
+
+  let union = (@)
+		     
+  let fold f =
+    List.fold_right
+      (fun (x, v) acc -> fold v f x acc)
+end
 
 (*s Adding a binding [a |-> b] to a context [s]. *)
 
 let merge e s =
-  let (x, y) = Veq.destruct e in
-  match is_equal s x y with
-    | Yes -> s
-    | No -> raise Exc.Inconsistent
-    | X ->
-	let (s', y') = find' s y in
-	let e' = Map.add x y' s'.e in
-	{s' with e = e'}
+  let (x, y,_) = Fact.d_equal e in
+  let x' = find s x and y' = find s y in
+  if Term.eq x' y' then 
+    (s, Focus.empty)
+  else
+    (union x' y' s, Focus.singleton (x', s))
 
 
-(*s Adding a disequality. *)
+(*s Extension of the equivalence class for [x]. *)
 
-let diseq (x,y) s =
-  match is_equal s x y with
-    | Yes -> raise Exc.Inconsistent
-    | No -> s
-    | X -> {s with d = D.add (x, y) s.d}
+let ext s x = fold s Term.Set.add x Term.Set.empty
 
+
+(*s Iteration. *)
+
+let iter s f x =
+  let rec loop y =
+    f y;
+    try
+      Term.Set.iter loop (Term.Map.find y s.inv)
+    with
+	Not_found -> ()
+  in
+  loop (find s x)
+
+
+(*s Exists/For_all *)
+
+let exists s p x =
+  let rec loop y =
+    p y || 
+    try
+      Term.Set.exists loop (Term.Map.find y s.inv)
+    with
+	Not_found -> false
+  in
+  loop (find s x)
+
+
+let for_all s p x =
+  let rec loop y =
+    p y &&
+    try
+      Term.Set.for_all loop (Term.Map.find y s.inv)
+    with
+	Not_found -> true
+  in
+  loop (find s x)
+
+
+(*s Choose an element satisfying some property. *)
+
+exception Found of Term.t
+
+let choose s p x =
+  try
+    iter s (fun y -> if p y then raise(Found y)) x;
+    raise Not_found
+  with
+      Found(y) -> y
+ 
+
+ 
+(*s Set of canonical representatives with non-trivial equivalence classes.
+ These are the variables occurring in the codomain of [find] which are not
+ themselves in the domain of [find]. *)
+
+let canrepr s = 
+  Term.Map.fold 
+    (fun _ y acc -> 
+       if Term.Map.mem y s.find then
+	 acc
+       else 
+	 Term.Set.add y acc)
+    s.find
+    Term.Set.empty
+
+
+(*s Representation of the equivalence classes as a map with the
+ canonical representatives as domain and the corresponding extensions
+ in the codomain. The following is not terribly efficient. *)
+
+let partition s =
+  Term.Set.fold (fun x -> Term.Map.add x (ext s x)) (canrepr s) Term.Map.empty
+    
 
 (*s Pretty-printing. *)
 
+let pp fmt s =
+  if not(is_empty s) then
+    let m = partition s in
+    let l = Term.Map.fold (fun x ys acc -> (x, Term.Set.elements ys) :: acc) m [] in
+    Pretty.string fmt "\nv:";
+    Pretty.map Term.pp (Pretty.set Term.pp) fmt l
 
-let rec pp fmt s =
-  epp fmt (partition s);
-  D.pp fmt s.d
-
-and epp fmt m =
-  if not(Map.empty == m) then
-    begin
-      Pretty.string fmt "v:"; 
-      let l = Map.fold (fun x ys acc -> (x, Set.elements ys) :: acc) m [] in
-      Pretty.map Term.pp (Pretty.set Term.pp) fmt l;
-      Pretty.string fmt "\n"
-    end
- 

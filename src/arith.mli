@@ -46,6 +46,12 @@ val of_mono : Mpa.Q.t -> Term.t -> Term.t
 val monomials : Term.t -> Term.t list
 
 
+(* [foldall f a e] calls [f pre q x post acc] is called for 
+   each [pre + q * x + post] equal to [a] and accumulates the results
+   starting with [e]. *)
+
+val foldall : (Term.t -> Mpa.Q.t -> Term.t -> Term.t -> 'a -> 'a) -> Term.t -> 'a -> 'a
+
 (*s Decompose a polynomial of the form, say, ['q + p * x + 7 * y']
  into [('q', Some('p', 'x'), Some('7 * y'))]. *)
 
@@ -55,6 +61,10 @@ type decompose =
   | Many of Mpa.Q.t * Mpa.Q.t * Term.t * Term.t
 
 val decompose : Term.t -> decompose
+
+(*s Set of subterms not interpreted in linear arithmetic. *)
+
+val uninterps : Term.t -> Term.Set.t 
 
 (*s Test if every monomial in an arithmetic term satisfies some
  predicate [p]. *)
@@ -163,3 +173,17 @@ val solve :
  subterm of [a] is not in the domain of [f]. *) 
 
 val cnstrnt : (Term.t -> Cnstrnt.t) -> (Term.t -> Cnstrnt.t)
+
+(*s Split a term into the part with constraints and the unconstraint part.
+ Also, return the constraint for the term with a constraint. *)
+
+val split: (Term.t -> Cnstrnt.t) -> Term.t 
+             -> (Term.t * Cnstrnt.t) option * Term.t option
+
+
+(*s Normalize a constraint [a in i]. If [a = q + p * x + y], then
+  the result is [x + 1/p * y in '1/p ** (i -- q)'], where ['**'] and
+  ['--'] are multiplication and subtraction operatons on constraints
+  (see module Cnstrnt). *)
+
+val normalize : Term.t * Cnstrnt.t -> Term.t * Cnstrnt.t
