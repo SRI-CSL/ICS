@@ -74,7 +74,7 @@ let to_set s =
     (fun x ys ->
        Set.fold 
          (fun (y, rho) -> 
-	    let d = Fact.Diseq.make (x, y, rho) in
+	    let d = Fact.Diseq.make x y rho in
 	      Fact.Diseq.Set.add d)
          ys)
     s 
@@ -124,7 +124,7 @@ let is_diseq s x y =
 let add d s = 
   assert(Fact.Diseq.is_var d);
   assert(closed s);
-  let (x, y, rho) = Fact.Diseq.destruct d in    (* [rho |- x <> y] *)
+  let (x, y, rho) = d in    (* [rho |- x <> y] *)
     match is_diseq s x y with
       | Some _ -> 
 	  (s, Fact.Diseq.Set.empty)
@@ -145,12 +145,12 @@ let merge e s =
   Trace.msg "d" "Merge(d)" e Fact.Equal.pp;
   assert(Fact.Equal.is_var e);
   assert(closed s);
-  let (x, y, rho) = Fact.Equal.destruct e in           (* [rho |- x = y] *)
+  let x, y, rho = e in           (* [rho |- x = y] *)
     if Term.eq x y then 
       (s, Fact.Diseq.Set.empty)
     else
       match is_diseq s x y with
-	| Some(tau) ->                                 (* [tau |- x <> y] *)
+	| Some(tau) ->           (* [tau |- x <> y] *)
 	    raise(Jst.Inconsistent(Jst.dep2 rho tau))
 	| None -> 
 	    let fresh = ref Fact.Diseq.Set.empty in
@@ -163,7 +163,7 @@ let merge e s =
 		   Set.fold 
 		     (fun (z, tau) ->                       (* [tau |- x <> z] *)
 			let sigma = Jst.dep2 tau rho in     (* ==> [sigma |- y <> z]. *)
-			  fresh := Fact.Diseq.Set.add (Fact.Diseq.make (y, z, sigma)) !fresh;
+			  fresh := Fact.Diseq.Set.add (Fact.Diseq.make y z sigma) !fresh;
 			  Set.add (z, sigma))
 		     dx Set.empty
 		 in
@@ -180,7 +180,7 @@ let merge e s =
 			      let sigma = Jst.dep2 tau rho in  (* [sigma|- z <> y] *)
 			      let dz'' = Set.add (y, sigma) dz' in 
 			      let dy' = Set.add (z, sigma) dy in
-				fresh := Fact.Diseq.Set.add (Fact.Diseq.make (y, z, sigma)) !fresh;
+				fresh := Fact.Diseq.Set.add (Fact.Diseq.make y z sigma) !fresh;
 				(Term.Map.add z dz'' s, dy')
 			  with
 			      Not_found -> (s, dy))
@@ -210,7 +210,7 @@ let diff d1 d2 =
 	  (match is_diseq d2 x y with
 	     | Some _ -> acc
 	     | None -> 
-		 let (acc', _) = add (Fact.Diseq.make (x, y, rho)) acc in
+		 let (acc', _) = add (Fact.Diseq.make x y rho) acc in
 		   acc'))
        ds acc)
     d1 empty

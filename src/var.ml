@@ -195,6 +195,7 @@ let is_slack sl = function Slack(_, sl') when sl = sl' -> true | _ -> false
 let is_nonneg_slack = function Slack(_, Nonneg _) -> true | _ -> false
 let is_zero_slack = function Slack(_, Zero) -> true | _ -> false
 let is_fresh th = function Fresh(th', _, _) when th = th' -> true | _ -> false
+let is_some_fresh = function Fresh _ -> true | _ -> false
 
 let is_internal = function
   | Slack _ -> true

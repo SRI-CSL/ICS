@@ -39,8 +39,89 @@
   are performed in constant time.
 *)
 
-type t
-  (** Representation type for function symbols. *) 
+type t = sym * int
+  (** Representation type for function symbols. *)
+
+and sym = 
+  | Uninterp of uninterp
+  | Arith of arith
+  | Product of product
+  | Coproduct of coproduct
+  | Bv of bv
+  | Pp of pprod
+  | Cl of cl
+  | Arrays of arrays 
+  | Propset of propset
+
+(** An uninterpreted function symbol in {!Th.u} just consists of a name.
+  There is no {i arity} associated with it. *)
+and uninterp = Name.t
+
+(** Function symbols for linear arithmetic {!Th.a} are
+  - [Num(q)] for representing rational number [q],
+  - [Add] for addition,
+  - [Multq(q)] for multiplication by a rational [q]. *)
+and arith = 
+  | Num of Mpa.Q.t  
+  | Add
+  | Multq of Mpa.Q.t
+
+(** Function symbols for the theory {!Th.p} of products are
+  - [Cons] for constructing pairs
+  - [Car] for projection to first component
+  - [Cdr] for projection to second component. *)
+and product = Cons | Car | Cdr
+
+(** Function symbols for the theory {!Th.cop} of cotuples are
+  - [In(Left)] for left injection,
+  - [In(Right)] for right injection,
+  - [Out(Right)] for right unpacking,
+  - [Out(Left)] for left unpacking. *)
+and coproduct = 
+  | In of direction 
+  | Out of direction
+
+and direction = Left | Right
+
+(** Function symbols of the theory {!Th.arr} of arrays
+  - [Create] for creating constant arrays,
+  - [Select] for array lookup, and
+  - [Update] for array update. *)
+and arrays = 
+  | Create
+  | Select 
+  | Update
+
+(** Function symbols of the theory {!Th.app} of functions
+  - Apply of function application, and
+  - combinators [S], [K], [I] *)
+and cl = 
+  | Apply
+  | S
+  | K
+  | I
+  | C
+  | Reify of t * int
+
+and propset = Empty | Full | Ite
+
+
+(** Function symbols for the theory {!Th.bv} of bitvectors are
+  - [Const(b)] for constructing constant bitvectors such as [0111001].
+  - [Conc(n, m)], for integers [n, m >= 0], for concatenating bitvectors of width [n] and [m],
+  - [Sub(i, j, n)], for integers [0 <= i <= j < n], for extracting bits [i] through [j] in 
+  a bitvector of width [n]. *)
+and bv =
+  | Const of Bitv.t
+  | Conc of int * int
+  | Sub of int * int * int
+
+(** Function symbols of the theory {!Th.nl} of nonlinear arithmetic
+  or {i power products} are
+  - [Mult] for nonlinear multiplication *)
+and pprod = 
+  | Mult
+
 
 type tsym = t (** nickname *)
 
@@ -72,10 +153,6 @@ val pp : 'a Pretty.printer -> (t * 'a list) Pretty.printer
 
 (** {6 Uninterpreted Function Symbols} *)
 
-(** An uninterpreted function symbol in {!Th.u} just consists of a name.
-  There is no {i arity} associated with it. *)
-type uninterp = Name.t
-
 (** Operations on uninterpreted function symbols.
   - [get f] returns the uninterpreted function symbol associated with [f],
   - [make n] constructs a hashconsed representation of an uninterpreted function
@@ -92,14 +169,6 @@ end
 
 (** {6 Linear Arithmetic} *)
 
-(** Function symbols for linear arithmetic {!Th.a} are
-  - [Num(q)] for representing rational number [q],
-  - [Add] for addition,
-  - [Multq(q)] for multiplication by a rational [q]. *)
-type arith = 
-  | Num of Mpa.Q.t  
-  | Add
-  | Multq of Mpa.Q.t
      
 
 (** Operation on linear arithmetic function symbols. 
@@ -133,12 +202,6 @@ module Arith : sig
 
 (** {6 Products} *)
 
-(** Function symbols for the theory {!Th.p} of products are
-  - [Cons] for constructing pairs
-  - [Car] for projection to first component
-  - [Cdr] for projection to second component. *)
-type product = Cons | Car | Cdr
-
 
 (** Operation on function symbols of the product theory {!Th.p}. 
   - [mk_cons], [mk_car], and [mk_cdr] are the function symbols
@@ -165,16 +228,6 @@ end
 
 (** {6 Coproducts} *)
 
-(** Function symbols for the theory {!Th.cop} of cotuples are
-  - [In(Left)] for left injection,
-  - [In(Right)] for right injection,
-  - [Out(Right)] for right unpacking,
-  - [Out(Left)] for left unpacking. *)
-type coproduct = 
-  | In of direction 
-  | Out of direction
-
-and direction = Left | Right
 
 (** Operation on function symbols of the product theory {!Th.cop}. 
   - [mk_inl], [mk_inf], [mk_outl] and [mk_outr] are the function symbols
@@ -203,11 +256,6 @@ end
 
 (** {6 Power products} *)
 
-(** Function symbols of the theory {!Th.nl} of nonlinear arithmetic
-  or {i power products} are
-  - [Mult] for nonlinear multiplication *)
-type pprod = 
-  | Mult
 
 (** Operation on function symbols of the product theory {!Th.nl}. 
   - [mk_mul], [mk_expt n], [mk_outl] are the function symbols
@@ -234,15 +282,6 @@ end
 
 (** {6 Bitvectors} *)
 
-(** Function symbols for the theory {!Th.bv} of bitvectors are
-  - [Const(b)] for constructing constant bitvectors such as [0111001].
-  - [Conc(n, m)], for integers [n, m >= 0], for concatenating bitvectors of width [n] and [m],
-  - [Sub(i, j, n)], for integers [0 <= i <= j < n], for extracting bits [i] through [j] in 
-  a bitvector of width [n]. *)
-type bv =
-  | Const of Bitv.t
-  | Conc of int * int
-  | Sub of int * int * int
   
 
 (** Operation on function symbols of the product theory {!Th.bv}. 
@@ -284,14 +323,6 @@ end
 
 (** {6 Functional Arrays} *)
 
-(** Function symbols of the theory {!Th.arr} of arrays
-  - [Create] for creating constant arrays,
-  - [Select] for array lookup, and
-  - [Update] for array update. *)
-type arrays = 
-  | Create
-  | Select 
-  | Update
     
 (** Operation on function symbols of the product theory {!Th.arr}. 
   - Constants [mk_create], [mk_select], [mk_update] for {i representing} 
@@ -318,17 +349,6 @@ end
 
 
 (** {6 Combinatory Logic} *)
-
-(** Function symbols of the theory {!Th.app} of functions
-  - Apply of function application, and
-  - combinators [S], [K], [I] *)
-type cl = 
-  | Apply
-  | S
-  | K
-  | I
-  | C
-  | Reify of t * int
 
    
 (** Operation on function symbols of the product theory {!Th.app}. 
@@ -363,8 +383,6 @@ end
 
 (** {6 Theory of propositional sets} *)
 
-type propset = Empty | Full | Ite
-
 module Propset : sig
   val get : t -> propset
   val mk_empty : t
@@ -381,17 +399,6 @@ end
 
 
 (** {6 Partitioning} *)
-
-type sym = 
-  | Uninterp of uninterp
-  | Arith of arith
-  | Product of product
-  | Coproduct of coproduct
-  | Bv of bv
-  | Pp of pprod
-  | Cl of cl
-  | Arrays of arrays 
-  | Propset of propset
 
 val get : t -> sym
   (** [get f] returns a theory-specific operator together with

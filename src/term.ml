@@ -68,6 +68,7 @@ module Var = struct
   (** Every variable has a {i unique} index associated with it. *)
   module Index = struct
     let current = ref 0
+    (* let _ = Tools.add_at_reset (fun () -> current := 0) *)
  
     let create x =
       let a = Var(x, !current) in
@@ -101,10 +102,10 @@ module Var = struct
 
   (** Global variable for creating fresh variables. *)
   let k = ref (-1)
-  let _ = Tools.add_at_reset (fun () -> k := 0)
+  let _ = Tools.add_at_reset (fun () -> k := (-1))
 
   let fresh_index = function
-    | Some(k) -> k
+    | Some(i) -> i
     | None -> incr(k); !k
 
 
@@ -192,11 +193,10 @@ module Var = struct
       | Var(_, n), Var(_, m) ->
 	  assert(if n <> m then not(eq x y) else eq x y);
 	  if n < m then -1 else if n == m then 0 else 1
-      | _ ->
-	  invalid_arg("Term.Var.compare: getting unique index of nonvariable term " ^ 
-		      to_string x ^
-		      " or " ^
-		      to_string y)
+      | App _, _ ->
+	  invalid_arg("Term.Var.compare: getting unique index of nonvariable term " ^ to_string x)
+      | _, App _ ->
+	  invalid_arg("Term.Var.compare: getting unique index of nonvariable term " ^ to_string y)
 
   module Set = Set.Make(
     struct
@@ -318,9 +318,7 @@ and eql al bl =
   try List.for_all2 eq al bl with Invalid_argument _ -> false
 
 
-(** {6 Term Ordering} *)
-
-    
+(** Term Ordering *)    
 let rec cmp a b = 
   match a, b with  
     | Var(x, _), Var(y, _) -> Var.cmp x y
@@ -368,9 +366,8 @@ let orient ((a, b) as e) =
   if cmp a b >= 0 then e else (b, a)
 
 
-(** {6 Syntactic term ordering} *)
-
-(** [compare] is faster than [cmp] and is used for building sets
+(** {i Syntactic term ordering}. 
+  [compare] is faster than [cmp] and is used for building sets
   and maplets. It does not obey the variable ordering {!Var.cmp} *)
 let rec compare a b =
   let ha = hash a and hb = hash b in
@@ -435,12 +432,17 @@ let rec for_all p a  =
     | Var _ -> true
     | App(_, l, _) -> List.for_all (for_all p) l
 
-
-let rec subterm a b  =
-  eq a b ||
-  match b with
-    | Var _ -> false
-    | App(_, l, _) -> List.exists (subterm a) (App.args_of b)
+let rec subterm a b =
+  let rec sub_a b = 
+    eq a b ||
+    match b with
+      | Var _ -> false
+      | App(_, bl, _) -> sub_a_l bl
+  and sub_a_l = function
+    | [] -> false
+    | b :: bl -> sub_a b || sub_a_l bl
+  in
+    sub_a b    
 
 let occurs x b = subterm x b
 
@@ -451,15 +453,40 @@ let is_pure i =
   in
     loop
 
-
 (** Facts are partitioned into 
   - facts over {i variable} terms
-  - facts over {i pure} terms with all function symbols drawn from a single theory [i]
+  - facts over {i pure} terms with all function symbols drawn 
+  from a single theory [i]
   - facts over {i mixed} terms. *)
 type status = 
   | Variable
   | Pure of Th.t
   | Mixed of Th.t * t
+
+let mk_pure =
+  let u = Pure(Th.u)
+  and la = Pure(Th.la)
+  and bv = Pure(Th.bv)
+  and p = Pure(Th.p)
+  and cop = Pure(Th.cop)
+  and app = Pure(Th.app) 
+  and set = Pure(Th.set)
+  and arr = Pure(Th.arr)
+  and nl = Pure(Th.nl) in
+    function
+      | Th.Uninterpreted -> u
+      | Th.Shostak(i) -> 
+	  (match i with
+             | Th.LA -> la
+             | Th.BV -> bv
+             | Th.P -> p
+             | Th.COP -> cop
+             | Th.APP -> app
+             | Th.SET -> set)
+      | Th.Can(i) ->
+	  (match i with Th.NL -> nl | Th.ARR -> arr)
+
+  
 
 let pp_status fmt = function
   | Variable ->
@@ -476,7 +503,7 @@ let rec status = function
       let i = Sym.theory_of f in
       let rec loop = function
 	| [] ->
-	    Pure(i)
+	    mk_pure(i)
 	| a :: al -> 
 	    (match status a with
 	       | Variable -> loop al
@@ -485,9 +512,6 @@ let rec status = function
 	       | (Mixed _ as m) -> m)
       in
 	loop al
-
-let status = 
-  Trace.func "foo" "status" pp pp_status status
 
 
 (** Return theory [i] if both [a] and [b] are [i]-pure. *)

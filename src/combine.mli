@@ -45,17 +45,18 @@ module E : sig
 
     (** Projections to individual equality sets. *)
   val u_of : t -> U.S.t
-  val a_of : t -> A.t
   val la_of : t -> La.S.t
-  val nl_of : t -> Nl.E.t
-  val p_of : t -> P.E.t
-  val cop_of : t -> Cop.E.t
-  val cl_of : t -> L.E.t
-  val arr_of : t -> Arr.E.t
-  val set_of : t -> Pset.E.t
+ (* val nl_of : t -> Nl.S.t *)
+  val p_of : t -> Solution.Set.t
+  val cop_of : t -> Solution.Set.t
+  val cl_of : t -> Solution.Set.t
+(*  val arr_of : t -> Arr.E.t *)
+  val set_of : t -> Solution.Set.t
 
   val empty: t 
     (** The empty equality configuration. *)
+
+  val copy : t -> t
  
   val is_empty: t -> bool
     (** Succeeds if all individual equality sets are empty. *)
@@ -89,41 +90,19 @@ module E : sig
 end 
 
 
-type t = E.t Infsys.config
+type t = E.t Infsys.Config.t
     (** Configurations [(g, e, p)] for the combined inference system consist
       - of a global input [g],
       - a combined euqality set [e], and
       - a variable partition [p]. *)
 
-val pp : t Pretty.printer
-  (** Pretty-printing a configuration for a combined inference system. *)
 
-val eq : t -> t -> bool
-  (** Identity test for combined inference system. If [eq c1 c2] succeeds,
-    then [c1], [c2] are logically equivalent. On the other side, however,
-    failure of this test does not imply that [c1] and [c2] are not equivalent. *)
-
-val empty : t
-  (** The empty configuration for the combined inference system. *)
-
-val is_empty : t -> bool
-  (** [is_empty (g, e, p)] holds iff [g], [e], [p] are all empty. *)
-
-val make : Fact.Input.t * E.t * Partition.t -> t
-  (** Construct a configuration from its components. *)
-
-
-val process : t -> t 
-  (** Given a starting configuration [(g, e, p)], process applies
+val process : Fact.t -> E.t * Partition.t -> E.t * Partition.t
+  (** Given a starting configuration [({fct}, e, p)], process applies
     all rules of the combined inference system (except branching rules).
     The source and target configuration of [process] are {i equivalent},
     although the target configuration might contain internally generated
     variables not present in the source configuration. *)
-
-val do_destructive : bool ref
-  (** If [do_destructive] is set, [process] performs destructive updates
-    for efficiency.  Except for differences in time and memory consumption,
-    there should be no observable difference in behavior. *)
 
 val is_sat :  t -> t option
   (** [is_sat [c]] applies applicable {i branching rules} until 
@@ -160,7 +139,7 @@ val cheap : bool ref
     simplifications for disequalities and inequalities. Setting [cheap]
     to [false] make {!Combine.simplify} more complete. *)
 
-val gc : t -> t
+val gc : t -> unit
   (** [gc c] garbage collects internal variables in configuration [c]
     as introduced by {!Combine.process}. *)
 

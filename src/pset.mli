@@ -18,6 +18,4 @@
 *)
 
 
-module E: Shostak.EQS
-
-module Infsys: (Infsys.IS with type e = E.t)
+module Infsys: (Infsys.EQ with type e = Solution.Set.t)

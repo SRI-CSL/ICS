@@ -43,9 +43,8 @@ val can : Partition.t * S.t -> Jst.Eqtrans.t
     The result is canonized using {!Arith.map}. *)
 
 
-module Infsys : (Infsys.IS with type e = S.t)
-  (** Inference system for linear arithmetic. *)
-
+(** Inference system for linear arithmetic. *)
+module Infsys : (Infsys.ARITH with type e = S.t)
 
 exception Unbounded
 
@@ -58,6 +57,7 @@ val lower : Partition.t * S.t -> Jst.Eqtrans.t
 
 val is_equal : Partition.t * S.t -> Jst.Pred2.t
 
+(*
 val is_nonpos : Partition.t * S.t -> Jst.Pred.t
   (** [is_nonpos s a] returns [Some(rho)] if [a <= 0] holds in [s]. 
     In this case [rho |- a <= 0]. Otherwise, [None] is returned. *)
@@ -77,36 +77,7 @@ val is_neg : Partition.t * S.t -> Jst.Pred.t
 val is_diseq : Partition.t * S.t -> Jst.Pred2.t
   (** [is_diseq s a b] returns [Some(rho)] if [a<>b] holds in [s]. 
     In this case, [rho |- a <> b]. Otherwise, [None] is returned. *)
-
-
-(** Finite Interpretations. *)
-module Finite : sig
-
-  module Zset : (Set.S with type elt = Mpa.Z.t)
-
-  (** Finite domain interpretation with lower bound [lo],
-    upper bound [hi], and a disequality set [diseqs]. The
-    corresponding interpretation domain [D(fin)] is defined
-    as [{z in int | lo <= z <= hi & x notin diseqs }]. *) 
-  type t = {
-    lo : Mpa.Z.t;
-    hi : Mpa.Z.t;
-    diseqs : Zset.t
-  }
-
-  val pp : t Pretty.printer
-
-  val of_var : Partition.t * S.t -> Term.t -> t
-  (** [of_var (p, s) x] returns either a finite domain
-    interpretation [fin] for [x] such that [x] is
-    interpreted in [D(fin)] or raises [Unbounded]. *)
-
-  val disjunction : Partition.t * S.t -> Term.t * t
-  (** [of_config (p, s)] returns a finite domain
-    interpretations for one of the variables in [s] with a 
-    finite interpretation. *)
-	
-end 
+*)
 
 val model : S.t -> Term.t list -> Term.t Term.Map.t
   (** [model (p, s) xs] returns an assignment [rho]

@@ -146,6 +146,8 @@ val is_nonneg_slack : t -> bool
 val is_fresh : Th.t -> t -> bool
   (** [is_fresh i x] holds iff [x] is a fresh variable of theory [i]. *)
 
+val is_some_fresh : t -> bool
+
 val is_internal : t -> bool
   (** [is_internal x] holds iff either [is_rename x], [is_slack x], or
     [is_fresh x] holds. *)

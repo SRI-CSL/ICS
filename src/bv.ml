@@ -23,10 +23,10 @@ module T: Shostak.T = struct
   let th = Th.bv
   let map = Bitvector.map
   let solve e = 
-    let (a, b, rho) = Fact.Equal.destruct e in
+    let (a, b, rho) = e in
       try
 	let sl = Bitvector.solve (a, b) in
-	let inj (a, b) = Fact.Equal.make (a, b, rho) in
+	let inj (a, b) = Fact.Equal.make a b rho in
 	  List.map inj sl
       with
 	  Exc.Inconsistent -> raise(Jst.Inconsistent(rho))
@@ -34,24 +34,25 @@ module T: Shostak.T = struct
 end
 
 
-module G = Fact.Input
-module E = Shostak.E(T)
 module P = Partition
 
 
 (** Inference system as a variant of Shostak inference systems. *)
-module Infsys0: (Infsys.IS with type e = E.t) = struct
+module Infsys = struct
 
-  type e = E.t
-  
   module I = Shostak.Make(T)
 
-  let ths = I.ths
+  type e = Solution.Set.t
+
+  let current = I.current
+  let initialize = I.initialize
+  let finalize = I.finalize
+
   let abstract = I.abstract
   let merge = I.merge
   let dismerge = I.dismerge
   let propagate = I.propagate
-  let branch = I.branch
+  let branch () = failwith "branch: to do" (* I.branch *)
   let normalize = I.normalize
 
 
@@ -67,8 +68,10 @@ module Infsys0: (Infsys.IS with type e = E.t) = struct
   (** [is_diseq (p, s) a b] iff adding [a = b] to [(p, s)] yields inconsistency. *)
   let is_diseq (p, s) a b =
     try
-      let e = Fact.Equal.make (a, b, Jst.dep0) in
-      let _ = merge Th.bv e (G.empty, p, s) in
+      let e = Fact.Equal.make a b Jst.dep0 in
+(*
+      let _ = merge e (G.empty, p, s) in
+*)
 	None
     with
 	Jst.Inconsistent(sigma) -> Some(sigma)
@@ -83,11 +86,13 @@ module Infsys0: (Infsys.IS with type e = E.t) = struct
       | None ->
 	  None
 
+  let can (p, s) = failwith "can: to do"
+
   let rec process_diseq (p, s) d =
     assert(Fact.Diseq.is_var d);
     let to_option f a = try Some(f a) with Not_found -> None in
-    let d = Fact.Diseq.map (E.can (p, s)) d in
-    let (a, b, rho) = Fact.Diseq.destruct d in
+    let d = Fact.Diseq.map (can (p, s)) d in
+    let (a, b, rho) = d in
       match to_option Bitvector.d_const a, to_option Bitvector.d_const b with
 	| Some(c), Some(d) ->
 	    if Bitv.equal c d then
@@ -127,6 +132,7 @@ module Infsys0: (Infsys.IS with type e = E.t) = struct
 
 end
 
+(*
 (** Tracing inference system. *)
 module Infsys: (Infsys.IS with type e = E.t) =
   Infsys.Trace(Infsys0)
@@ -137,3 +143,4 @@ module Infsys: (Infsys.IS with type e = E.t) =
        let diff = E.S.diff
        let pp = E.S.pp
      end)
+*)

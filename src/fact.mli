@@ -34,13 +34,11 @@ val pp_justification : Jst.t Pretty.printer
 
 (** Equality Facts *)
 module Equal : sig
-  type t
+  type t = Term.t * Term.t * Jst.t
   val lhs_of : t -> Term.t
   val rhs_of : t -> Term.t
   val pp : t Pretty.printer
-  val make : Term.t * Term.t * Jst.t -> t
-  val of_equal : Atom.Equal.t * Jst.t -> t
-  val destruct : t -> Term.t * Term.t * Jst.t
+  val make : Term.t -> Term.t -> Jst.t -> t
   val both_sides : (Term.t -> bool) -> t -> bool
   val is_var : t -> bool
   val is_pure : Th.t -> t -> bool
@@ -54,10 +52,8 @@ end
 
 (** Disequality Facts *)
 module Diseq : sig
-  type t
-  val make : Term.t * Term.t * Jst.t -> t
-  val of_diseq : Atom.Diseq.t * Jst.t -> t
-  val destruct : t -> Term.t * Term.t * Jst.t
+  type t = Term.t * Term.t * Jst.t
+  val make : Term.t -> Term.t -> Jst.t -> t
   val lhs_of : t -> Term.t
   val rhs_of : t -> Term.t
   val pp : t Pretty.printer
@@ -70,50 +66,43 @@ module Diseq : sig
 end
 
 
-(** {6 Facts} *)
-type t = 
-  | Equal of Equal.t
-  | Diseq of Diseq.t
+(** Nonnegativity facts *)
+module Nonneg : sig
+  type t
+  val make : Term.t * Jst.t -> t
+  val of_nonneg : Atom.Nonneg.t * Jst.t -> t
+  val destruct : t -> Term.t * Jst.t
+  val pp : t Pretty.printer
+  val map : Jst.Eqtrans.t -> t -> t
+  val is_var : t -> bool  
+  val is_pure : Th.t -> t -> bool
+  val status : t -> Term.status
+end
 
-type fact = t
+(** Nonnegativity facts *)
+module Pos : sig
+  type t
+  val make : Term.t * Jst.t -> t
+  val of_pos : Atom.Pos.t * Jst.t -> t
+  val destruct : t -> Term.t * Jst.t
+  val pp : t Pretty.printer
+  val map : Jst.Eqtrans.t -> t -> t
+  val is_var : t -> bool  
+  val is_pure : Th.t -> t -> bool
+  val status : t -> Term.status
+end
+
+(** {6 Facts} *)
+
+type t = Atom.t * Jst.t
 
 val pp : t Pretty.printer
+
+val eq : t -> t -> bool
 
 val of_equal : Equal.t -> t
 val of_diseq : Diseq.t -> t
 
-
-(** Input facts *)
-module Input : sig
-
-  type t
-
-  val empty : t
-
-  val is_empty : t -> bool
-
-  val eq : t -> t -> bool
-
-  val pp: t Pretty.printer
-
-  val instantiate : Equal.t -> t -> t
-    (** [instantiate e g] with [e] of the form [a = b]
-      replaces occurrences of [b] in [g] with [a]. *)
-
-  module Equal : sig
-    val is_empty : t -> bool
-    val add : t -> Equal.t -> t
-    val choose : t -> Equal.t * t
-  end 
-
-  module Diseq : sig
-    val is_empty : t -> bool
-    val add : t -> Diseq.t -> t
-    val choose : t -> Diseq.t * t
-  end
-
-  val add : t -> fact -> t
-
-  val copy : t -> t
-
-end 
+val map : Jst.Eqtrans.t -> t -> t
+ 
+val replace : Equal.t -> t -> t

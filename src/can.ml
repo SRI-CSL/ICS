@@ -11,62 +11,63 @@
  * benefit corporation.
  *)
 
-(** Inference system for canonizable, ground confluent theories. *)
-
-module G = Fact.Input
 module P = Partition
+module S = Solution.Set
 
-module Tr = Trace
+
+type config = P.t * S.t
 
 
-module type T = sig
+module type T = sig 
   val th : Th.t
   val map : (Term.t -> Term.t) -> Term.t -> Term.t
   val sigma : Sym.t -> Term.t list -> Term.t
+  val of_equal : Fact.Equal.t -> P.t * S.t -> Fact.Equal.t list
+  val of_var_equal : Fact.Equal.t -> P.t * S.t -> Fact.Equal.t list
+  val of_var_diseq : Fact.Diseq.t -> P.t * S.t -> Fact.Equal.t list
+  val disjunction : Partition.t * S.t -> Clause.t
 end
 
-module type DEDUCE = sig
-  type t
-  val of_equal : Fact.Equal.t -> P.t * t -> Fact.Equal.t list
-  val of_var_equal : Fact.Equal.t -> P.t * t -> Fact.Equal.t list
-  val of_var_diseq : Fact.Diseq.t -> P.t * t -> Fact.Equal.t list
-  val disjunction : Partition.t * t -> Fact.t list
-end
-
-module Trace(D: DEDUCE): (DEDUCE with type t = D.t) = struct
-  type t = D.t
-  let of_equal d (p, s) =
-    let el = D.of_equal d (p, s) in
-      Tr.msg "deduce" "Of_equal" el (Pretty.list Fact.Equal.pp);
-      el
- let of_var_equal d (p, s) =
-    let el = D.of_var_equal d (p, s) in
-      Tr.msg "deduce" "Of_var_equal" el (Pretty.list Fact.Equal.pp);
-      el
- let of_var_diseq d (p, s) =
-    let el = D.of_var_diseq d (p, s) in
-      Tr.msg "deduce" "Of_var_diseq" el (Pretty.list Fact.Equal.pp);
-      el
-
- let disjunction (p, s) = 
-   let fl = D.disjunction (p, s) in
-     Tr.msg "deduce" "Disjunction" fl (Pretty.list Fact.pp);
-     fl
+module type OPS = sig
+  val is_flat : Term.t -> bool
+  val is_pure : Term.t -> bool
+  val find : P.t * S.t -> Jst.Eqtrans.t
+  val inv : P.t * S.t -> Jst.Eqtrans.t
 end 
+    
 
-(** Equalities of the form [x = a] with [a] flat. *)
-module type EQS = sig
-  module S : Solution.SET0
-  type t = S.t
-  val find : Partition.t * t -> Jst.Eqtrans.t
-  val inv : Partition.t * t -> Jst.Eqtrans.t
-  val can : Partition.t * t -> Jst.Eqtrans.t
-end 
+(** Operations on canonizable theories. *)
+module Ops(Can: T) = struct
 
-module E(Can: T) = struct
+
+  (** A {i flat} term is of the form [f(x1,...,xn)] with [xi] variables. *)
+  let is_flat a =
+    try
+      let (f, al) = Term.App.destruct a in
+	List.for_all Term.is_var al
+    with
+	Not_found -> false
+	  
+
+  (** A {i pure} term is built up with function symbols from theory [Can.th]. *)
+  let rec is_pure a =
+    try
+      let (f, al) = Term.App.destruct a in
+	Sym.theory_of f = Can.th && List.for_all is_pure al
+    with
+	Not_found -> true
+
+
+  (** Destruct a pure [Can.th]-term into function symbol and operators. *)
+  let d_interp a = 
+    if is_pure a then
+      Term.App.destruct a 
+    else 
+      raise Not_found
+	
 
   (** Homomorphically apply equality transformer [f] 
-    at  uninterpreted positions of [a]. *)
+    at uninterpreted positions of [a]. *)
   let map c f a =
     let hyps = ref Jst.dep0 in
     let f' x =
@@ -77,103 +78,48 @@ module E(Can: T) = struct
     let b = Can.map f' a in
       (b, !hyps)
 
-  (** [apply e a], for [e] of the form [x = y] substitutes [y] for [x] in [a]. *)
-  let apply e a = 
-    let (x, y, rho) = Fact.Equal.destruct e in
-    let lookup z = if Term.eq z x then y else z in
-    let b = Can.map lookup a in
-    let tau = if a == b then Jst.dep0 else rho in
-      (b, tau)
 
-  (** Solution set for theory [Can.th]. *)
-  module S: Solution.SET0 = Solution.Make0(
-    struct
-      let th = Can.th
-      let map = Can.map
-    end)
-
-  type t = S.t
-
-  let eq = S.eq
-  let empty = S.empty
-  let is_empty = S.is_empty
-  let pp = S.pp
-  let fold = S.fold
-  let iter = S.iter
-  let dep = S.dep
-  module Dep = S.Dep
-  let diff = S.diff
-
-  (** A {i flat} term is of the form [f(x1,...,xn)] with [xi] variables. *)
-  let is_flat a =
-    try
-      let (f, al) = Term.App.destruct a in
-	List.for_all Term.is_var al
-    with
-	Not_found -> false
-
-
-  (** A {i pure} term is built up with function symbols from theory [Can.th]. *)
-  let rec is_pure a =
-    try
-      let (f, al) = Term.App.destruct a in
-	Sym.theory_of f = Can.th && List.for_all is_pure al
-    with
-	Not_found -> true
-
-  (** Destruct a pure [Can.th]-term into function symbol and operators. *)
-  let d_interp a = 
-    if is_pure a then
-      Term.App.destruct a 
-    else 
-      raise Not_found
-
-  let choose_apply (p, s) x =
-    P.choose p (S.apply s) x 
+  (** {i Lookup} of [a] in configuration [C] of the form [(p, s)]
+    - [lookup(C)(x) = y] if [x =p y] and [y] canonical,
+    - [lookup(C)(x)] is undefined otherwise. *)
+  let lookup (p, s) =
+    P.choose p (S.apply s)
+      
 
   (** {i Find} of [a] in configuration [c] of the form [(p, s)]
-    - [C0(x) = y] if [x =v y] and [y] canonical,
-    - [C0(x) = x] otherwise
-    - [C(x) = C0(x)]       
-    - [C(x) = sigma(f(C0(z1), ..., C0(zn)))]  if [y = f(z1,...,zn)] in [s] with [x =V y],
-    - [C(a) = a]   otherwise. *)
+    - [C(a) = a] with [a] a nonvariable term,
+    - [C(x) = sigma(f(lookup(C)(z1), ..., lookup(C)(zn)))] if [lookup(C)(x) = f(z1, ..., zn)], and
+    - [C(x) = y] with [x =p y] and [y] canonical otherwise. *)
   let rec find ((p, s) as c) x = 
     if Term.is_app x then 
       Jst.Eqtrans.id x
     else 
       try
-	let (a, rho) = choose_apply c x in   (* [rho |- x = f(a1,...,an). *)
+	let (a, rho) = lookup c x in         (* [rho |- x = f(a1,...,an). *)
 	let (f, al) = d_interp a in
 	let (al', tau) = findl c al in       (* [tau |- a1 = a1', ..., an = an'] *)
 	  (Can.sigma f al', Jst.dep2 rho tau)
       with
 	  Not_found -> P.find p x
+	    
+  and findl c al =
+    let hyps = ref Jst.dep0 in
+    let find' a =
+      try
+	let (b, rho) = lookup c a in     (* not recursive? *)
+	  hyps := Jst.dep2 rho !hyps;
+	  b
+      with
+	  Not_found -> a
+  in
+    let bl = Term.mapl find' al in
+      (bl, !hyps)
 
-  and findl ((p, s) as c) al =
-   let hyps = ref Jst.dep0 in
-   let find' a =
-     try
-       let (b, rho) = choose_apply c a in (* ??? *)
-	 hyps := Jst.dep2 rho !hyps;
-	 b
-     with
-	 Not_found -> a
-   in
-   let bl = Term.mapl find' al in
-     (bl, !hyps)
-
-  let find c = Jst.Eqtrans.trace "fnd" "Can.find" (find c)
-	      
-  (** Recursively replace variables [x] in [a] with [b], 
-    with [b] such that [y = b] in [s] for [x] and [y]
-    equal modulo [p]. *)
-  let rec replace c =  
-    map c (find c)
 
   (** {i Inverse lookup} of [a] in configuration [(v, s)]
-    - [C^-1(x) = y]   if [x =v y] and [y] canonical
-    - [C^-1(a) = y]   if [x = a] in [s] and [y =v x] with [y] canonical
-    - [C^-1(f(a1, ...,an)) = C^-1(f(C^-1(a1), ..., C^-1(an)))] if there is [ai <> C^-1(ai)]
+    - [C^-1(x) = y]   if [x =p y] and [y] canonical
+    - [C^-1(a) = y]   if [x = a] in [s] and [y =p x] with [y] canonical
+    - [C^-1(f(a1, ...,an)) = C^-1(f(C^-1(a1), ..., C^-1(an)))] if there is [ai =/= C^-1(ai)]
     - [C^-1(a)] = a *)
   let rec inv ((p, s) as c) a =
     if Term.is_var a then P.find p a else 
@@ -188,7 +134,7 @@ module E(Can: T) = struct
 	      else                         (* [tau |- f(b1, ..., bn) = a'] *)
 		let (a', tau) = inv c (Can.sigma f bl) in
 		  (a', Jst.dep2 rho tau)
-	    
+		  
   and invl ((p, s) as c) al =
     let hyps = ref Jst.dep0 in
     let bl = 
@@ -205,6 +151,13 @@ module E(Can: T) = struct
       (bl, !hyps)
 
 
+  (** Recursively replace variables [x] in [a] with [b], 
+    with [b] such that [y = b] in [s] for [x] and [y]
+    equal modulo [p]. *)
+  let rec replace c =  
+    map c (find c)
+
+
   (** {i Canonization} with respect to a configuration [c]
     of the form [(v, s)] with [v] variable equalities and [s]
     an array context.
@@ -214,209 +167,220 @@ module E(Can: T) = struct
       (Jst.Eqtrans.totalize (inv c))
       (replace c)
 
-end 
+  (** [apply e a], for [e] of the form [x = y] substitutes [y] for [x] in [a]. *)
+  let apply e a = 
+    let (x, y, rho) = e in
+    let lookup z = if Term.eq z x then y else z in
+    let b = Can.map lookup a in
+    let tau = if a == b then Jst.dep0 else rho in
+      (b, tau)
+
+end
+
 
 
 
 (** Inference system from a pseudo-solvable theory. *)
-module Make(Can: T)
-           (Deduce: (DEDUCE with type t = E(Can).t))
-: 
-(Infsys.IS with type e = E(Can).t) = 
+module Make(Can: T): (Infsys.EQ with type e = S.t) = 
 
 struct
 
-  type e = E(Can).t
+  type e = S.t
 
   let is_pure = Term.is_pure Can.th
 
-  let ths = Th.Set.singleton Can.th
-
   (** Solution set for theory [Can.th]. *)
-  module E = E(Can)
+  module Ops = Ops(Can)
+  open Ops
 
-  let rec abstract i a (g, s, p) =
-    (if not(i = Can.th) then raise Not_found);
-    assert(is_pure a);
-    let ((x', rho'), (p', s')) = flatten (p, s) a in
-      assert(Term.is_var x');
-      let e' = Fact.Equal.make (x', a, rho') in
-      let g' = G.instantiate e' g in
-	(g', s', p')
+  let s = ref S.empty
 
+  let current () = !s
 
-  (** Flatten a pure array term [a] and introduce variables as
+  let protected = ref false
+
+  let initialize s0 =
+    protected := false;
+    s := s0 
+
+  let finalize () = !s
+
+  open Infsys
+
+  let inv a = Ops.inv (!p, !s) a
+  let find a = Ops.find (!p, !s) a
+
+		 
+  (** Flatten a pure term [a] and introduce variables as
     necessary for naming subterms. The result is a variable [z]
     equal to [a] in the extended context. *)
-  and flatten ((p, _) as c) a =
+  let rec flatten a =
     assert(is_pure a);
-    let (a, rho) = Jst.Eqtrans.totalize (E.inv c) a in
+    let (a, rho) = Jst.Eqtrans.totalize inv a in
       if Term.is_var a then 
-	((a, rho), c) 
+	(a, rho)
       else 
 	try
-	  let (f, al) = E.d_interp a in
-	  let ((bl, tau), c) = flatten_args c al in
+	  let (f, al) = Ops.d_interp a in
+	  let (bl, tau) = flatten_args al in
 	  let a' = Can.sigma f bl in 
 	  let u' = mk_rename () in
-	  let e' = Fact.Equal.make (u', a', rho) in
-	  let c' = update c e' in
-	    ((u', Jst.dep2 rho tau), c')
+	  let e' = Fact.Equal.make u' a' rho in
+	    update e';
+	    (u', Jst.dep2 rho tau)
 	with
 	    Not_found -> 
 	      assert(Term.is_var a);
-	      let (a, tau) = P.find p a in
-	      ((a, Jst.dep2 rho tau), c)
-		  
-  and flatten_args ((p, s) as c) al =
+	      let (a, tau) = P.find !p a in
+		(a, Jst.dep2 rho tau)
+	
+	
+  and flatten_args al =
     let hyps = ref Jst.dep0 in
-    let c = ref c in
     let xl = 
       Term.mapl
 	(fun a -> 
-	   let ((x, rho'), c') = flatten !c a in
+	   let (x, rho') = flatten a in
 	     assert(Term.is_var x);
 	     hyps := Jst.dep2 rho' !hyps;
-	     c := c';
 	     x)
 	al
     in
-      ((xl, !hyps), !c)
-  
+      (xl, !hyps)
     
+
   and mk_rename () =
-    let v = Name.of_string (Th.to_string Can.th) in
-      Term.Var.mk_rename v None Var.Cnstrnt.Unconstrained
+     let v = Name.of_string (Th.to_string Can.th) in
+       Term.Var.mk_rename v None Var.Cnstrnt.Unconstrained
   
 
-  and merge i e ((g, s, p) as c) =
-    assert(i = Can.th);
-    assert(Fact.Equal.is_pure i e);
-    let e = Fact.Equal.map (E.can (p, s)) e in
-    let (a, b, _) = Fact.Equal.destruct e in
-      if Term.eq a b then c else
-	let (p, s) = merge_i e (p, s) in
-	  (g, s, p)
+  and abstract a =
+    assert(Term.is_pure Can.th a);
+    let (x', rho') = flatten a in
+      assert(Term.is_var x');
+      let eq = Fact.Equal.make x' a rho' in
+	G.replace eq !g
 
 
-  and merge_i e (p, s) =  
-    Tr.msg "foo9" "Can.merge_i" e Fact.Equal.pp;
+  and merge e =
     assert(Fact.Equal.is_pure Can.th e);
-      if Fact.Equal.is_var e then 
-	merge_v e (Partition.merge p e, s)
-      else 
-	let (a, b, rho) = Fact.Equal.destruct e in
-	let ((x, tau), (p, s)) = flatten (p, s) a in
-	let ((y, sigma), (p, s)) = flatten (p, s) b in
-	let e' = Fact.Equal.make (x, y, Jst.dep3 rho tau sigma) in
-	  assert(Fact.Equal.is_var e');
-	  merge_v e' (Partition.merge p e', s)
-      
+    let e = Fact.Equal.map (Ops.can (!p, !s)) e in
+    let (a, b, _) = e in
+      if not(Term.eq a b) then
+	merge_i e
 
-  and merge_v e (p, s) =
-    Tr.msg "foo9" "Can.merge_v" e Fact.Equal.pp;
+
+  and merge_i e =
+    assert(Fact.Equal.is_pure Can.th e);
+    if Fact.Equal.is_var e then 
+      begin
+	P.merge !p e;
+	merge_v e
+      end
+    else 
+      let e' = Fact.Equal.map flatten e in
+	assert(Fact.Equal.is_var e');
+	P.merge !p e';
+	merge_v e'
+     
+ 
+  and merge_v e =
     assert(Fact.Equal.is_var e);
-    let (p, s) = fuse1 (p, s) e in
-    let el = Deduce.of_var_equal e (p, s) in
-      close (p, s) el
-    
-  
-  and fuse1 ((p, s) as c) e =
+    fuse1 e;
+    let el = Can.of_var_equal e (!p, !s) in
+      close el
+
+
+  and fuse1 e =
     assert(Fact.Equal.is_var e);
-    let (x, y, rho) = Fact.Equal.destruct e in
-    let norm a = E.apply e a in 
-     E.S.Dep.fold s
-       (fun e (p, s) ->
-	  let e' = Fact.Equal.map_rhs norm e in
-	    update (p, s) e')
-       x (p, s)
+    let (x, y, rho) = e in
+    let norm a = Ops.apply e a in 
+      S.Dep.iter !s
+	(fun e ->
+	   let e' = Fact.Equal.map_rhs norm e in
+	     update e')
+	x
 
 
-  and update (p, s) e = 
-    let (p, s) = E.S.update (p, s) e in
-      close (p, s) (Deduce.of_equal e (p, s))
+  and update e = 
+    if not(!protected) then
+      begin
+	s := S.copy !s;
+	protected := true
+      end;
+    S.update (!p, !s) e;
+    close (Can.of_equal e (!p, !s))
 
 
-  and close (p, s) = function
-    | [] -> (p, s) 
-    | e :: el -> close (close1 e (p, s)) el
+  and close el =
+    List.iter close1 el
 
-  and close1 e (p, s) =
-    Tr.msg "foo" "Can.Close" e Fact.Equal.pp;
-    let e = Fact.Equal.map (E.inv (p, s)) e in
-    let (a, b, _) = Fact.Equal.destruct e in
-      if Term.eq a b then (p, s) else
+
+  and close1 e =
+    let e = Fact.Equal.map inv e in
+    let (a, b, _) = e in
+      if not(Term.eq a b) then
 	if Fact.Equal.is_var e then
-	  let p = P.merge p e in
-	    (* merge_v e (p, s) *)
-	    fuse1 (p, s) e
+	  begin
+	    P.merge !p e;    (* merge_v e (p, s) *)
+	    fuse1 e
+	  end
 	else
 	  begin
 	    assert(Fact.Equal.is_pure Can.th e);
-	    let (a, b, rho) = Fact.Equal.destruct e in
-	    let ((x, tau), (p, s)) = flatten (p, s) a in
-	    let ((y, sigma), (p, s)) = flatten (p, s) b in
-	    let e' = Fact.Equal.make (x, y, Jst.dep3 rho tau sigma) in
+	    let e' = Fact.Equal.map flatten e in
 	      assert(Fact.Equal.is_var e');
-	      let p = P.merge p e' in
-		fuse1 (p, s) e'
+	      P.merge !p e';
+	      fuse1 e'
 	  end 
 
 
-  let propagate e ((g, s, p) as c) =
+  let propagate e =
     assert(Fact.Equal.is_var e);
-    Tr.msg "foo9" "Can.propagate" e Fact.Equal.pp;
-    if E.is_empty s then c else  
-      let (x, y, rho) = Fact.Equal.destruct e in 
-      let (a, tau) = E.find (p, s) x
-      and (b, sigma) = E.find (p, s) y in
-	if Term.eq a b then c else 
-	  let e = Fact.Equal.make (a, b, Jst.dep3 rho tau sigma) in
-	  let (p, s) = merge_i e (p, s) in
-	    (g, s, p)
-
+    if not(S.is_empty !s) then
+      let e = Fact.Equal.map find e in
+      let (a, b, _) = e in
+	if not(Term.eq a b) then
+	  merge_i e
+	      
 
   (** Close state on fresh variable disequalities *)
-  let dismerge i d (g, s, p) =
-    assert(Fact.Diseq.is_pure i d);
-    let (a, b, rho) = Fact.Diseq.destruct d in
-    let ((x, tau), (p, s)) = flatten (p, s) a in
-    let ((y, sigma), (p, s)) = flatten (p, s) b in
-    let d = Fact.Diseq.make (x, y, Jst.dep3 rho tau sigma) in
+  let dismerge d =
+    assert(Fact.Diseq.is_pure Can.th d);
+    let d = Fact.Diseq.map flatten d in
       assert(Fact.Diseq.is_var d);
-      let p = Partition.dismerge p d in
-	(g, s, p)
-
+      Partition.dismerge !p d
 
 
   (** Test if disequality [d] is unsatisfiable. *)
-  let is_unsat (p, s) d = 
-    assert(Fact.Diseq.both_sides (Term.is_pure Th.la) d);
-    if E.is_empty s then None else  
-      let d = Fact.Diseq.map (E.can (p, s)) d in
-      let (a, b, rho) = Fact.Diseq.destruct d in
+  let is_unsat d = 
+    assert(Fact.Diseq.is_pure Can.th d);
+    if S.is_empty !s then None else  
+      let d = Fact.Diseq.map (Ops.can (!p, !s)) d in
+      let (a, b, rho) = d in
 	if Term.eq a b then Some(rho) else None
 
-  let propagate_diseq d (g, s, p) =
+
+  let propagate_diseq d =
     assert(Fact.Diseq.is_var d);
-    match is_unsat (p, s) d with
+    match is_unsat d with
       | Some(rho) ->
 	  raise(Jst.Inconsistent(rho))
       | None ->
-	  let el = Deduce.of_var_diseq d (p, s) in
-	  let (p, s) = close (p, s) el in
-	    (g, s, p)
+	  let el = Can.of_var_diseq d (!p, !s) in
+	    close el
 
 
-  let branch ((g, s, p) as c) =
+  let branch () =
     try
-      let fl = Deduce.disjunction (p, s) in
-	List.map (fun fct -> (G.add g fct, s, p)) fl
+      let cl = Can.disjunction (!p, !s) in
+	G.put_clause cl !g
     with
-	Not_found -> [c]
+	Not_found -> ()
+	  
 
-  let normalize c = c
-
+  let normalize c = ()
+		      
 end 
 
 

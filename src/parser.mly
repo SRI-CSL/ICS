@@ -37,8 +37,6 @@ let name_of_rename = Name.of_string "v"
 %token IN NOTIN TT FF DEF
 %token EOF QUOTE
 
-%token ARITH TUPLE
-
 %token <string> IDENT
 %token <string> STRING
 %token <int> INTCONST
@@ -297,10 +295,10 @@ atom:
 | TT                       { Atom.mk_true }
 | term EQUAL term          { Atom.mk_equal ($1, $3) }
 | term DISEQ term          { Atom.mk_diseq ($1, $3) }
-| term LESS term           { Atom.mk_pos (Arith.mk_sub $3 $1) }     /* [a < b] iff [b - a > 0] */
-| term GREATER term        { Atom.mk_pos (Arith.mk_sub $1 $3) }     /* [a > b] iff [a - b > 0] */
-| term LESSOREQUAL term    { Atom.mk_nonneg (Arith.mk_sub $3 $1) }  /* [a <= b] iff [b - a >= 0] */
-| term GREATEROREQUAL term { Atom.mk_nonneg (Arith.mk_sub $1 $3) }  /* [a >= b] iff [a - b >= 0] */
+| term LESS term           { Atom.mk_pos (Arith.mk_sub $3 $1) }   /* [a < b] iff [b - a > 0] */
+| term GREATER term        { Atom.mk_pos (Arith.mk_sub $1 $3) }   /* [a > b] iff [a - b > 0] */
+| term LESSOREQUAL term    { Atom.mk_nonneg (Arith.mk_sub $3 $1) }/* [a <= b] iff [b - a >= 0] */
+| term GREATEROREQUAL term { Atom.mk_nonneg (Arith.mk_sub $1 $3) }/* [a >= b] iff [a - b >= 0] */
 | term SUBSET term         { Atom.mk_equal (Propset.mk_inter $1 $3, $1) }
 ;
 

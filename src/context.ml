@@ -44,7 +44,7 @@
 *)
 
 
-(** {6 Logical context} *)
+(** {6 Logical contexts} *)
 
 type t = {
   ctxt : Atom.t list;              (* Current context. *)
@@ -127,7 +127,7 @@ let config_of s = (s.eqs, s.p)
 let normalize = Combine.gc 
 
 
-(** {6 Adding new atoms} *)
+(** {6 Processing atoms} *)
 
 module Status = struct
 
@@ -158,72 +158,32 @@ end
 
 
 let rec add s atm =
-  let ((atm', rho') as fct') = 
-    Combine.simplify (s.eqs, s.p) atm 
-  in
+  let atm', rho' = Combine.simplify (s.eqs, s.p) atm in
     if Atom.is_true atm' then
       Status.Valid(rho')
     else if Atom.is_false atm' then
       Status.Inconsistent(Jst.dep2 rho' (Jst.axiom atm))
     else 
       (try
-	 Term.Var.k := s.upper;        (* Install fresh variable index *)
-	 let cfg0 = initial (atm', Jst.dep2 rho' (Jst.axiom atm)) s in
-	 let cfg1 = Combine.process cfg0 in
-	 let cfg2 = Combine.gc cfg1 in
-	 let (g, e, p) = cfg2 in
-	   assert(Fact.Input.is_empty g);
+	 Term.Var.k := s.upper;         (* Install fresh variable index. *)
+	 let fct' =  (atm', Jst.dep2 rho' (Jst.axiom atm)) in
+	 let (eqs', p') = Combine.process fct' (s.eqs, s.p) in
 	   let s' = {
 	     ctxt = atm :: s.ctxt;
 	     upper = !Term.Var.k;
-	     p = p;
-	     eqs = e
+	     p = p';
+	     eqs = eqs'
 	   } 
 	   in
 	     Status.Ok(s')
        with
-	 | Jst.Inconsistent(rho) ->         
-	     Status.Inconsistent(rho))
+	 | Jst.Inconsistent(rho) -> Status.Inconsistent(rho))
 
-and initial (atm, rho) s =
-  match Atom.atom_of atm with
-    | Atom.Equal(a, b) -> 
-	let e = Fact.Equal.make (a, b, rho) in
-	let g0 = Fact.Input.Equal.add Fact.Input.empty e in
-	  Combine.make (g0, s.eqs, s.p)
-    | Atom.Diseq(a, b) -> 
-	let d = Fact.Diseq.make (a, b, rho) in
-	let g0 = Fact.Input.Diseq.add Fact.Input.empty d in
-	  Combine.make (g0, s.eqs, s.p)
-    | Atom.Nonneg(a) -> 
-	let k = mk_nonneg_slack a in
-	let e = Fact.Equal.make (a, k, rho) in
-	let g0 = Fact.Input.Equal.add Fact.Input.empty e in
-	  Combine.make (g0, s.eqs, s.p)
-    | Atom.Pos(a) -> 
-	let k = mk_nonneg_slack a in
-	let e = Fact.Equal.make (a, k, rho) in
-	let (z, rho) = Combine.can (s.eqs, s.p) (Arith.mk_zero()) in
-	let d = Fact.Diseq.make (k, z, rho) in
-	let g0 = 
-	  Fact.Input.Equal.add 
-	    (Fact.Input.Diseq.add Fact.Input.empty d)
-	    e
-	in
-	  Combine.make (g0, s.eqs, s.p)
-    | (Atom.TT | Atom.FF) ->
-	invalid_arg "unreachable"
-
-and mk_nonneg_slack a =
-  let d = try Arith.dom_of a with Not_found -> Dom.Real in
-  let k = Term.Var.mk_slack None (Var.nonneg d) in
-    k
-	
-
+(* For debugging:  *)
 let add =
   let pp0 fmt s = Mode.set Mode.None (pp fmt) s in
   let ppc fmt s = Mode.set Mode.Context (pp fmt) s in
-    Trace.func2 "top" "Process" pp0 Atom.pp (Status.pp pp0) 
+    Trace.func2 "top" "Process" ppc Atom.pp (Status.pp pp0) 
       add
 
 let addl =
@@ -237,7 +197,6 @@ let addl =
 	   | Status.Inconsistent(rho) -> Status.Inconsistent(rho))
   in
     loop 
-
 
 let is_inconsistent =
   let rec loop s = function
@@ -269,6 +228,3 @@ let diff s1 s2 =
   let p' = Partition.diff s1.p s2.p
   and eqs' = Combine.E.diff s1.eqs s2.eqs in
     {s1 with p = p'; eqs = eqs'}
-
-let diff =
-  Trace.func2 "foo7" "Diff" pp pp pp diff

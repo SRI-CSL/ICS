@@ -25,8 +25,7 @@ let keyword =
   let kw_table = Hashtbl.create 31 in
   List.iter 
     (fun (s,tk) -> Hashtbl.add kw_table s tk)
-    [ "arith", ARITH; "tuple", TUPLE;
-      "in", IN; "notin", NOTIN;
+    [ "in", IN; "notin", NOTIN;
       "int", INT; "real", REAL;
       "bitvector", BV; "with", WITH;
       "proj", PROJ;
@@ -49,7 +48,6 @@ let keyword =
       "inr", INR; "inl", INL; "outr", OUTR; "outl", OUTL;
       "inj", INJ; "out", OUT;
       "hd", HEAD; "tl", TAIL;
-      "unsigned", UNSIGNED; "apply", APPLY;
       "lambda", LAMBDA;
       "if", IF; "then", THEN; "else", ELSE; "end", END;
       "create", CREATE;

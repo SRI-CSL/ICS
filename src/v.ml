@@ -41,8 +41,6 @@ let garbage_collection_enabled = ref true
 module Pre = struct
 
   type t = 
-
-
     | Empty
     | Node of Term.t
     | Union of t * t
@@ -179,7 +177,7 @@ let to_list s =
 let to_equalities s =
   Term.Var.Map.fold 
     (fun x (y, rho) acc ->
-       Fact.Equal.make (x, y, rho) :: acc)
+       Fact.Equal.make x y rho :: acc)
     s.post []
 
 let pp_as_equalities = ref false
@@ -298,7 +296,7 @@ let choose s p x =
 (** Merging of two different canonical variables [x] and [y] *)
 let rec merge e s =            
   assert (Fact.Equal.both_sides (is_canonical s) e);
-  let ((x, y, _) as eql) = Fact.Equal.destruct e in
+  let ((x, y, _) as eql) = e in
     if Term.eq x y then s else
       begin 
 	Trace.msg "v" "Union" e Fact.Equal.pp;

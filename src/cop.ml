@@ -17,21 +17,19 @@ module T: Shostak.T = struct
   let th = Th.cop
   let map = Coproduct.map
   let solve e =
-    let (a, b, rho) = Fact.Equal.destruct e in
+    let (a, b, rho) = e in
       try
 	let sl = Coproduct.solve (a, b) in
-	let inj (a, b) = Fact.Equal.make (a, b, rho) in
+	let inj (a, b) = Fact.Equal.make a b rho in
 	  List.map inj sl
       with
 	  Exc.Inconsistent -> raise(Jst.Inconsistent(rho))
   let disjunction _ = raise Not_found
 end
 
-(** Solved equalities. *)
-module E = Shostak.E(T)
 
 (** Inference system for coproducts as an instance of
   a Shostak inference system. *)
-module Infsys: (Infsys.IS with type e = E.t) =
+module Infsys: (Infsys.EQ with type e = Solution.Set.t) =
   Shostak.Make(T)
 

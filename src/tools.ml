@@ -23,9 +23,6 @@ let profiling = ref false
    (** Flag for enabling/disabling profiling of functions
      profiled with {!Tools.profile}. *)
 
-let destructive = ref false
-   (** Flag for enabling/disabling destructive updates. *)
-
 
 (** {6 Functions to run at exit} *)
 

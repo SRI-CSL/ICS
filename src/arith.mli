@@ -80,21 +80,6 @@ val mk_multq: Mpa.Q.t -> Term.t -> Term.t
   (** [mk_multq q a] creates the normalized linear arithmetic term
     representing [q * a]. *)
 
-(** {6 Accessors} *)
-
-val poly_of : Term.t -> Mpa.Q.t * Term.t list
-  (** [poly_of a] decomposes a normalized linear arithmetic term
-    into a pair [(q, [a1;...;an])] such that [a] equals 
-    [q + a1 + ... + an] and none of the [ai] is a constant term. *)
-
-val mono_of : Term.t -> Mpa.Q.t * Term.t
-
-val constant_of : Term.t -> Mpa.Q.t
-
-val monomials_of : Term.t -> Term.t list
-
-
-(** {6 Recognizers} *)
 
 val is_pure : Term.t -> bool
   (** [is_pure a] holds iff [a] is a linear arithmetic term; that is,
@@ -135,15 +120,17 @@ val is_nonneg : Term.t -> Three.t
 
 val is_pos : Term.t -> Three.t
 
-val is_diseq : Term.t -> Term.t -> bool
-  (** [is_diseq a b] returns [true] iff 
-    [a] is disequal to [b] in theory {!Th.la} *)
-
-(** {6 Destructors} *)
-
-val destruct : Term.t -> Mpa.Q.t * Term.t
-
 val d_interp : Term.t -> Sym.arith * Term.t list
+
+val constant_of : Term.t -> Mpa.Q.t
+  (** If [a] is of the form [q + a'], then [constant_of a] returns [q]. *)
+
+val nonconstant_of : Term.t -> Term.t
+  (** If [a] is of the form [q + a'], then [nonconstant_of a] returns [a'] *)
+
+val nonconstant_monomials_of : Term.t -> Term.t list
+  (** If [a] is of the form [q + a1 + ... + an], then [nonconstant_of a] returns 
+    the list of monomials [[a1; ...; an]] *)
 
 val d_num : Term.t -> Mpa.Q.t
   (** [d_num a] return [q] if [a] is a constant with
@@ -152,25 +139,10 @@ val d_num : Term.t -> Mpa.Q.t
 val d_add : Term.t -> Term.t list
   (** [d_add a] returns [Some(bl)] if [a] is a function application
     with symbol {!Sym.Add}. *)
-
-val d_multq : Term.t -> Mpa.Q.t * Term.t
-  (** [d_multq a] returns [Some(q, b)] if [a] is a function application
-    of the symbol {!Sym.Multq}[(q)] to the unary list [[b]]. *)
-
-val monomials : Term.t -> Term.t list
-  (** [monomials a] yields a list of monomials [ml] such that [mk_addl ml]
-    equal [a]. *)
-
-val destruct : Term.t -> Mpa.Q.t * Term.t
-  (** [destruct a] returns a pair [(q, b)] such that [a = q + b]
-    and the constant monomial of [b] is [0]. *)
   
 val coefficient_of : Term.t -> Term.t -> Mpa.Q.t
    
 val lcm_of_denominators : Term.t -> Mpa.Z.t
-
-
-(** {6 Iterators} *)
 
 val iter : (Term.t -> unit) -> Term.t -> unit
   (** [iter f a] applies [f] at uninterpreted positions of [a]. *)
@@ -197,56 +169,52 @@ val apply: Term.Equal.t -> Term.t -> Term.t
 
 module Monomials : sig
 
-  type t = Mpa.Q.t * Term.t
+  type pred = Mpa.Q.t -> Term.t -> bool
 
-  val is_true : t -> bool
-  val is_pos : t -> bool
-  val is_neg : t -> bool
-  val is_var : Term.t -> t -> bool
+  val is_true : pred
+  val is_pos : pred
+  val is_neg : pred
+  val is_var : Term.t -> pred
 
   val mapq : (Mpa.Q.t -> Mpa.Q.t) -> Term.t -> Term.t
  
-  val fold: (t -> bool) -> (t -> 'a -> 'a) -> Term.t -> 'a -> 'a
+  val fold: pred -> (Mpa.Q.t -> Term.t -> 'a -> 'a) -> Term.t -> 'a -> 'a
     (** Folding over the non-constant monomials of an arithmetic term. *)
     
-  val exists : (t -> bool) -> Term.t -> bool
+  val exists : pred -> Term.t -> bool
     
-  val for_all :  (t -> bool) -> Term.t -> bool
+  val for_all :  pred -> Term.t -> bool
     
-  val choose : (t -> bool) -> Term.t -> Mpa.Q.t * Term.t
-   
-  val partition : (t -> bool) -> Term.t -> Mpa.Q.t * Term.t * Term.t
+  val variable_choose : pred -> Term.t -> Term.t
+  val coefficient_choose : pred -> Term.t -> Mpa.Q.t
+
 
   module Pos : sig
     val is_empty : Term.t -> bool
-    val exists : (t -> bool) -> Term.t -> bool
-    val for_all : (t -> bool) -> Term.t -> bool
-    val fold: (t -> 'a -> 'a) -> Term.t -> 'a -> 'a
-    val iter : (t -> unit) -> Term.t -> unit
+    val exists : pred -> Term.t -> bool
+    val for_all : pred -> Term.t -> bool
+    val fold: (Mpa.Q.t -> Term.t -> 'a -> 'a) -> Term.t -> 'a -> 'a
+    val iter : (Mpa.Q.t -> Term.t -> unit) -> Term.t -> unit
     val mem : Term.t -> Term.t -> bool
-    val choose : (t -> bool) -> Term.t -> t
-    val least : Term.t -> t
+    val variable_choose : (Mpa.Q.t -> Term.t -> bool) -> Term.t -> Term.t
+    val variable_least_of : Term.t -> Term.t
     val coefficient_of : Term.t -> Term.t -> Mpa.Q.t
   end 
 
   module Neg : sig
     val is_empty : Term.t -> bool
-    val exists : (t -> bool) -> Term.t -> bool
-    val for_all : (t -> bool) -> Term.t -> bool
-    val fold: (t -> 'a -> 'a) -> Term.t -> 'a -> 'a
-    val iter : (t -> unit) -> Term.t -> unit
+    val exists : pred -> Term.t -> bool
+    val for_all : pred -> Term.t -> bool
+    val fold: (Mpa.Q.t -> Term.t -> 'a -> 'a) -> Term.t -> 'a -> 'a
+    val iter : (Mpa.Q.t -> Term.t -> unit) -> Term.t -> unit
     val mem : Term.t -> Term.t -> bool
-    val choose : (t -> bool) -> Term.t -> t
-    val least : Term.t -> t
+    val variable_choose : (Mpa.Q.t -> Term.t -> bool) -> Term.t -> Term.t
+    val variable_least_of : Term.t -> Term.t
     val coefficient_of : Term.t -> Term.t -> Mpa.Q.t
   end
     
 end 
 
-
-
-
-(** {6 Canonization} *)
 
 val sigma : Sym.arith -> Term.t list -> Term.t
   (** [sigma op al] applies the linear arithmetic function symbol
@@ -255,9 +223,6 @@ val sigma : Sym.arith -> Term.t list -> Term.t
     [al] are normalized. If [op] is of the form [multq _], then [al] 
     is required to be unary, and for [op] of the form [num _], the 
     argument list must be [[]]. Otherwise, the outcome is unspecified. *)
-
-
-(** {6 Solver} *)
 
 val qsolve : Term.t * Term.t -> (Term.t * Term.t) 
   (**  [solve e] solves the equation [e] of the form [a = b] over the 
@@ -285,18 +250,10 @@ val isolate : Term.t -> Term.Equal.t -> Term.Equal.t
     [b] is returned. In case [y] does not occur in [a], [Not_found]
     is raised. *)
 
-    
-
-(** {6 Abstract Constraint Computation} *)
-
-
 val dom : (Term.t -> Dom.t) -> Sym.arith -> Term.t list -> Dom.t
 
 val dom_of : Term.t -> Dom.t
 
 val is_int : Term.t -> bool
-
-val is_infeasible : Term.t * Term.t -> bool
-  (** [is_infeasible (a, b)] checks if [a = b] is infeasible. *)
 
 

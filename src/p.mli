@@ -11,21 +11,23 @@
  * benefit corporation.
  *)
 
-(** Inference system for propositional sets
+(** Shostak inference system for the theory of products
 
   @author Harald Ruess
   @author N. Shankar
-
-  The theory {!Th.set} of propositional sets is described in
-  module {!Propset}.
 *)
 
-module T: Shostak.T
-  (** Description of the theory of propositional sets as a
-    Shostak theory. *)
 
-module E: Shostak.EQS
-  (** Equality sets as the basis for the inference system
-    for propositional sets. *)
+module Infsys: (Infsys.EQ with type e = Solution.Set.t) 
+  (** Inference system for the theory {!Th.p} of products 
+    as described in module {!Product}.  This inference
+    system is obtained as an instantiation of the generic
+    Shostak inference system {!Shostak.Infsys} with a
+    specification of the {i convex} product theory by
+    means of the 
+    - product canonizer {!Product.map}
+    - product solver {!Product.solve}
 
-module Infsys: (Infsys.IS with type e = E.t) 
+    In particular, there is no branching for this theory,
+    and the inference system is complete as the product
+    solver itself is complete. *)

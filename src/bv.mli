@@ -19,10 +19,8 @@
   of inference systems for Shostak theories as defined in module {!Shostak}.
 *)
 
-module E: Shostak.EQS
-  (** Equality set for inference system. *)
 
-module Infsys: (Infsys.IS with type e = E.t)
+module Infsys: (Infsys.EQ with type e = Solution.Set.t)
   (** Inference system for the bitvector theory {!Th.bv}
     as defined in module {!Bitvector}.  This inference system
     is a variation of the inference system {!Shostak.Make} 

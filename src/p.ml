@@ -17,10 +17,10 @@ module T = struct
   let th = Th.p
   let map = Product.map
   let solve e = 
-    let (a, b, rho) = Fact.Equal.destruct e in
+    let (a, b, rho) = e in
       try
 	let sl = Product.solve (a, b) in
-	let inj (a, b) = Fact.Equal.make (a, b, rho) in
+	let inj (a, b) = Fact.Equal.make a b rho in
 	  List.map inj sl
       with
 	  Exc.Inconsistent -> raise(Jst.Inconsistent(rho))
@@ -28,11 +28,8 @@ module T = struct
     raise Not_found
 end
 
-(** Equality sets for product inference system. *)
-module E = Shostak.E(T)
-
-(** Inference system for products as an instance of a
-  Shostak inference system. *)
-module Infsys: (Infsys.IS with type e = E.t) =
+(** Inference system for products as an instance 
+  of a Shostak inference system. *)
+module Infsys: (Infsys.EQ with type e = Solution.Set.t) =
   Shostak.Make(T)
 

@@ -46,16 +46,12 @@ let args () =
 	"Disable compactification in SAT solver";
         "-expensive_simplify", Arg.Clear Combine.cheap,
 	"Expensive but more complete simplification";
-	"-dependencies", Arg.Unit(fun () -> Ics.set_proofmode "dep"),
-	"Enable dependency generation";
-	"-proofmode", Arg.String(Ics.set_proofmode),
+	"-proofmode", Arg.String Ics.set_proofmode,
 	"Set proofmode to [No | Dep]";
         "-eot", Arg.String Ics.set_eot, 
 	"Print string argument after each transmission";
         "-server", Arg.Int (fun portnum -> portnum_flag := Some(portnum)), 
 	"Run in server mode";
-	"-destructive", Arg.Unit(fun() ->  Combine.do_destructive:= true),
-	"Use destructive version of ICS, potentially faster";
 	"-verbose", set_true Ics.set_verbose,
         "Verbose flag for SAT solver";
 	"-progress", Arg.Set Istate.progress,
@@ -77,7 +73,7 @@ let args () =
 	"-reduce_explanation", set_true Ics.set_reduce_explanation,
         "Try to further reduce explanations in SAT solving";
 	"-integersolve", set_false Ics.set_integer_solve,
-        "Disables Solving for the integers";
+        "Disables Solving for the integers (incomplete)";
 	"-gc_space_overhead",  Arg.Int(Ics.set_gc_space_overhead),
         "GC will work more if [space_overhead] is smaller (default 80)";
 	"-gc_max_overhead", Arg.Int(Ics.set_gc_max_overhead),

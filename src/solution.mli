@@ -120,12 +120,6 @@ module type SET = sig
     (** [inv s a] yields [(x, rho)] if [rho |- x = a] is in [s] with 
       justification [rho]. *)
 
-  val replace : t -> Jst.Eqtrans.t
-    (** [replace s a] one-step replaces occurrences of [x] 
-      in [a] by [b] if [rho |- x = b] is in [s]. The result
-      is normalized using [T.map] and the resulting justification
-      [tau] includes all such justifications [rho] for equality replacement. *)
-
   val dep : t -> Term.t -> Term.Var.Set.t
     (** [dep s y] returns all [x] such that [x = a] in [s], and 
       the variable [y] occurs in [a]. In this case, we also say
@@ -136,27 +130,16 @@ module type SET = sig
 
   module Dep : (DEP with type eqs = t)
     
-  val restrict : t -> Term.t -> t
+  val restrict : t -> Term.t -> unit
     (** [restrict s x] removes equalities of the form [x = a] in [s]. *)
 
   type config = Partition.t * t
 
-  val update : config -> Fact.Equal.t -> config
+  val update : config -> Fact.Equal.t -> unit
     (** [update s e] updates [s] with a 
       new equality of the form, say, [x = a]. 
       Any [x = b] already in the state, is removed. *)
-    
-  val fuse: config -> Fact.Equal.t list -> config
-    (** [fuse s t] is the representation of the solution set
-      [{ x = replace t b | x = b in s}]. That is, the equalities of [t]
-      are propagated to the right-hand sides of [s]. *)
-
-  val fuse1 : config -> Fact.Equal.t -> config
-    (** Fusing a single equality. *)
-
-  val compose : config -> Fact.Equal.t list -> config
-    (** [compose (p, s) t] represents [fuse (p, s) t] union [t].
-      It is assumed that the domains of [s] and [t] are disjoint. *)
+  
 
   val diff : t -> t -> t
     (** [diff s1 s2] contains all equalities in [s1] that are not in [s2]. *)
@@ -179,21 +162,14 @@ module type EXT = sig
   val restrict : t -> Fact.Equal.t -> t
 end
 
-
-(** Specification of an equality theory. *)
-module type TH = sig
-  val th : Th.t
-  val map : (Term.t -> Term.t) -> Term.t -> Term.t
-end
-
-module Make(T: TH)(Ext: EXT): (SET with type ext = Ext.t)
+module Make(Ext: EXT): (SET with type ext = Ext.t)
   (** Functor for constructing an equality set for theory specification [T].
     Updates and restrictions have the respective side effects as before methods. *)
    
 
 module type SET0 = (SET with type ext = unit)
 
-module Make0(T: TH): SET0
+module Set: SET0
   (** Functor for constructing a solution set for theory specification [T0].
     The resulting solution set does not have side effects. *)
 

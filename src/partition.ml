@@ -35,11 +35,12 @@ let empty = {
 }
 
 (** Shallow copying. *)
-let copy s = 
-  if !Tools.destructive then 
-    {v = s.v; d = s.d; equal = s.equal; diseq = s.diseq}
-  else 
-    s
+let copy s = {
+  v = s.v; 
+  d = s.d; 
+  equal = s.equal; 
+  diseq = s.diseq
+}
 
 let is_empty p =
   V.is_empty p.v &&
@@ -73,7 +74,7 @@ let iter_if p f y =
 
 let fold p f z acc = 
   let f' x (y, rho)= 
-    f (Fact.Equal.make (x, y, rho))
+    f (Fact.Equal.make x y rho)
   in
   let (z, _) = V.find p.v z in
     acc  (* to do *)
@@ -167,16 +168,13 @@ let rec merge p e =
     merge1 p e
 	  
 and merge1 p e =
-  let (x, y, _) = Fact.Equal.destruct e in
-    if Term.eq x y then p else 
-      let (d', ds') = D.merge e p.d 
-      and v' = V.merge e p.v in
-      let equal' = e :: p.equal
-      and diseq' = Fact.Diseq.Set.union ds' p.diseq in
-	if !Tools.destructive then
-	  (p.d <- d'; p.v <- v'; p.equal <- equal';  p.diseq <- diseq'; p)
-	else 
-	  {p with d = d'; v = v'; equal = equal'; diseq = diseq'}
+  let x, y, _ = e in
+    if Term.eq x y then () else 
+      let (d', ds') = D.merge e p.d in 
+	p.d <- d'; 
+	p.v <- V.merge e p.v;
+	p.equal <- e :: p.equal;
+	p.diseq <- Fact.Diseq.Set.union ds' p.diseq 
 
 (** Create a fresh variable that is smaller than [x] and [y]
   according to variable ordering {!Var.cmp} and which incorporates
@@ -196,52 +194,32 @@ and create_fresh_var d x y =
 let dismerge p d =  
   assert(Fact.Diseq.is_var d);
   let d' = Fact.Diseq.map (find p) d in
-  let (x', y', rho') = Fact.Diseq.destruct d' in
+  let (x', y', rho') = d' in
     if Term.eq x' y' then
       raise(Jst.Inconsistent(rho'))
     else 
       let (d', ds') =  D.add d' p.d in
-      let diseq' = Fact.Diseq.Set.union ds' p.diseq in
-	if !Tools.destructive then
-	  (p.d <- d'; p.diseq <- diseq'; p)
-	else 
-	  {p with d = d'; diseq = diseq'}
-	
+	p.d <- d'; 
+	p.diseq <- Fact.Diseq.Set.union ds' p.diseq
+
 
 (** Garbage collection of noncanonical variables satisfying [f]. Since variable
   disequalities and constraints are always in canonical form, only variable equalities
   need to be considered. *)
 let gc f p = 
-  let v' = V.gc f p.v in
-    if !Tools.destructive then
-      (p.v <- v'; p)
-    else 
-      {p with v = V.gc f p.v}
-
+  p.v <- V.gc f p.v
+    
 (** Choose a fresh variable equality or disequality. *)
 let fresh_equal p =
   match p.equal with
     | [] -> 
 	raise Not_found
     | e :: equal' ->
-	let p' = 
-	  if !Tools.destructive then 
-	    (p.equal <- equal'; p)
-	  else 
-	    {p with equal = equal'} 
-	in
-	  (e, p')
+	p.equal <- equal'; e
 
 let fresh_diseq p =
-  let d' = Fact.Diseq.Set.choose p.diseq in
-  let diseq' = Fact.Diseq.Set.remove d' p.diseq in
-  let p' =
-    if !Tools.destructive then 
-      (p.diseq <- diseq'; p) 
-    else 
-      {p with diseq = diseq'} 
-  in
-    (d', p')
+  let d = Fact.Diseq.Set.choose p.diseq in
+    p.diseq <- Fact.Diseq.Set.remove d p.diseq; d
 
 
 (** Difference. *)

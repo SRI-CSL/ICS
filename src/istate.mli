@@ -32,7 +32,6 @@ module Parameters : sig
     | Compactify
     | Pretty
     | Statistics
-    | Proofmode
     | Justifications
     | Inchannel
     | Outchannel

@@ -42,16 +42,12 @@ module type SET = sig
   val apply : t -> Jst.Eqtrans.t
   val find : t -> Jst.Eqtrans.t
   val inv : t -> Jst.Eqtrans.t  
-  val replace : t -> Jst.Eqtrans.t
   val dep : t -> Term.t -> Term.Var.Set.t
   val ext : t -> ext
   module Dep : DEP with type eqs = t
-  val restrict : t -> Term.t -> t
+  val restrict : t -> Term.t -> unit
   type config = Partition.t * t
-  val update : config -> Fact.Equal.t -> config 
-  val fuse: config -> Fact.Equal.t list -> config  
-  val fuse1: config -> Fact.Equal.t -> config
-  val compose : config -> Fact.Equal.t list -> config 
+  val update : config -> Fact.Equal.t -> unit 
   val diff : t -> t -> t 
   val copy : t -> t
 end
@@ -101,8 +97,7 @@ module Use = struct
 	Not_found -> 
 	  Term.Var.Map.add y (Term.Var.Set.singleton x) m
 
-  (** [add x a use] adds [x] to the use of [y] for each toplevel
-    uninterpreted term in [a]. *)
+  (** [add x a use] adds [x] to the use of [y] for each variable in [a]. *)
   let add x = Term.fold (add1 x)
 
   (** [remove x y s] deletes [x] from the use of [y]. *)
@@ -144,7 +139,7 @@ let pp_index = ref false
 
 
 (** {6 Solution sets with extension fields} *)
-module Make(T: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
+module Make(Ext: EXT): (SET with type ext = Ext.t) = struct
   
   (** [x |-> (a, rho)] in [find] represent the equality [x = a] 
     with justification [rho]. We also write [rho |- x = a]. 
@@ -156,9 +151,6 @@ module Make(T: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
     mutable dep : Use.t;                       (* dependency index for variables *)
     mutable extension : Ext.t;
   }
-
-      
-  let level = Th.to_string T.th ^ "''"
 		
   type ext = Ext.t
       
@@ -205,8 +197,7 @@ module Make(T: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
 	Term.Var.Map.find x s.find
 
   let apply s x =
-    let e = equality s x in
-    let (y, a, rho) = Fact.Equal.destruct e in
+    let y, a, rho = equality s x in
       assert(Term.eq x y);
       (a, rho)
 
@@ -231,10 +222,9 @@ module Make(T: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
   and inv_cnstnt s a =
     try
       iter
-	(fun e ->
-	   let (x, b, rho) = Fact.Equal.destruct e in
-	     if Term.eq a b then 
-	       raise (Found(x, rho)))
+	(fun (x, b, rho) ->
+	   if Term.eq a b then 
+	     raise (Found(x, rho)))
 	s;
       raise Not_found
     with
@@ -312,166 +302,93 @@ module Make(T: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
    end
 
    let restrict s x =
-     Trace.msg level "Restrict" x Term.pp;
      try
-       let e = equality s x in
-       let (y, b, rho) = Fact.Equal.destruct e in
+       let ((y, b, rho) as e) = equality s x in
 	 assert(Term.eq x y);
-	 (* assert(not(Term.is_const b)); *)
 	 assert(Term.Var.Map.mem x s.find);
-	 let find' = Term.Var.Map.remove x s.find in
-	 let dep' = Use.remove x b s.dep in
-	   (* assert(not(Term.Var.Map.mem x s.find)); *)
-	   let ext' = Ext.restrict s.extension e in
-	     {find = find'; 
-	      dep = dep';
-	      extension = ext'}
+	 s.find <- Term.Var.Map.remove x s.find;
+	 s.dep <- Use.remove x b s.dep;
+	 s.extension <- Ext.restrict s.extension e
      with
-	 Not_found -> s
+	 Not_found -> ()
 	 
    let add s e =  
-     Trace.msg level "Add" e Fact.Equal.pp;
-     let (x, b, rho) = Fact.Equal.destruct e in
+     let x, b, _ = e in
        assert(Term.is_var x);
        try                  (* restrict, then update. *)
 	 let e' = equality s x in
-	 let (x', b', rho') = Fact.Equal.destruct e' in
+	 let x', b', _ = e' in
 	   assert(Term.eq x x');
-	   let dep = Use.remove_but b x b' s.dep in
-	   let dep' = Use.add x b dep in
-	   let find' = Term.Var.Map.add x e s.find in
-	   let ext' = Ext.update (Ext.restrict s.extension e') e in
-           if !Tools.destructive then 
-	     (s.find <- find'; s.dep <- dep'; s.extension <- ext'; s)
-	   else 
-	     {find = find'; dep = dep'; extension = ext'}
+	   s.dep <- Use.add x b (Use.remove_but b x b' s.dep);
+	   s.find <- Term.Var.Map.add x e s.find;
+	   s.extension <- Ext.update (Ext.restrict s.extension e') e
        with 
 	   Not_found ->     (* extend *)
-	     let dep' = Use.add x b s.dep
-	     and find' = Term.Var.Map.add x e s.find 
-	     and ext' = Ext.update s.extension e in
-	       if !Tools.destructive then
-		 begin
-		   assert(not(s == empty));
-		   (s.find <- find'; s.dep <- dep'; s.extension <- ext'; s)
-		 end 
-	       else 
-		 {dep = dep'; find = find'; extension =  ext'}
-	  
+	     s.dep <- Use.add x b s.dep;
+	     s.find <- Term.Var.Map.add x e s.find ;
+	     s.extension <- Ext.update s.extension e
 
-   (** [replace s a] one-step replaces dependent variables [x] in [a] 
-     with [b] if [x = b] in [s]. *)
-   let replace s a =
-     let hyps = ref Jst.dep0 in
-     let lookup y = 
-       try
-	 let (b, rho) = apply s y in
-	   hyps := Jst.dep2 rho !hyps; b
-       with
-	   Not_found -> y
-     in
-    let b = T.map lookup a in
-      (b, !hyps)
 
    type config = Partition.t * t
 
-
-   let copy s = 
-     if !Tools.destructive then 
-       {find = s.find; dep = s.dep; extension = s.extension}
-     else 
-       s
-
-   let copy = 
-     Trace.func level "Copy" pp pp copy
+   let copy s = {
+     find = s.find; 
+     dep = s.dep; 
+     extension = s.extension
+   }
 
    (** Add equality and propagate possible variable equalities to 
      variable partitioning [p]. *)
-   let rec update (p, s) e =
-     Trace.msg level "Update" e Fact.Equal.pp;
-     let (x, b, rho) = Fact.Equal.destruct e in   (* [rho |- x = b]. *)
-       assert(Term.is_var x);  (* allow for equalities [x = y] with [y] internal. *)
-       if Term.is_var b && not(Term.Var.is_fresh T.th b) then
-	 (Partition.merge p e, restrict s x)    
-       else                        
-	 try
-	   let (y, tau) = inv s b in              (* [tau |- y = b]. *)
-	     if Term.eq x y then 
-	       (p, s) 
-	     else 
-	       let e' = Fact.Equal.make (x, y, Jst.dep2 rho tau) in
-	       let p = merge p e' in
+   let rec update (p, s) ((x, b, rho) as e) = (* [rho |- x = b]. *)
+     assert(Term.is_var x);  (* allow for equalities [x = y] with [y] internal. *)
+     if Term.is_var b && not(is_fresh b) then
+       begin
+	 Partition.merge p e; 
+	 restrict s x
+       end 
+     else                        
+       try
+	 let (y, tau) = inv s b in              (* [tau |- y = b]. *)
+	   if Term.eq x y then () else 
+	     let e' = Fact.Equal.make x y (Jst.dep2 rho tau) in
+	       if not(is_internal e') then
+		 Partition.merge p e';
 	       let s = 
 		 if Term.(<<<) y x then
 		   restrict s x  (* [y] 'more canonical' than [x]. *)
 		 else 
-		   add (restrict s y) e
+		   begin
+		     restrict s y;
+		     add s e
+		   end 
 	       in
-		 (p, s)
-	 with
-	     Not_found -> 
-	       (p, add s e)
+		 ()
+       with
+	   Not_found -> add s e
+
+   and is_fresh a = 
+     match a with
+       | Term.Var(x, _) -> Var.is_some_fresh x
+       | _ -> false 
+
 
    (** Variable equalities [x = y] with [x], [y] internal can be dropped. *)
-   and merge p e =
-     if Fact.Equal.both_sides (Term.Var.is_fresh T.th) e 
-     then p 
-     else Partition.merge p e
-       
-   (** Fuse a solution set [t] into [s] by replacing occurrences
-     of [x] in [b] with [a], where [y = b] in [s], and [x = a] in [t]. 
-     - [fuse s {} = s]
-     - [fuse s ({x = a} union t) = fuse (fuse1 s {x = a}) t] *)
-   let rec fuse (p, s) tl =
-     let fs1 e (p, s) = fuse1 (p, s) e in
-       List.fold_right fs1 tl (p, s)
-
-       
-   (** Fusing a single equality [x = a] into [s] by replacding
-     occurrences of [x] in [b] with [a] for all [y = b] in [s]. *)
-   and fuse1 (p, s) t1 = 
-     let x = Fact.Equal.lhs_of t1 in
-     let instantiate e (p, s) = 
-       let e' = Fact.Equal.map_rhs (inst t1) e in
-	 update (p, s) e'
-     in
-       Dep.fold s instantiate x (p, s)
-
-   and inst e a = 
-     let (x, b, rho) = Fact.Equal.destruct e in
-     let lookup y = if Term.eq x y then b else y in
-     let a' = T.map lookup a in
-       if a == a' then Jst.Eqtrans.id a else (a', rho)
-
-   (** Fusing a list of solved equalities [t] on rhs 
-     followed by updates of [el]. *)
-   let rec compose (p, s) tl =
-     let (p, s) = fuse (p, s) tl in
-       union (p, s, tl)
-
-   (** Union of two solution sets [s], [t] with disjoint set of
-     dependent variables. *)
-   and union (p, s, tl) =
-     let upd e (p, s) = 
-       let x = Fact.Equal.lhs_of e in     (* drop [x = a] with [x] an *)
-	 if Term.Var.is_fresh T.th x then (* internal variable. *)
-	   (p, s)
-	 else
-	   update (p, s) e
-     in
-       List.fold_right upd tl (p, s)
-
-       
+   and is_internal e =
+     Fact.Equal.both_sides is_fresh e
+  
    let diff s1 s2 =
-     fold
-       (fun e acc ->
-	  let (x, a, rho) = Fact.Equal.destruct e in
-	    try
-	      let (b, tau) = apply s2 x in
-		if Term.eq a b then acc else add acc e
+     let s = copy empty in
+       iter 
+	 (fun e ->
+	    let (x, a, rho) = e in
+	      try
+		let (b, tau) = apply s2 x in
+		  if not(Term.eq a b) then 
+		    add s e
 	    with
-		Not_found -> add acc e)
-       s1 (copy empty)
+		Not_found -> add s e)
+	 s1;
+       s
     
 end
 
@@ -491,8 +408,8 @@ end
 
 module type SET0 = (SET with type ext = unit)
 
-module Make0(T: TH): SET0 = 
-  Make(T)(Ext0)
+module Set: SET0 = 
+  Make(Ext0)
 
 
 (** Projection to nonextendable set. *)
@@ -519,13 +436,9 @@ module Proj(S: SET): SET0 = struct
   let is_independent = S.is_independent
   let pp = S.pp
   module Dep = S.Dep 
-  let replace = S.replace
   let restrict = S.restrict
   type config = S.config
   let update = S.update
-  let fuse = S.fuse
-  let fuse1 = S.fuse1
-  let compose = S.compose
   let diff = S.diff
   let copy = S.copy
 end

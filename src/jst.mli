@@ -14,14 +14,15 @@
 (** Justifications
 
   @author Harald Ruess
+*)
 
-  Every atom [atm] may have an associated {i justification} [rho]; in this
+(** Every atom [atm] may have an associated {i justification} [rho]; in this
   case we also write [rho |- atm]. There are three different kinds of
-  justifications
+  ju1stifications
   - [All] justifies every
   - A set of {i dependencies} [{atm1, ...,atmn}]
   - A proof skeleton (disabled in ICS 2.0)
-
+  
   Depending on the current proof mode, as obtained with {!Jst.Mode.get},
   justifications of these kinds are generated.
 *)

@@ -134,7 +134,7 @@ external set_clause_relevance : int -> unit = "icsat_set_clause_relevance"
 external set_cleanup_period : int -> unit = "icsat_set_cleanup_period"
 external set_num_refinements : int -> unit = "icsat_set_num_refinements"
 
-let debug = ref true
+let debug = (Version.debug <> 0)
 
 let validate_explanations = ref false
 
@@ -339,6 +339,7 @@ module Explanation = struct
 	  hyps
 
   let install hyps =
+    assert(not(Atom.Set.is_empty hyps));
     let hyps =
       if !reduce_explanation then semantic_reduce hyps else hyps
     in
@@ -488,7 +489,7 @@ let rec sat s p =
 	raise exc
 
 and debug_output () =
-  if !debug then
+  if debug then
     let fmt = Format.std_formatter in
     let bl = ref [] in
       Stack.iter

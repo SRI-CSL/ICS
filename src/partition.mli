@@ -77,29 +77,29 @@ val fold : t -> (Fact.Equal.t -> 'a -> 'a) -> Term.t -> 'a -> 'a
 val empty : t
 (** The [empty] partition. *)
 
-val merge : t -> Fact.Equal.t -> t
+val merge : t -> Fact.Equal.t -> unit
 (** [merge e s] adds a new variable equality [e] of the form [x = y] into
   the partition [s]. If [x] is already equal to [y] modulo [s], then [s]
   is unchanged; if [x] and [y] are disequal in [s], then the 
   exception [Exc.Inconsistent] is raised; otherwise, the equality [x = y] is added to 
   [s] to obtain [s'] such that [v s' x] is identical to [v s' y]. *)
 
-val dismerge : t -> Fact.Diseq.t -> t
+val dismerge : t -> Fact.Diseq.t -> unit
 (** [diseq d s] adds a disequality of the form [x <> y] to [s]. If [x = y] is
   already known in [s], that is, if [is_equal s x y] yields [Three.Yes], then
   an exception [Exc.Inconsistent] is raised; if [is_equal s x y] equals [Three.No]
   the result is unchanged; otherwise, [x <> y] is added using [D.add]. *)
 
-val gc: (Term.t -> bool) -> t -> t
+val gc: (Term.t -> bool) -> t -> unit
   (** [gc p s] removes all noncanonical, internal variables [x] with [p x].
     [diseq] destructive updates the input partition [s]. *)
 
-val fresh_equal : t -> Fact.Equal.t * t
+val fresh_equal : t -> Fact.Equal.t
   (** Chooses a "fresh" variable equality. Each such equality is returned
     at most once. In case there are no fresh variable equalities, [Not_found]
     is raised. *)
 
-val fresh_diseq : t -> Fact.Diseq.t * t
+val fresh_diseq : t -> Fact.Diseq.t
   (** Chooses a "fresh" variable disequality. Each such disequality is returned
     at most once. In case there are no fresh variable disequalities, [Not_found]
     is raised. *)

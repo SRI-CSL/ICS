@@ -27,4 +27,4 @@
 module S: Solution.SET0
 
 (** Congruence closure inference system. *)
-module Infsys: (Infsys.IS with type e = S.t)
+module Infsys: (Infsys.EQ with type e = S.t)

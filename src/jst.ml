@@ -12,7 +12,6 @@
  *)
 
 (** Justifications. *)
-
 module Mode = struct
   
   type t = No | Dep
@@ -26,21 +25,19 @@ module Mode = struct
     | "dep" -> Dep
     | str -> raise (Invalid_argument(str ^ " : no such proof mode"))
  
+
   let proofmode = ref Dep
 
   let get () = !proofmode
 
   let set = function
     | Dep -> proofmode := Dep
-    | No -> 
-	if !proofmode = Dep then
-	  invalid_arg "Illegal operation: setting proof mode from [No] to [Dep]"
-	else 
-	  proofmode := No
+    | No -> proofmode := No
 
   let is_none () = (!proofmode = No)
 
- end 
+end 
+
 
 open Mode
 
@@ -137,8 +134,8 @@ module Eqtrans = struct
   let id a = (a, dep0)
 
   let compose f g a =
-    let (b, rho) = g a in           (* [rho |- a = b] *)
-    let (c, tau) = f b in           (* [tau |- b = c] *)
+    let b, rho = g a in           (* [rho |- a = b] *)
+    let c, tau = f b in           (* [tau |- b = c] *)
       (c, dep2 rho tau)
 
   let compose3 f g h = (compose f (compose g h))
@@ -147,17 +144,12 @@ module Eqtrans = struct
     try f a with Not_found -> id a
 
   let compose_partial1 f g a =
-    try
-      let (b, rho) = g a in
-	(try
-	   let (c, tau) = f b in
-	     (c, dep2 rho tau )
-	 with
-	     Not_found -> (b, rho))
-    with
-	exc ->
-	  Format.eprintf "%s@." (Printexc.to_string exc);
-	  raise exc
+    let (b, rho) = g a in
+      (try
+	 let (c, tau) = f b in
+	   (c, dep2 rho tau )
+       with
+	   Not_found -> (b, rho))
 
   let trace lvl name =
     Trace.func lvl name Term.pp (Pretty.pair Term.pp pp) 
@@ -179,7 +171,7 @@ module Eqtrans = struct
   let apply app (e, rho) a =
     let b = app (Atom.Equal.destruct e) a in
       if a == b then id a else
-	(b, dep1 rho)
+	(b, rho)
 	
   let pointwise f al =
     let rho = ref dep0 in      
@@ -190,7 +182,6 @@ module Eqtrans = struct
     let bl = Term.mapl f' al in 
       (bl, !rho)
 
-  
   let mapargs mk_app f a =
     let (op, al) = Term.App.destruct a in
       match al with
@@ -214,7 +205,9 @@ module Eqtrans = struct
 end
 
 
+
 module Pred = struct
+
   type t = Term.t -> jst option
 
   (** Test predicate [p] on [f(a)]. *)
@@ -237,7 +230,9 @@ module Pred = struct
     Trace.func lvl name Term.pp (Pretty.option pp)
 end
 
+
 module Pred2 = struct
+
   type t = Term.t -> Term.t -> jst option
 
   (** Test predicate [p] on [f(a)]. *)
@@ -265,6 +260,7 @@ end
 
 
 module Rel1 = struct
+
   type t = Term.t -> Three.t
 
   (** Test binary term relation [r] on [f a] and [f b]. *)
@@ -298,6 +294,7 @@ module Rel1 = struct
 end 
 
 module Rel2 = struct
+
   type t = Term.t -> Term.t -> Three.t
 
   (** Test binary term relation [r] on [f a] and [f b]. *)
@@ -340,63 +337,6 @@ module Rel2 = struct
 	     | None ->
 		 Three.X)
 
-
   let trace lvl name =
     Trace.func2 lvl name Term.pp Term.pp Three.pp
 end
-
-
-(*
-Atom transformer
-
-val map : Jst.Rel2.t * Jst.Rel1.t * Jst.Rel1.t -> Jst.Eqtrans.t -> Atom.t -> t
-  (** [map (is_equal , is_nonneg, is_pos) f atm] replaces terms [a]
-   in atom [atm] with [f a] to obtain a simplified atom [atm'].
-    The predicates [is_equal], [is_nonneg], [is_pos] are used to
-      simplify the result. The second result is a justification [rho]
-     with [rho |- atm <=> atm']. *)
-
-
-
-     
-let rec map (is_equal, is_nonneg, is_pos) f atm =
-  match Atom.atom_of atm with
-    | Atom.TT -> 
-	mk_holds atm
-    | Atom.FF -> 
-	mk_holds atm
-    | Atom.Equal(a, b) -> 
-	let (a', alpha) = f a and (b', beta) = f b in
-	  if a == a' && b == b' then mk_holds atm else
-	    let rho = Jst.dep2 alpha beta in
-	      (match is_equal a' b' with
-		 | Jst.Three.Yes(tau) -> (Atom.mk_true, Jst.dep2 rho tau)
-		 | Jst.Three.No(tau) -> (Atom.mk_false, Jst.dep2 rho tau)
-		 | Jst.Three.X -> (Atom.mk_equal (a', b'), rho))
-    | Atom.Diseq(a, b) ->
-	let (a', alpha) = f a and (b', beta) = f b in
-	  if a == a' && b == b' then mk_holds atm else
-	    let rho = Jst.dep2 alpha beta in
-	      (match is_equal a' b' with
-		   | Jst.Three.No(tau) -> (Atom.mk_true, Jst.dep2 rho tau)
-		   | Jst.Three.Yes(tau) -> (Atom.mk_false, Jst.dep2 rho tau)
-		   | Jst.Three.X -> (Atom.mk_diseq (a', b'), rho))
-    | Atom.Nonneg(a) -> 
-	let (a', alpha) = f a in
-	  if a == a' then mk_holds atm else
-	    (match is_nonneg a' with
-	       | Jst.Three.Yes(tau) -> (Atom.mk_true, Jst.dep2 alpha tau)
-	       | Jst.Three.No(tau) -> (Atom.mk_false, Jst.dep2 alpha tau)
-	       | Jst.Three.X -> (Atom.mk_nonneg a', alpha))
-    | Atom.Pos(a) -> 
-	let (a', alpha) = f a in
-	  if a == a' then mk_holds atm else
-	    (match is_pos a' with
-	       | Jst.Three.Yes(tau) -> (Atom.mk_true, Jst.dep2 alpha tau)
-	       | Jst.Three.No(tau) -> (Atom.mk_false, Jst.dep2 alpha tau)
-	       | Jst.Three.X -> (Atom.mk_pos a', alpha))  
-
-let map preds f = 
-  Trace.func "foo" "Map" Atom.pp (Pretty.pair Atom.pp Jst.p
-
-				  *)

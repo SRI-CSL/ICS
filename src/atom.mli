@@ -14,8 +14,9 @@
 (** Atomic predicates.
 
   @author Harald Ruess
+*)
 
-  An atomic predicate is either 
+(** An atomic predicate is either 
   - one of the constants [True], [False],
   - an equality, 
   - a disequality, or 
@@ -137,6 +138,8 @@ val is_true : t -> bool
 val is_false : t -> bool
 
 val is_pure : Th.t -> t -> bool
+
+val equal : t -> t -> bool
 
 
 (** {6 Negations of atoms} *)

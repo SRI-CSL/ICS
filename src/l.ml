@@ -41,10 +41,10 @@ module T: Shostak.T = struct
   let th = Th.app
   let map = Apply.map
   let solve e = 
-    let (a, b, rho) = Fact.Equal.destruct e in
+    let (a, b, rho) = e in
       try
 	let sl = Apply.solve (a, b) in
-	let inj (a, b) = Fact.Equal.make (a, b, rho) in
+	let inj (a, b) = Fact.Equal.make a b rho in
 	  List.map inj sl
       with
 	  Exc.Inconsistent -> raise(Jst.Inconsistent(rho))
@@ -52,29 +52,29 @@ module T: Shostak.T = struct
 end
 
 
-module E = Shostak.E(T)
+module Infsys: (Infsys.EQ with type e = Solution.Set.t) = struct
 
+  module S = Solution.Set
 
-module Infsys0: (Infsys.IS with type e = E.t) = struct
-
-  type e = E.t
+  type e = S.t
 
   module I = Shostak.Make(T)
 
-  let ths = I.ths
+  let current = I.current
+  let initialize = I.initialize
+  let finalize = I.finalize
+
+  open Infsys
 
   (** Replace foreign first-order terms. *)
-  let rec export (g, s, p) = 
-    E.S.fold export1 s (g, s, p)
+  let rec export () = 
+    S.iter export1 (current())
 
-  and export1 e (g, s, p) =
-    let (x, a, rho) = Fact.Equal.destruct e in
+  and export1 e =
+    let (x, a, rho) = e in
       if is_first_order a then
-	let g = Fact.Input.Equal.add g e
-	and s = E.S.restrict s x in
-	  (g, s, p)
-      else
-	(g, s, p)
+	G.put (Fact.of_equal e) !g;
+	S.restrict (current()) x
 
   and is_first_order a =
     try
@@ -86,40 +86,41 @@ module Infsys0: (Infsys.IS with type e = E.t) = struct
 
   let abstract = I.abstract
 
-  let merge i e (g, s, p) = 
-    let (g, s, p) = I.merge i e (g, s, p) in
-      export (g, s, p)
+  let merge e = 
+    assert(Fact.Equal.is_pure Th.app e);
+    I.merge e;
+    export ()
 
-  let dismerge i d (g, s, p) = 
-    let (g, s, p) = I.dismerge i d (g, s, p) in
-      export (g, s, p)
+  let dismerge d = 
+    I.dismerge d;
+    export ()
 
   let branch = I.branch
  
  let normalize = I.normalize
 
-  let propagate e (g, s, p) = 
-    let (g, s, p) = I.propagate e (g, s, p) in
-      export (g, s, p)
+  let propagate e = 
+    I.propagate e;
+    export ()
 
    (** Apply disequality [x <> y] to [C x y a b]. *)
-  let propagate_diseq d (g, s, p) =
-    let (g, s, p) = I.propagate_diseq d (g, s, p) in
-    let (x, y, rho) = Fact.Diseq.destruct d in
-    let disapply e (p, s) = 
-      let (z, a, tau) = Fact.Equal.destruct e in
+  let propagate_diseq d =
+    I.propagate_diseq d;
+    let (x, y, rho) = d in
+    let disapply e = 
+      let (z, a, tau) = e in
       let a' = Apply.disapply (x, y) a in
-	if a == a' then (p, s) else 
-	  let e' = Fact.Equal.make (z, a', Jst.dep2 rho tau) in
-	    E.S.update (p, s) e'
+	if a == a' then () else 
+	  let e' = Fact.Equal.make z a' (Jst.dep2 rho tau) in
+	    S.update (!p, current()) e'
     in
-    let (p, s) = E.S.Dep.fold s disapply x (p, s) in
-    let (p, s) = E.S.Dep.fold s disapply y (p, s) in
-      export (g, s, p)
+      S.Dep.iter (current()) disapply x;
+      S.Dep.iter (current()) disapply y;
+      export ()
 			  
 end
 
-
+(*
 
 (** Tracing inference system. *)
 module Infsys: (Infsys.IS with type e = E.t) =
@@ -127,7 +128,9 @@ module Infsys: (Infsys.IS with type e = E.t) =
     (struct
        type t = E.t
        let level = "cl"
-       let eq = E.S.eq
-       let diff = E.S.diff
-       let pp = E.S.pp
+       let eq = S.eq
+       let diff = S.diff
+       let pp = S.pp
      end)
+
+*)

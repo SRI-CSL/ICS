@@ -104,10 +104,10 @@ module T = struct
   let th = Th.set
   let map = Propset.map
   let solve e =
-    let (a, b, rho) = Fact.Equal.destruct e in
+    let (a, b, rho) = e in
       try
 	let sl = Propset.solve (a, b) in
-	let inj (a, b) = Fact.Equal.make (a, b, rho) in
+	let inj (a, b) = Fact.Equal.make a b rho in
 	  List.map inj sl
       with
 	  Exc.Inconsistent -> raise(Jst.Inconsistent(rho))
@@ -115,7 +115,5 @@ module T = struct
 end
 
 
-module E = Shostak.E(T)
-
-module Infsys: (Infsys.IS with type e = E.t) =
+module Infsys: (Infsys.EQ with type e = Solution.Set.t) =
   Shostak.Make(T)
