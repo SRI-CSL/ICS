@@ -122,8 +122,6 @@ val map: (Term.t -> Term.t) -> Term.t -> Term.t
   and [qsolve] chooses to solve for the largest power product according to the 
   term ordering [<<<]. *)
 
-val solve_for : (Term.t -> bool) -> Fact.equal -> Fact.equal option
-
 val solve : Fact.equal -> Fact.equal option
 
 (*s Abstract interpretation in the domain of constraints. Given 
@@ -155,3 +153,11 @@ val is_unbounded : (Term.t -> Cnstrnt.t) -> Term.t -> bool
  the form [b + q * x + c]. Otherwise it raises [Not_found]. *)
 
 val decompose : Term.t -> Term.t -> Term.t list * Mpa.Q.t * Term.t list
+
+
+(* Destructure a monomial into the largest monomial [q * x] and the rest [ml],
+ represented as the triple [(q, x, ml)]. If the argument term is not of such
+ a form [Not_found] is raised. *)
+
+val destructure : Term.t -> Mpa.Q.t * Term.t * Term.t list
+

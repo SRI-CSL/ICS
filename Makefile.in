@@ -95,8 +95,6 @@ CMO = sign.cmo three.cmo \
       solution.cmo \
       context.cmo \
       can.cmo \
-      arrays.cmo \
-      deduce.cmo \
       rule.cmo \
       process.cmo \
       symtab.cmo istate.cmo \

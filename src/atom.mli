@@ -35,20 +35,9 @@ val mk_diseq : Fact.diseq -> t
 
 val mk_in : Fact.cnstrnt -> t
 
-
 (*s Pretty-printing. *)
 
 val pp : t Pretty.printer
-
-
-(*s The less-then constructor [lt (a,b)] builds a constraint corresponding to
-  the fact that the difference [sub(a,b)] is negative. Similarly, 
-  the less-or-equal constructor [le] associates a non-positive constraint to [sub(a,b)].
-  In addition, [sub(a,b)] is normalized so that the coefficient of its least power product, 
-  with respect to [<<<], is one. *)
-
-val mk_lt : Term.t -> Term.t -> t
-val mk_le : Term.t -> Term.t -> t
 
 
 (*s Set of atoms. *)

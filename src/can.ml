@@ -1,5 +1,5 @@
 
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -12,7 +12,7 @@
  * benefit corporation.
  * 
  * Author: Harald Ruess, N. Shankar
- i*)
+ *)
 
 (*i*)
 open Sym
@@ -20,14 +20,14 @@ open Term
 open Context
 (*i*)
 
-(*s Miscellaneous. *)
+(** {Miscellaneous.} *)
 
 type sign = Pos of Term.t | Neg of Term.t
 
 exception Found of sign
 
 
-(*s Don't use [find] for uninterpreted theory. *)
+(* Don't use [find] for uninterpreted theory. *)
 
 let rec find th s a  =
   if Th.eq th Th.u || Th.eq th Th.app then  
@@ -49,12 +49,11 @@ and findequiv th s a =
       Not_found -> a
 
     
-(*s Canonization of terms. *)
+(** {Canonization of terms.} *)
 
 let rec term s =
   Trace.func "canon" "Term" Term.pp Term.pp
     (can s)
-
 
 and can s a =
   match a with
@@ -88,7 +87,7 @@ and unsigned s x =
   lookup s (Bvarith.mk_unsigned (find Th.bv s (can s x)))
 
 
-and arith s op l =    (* special treatment for arithmetic *)
+and arith s op l =       (* special treatment for arithmetic *)
   match op, l with       (* for optimizing memory usage. *)
     | Sym.Num(q), [] -> 
 	lookup s (Arith.mk_num q)
@@ -112,14 +111,14 @@ and arith s op l =    (* special treatment for arithmetic *)
 
 
 
-(*s Canonical Term Equality. *)
+(** {Canonical Term Equality.} *)
 
 let eq s a b =
   Term.eq (term s a) (term s b)
 
 
 
-(*s Canonization of atoms. *)
+(** {Canonization of atoms.} *)
 
 let rec atom s = 
   Trace.func "canon" "Atom" Atom.pp Atom.pp
@@ -187,19 +186,15 @@ and crossmultiply s (a, b) =
       let (a'', b'') = crossmultiply s (a', b') in
 	(can s a'', can s b'')
 
-and crossmultiply1 s =
-  Trace.func "shostak" "Crossmultiply" 
-    (Pretty.pair Term.pp Term.pp) 
-    (Pretty.pair Term.pp Term.pp)
-    (fun (a, b) ->
-       let da = Pp.denumerator a in
-       let db = Pp.denumerator b in
-       let d = Pp.lcm da db in
-	 if Pp.is_one d then (a, b) else
-	   (Sig.mk_mult a d, Sig.mk_mult b d))
+and crossmultiply1 s (a, b) =
+  let da = Pp.denumerator a in
+  let db = Pp.denumerator b in
+  let (_, _, d) = Pp.lcm (da, db) in
+    if Pp.is_one d then (a, b) else
+      (Sig.mk_mult a d, Sig.mk_mult b d)
 
 
-and normalize s (a, c)=     (* following still suspicious. *)
+and normalize s (a, c) =
   let (a', c') = normalize1 s (a, c) in
     if Term.eq a a' && Cnstrnt.eq c c' then
       (a, c)
@@ -207,33 +202,31 @@ and normalize s (a, c)=     (* following still suspicious. *)
       let (a'', c'') = normalize1 s (a', c') in
 	(can s a'', c'')
 
-and normalize1 s =
-  Trace.func "shostak" "Normalize" Term.pp_in Term.pp_in
-    (fun (a, c) ->
-       let arrange a q ds =    (* compute [a * ds - q * ds]. *)
-	 Arith.mk_sub (Sig.mk_mult a ds) (Arith.mk_multq q ds)
-       in
-       let lower dom alpha = Cnstrnt.mk_lower dom (Mpa.Q.zero, alpha) in
-       let upper dom alpha = Cnstrnt.mk_upper dom (alpha, Mpa.Q.zero) in
-	 try 
-	   match Cnstrnt.d_upper c with        (* [a < q] or [a <= q]. *)
-	     | Some(dom, q, beta) ->
-		 (match signed_denum s a with
-		    | Pos(ds) -> 
-			(arrange a q ds, lower dom beta)
-		    | Neg(ds) -> 
-			(arrange a q ds, upper dom beta))
-	     | _ ->
-		 (match Cnstrnt.d_lower c with  (*s [a > q] or [a >= q]. *)
-		    | Some(dom, alpha, q) ->
-			(match signed_denum s a with
-			   | Pos(ds) -> 
-			       (arrange a q ds, upper dom alpha)
-			   | Neg(ds) -> 
-			       (arrange a q ds, lower dom alpha))
-		    | _ -> (a, c))
-	   with
-	       Not_found -> (a, c))
+and normalize1 s (a, c) =
+   let arrange a q ds =    (* compute [a * ds - q * ds]. *)
+     Arith.mk_sub (Sig.mk_mult a ds) (Arith.mk_multq q ds)
+   in
+   let lower dom alpha = Cnstrnt.mk_lower dom (Mpa.Q.zero, alpha) in
+   let upper dom alpha = Cnstrnt.mk_upper dom (alpha, Mpa.Q.zero) in
+     try 
+       match Cnstrnt.d_upper c with        (* [a < q] or [a <= q]. *)
+	 | Some(dom, q, beta) ->
+	     (match signed_denum s a with
+		| Pos(ds) -> 
+		    (arrange a q ds, lower dom beta)
+		| Neg(ds) -> 
+		    (arrange a q ds, upper dom beta))
+	 | _ ->
+	     (match Cnstrnt.d_lower c with  (*s [a > q] or [a >= q]. *)
+		| Some(dom, alpha, q) ->
+		    (match signed_denum s a with
+		       | Pos(ds) -> 
+			   (arrange a q ds, upper dom alpha)
+		       | Neg(ds) -> 
+			   (arrange a q ds, lower dom alpha))
+		| _ -> (a, c))
+       with
+	   Not_found -> (a, c)
 
 and signed_denum s a =
   try

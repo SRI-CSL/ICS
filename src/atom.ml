@@ -103,6 +103,7 @@ let rec mk_diseq d =
 
 (*s Constructing inequalities. *)
 
+(*
 let rec mk_lt a b =
   lower (Q.lt, Cnstrnt.mk_lt Dom.Real, Cnstrnt.mk_gt Dom.Real) (a,b)
 	
@@ -122,7 +123,7 @@ and lower (f,less, greater) (a,b) =
 	let ml' = List.map (Arith.mk_multq (Q.inv p)) ml in
 	let a = Arith.of_poly Q.zero ml' in
 	  mk_in (Fact.mk_cnstrnt (Arith.mk_add x a) c None)
-
+*)
 
 
 (*s Pretty-printing. *)
