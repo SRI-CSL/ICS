@@ -174,15 +174,15 @@ arith:
 | term PLUS term                   { Arith.mk_add $1 $3 }
 | term MINUS term                  { Arith.mk_sub $1 $3 }
 | MINUS term %prec prec_unary      { Arith.mk_neg $2 }
-| term TIMES term                  { Simplify.mk_mult (Istate.current()) ($1, $3) }
-| term DIVIDE term                 { Simplify.mk_div (Istate.current()) ($1, $3) }
-| term EXPT rat                    { Simplify.mk_expt (Istate.current()) $3 $1 }
+| term TIMES term               { Shostak.canmult (Istate.current()) ($1, $3) }
+| term DIVIDE term              { Shostak.candiv (Istate.current()) ($1, $3) }
+| term EXPT term                { Shostak.canexpt (Istate.current()) $3 $1}
 ;
 
 
 array:
-  term LBRA term ASSIGN term RBRA { Simplify.mk_update (Istate.current()) ($1, $3, $5) }
-| term LBRA term RBRA             { Simplify.mk_select (Istate.current()) ($1, $3) } 
+  term LBRA term ASSIGN term RBRA { Shostak.canupdate (Istate.current()) ($1, $3, $5) }
+| term LBRA term RBRA        { Shostak.canselect (Istate.current()) ($1, $3) } 
 ;
 
 
