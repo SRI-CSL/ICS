@@ -62,7 +62,7 @@ let _ = Callback.register "set_justifications" set_justifications
 let set_statistic b =  Prop.statistics := b
 let _ = Callback.register "set_statistic" set_statistic
 
-let set_integer_solve b =  Prop.statistics := b
+let set_integer_solve b =  Arith.integer_solve := b
 let _ = Callback.register "set_integer_solve" set_integer_solve
 
 let do_at_exit () = Tools.do_at_exit ()
