@@ -255,6 +255,11 @@ module MakeCnstnt(Th: TH)(Cnstnt: CNSTNT)
     then the disequality [x <> y] is generated. *)
 
 
+module MakeIndexCnstnt(Th: TH)(Idx: INDEX)(Cnstnt: CNSTNT)
+:
+(SET with type ext = Term.Set.t * (Term.t * Justification.t) Term.Map.t)
+
+
 (** {6 Combining two equality sets} *)
 
 module type SET2 = sig

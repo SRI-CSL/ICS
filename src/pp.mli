@@ -93,6 +93,8 @@ val map: (Term.t -> Term.t) -> Term.t -> Term.t
 
 (** {6 Iterators} *)
 
+val iter : (Term.t -> int -> unit) -> Term.t -> unit
+
 val fold : (Term.t -> int -> 'a -> 'a) -> Term.t -> 'a -> 'a
 
 
