@@ -251,7 +251,6 @@ let copy ((g, e, p) as s) =
 let protect f s = 
   f (copy s)
 
-
 	
 
 (** ICS inference system as the cross product
@@ -386,7 +385,7 @@ module Is = struct
       Nl.Infsys.propagate_diseq d;
       Arr.Infsys.propagate_diseq d
 
-  let branch () = raise Not_found
+  let branch () = ()
 
   let normalize () = ()
 

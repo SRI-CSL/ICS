@@ -1320,113 +1320,40 @@ let process_pos pp =
 
 module Finite = struct
 
-  module Zset = Set.Make(
-    struct
-      type t = Mpa.Z.t
-      let compare = Mpa.Z.compare
-    end)
-
-    (** A finite integer domain consists of nonstrict lower [lo] and upper [hi]
-      bounds and a disequality set [ds] with integer values strictly between
-      these bounds. The interpretation [D(lo, hi, ds)] is given
-      by [{i in int | lo <= i <= hi, not(i in ds)}] *)
-  type t = {
-    lo : Mpa.Z.t;
-    hi : Mpa.Z.t;
-    diseqs : Zset.t
-  }
-
-  let pp fmt fin = 
-    let lo = Pretty.to_string Mpa.Z.pp fin.lo
-    and hi = Pretty.to_string Mpa.Z.pp fin.hi in
-      if Zset.is_empty fin.diseqs then
-	Format.fprintf fmt "[%s..%s]" lo hi
-      else 
-	let ds = Pretty.to_string (Pretty.set Mpa.Z.pp) 
-		   (Zset.elements fin.diseqs) 
-	in
-	  Format.fprintf fmt "[%s..%s] - %s" lo hi ds
-
-  let rec make (lo, hi, ds) =
-    if Mpa.Z.gt lo hi then
+  let rec of_var x =
+    if not(Term.Var.is_int x) then 
       raise Unbounded
-    else if Zset.mem lo ds then
-      make (Mpa.Z.add lo Mpa.Z.one, hi, Zset.remove lo ds)
-    else if Zset.mem hi ds then
-      make (lo, Mpa.Z.sub hi Mpa.Z.one, Zset.remove hi ds)
     else 
-      {lo = lo; hi = hi; diseqs = ds}
-
-  let rec of_var x = 
-    try
-      (if not(Term.Var.is_int x) then 
-	 raise Unbounded
-       else 
-	 let (hi, _) = sup x
-	 and (lo, _) = inf x in
-	 let ds = integer_diseqs_between x (lo, hi) in
-	   make (Mpa.Q.floor lo, Mpa.Q.floor (Mpa.Q.add lo Mpa.Q.one), ds))
-    with
-	Unbounded -> raise Not_found
+      let (lo, hi, rho) = bounds x in
+      let lo' = Mpa.Q.floor lo
+      and hi' = Mpa.Q.floor (Mpa.Q.add lo Mpa.Q.one) in
+	(lo', hi', rho)
 	
-  and integer_diseqs_between x (lo, hi) =
-    D.Set.fold
-      (fun (y, _) acc ->
-	 try
-	   let (q, _) = d_num y in   (* [y = q] *)
-	     if Mpa.Q.is_integer q && Mpa.Q.le lo q && Mpa.Q.le q hi then
-	       Zset.add (Mpa.Q.to_z q) acc
-	     else 
-	       acc
-	 with
-	     Not_found -> acc)
-      (Partition.diseqs !Infsys.p x)
-      Zset.empty
+  exception Found of Term.t * Mpa.Z.t * Mpa.Z.t * Jst.t
 
-      
-  (** Return [(q, rho)] such that [rho |- x = q] or raise [Not_found]. *)
-  and d_num x =
-    let (a, rho) = apply x in
-    let p = Arith.d_num a in
-      (p, rho)
-  
-  exception Found of Term.t * t
-
-  (** Find a finite interpretation for one of the variables [x] in [a]. *)
-  let of_term a =
-    try
-      (Term.iter
-	 (fun x ->
-	    try
-	      let fin = of_var x in raise(Found(x, fin))
-	    with 
-		Not_found -> ())
-	 a);
-      raise Not_found
-    with
-	Found(x, fin) -> (x, fin)
-
-  let disjunction ()=
-    let of_equal (x, a) = 
-      try
-	let fin = of_var x in
-	  raise(Found((x, fin)))
-      with
-	  Not_found -> 
-	    (try
-	       let (x, fin) = of_term a in
-		 raise(Found(x, fin))
-	     with
-		 Not_found -> ())
+  let disjunction () = 
+    let visited = ref Term.Var.Set.empty in
+    let disjunction_of_var x =
+      if not(Term.Var.Set.mem x !visited) then
+	begin
+	  visited := Term.Var.Set.add x !visited;
+	  try
+	    let (lo, hi, rho) = of_var x in
+	      raise (Found(x, lo, hi, rho))
+	  with
+	      Unbounded -> ()
+	end 
     in
-      try                    
-	S.iter 
-	  (fun e -> 
-	     let (x, a, _) = e in
-	       of_equal (x, a)) !s;
+      try
+	S.iter
+	  (fun (x, a, _) ->
+	     disjunction_of_var x;
+	     Arith.iter disjunction_of_var a)
+	  !s;
 	raise Not_found
       with
-	  Found(x, fin) -> (x, fin)
+	  Found(x, lo, hi, rho) -> (x, lo, hi, rho)
+	
 end 
 
 
@@ -1496,9 +1423,7 @@ module Infsys0: (Infsys.ARITH with type e = S.t) = struct
 	      process_diseq d
     
   let branch () = 
-    let (x, fin) = Finite.disjunction () in
-    let lo = fin.Finite.lo in
-    let hi = fin.Finite.hi in
+    let (x, lo, hi, rho) = Finite.disjunction () in
       assert(Mpa.Z.le lo hi);
       raise Not_found (* to do *)
 	  

@@ -11,35 +11,13 @@
  * benefit corporation.
  *)
 
-(** Inference system for the theory of combinatory logic. *)
 
 open Mpa
-
-(*
-
-exception Found	of Term.t * Term.t
- 
-let rec split (p, s) =
-  try
-    S.iter
-      (fun x (a, _) -> 
-	 try split_in_term a with Not_found -> ())
-      s;
-    raise Not_found
-  with
-      Found(b, c) -> (b, c)
-
-and split_in_term a =
-  match Apply.d_interp a with
-    | Sym.C, [b; c; _; _] -> 
-	raise(Found(b, c))
-    | _, al ->
-	List.iter split_in_term al
-*)
 
 module T: Shostak.T = struct
   let th = Th.app
   let map = Apply.map
+
   let solve e = 
     let (a, b, rho) = e in
       try
@@ -48,13 +26,30 @@ module T: Shostak.T = struct
 	  List.map inj sl
       with
 	  Exc.Inconsistent -> raise(Jst.Inconsistent(rho))
-  let disjunction _ = raise Not_found
+
+  exception Found of Term.t * Term.t
+
+  let disjunction (_, a, _) =
+    let rec split_in_term a =
+      match Apply.d_interp a with
+	| Sym.C, [b; c; _; _] -> 
+	    raise(Found(b, c))
+	| _, al ->
+	    List.iter split_in_term al
+    in
+      try
+	split_in_term a;
+	raise Not_found
+      with
+	  Found(b, c) -> 
+	    let e = Atom.mk_equal (b, c)
+	    and d = Atom.mk_diseq (b, c) in
+	      Clause.of_list ([e; d],Jst.dep0)
 end
 
+module S = Solution.Set
 
-module Infsys: (Infsys.EQ with type e = Solution.Set.t) = struct
-
-  module S = Solution.Set
+module Infsys0: (Infsys.EQ with type e = Solution.Set.t) = struct
 
   type e = S.t
 
@@ -120,17 +115,14 @@ module Infsys: (Infsys.EQ with type e = Solution.Set.t) = struct
 			  
 end
 
-(*
 
 (** Tracing inference system. *)
-module Infsys: (Infsys.IS with type e = E.t) =
+module Infsys: (Infsys.EQ with type e = S.t) =
   Infsys.Trace(Infsys0)
     (struct
-       type t = E.t
+       type t = S.t
        let level = "cl"
        let eq = S.eq
        let diff = S.diff
        let pp = S.pp
      end)
-
-*)
