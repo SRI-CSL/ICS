@@ -272,14 +272,17 @@ let rec is_pos (p, s) a =
 
 	
 let rec is_nonneg (p, s) a =
-  let is_nonneg0  = Jst.Three.of_three Atom.Nonneg.holds in
-    if !cheap || not(Term.is_pure Th.la a) then is_nonneg0 a else 
-      Jst.Rel1.orelse
-	is_nonneg0
-	(Jst.Rel1.yes_or_no
-	   (La.is_nonneg (p, s.a))
-	   (La.is_neg (p, s.a)))
-	a
+  if !cheap || not(Term.is_pure Th.la a) then 
+    is_nonneg0 a 
+  else 
+    Jst.Rel1.orelse
+      is_nonneg0
+      (Jst.Rel1.yes_or_no
+	 (La.is_nonneg (p, s.a))
+	 (La.is_neg (p, s.a)))
+      a
+
+and is_nonneg0 a = Jst.Three.of_three Atom.Nonneg.holds a
   
 let is_neg cfg a = is_pos cfg (Arith.mk_neg a)
 
@@ -504,15 +507,25 @@ let dismerge (p, s) d =
 	
 
 let propagate_equal ((p, s) as cfg) e =
-  if Fact.Equal.is_var e then
-    merge None cfg e
-  else if Fact.Equal.is_pure Th.bv e then
-    merge (Th.inj Th.bv) cfg e
-  else if Fact.Equal.is_pure Th.la e then
-    Nl.propagate (p, s.a, s.nl) e
+  let (a, b, rho) = Fact.Equal.destruct e in
+    match is_diseq cfg a b with
+      | Some(tau) -> 
+	  raise(Jst.Inconsistent(Jst.dep2 rho tau))
+      | None -> 
+	  (if Fact.Equal.is_var e then
+	     merge None cfg e
+	   else if Fact.Equal.is_pure Th.bv e then
+	     merge (Th.inj Th.bv) cfg e
+	   else if Fact.Equal.is_pure Th.la e then
+	     Nl.propagate (p, s.a, s.nl) e)
 
-let propagate_diseq ((p, s) as cfg) d =
-  dismerge cfg d
+let propagate_diseq cfg d =
+  let (a, b, rho) = Fact.Diseq.destruct d in
+    match is_equal cfg a b with
+      | Some(tau) -> 
+	  raise(Jst.Inconsistent(Jst.dep2 rho tau))
+      | None ->
+	  dismerge cfg d
 
 let propagate_nonneg cfg nn =
   let nn' = Fact.Nonneg.map (can cfg) nn in

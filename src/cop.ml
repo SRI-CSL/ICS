@@ -94,17 +94,14 @@ and is_diseq2 ((p, _) as cfg) =
     (Partition.is_diseq p)
 
 
-let solve = 
-  Fact.Equal.equivn Coproduct.solve
-
-
 let merge ((p, s) as cfg) e =  
   let e' = Fact.Equal.map (replace s) e in
     Trace.msg "cop" "Process" e' Fact.Equal.pp;
-    let sl = solve e' in
+    let sl = Fact.Equal.equivn Coproduct.solve e' in
       S.compose (p, s) sl
 
+(** [x <> y] implies [inl(x) = inl(y)],  [inr(x) = inr(y)]. *) 
 let rec dismerge ((p, s) as cfg) d = 
   assert(Fact.Diseq.is_var d);
   Trace.msg "cop" "Process" d Fact.Diseq.pp;
-  ()
+  () (* to do *)

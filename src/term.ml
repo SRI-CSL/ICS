@@ -336,10 +336,6 @@ and eq1 a b =
 and eql al bl =
   try List.for_all2 eq al bl with Invalid_argument _ -> false
 
-let eq =
-  Trace.func2 "foo" "Term.eq" pp pp Pretty.bool eq
-
-
 
 (** {6 Term Ordering} *)
 

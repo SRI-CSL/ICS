@@ -11,7 +11,7 @@
  * benefit corporation.
  *)
 
-let version = "ICS 2.0 (Experimental, August 20 2003)" 
+let version = "ICS 2.0 (Experimental, August 29 2003)" 
 
 (** ICS command line interpreter. *)
 

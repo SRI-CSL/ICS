@@ -45,17 +45,11 @@ and nat2bitv_rec n i =
       assert(String.length str' = n);
       Bitv.from_string str'
 
-
-(** {6 Recognizers} *)
-
 let is_pure = Term.is_pure Th.bv
 
 let is_interp = function
   | Term.App(sym, _, _) -> Sym.theory_of sym = Th.bv
   | _ -> false
-
-
-(** {6 Destructors} *)
 
 let d_interp = function
   | Term.App(sym, l, _) -> (Sym.Bv.get sym, l)
@@ -88,8 +82,7 @@ let width a =
 	(try Some(Term.Var.width_of a) with Not_found -> None)
 
 
-(** {6 Constant bitvectors} *)
-
+(** Constant bitvectors *)
 let mk_const c = Term.App.mk_const(Sym.Bv.mk_const c)
 
 let mk_zero n = mk_const(Bitv.create n false)
@@ -112,14 +105,10 @@ let is_one a =
 (** Creating fresh bitvector variables for solver. 
  The index variable are always reset to the current value
  when solver is called. *)
-
 let mk_fresh n =
   assert (n >= 0);
   if n = 0 then mk_eps () else 
     Term.Var.mk_fresh Th.bv None (Var.Cnstrnt.Bitvector(n))
-
-
-(** {6 Iterators} *)
 
 let rec iter f a =
   try
@@ -150,8 +139,6 @@ let rec exists p a =
   with 
       Not_found -> p a
 
-
-(** Term constructors. *)
 
 let rec mk_sub n i j a =
   assert (0 <= i && j < n && n >= 0);
@@ -259,10 +246,6 @@ let map f =
 let apply (x, b) = 
   map (fun y -> if Term.eq x y then b else y)
 
-
-
-(** Sigmatizing an expression. *)
-
 let sigma op l =
   match op, l with
     | Sym.Const(c), [] -> mk_const c
@@ -271,17 +254,15 @@ let sigma op l =
     | _ -> failwith "Bv.sigma: ill-formed expression"
 
  
-(* n-ary concatenation of some concatenation normal form *)
-
+(** [n]-ary concatenation of some concatenation normal form *)
 let rec mk_iterate n b = function
   | 0 -> mk_eps ()
   | 1 -> b
   | k -> mk_conc n (n * (k-1)) b (mk_iterate n b (k-1))
 
 
-(* Flattening out concatenations. The result is a list of equivalent
+(** Flattening out concatenations. The result is a list of equivalent
  equalities not containing any concatenations. *)
-
 let decompose e =
   let rec loop acc = function
     | [] -> acc
@@ -318,50 +299,6 @@ let decompose e =
   in
   loop [] [e] 
 
-
-(** Adding a solved pair [a |-> b] to the list of solved forms [sl],
- and propagating this new binding to the unsolved equalities [el] and 
- the rhs of [sl]. It also makes sure that fresh variables [a] are never
- added to [sl] but only propagated. *)
-
-let rec add a b (el, sl) =
-  assert(not(is_interp a));
-  if Term.eq a b then 
-    (el, sl)
-  else if inconsistent a b then
-    raise Exc.Inconsistent
-  else 
-    match is_fresh_bv_var a, is_fresh_bv_var b with 
-      | false, false ->
-	  (inste el a b, (a, b) :: insts sl a b)
-      | true, true -> 
-	  (inste el a b, insts sl a b)
-      | true, false -> 
-	  if is_interp b then
-	    (inste el a b, insts sl a b)
-	  else
-	    (inste el b a, insts sl b a)
-      | false, true ->
-	  (inste el b a, insts sl b a) 
-
-and is_fresh_bv_var _ = false    
-     
-and inste el a b = 
-  List.map (fun (x,y) -> (apply1 x a b, apply1 y a b)) el
-
-and insts sl a b =
-  List.map (fun (x,y) -> (x, apply1 y a b)) sl 
-  
-and inconsistent a b =
-  match width a, width b with
-    | Some(n), Some(m) -> n <> m
-    | _ -> false
-
-and apply1 a x b =      (* substitute [x] by [b] in [a]. *)
-  map (fun y -> if Term.eq x y then b else y) a
-
-
-(** Toplevel solver. *)
 
 let rec solve e  =
   solvel ([e], [])
@@ -427,3 +364,45 @@ and solve_sub_sub x n i j k l =
       mk_conc h (nc * (h' + h)) a c
   in
   (lhs, rhs)
+
+
+(** Adding a solved pair [a |-> b] to the list of solved forms [sl],
+ and propagating this new binding to the unsolved equalities [el] and 
+ the rhs of [sl]. It also makes sure that fresh variables [a] are never
+ added to [sl] but only propagated. *)
+and add a b (el, sl) =
+  assert(not(is_interp a));
+  if Term.eq a b then 
+    (el, sl)
+  else if inconsistent a b then
+    raise Exc.Inconsistent
+  else 
+    match is_fresh_bv_var a, is_fresh_bv_var b with 
+      | false, false ->
+	  (inste el a b, (a, b) :: insts sl a b)
+      | true, true -> 
+	  (inste el a b, insts sl a b)
+      | true, false -> 
+	  if is_interp b then
+	    (inste el a b, insts sl a b)
+	  else
+	    (inste el b a, insts sl b a)
+      | false, true ->
+	  (inste el b a, insts sl b a) 
+
+and is_fresh_bv_var _ = false    
+     
+and inste el a b = 
+  List.map (fun (x,y) -> (apply1 x a b, apply1 y a b)) el
+
+and insts sl a b =
+  List.map (fun (x,y) -> (x, apply1 y a b)) sl 
+  
+and inconsistent a b =
+  match width a, width b with
+    | Some(n), Some(m) -> n <> m
+    | _ -> false
+
+and apply1 a x b =      (* substitute [x] by [b] in [a]. *)
+  map (fun y -> if Term.eq x y then b else y) a
+

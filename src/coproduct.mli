@@ -30,6 +30,8 @@
   - [outr(inr(a)) = a]
   - [outl(inl(a)) = a]
   - [inl(a) <> inr(b)]
+  - [inl(a) <> a]
+  - [inr(a) <> a]
 
   A term is said to be {i canonical} in [COP], if it does not
   contain a term, which is of the form of any of the lhs above.
@@ -39,6 +41,8 @@
   This module provides
   - constructors [mk_inl], [mk_inr], [mk_outl], [mk_outr] for 
     building up canonical terms in [P].
+  - test for disequalities
+  - canonizer for terms in [COP]
   - a solver [solve] for solving equalities in [COP].
 
   All terms with a toplevel symbol not in [COP] are treated as 
@@ -54,8 +58,7 @@ val is_pure : Term.t -> bool
     that is, only variables occur at uninterpreted positions. *)
 
 val is_diseq : Term.t -> Term.t -> bool
-   (** [is_diseq a b] holds if the prefixes of injections 
-     of [a] and [b] are different. *)
+   (** [is_diseq a b] iff [a], [b] are disequal in the theory of [COP]. *)
 
 val mk_inl : Term.t -> Term.t
   (** For canonical [a], [mk_inl a] constructs a canonical term 
