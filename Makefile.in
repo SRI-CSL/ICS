@@ -102,7 +102,7 @@ ics.byte: $(COBJS) $(TOPCMI) $(TOPCMO)
                     $(COBJS) $(LIBS)
 
 OBJS = ics_all.o ics_stub.o ics_error.o mlgmp.o
-LISPOBJS = % ics.fasl ics-pvs.fasl
+LISPOBJS = # ics.fasl ics-pvs.fasl
 
 ics_all.o: $(CMX)
 	$(OCAMLOPT) -output-obj -o $@ unix.cmxa $(CMX)
