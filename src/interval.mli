@@ -89,6 +89,7 @@ val inter : t -> t -> t
     $\{ z | \exists x \in D(i), y \in D(j) \mbox{~such that~} y /= 0,\,z = x / y\}$\@. *)
   
 val add : t -> t -> t
+val subtract : t -> t -> t
 val multq :  Mpa.Q.t -> t -> t
 val mult :  t -> t -> t
 val expt : int -> t -> t
