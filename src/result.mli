@@ -28,7 +28,6 @@ type t =
   | Solution of (Term.t * Term.t) list
   | Context of Context.t
   | Process of Name.t Shostak.status
-  | Solve of Th.solvedform
   | Symtab of Symtab.t
   | Entry of Symtab.entry
   | Int of int
