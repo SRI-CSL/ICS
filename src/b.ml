@@ -73,9 +73,8 @@ let pp fmt s =
   let m = solution_of s in
   if m <> [] then
     begin
-      Pretty.string fmt "b:";
+      Pretty.string fmt "\nb:";
       Pretty.map Term.pp Term.pp fmt m;
-      Pretty.string fmt "\n"
     end
 
 
@@ -109,8 +108,10 @@ let merge e s =
 
 let extend b s =
   assert(Boolean.is_interp b);
-  let n = Name.of_string (if Boolean.is_true b then "t" else "f") in
-  let x = Term.mk_fresh_var n None in
+  let x =
+    let n = Name.of_string (if Boolean.is_true b then "t" else "f") in
+    Term.mk_fresh_var n None
+  in
   if Boolean.is_true b then
     (x, {s with valid = Some(x)})
   else 
