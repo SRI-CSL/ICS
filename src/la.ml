@@ -610,7 +610,7 @@ and gomery_cut ((_, s) as cfg) e =
   let a' = Arith.mk_addq b' ml' in
   let rho' = Justification.dependencies [rho] in
   let nn' = Fact.Nonneg.make (a', rho') in
-    Trace.msg "la" "Gomery" nn' Fact.Nonneg.pp;
+    Trace.msg "la" "Gomory" nn' Fact.Nonneg.pp;
     process_nonneg1 cfg nn'
 
   
@@ -635,10 +635,15 @@ and process_nonneg1 ((_, s) as cfg) nn =
 		compose1 r cfg e'
 	    with
 		Not_found ->
-		  add_to_t cfg e;
-		  if Fact.Equal.is_diophantine e then
-		    gomery_cut cfg e;
-		  infer cfg
+		  (try
+		     compose1 t cfg 
+		       (try_isolate_unbounded s e)
+		   with
+		       Not_found -> 
+			 add_to_t cfg e;
+			 if Fact.Equal.is_diophantine e then
+			   gomery_cut cfg e;
+			 infer cfg)
 	
 	      
 and add_to_t ((_, s) as cfg) e =
