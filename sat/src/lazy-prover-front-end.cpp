@@ -10,17 +10,63 @@
 
 #include<iostream.h>
 #include "ics_interface.h"
-#include "LPFormula.h"
 
 extern "C" {
-  // ics_sat : LPFormulaId -> int
-  int ics_sat(LPFormulaId root_id) {
-    cout << "working!!!\n";
-		sat_formula_manager->dump_formula(cout, root_id);
-		cout << endl;
-		return 0;
-  }
+
+	// ics_sat : context -> prop -> atom list
+	value * ics_sat(value * context, value * prop) {
+		cout << "working!!!\n";
+
+		// force the link 
+		if (context == 0) {
+			// this is unreachable code... it is used just to check if the linker is working
+			ics_is_nil(context);
+			ics_head(context);
+			ics_tail(context);
+			ics_pair(context,  context);
+			ics_fst(context);
+			ics_snd(context);
+			ics_triple(context,  context,  context);
+			ics_fst_of_triple(context);
+			ics_snd_of_triple(context);
+			ics_third_of_triple(context);
+			ics_prop_is_true(context);
+			ics_prop_is_false(context);
+			ics_prop_is_atom(context);
+			ics_prop_is_var(context); 
+			ics_prop_is_ite(context);
+			ics_prop_is_disj(context);
+			ics_prop_is_iff(context);
+			ics_prop_is_neg(context);
+			ics_prop_d_atom(context);
+			ics_prop_d_ite(context);
+			ics_prop_d_disj(context);
+			ics_prop_d_iff(context);
+			ics_prop_d_neg(context);
+			ics_atom_is_negatable(context);
+			ics_atom_negate(context);
+			ics_atoms_empty();
+			ics_atoms_singleton(context);
+			ics_atoms_add(context,  context); 
+			ics_atoms_to_list(context);
+			ics_context_empty();
+			ics_process(context,  context);
+			ics_is_consistent(context);
+			ics_is_redundant(context);
+			ics_is_inconsistent(context);
+		}
+		return ics_atoms_to_list(ics_atoms_empty());
+	}
 }
+
+
+// #ifdef LP_ARGP_AVAILABLE
+// #include<argp.h>
+// #else
+// extern "C" {
+// extern int getopt(int, char * const *, const char *);
+// }
+// #endif
 
 // #include<stdio.h>
 // #if defined(LP_TRACE_MALLOC) || !defined(NDEBUG)
