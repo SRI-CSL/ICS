@@ -34,8 +34,7 @@ let empty = {
   changed = []
 }
 
-let unchanged s t =
-  s.d == t.d
+let eq s t = (s.d == t.d)
 
 let deq_of s = s.d
 
@@ -65,14 +64,15 @@ let pp fmt s =
 (*s Changed. *)
 
 let is_changed s x = 
-  List.exists (fun d ->
-		 let (y, z,_) = Fact.d_diseq d in
-		 Term.eq x y || Term.eq x z) s.changed
+  List.exists 
+    (fun d ->
+       let (y, z,_) = Fact.d_diseq d in
+	 Term.eq x y || Term.eq x z) s.changed
 
 let changed s = s.changed
 
-let reset s = {s with changed = []}
-
+let reset s =
+  if s.changed = [] then s else {s with changed = []}
 
 (*s All terms known to be disequal to [a]. *)
 
@@ -94,26 +94,29 @@ let rec add d s =
   let xd' = Term.Set.add y xd in
   let yd' = Term.Set.add x yd in
   match xd == xd', yd == yd' with
-    | true, true -> s
+    | true, true -> 
+	s
     | true, false ->
+	Trace.msg "d" "Update" (x, y) Term.pp_diseq;
 	{s with 
 	   d = Term.Map.add y yd' s.d;
 	   changed = Fact.mk_diseq x y None :: s.changed }
     | false, true -> 
+	Trace.msg "d" "Update" (x, y) Term.pp_diseq;
 	{s with 
 	   d = Term.Map.add x xd' s.d;
 	   changed = Fact.mk_diseq x y None :: s.changed}
     | false, false -> 
+	Trace.msg "d" "Update" (x, y) Term.pp_diseq;
 	{s with 
 	   d = Term.Map.add x xd' (Term.Map.add y yd' s.d);
            changed = Fact.mk_diseq x y None :: s.changed}
 
 
-
-(*s Propagating an equality between uninterpreted terms. *)
+(*s Propagating an equality between variables. *)
 
 let merge e s =
-  let (a,b,_) = Fact.d_equal e in
+  let (a, b,_) = Fact.d_equal e in
   let da = deq s a and db = deq s b in
   if Term.Set.mem a db || Term.Set.mem b da then
     raise Exc.Inconsistent
@@ -126,18 +129,3 @@ let merge e s =
       {s with 
 	 d = Term.Map.add b dab d';
 	 changed = s.changed }
-
-(*s Instantiation. *)
-
-let inst f s =
-  let d' = 
-    Term.Map.fold
-      (fun x ys ->
-	 let x' = f x in
-	 assert(Term.is_var x');
-	 let ys' = Term.Set.fold (fun y -> Term.Set.add (f y)) ys Term.Set.empty in
-	 Term.Map.add x' ys')
-      s.d
-      Term.Map.empty
-  in 
-  {s with d = d'}
