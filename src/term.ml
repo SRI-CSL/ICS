@@ -17,6 +17,7 @@
 (*i*)
 open Mpa
 open Format
+open Sym
 (*i*)
 
 (*s Terms. *)
@@ -30,10 +31,12 @@ let rec eq a b =
     | Var(x), Var(y) -> 
 	Var.eq x y
     | App(f,l), App(g,m) -> 
-	Sym.eq f g &&
-	(try List.for_all2 eq l m with Invalid_argument _ -> false)
+	Sym.eq f g && eql l m
     | _ ->
 	false
+
+and eql al bl =
+  try List.for_all2 eq al bl with Invalid_argument _ -> false
 
 (*s Constructors. *)
 
@@ -47,9 +50,6 @@ let mk_fresh_var x k = Var(Var.mk_fresh x k)
 let is_fresh_var = function
   | Var(x) -> Var.is_fresh x
   | _ -> false
-
-let mk_fresh_param x k = App(Sym.mk_fresh x k, [])
-
 
 (*s Recognizers. *)
 
@@ -94,13 +94,14 @@ and cmpl l m =
       | [], [] -> c
       | [], _  -> -1
       | _,  [] -> 1
-      | x::xl, y::yl -> 
+      | x:: xl, y:: yl -> 
 	  if c != 0 then loop c xl yl else loop (cmp x y) xl yl
   in
   loop 0 l m
 
 
 let (<<<) a b = (cmp a b <= 0)
+
 
 (*s [cmp] forces function applications to be smaller than constants.  
   Thus, [cmp] makes sure that e.g. [f(x) = c] is added in  this order.
@@ -120,27 +121,17 @@ let max a b =
 (*s Some recognizers. *)
 
 let is_interp_const = function
-  | App(f,[]) -> Sym.is_interp f
+  | App((Arith _ | Bv _ | Tuple _), []) -> true
   | _ -> false
    
 let is_interp = function
-  | App(f, _) -> Sym.is_interp f
+  | App((Arith _ | Bv _ | Tuple _), _) -> true
   | _ -> false
 
 let is_uninterpreted = function
-  | App(f, _) -> not(Sym.is_interp f)
+  | App(Uninterp _, _) -> true
   | _ -> false
 
-(*s Test is arguments are known to be disequal. *)
-
-let is_diseq a b =
-  match a, b with
-    | App(f,[]), App(g,[]) ->
-	not(Sym.eq f g) &&
-	Sym.is_interpreted_const f && 
-	Sym.is_interpreted_const g
-     | _ ->
-	 false
 
 
 (*s Mapping over list of terms. Avoids unnecessary consing. *)
@@ -181,24 +172,7 @@ let rec subterm a b  =
   (not(is_var b) &&
    List.exists (subterm a) (args_of b))
 
-
-(*s [d_select s a] succeeds when [a] is equal to 
- the pattern [select(x, y)] and throws [Not_found] otherwise. *)
-
-let d_select a =
-  if is_var a then raise Not_found  else
-    match destruct a with
-      | f, [x;y] when Sym.eq f Sym.mk_select -> (x,y)
-      | _ -> raise Not_found
-
-(*s [d_update s a] succeeds when [a] is equal to 
- the pattern [update(x, y,z)] in [s]. *)
-
-let d_update a =
-  if is_var a then raise Not_found else
-    match destruct a with
-      | f, [x;y;z] when Sym.eq f Sym.mk_update -> (x,y,z)
-      | _ -> raise Not_found
+let occurs x b = subterm x b
 
 
 (*s Printer. *)
@@ -212,57 +186,61 @@ let rec pp fmt a =
   match a with
     | Var(x) -> 
 	Var.pp fmt x
-    | App(f,l) when !pretty ->
-	(match Sym.destruct f, l with
-	  | Sym.Interp(Sym.Arith(Sym.Num q)), [] -> 
-	      Mpa.Q.pp fmt q
-	  | Sym.Interp(Sym.Arith(Sym.Add)), _ -> 
-	      Pretty.infixl pp " + " fmt l
-	  | Sym.Interp(Sym.Arith(Sym.Mult)), _ -> 
-	      Pretty.infixl pp " * " fmt l
-	  | Sym.Interp(Sym.Arith(Sym.Expt(n))), [x] 
-	      when is_var x || not(Sym.is_arith (sym_of x)) ->
-		Pretty.infix pp "^" Pretty.number fmt (x,n)
-	  | Sym.Interp(Sym.Tuple(Sym.Proj(0,2))), [x] -> 
-	      Pretty.string fmt "car("; 
-	      pp fmt x;
-	      Pretty.string fmt ")"
-	  | Sym.Interp(Sym.Tuple(Sym.Proj(1,2))), [x] -> 
-	      Pretty.string fmt "cdr("; 
-	      pp fmt x;
-	      Pretty.string fmt ")"
-	  | Sym.Interp(Sym.Tuple(Sym.Product)), [x;y] -> 
+    | App(f, l) ->
+	(match f, l with
+	   | Arith(op), l -> 
+	       pp_arith fmt op l
+	   | Tuple(Proj(0,2)), [x] -> 
+	       Pretty.string fmt "car("; 
+	       pp fmt x;
+	       Pretty.string fmt ")"
+	   | Tuple(Proj(1,2)), [x] -> 
+	       Pretty.string fmt "cdr("; 
+	       pp fmt x;
+	       Pretty.string fmt ")"
+	  | Tuple(Product), [x; y] -> 
 	      Pretty.string fmt "cons("; 
 	      pp fmt x; 
 	      Pretty.string fmt ", ";
 	      pp fmt y;
 	      Pretty.string fmt ")"
-	  | Sym.Interp(Sym.Bv(Sym.Const(b))), [] -> 
+	  | Bv(Const(b)), [] -> 
 	      Format.fprintf fmt "0b%s" (Bitv.to_string b)
-	  | Sym.Interp(Sym.Bv(Sym.Conc _)), l -> 
+	  | Bv(Conc _), l -> 
 	      Pretty.infixl pp " ++ " fmt l
-	  | Sym.Interp(Sym.Bv(Sym.Sub(_,i,j))), [x] -> 
+	  | Bv(Sub(_,i,j)), [x] -> 
 	      (pp fmt x; Format.fprintf fmt "[%d:%d]" i j)
-	  | _, [x;y;z] when Sym.eq f Sym.mk_update ->
+	  | Uninterp(f), [x;y;z] when Name.eq f Name.update ->
 	      pp fmt x; 
 	      Pretty.string fmt "[";
 	      pp fmt y; 
 	      Pretty.string fmt " := ";
 	      pp fmt z;
 	      Pretty.string fmt "]"
-	  | _, [x;y] when Sym.eq f Sym.mk_select ->
+	  | Uninterp(f), [x; y] when Name.eq f Name.select ->
 	      pp fmt x;
 	      Pretty.string fmt "[";
 	      pp fmt y;
 	      Pretty.string fmt "]"
-	  | _, [x;y] when Sym.eq f Sym.mk_div ->
+	  | Uninterp(f), [x; y] when Name.eq f Name.div ->
 	      pp fmt x; Pretty.string fmt " / "; pp fmt y
+	  | Uninterp(f), xl when Name.eq f Name.mult ->
+	      Pretty.infixl pp " * " fmt xl
 	  | _ -> 
 	      Sym.pp fmt f; 
 	      Tools.ppl ("(", ", ", ")") pp fmt l)
-    | App(f, l) ->
-	Sym.pp fmt f; 
-	Tools.ppl ("(", ", ", ")") pp fmt l
+
+and pp_arith fmt op l = 
+  match op, l with
+    | Num q, [] -> 
+	Mpa.Q.pp fmt q
+    | Add, _ -> 
+	Pretty.infixl pp " + " fmt l
+    | Multq(q), [x] ->
+	Pretty.infix Mpa.Q.pp "*" pp fmt (q, x)
+    | _ ->
+	assert false
+   
 
 let to_string = 
   Pretty.to_string pp

@@ -46,7 +46,10 @@ open Mpa
  on these sets are described below in the submodule [Set]. *)
 
 
-type t
+type t =
+  | Var of Var.t
+  | App of Sym.t * t list
+ 
 
 (*s Constructing and destructing terms *)
 
@@ -56,8 +59,6 @@ val mk_app : Sym.t -> t list -> t
 
 val mk_fresh_var : Name.t -> int option -> t
 val is_fresh_var : t -> bool
-val mk_fresh_param : string -> int option -> t
-
 val name_of : t -> Name.t
 
 val destruct : t -> Sym.t * t list
@@ -68,6 +69,8 @@ val args_of : t -> t list
 (*s Equality of terms. *)
 
 val eq : t -> t -> bool
+
+val eql : t list -> t list -> bool
 
 val cmp : t -> t -> int
 
@@ -88,10 +91,6 @@ val is_app : t -> bool
 
 val is_interp_const : t -> bool
  
-(*s Test if [a] and [b] are known to be disequal. *)
-
-val is_diseq : t  -> t -> bool
-
 
 (*s Fold operator on terms. *)
 
@@ -110,6 +109,10 @@ val for_all : (t -> bool) -> t -> bool
 (*s [subterm a b] holds if [a] is a subterm of [b]. *)
 
 val subterm : t -> t -> bool
+
+(*s [occurs x a] holds if term [x] occurs in [a]. *)
+
+val occurs : t -> t -> bool
 
     
 (*s Mapping over list of terms. Avoids unnecessary consing. *)
@@ -130,16 +133,6 @@ val pp : Format.formatter -> t -> unit
 
 val to_string : t -> string
 
-
-(*s [d_select s a] succeeds when [a] is equal to 
- the pattern [select(x, y)] and throws [Not_found] otherwise. *)
-
-val d_select : t -> t * t
-
-(*s [d_update s a] succeeds when [a] is equal to 
- the pattern [update(x, y,z)] in [s]. *)
-
-val d_update : t -> t * t * t
 
 (*s Pretty-printing pairs as equalities/disequalities/constraints. *)
 
