@@ -90,19 +90,9 @@ fi
 
 AC_CHECK_PROG(OCAMLDOC,ocamldoc,ocamldoc,true)
 if test "$OCAMLDOC" = true ; then
-	AC_MSG_WARN(Cannot find ocamldoc -- but not mandatory)
+	AC_MSG_WARN(Cannot find ocamldoc -- but not mandatory, since only used for generating documentation.)
 fi
 
-dnl Check for other programs
-AC_CHECK_PROG(HEVEA,hevea,hevea,true)
-if test "$HEVEA" = true ; then
-	AC_MSG_WARN(Cannot find hevea -- but not mandatory)
-fi
-
-AC_CHECK_PROG(OCAMLWEB,ocamlweb,ocamlweb,true)
-if test "$OCAMLWEB" = true ; then
-	AC_MSG_WARN(Cannot find ocamlweb -- but not mandatory)
-fi
 
 dnl Check for library
 
