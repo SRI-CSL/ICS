@@ -204,8 +204,8 @@
 			    (unwrap (translate-to-ics* (args2 ex))))))
 	  (t
 	   (ics_mk_app
-	    (translate-to-ics* op)
-	    (translate-to-ics* (arguments ex)))))))
+	    (unwrap (translate-to-ics* op))
+	    (unwrap (translate-to-ics* (arguments ex))))))))
 
 (defun op? (op modulename name)
   (and (typep op 'name-expr)
