@@ -28,6 +28,7 @@ let set_maxloops n =
   Rule.maxclose := n
 let _ = Callback.register "set_maxloops" set_maxloops
 
+
 let do_at_exit () = Tools.do_at_exit ()
 let _ = Callback.register "do_at_exit" do_at_exit
 
@@ -153,6 +154,8 @@ type th = int
 let th_to_string n = Th.to_string (Th.of_int n)
 let _ = Callback.register "th_to_string" th_to_string
 
+let th_of_string s = Th.to_int (Th.of_string s)
+let _ = Callback.register "th_of_string" th_of_string
 
 
 (** Function symbols. These are partitioned into uninterpreted
@@ -167,18 +170,23 @@ open Sym
 
 type sym = Sym.t
 
-let sym_is_uninterp = function Uninterp _ -> true | _ -> false
-let _ = Callback.register "sym_is_uninterp" sym_is_uninterp
-
-let sym_is_interp n sym =
-  Th.eq (Th.of_int n) (Th.of_sym sym)
-let _ = Callback.register "sym_is_interp" sym_is_interp
-
 let sym_eq = Sym.eq
 let _ = Callback.register "sym_eq" sym_eq
 
 let sym_cmp = Sym.cmp
 let _ = Callback.register "sym_cmp" sym_cmp
+
+let sym_theory_of f = Th.to_int (Th.of_sym f)
+let _ = Callback.register "sym_theory_of" sym_theory_of
+
+let sym_is_uninterp = function Uninterp _ -> true | _ -> false
+let _ = Callback.register "sym_is_uninterp" sym_is_uninterp
+
+let sym_d_uninterp = function 
+  | Uninterp(n) -> n 
+  | _ -> assert false
+let _ = Callback.register "sym_d_uninterp" sym_d_uninterp
+
 
 let sym_is_num = function Arith(Num _) -> true | _ -> false
 let _ = Callback.register "sym_is_num" sym_is_num
@@ -622,10 +630,10 @@ let d_consistent r =
          (* failwith "Ics.d_consistent: fatal error" *)
 	
 let _ = Callback.register "d_consistent" d_consistent 
+
+let _ = Trace.add "api"
  
-let process s =
-  Trace.func "api" "Process" Atom.pp (Process.pp Context.pp)
-    (Process.atom s)
+let process = Process.atom
 let _ = Callback.register "process" process   
 
 let split s = 
@@ -651,30 +659,47 @@ let rec cmd_rep () =
     cmd_output outch (read_from_channel inch);
     Format.fprintf outch "@?"
   with
-    | Invalid_argument str -> cmd_error outch str
-    | Parsing.Parse_error -> cmd_error outch ("Syntax error on line " ^ string_of_int !Tools.linenumber)
+    | Invalid_argument str -> 
+	cmd_error outch str
+    | Parsing.Parse_error -> 
+	cmd_error outch "Syntax error"
     | End_of_file ->
 	 cmd_quit 0 outch;
     | Sys.Break -> 
 	 cmd_quit 1 outch;
-    | Failure "drop" -> raise (Failure "drop")
-    | exc -> (cmd_error outch ("Exception " ^ (Printexc.to_string exc)); exit 2)
+    | Failure "drop" -> 
+	raise (Failure "drop")
+    | exc -> 
+	(cmd_error outch ("Exception " ^ (Printexc.to_string exc)); exit 2)
 
 and cmd_batch () =
   let inch = Istate.inchannel() in
   let outch = Istate.outchannel() in
   try
-    cmd_output outch (Parser.commandsequence Lexer.token (Lexing.from_channel inch));
-    Format.fprintf outch "@?"
+    match Parser.commandsequence Lexer.token (Lexing.from_channel inch) with
+      | Result.Process(Process.Inconsistent) ->
+	  raise Exc.Inconsistent
+      | _ -> ()   (* be quiet *)
   with
-    | Invalid_argument str -> cmd_error outch str
-    | Parsing.Parse_error -> cmd_error outch ("Syntax error on line " ^ string_of_int !Tools.linenumber)
+    | Invalid_argument str -> 
+	cmd_error outch str;
+	cmd_quit 3 outch
+    | Parsing.Parse_error -> 
+	let number =  string_of_int !Tools.linenumber in
+	  cmd_error outch ("Syntax error on line " ^ number);
+	  cmd_quit 2 outch
     | End_of_file ->
-	 cmd_quit 0 outch;
+	cmd_quit 0 outch
     | Sys.Break -> 
-	 cmd_quit 1 outch;
-    | Failure "drop" -> raise (Failure "drop")
-    | exc -> (cmd_error outch ("Exception " ^ (Printexc.to_string exc)); exit 2)
+	cmd_quit 1 outch
+    | Failure "drop" -> 
+	raise (Failure "drop")
+    | Exc.Inconsistent ->
+	Format.fprintf outch ":unsat\n@?";
+	cmd_quit (-1) outch
+    | exc -> 
+	cmd_error outch ("Exception " ^ (Printexc.to_string exc));
+	cmd_quit 4 outch
 
 
 
@@ -698,10 +723,10 @@ and cmd_error fmt str =
   Format.fprintf fmt ":error %s" str;
   Format.fprintf fmt "\n%s@?" (Istate.eot())
 
-and cmd_quit n fmt = 
- Format.fprintf fmt ":quit\n@?";
- cmd_endmarker fmt;
- exit n
+and cmd_quit n fmt =
+  do_at_exit();
+  cmd_endmarker fmt;
+  exit n
 
 and cmd_endmarker fmt =
   let eot = Istate.eot () in

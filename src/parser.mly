@@ -1,5 +1,4 @@
 
-
 /*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
@@ -127,11 +126,15 @@ commandsequence : command DOT    { $1 }
 | command DOT commandsequence    { $3 }
 | EOF                            { raise End_of_file }
 
-                         
+    
+int: 
+  INTCONST  { $1 }
+| MINUS INTCONST %prec prec_unary { -$2 }
 
 rat:
-  INTCONST  { Q.of_int $1 }
+  int       { Q.of_int $1 }
 | RATCONST  { $1 }
+| MINUS RATCONST %prec prec_unary { Q.minus $2 }
 ;
 
 
@@ -141,7 +144,7 @@ funsym:
   name                                   { Sym.Uninterp($1) }
 | PLUS                                   { Sym.Arith(Sym.Add) }
 | TIMES                                  { Sym.Pp(Sym.Mult) }
-| EXPT LBRA INTCONST RBRA                { Sym.Pp(Sym.Expt($3)) }
+| EXPT LBRA int RBRA                     { Sym.Pp(Sym.Expt($3)) }
 | TUPLE                                  { Sym.Product(Sym.Tuple) }
 | UNSIGNED                               { Sym.Bvarith(Sym.Unsigned) }
 | PROJ LBRA INTCONST COMMA INTCONST RBRA { Sym.Product(Sym.Proj($3, $5)) }
@@ -216,7 +219,7 @@ arith:
 | MINUS term %prec prec_unary   { Arith.mk_neg $2 }
 | term TIMES term               { Sig.mk_mult $1 $3 }
 | term DIVIDE term              { Sig.mk_div $1 $3 }
-| term EXPT INTCONST            { Sig.mk_expt $3 $1 }
+| term EXPT int                 { Sig.mk_expt $3 $1 }
 ;
 
 coproduct:

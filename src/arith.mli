@@ -81,6 +81,10 @@ val mk_multq: Mpa.Q.t -> Term.t -> Term.t
   (** [mk_multq q a] creates the normalized linear arithmetic term
     representing [q * a]. *)
 
+val mk_linear : Mpa.Q.t * Term.t -> Mpa.Q.t * Term.t -> Term.t
+  (** [mk_linear (q, a) (p, b)] creates a normalized arithmetic
+    term representing [q * a + p * b]. *)
+
 
 (** {6 Recognizers} *)
 
@@ -156,10 +160,6 @@ val leading : Term.t -> Term.t
 
 (** {6 Iterators} *)
 
-val fold : (Term.t -> 'a -> 'a) -> Term.t -> 'a -> 'a
-  (** [fold f a e] applies [f] at uninterpreted positions of [a] and 
-    accumulates the results starting with [e]. *)
-
 val map: (Term.t -> Term.t) -> Term.t -> Term.t
   (** Applying a term transformer [f] at uninterpreted positions.
     - [map f (mk_num q)] equals [mk_num q]
@@ -220,4 +220,14 @@ val is_diophantine : (Term.t -> Cnstrnt.t) -> Term.t -> bool
     if [c(x)] yields a subconstraint of {!Cnstrnt.int}. *)
   
 val cnstrnt : (Term.t -> Cnstrnt.t) -> Term.t -> Cnstrnt.t
-  (** Compute a subconstraint of {!Cnstrnt.mk_real} for a list of monomials. *)
+  (** Compute a subconstraint of {!Cnstrnt.mk_real} for an arithmetic term. *)
+
+val cnstrnt_of_addl :  (Term.t -> Cnstrnt.t) -> Term.t list -> Cnstrnt.t
+  (** Compute a subconstraint of {!Cnstrnt.mk_real} for a list of terms,
+    which are either linear multiplications or uninterpreted terms, interpreted
+    as addition. *)
+
+val normalize : Term.t * Cnstrnt.t -> Term.t * Cnstrnt.t
+  (** [normalize (a, i)] returns [(b, j)] such that [a in i] iff
+    [b in j]. In addition, [b] is neither of the form [p + q * x]
+    nor of the form [q * x], and all coefficients are integer. *)

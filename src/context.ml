@@ -49,11 +49,11 @@ let upper_of s = s.upper
 (** Equality test. Do not take upper bounds into account. *)
 
 let eq s t =              
- Partition.eq s.p t.p &&
- Array.for_all2 
-   (fun eqs1 eqs2 -> 
-      Solution.eq eqs1 eqs2) 
-   s.eqs t.eqs
+  Partition.eq s.p t.p &&
+  Array.for_all2 
+    (fun eqs1 eqs2 -> 
+       Solution.eq eqs1 eqs2) 
+    s.eqs t.eqs
 
 
 (** Destructive updates. *)
@@ -90,15 +90,14 @@ let copy s = {
 
 
 (** Canonical variables module [s]. *)
-
+	       
 let v s = V.find (v_of s)
-
+	    
 let c s = C.apply (c_of s)
-
+	    
 let d s = D.deq (d_of s)
-
+	    
 let fold s f x = V.fold (v_of s) f (v s x)
-
 
 
 (** Constraint of [a] in [s]. *)
@@ -106,21 +105,20 @@ let fold s f x = V.fold (v_of s) f (v s x)
 let cnstrnt s = 
   let rec of_term a =
     match a with
-    | Var _  -> 
-	c s (v s a)
-    | App(Arith(op), xl) ->
-	Arith.tau of_term op xl
-    | App(Pp(op), xl) -> 
-	Pp.tau of_term op xl
-    | App(Bvarith(op), xl) -> 
-	Bvarith.tau of_term op xl
-    | App(Fun(op), xl) ->
-	Apply.tau of_term op xl
-    | _ -> 
-	raise Not_found
+      | Var _  -> 
+	  c s (v s a)
+      | App(Arith(op), xl) ->
+	  Arith.tau of_term op xl
+      | App(Pp(op), xl) -> 
+	  Pp.tau of_term op xl
+      | App(Bvarith(op), xl) -> 
+	  Bvarith.tau of_term op xl
+      | App(Fun(op), xl) ->
+	  Apply.tau of_term op xl
+      | _ -> 
+	  raise Not_found
   in
-    Trace.func "context" "Cnstrnt" Term.pp Cnstrnt.pp
-      of_term
+    of_term
 
 
 (** Choosing a variable. *)
@@ -135,14 +133,14 @@ let pp fmt s =
     if not(Solution.is_empty sl) then
       Solution.pp i fmt sl
   in
-  Partition.pp fmt s.p;
-  Array.iter (fun i eqs -> pps i eqs) s.eqs
+    Partition.pp fmt s.p;
+    Array.iter (fun i eqs -> pps i eqs) s.eqs
 
 
 (** Parameterized operations on solution sets. *)
 
 let mem i s = Solution.mem (eqs_of s i)
-
+		
 let use i s = Solution.use (eqs_of s i)
 
 let apply i s = Solution.apply (eqs_of s i)
@@ -154,6 +152,7 @@ let rec inv i s =
     inv_pprod s
   else 
     Solution.inv (eqs_of s i)
+
 
 (** Search for largest match on rhs. For example, if [a] is
  of the form [x * y] and there is an equality [u = x^2 * y],
@@ -226,7 +225,6 @@ let sigma s f =
 (** Folding over the use list. *)
 
 let folduse i x f s = 
-  Trace.msg "foo4" "folduse" (Set.elements (use i s x)) (Pretty.list Term.pp);
   Set.fold
     (fun y s ->
        try
@@ -240,29 +238,45 @@ let folduse i x f s =
 
 (* Component-wise solver. Only defined for fully interpreted theories. *)
 
-let solve i s = 
-  Trace.func "context" "solve" 
-    Fact.pp_equal
-    (Pretty.list Fact.pp_equal)
-    (fun e ->
-       let (a, b, _) = Fact.d_equal e in
-	 if Th.eq i Th.la &&
-	   Arith.is_diophantine (c s) a &&
-	   Arith.is_diophantine (c s) b
-	 then
-	   Arith.zsolve e
-	 else
-	   Th.solve i e)
+let rec solve i s e =
+  let (a, b, _) = Fact.d_equal e in
+    if !integer_solve && Th.eq i Th.la &&
+      Arith.is_diophantine (c s) a &&
+      Arith.is_diophantine (c s) b
+    then
+      Arith.zsolve e
+    else
+      Th.solve i e
+
+and integer_solve = ref false
 
 let fuse i e s =
   install s i (Solution.fuse i (s.p, eqs_of s i) [e])
 
-let rec compose i e s =
-  let (a, b, _) = Fact.d_equal e in
-  let a' = find i s a and b' = find i s b in
-  let e' = Fact.mk_equal a' b' None in
+let rec propagate i e s =
+  let (x, y, _) = Fact.d_equal e in
+    if not(Set.is_empty (use i s x)) then      (* [x] occurs on rhs. *)
+      let b = find i s y in
+      let e' = Fact.mk_equal x b None in
+	fuse i e' s
+    else
+      try
+	let a = apply i s x in
+	  try
+	    let b = apply i s y in 
+	      if Term.eq a b then s else 
+		let e' = Fact.mk_equal a b None in
+		  compose i e' s
+	  with
+	      Not_found ->
+		let e' = Fact.mk_equal y a None in
+		  compose i e' s (* (Context.restrict i x s) *)
+	  with
+	      Not_found -> s        (* [x] occurs neither on rhs nor on lhs. *)
+
+and compose i e s =
   try
-    let sl' = solve i s e' in
+    let sl' = solve i s e in
       install s i (Solution.compose i (s.p, eqs_of s i) sl')
   with
       Exc.Unsolved ->   (* Incomplete Solver *)

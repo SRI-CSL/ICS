@@ -119,6 +119,9 @@ val subtract : t -> t -> t
 val multq :  Mpa.Q.t -> t -> t
   (** [D(multq q i)] is [q * D(j)] *)
 
+val addq :  Mpa.Q.t -> t -> t
+  (** [D(addq q i)] is [q + D(j)] *)
+
 val mult :  t -> t -> t
   (** [D(mult i j)] is a superset of [D(i) * D(j)] *)
 

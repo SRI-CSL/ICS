@@ -11,10 +11,13 @@
  * benefit corporation.
  *)
 
-(** Constructors for atomic predicates.
+(** Atomic predicates.
 
-  An atomic predicate is either the constant [True] or [False]
-  predicate, or an equality, disequality, or a constraint fact.
+  An atomic predicate is either the 
+  - constant [True] or [False] predicate,
+  - an equality, 
+  - disequality, or 
+  - an arithmetic constraint.
 
   @author Harald Ruess
 *)
@@ -38,8 +41,6 @@ val mk_equal : Fact.equal -> t
 val mk_diseq : Fact.diseq -> t
 
 val mk_in : Fact.cnstrnt -> t
-
-val normalize : Term.t * Cnstrnt.t -> Term.t * Cnstrnt.t
 
 
 (** {6 Pretty-printing} *)

@@ -11,7 +11,9 @@
  * benefit corporation.
  *)
 
-(*s A {b real number constraint} consists of an {i interval} [i] with an 
+(** Real number constraints.
+
+  A {b real number constraint} consists of an {i interval} [i] with an 
   interpretation domain in {!Dom.t}, a lower and an upper endpoint
   of type {!Endpoint.t}, and a set of rationals, the so-called 
   {i exception set} [qs].  Each such constraint [c] {b denotes} a subset
@@ -27,6 +29,7 @@ type t
 
 module Diseqs: (Set.S with type elt = Mpa.Q.t)
   (** Exception sets are sets of rationals. *)
+
 
 (** {6 Constructors} *)
 
@@ -73,12 +76,14 @@ val mk_cc : Dom.t -> Mpa.Q.t -> Mpa.Q.t -> t
   (** [C(mk_cc d q p)] is [{x in d | q <= x <= p}]. *)
 
 val mk_lower : Dom.t -> Mpa.Q.t * bool -> t
-  (** - [C(mk_lower d (q, false))] is [{x in d | x < q}] and
-      - [C(mk_lower d (q, true))] is [{x in d | x <= q}] *)
+  (** Lower constraint
+    - [C(mk_lower d (q, false))] is [{x in d | x < q}] and
+    - [C(mk_lower d (q, true))] is [{x in d | x <= q}] *)
 
 val mk_upper : Dom.t -> bool * Mpa.Q.t -> t
- (** - [C(mk_upper d (false, q))] is [{x in d | x > q}] and
-     - [C(mk_upper d (true, q))] is [{x in d | x >= q}] *)
+ (** Upper constraint
+   - [C(mk_upper d (false, q))] is [{x in d | x > q}] and
+   - [C(mk_upper d (true, q))] is [{x in d | x >= q}] *)
 
 val mk_lt : Dom.t -> Mpa.Q.t -> t
   (** [C(mk_lt d q)] is [{x in d | x < q}] *)
@@ -224,6 +229,8 @@ val subtract : t -> t -> t
 val multq : Mpa.Q.t -> t -> t
   (** [C(addq q c)] equals [q * C(c)]. *)
 
+val linear : Mpa.Q.t * t -> Mpa.Q.t * t -> t
+
 val mult : t -> t -> t
   (** [C(mult c d)] is a superset of [C(c) * C(d)]. *)
 
@@ -240,6 +247,15 @@ val div : t -> t -> t
     there exists [x in C(c)], [y in C(d)] with [y /= 0], [z = x / y]. *)
 
 
+(** {Iterators} *)
+
+val foldq : (Mpa.Q.t -> 'a -> 'a) -> t -> 'a -> 'a
+  (** Folding over all rationals in constraint; this includes rational
+    endpoints and all members of the disequality set.*)
+
+
 (** {6 Pretty-printing constraints} *)
 
 val pp : t Pretty.printer
+
+

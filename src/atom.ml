@@ -24,7 +24,6 @@ type t =
   | False
 
 
-
 (** {6 Constructors} *)
 
 let mk_true () = True
@@ -41,39 +40,20 @@ let mk_equal e =
       Equal(e)
 
 let rec mk_in c =
+  Trace.msg "foo" "Atom.mk_in" c Fact.pp_cnstrnt;
   let (a, c, j) = Fact.d_cnstrnt c in
-  if Cnstrnt.is_empty c then
-    False
-  else 
-    match Cnstrnt.d_singleton c with
-    | Some(q) ->
-	mk_equal (Fact.mk_equal a (Arith.mk_num q) j)
-    | None -> 
-	(match a with
-	   | Term.App(Sym.Arith(Sym.Num(q)), []) -> 
-	       if Cnstrnt.mem q c then True else False
-	   | _ ->
-	       let (a', c') = normalize (a, c) in
-		 In(Fact.mk_cnstrnt a' c' j))
-
-and normalize (a, c) =
-  match a with
-    | Term.App(Arith(Multq(q)), [x]) when not(Mpa.Q.is_zero q) ->
-	(x, Cnstrnt.multq (Mpa.Q.inv q) c)
-    | Term.App(Arith(Add), m1 :: m2 :: ml) ->
-	(match m1, m2 with
-	   | Term.App(Arith(Sym.Num(q)), []), 
-	     Term.App(Arith(Multq(p)), [x])
-	       when not(Mpa.Q.is_zero p) ->   (* [q + p*x +ml in c] iff *)
-	       let pinv = Mpa.Q.inv p in      (* [x + 1/p * ml in 1/ p * (c - q)] *)
-	       let c' = Cnstrnt.multq pinv (Cnstrnt.addq (Q.minus q) c) in
-	       let a' = Arith.mk_add x (Arith.mk_multq pinv (Arith.mk_addl ml)) in
-		 (a', c')
-	   | _ -> (a, c))
-    | _ -> (a, c)
-
-let normalize =
-  Trace.func "foo" "Normalize" Term.pp_in Term.pp_in normalize
+    match Cnstrnt.status c with
+      | Status.Empty ->
+	  False
+      | Status.Singleton(q) ->
+	  mk_equal (Fact.mk_equal a (Arith.mk_num q) j)
+      | _ ->
+	  (match a with
+	     | Term.App(Sym.Arith(Sym.Num(q)), []) -> 
+		 if Cnstrnt.mem q c then True else False
+	     | _ ->
+		 let (a', c') = Arith.normalize (a, c) in
+		   In(Fact.mk_cnstrnt a' c' j))
 
 let rec mk_diseq d =
   let (a, b, j) = Fact.d_diseq d in

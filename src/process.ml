@@ -74,6 +74,4 @@ and diseq a d =
        let (s', d') = Rule.abstract_diseq (s, d) in
        let s'' = Rule.diseq d' s' in
 	 Rule.close s'')
-  
-
-
+ 

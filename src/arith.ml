@@ -1,4 +1,3 @@
-
 (*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
@@ -35,16 +34,20 @@ let is_interp a =
 
 (** {6 Iterators} *)
 
-let rec fold f a e = 
+(** Folding over coefficients. *)
+let rec foldcoeffs f a e = 
   match a with
     | App(Arith(op), l) ->
 	(match op, l with
-	   | Num _, [] -> e
-	   | Add, l -> List.fold_right (fold f) l e
-	   | Multq _, [x] -> fold f x e
+	   | Num(q), [] -> 
+	       f q e
+	   | Multq(q), [_] -> 
+	       f q e
+	   | Add, l -> 
+	       List.fold_right (foldcoeffs f) l e
 	   | _ -> assert false)
     | _ ->
-	f a e
+	f Q.one e
 	
 
 (** {6 Destructors} *)
@@ -174,7 +177,7 @@ and mk_addq q a =
 	  mk_app add [mk_num q; a]
 
 and mk_add a b =
-  let rec map2 f l1 l2 =      (* Add two polynomials *)
+  let rec map2 l1 l2 =      (* Add two polynomials *)
     match l1, l2 with
       | [], _ -> l2
       | _ , [] -> l1
@@ -182,20 +185,20 @@ and mk_add a b =
 	  let (q1, x1) =  mono_of m1 in
 	  let (q2, x2) = mono_of m2 in
 	  let cmp = Term.cmp x1 x2 in
-	  if cmp = 0 then
-	    let q = f q1 q2 in
-	    if Q.is_zero q then 
-	      map2 f l1' l2'
-	    else 
-	      (of_mono q x1) :: (map2 f l1' l2')
-	  else if cmp < 0 then
-	    m2 :: map2 f l1 l2'
+	    if cmp = 0 then
+	      let q = Q.add q1 q2 in
+		if Q.is_zero q then 
+		  map2 l1' l2'
+		else 
+		  (of_mono q x1) :: (map2 l1' l2')
+	    else if cmp < 0 then
+	      m2 :: map2 l1 l2'
 	  else (* cmp > 0 *)
-	    m1 :: map2 f l1' l2
+	    m1 :: map2 l1' l2
   in
   let (q, l) = poly_of a in
   let (p, m) = poly_of b in
-    of_poly (Q.add q p) (map2 Q.add l m) 
+    of_poly (Q.add q p) (map2 l m) 
 
 and mk_addl l =
   match l with
@@ -213,6 +216,9 @@ and mk_neg a =
 
 and mk_sub a b =
   mk_add a (mk_neg b)
+
+and mk_linear (p, a) (q, b) =
+  mk_add (mk_multq p a) (mk_multq q b)
 
 
 (** Mapping a term transformer [f] over [a]. *)
@@ -311,9 +317,9 @@ let rec is_int c a =
   in
     match a with
       | App(Arith(Num(q)), []) ->
-	  Mpa.Q.is_integer q
+	  Q.is_integer q
       | App(Arith(Multq(q)), [x]) ->
-	  Mpa.Q.is_integer q &&
+	  Q.is_integer q &&
 	  is_int_var x
       | App(Arith(Add), xl) ->
 	  List.for_all (is_int c) xl
@@ -343,7 +349,7 @@ let rec tau c op al =
        | Multq(q), [x] -> 
 	   Cnstrnt.multq q (c x)
        | Add, _ -> 
-	   cnstrnt_of_monomials c al
+	   cnstrnt_of_addl c al
        | _ -> 
 	   Cnstrnt.mk_real)
   with
@@ -351,7 +357,7 @@ let rec tau c op al =
 	
 
 (** Constraint of a list of monomials. *)
-and cnstrnt_of_monomials c ml =
+and cnstrnt_of_addl c ml =
   try
     let of_monomial = function
       | App(Arith(Num(q)), []) -> 
@@ -371,12 +377,12 @@ and cnstrnt_of_monomials c ml =
 	      Cnstrnt.add i1 i2
 	| m :: ml' -> 
 	    let i = of_monomial m in
-	      Cnstrnt.add i (cnstrnt_of_monomials c ml')
+	      Cnstrnt.add i (cnstrnt_of_addl c ml')
       with
 	  Not_found -> Cnstrnt.mk_real
 
 and cnstrnt c a =
-  cnstrnt_of_monomials c (monomials a)
+  cnstrnt_of_addl c (monomials a)
 
 
 (** Check if there exists a [q] such that [q * a] equals [b]. *)
@@ -424,7 +430,7 @@ and check r al bl =   (* check if [r * al = bl] *)
 	   raise Not_found
 
 let multiple =
-  Trace.func "foo" "Multiple" (Pretty.pair Term.pp Term.pp) Mpa.Q.pp
+  Trace.func "foo" "Multiple" (Pretty.pair Term.pp Term.pp) Q.pp
     multiple
 
 
@@ -452,16 +458,16 @@ let mk_fresh =
 
 module Euclid = Euclid.Make(
   struct
-   type q = Mpa.Q.t
-   let eq = Mpa.Q.equal
-   let ( + ) = Mpa.Q.add
-   let inv = Mpa.Q.minus
-   let zero = Mpa.Q.zero
-   let ( * ) = Mpa.Q.mult
-   let one = Mpa.Q.one
-   let ( / ) = Mpa.Q.div
-   let floor q = Mpa.Q.of_z (Mpa.Q.floor q)
-   let is_int = Mpa.Q.is_integer
+   type q = Q.t
+   let eq = Q.equal
+   let ( + ) = Q.add
+   let inv = Q.minus
+   let zero = Q.zero
+   let ( * ) = Q.mult
+   let one = Q.one
+   let ( / ) = Q.div
+   let floor q = Q.of_z (Q.floor q)
+   let is_int = Q.is_integer
   end)
 
 
@@ -509,3 +515,57 @@ and general al (d, pl) =
       | _ -> assert false
   in
     loop al (List.map mk_num pl)
+
+    
+(** Normalize a constraint. *)
+let rec normalize (a, c) =
+  match a with
+    | App(Arith(Multq(q)), [x]) 
+	when not(Q.is_zero q) ->
+	(x, Cnstrnt.multq (Q.inv q) c)
+    | App(Arith(Add), [App(Arith(Num(q)), []);  App(Arith(Multq(p)), [x])]) ->
+	assert(not(Q.is_zero p));         (* [q + p*x in c] iff *)
+	let pinv = Q.inv p in             (* [x in 1/ p * (c - q)] *)
+	let c' = Cnstrnt.multq pinv (Cnstrnt.addq (Q.minus q) c) in
+	  (x, c')
+    | _ ->
+	let (p, ml) = poly_of a in
+	let (a', c') = (mk_addl ml, Cnstrnt.addq (Q.minus p) c) in
+	let lcm =       (* least-common multiple of denominators of all rationals. *)
+	  foldq 
+	    (fun q -> 
+	       Z.lcm (Q.denominator q)) 
+	    (a', c') 
+	    Z.one
+	in
+	let  lcm' = Q.of_z lcm in
+	let gcd =       (* greatest common divisor of integerized coefficients. *)
+	  foldq 
+	    (fun q gcd -> 
+	       let q' = Q.mult lcm' q in  (* [q'] is now an integer. *)
+		 assert(Z.equal (Q.denominator q') Z.one);
+		 Z.gcd (Q.numerator q') gcd)
+	    (a', c') 
+	    Z.one 
+	in
+	let gcd' = Q.of_z gcd in
+	let multiplier = Q.div lcm' gcd' in
+	  if Q.is_one multiplier then
+	    (a', c')
+	  else
+	    (mk_multq multiplier a', Cnstrnt.multq multiplier c')
+
+
+(** Fold over all rationals in a pair [a in c]. *)
+and foldq f (a, c) e =
+  foldcoeffs f a (Cnstrnt.foldq f c e)
+
+let normalize (a, c) =
+  Trace.call "arith" "Normalize" (a, c) Term.pp_in;
+  let (a', c') = normalize (a, c) in
+    Trace.exit "arith" "Normalize" (a', c') Term.pp_in;
+    (a', c')
+
+
+
+

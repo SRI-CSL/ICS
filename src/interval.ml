@@ -282,6 +282,33 @@ and add_dom d1 d2 =
     | Dom.Nonint, Dom.Int -> Dom.Nonint
 
 
+(** Shifting by a rational. *)
+let addq q i =
+  if Q.is_zero q then i else 
+    let d' = 
+      match i.dom with
+	| Dom.Real -> Dom.Real
+	| Dom.Int -> if Q.is_integer q then Dom.Int else Dom.Nonint
+	| Dom.Nonint -> if Q.is_integer q then Dom.Nonint else Dom.Real
+    and (a, alpha) = 
+      Endpoint.destruct i.lo in
+    let lo' = 
+      match Extq.destruct a with
+	| Extq.Inject(p) -> Endpoint.make (Extq.of_q (Q.add q p), alpha)
+	| _ -> i.lo
+    and (b, beta) = 
+      Endpoint.destruct i.hi in
+    let hi' = 
+      match Extq.destruct b with
+	| Extq.Inject(p) -> Endpoint.make (Extq.of_q (Q.add q p), beta)
+	| _ -> i.hi
+    in
+      make (d', lo', hi')
+
+  
+
+
+
 (** Classification of intervals according to the signs of endpoints. *)
   
 type classification = 
@@ -360,7 +387,9 @@ and mult_dom d1 d2 =
 
 (** Multiplying an interval with a rational *)
 let multq q i = 
-  if Endpoint.eq i.lo Endpoint.neginf && Endpoint.eq i.hi Endpoint.posinf then 
+  if Q.is_one q then
+    i
+  else if Endpoint.eq i.lo Endpoint.neginf && Endpoint.eq i.hi Endpoint.posinf then 
     if Q.is_integer q then i else make (Dom.Real, i.lo, i.hi)
   else 
     mult (mk_singleton q) i

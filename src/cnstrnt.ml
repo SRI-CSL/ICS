@@ -14,7 +14,6 @@
 open Mpa         
 
 (** Set of rational numbers. *)
-
 module Diseqs = Set.Make(
   struct
     type t = Q.t
@@ -23,7 +22,6 @@ module Diseqs = Set.Make(
 
 
 (** A constraint consists an interval and a set of rational numbers. *)
-
 type t = Interval.t * Diseqs.t
 
 let destruct c = c
@@ -46,8 +44,19 @@ let is_unbounded (i, _) =
     Endpoint.eq Endpoint.posinf hi
 
 
-(** Empty constraint. *)
+(** Printing constraints. *)
+let pp fmt c =
+  let (i,qs) = destruct c in
+  Format.fprintf fmt "@[";
+  Interval.pp fmt i;
+  if not(Diseqs.is_empty qs) then
+    begin
+      Format.fprintf fmt "\\";
+      Pretty.set Mpa.Q.pp fmt (Diseqs.elements qs)
+    end
 
+
+(** Empty constraint. *)
 let mk_empty = (Interval.mk_empty, Diseqs.empty)
 
 let is_empty (i,_) = Interval.is_empty i
@@ -84,13 +93,11 @@ let is_neg (i, _) =
 
 
 (** Membership. *)
-
 let mem q (i,qs) =
   Interval.mem q i && not(Diseqs.mem q qs)
 
 
 (** Constructing a constraint from components *)
-
 let of_interval i = (i, Diseqs.empty)
 
 exception Found of Mpa.Q.t
@@ -101,41 +108,29 @@ let rec make (i, qs) =
   else if Diseqs.is_empty qs then
     (i, Diseqs.empty)
   else 
-    let (d, lo, hi) = Interval.destructure i in
-    if d = Dom.Int then
-      let (a, alpha) = Endpoint.destruct lo in
-      match alpha, endpoint a qs with
-	| true, Some(p) -> 
-	    let i' = Interval.make (Dom.Int, Endpoint.make (a,false), hi) in
-	    make (i', Diseqs.remove p qs)
-	| _ ->
-	    let (b, beta) = Endpoint.destruct hi in
-	    match beta, endpoint b qs with
-	      | true, Some(p) ->
-		  let i' = Interval.make (Dom.Int, lo, Endpoint.make (b,false)) in
-		  make (i', Diseqs.remove p qs)
-	      | _ ->
-		  normalize (i, qs)
-    else
-      normalize (i, qs)
+    let (dom, lo, hi) = Interval.destructure i in
+    let lo' = 
+      match Endpoint.destruct lo with
+	| (a, true) ->
+	    (match Extq.to_q a with
+	       | Some(q) when Diseqs.mem q qs -> Endpoint.make (a, false)
+	       | _ -> lo)
+	| _ -> lo
+    and hi' = 
+      match Endpoint.destruct hi with
+	| (b, true) ->
+	    (match Extq.to_q b with
+	       | Some(p) when Diseqs.mem p qs -> Endpoint.make (b, false)
+	       | _ -> hi)
+	| _ -> hi
+    in
+    let i' = Interval.make (dom, lo', hi') in
+    let qs' = Diseqs.filter (fun q -> Interval.mem q i') qs in
+      (i', qs')
 
-and endpoint a qs =
-  match Extq.to_q a with
-    | None -> None
-    | Some(q) -> 
-	try
-	  Diseqs.iter
-	    (fun p -> 
-	       if Mpa.Q.equal q p then raise (Found p))
-	    qs;
-	  None
-	with
-	    Found(p) -> Some(p)
 
-and normalize (i, qs) = 
-  let qs' = Diseqs.filter (fun q -> Interval.mem q i) qs in
-  (i, qs')
-      
+let make =
+  Trace.func "bar" "Cnstrnt.make" pp pp make
 
 
 (** Constraint for the real number line, the integers, and the
@@ -192,7 +187,6 @@ let d_upper (i, qs) =
 	| _ ->
 	    None
 
-
 type bounds = 
   | Lower of Dom.t * bool * Mpa.Q.t
   | Upper of Dom.t * Mpa.Q.t * bool
@@ -221,28 +215,24 @@ let mk_one = mk_singleton Mpa.Q.one
 
 
 (** Disequality constraint. *)
-
 let mk_diseq q = (Interval.mk_real, Diseqs.singleton q)
 
 
 (** Checks wether [c] is a subconstraint of [d]. *)
-
 let sub (i,qs) (j,ps) =
   Interval.sub i j &&
   Diseqs.subset ps qs
   
 
 (** Intersection of two constraints *)
-
-let inter (i,qs) (j,ps) =
+let inter (i, qs) (j, ps) =
   make (Interval.inter i j, Diseqs.union qs ps)
 
 
 (** Comparison. *)
-
 let rec cmp c d =
-  let (i,qs) = destruct c in
-  let (j,ps) = destruct d in
+  let (i, qs) = destruct c in
+  let (j, ps) = destruct d in
   match Interval.cmp i j with 
     | Binrel.Disjoint -> 
 	Binrel.Disjoint
@@ -277,10 +267,7 @@ and analyze c =
       | Some(q) -> Binrel.Singleton(q)
       | None -> Binrel.Overlap(c)
 
-
-
 (** Status. *)
-
 let status c =
   if is_empty c then
     Status.Empty
@@ -291,26 +278,11 @@ let status c =
 
 
 (** Are [c] and [d] disjoint. *)
-
 let is_disjoint c d =
   is_empty (inter c d)
 
 
-(** Printing constraints. *)
-
-let pp fmt c =
-  let (i,qs) = destruct c in
-  Format.fprintf fmt "@[";
-  Interval.pp fmt i;
-  if not(Diseqs.is_empty qs) then
-    begin
-      Format.fprintf fmt "\\";
-      Pretty.set Mpa.Q.pp fmt (Diseqs.elements qs)
-    end
-
-
 (** Additional constructors. *)
-
 let of_endpoints (dom, lo, hi) = 
   of_interval (Interval.make (dom, lo, hi))
 
@@ -337,18 +309,19 @@ let mk_nonpos dom = mk_le dom Q.zero
 
 
 (** Abstract interpretation. *)
-
 let addq q (j, ps) = 
   if Mpa.Q.is_zero q then
     make (j, ps)
   else 
-    let i = Interval.mk_singleton q in
-    let j' = Interval.add i j in
+    let i' = Interval.addq q j in
     let ps' = Diseqs.fold (fun p -> Diseqs.add (Q.add q p)) ps Diseqs.empty in
-      make (j', ps')
+      make (i', ps')
 
 let add (i, _) (j, _) = 
   of_interval (Interval.add i j)
+
+let linear (p, (i, _)) (q, (j, _)) = 
+  of_interval (Interval.add (Interval.multq p i) (Interval.multq q j))
 
 let subtract (i,_) (j,_) =
   of_interval (Interval.subtract i j)
@@ -393,3 +366,12 @@ let expt n (i,_) =
     of_interval (Interval.expt n i)
 
 let div (i,_) (j,_) = mk_real
+
+(** Folding over all rationals in constraint. *)
+
+let foldq f (i, qs) e =
+  let (_, lo, hi) = Interval.destructure i in
+  let e' = try f (Endpoint.q_of lo) e with Not_found -> e in
+  let e'' = try f (Endpoint.q_of hi) e' with Not_found -> e' in
+    Diseqs.fold f qs e''
+      

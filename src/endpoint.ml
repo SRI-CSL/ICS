@@ -42,16 +42,14 @@ let is_q (a,_) =  Extq.is_q a
 let is_z (a,_) = Extq.is_z a
 
 let q_of (a,_) = 
-  assert(Extq.is_q a);
   match Extq.to_q a with
     | Some(q) -> q
-    | _ -> assert false
+    | _ -> raise Not_found
 
 let z_of (a,_) = 
-  assert(Extq.is_z a);
   match Extq.to_z a with
     | Some(q) -> q
-    | _ -> assert false
+    | _ -> raise Not_found
 
 let is_strict (_,alpha) = not alpha
 

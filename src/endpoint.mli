@@ -79,8 +79,10 @@ val is_nonstrict : t -> bool
 (** {6 Accessors} *)
 
 val q_of : t -> Mpa.Q.t
-  (** Get value of a rational endpoint. *)
+  (** Get value of a rational endpoint. Raises [Not_found]
+    when argument does not represent a rational. *)
 
 val z_of : t -> Mpa.Z.t
-  (** Get value of an integer endpoint. *)
+  (** Get value of an integer endpoint. Raises [Not_found]
+    when argument does not represent a rational. *)
 

@@ -13,7 +13,7 @@
 
 (** Multi-precision arithmetic using the [gmp] library. *)
 
-open Gmp
+open Gmp41
 
 module Z = struct
 
@@ -44,9 +44,10 @@ module Z = struct
   let gt x y = Z.cmp x y > 0
   let ge x y = Z.cmp x y >= 0
 		  
-  let to_string z = Z.string_from z 10
+  let to_string z = Z.string_from z
  
-  let pp fmt x = Format.fprintf fmt "%s" (Z.string_from x 10)
+  let pp fmt x = 
+    Format.fprintf fmt "%s" (Z.string_from x)
 end
 
 module Q = struct
@@ -79,8 +80,9 @@ module Q = struct
     else 
       mult a (expt a (n - 1))
 
-  let floor x = Gmp.Z.fdiv_q (Q.get_num x) (Q.get_den x)
-  let ceil x  = Gmp.Z.cdiv_q (Q.get_num x) (Q.get_den x)
+  let floor x = Gmp41.Z.fdiv_q (Q.get_num x) (Q.get_den x)
+
+  let ceil x  = Gmp41.Z.cdiv_q (Q.get_num x) (Q.get_den x)
 
   let compare = Q.cmp
   let equal = Q.equal
@@ -108,7 +110,7 @@ module Q = struct
   let denominator = Q.get_den
   let numerator = Q.get_num
 
-  let is_integer q = (Gmp.Z.cmp_si (Q.get_den q) 1) = 0
+  let is_integer q = (Gmp41.Z.cmp_si (Q.get_den q) 1) = 0
   let to_z = Q.get_num
   let of_z = Q.from_z
 
@@ -116,20 +118,20 @@ module Q = struct
 
   let to_string q = 
     let d = Q.get_den q in
-    if Gmp.Z.cmp_si d 1 == 0 then
-      Gmp.Z.string_from (Q.get_num q) 10
+    if Gmp41.Z.cmp_si d 1 == 0 then
+      Gmp41.Z.string_from (Q.get_num q)
     else
-      (Gmp.Z.string_from (Q.get_num q) 10) ^ "/" ^ (Gmp.Z.string_from d 10)
+      (Gmp41.Z.string_from (Q.get_num q)) ^ "/" ^ (Gmp41.Z.string_from d)
 
   let of_string s =
     try
       let k = String.index s '/' in
       let l = String.length s in
-      let n = Gmp.Z.from_string (String.sub s 0 k) 10 in
-      let d = Gmp.Z.from_string (String.sub s (succ k) (l - k - 1)) 10 in
+      let n = Gmp41.Z.from_string (String.sub s 0 k) in
+      let d = Gmp41.Z.from_string (String.sub s (succ k) (l - k - 1)) in
       Q.from_zs n d
     with Not_found ->
-      Q.from_z (Gmp.Z.from_string s 10)
+      Q.from_z (Gmp41.Z.from_string s)
 
   let pp fmt x = Format.fprintf fmt "%s" (to_string x)
 

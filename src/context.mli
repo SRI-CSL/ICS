@@ -129,6 +129,7 @@ val sigma : t -> Sym.t -> Term.t list -> Term.t
 val solve : Th.t -> t -> Fact.equal -> Fact.equal list
   (** [solve i s (a, b)] applies solver for theory [i] on equality [a = b]. *)
 
+val integer_solve : bool ref
 
 (** {6 Constructors} *)
 
@@ -144,6 +145,8 @@ val restrict : Th.t -> Term.t -> t -> t
 val fuse : Th.t -> Fact.equal -> t -> t
 
 val compose : Th.t -> Fact.equal -> t -> t
+
+val propagate : Th.t -> Fact.equal -> t -> t
 
 val update: Partition.t -> t -> t
 

@@ -1,4 +1,3 @@
-
 (*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
@@ -13,342 +12,446 @@
  *)
 
 
-(*s Application programming interface to ICS for asserting formulas 
-  to a logical context, switching between different logical contexts, 
-  and functions for manipulating and normalizing terms.
+(** Application programming interface.
 
- There are two sets of interface functions.  The functional interface
- provides functions for building up the main syntactic categories of
- ICS such as terms and atoms, and for extending logical contexts 
- using {!Ics.process},  which is side-effect free.
+  The ICS API includes function for
+  - asserting formulas to a logical context, 
+  - switching between different logical contexts, and 
+  - manipulating and normalizing terms.
 
- In contrast to this functional interface, the command interface
- manipulates a global state consisting, among others, of symbol tables 
- and the current logical context.  The {!Ics.cmd_rep} procedure, which 
- reads commands from the current input channel and manipulates the global
- structures accordingly, is used to implement the ICS interactor.
+  There are two sets of interface functions.  The functional interface
+  provides functions for building up the main syntactic categories of
+  ICS such as terms and atoms, and for extending logical contexts 
+  using {!Ics.process},  which is side-effect free.
 
- Besides functions for manipulating ICS datatypes, this interface also
- contains a number of standard datatypes such as channels, multiprecision 
- arithmetic, tuples, and lists.
+  In contrast to this functional interface, the command interface
+  manipulates a global state consisting, among others, of symbol tables 
+  and the current logical context.  The {!Ics.cmd_rep} procedure, which 
+  reads commands from the current input channel and manipulates the global
+  structures accordingly, is used to implement the ICS interactor.
+
+  Besides functions for manipulating ICS datatypes, this interface also
+  contains a number of standard datatypes such as channels, multiprecision 
+  arithmetic, tuples, and lists.
 *)
  
 
-(** Controls. [reset] clears all the global tables. This does not only 
- include the current context but also internal tables used  for hash-consing 
- and memoization purposes. [gc] triggers a full major collection of 
- ocaml's garbage collector. [do_at_exit] clears out internal data structures. *)
 
-val reset : unit -> unit
-    
-val gc : unit -> unit
-
-val do_at_exit : unit -> unit
-
-
-(** [set_maxloops n] determines an upper number of loops in
- the main ICS loop. [n < 0] determines that there is no such
- bound; this is also the default. *)
+(** {6 Control flags} *)
 
 val set_maxloops : int -> unit
+  (** [set_maxloops n] determines an upper number of loops in
+    the main ICS loop. [n < 0] determines that there is no such
+    bound; this is also the default. *)
 
 
-(** Rudimentary control on trace messages, which are 
- sent to [stderr]. These functions are mainly included
- for debugging purposes, and are usually not being used
- by the application programmer. [trace_add str] enables 
- tracing of functions associated with trace level [str].
- [trace_add "all"] enables all tracing. [trace_remove str]
- removes [str] from the set of active trace levels, and
- [trace_reset()] disables all tracing. [trace_get()] returns
- the set of active trace levels. *) 
-
-
-val trace_reset : unit -> unit
-val trace_add : string -> unit
-val trace_remove : string -> unit
-val trace_get : unit -> string list
-
-
-(** Channels. [inchannel] is the type of input channels. A channel
- of name [str] is opened with [in_of_string str]. This function 
- raises [Sys_error] in case such a channel can not be opened.
- [outchannel] is the type of formatting output channels, and channels
- of this type are opened with [out_of_string].  [stdin], [stdout],
- and [stderr] are predefined channels for standard input, standard
- output, and standard error. [flush] flushes the [stdout] channel. *)
+(** {6 Channels} *)
 
 type inchannel = in_channel
+    (** [inchannel] is the type of input channels. *)
+
 type outchannel = Format.formatter
+    (** Formattable output channel. *)
 
 val channel_stdin : unit -> inchannel
+  (** [channel_stdin] is the predefined standard input channel. *)
+
 val channel_stdout : unit -> outchannel
+  (** [channel_stdout] is the predefined standard output channel. *)
+
 val channel_stderr : unit -> outchannel
+  (** [channel_stdout] is the predefined standard error channel.
+    All ICS trace messages are put onto this channel. *)
+
 val inchannel_of_string : string -> inchannel 
+  (** [inchannel_of_string str] opens an input
+    channel for reading from a string (file name).  This function 
+    raises [Sys_error] in case such a channel can not be opened. *)
+
 val outchannel_of_string : string -> outchannel
-  
-val flush : unit -> unit
+  (** [outchannel_of_string str] opens an output
+    channel for writing from a string (file name).  This function 
+    raises [Sys_error] in case such a channel can not be opened. *)
 
 
+(** {6 Multi-precision arithmetic} *)
 
-(** Multi-precision rational numbers. [num_of_int n]
-  injects an integer into this type, [num_of_ints n m], for [m <> 0],
-  constructs a normalized representation of the rational [n/m] in [q],
-  [string_of_num q] constructs a string (usually for printout) of a
-  rational number, and [num_of_string s] constructs a rational, whenever
-  [s] is of the form ["n/m"] where [n] and [m] are naturals. *)
-    
 type q
+  (** Type for representing the rational numbers. *)
 
 val num_of_int : int -> q
-val num_of_ints : int -> int -> q
-val ints_of_num : q -> string * string
-val string_of_num : q -> string
-val num_of_string : string -> q
+  (** [num_of_int n] constructs a rational from the integer [n]. *)
 
+val num_of_ints : int -> int -> q
+  (** [num_of_ints n m], for [m <> 0], constructs a normalized 
+    representation of the rational [n/m] in [q]. *)
+
+val ints_of_num : q -> string * string
+  (** [ints_of_num q] decomposes a rational with numerator [n] and
+    denumerator [m] into [("n", "m")]. *)
+
+val string_of_num : q -> string
+  (** [string_of_num q] constructs a string (usually for printout) of a
+    rational number *)
+  
+val num_of_string : string -> q
+  (** [num_of_string s] constructs a rational, whenever
+    [s] is of the form [n/m] where [n] and [m] are integers. *)
+    
+
+(** {6 Names} *)
 
 (** Names. [name_of_string] and [name_to_string] coerce between the
  datatypes of strings and names.  These coercions are inverse to each
  other.  [name_eq] tests for equality of names in constant time. *)
 
 type name
+  (** Representation of strings. *)
 
 val name_of_string : string -> name
+  (** [name_of_string str] constructs a name [n] from a string
+    such that {!Ics.name_to_string}[(n)] yields [str]. *)
+
 val name_to_string : name -> string
+  (** [name_to_string n] is the inverse operation of {!Ics.name_to_string}. *)
+
 val name_eq : name -> name -> bool
+  (** [name_eq n m] holds iff the corresponding 
+    strings {!Ics.name_to_string}[(n)] and  {!Ics.name_to_string}[(m)]
+    are equal.  This equality test is constant in the length of strings. *)
 
 
-(** Arithmetic constraints. A constraint consists of a domain
- restriction [Int] or [Real] , a real interval, and a set of 
- disequality numbers. A real number satisfies such a constraint
- if, first, it satisfies the domain restriction, second, it 
- is a member of the interval, and, third, it is none of the 
- numbers in the disequality set.
+(** {6 Arithmetic Constraints} *)
 
- [cnstrnt_of_string str] parses the string [str] according to
- the nonterminal [cnstrnteof] in module [Parser] (see its 
- specification in file [parser.mly]) and produces the corresponding 
- constraint representation.  In contrast, [cnstrnt_input in] parses 
- the concrete syntax of constraints from the input channel [in]. 
- Constraints [c] are printed to the output channel [out] 
- using [cnstrnt_output out c] and to the standard output 
- using [cnstrnt_pp c].
+(** An {b arithmetic constraint} consists of 
+  - a domain restriction,
+  - an interval with rational or unbounded endpoints, 
+  - and a set of rational disequality numbers. 
+  A real number satisfies such a constraint if
+  - it satisfies the domain restriction,
+  - it is a member of the interval, 
+  - it is none of the numbers in the disequality set.
+  To each constraint we associate the set of all reals satisfying
+  these requirements. For more details see description of 
+  module {!Cnstrnt}.
+*)
 
- For the definition of constraint constructors see Module [Cnstrnt]. 
- [cnstrnt_mk_int()] constructs an integer constraint, [cnstrnt_mk_nat()]
- a constraint for the natural numbers, [cnstrnt_mk_singleton q] is the
- constraint which holds only of [q], [cnstrnt_mk_diseq q] holds for all
- reals except for [q], [cnstrnt_mk_oo l h] constructs an open interval
- with lower bound [l] and upper bound [h], [cnstrnt_mk_oc l h] is the
- left-open, right-closed interval with lower bound [l] and upper bound [h], 
- [cnstrnt_mk_co l h] is the left-closed, right-open interval with lower 
- bound [l] and upper bound [h], [cnstrnt_mk_cc l h] is the closed interval 
- with lower bound [l] and upper bound [h]. 
-
- The intersection of two constraints [c], [d] is computed 
- by [cnstrnt_inter c d], that is, a real [q] is in both [c] and [d]
- iff it is in  [cnstrnt_inter c d]. *)
 
 type cnstrnt
 
 val cnstrnt_of_string : string -> cnstrnt
+  (** [cnstrnt_of_string str] parses the string [str] according to
+    the parsing function {!Parser.cnstrnteof} (see specification of
+    the nonterminal [cnstrnteof] in file [parser.mly]) and produces 
+    the corresponding constraint representation. *)
+
 val cnstrnt_input : inchannel -> cnstrnt
+  (** In contrast, [cnstrnt_input in] parses the concrete 
+    syntax of constraints from the input channel [in].  *)
+
 val cnstrnt_output : outchannel -> cnstrnt -> unit
+  (** Constraints [c] are printed to the output channel [out] 
+    using [cnstrnt_output out c] *)
+
 val cnstrnt_pp : cnstrnt -> unit
+  (** [cnstrnt_pp c] prints [c] on {!Ics.channel_stdout}. *)
 
 val cnstrnt_mk_int : unit -> cnstrnt
+  (** [cnstrnt_mk_int()] is the constraint for representing
+    all integers. *)
+
 val cnstrnt_mk_nonint : unit -> cnstrnt
+  (** [cnstrnt_mk_int()] is the constraint for representing
+    all non-integer reals. *)
+
 val cnstrnt_mk_nat : unit -> cnstrnt
+  (** [cnstrnt_mk_nat()] represents the set of all natural numbers. *)
+
 val cnstrnt_mk_singleton : q -> cnstrnt
+  (** [cnstrnt_mk_singleton q] represents the singleton set with member [q]. *)
+  
 val cnstrnt_mk_diseq : q -> cnstrnt
+  (** [cnstrnt_mk_diseq q] represents the set of reals exluding [q]. *)
+
 val cnstrnt_mk_oo : q -> q -> cnstrnt
+  (** [cnstrnt_mk_oo p q] represents the subset [{x | p < x < q}] of the reals. *)
+
 val cnstrnt_mk_oc : q -> q -> cnstrnt
+ (** [cnstrnt_mk_oc p q] represents the subset [{x | p < x <= q}] of the reals. *)
+
 val cnstrnt_mk_co : q -> q -> cnstrnt
+  (** [cnstrnt_mk_co p q] represents the subset [{x | p <= x < q}] of the reals. *)
+
 val cnstrnt_mk_cc : q -> q -> cnstrnt
+  (** [cnstrnt_mk_cc p q] represents the subset [{x | p <= x <= q}] of the reals. *)
+
 val cnstrnt_mk_lt : q -> cnstrnt
+  (** [cnstrnt_mk_lt q] represents the subset [{x | x < q}] of the reals. *)
+
 val cnstrnt_mk_le : q -> cnstrnt
+  (** [cnstrnt_mk_le q] represents the subset [{x | x <= q}] of the reals. *)
+
 val cnstrnt_mk_gt : q -> cnstrnt
+  (** [cnstrnt_mk_gt q] represents the subset [{x | x > q}] of the reals. *)
+
 val cnstrnt_mk_ge : q -> cnstrnt
+  (** [cnstrnt_mk_ge q] represents the subset [{x | x >= q}] of the reals. *)
 
 val cnstrnt_inter : cnstrnt -> cnstrnt -> cnstrnt
-
-
-(** Abstract interval interpretation. A real number [x] is in
- [cnstrnt_add c d] iff there are real numbers [y] in [c] and 
- [z] in [d] such that [x = y + x]. Likewise, [x] is in 
- [cnstrnt_multq q c] iff there exists [y] in [c] such that
- [x = q * y].  In constrast to these exact abstract operators,
- [cnstrnt_mult] and [cnstrnt_div] compute overaprroximations,
- that is, if [x] in [c] and [y] in [d] then there exists
- a [z] in [cnstrnt_mult c d] ([cnstrnt_div c d]) such that
- [z = x * y] ([z = x/y]). *)
+  (** The intersection of two constraints [c], [d] is computed 
+    by [cnstrnt_inter c d], that is, a real [q] is in both [c] 
+    and [d] iff it is in  [cnstrnt_inter c d]. *)
 
 val cnstrnt_add : cnstrnt -> cnstrnt -> cnstrnt
-val cnstrnt_multq : q -> cnstrnt -> cnstrnt
-val cnstrnt_mult : cnstrnt -> cnstrnt -> cnstrnt
-val cnstrnt_div : cnstrnt -> cnstrnt -> cnstrnt
+  (** Abstract interval interpretation of addition. A real number 
+    [x] is in [cnstrnt_add c d] iff there are real numbers [y] in 
+    [c] and [z] in [d] such that [x = y + x]. *)
 
-(** Theories. A theory is associated with each function symbol.
- These theories are indexed by naturals between 0 and 8 according
+val cnstrnt_multq : q -> cnstrnt -> cnstrnt
+  (** Abstract interval interpretation of linear arithmetic.
+    A real number [x] is in [cnstrnt_multq q c] iff there 
+    exists [y] in [c] such that [x = q * y]. *) 
+
+val cnstrnt_mult : cnstrnt -> cnstrnt -> cnstrnt
+  (** Abstract interval interpretation of multiplication.
+    [cnstrnt_mult] computes an overapproximation of the
+    this interpretation, that is, if [x] in [c] and [y] in [d] then there exists
+    a [z] in [cnstrnt_mult c d] such that [z = x * y]. *)
+
+val cnstrnt_div : cnstrnt -> cnstrnt -> cnstrnt
+  (** If [x] in [c] and [y] in [d] then there exists
+    a [z] in [cnstrnt_div c d] such that [z = x/y]. *)
+
+
+(** {6 Eqeuality theories} *)
+
+(** An {b equality theory} is associated with each function symbol.
+ These theories are indexed by naturals between [0] and [maxtheories = 8] according
  to the following table
-  
- 0 Theory of uninterpreted function symbols.
- 1 Linear arithmetic theory.
- 2 Product theory.
- 3 Bitvector theory.
- 4 Coproducts.
- 5 Power products. 
- 6 Theory of function abstraction and application. 
- 7 Array theory. 
- 8 Theory of bitvector interpretation(s). 
+ - [0] Theory of uninterpreted function symbols.
+ - [1] Linear arithmetic theory.
+ - [2] Product theory.
+ - [3] Bitvector theory.
+ - [4] Coproducts.
+ - [5] Power products. 
+ - [6] Theory of function abstraction and application. 
+ - [7] Array theory. 
+ - [8] Theory of bitvector interpretation(s). 
 *)
 
-type th = int
+val th_to_string : int -> string
+  (** [th_to_string th] returns the unique name associated to theory [th]. *)
 
-val th_to_string : th -> string
+val th_of_string : string -> int
+ (** [th_of_string s] returns theory [th] if [to_string th] is [s]; 
+   otherwise the result is unspecified. *)
 
 
-(** Function symbols. These are partitioned into uninterpreted
- function symbols and function symbols interpreted in one of the
- builtin theories. For each interpreted function symbol there is
- a recognizer function [is_xxx].  Some values of type [sym] represent 
- families of function symbols. The corresponding indices can be obtained
- using the destructor [d_xxx] functions (only after checking that [is_xxx]
- holds. *)
+(** {6 Function Symbols} *)
 
 type sym
 
-val sym_is_uninterp : sym -> bool
-val sym_is_interp : th -> sym -> bool
-
-
-(** [sym_eq] tests for equality of two function symbols. *)
+val sym_theory_of : sym -> int
+  (** [sym_theory_of f] returns the theory [th] associated with
+    the function symbol [f]. *)
 
 val sym_eq : sym -> sym -> bool
-
-(** [sym_cmp] provides a total ordering on function symbols.
- It returns a negative integer if [s < t], [0] if [s] is equal to [t],
- and a positive number if [s > t]. *)
+  (** [sym_eq] tests for equality of two function symbols. *)
 
 val sym_cmp : sym -> sym -> int
+  (** [sym_cmpf g] provides a total ordering on function symbols.
+    If it returns
+    - a negative integer, then [f] is said to be smaller than [g],
+    - [0], then [f] is equal to [g] and {!Ics.sym_eq}[(f, g)], and
+    - a positive numbe, then [f] is said to be larger than [g]. *)
+
+(** {b Uninterpreted} function symbols *)
+
+val sym_is_uninterp : sym -> bool
+  (** [sym_is_uninterp f] holds iff [f] is an uninterpreted
+    function symbol. *)
+
+val sym_d_uninterp : sym -> name
+  (** [sym_d_uninterp f] returns the name associated with
+    an uninterpreted function symbol [f]. This accessor is
+    undefined if {!Ics.sym_is_uninterp}[(f)] does not hold. *)
 
 
-(** Arithmetic function symbols are either numerals, addition, or
- linear multiplication. *)
+(** {b Linear arithmetic} function symbols are either 
+  - {i numerals} for representing all rational numbers, 
+  - the {i addition} symbols, 
+  - symbols for representing {i linear multiplication} by a 
+  rational of type {!Ics.q}. 
+*)
 
 val sym_is_num : sym -> bool
+  (** [sym_is_num f] holds iff [f] represents a numeral. *)
+
 val sym_d_num : sym -> q
+  (** [sym_d_num f] returns the rational [q] if [f] represents [q].
+    This accessor is undefined if {!Ics.sym_is_num} does not hold. *)
 
 val sym_is_add : sym -> bool
+  (** [sym_is_add f] holds iff [f] represents the addition symbol. *)
 
 val sym_is_multq : sym -> bool
+  (** [sym_is_multq f] holds iff [f] represents a linear 
+    multiplication symbol. *)
+
 val sym_d_multq : sym -> q
+  (** [sym_d_multq f] returns [q] if [f] represents linear
+    multiplication by [q]. This accessor is undefined if 
+    {!Ics.sym_d_multq} does not hold. *)
 
 
-(* Symbols interpreted in the theory of products. *)
+(** Symbols of the {b product theory} consist of
+  - tupling
+  - projections of the [i]-th component in a tuple of length [n]. 
+*)
 
 val sym_is_tuple : sym -> bool
+  (** [sym_is_tuple f] holds iff [f] represents tupling. *)
 
 val sym_is_proj : sym -> bool
-val sym_d_proj : sym -> int * int
+  (** [sym_is_proj f] holds iff [f] represents a projection. *)
 
-(** Symbols interpreted in the theory of coproducts. *)
+val sym_d_proj : sym -> int * int
+  (** If {!Ics.sym_is_proj}[(f)] holds, [sym_d_proj f]
+    returns the parameters [(i, n)] of [f], denoting the
+    [i]-th projection of a tuple of length [n]. *)
+
+
+(** Symbols of the theory of {b coproducts} are eith
+  - left and right injections,
+  - left and right coinjections
+*)
 
 val sym_is_inl : sym -> bool
-val sym_is_inr : sym -> bool
-val sym_is_outl : sym -> bool
-val sym_is_outr : sym -> bool
+  (** [sym_is_inl f] holds iff [f] represents left injection. *)
 
-(** Symbols in the bitvector theory. *)
+val sym_is_inr : sym -> bool
+  (** [sym_is_inr f] holds iff [f] represents right injection. *)
+
+val sym_is_outl : sym -> bool
+  (** [sym_is_outl f] holds iff [f] represents left coinjection. *)
+
+val sym_is_outr : sym -> bool
+  (** [sym_is_outr f] holds iff [f] represents right coinjection. *)
+
+
+(** Symbols in the fixed-sized {b bitvector} theory include
+  - constant bitvectors of length [n >= 0],
+  - concatenation of a bitvector of width [n >= 0] with a bitvector of width [m >= 0],
+  - extraction of bits [i] through [j] of a bitvector of length [n >= 0],
+    ([0 <= i <= j < n]), and
+  - bitwise conditionals for bitvectors of length [n]. 
+*)
 
 val sym_is_bv_const : sym -> bool
+  (** [sym_is_bv_const f] holds iff [f] represents a bitvector constant symbol. *)
 
 val sym_is_bv_conc : sym -> bool
+  (** [sym_is_bv_conc f] holds iff [f] represents a concatenation symbol. *)
+
 val sym_d_bv_conc : sym -> int * int
+  (** [sym_d_bv_conc f] returns [(n, m)] iff [f] 
+    represents a concatenation symbol for bitvectors of width [n] with a
+    bitvector of width [m]. *)
 
 val sym_is_bv_sub : sym -> bool
+  (** [sym_is_bv_sub f] holds iff [f] represents a bitvector extraction symbol. *)
+
 val sym_d_bv_sub : sym -> int * int * int
+  (** [sym_d_bv_sub f] returns [(i, j, n)] iff [f] represents a bitvector
+    extraction of bits [i] through [j] of a bitvector of width [n]. *)
 
 val sym_is_bv_bitwise : sym -> bool
-val sym_d_bv_bitwise : sym -> int
+  (** [sym_is_bv_bitwise f] holds iff [f] represents a logical bitwise operation
+    symbol. *)
 
-(** Symbols from the theory of power products. *)
+val sym_d_bv_bitwise : sym -> int
+ (** [sym_d_bitwise f] returns [n] iff [f] represents a logical bitwise
+   operation of width [n]. *)
+
+
+(** Symbols from the theory of {b power products}. *)
 
 val sym_is_mult : sym -> bool
 
 val sym_is_expt : sym -> bool
 
 
-(** Symbols from the theory of function abstraction and application. *)
+(** Symbols from the theory of {b function abstraction and application}. *)
 
 val sym_is_apply : sym -> bool
+
 val sym_d_apply : sym -> cnstrnt option
 
 val sym_is_abs : sym -> bool
 
-(** Symbols from the theory of arrays. *)
+
+(** Symbols from the theory of {b arrays}. *)
 
 val sym_is_select : sym -> bool
 
 val sym_is_update : sym -> bool
 
-(** Symbols from the theory of arithmetic interpretations of bitvectors. *)
+
+(** Symbols from the theory of {b arithmetic interpretations of bitvectors}. *)
 
 val sym_is_unsigned : sym -> bool
 
+
+(** {6 Terms} *)
    
-(** Terms. Terms are either variables, application of 
- uninterpreted functions, or interpreted constants and operators 
- drawn from a combination of theories..
-
- [term_of_string] parses a string according to the grammar for the nonterminal
- [termeof] in module [Parser] (see its specification in file [parser.mly]) and
- builds a corresponding term. Similary, [term_input] builds a term by reading
- from an input channel. 
-
- [term_output out a] prints term [a] on the output channel [out], 
- and [term_pp a] is equivalent to [term_output stdout a]. 
-
- Terms are build using constructors, whose names are all of the form [mk_xxx].
- For each constructor [mk_xxx] there is a corresponding recognizer [is_xxx]
- which reduces to true if its argument term has been built
- with the constructor [mk_xxx]. Moreover, for each constructor
- [mk_xxx}] above there is a corresponding desctructor [d_xxx]
- for analyzing the components of such a constructor term.  *)
-
+(** Terms are either 
+  - variables or
+  - applications of function symbols of type {!Ics.sym} to a list of terms.
+*)
 
 type term
 
 val term_of_string : string -> term
-val term_to_string : term -> string
+  (** [term_of_string] parses a string according to the grammar for the nonterminal
+    [termeof] in module [Parser] (see its specification in file [parser.mly]) and
+    builds a corresponding term. *)
+
 val term_input : inchannel -> term
+  (** Similary, [term_input] builds a term by reading from an input channel. *)
+
+val term_to_string : term -> string
+
 val term_output : outchannel -> term -> unit
+  (** [term_output out a] prints term [a] on the output channel [out], 
+    and [term_pp a] is equivalent to [term_output stdout a]. *)
+
 val term_pp : term -> unit
 
-(** Equality and Comparison. Comparison [cmp a b] returns either
-  [-1], [0], or [1] depending on whether [a] is less than [b],
-  the arguments are equal, or [a] is greater than [b] according
-  to the builtin term ordering (see [Term.(<<<)]). [term_eq a b] 
-  is true iff if [term_cmp a b] returns [0]. *)
-
 val term_eq : term -> term -> bool
+  (** [term_eq a b] holds iff [a] and [b] are syntactically
+    equal, that is, either
+    - both [a] and [b] are variables of the same kind and their
+      associated names are equal
+    - both [a] and [b] are application terms with equal
+      function symbols (see {!Ics.sym_eq}), the number of
+      arguments in [a] and [b] is equal, and the respective
+      arguments at every position are term equal. *)
+
 val term_cmp : term -> term -> int
-
-
-(** Given a string [s], [term_mk_var s] constructs a 
- variable with name [s] and [term_mk_uninterp s al]
- constructs an application of an uninterpreted function
- symbol [s] to a list of argument terms.  If [s] is any
- of the builtin function symbols specified in module 
- [Builtin], the builtin simplifications are applied to
- this application. *)
+  (** Comparison [term_cmp a b] returns either
+    [-1], [0], or [1] depending on whether [a] is less than [b],
+    the arguments are equal, or [a] is greater than [b]. *)
 
 val term_mk_var : string -> term
+  (** Given a string [s], [term_mk_var s] constructs a 
+    variable with name [s] and [term_mk_uninterp s al]
+    constructs an application of an uninterpreted function
+    symbol [s] to a list of argument terms. *)
 
 val term_mk_uninterp : string -> term list -> term
 
 
-(** Arithmetic terms include rational constants built from
+(** {b Arithmetic terms} include rational constants built from
  [term_mk_num q], linear multiplication [term_mk_multq q a],
  addition [term_mk_add a b] of two terms, n-ary 
  addition [term_mk_addl al] of a list of terms [al],
@@ -388,7 +491,7 @@ val term_is_true : term -> bool
 val term_is_false : term -> bool
  
 
-    (** Bitvectors *)
+(** {b Bitvector terms} *)
 
 val term_mk_bvconst : string -> term
 val term_mk_bvsub : (int * int * int) -> term -> term
@@ -398,15 +501,38 @@ val term_mk_bwand : int -> term -> term -> term
 val term_mk_bwor : int -> term -> term -> term
 val term_mk_bwnot : int -> term -> term
 
-(** Coproducts. *)
+(** {b Coproducts} *)
 
 val term_mk_inj : int -> term -> term
 val term_mk_out : int -> term -> term
+
+
+
+(** Builtin simplifying constructors. *)
+
+val term_mk_unsigned : term -> term
+
+val term_mk_update : term -> term -> term -> term
+val term_mk_select :  term -> term -> term
+
+val term_mk_div :  term -> term -> term
+
+val term_mk_mult : term -> term -> term
+val term_mk_multl : term list -> term
+val term_mk_expt : int -> term -> term   
+  (* [term_mk_expt n x] represent [x^n]. *)
+
+val term_mk_apply : term -> term list -> term
+
+val term_mk_arith_apply : cnstrnt -> term -> term list -> term
+
 
 (** Set of terms. *)
 
 type terms
 
+
+(** {6 Atoms} *)
 
 (** Atoms. [atom_mk_true()] is the trivially true atom,
  [atom_mk_false()] is the trivially false atom, and 
@@ -447,6 +573,8 @@ val atom_mk_gt : term -> term -> atom
 val atom_mk_ge : term -> term -> atom
 
 
+(** {6 Solutions sets} *)
+
 (** Solution sets. *)
 
 type solution
@@ -467,22 +595,25 @@ val solution_is_empty : solution -> bool
 
 
 
-(** Logical context.  An element of type [state] is a logical
- context with [state_empty] the empty context. [state_eq s1 s2]
- is a constant-time predicate for testing for identity of two
- states. Thus, whenever this predicate holds its arguments states
- are equivalent, but not necessarily the other way round. Logical
- contexts are printed using [state_pp]. The set of atoms in a
- context [s] are obtained with [state_ctxt_of s]. *)
+(** {6 Logical Context} *)
  
 
 type context
+  (** A logical context represents a conjunction of atoms. *)
 
 val context_eq : context -> context -> bool
+  (** [context_eq s1 s2] is a constant-time predicate for 
+    testing for identity of two states. Thus, whenever this 
+    predicate holds, its corresponding contexts are logically
+    equivalent. *)
  
 val context_empty : unit -> context
+  (** [context_empty()] represents the empty logical context. *)
 
 val context_ctxt_of : context -> atom list
+  (** [context_ctxt_of c] returns a set of atoms whose
+    conjunction is represented by [c].  This set is not
+    necessarily minimal. *)
 
 val context_u_of : context -> solution
 
@@ -496,32 +627,6 @@ val context_pp : context -> unit
 
 val context_ctxt_pp : context -> unit
 
-
-(** Builtin simplifying constructors. *)
-
-val term_mk_unsigned : term -> term
-
-val term_mk_update : term -> term -> term -> term
-val term_mk_select :  term -> term -> term
-
-val term_mk_div :  term -> term -> term
-
-val term_mk_mult : term -> term -> term
-val term_mk_multl : term list -> term
-val term_mk_expt : int -> term -> term   
-  (* [term_mk_expt n x] represent [x^n]. *)
-
-val term_mk_apply : term -> term list -> term
-
-val term_mk_arith_apply : cnstrnt -> term -> term list -> term
-
-(** The operation [process s a] adds a new atom [a] to a logical context [s].
-  The codomain of this function is of type [status], elements of
-  which represent the three possible outcomes of processing a
-  proposition: 1. the atom [a] is inconsistent in [s], 2. it is valid, or, 
-  3., it is satisfiable but not valid. In the third case, a modified state 
-  is obtained using the destructor [d_consistent]. *)
-
 type status
     
 val is_consistent   : status -> bool
@@ -531,69 +636,122 @@ val is_inconsistent : status -> bool
 val d_consistent : status -> context
     
 val process : context -> atom -> status
+  (** The operation [process s a] adds a new atom [a] to a logical context [s].
+    The codomain of this function is of type [status], elements of
+    which represent the three possible outcomes of processing an atom
+    - the atom [a] could be demonstrated to be inconsistent in [s]. 
+      In this case, {!Ics.is_inconsistent} holds of the result.
+    - the atom [a] could be demonstrated to be derivable in the context [s].
+      In this case, {!Ics.is_redundant} holds.
+    - Neither of the above holds. In this case, a modified context
+      for representing the context of [s] conjoined with [a]
+      is obtained using the destructor {!Ics.d_consistent}. 
 
-(** Suggesting finite case split. *)
+    Notice that a result [res] with {!Ics.is_consistent}[(res)] does not necessarily
+    imply that atom [a] is indeed satisfiable, since the theory of ICS is indeed
+    undecidable.  Moreover, ICS includes a number of nonconvex theories, which
+    requires case-splitting for completeness.  [process] does not perform these
+    case-splits in order to keep worst-case runtimes polynomial (with the notable
+    exception of canonization of logical bitwise operators).  Instead, it is in 
+    the responsibility of the application programmer to perform these splits;
+    see also {!Ics.split}. *)
 
 val split : context -> atom list
+  (** Suggesting case splits. *)
 
-(** Canonization. Given a logical context [s] and an atom [a],
- [can s a] computes a semicanonical form of [a] in [s], that is,
- if [a] holds in [s] it returns [Atom.True], if the negation of [a]
- holds in [s] then it returns [Atom.False], and, otherwise, an
- equivalent normalized atom built up only from variables is 
- returned. The returned logical state might contain fresh variables. *)
 
 val can : context -> atom -> atom
+  (** Given a logical context [s] and an atom [a],
+    [can s a] computes a semicanonical form of [a] in [s], that is,
+    - if [a] holds in [s] it returns [Atom.True], 
+    - if the negation of [a] holds in [s] then it returns [Atom.False], and, otherwise,
+    - an equivalent normalized atom built up only from variables is returned. *)
 
-(** Given a logical context [s] and a term [a], [cnstrnt s a]
- computes the best possible arithmetic constraint for [a] in [s]
- using constraint informatin in [s] and abstraction interval interpretation.
- If no such constraint can be deduced, [None] is returned. *)
 
 val cnstrnt : context -> term -> cnstrnt option
+  (** Given a logical context [s] and a term [a], [cnstrnt s a]
+    computes an arithmetic constraint for [a] in [s] using constraint 
+    information in [s] and abstraction interval interpretation.
+    If no such constraint can be deduced, [None] is returned. *)
 
+
+(** {6 Commands} *)
 
 (** An imperative state [istate] does not only include a logical 
  context of type [state] but also a symbol table and input and output 
  channels. A global [istate] variable is manipulated and
  destructively updated by commands. *)
 
-
-(** Initialization. [init n] sets the verbose level to [n]. The higher
- the verbose level, the more trace information is printed to [stderr]
- (see below). There are no trace messages for [n = 0]. In addition, 
- initialization makes the system to raise the [Sys.Break] exception upon
- user interrupt [^C^C].  The [init] function should be called before
- using any other function in this API. *)
-
 val init : int * bool * string * inchannel * outchannel -> unit
-
-
-(** [cmd_eval] reads a command from the current input channel according
- to the grammar for the nonterminal [commandeof] in module [Parser] (see
- its specification in file [parser.mly], the current internal [istate] 
- accordingly, and outputs the result to the current output channel. *)
+  (** Initialization. [init n] sets the verbose level to [n]. The higher
+    the verbose level, the more trace information is printed to [stderr]
+    (see below). There are no trace messages for [n = 0]. In addition, 
+    initialization makes the system to raise the [Sys.Break] exception upon
+    user interrupt [^C^C].  The [init] function should be called before
+    using any other function in this API. *)
 
 val cmd_rep : unit -> unit
+  (** [cmd_rep] reads a command from the current input channel according
+    to the grammar for the nonterminal [commandeof] in module [Parser] (see
+    its specification in file [parser.mly], the current internal [istate] 
+    accordingly, and outputs the result to the current output channel. *)
 
 val cmd_batch : unit -> unit
 
 
+val flush : unit -> unit
 
 
-(** Sleeping for a number of seconds. *)
+
+(** {6 Controls}. *)
+
+val reset : unit -> unit
+  (** [reset()] clears all the global tables. This does not only 
+    include the current context but also internal tables used  for hash-consing 
+    and memoization purposes. *)
+    
+val gc : unit -> unit
+  (** [gc()] triggers a full major collection of ocaml's garbage collector. *)
+
+val do_at_exit : unit -> unit
+  (** [do_at_exit] clears out internal data structures. *)
 
 val sleep : int -> unit
+  (** Sleeping for a number of seconds. *)
 
-  
-(** Lists. *)
+
+(** {6 Tracing} *)
+
+(**
+  Rudimentary control on trace messages, which are 
+ sent to [stderr]. These functions are mainly included
+ for debugging purposes, and are usually not being used
+ by the application programmer. *)
+
+val trace_reset : unit -> unit
+  (** [trace_reset()] disables all tracing. *)
+
+val trace_add : string -> unit
+  (** [trace_add str] enables tracing of functions associated with trace level [str]. *)
+
+val trace_remove : string -> unit
+  (** [trace_remove str] removes [str] from the set of active trace levels *)
+
+val trace_get : unit -> string list
+    (** [trace_get()] returns the set of active trace levels. *) 
+
+
+(** {6 Lists} *)
 
 val is_nil : 'a list -> bool
 val cons : 'a -> 'a list -> 'a list
 val head : 'a list -> 'a
 val tail : 'a list -> 'a list
 
-(** Pairs. [pair a b] builds a pair [(a,b)] and
+
+(** {6 Pairs} 
+
+  Pairs. [pair a b] builds a pair [(a,b)] and
  [fst (pair a b)] returns [a] and [snd (pair b a)]
  returns [b]. *)
 
@@ -601,8 +759,7 @@ val pair : 'a -> 'b -> 'a * 'b
 val fst : 'a * 'b -> 'a
 val snd : 'a * 'b -> 'b
 
-
-(** Triples. Accessors for triples [(a,b,c)]. *)
+(** {6 Triples}  *)
 
 val triple : 'a -> 'b -> 'c -> 'a * 'b * 'c
 val fst_of_triple : 'a * 'b *'c -> 'a
@@ -616,7 +773,8 @@ val fst_of_quadruple : 'a * 'b * 'c *'d -> 'a
 val snd_of_quadruple : 'a * 'b * 'c *'d -> 'b
 val third_of_quadruple : 'a * 'b * 'c *'d -> 'c
 val fourth_of_quadruple : 'a * 'b * 'c *'d -> 'd
-    
+
+(** {6 Options} *)
       
 (** Options. An element of type ['a option] either satisfies
  the recognizer [is_some] or [is_none].  In case, [is_some]

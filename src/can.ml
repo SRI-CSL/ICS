@@ -1,4 +1,3 @@
-
 (*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
@@ -141,10 +140,10 @@ and cnstrnt s c =
   let (a, c, _) = Fact.d_cnstrnt c in
   let mk_in x i =
     let (x', i') = normalize s (x, i) in
-      Atom.mk_in (Fact.mk_cnstrnt x i' None)
+      Atom.mk_in (Fact.mk_cnstrnt x' i' None)
   in
-  let a' = can s a in
-  try                 
+  let a' = can s a in                (* to do: look for multiples, too *)
+  try                                (* e.g. [v = x + y] and we canonize [2-x-y]. *)
     let d = Context.cnstrnt s a' in
     match Cnstrnt.cmp c d with
       | Binrel.Sub -> 
@@ -183,9 +182,11 @@ and normalize s (a, c) =
       (a, c)
     else 
       let (a'', c'') = normalize1 s (a', c') in
-	(can s a'', c'')
+	Arith.normalize (can s a'', c'')
 
-and normalize1 s (a, c) =
+and normalize1 s =
+  Trace.func "foo" "Normalize1" Term.pp_in Term.pp_in
+    (fun (a, c) ->
    let arrange a q ds =    (* compute [a * ds - q * ds]. *)
      Arith.mk_sub (Sig.mk_mult a ds) (Arith.mk_multq q ds)
    in
@@ -209,7 +210,8 @@ and normalize1 s (a, c) =
 			   (arrange a q ds, lower dom alpha))
 		| _ -> (a, c))
        with
-	   Not_found -> (a, c)
+	   Not_found -> (a, c))
+
 
 and signed_denum s a =
   try

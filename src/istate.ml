@@ -140,11 +140,9 @@ let ctxt_of = function
 
 (** Canonization w.r.t current state. *)
 
-let can = 
-  Trace.func "istate" "can" Atom.pp Atom.pp
-    (Tools.profile "can"
-       (fun p -> Can.atom s.current p))
-
+let can a =
+  Can.atom s.current a
+    
 let cant a = 
   Can.term s.current a
 
@@ -194,18 +192,15 @@ let forget () =
 
 let process n =
   let t = (get_context n) in
-    Tools.profile "process"
-      (fun a -> 
-	 let status = Process.atom t a in
-	   match status with      (* Update state and install new name in symbol table *)
-	     | Process.Ok(t') -> 
-		 s.current <- t';
-		 let n = save None in
-		   Process.Ok(n)
-	     | Process.Valid ->
-		 Process.Valid
-	     | Process.Inconsistent ->
-		 Process.Inconsistent)
+    (fun a -> 
+       let status = Process.atom t a in
+	 match status with  (* Update state and install new name in symbol table *)
+	   | Process.Ok(t') -> 
+	       s.current <- t';
+	       let n = save None in
+		 Process.Ok(n)
+	   | Process.Valid -> Process.Valid
+	   | Process.Inconsistent -> Process.Inconsistent)
 
 let valid n a =
   match Process.atom (get_context n) a with 
