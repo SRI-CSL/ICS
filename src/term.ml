@@ -1,4 +1,3 @@
-
 (*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
@@ -10,18 +9,16 @@
  * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
- * 
- * Author: Harald Ruess
  *)
 
-open Mpa
-open Format
-open Sym
-
-
+(** A term is either a variable or an application of a function symbol
+  to a possibly empty list of arguments. In addition, each term has
+  an integer slot that can be used as a hash function for terms.  In 
+  addition, these indices are unique for variables. *)
 type t =
   | Var of Var.t * int
   | App of Sym.t * t list * int
+  
 
 type trm = t  
     (** Synonym for avoiding name clashes *)
@@ -29,6 +26,8 @@ type trm = t
 
 (** {6 Hashing} *)
 
+(** Every term carries a hash value with it. For two variables [x] and [y],
+  this value is {i unique}, that is, [hash x] equals [hash y] iff {!Term.eq}[x y]. *)
 let hash = function
   | Var(_, hsh) -> hsh
   | App(_, _, hsh) -> hsh
@@ -43,17 +42,12 @@ let is_const = function App(_,[], _) -> true | _ -> false
 
 (** {6 Pretty-Printing} *)
 
-let pretty = ref true  (* Infix/Mixfix output when [pretty] is true. *)
-
 let rec pp fmt a =
-  let str = Pretty.string fmt in
-  let term = pp fmt in
-  let args =  Pretty.tuple pp fmt in
-    match a with
-      | Var(x, _) -> 
-	  Var.pp fmt x
-      | App(f, l, _) ->
-	  Sym.pp pp fmt (f, l)
+  match a with
+    | Var(x, hsh) -> 
+	Var.pp fmt x
+    | App(f, l, _) ->
+	Sym.pp pp fmt (f, l)
 
 let to_string = Pretty.to_string pp
 
@@ -61,6 +55,22 @@ let to_string = Pretty.to_string pp
 (** {6 Variables} *)
 
 module Var = struct
+
+  (** Every variable has a {i unique} index associated with it. *)
+  module Index = struct
+    let current = ref 0
+ (*   let index_to_var = Array.make 20000 (Obj.magic 0)
+      let _ =  Tools.add_at_reset (fun () -> current := 0) *)
+
+    let create x =
+      let a = Var(x, !current) in
+	(* Array.set index_to_var !current a; *)
+	incr(current);
+	a
+
+ (*   let to_var i = Array.get index_to_var i *)
+  end
+ 
 
   (** Constructing hashconsed external variables *)
   let mk_var =
@@ -79,7 +89,7 @@ module Var = struct
 	with
 	    Not_found ->
 	      let x = Var.mk_external n d in
-	      let a = Var(x, Var.hash x) in
+	      let a = Index.create x in
 		ExternalHash.add table (n, d) a; a
 
 
@@ -93,7 +103,7 @@ module Var = struct
 	with
 	    Not_found ->
 	      let x = Var.mk_free k in
-	      let a = Var(x, Var.hash x) in
+	      let a = Index.create x in
 		Hashtbl.add table k a; a
 		  
 
@@ -101,7 +111,7 @@ module Var = struct
   let k = ref (-1)
   let _ = Tools.add_at_reset (fun () -> k := 0)
 
-  let index = function
+  let fresh_index = function
     | Some(k) -> k
     | None -> incr(k); !k
 
@@ -113,42 +123,42 @@ module Var = struct
 	type t = Name.t * int * Dom.t option
 	let equal (x1, k1, d1) (x2, k2, d2) = 
 	  Name.eq x1 x2 && k1 = k2 && d1 = d2
-	let hash  = Hashtbl.hash
+	let hash (_, k, _) = k
       end)
     in
     let table = RenameHash.create 17 in
     let _ =  Tools.add_at_reset (fun () -> RenameHash.clear table) in 
       fun n i d -> 
-	let k = index i in
+	let k = fresh_index i in
 	  try
 	    RenameHash.find table (n, k, d)
 	  with
 	      Not_found ->
 		let x = Var.mk_rename n k d in
-		let a = Var(x, Var.hash x) in
+		let a = Index.create x in
 		  RenameHash.add table (n, k, d) a; a
 
 
-  (** Constructing hashconsed slack ariables. *)
+  (** Constructing hashconsed slack variables. *)
   let mk_slack =
     let module SlackHash = Hashtbl.Make(
       struct
 	type t = int * Var.slack
-	let equal (k1, m1) (k2, m2) = 
-	  k1 = k2 && m1 = m2
-	let hash  = Hashtbl.hash
+	let equal (k1, sl1) (k2, sl2) = 
+	  k1 = k2 && sl1 = sl2
+	let hash (k, _) = k
       end)
     in
     let table = SlackHash.create 17 in
     let _ =  Tools.add_at_reset (fun () -> SlackHash.clear table) in 
       fun i sl -> 
-	let k = index i in 
+	let k = fresh_index i in 
 	  try
 	    SlackHash.find table (k, sl)
 	  with
 	      Not_found ->
 		let x = Var.mk_slack k sl in
-		let a = Var(x, Var.hash x) in
+		let a = Index.create x in
 		  SlackHash.add table (k, sl) a; a
 
 
@@ -159,20 +169,103 @@ module Var = struct
 	type t = Th.t * int * Dom.t option
 	let equal (th1, k1, d1) (th2, k2, d2) = 
 	  k1 = k2 && th1 = th2 && d1 = d2
-	let hash  = Hashtbl.hash
+	let hash (_, k, _) = k
       end)
     in
     let table = FreshHash.create 17 in
     let _ =  Tools.add_at_reset (fun () -> FreshHash.clear table) in 
       fun th i d -> 
-	let k = index i in 
+	let k = fresh_index i in 
 	  try
 	    FreshHash.find table (th, k, d)
 	  with
 	      Not_found ->
 		let x = Var.mk_fresh th k d in
-		let a = Var(x, Var.hash x) in
+		let a = Index.create x in
 		  FreshHash.add table (th, k, d) a; a
+
+  let index_of = function
+    | Var(_, idx) -> idx
+    | a -> invalid_arg("Getting unique index of nonvariable term " ^ to_string a)
+
+  let eq = (==)
+
+  (** Variable ordering *)
+  let cmp x y = 
+    if x == y then 0 else Var.cmp x y 
+
+  (** Syntactic variable ordering, does not obey {!Var.cmp}. *)
+  let compare x y =
+    match x, y with
+      | Var(_, n), Var(_, m) ->
+	  assert(if n <> m then not(eq x y) else eq x y);
+	  if n < m then -1 else if n == m then 0 else 1
+      | _ ->
+	  invalid_arg("Term.Var.compare: getting unique index of nonvariable term ")
+
+(*
+(*  Balanced trees are much faster than Patricia trees! *)
+ module Set = struct
+    type t = Ptset.t
+    type elt = trm
+    let empty = Ptset.empty
+    let is_empty = Ptset.is_empty
+    let mem x = Ptset.mem (index_of x)
+    let add x = Ptset.add (index_of x)
+    let singleton x = Ptset.singleton (index_of x)
+    let remove x = Ptset.remove (index_of x)
+    let union = Ptset.union
+    let subset = Ptset.subset
+    let inter = Ptset.inter
+    let diff = Ptset.diff
+    let equal = Ptset.equal
+    let compare = Ptset.compare
+    let elements s = Ptset.fold (fun i acc -> Index.to_var i :: acc) s []
+    let choose s = Index.to_var (Ptset.choose s)
+    let cardinal = Ptset.cardinal
+    let inj f i =  f (Index.to_var i)
+    let iter f = Ptset.iter (inj f)
+    let fold f = Ptset.fold (inj f)
+    let for_all p = Ptset.for_all (inj p)
+    let exists p = Ptset.exists (inj p)
+    let filter p = Ptset.filter (inj p)
+    let partition p = Ptset.partition (inj p)
+    let max_elt s = Index.to_var (Ptset.max_elt s)
+    let min_elt s = Index.to_var (Ptset.max_elt s)
+ end
+
+  module Map = struct
+    type (+'a) t = 'a Ptmap.t
+    type key = trm
+    let empty = Ptmap.empty
+    let add x = Ptmap.add (index_of x)
+    let find x = Ptmap.find (index_of x)
+    let remove x = Ptmap.remove (index_of x)
+    let mem x = Ptmap.mem (index_of x)
+    let inj f i =  f (Index.to_var i)
+    let iter f = Ptmap.iter (inj f)
+    let map f =
+      let f' i = failwith "Term.Var.Map.map: to do" in
+	Ptmap.map f'
+    let mapi f = Ptmap.mapi (inj f)
+    let fold f = Ptmap.fold (inj f)
+  end
+    *)
+
+  module Set = Set.Make(
+    struct
+      type t = trm
+      let compare = compare
+    end)
+
+
+  module Map = Map.Make(
+    struct
+      type t = trm
+      let compare = compare
+    end)
+
+
 
 
   (** {7 Recognizers} *)
@@ -209,16 +302,6 @@ module Var = struct
     | Var(x, _) -> Var.is_real x
     | _ -> false
 
-       (** Create a term variable from a variable. *)
-  let of_var = function
-    | Var.External(n, d) -> mk_var n d
-    | Var.Rename(n, i, d) ->  mk_rename n (Some(i)) d
-    | Var.Slack(i, m) -> mk_slack (Some(i)) m
-    | Var.Fresh(th, i, d) -> mk_fresh th (Some(i)) d
-    | Var.Bound(n) -> mk_free n
-
-  let cmp x y = 
-    if x == y then 0 else Var.cmp x y 
 
 end 
 
@@ -232,13 +315,13 @@ module App = struct
     | [] -> 
 	mk_const f
     | [a] -> 
-	App(f, l , ((Sym.hash f) + hash a) land 0x3FFFFFFF)
+	App(f, l , (14007 + (Sym.hash f) + hash a) land 0x3FFFFFFF)
     | [a; b] -> 
-	App(f, l, ((Sym.hash f) + hash a + hash b) land 0x3FFFFFFF)
+	App(f, l, (19007 + (Sym.hash f) + hash a + hash b) land 0x3FFFFFFF)
     | [a; b; c] -> 
-	App(f, l, ((Sym.hash f) + hash a + hash b + hash c) land 0x3FFFFFFF)
+	App(f, l, (17007 + (Sym.hash f) + hash a + hash b + hash c) land 0x3FFFFFFF)
     | l -> 
-	App(f, l, ((Sym.hash f) + (List.fold_left (fun h a -> h+hash a) 1 l)) land 0x3FFFFFFF)
+	App(f, l, (27007 + (Sym.hash f) + (List.fold_left (fun h a -> h+hash a) 1 l)) land 0x3FFFFFFF)
 
   let destruct a =
     match a with App(f, l, _) -> (f, l) | _ -> raise Not_found
@@ -337,16 +420,14 @@ let orient ((a, b) as e) =
 
 (** [compare] is faster than [cmp] and is used for building sets
   and maplets. It does not obey the variable ordering {!Var.cmp} *)
-let compare a b =
+let rec compare a b =
   let ha = hash a and hb = hash b in
-    if ha = hb then
-      if eq1 a b then 0 else Pervasives.compare a b
-    else if ha < hb then
+    if ha < hb then
       -1
+    else if ha = hb then
+      if eq1 a b then 0 else Pervasives.compare a b
     else 
       1
-  
-
 
 (** Some recognizers. *)
 
@@ -527,4 +608,3 @@ module Subst = struct
   let fold = List.fold_right  
 
 end
-
