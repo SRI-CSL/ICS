@@ -368,7 +368,7 @@ command:
 | SOLUTION optname th       { Result.Solution(Istate.solution $2 $3) }
 | SIGN optname term         { Result.Cnstrnt(Istate.sign $2 $3) }
 | DOM optname term          { Result.Dom(Istate.dom $2 $3) }
-/* | DISEQ optname term        { Result.Terms(Istate.diseq $2 $3) } */
+| DISEQ optname term        { Result.Terms(Istate.diseq $2 $3) }
 | SPLIT optname             { Result.Atoms(Istate.split()) }
 | SOLVE th term EQUAL term  { Result.Solution(Istate.solve $2 ($3, $5)) }		
 | TRACE identlist           { Result.Unit(List.iter Trace.add $2) }

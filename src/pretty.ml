@@ -39,10 +39,12 @@ let option pp fmt = function
       Format.fprintf fmt ")"
   
 
+let final_sep = ref false
+
 let list (pre,sep,post) pp fmt l =
   let rec iter = function
     | [] -> ()
-    | [x] -> pp fmt x
+    | [x] -> pp fmt x; if !final_sep then string fmt sep
     | x :: l -> pp fmt x; string fmt sep; Format.fprintf fmt " "; iter l
   in
   Format.fprintf fmt "@[%s" pre; 

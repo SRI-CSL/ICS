@@ -56,7 +56,7 @@ val get_context : Name.t option -> Context.t
 
 val ctxt_of : Name.t option -> Atom.Set.t
 
-val diseq : Name.t option -> Term.t -> Term.t list
+val diseq : Name.t option -> Term.t -> Term.Set.t
   (** Disequalities. *)
   
 val sign : Name.t option -> Term.t -> Sign.t option

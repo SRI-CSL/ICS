@@ -131,6 +131,7 @@ val add : t -> Atom.t -> t Status.t
     
     In the latter case, [s'] is a logical state equivalent to [s] conjoined with [a]. *)
 
+val compactify : bool ref
 
 val split : t -> Atom.Set.t
   (** List all constraints with finite extension. *)

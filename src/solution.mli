@@ -66,6 +66,10 @@ val fold : (Term.t -> Term.t * Fact.justification option -> 'a -> 'a)
     the solution set [s] in an unspecified order and
     accumulates the result. *)
 
+val replace : (Term.t -> Term.t) -> t -> Term.t -> Term.t
+  (** [replace v s a] replaces all variables [x] in [a] with [b] if [x = b] is 
+    in [s] and normalizes the result. *)
+
 
 (** {6 Predicates} *)
 

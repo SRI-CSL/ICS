@@ -214,9 +214,9 @@ let diseq n a =
   let s = get_context n in
   let a' = Context.can s a in
   try
-    Context.d s a'
+    List.fold_right Term.Set.add (Context.d s a') Term.Set.empty
   with
-      Not_found -> []
+      Not_found -> Term.Set.empty
 
 let sign n a =
   let s = get_context n in

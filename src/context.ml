@@ -529,16 +529,24 @@ and merge e s =
 	      close ch' s''
 
 (** Propagating a variable equality into all the other solution sets. *)
-and propagate e s =           
-  compose Th.la e
-    (compose Th.p e
-       (compose Th.bv e
-	  (compose Th.cop e
-	     (fuse Th.u e
-		(fuse Th.pprod e
-		   (fuse Th.app e
-		      (fuse Th.arr e
-			 (fuse Th.bvarith e s)))))))) 
+and propagate e s =    
+  let propagate_compose i e s =
+    if Solution.is_empty (eqs_of s i) then s else 
+      let (x, y, rho) = Fact.d_equal e in
+	if not(Set.is_empty (use i s x)) then
+	  fuse i e s
+	else 
+	  compose i e s
+  in
+    propagate_compose Th.la e
+      (propagate_compose Th.p e
+	 (propagate_compose Th.bv e
+	    (propagate_compose Th.cop e
+	       (fuse Th.u e
+		  (fuse Th.pprod e
+		     (fuse Th.app e
+			(fuse Th.arr e
+			   (fuse Th.bvarith e s)))))))) 
 
 
 (** From the equality [x = y] and the facts
@@ -610,15 +618,15 @@ and nonlin_equal e s =
     linearize (use Th.pprod s x) s
 
 and fuse i e s =   
-  let (x, _, _) = Fact.d_equal e in   
   let (ch', es', si') = Solution.fuse i (eqs_of s i) [e] in
   let s' = Fact.Equalset.fold merge es' s in
     update s' i si'
 
 and compose i e s =
+  Trace.msg "rule" "Compose" e Fact.pp_equal;
   let (a, b, prf) = Fact.d_equal e in
-  let a' = find i s a 
-  and b' = find i s b in
+  let a' =  Solution.replace (v s) (eqs_of s i) a
+  and b' = Solution.replace (v s) (eqs_of s i) b in
   let e' = Fact.mk_equal a' b' None in
   let sl' = Th.solve i e' in
   let s = if Th.eq i Th.la then List.fold_right slack sl' s else s in
@@ -628,12 +636,12 @@ and compose i e s =
   let s''' = 
     Set.fold
       (fun x acc ->
-	   try
-	     let e' = Solution.equality (eqs_of acc i) x in
-	     let acc' =  if Th.eq i Th.la then nonlin_equal e' acc else acc in
-	       deduce i e' acc'
-	   with
-	       Not_found -> acc)
+	 try
+	   let e' = Solution.equality (eqs_of acc i) x in
+	   let acc' =  if Th.eq i Th.la then nonlin_equal e' acc else acc in
+	     deduce i e' acc'
+	 with
+	     Not_found -> acc)
       ch' s''
   in
     s'''
@@ -859,7 +867,7 @@ let rec normalize s =
 
 and gc s =
   let filter x =  
-    not (mem u s x) &&      (* left-hand sides of these solution sets. *)
+    not (mem u s x) &&     (* left-hand sides of these solution sets. *)
     not (mem pprod s x) &&  (* are not kept in canonical form. *)
     not (mem app s x) &&
     not (mem arr s x) &&

@@ -175,5 +175,7 @@ let solvers =
        cop, Coproduct.solve];
     a
 
-let solve = Array.get solvers
+let solve i =
+  Trace.func "rule" "Solve" Fact.pp_equal (Pretty.list Fact.pp_equal)
+    (Array.get solvers i)
 

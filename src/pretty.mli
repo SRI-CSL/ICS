@@ -30,6 +30,8 @@ val bool : bool printer
 
 val list : 'a printer -> 'a list printer
 
+val final_sep : bool ref
+
 val pair : 'a printer -> 'b printer -> ('a * 'b) printer
 
 val triple : 'a printer -> 'b printer -> 'c printer -> ('a * 'b * 'c) printer

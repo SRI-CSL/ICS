@@ -106,7 +106,7 @@ let args () =
 	"Trace level";
         "-usage", Arg.Set disable_usage_flag,     
 	"Disable printing of usage message";
-        "-compactify", Arg.Set disable_compactify_flag,
+        "-compactify",  Arg.Unit (fun () -> Context.compactify := false),
 	"Disable compactification";
         "-eot", Arg.String (fun str -> end_of_transmission := str), 
 	"Print string argument after each transmission";
@@ -114,6 +114,8 @@ let args () =
 	"Run in server mode";
 	"-integer_solve", Arg.Unit (fun () -> Arith.integer_solve := true),
         "Enbable integer solver";
+	"-final_sep", Arg.Unit (fun () -> Pretty.final_sep := true),
+        "Final separator for lists";
 	"-verbose", Arg.Unit (fun () -> Prop.set_verbose true),
         "Verbose flag for SAT solver";
 	"-remove_subsumed_clauses", Arg.Unit(fun () -> Prop.set_remove_subsumed_clauses true),

@@ -138,6 +138,17 @@ let name i (b, s) =
       Not_found ->   
 	extend i b s
 
+let rec replace v s =
+  let rec repl a = 
+    match a with
+      | Var _ ->
+	  v (find s a)
+      | App(f, al) ->
+	  let al' = Term.mapl repl al in
+	  let a' = if al == al' then a else Th.sigma f al' in
+	    find s a'
+  in
+    repl
 
 let rec nrm i r a = 
   let eqs = ref [] in
@@ -179,7 +190,7 @@ and eqs = ref []
 (** Fuse. *)
 
 let rec fuse i s r =  
-  Trace.msg (Th.to_string i) "Compose" r (Pretty.list Fact.pp_equal);
+  Trace.msg (Th.to_string i) "Fuse" r (Pretty.list Fact.pp_equal);
   let dom =
     List.fold_right
       (fun e ->
