@@ -57,20 +57,23 @@ CMO = cmp.cmo gmp.cmo mpa.cmo \
       tools.cmo binrel.cmo \
       trace.cmo \
       interval.cmo \
-      bitv.cmo term.cmo exc.cmo\
-      var.cmo bdd.cmo \
-      cnstrnt.cmo \
-      atom.cmo bool.cmo \
-      euclid.cmo poly.cmo arith.cmo \
-      sets.cmo \
-      conc.cmo bv.cmo \
+      bitv.cmo term.cmo eqn.cmo\
+      exc.cmo\
       pretty.cmo  \
-      tuple.cmo app.cmo \
+      cache.cmo \
       subst.cmo \
-      funsym.cmo \
-      state.cmo solve.cmo process.cmo \
-      can.cmo \
+      th.cmo \
+      bdd.cmo \
+      cnstrnt.cmo \
+      atom.cmo \
+      bool.cmo \
+      euclid.cmo pproduct.cmo arith.cmo \
+      builtin.cmo \
+      tuple.cmo app.cmo \
+      cc.cmo \
+      dp.cmo \
       ics.cmo
+
 
 CMI = $(CMO:.cmo=.cmi)
 
