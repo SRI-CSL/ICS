@@ -1,0 +1,879 @@
+\documentclass[12pt]{article}
+
+\usepackage{ocamlweb}
+\usepackage{fullpage}
+\usepackage[latin1]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{latexsym}
+\usepackage{amssymb}
+\usepackage{url}
+\usepackage{epsf}
+\usepackage{verbatim}
+\usepackage[chapter]{/homes/owre/tex/tocbibind}
+\usepackage[bookmarks=true,hyperindex=true,colorlinks=true,backref=true,pagebackref=true]{hyperref}
+
+\newcommand{\replace}[2]{#1[#2]}
+\newcommand{\norm}[2]{\mathit{norm}(#1)(#2)}
+\newcommand{\lookup}[2]{\mathit{lookup}(#1)(#2)}
+\newcommand{\can}[2]{\mathit{can}(#1)(#2)}
+\newcommand{\dom}[1]{\mathit{dom}(#1)}
+\newcommand{\compose}[2]{#1; #2}
+\newcommand{\refsec}[1]{\textbf{\ref{#1}}}
+\newcommand{\fullrefsec}[1]{Section~\textbf{\ref{#1}} page~\pageref{#1}}
+\newcommand{\arrlk}[2]{#1[#2]}
+\newcommand{\arrup}[3]{#1[#2:=#3]}
+\newcommand{\comm}{\textit{command}}
+\newcommand{\term}{\textit{term}}
+\newcommand{\prop}{\textit{proposition}}
+
+\title{ICS Manual (Version 0.001)}
+
+\author{The ICS group\\[0.3em]
+  {\small Computer Science Laboratory, SRI International} \\[-0.2em]
+  {\small 333 Ravenswood Avenue, Menlo Park, CA 94025, USA} \\[-0.2em]
+  {\small\texttt{ruess@csl.sri.com}}}
+
+\date{}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+
+\section{Introduction}\label{sec:intro}
+
+ICS (Integrated Canonizer and Solver) is a
+decision procedure developed at SRI International.
+It efficiently decides formulas in a useful combination
+of theories, and it provides an API that makes
+it suitable for use in applications with highly dynamic
+environments such as proof search or symbolic simulation.
+
+The theory decided by ICS is a quantifier-free,
+first-order theory of equality with terms built from
+  \begin{itemize}
+  \item uninterpreted function symbols,
+  \item arithmetic operators including inequalities and number predicates,
+  \item propositional connectives,
+  \item array lookup and update,
+  \item sets operators, and
+  \item operators on fixed-sized bitvectors.
+  \end{itemize}
+This theory is particularly interesting for many applications in the realm
+of software and hardware verification.  Combinations of a multitude
+of datatypes occur naturally in system specifications and the use of
+uninterpreted function symbols has proven to be essential
+for many real-world verifications.
+
+The core of ICS is a congruence closure procedure~\cite{RuessShankar2001}
+for the theory of equality and disequality with both uninterpreted and
+interpreted function symbols.  The concepts of canonization and solving
+have been extended to include inequalities over linear arithmetic
+terms and propositional logic~\cite{FORS2001}\@.
+The theory currently includes:
+  \begin{itemize}
+  \item The usual propositional constants {\tt true}, {\tt false}
+        and connectives
+        {\tt not}, {\tt \&}, {\tt |}, {\tt =>}, {\tt <=>}\@.
+  \item Equality ({\tt =}) and disequality ({\tt /=})\@.
+  \item Rational constants and the arithmetic
+        operators {\tt +}, {\tt *}, {\tt -}\@;
+        multiplication is restricted to
+        multiplication by constants.
+        Arithmetic predicates include an integer test and
+        the usual inequalities {\tt <}, {\tt <=}, {\tt >}, {\tt >=}\@.
+  \item Lookup {\tt $a$[$x$]} and update {\tt $a$[$x$:=$t$]}
+        operations for a functional array $a$\@.
+  \item The constant sets ({\tt empty}, {\tt full}), 
+        set membership ({\tt $x$ in $s$}),
+        and set operators, including
+        complement ({\tt compl($s$)}),
+        union ({\tt $s_1$ union $s_2$}),
+        and intersection ({\tt $s_1$ inter $s_2$})\@.
+  \item Fixed-sized bitvectors including constants such as {\tt 0b101},
+        concatenation ({\tt conc[3,4]($b_1$,$b_2$)}),
+        extraction ({\tt $b$[$i$:$j$]}), bit-wise operations
+        like bit-wise conjunction  ({\tt bv\_and[n]($b_1$,$b_2$)}),
+        and built-in arithmetic relations such as {\tt add[n]($b_1$,$b_2$,$b$)}\@.
+        This latter constraint encodes the fact that the sum of the unsigned
+        interpretations of $b_1$ and $b_2$ equals the unsigned
+        interpretation of $b$.  Fixed-sized bitvectors are
+        decided using the techniques described in~\cite{Moeller98:FMCAD}\@.
+  \end{itemize}
+ICS is capable of deciding formulas such as
+  \begin{itemize}
+  \item {\tt x+2 = y => f(a[x:=3][y-2]) = f(y-x+1)}
+  \item {\tt f(y-1)-1 = y+1 \&  f(x)+1 = x-1 \& x+1 = y => false}
+  \item {\tt f(f(x)-f(y)) /= f(z) \&  y <= x \& y >= x+z \& z >= 0 => false}
+  \end{itemize}
+These formulas contain uninterpreted function symbols
+such as {\tt f} and interpreted symbols drawn from the theories of
+arithmetic and the functional arrays.  The list of
+interpreted theories above is open-ended in the sense that new
+theories can be added to ICS as long as they are canonizable and
+algebraically solvable. The modular design of ICS---both the
+underlying algorithms and their implementation---supports such
+extensions.
+
+One of the main problems in employing decision procedures
+effectively is due to the fact that verification conditions
+usually depend on large contexts.  In addition, these
+contexts change frequently in applications such as
+symbolic simulation or backtracking proof search.
+Consequently, decision procedure systems that
+are effective in these domains must not only be able to
+build up contexts incrementally but they must
+also support efficiently switching between a multitude
+of contexts.  ICS meets these criteria in that all of its
+main algorithm work incrementally and the data
+structures for representing contexts are persistent,
+that is, operations on data structures do not alter the
+previous values of data and {\em undo} operations
+are therefore basically for free.
+
+ICS is implemented in \textsf{Ocaml}~\cite{ObjectiveCaml},
+which offers satisfactory run-time performance,
+efficient garbage collection, and interfaces well with other
+languages like C\@.  The implementation of ICS is based on optimization
+techniques such as hash-consing~\cite{JCF2000}
+and efficient data structures like Patricia trees~\cite{OkasakiGill98}
+for representing sets and maps efficiently.
+
+There is a well-defined API for manipulating ICS terms, asserting
+formulas to the current database, switching between databases,
+and functions for canonizing terms.
+% and there is a functional and an imperative API\@.
+This API is packaged as a C library, an \textsf{Ocaml} module,
+and a CommonLisp interface. The C library API, for example, has been
+used to connect ICS with PVS~\cite{PVS}\@, and both an interaction and
+a batch processing capability have been built using this API\@.
+
+Using ICS as the underlying decision procedure of PVS, we
+experience speed-ups of several orders of magnitude (compared
+with the PVS default decision procedures) for selected problems.
+and for typical problems we are usually able to process several
+thousand theorems every second.
+The efficiency and scalability of ICS in processing formulas,
+the richness of its API, and its ability for fast context-switching
+should make it possible to use it as a black box for discharging
+verification conditions not only in a theorem proving context
+but also in a multitude of applications like static analysis,
+abstract interpretation, extended type checking,
+symbolic simulation, model checking, or compiler
+optimization.
+
+\subsection{Availability}
+
+ICS is available free of charge under the PVS license. It is
+also included in the upcoming release of PVS 3.0\@.
+The complete sources and documentation of ICS are
+available at
+  \begin{center}
+  \url{www.icansolve.com}
+  \end{center}
+There one can also find the ICS license.
+
+
+\subsection{Organization}
+
+This document describes the interfaces and implementation
+aspects of the ICS decision procedures. It is organized as
+follows.
+\begin{center}
+  \begin{tabular}{p{10cm}rr}
+    Chapter & section & page \\[0.5em]
+    \hline\\[0.2em]
+    Installation         & \refsec{sec:installation}   & \pageref{sec:installation}\\[0.5em]
+    Interactor           & \refsec{sec:interactor}     & \pageref{sec:interactor} \\[0.5em]
+    API                  & \refsec{sec:api}            & \pageref{sec:api}    \\[0.5em]
+    Terms                & \refsec{sec:terms}          & \pageref{sec:terms}  \\[0.5em]
+    Constraints          & \refsec{sec:cnstrnts}       & \pageref{sec:cnstrnts} \\[0.5em]
+    Substitution         & \refsec{sec:subst}          & \pageref{sec:subst}\\[0.5em]
+    Canonization         & \refsec{sec:can}            & \pageref{sec:can}\\[0.5em]
+    Solving              & \refsec{sec:solve}          & \pageref{sec:solve}   \\[0.5em]
+    Processing           & \refsec{sec:process}        & \pageref{sec:process}   \\[0.5em]
+    Basic Data Structures& \refsec{sec:data.structures}&\pageref{sec:data.structures} \\[0.5mm]
+    Interpreted Theories & \refsec{sec:theories}       & \pageref{sec:theories}   \\
+    Binary Decision Diagrams   & \refsec{sec:bdd}      & \pageref{sec:bdd}\\[0.5em]
+    Tools and Support    & \refsec{sec:misc}               & \pageref{sec:misc}   \\[0.5em]\\
+  \end{tabular}
+\end{center}
+
+The various modules of the implementation are not presented in
+topological order with respect to their inter-dependencies, but
+rather in a more logical order. However, it may help to have in mind
+the graph of dependencies, which is the following:
+
+%BEGIN LATEX
+\input{epsf}
+\epsfxsize=15cm
+\begin{center}
+\epsfbox{./dep.ps}
+\end{center}
+%END LATEX
+%BEGIN PDFLATEX
+\input{epsf}
+\epsfxsize=15cm
+\begin{center}
+\epsfbox{./dep.ps}
+\end{center}
+%END PDFLATEX
+%HEVEA\imgsrc{./dep.gif}
+
+
+\section{Installation}\label{sec:installation}
+
+\paragraph{Distribution.}
+The file \texttt{ics.tar.gz} can be downlowded from \url{www.icansolve.com}.
+Unpack this file using
+  \begin{verbatim}
+  > zcat ics.tar.gz | tar xvf -
+  \end{verbatim}
+This creates a directory \texttt{./ics} with the following files
+and directory.\\
+  \begin{tabular}{lcl}
+   \texttt{Makefile.in}  & : & Template for generating \texttt{Makefile}.  \\
+   \texttt{bin/} & : & Binaries \\
+   \texttt{configure} & : & Configuration script \\
+   \texttt{lib/} & : & Archives and shared object files  \\
+   \texttt{tests/} & : & Various benchmarks  \\
+   \texttt{README} & : & Short installation guide  \\
+   \texttt{doc/} & : & Documentation \\
+   \texttt{obj/} & : & Object files \\
+   \texttt{src/} & : & Source files \\
+   \texttt{ics/} & : & Shell script for invoking ICS interactor\\
+  \end{tabular}
+
+The latest version of ICS can be obtained by using the
+CVS checkout command
+  \begin{verbatim}
+  > cvs co ics -d $CVS_root
+  \end{verbatim} % $
+where \texttt{CVS\_root} is set to
+  \begin{verbatim}
+  /project/pvs2/cvsroot
+  \end{verbatim}
+
+\paragraph{Requirements.}
+ICS is written mainly in Ocaml, and it uses uses arbitrary
+precision rational numbers from the GNU multi-precision library (GMP)\@.
+To compile ICS one needs to install:
+  \begin{itemize}
+  \item The \textsf{autoconf} package is freely available
+        at \url{http://www.gnu.org/software/autoconf/}\@.
+  \item \textsf{Ocaml} version 3.00 or later.
+        Freely available at \url{http://caml.inria.fr}\@.
+  \item \textsf{GNU MP} version 3.0 or later. This package is
+        freely available at \url{http://www.swox.com/gmp/}\@.
+  \end{itemize}
+So far, we have only compiled \textsf{ICS} on \textsf{Linux Redhat 6.0},
+but it should be possible to compile it on a wide range of
+machines and operating systems.
+
+\paragraph{Installation.}
+A configuration \texttt{./configure} is generated from
+\texttt{./configure.in} in the ICS home directory using
+  \begin{verbatim}
+  > autoconf ./configure.in > ./configure
+  > chmod +x ./configure
+  \end{verbatim}
+The configuration script generates a \texttt{Makefile} from the
+\texttt{Makefile.in}. 
+  \begin{verbatim}
+  > ./configure
+  \end{verbatim}
+Then, {\tt make} compiles ICS on your machine.
+  \begin{verbatim}
+  > make
+  \end{verbatim}
+Binaries are placed in \texttt{./bin/\$(ARCH)/} and
+the libraries in {\tt ./lib/\$(ARCH)/}, where \texttt{ARCH}
+is the architecture guessed by the configuration script.
+The build directory is {\tt ./obj/\$(ARCH)/}, and the generated
+binary and byte code are put in \texttt{./bin/\$(ARCH)/}.
+
+
+\section{The ICS interactor}\label{sec:interactor}
+
+The interactor permits to process formulas interactively and to explore
+the database.  We give an overview of the capabilities of ICS
+using various little examples.
+
+The interactor is started with \texttt{./ics} in the ICS home directory.
+\begin{verbatim}
+% ics
+ICS interpreter. Copyright (c) 2001 SRI International.
+
+> 
+\end{verbatim}
+The `\texttt{>}' is the prompt and ICS is ready to interpret your commands.
+Let us start by checking various tautologies:
+\begin{verbatim}
+> check ((p => q) => p) => p.
+Valid.
+
+> check (x <= y) => (x >= y) => x = y.
+Valid.
+
+> check f(f(x)) = x => f(f(f(f(x)))) = x. 
+Valid.
+\end{verbatim}
+One can also use ICS in an incremental way, by adding statements into
+its database. The command for that is \texttt{assert}.
+\begin{verbatim}
+> assert x = 0.
+
+> assert f(x) = 1.
+\end{verbatim}
+At any point, one can browse the current state with the
+\texttt{show} command. This rhs of each equation is
+the canonical representative of the equivalence class
+containing the rhs.
+\begin{verbatim}
+> show.
+f(0) |-> 1
+x |-> 0
+\end{verbatim}
+At some point, an \texttt{assert} command can fail because an
+inconsistency is discovered:
+\begin{verbatim}
+> assert f(f(x) - 1) = 2.
+Inconsistent!
+\end{verbatim}
+In that case, nothing is added to the state.
+One can reset the state to an empty state with the \texttt{reset}
+command:
+\begin{verbatim}
+> reset.          
+\end{verbatim}
+When you enter complex propositions with \texttt{assert}, they are
+stored in the state but their consistency is not always checked
+immediately (unless trivial).
+\begin{verbatim}
+> assert a => (b & c).
+Ok.
+> assert ~b & a.
+Ok.
+\end{verbatim}
+Therefore, you can end up with an inconsistent state without
+notification by ICS.  That is perfectly normal, the \texttt{assert}
+command being designed to be fast. But the \texttt{check} command is
+complete, and hence you can always check the (in)consistency of the
+state with the following command:
+\begin{verbatim}
+> check false.
+Valid.
+\end{verbatim}
+Similarly, you could have asserted only the first proposition and
+checked the validity of the negation of the second one:
+\begin{verbatim}
+> assert a => (b & c).
+Ok.
+> check ~(~b & a).
+Valid.
+\end{verbatim}
+
+\bigskip
+The \texttt{ics} program can also be used as an interpreter, in the
+following way:
+\begin{center}
+  \texttt{ics} [\texttt{-s}] [\texttt{-t}] \textit{file}
+\end{center}
+Option \texttt{-s} prints statistics when the program exits, and
+option \texttt{-t} prints timings for each validity check.
+
+Consider, for example, processing
+{\tt f(y-1)-1 = y+1}, {\tt f(x)+1 = x-1}, and {\tt x+1 = y}
+from left-to-right using the interactive mode of ICS\@.
+  \begin{verbatim}
+  % ics
+  ICS interpreter. Copyright (c) 2001 SRI International.
+  Ctrl-d to exit.
+
+  >  assert f(y - 1) - 1 = y + 1.
+  \end{verbatim}
+This equation is asserted in its solved form as
+{\tt y = -2 + f(-1 + y)}\@. This equation is indeed considered
+to be in solved form, since {\tt y} on the right-hand side occurs
+only in the scope of the uninterpreted {\tt f}\@. Terms
+in the database are partitioned
+into equivalence classes, and the canonical representative of any
+term $t$ with respect to this partition is represented by {\tt can $t$};
+for example:
+  \begin{verbatim}
+  > can -1 + y.
+  -3 + f(-1 + y)
+  \end{verbatim}
+It can be shown that {\tt can $t_1$} is identical to {\tt can $t_2$}
+iff the equality $t_1$ = $t_2$ is derivable in the current context.
+Now, the second equation is processed
+  \begin{verbatim}
+  > assert f(x) + 1 = x - 1.
+  \end{verbatim}
+\vspace{-5mm}
+by canonizing it to {\tt 1 + f(x) = -1 + x} and solving this
+equation as {\tt x = 2 + f(x)}. Finally, {\tt can x + 1} yields
+{\tt 3 + f(x)} and {\tt can y} is {\tt -2 + f(-1 + y)}. Thus,
+the third equation is solved as {\tt f(x) = -5 + f(-1 + y)}\@.
+Since {\tt f(x) = f(-1 + y)}, using {\tt x = -1 + y} and congruence,
+there is a contradiction {\tt -5 = 0}\@.
+Indeed, ICS detects this inconsistency, when given the assertion
+below.
+ \begin{verbatim}
+  > assert x + 1 = y.
+  Inconsistent!
+  \end{verbatim}
+\vspace{-5mm}
+
+
+\subsection{The Command Language}
+
+The ICS command language realizes a {\em ask/tell} interface to
+a context consisting of known facts. When invoking
+the interactor, this context is empty.
+
+\paragraph{Asserting facts.}
+  \begin{center}
+  \texttt{assert} \prop \texttt{.}
+  \end{center}
+A new fact $\prop$ is asserted to the database using the
+\texttt{assert} command. There are three possible outcomes:
+  \begin{enumerate}
+  \item  $\prop$ is inconsistent with respect to the current context.
+         In this case, \texttt{assert} leaves the current context
+         unchanged and outputs \texttt{Inconsistent!} on the standard
+         output.
+  \item  $\prop$ is valid in the current context. Again,the
+         the current context is left, and now \texttt{Valid!}
+         is output.
+  \item  Otherwise, in case $\prop$ is satisfiable but not valid,
+         the context is modified to include new information obtained
+         from $\prop$.
+  \end{enumerate}
+
+\paragraph{Checking validity.}
+  \begin{center}
+  \texttt{check} \prop \texttt{.}
+  \end{center}
+The validity and inconsistenty of a proposition $\prop$ in the current
+context can be established using the \texttt{check} command.  This
+command leaves the context unchanged.
+
+\paragraph{Resetting.}
+  \begin{center}
+  \texttt{reset} \texttt{.}
+  \end{center}
+Resets the current context to the empty context.
+
+\paragraph{Canonization.}
+  \begin{center}
+  \texttt{canon} \term \texttt{.}
+  \end{center}
+Computes the canonical form for its argument $\term$\@ with respect
+to the current context.
+
+\paragraph{Displaying the context.}
+  \begin{center}
+  \texttt{show} \texttt{.}
+  \end{center}
+Displays the current context on standard output as a list of
+equations $\textit{rhs} = \textit{lhs}$\@.  The $\textit{lhs}$
+is the representative of the equivalence class containing $\textit{rhs}$\@.
+
+\paragraph{Verbose.}
+  \begin{center}
+  \texttt{verbose} \textit{int} \texttt{.}
+  \end{center}
+Determines the amount of trace information displayed on standard output.
+Currently, the verbose levels $0$, $1$, and $2$ are supported.
+
+
+
+\section{Application Programming Interface}\label{sec:api}
+
+Usually, the capabilites of ICS are not accessed through the interactor
+but rather through its application programming interface.  Currently,
+we support interfaces for C, Fortran, Lisp, and Ocaml.  We
+first describe the Ocaml interface, since the interfaces for the
+other programming languages are automatically generated from this one.
+
+\subsection{Caml interface}
+
+ \input{./literal/ics.mli}
+
+\subsection{C Interface}
+
+The API for the C programming language is generated automatically
+from the Ocaml API described above. The C file can be found in
+  \begin{verbatim}
+  ./obj/$ARCH/ics_stub.c
+  \end{verbatim}
+% $
+This file contains a C function declaration \texttt{ics\_xxx} for each of the interface
+function \texttt{xxx} described above.  For example, the definition of
+the function \texttt{ics\_mk\_var} for the \texttt{mk\_var} constructor is
+given by the following C code.
+  \begin{verbatim}
+value* ics_mk_var(char* x1) {
+  value* ics_mk_var(char* x1) {
+  value* r = malloc(sizeof(value));
+  register_global_root(r);
+  *r = 1;
+  *r = callback_exn(*ics_mk_var_rv,copy_string(x1));
+  if (!Is_exception_result(*r)) { return r; };
+  ocaml_error("ics_mk_var",format_caml_exception(Extract_exception(*r)));
+  return (value*)0;
+}
+ \end{verbatim}
+These interface function translate C arguments to Ocaml values, call the
+Ocaml function, and translate back the results. In addition, any Ocaml
+exceptions are caught and handled by the \texttt{ocaml\_error} function.
+Curried signatures of the Ocaml functions are uncurried, and list and
+tuple arguments must be build using the constructors of the interface.
+The handling of exceptions is determined by the function
+\texttt{ocaml\_error}, defined in \texttt{./src/ics\_error.c}; this
+function may have to be adjusted for application-specific error handling.
+
+\subsection{Lisp Interface}
+
+The Lisp API for ICS builds on the C interface and uses the foreign
+function interface of Allegro Common Lisp 6.0.  For each function
+\texttt{xxx} in the API a foreign function declaration \texttt{ics\_xxx}
+is generated.  These definitions are collected in the file
+ \begin{verbatim}
+  ./obj/$ARCH/ics.lisp
+  \end{verbatim}
+% $
+The Lisp interface ensures that the Lisp and the Ocaml garbage collector
+cooperate.
+
+\section{Term structure}\label{sec:terms}
+
+\subsection{Term data structure}\label{subsec:terms}
+
+\input{./literal/term.mli}
+
+\input{./literal/term.ml}
+
+
+  \subsection{Uninterpreted Terms}\label{sec:uninterpreted}
+
+  \subsubsection{Variables}\label{subsec:variables}
+
+  \input{./literal/var.mli}
+
+  \input{./literal/var.ml}
+
+ \subsubsection{Function application and update}\label{subsec:app}
+
+  \input{./literal/app.mli}
+
+  \input{./literal/app.ml}
+
+
+\section{Constraints}\label{sec:cnstrnts}
+
+\subsection{Interval arithmetic}\label{subsec:interval}
+
+  \input{./literal/interval.mli}
+
+  \input{./literal/interval.ml}
+
+\subsection{Manipulating term constraints}\label{subsec:cnstrnts}
+
+  \input{./literal/cnstrnt.mli}
+
+  \input{./literal/cnstrnt.ml}
+
+
+
+\section{Theories}\label{sec:theories}
+
+  This chapter describes the implementation of canonization and solver
+  functions for the various theories
+
+
+ \subsection{Linear Arithmetic}\label{subsec:arithmetic}
+
+    \input{./literal/arith.mli}
+
+    \input{./literal/arith.ml}
+
+  \subsubsection{Rational Polynomials}\label{subsec:bdd}
+
+    \input{./literal/poly.mli}
+
+    \input{./literal/poly.ml}
+
+    \subsubsection{Euclidean Solver}\label{subsec:euclid}
+
+    \input{./literal/euclid.mli}
+
+    \input{./literal/euclid.ml}
+
+
+ \subsection{Tuples}\label{subsec:tuples}
+
+   \input{./literal/tuple.mli}
+
+   \input{./literal/tuple.ml}
+
+
+ \subsection{Propositional Logic}\label{subsec:propositional}
+
+ \input{./literal/bool.mli}
+
+ \input{./literal/bool.ml}
+
+
+ \subsection{Sets}\label{subsec:sets}
+
+ \input{./literal/sets.mli}
+
+ \input{./literal/sets.ml}
+
+
+ \subsection{Bitvectors}\label{subsec:bv}
+
+  \input{./literal/bv.mli}
+  \input{./literal/bv.ml}
+
+  \subsubsection{Concatenation Normal Forms}\label{sec:cnf}
+
+  \input{./literal/conc.mli}
+
+  \input{./literal/conc.ml}
+
+
+\section{Binary Decision Diagrams}\label{sec:bdd}
+
+\input{./literal/bdd.mli}
+
+\input{./literal/bdd.ml}
+
+
+\section{Substition and Normalization}\label{sec:subst}
+
+ \input{./literal/subst.mli}
+
+ \input{./literal/subst.ml} 
+
+
+\section{Simplification and Canonization}\label{sec:can}
+
+ \input{./literal/can.mli}
+
+ \input{./literal/can.ml}
+
+\section{Solving}\label{sec:solve}
+
+ \input{./literal/solve.mli}
+
+ \input{./literal/solve.ml}
+
+
+\section{Processing}\label{sec:process}
+
+ \subsection{Database}\label{subsec:database}
+
+ \input{./literal/state.mli}
+
+ \input{./literal/state.ml}
+
+ \subsection{Process}\label{subsec:process}
+
+ \input{./literal/process.mli}
+
+ \input{./literal/process.ml}
+
+
+
+\section{Basic Data Structures}\label{sec:data.structures}
+
+  \subsection{Hash Consing}\label{subsec:hashcons}
+
+  \input{./literal/hashcons.mli}
+
+  \input{./literal/hashcons.ml}
+
+  \subsection{Set of Terms}\label{subsec:patricia.sets}
+
+  \input{./literal/ptset.mli}
+
+  \input{./literal/ptset.ml}
+
+  \subsection{Term Maps}\label{subsec:patricia.maps}
+
+  \input{./literal/ptmap.mli}
+
+  \input{./literal/ptmap.ml}
+
+
+
+
+
+\section{Tools and Support}\label{sec:misc}
+
+  \subsection{Tools}\label{subsec:tools}
+
+  This chapter describes the utility modules. The module \textit{Tools}
+  contained utility functions used in the implementation. The modules
+  \textit{Lexer} and \textit{Parser} provide parsers for terms,
+  equations, commands, etc. (we only give the interface for module
+  \textit{Lexer}). The module \textit{Test} is a tiny toplevel
+  to test the implementation. It allows the user to test the
+  canonization and solver functions, and the algorithm.
+
+  \input{./literal/tools.mli}
+
+  \input{./literal/tools.ml}
+
+  \section{Arbitrary Precision Arithmetic}\label{sec:apa}
+
+   \input{./literal/mpa.mli}
+ 
+   \input{./literal/mpa.ml}
+
+  \subsection{Exceptions}\label{subsec:exceptions}
+
+   \input{./literal/exc.mli}
+
+   \input{./literal/exc.ml}
+
+  \subsection{Binary Relations}\label{subsec:binrel}
+
+   \input{./literal/binrel.mli}
+
+   \input{./literal/binrel.ml}
+
+  \subsection{Comparison}\label{subsec:cmp}
+
+   \input{./literal/cmp.mli}
+
+   \input{./literal/cmp.ml}
+ 
+  \subsection{Tracing}\label{subsec:trace}
+
+   \input{./literal/trace.mli}
+
+   \input{./literal/trace.ml}
+
+ \section{Command Interpreter}\label{sec:interpreter}
+
+  \subsection{Commands}\label{subsec:cmd}
+
+  \input{./literal/cmd.mli}
+  \input{./literal/cmd.ml}
+
+  \subsection{Read-Eval-Print}\label{subsec:repl}
+
+  \input{./literal/main.ml}
+
+  \subsection{Lexer}\label{subsec:lexer}
+ 
+  \verbatiminput{../src/lexer.mll}
+
+  \subsection{Parser}\label{subsec:parser}
+ 
+  \verbatiminput{../src/parser.mly}
+
+  \subsection{Pretty-Printer}\label{subsec:pretty}
+
+  \input{./literal/pretty.mli}
+
+  \input{./literal/pretty.ml}
+
+
+  \subsection{Lexical conventions}
+
+  The lexical conventions of ICS are the following:
+  \begin{center}
+   \begin{tabular}{rrl}
+    \textit{ident} & ::= & (\textit{letter}$|$\texttt{\_}) 
+                           (\textit{letter}$|$\texttt{\_}$|$\texttt{'}$|$\textit{digit})$\star$
+                           \\
+    \textit{number} & ::= & (digit)+
+  \end{tabular}
+  \end{center}
+  Comments start with the character \texttt{\%}, up to the end of line.
+
+  \subsection{BNF grammar}
+
+\begin{center}
+  \begin{tabular}{rrl}
+    \comm & ::= & \texttt{assert} \prop\texttt{;} \dots\texttt{;} 
+                  \prop\texttt{.} \\
+          & $|$ & \texttt{check} \prop\texttt{.} \\
+          & $|$ & \texttt{show}\texttt{.} \\
+          & $|$ & \texttt{canon} \term\texttt{.} \\
+          & $|$ & \texttt{verbose} \textit{int}\texttt{.} \\
+          & $|$ & \texttt{reset.} \\
+  \end{tabular}
+\end{center}
+
+\begin{center}
+  \begin{tabular}{rrl}
+    \prop & ::= & \term\ \texttt{=} \term \\
+          & $|$ & \term\ \texttt{<>} \term \\
+          & $|$ & \term\ \texttt{>} \term \\
+          & $|$ & \term\ \texttt{>=} \term \\
+          & $|$ & \term\ \texttt{<} \term \\
+          & $|$ & \term\ \texttt{<=} \term \\
+          & $|$ & \texttt{true} \\
+          & $|$ & \texttt{false} \\
+          & $|$ & \prop\ \texttt{\&\&} \prop \\
+          & $|$ & \prop\ \texttt{||} \prop \\
+          & $|$ & \prop\ \texttt{=>} \prop \\
+          & $|$ & \texttt{\~{}} \prop \\
+          & $|$ & \texttt{if} \prop\ \texttt{then} \prop\ 
+                  \texttt{else} \prop\ \texttt{fi} \\
+          & $|$ & \ldots
+  \end{tabular}
+\end{center}
+
+\begin{center}
+  \begin{tabular}{rrl}
+    \term & ::= & \textit{ident} \\
+          & $|$ & \textit{ident}
+                  \texttt{(}\term\texttt{,}\dots\texttt{,}\term\texttt{)} \\
+          & $|$ & \textit{number} \\
+          & $|$ & \term\ \texttt{+} \term \\
+          & $|$ & \term\ \texttt{-} \term \\
+          & $|$ & \term\ \texttt{*} \term \\
+          & $|$ & \term\ \texttt{/} \term \\
+          & $|$ & TODO
+  \end{tabular}
+\end{center}
+
+
+\vspace{10mm}
+{\bf Acknowledgements.}
+The algorithms and data structures underlying ICS have been
+developed by N. Shankar and Harald Rue{\ss}\@. The core ICS code is
+by Jean-Christophe Filli{\^a}tre and Harald Rue{\ss}, and the Lisp
+interface has been developed by Sam Owre, Harald Rue{\ss}, and
+Jean-Christophe Filli{\^a}tre. The GMP ocaml interface was originally
+written by David Monniaux, and adjusted for use with \texttt{ocaml 3.00} by
+Jean-Christophe Filli{\^a}tre.
+
+ This document has been automatically produced
+from the source code using the literate programming tool \textsf{ocamlweb}%
+\footnote{\textsf{Objective Caml} and
+  \textsf{ocamlweb} are both freely available, respectively at
+  \textsf{http://caml.inria.fr} and
+  \textsf{http://www.lri.fr/\~{}filliatr/ocamlweb}}.
+
+
+\bibliographystyle{alpha}
+\addcontentsline{toc}{section}{References}
+\bibliography{./biblio}
+
+\end{document}
+
+
+
+
+
+
+
+

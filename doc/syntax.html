@@ -1,0 +1,43 @@
+<html>
+<head>
+<title>Syntax of terms</title>
+</head>
+<body>
+<h1>Syntax of terms</h1>
+
+<pre>
+<i>term</i> ::= 
+       | <i>symbol</i>
+       | <i>symbol</i>(<i>term</i>, ..., <i>term</i>)
+
+       | <i>constant</i>
+       | - <i>term</i>
+       | <i>term</i> + <i>term</i>
+       | <i>term</i> - <i>term</i>
+       | <i>term</i> * <i>term</i>
+
+       | <i>term</i>[<i>term</i>]
+       | <i>term</i>[<i>term</i> := <i>term</i>]
+
+       | if <i>prop</i> then <i>term</i> else <i>term</i> fi
+
+<i>prop</i> ::= 
+       | <i>term</i> = <i>term</i>
+       | <i>term</i> <> <i>term</i>
+       | <i>term</i> < <i>term</i>
+       | <i>term</i> <= <i>term</i>
+
+       | true
+       | false
+       | not <i>prop</i>
+       | <i>prop</i> and <i>prop</i>
+       | <i>prop</i> or <i>prop</i>
+       | <i>prop</i> => <i>prop</i>
+       | if <i>prop</i> then <i>prop</i> else <i>prop</i> fi
+</pre>
+
+<p>
+<hr>
+<a href="index.html">Back</a>
+</body>
+</html>
