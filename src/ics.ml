@@ -849,6 +849,7 @@ and cmd_error fmt str =
 
 and cmd_quit n fmt =
   do_at_exit();
+  Format.fprintf fmt "\n";
   cmd_endmarker fmt;
   exit n
 
