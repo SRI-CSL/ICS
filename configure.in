@@ -135,9 +135,9 @@ fi)
 
 dnl Check for programs
 
-AC_PROG_CC
 AC_PROG_CPP
-AC_PROG_CXX
+AC_PROG_CC(gcc)
+AC_PROG_CXX(g++)
 AC_PROG_MAKE_SET
 AC_PROG_RANLIB
 AC_CHECK_PROG(AR, ar, ar) 
@@ -147,7 +147,6 @@ case "$target" in
     AR="$AR -X 64"
     ;;
 esac   
-
 
 dnl Check for OCaml programs
 AC_CHECK_PROG(OCAMLC,ocamlc,ocamlc,no)
@@ -290,6 +289,10 @@ else
 	CFLAGS="-O3 -DNDEBUG"
 	CXXFLAGS="-O3 -DNDEBUG"
 fi				
+
+dnl Turn off warning messages for deprecated C++ features
+gxx_major=`$CXX --version | sed -e '2,$d' | sed -e 's/[[^0-9\.]]//g' | sed -e 's/[[\.]][[\.]]*/\./g' | sed -e 's/^\.//g' | sed -e 's/\.$//g' | awk -F . '{print $1}'`
+if test $gxx_major -ge 3; then CXXFLAGS="-Wno-deprecated $CXXFLAGS"; fi
 
 dnl Finally create all the generated files
 AC_OUTPUT(Makefile chameleon/Makefile ics sat/Makefile sat/src/Makefile src/version.ml)
