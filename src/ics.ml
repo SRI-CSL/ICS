@@ -12,18 +12,34 @@ type term = Term.t
 (*s Variables. *)
 
 let mk_var x = Var.var x
-let mk_fresh s = Var.create s
 	 
-let is_var t = match t.node with Var _ -> true | _ -> false
-    
+let is_var t =
+  match t.node with
+    | Var _ -> true
+    | _ -> false
+
 let d_var t =
   match t.node with
     | Var s -> s
     | _ -> raise (Invalid_argument "Ics.d_var: Variable required")
+		 
+let mk_fresh s =
+  Var.fresh s None
+
+let is_fresh =
+  Var.is_fresh
+
+let fresh_equiv a =
+  assert(is_fresh a);
+  Var.equiv a
 	
 let _ = Callback.register "mk_var" mk_var
-let _ = Callback.register "mk_fresh" mk_fresh
 let _ = Callback.register "is_var" is_var
+let _ = Callback.register "d_var" d_var  
+
+let _ = Callback.register "mk_fresh" mk_fresh
+let _ = Callback.register "is_fresh" is_var
+let _ = Callback.register "fresh_equiv" mk_fresh
 
 	  
 (*s Function application and function update. *)
@@ -619,7 +635,7 @@ let d_bv_ite t =
     | _ -> raise  (Invalid_argument "Ics.d_bv_ite: Bitwise operator required")
  
 
-let _ = Callback.register "d_var" d_var
+
 let _ = Callback.register "d_app" d_app
 let _ = Callback.register "d_update" d_update
 let _ = Callback.register "d_num" d_num
@@ -828,7 +844,9 @@ let norm s t = Subst.norm (State.to_subst s) t
 let can = Can.can
 let simplify = Can.simplify
 	    
-let solve = Solve.solve
+let solve x s e =
+  let s' = State.copy s in
+  Solve.solve x s' e
     
 let _ = Callback.register "norm" norm 
 let _ = Callback.register "can" can
@@ -917,6 +935,25 @@ let _ = Callback.register "pair" pair
 let _ = Callback.register "fst" fst
 let _ = Callback.register "snd" snd
 
+(*s Options. *)
+
+let is_some = function
+  | Some _ -> true
+  | None -> false
+
+let is_none = function
+  | None -> true
+  | _ -> false
+
+let value_of = function
+  | Some(x) -> x
+  | _ -> assert false
+	
+let _ = Callback.register "is_some" is_some
+let _ = Callback.register "is_none" is_none
+let _ = Callback.register "value_of" value_of
+	  
+	 
 (*s Multi-precision arithmetic.*)
 
 open Mpa

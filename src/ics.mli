@@ -77,12 +77,14 @@ type term
     the behavior of applying [d_var] to all other terms is undefined.
   *)
 
-val mk_var : string -> term   
+val mk_var : string -> term
+val is_var : term -> bool
+val d_var : term -> string   
+    
 val mk_fresh : string -> term
+val is_fresh : term -> bool
+val fresh_equiv : term -> term option
 
-val is_var : term -> bool    
-
-val d_var : term -> string
 
     (*s Function applications are created using the [mk_app~f~l]
       constructor.  In general, the name of the function [f] is
@@ -536,7 +538,7 @@ val is_unsat : state -> term -> bool
 
 val norm : state -> term -> term
 val can : state -> term -> term
-val simplify : state -> term -> term
+val simplify : state -> term -> term option
 
 val solve : term option -> state -> term * term -> subst
 
@@ -560,6 +562,7 @@ val gc : unit -> unit
 val set_verbose : int -> unit
     
 val flush : unit -> unit
+
     
 (*s Lists. *)
 
@@ -569,12 +572,22 @@ val head : 'a list -> 'a
 val tail : 'a list -> 'a list
 val list_pp : ('a -> unit) -> ('a list -> unit)
 
-(* Pairs. *)
+    
+(*s Pairs. *)
 
 val pair : 'a -> 'b -> 'a * 'b
 val fst : 'a * 'b -> 'a
-val snd : 'a * 'b -> 'b    
+val snd : 'a * 'b -> 'b
 
+    
+(*s Options. *)
+
+val is_some : 'a option -> bool
+val is_none : 'a option -> bool
+
+val value_of : 'a option -> 'a
+
+    
 (*s Imperative API.  All the functions presented up to that point were
   purely functional and all the data-types were persistent. In the 
   following, we also provide an imperative API,
