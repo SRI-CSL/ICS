@@ -442,7 +442,7 @@ let rec sat s p =
     init s;
     let result = 
       let mode = if !Justification.proofmode = Justification.Mode.No then false else true in
-	if icsat_sat (to_prop p) true then
+	if icsat_sat (to_prop p) mode then
 	  begin
 	    debug();
 	    Some(assignment (), top())
