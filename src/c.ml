@@ -20,18 +20,22 @@ open Term
 
 type t = {
   c : Cnstrnt.t Map.t;
-  changed : Set.t
+  changed : Set.t;
+  singletons : Set.t
 }
 
 let empty = {
   c = Map.empty;
-  changed = Set.empty
+  changed = Set.empty;
+  singletons = Set.empty
 }
 
-let unchanged s t =
+let eq s t =
   s.c == t.c
 
 let cnstrnts s = s.c
+
+let singletons s = s.singletons
 
 let apply s x = Map.find x s.c 
 
@@ -51,7 +55,11 @@ let cnstrnt_split s =
 
 let update x i s =
   {c = Map.add x i s.c; 
-   changed = Set.add x s.changed}
+   changed = Set.add x s.changed;
+   singletons = 
+     match Cnstrnt.d_singleton i with 
+       | Some _ -> Set.add x s.singletons
+       | None -> s.singletons}
 
 (*s Extend the constraint map. *)
 
@@ -79,7 +87,10 @@ let add c s =
 (*s Restrict the map. *)
 
 let restrict x s =
-  {s with c = Map.remove x s.c}
+  {s with 
+     c = Map.remove x s.c;
+     changed = Set.remove x s.changed;
+     singletons = Set.remove x s.singletons}
 
 
 (*s Merge a variable equality [x = y] in the constraint map by
@@ -178,6 +189,7 @@ let rec deduce (x, b) c =
   Suppose [b] is of the form [pre + q * x + post'], then
   [x in 1/q * (i - (j + k))] is derived, where [pre in j] and
   [post' in k]. Following should be optimized. *)
+
 
 and propagate b i c =
   let rec loop j post c = 
