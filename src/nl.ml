@@ -351,7 +351,7 @@ and propagate1 (p, la, nl) e =
 	       else if is_pure b'' then
 		 process (p, nl) e''
 	       else if Arith.is_interp b'' then
-		 La.merge (p, la) e''
+		 La.process_equal (p, la) e''
 	       else 
 		 ())
       x

@@ -478,7 +478,7 @@ and process_equal th (p, s) e =
 	       U.merge  (p, s.u) e
 	   | Shostak(i)->  
 	       (match i with
-		  | LA -> La.merge (p, s.a) e
+		  | LA -> La.process_equal (p, s.a) e
 		  | BV -> Bv.merge (p, s.bv) e
 		  | P -> P.merge (p, s.p) e
 		  | COP -> Cop.merge (p, s.cop) e  
@@ -489,16 +489,31 @@ and process_equal th (p, s) e =
 		  | ARR -> Arr.process_equal (p, s.arr) e
 		  | NL ->  Nl.merge (p, s.nl) e))
 
+
+let process_diseq (p, s) d =
+  if Fact.Diseq.is_diophantine d then
+    La.process_diseq (p, s.a) d
+  else 
+    let d = Fact.Diseq.to_var (name (p, s)) d in
+      Partition.dismerge p d;
+      Arr.dismerge (p, s.arr) d;
+      Bv.dismerge (p, s.bv) d
+
 let process_nonneg (p, s) =
   La.process_nonneg (p, s.a) 
 
-let process_pos (p, s) =
-  La.process_pos (p, s.a) 
+let process_pos (p, s) pp =
+  let (a, rho) = Fact.Pos.destruct pp in
+  let nn = Fact.Nonneg.make (a, rho) 
+  and dd = Fact.Diseq.make (a, Arith.mk_zero(), rho) in
+    process_nonneg (p, s) nn;
+    process_diseq (p, s) dd
+  
 
 let dismerge (p, s) d =
   Trace.msg "foobar" "Dismerge" d Fact.Diseq.pp;
   if Fact.Diseq.is_diophantine d then
-    La.dismerge (p, s.a) d
+    La.process_diseq (p, s.a) d
   else 
     let d = Fact.Diseq.to_var (name (p, s)) d in
       Trace.msg "foobar" "Named" d Fact.Diseq.pp;

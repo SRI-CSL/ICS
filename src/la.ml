@@ -418,7 +418,6 @@ let is_num s q x =
   with
       Not_found -> None
 
-let is_zero s = is_num s Mpa.Q.zero
 
 (** Return [(q, rho)] such that [rho |- x = q] or raise [Not_found]. *)
 let d_num s x =
@@ -533,7 +532,7 @@ let unwind_protect f c a =
      in [T] and repeat with [k = a''].  Eventually, all the negative variables will have been
      eliminated or we are back to one of the previous cases.  Note that [|a'|] will never 
      go below [0] in this process. *)
-let rec merge cfg e =  
+let rec process_equal cfg e =  
   unwind_protect 
     merge1 cfg e
 
@@ -882,32 +881,8 @@ and analyze ((_, s) as cfg) =
 
 (** {6 Inequality Tests} *)
 
-(** Test if [a <= 0] by asserting [a > 0]. If this yields a
-  contradiction, then [a<=0] holds. *)
-let rec is_nonpos cfg a =
-    try
-      let pa = Fact.Pos.make (a, Jst.dep0) in
-	protect cfg process_pos pa;
-	None
-    with
-	Jst.Inconsistent(rho) -> Some(rho)
-
-and process_pos cfg c =  
-  Trace.msg "la" "Process" c Fact.Pos.pp;
-  let process ((_, s) as cfg) c =
-    let c = Fact.Pos.map (replace s) c in 
-    let (a, rho) = Fact.Pos.destruct c in           (* [rho |- a >= 0] *)
-      dismerge1 cfg (Fact.Diseq.make (a, Arith.mk_zero(), rho));
-      process_nonneg1 cfg (Fact.Nonneg.make (a, rho))
-  in
-    unwind_protect
-      process cfg c
-     
-
-
-(** Test if [a < 0] by asserting [a >= 0]. If this fails,
-  then [a < 0] holds. *)
-and is_neg cfg a =
+(** Test if [a < 0] by asserting [a >= 0]. If this fails, then [a < 0] holds. *)
+let rec is_neg cfg a =
   if not(Term.is_pure Th.la a) then None else
     try
       let nna = Fact.Nonneg.make (a, Jst.dep0) in
@@ -928,26 +903,56 @@ and is_diseq ((_, s) as cfg) a b =
 	  None
       with
 	  Exc.Inconsistent -> Some(Jst.dep2 rho tau)
-	  
-(** Test if [a >= 0]. *)
-and is_nonneg cfg a = 
-  assert(Term.is_pure Th.la a);
-  is_nonpos cfg (Arith.mk_neg a)
-      
-(** Test if [a > 0]. *)
+    
+(** [a > 0] iff [-a < 0]. *)
 and is_pos cfg a =  
   assert(Term.is_pure Th.la a);
   is_neg cfg (Arith.mk_neg a)
+	
+  
+(** [a >= 0] iff [a > 0] or [a = 0]. *)
+and is_nonneg cfg a = 
+  assert(Term.is_pure Th.la a);
+  match is_pos cfg a with
+    | None -> is_zero cfg a
+    | res -> res
+
+
+(** [a <= 0] iff [a < 0] or [a = 0]. *)
+and is_nonpos cfg a =
+  assert(Term.is_pure Th.la a);
+  match is_neg cfg a with
+    | None -> is_zero cfg a
+    | res -> res
+
+
+(** [a = 0] in iff [a == 0] or [x = 0] in [s] with [x = a]. *)
+and is_zero (p, s) a =
+  if Arith.is_zero a then
+    Some(Jst.dep0)
+  else if Term.is_var a then
+    try
+      let (x, rho) = inv s (Arith.mk_zero()) in
+	(match Partition.is_equal p x a with
+	  | Some(tau) -> Some(Jst.dep2 rho tau)
+	  | None -> None)
+    with
+	Not_found -> None
+  else 
+    None
+
 
 (** Test if [a <= b]. *)
 and is_le cfg (a, b) =
   assert(Term.is_pure Th.la a && Term.is_pure Th.la b);
   is_nonneg cfg (Arith.mk_sub b a)
 
+
 (** Test if [a >= b]. *)
 and is_ge cfg (a, b) =
   assert(Term.is_pure Th.la a && Term.is_pure Th.la b);
   is_nonneg cfg (Arith.mk_sub a b)
+
 
 (** Test if [a > b]. *)
 and is_gt cfg (a, b) = 
@@ -960,7 +965,7 @@ and is_gt cfg (a, b) =
 (** Processing disequalities only deals with integer disequalities,
   which are maintained in the form [e <> n] where [n] is a natural 
   number. *) 
-and dismerge cfg d = 
+and process_diseq cfg d = 
   Trace.msg "la" "Process" d Fact.Diseq.pp;
   unwind_protect
     dismerge1 cfg d
@@ -981,10 +986,12 @@ and dismerge1 ((p, s) as cfg) d =
 and is_inconsistent_diseq cfg d =
   let (a, b, rho) = Fact.Diseq.destruct d in
     try
-      let _ = Arith.solve (a, b) in
+      if Arith.solve (a, b) = [] then 
+	Some(rho)
+      else 
 	None
     with
-	Exc.Inconsistent -> Some(rho)
+	Exc.Inconsistent -> None
  
 
 (** Nondiophantine disequalities are variable-abstracted
@@ -994,7 +1001,7 @@ and process_nondiophantine_diseq ((p, s) as cfg) d =
       assert(Fact.Diseq.is_var d');
       Partition.dismerge p d';                     (* now, add -x <> 0 for x <> 0 *)
       let (x, y, rho) = Fact.Diseq.destruct d' in  (* [rho |- x <> y] *)
-	match is_zero s x with
+	match is_zero cfg x with
 	  | Some(tau) ->                           (* [tau |- x = 0] *)
 	      ()
 	  | None -> 

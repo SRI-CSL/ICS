@@ -101,10 +101,10 @@ val name : config -> Jst.Eqtrans.t
     variable, it creates such a variable [v] and updates [s] to 
     include the equality [v = a]. *)
 
-val merge : config -> Fact.Equal.t -> unit
+val process_equal : config -> Fact.Equal.t -> unit
   (** Given a configuration [(p, s)] and an equality [e]
     over {i pure}, linear arithmetic terms
-    [merge (p, s) e] adds [e] to [(p, s)]. 
+    [process_equal (p, s) e] adds [e] to [(p, s)]. 
     If [e] conjoined with [s] and [p] is {i inconsistent},
     then {!Jst.Inconsistent} is raised.  Besides 
     {i destructively} updating [s], all generated variable 
@@ -121,17 +121,8 @@ val process_nonneg : config -> Fact.Nonneg.t -> unit
     generated variable equalities and disequalities are propagated
     into the partitioning [p].  *)
 
-val process_pos : config -> Fact.Pos.t -> unit
-  (** Given a configuration [(p, s)] and an positivity
-    constraint [pp] of the form [a > 0] with [a] a pure
-    linear arithmetic term, [process_nonneg (p, s) pp] adds 
-    [pp] to [(p, s)]. If [pp] conjoined with [s] and [p] is 
-    {i inconsistent}, then {!Jst.Inconsistent} is 
-    raised.  Besides {i destructively} updating [s], all 
-    generated variable equalities and disequalities are propagated
-    into the partitioning [p].  *)
 
-val dismerge : config -> Fact.Diseq.t -> unit
+val process_diseq : config -> Fact.Diseq.t -> unit
   (** Given a configuration [(p, s)] and an disequality
     constraint [a <> b] with [a], [b] either variables or
     [a] a linear term and [b] a rational constant, 
