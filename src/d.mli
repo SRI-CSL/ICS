@@ -20,6 +20,8 @@ type t
 
 val pp : Format.formatter -> t -> unit
 
+val changed : Term.Set.t ref
+
 (*s Return disequalities as bindings of the form [x |-> {y1,...,yn}].
  The interpretation of such a binding is the conjunction 
  [x <> y1 & ... & x <> yn] of all known disequalities for [x]. The
@@ -52,11 +54,6 @@ val merge : Fact.equal -> t -> t
 
 val add : Fact.diseq -> t -> t
 
+(*s Return disequalites for [x]. *)
 
-(*s [changed s] returns the set of variables [x] with a new
- canonical representative, where 'new' is relative to the last
- [reset s]. *)
-
-val changed : t -> Fact.diseq list
-
-val reset : t -> t
+val disequalities : t -> Term.t -> Fact.diseq list
