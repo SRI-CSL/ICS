@@ -60,3 +60,18 @@ let profile str f =
     timer := !timer +. (finish -. start);
     calls := !calls + 1;
     y
+
+
+(*s Simulate dynamic binding. *)
+
+let dynamic_let (x, v) f a = 
+  let saved = !x in
+    try
+      let result = (x := v; f a) in
+	x := saved;
+	result
+    with
+      | exc ->
+	  x := saved;
+	  raise exc
+      
