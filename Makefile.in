@@ -122,7 +122,7 @@ ICSAT= $(SATDIR)/lib/icsat.a
 
 
 .PHONY : all all-chdir
-all: $(OBJDIR) $(LIBDIR) $(BINDIR) # $(ICSAT)
+all: $(OBJDIR) $(LIBDIR) $(BINDIR) $(ICSAT)
 	$(MAKE) -C chameleon all
 	$(MAKE) -C $(OBJDIR) -f ../../Makefile all-chdir
 
@@ -138,11 +138,11 @@ TOPCMI = $(CMI)
 TOPCMX = $(TOPCMO:.cmo=.cmx)
 
 ifeq ($(MAKELEVEL),1)
-$(BINDIR)/ics: $(COBJS) $(TOPCMI) $(TOPCMX) # $(ICSAT)
+$(BINDIR)/ics: $(COBJS) $(TOPCMI) $(TOPCMX) $(ICSAT)
 	$(OCAMLOPT) -cc $(CXX) $(OFLAGS) -o $@ unix.cmxa $(TOPCMX) $(COBJS) $(LIBS) \
         $(ICSAT)  -ccopt "-lstdc++"
 else
-ics: $(OBJDIR)
+ics: $(OBJDIR) # $(ICSAT)
 	make -C $(OBJDIR) -f ../../Makefile ics
 endif
 
@@ -178,7 +178,7 @@ GENERATED = lexer.ml parser.mli parser.ml
 
 ### build ICSAT ###
 $(ICSAT) : 
-	@(cd sat; $(MAKE))
+	@(cd $(SATDIR); $(MAKE))
 
 ### Directories
 
