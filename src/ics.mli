@@ -50,6 +50,7 @@ type q
 
 val num_of_int : int -> q
 val num_of_ints : int -> int -> q
+val ints_of_num : q -> string * string
 val string_of_num : q -> string
 val num_of_string : string -> q
 
@@ -179,6 +180,8 @@ type domain = Term.domain
 val is_intdom : domain -> bool
 val is_booldom : domain -> bool
 val is_ratdom : domain -> bool
+
+val is_external : term -> bool
 
 
   (*s  Variables of name [x] are build with [mk_var(x)].
@@ -386,9 +389,6 @@ val mk_le : term -> term -> term
 val mk_gt : term -> term -> term
 val mk_ge : term -> term -> term
 
-
-
-
 (*s Set of terms. *)
 
 type terms
@@ -403,6 +403,9 @@ val terms_to_list : terms -> term list
 val terms_of_list : term list -> terms
 val terms_choose : terms -> term * terms
 
+(*s Set of fresh variables. *)
+
+val freshvars_of : term -> terms
    
     
 (*s Maps with terms as domain. *)
@@ -472,17 +475,23 @@ val state_init : unit -> state
 
 type theories = Term.theories
 
+val theory_arith : unit -> theories
+val theory_tuple : unit -> theories
+val theory_boolean : unit -> theories
+val theory_eq : unit -> theories
+
+
 val state_find : theories -> state -> term -> term
 
 val state_ctxt_of : state -> term list
 val state_find_of : theories -> state -> subst
 val state_use_of : theories -> state -> terms map
 val state_diseqs_of : state -> terms map
+val state_cnstrnts_of : state -> cnstrnt map
 
 val state_inconsistent : state -> bool
 
-val state_witness : state -> terms -> subst list
-val state_solutions : state -> terms -> subst list
+val state_solutions : state -> terms -> (term * terms) list
 
 val state_pp : state -> unit
 
@@ -522,22 +531,13 @@ val check : state -> term -> tstatus
 val is_check_valid : tstatus -> bool
 val is_check_inconsistent : tstatus -> bool
 val is_check_satisfiable : tstatus -> bool
+val d_check_satisfiable : tstatus -> state list
 
 
 (*s [can] normalizes terms inside-out. The resulting term may contain *)
-(*s fresh and rename variables. *)
+(*s fresh variables as introduced by solvers but no rename variables. *)
 
 val can : state -> term -> term
-
-(*s Given a state [s] and a term [a], [norm s a] returns a normalized expression [b] *)
-(*s together with the set of fresh variables, that occur in [b]. *)
-
-val norm : state -> term -> terms * term 
-
-(*s [norm0 a] normalizes term [a] in the empty state. It does contain neither *)
-(*s fresh nor rename variables. *)
-
-val norm0 : term -> term     
 
 (*s Solving an equation in one of the theories. *) 
 

@@ -730,6 +730,17 @@ let is_subterm a b =
   in 
   occ b
 
+(*s Check if argument term contains fresh or rename variables. *)
+
+let rec is_external a =
+  match a.node with
+    | Var(_, Ext _) -> true
+    | Var(_, (Fresh _ | Rename _)) -> false
+    | App({node=Uninterp(x,_,_)},l) ->
+	is_external x && List.for_all is_external l
+    | App(_,l) ->
+	List.for_all is_external l
+
 (*s Iteration over terms. *)
 
 let rec iter f a  =

@@ -231,12 +231,13 @@ let _ = Callback.register "is_ratdom" is_ratdom
 let is_booldom d = (d = BoolDom)
 let _ = Callback.register "is_booldom" is_booldom
 
-
 (*s Terms ar either variables, uninterpreted applications,
   or interpreted applications including boolean terms. *)
   
 type term = Term.t
 
+let is_external = Term.is_external
+let _ = Callback.register "is_external" is_external
 
 (*s Variables. *)
 	
@@ -483,14 +484,16 @@ let _ = Callback.register "mk_ite" mk_ite
 let mk_neg a =
   if Bool.is_neg a then 
     Bool.d_neg a
-  else 
+  else if Atom.is_atom a then
     try 
       let s = Dp.empty() in
-      let _ = Dp.process s a in
+      let _ = Dp.process s (Dp.can s a) in
       Bool.neg a
     with
       | Exc.Valid -> Bool.ff()
       | Exc.Inconsistent -> Bool.tt()
+  else 
+    Bool.neg a
 
 let _ = Callback.register "mk_neg" mk_neg
 
@@ -500,12 +503,16 @@ let mk_conjl =
     function 
       | [] -> acc
       | a :: al ->
-	  try
-	    let _ = Dp.process s a in
+	  if Atom.is_atom a then
+	    try
+	      let _ = Dp.process s (Dp.can s a) in
+	      loop (Bool.conj a acc) al
+	    with
+	      | Exc.Inconsistent -> Bool.ff()
+	      | Exc.Valid -> acc
+	  else 
 	    loop (Bool.conj a acc) al
-	  with
-	    | Exc.Inconsistent -> Bool.ff()
-	    | Exc.Valid -> acc
+	    
   in
   loop (Bool.tt())
 
@@ -528,12 +535,15 @@ let mk_disjl =
     function 
       | [] -> acc
       | a :: al ->
-	  try
-	    let _ = Dp.process s a in
+	  if Atom.is_atom a then
+	    try
+	      let _ = Dp.process s (Dp.can s a) in
+	      loop (Bool.disj a acc) al
+	    with
+	      | Exc.Inconsistent -> acc
+	      | Exc.Valid -> Bool.ff()
+	  else
 	    loop (Bool.disj a acc) al
-	  with
-	    | Exc.Inconsistent -> acc
-	    | Exc.Valid -> Bool.ff()
   in
   loop (Bool.ff())
 
@@ -667,6 +677,11 @@ let terms_choose = Term.Set.destructure
 let _ = Callback.register "terms_choose" terms_choose
 
 
+(*s Set of fresh variables. *)
+
+let freshvars_of = Term.freshvars_of 
+let _ = Callback.register "freshvars_of" freshvars_of
+
 (*s Maps with terms as domain. *)
 
 type 'a map = 'a Term.Map.t
@@ -718,7 +733,7 @@ let _ = Callback.register "subst_apply" subst_apply
 let subst_of_list l = Subst.empty
 let _ = Callback.register "subst_of_list" subst_of_list
 
-let subst_to_list s = failwith "to do"
+let subst_to_list = Subst.to_list
 let _ = Callback.register "subst_to_list" subst_to_list
 
 let subst_pp = Subst.pp Format.std_formatter
@@ -777,6 +792,20 @@ type state = Dp.t
 
 type theories = Term.theories
 
+let theory_arith () = Term.ArithTh
+let _ = Callback.register "theory_arith" theory_arith
+
+let theory_tuple () = Term.TupleTh
+let _ = Callback.register "theory_tuple" theory_tuple
+
+let theory_boolean () = Term.BooleanTh
+let _ = Callback.register "theory_boolean" theory_boolean
+
+let theory_eq () = Term.EqTh
+let _ = Callback.register "theory_eq" theory_eq
+
+
+
 let state_eq = (==)
 let _ = Callback.register "state_eq" state_eq  
 
@@ -814,13 +843,16 @@ let state_use_of th s =
 let _ = Callback.register "state_use_of" state_use_of
 
 let state_diseqs_of s = Cc.diseqs_of s.u
+let _ = Callback.register "state_diseqs_of" state_diseqs_of
+
+
+let state_cnstrnts_of s = Cc.cnstrnt_of s.u
+let _ = Callback.register "state_cnstrnts_of" state_cnstrnts_of
+
 
 let state_inconsistent = Dp.inconsistent
 
 let _ = Callback.register "state_inconsistent" state_inconsistent
-
-let state_witness = Dp.witness
-let _ = Callback.register "state_witness" state_witness
 
 let state_solutions = Dp.solutions
 let _ = Callback.register "state_solutions" state_solutions
@@ -909,26 +941,38 @@ let rec process s a =
     | Exc.Inconsistent -> Inconsistent
     | Exc.Valid -> Valid
 
+let _ = Callback.register "process" process   
+
+
 type tstatus = Dp.status
 
 let is_check_inconsistent ts = (ts = Dp.Inconsistent)
 let _ = Callback.register "is_check_inconsistent" is_check_inconsistent
+
 let is_check_satisfiable ts =
   match ts with
     | Dp.Satisfiable _ -> true
     | _ -> false
+
 let _ = Callback.register "is_check_satisfiable" is_check_satisfiable
+
+
+let d_check_satisfiable ts = 
+  match ts with
+    | Dp.Satisfiable sl -> sl
+    | _ -> assert false
+
+let _ = Callback.register "d_check_satisfiable" d_check_satisfiable
+
 let is_check_valid ts = (ts = Dp.Valid)
 let _ = Callback.register "is_check_valid" is_check_valid
   
 let check = Dp.check
-
-let _ = Callback.register "process" process   
 let _ = Callback.register "check" check
 
 (*s Normalization functions *)
 
-let can = Dp.can
+let can = Dp.can_external
 let _ = Callback.register "can" can
 
 
@@ -962,19 +1006,6 @@ let rec defreshify a =       (*s Get rid of rename variables, and collect a list
 	  (acc'', x' :: xl')
   in
   loop (Term.Set.empty, a)  
-
-let norm s a =
-  let b = Dp.simplify s a in
-  (Term.freshvars_of b, b)
-
-let _ = Callback.register "norm" norm
-
-let norm0 a =
-  let (acc,b) = norm (Dp.empty()) a in         (*s Processing in an empty state should not *) 
-  assert(Term.Set.is_empty acc);               (*s generate any fresh variables in canonized terms. *)
-  b
-
-let _ = Callback.register "norm0" norm0
 
 
 (*s Solving equation [e] in a given theory. *)
@@ -1113,6 +1144,11 @@ open Mpa
 
 type q = Q.t
 
+let ints_of_num q =
+  (Z.to_string (Q.numerator q), Z.to_string (Q.denominator q))
+let _ = Callback.register "ints_of_num" ints_of_num
+
+
 let num_of_int = Q.of_int
 let _ = Callback.register "num_of_int" num_of_int
 		   
@@ -1126,6 +1162,3 @@ let num_of_string = Q.of_string
 let _ = Callback.register "num_of_string" num_of_string
 
 let mk_string s = s
-
-
-

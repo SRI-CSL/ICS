@@ -19,7 +19,7 @@ val norm : Subst.t -> Term.t -> Term.t
 
 val can : t -> Term.t -> Term.t
 
-val simplify : t -> Term.t -> Term.t
+val can_external : t -> Term.t -> Term.t
 
 val process : t -> Term.t -> t
 
@@ -34,6 +34,4 @@ val inconsistent : t -> bool
 
 val groebner : t -> t
 
-val witness : t -> Term.ts -> Subst.t list
-
-val solutions : t -> Term.ts -> Subst.t list
+val solutions : t -> Term.ts -> (Term.t * Term.ts) list

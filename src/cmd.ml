@@ -123,26 +123,6 @@ let can a =
   let b = Ics.can s a in
   Format.printf "@["; Ics.term_pp b; Format.printf "@]@."
 
-let norm a =  
-  let string_of_domain = function
-    | Term.IntDom -> "int"
-    | Term.BoolDom -> "bool"
-    | Term.RatDom -> "real"
-  in 
-  let s = current() in
-  let (xs,b) = Ics.norm s a in
-  Format.printf "@["; Ics.term_pp b; Format.printf "@]@.";
-  if not(Ics.terms_is_empty xs) then
-    begin
-      Format.printf "\nwith fresh vars: ";
-      Ics.list_pp 
-	(fun x ->
-	   (assert (Ics.is_fresh x));
-	   let (id,dom) = d_fresh x in
-	   Format.printf "(%s,%s)" id (string_of_domain dom))
-	(Ics.terms_to_list xs)
-    end
-
     
     (*s Solver command [solve]. *)
     
@@ -203,15 +183,14 @@ let groebner () =
 let solution al =
   let s = current() in
   let rhos = Ics.state_solutions s (Ics.terms_of_list al) in
-  List.iter Ics.subst_pp rhos
+  List.iter
+    (fun (x,ys) ->
+       Ics.term_pp x; 
+       Format.printf " |-> "; 
+       Ics.terms_pp ys;
+       Format.printf "\n")
+    rhos
 
-
-(*s Get witnesses for a term. *)
-
-let witness al =
-  let s = current() in
-  let rhos = Ics.state_solutions s (Ics.terms_of_list al) in
-  List.iter Ics.subst_pp rhos
       
     
     (*s Order of terms. *)

@@ -35,12 +35,8 @@ module Make(Ite : ITE) = struct
 
   open Ite
 
-(*s Atomic terms are interpred as a positive literal *)
-
-  let simplify b =
-    match destructure_ite b with
-      | Some(x,p,n) when is_high p && is_low n -> x
-      | _ -> b
+  let is_bdd b =
+    is_low b || is_high b || is_ite b
 
   let d_ite tg b =
     if is_low b || is_high b then
@@ -49,7 +45,7 @@ module Make(Ite : ITE) = struct
       let b3 = destructure_ite b in
       match b3 with
 	| Some _ -> b3
-	| None -> Some(b, high tg, low tg)
+	| None -> failwith "Bdd.d_ite: not a bdd"
 
 (*s Building up BDDs *)
 
@@ -89,7 +85,7 @@ module Make(Ite : ITE) = struct
     try
       H3.find ht s3
     with Not_found ->
-      let b = simplify(build_fun tg s3) in
+      let b = build_fun tg s3 in
       H3.add ht s3 b; b 
 
   and build_fun tg (s1,s2,s3) =
@@ -107,6 +103,16 @@ module Make(Ite : ITE) = struct
 	  let n = build tg (n1,n2,n3) in
 	  if p === n then p else ite tg x p n
       | _ -> assert false
+
+  let inj tg a =
+    if is_bdd a then
+      a
+    else 
+      ite tg a (high tg) (low tg)
+
+  let build tg (s1,s2,s3) =
+    build tg (inj tg s1, inj tg s2, inj tg s3)
+
 
   (*s Derived constructors. *)
 

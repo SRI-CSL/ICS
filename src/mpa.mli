@@ -39,6 +39,8 @@ module Z : sig
   val lcm : t -> t -> t      (*s Least Common Multiple. *)
   val pow : int -> int -> t
 
+  val to_string : t -> string
+
   val pp : Format.formatter -> t -> unit
 end
 
@@ -78,6 +80,7 @@ module Q : sig
   val cmp : t -> t -> cmp
 
   val denominator : t -> Z.t
+  val numerator : t -> Z.t
       
   val is_integer : t -> bool
   val to_z : t -> Z.t

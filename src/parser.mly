@@ -42,7 +42,7 @@
 
 %}
 
-%token CAN SIMP SOLVE NORM SOLUTION WITNESS FOR ASSERT FIND SHOW CHECK LIFT USE EXT UNINTERP SIGMA VERBOSE SHOW
+%token CAN SIMP SOLVE SOLUTION WITNESS FOR ASSERT FIND SHOW CHECK LIFT USE EXT UNINTERP SIGMA VERBOSE SHOW
 %token CURRENT RESET DROP CMP CTXT CNSTRNT HELP COMMANDS SYNTAX GROEBNER UNDO DISEQS INCONSISTENT
 
 %token ARITH BOOLEAN TUPLE EQ
@@ -212,7 +212,6 @@ optint:       { None }
 command:
 | SIGMA term     DOT   { Cmd.sigma $2 }
 | CAN term       DOT   { Cmd.can $2 }
-| NORM term      DOT   { Cmd.norm $2 }
 | CNSTRNT term DOT     { Cmd.cnstrnt $2 }
 | ASSERT term    DOT   { Cmd.process $2 }
 | CTXT DOT             { Cmd.ctxt () }
@@ -224,7 +223,6 @@ command:
 | CHECK term     DOT   { Cmd.check $2 }
 | SOLVE theory equation DOT   { Cmd.solve $2 $3 }
 | SOLUTION termlist  DOT { Cmd.solution $2 } 
-| WITNESS termlist  DOT { Cmd.witness $2 } 
 | EXT term DOT         { Cmd.ext $2 }
 | term CMP term  DOT   { Cmd.less ($1,$3)}
 | VERBOSE INTCONST DOT { Cmd.verbose $2 }

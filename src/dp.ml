@@ -131,7 +131,7 @@ let rec can s a =
   Trace.exit 4 "Can" b Pretty.term;
   b
 
-and simplify s a =
+and can_external s a =
   Trace.call 4 "Norm" a Pretty.term;
   defreshify := true;
   let b = can_term s a in 
@@ -385,32 +385,21 @@ let rec norm rho a =
 	     Not_found -> a)
 
 
-(*s Set of models for [a]. [a] may occur uninterpreted. *)
+(*s Computation of witnesses. *)
 
-let witness1 s a =
-  Term.Set.remove a (ext s a)
-
-let witness s xs =
-  Term.Set.fold
-    (fun x rhos ->
-       Term.Set.fold
-	 (fun wx acc ->  
-	    let rhos' = 
-	      List.map 
-		(fun rho -> 
-		   Subst.add (x, norm rho wx) rho) 
-		rhos
-	    in
-	    rhos' @ acc)
-	 (witness1 s x)
-	 [])
-    xs 
-    [Subst.empty]
-	  
-(*s Set of solutions for [a]. [a] may not occur in [a]. *)
-
-let is_solution = 
-  Subst.every (fun (x,y) -> not(is_subterm x y))
-  
 let solutions s xs =
-  List.filter is_solution (witness s xs)
+  let solution1 x =             (* Set of all terms in equivalence class of [x] *)
+    Term.Set.filter            (* which do not contain any of the [xs]. *)
+      (fun y -> 
+	 not(Term.Set.exists (fun z -> is_subterm z y) xs))
+      (ext s x)
+  in
+  Term.Set.fold 
+    (fun x acc -> 
+       let ys = solution1 x in
+       if Term.Set.is_empty ys then
+	 []
+       else 
+	 (x,ys) :: acc)
+    xs []
+    

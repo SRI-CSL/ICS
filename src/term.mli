@@ -274,6 +274,10 @@ val is_const : t -> bool
 
 val is_subterm : t -> t -> bool
 
+  (*s [is_external a] holds iff if [a] does not contain any fresh or rename variables. *)
+
+val is_external : t -> bool
+
   (*s Fold operator on terms. *)
 
 val fold : (t -> 'a -> 'a) -> t -> 'a -> 'a

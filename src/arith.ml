@@ -772,7 +772,7 @@ let propagate ctxt s =
        (el1 @@ el, cl1 @ cl))
     ([],[])
 
-let ext s a =
+let rec ext s a =
   try
     let b = apply s a in
     Term.Set.singleton b

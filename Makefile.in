@@ -85,7 +85,7 @@ SRC = $(addprefix $(SRCDIR)/,$(CMO:.cmo=.ml))
 all: $(OBJDIR) $(LIBDIR) $(BINDIR)
 	$(MAKE) -C $(OBJDIR) -f ../../Makefile all-chdir
 
-all-chdir: ics $(LIBDIR)/libics.so $(LIBDIR)/libics.a ics.byte $(OBJDIR)/ics-pvs.lisp 
+all-chdir: ics $(LIBDIR)/libics.so $(LIBDIR)/libics.a ics.byte
 	@echo 
 	@echo ICS Build complete
 	@echo 
@@ -119,7 +119,7 @@ endif
 OBJS = ics_all.o ics_stub.o ics_error.o mlgmp.o
 
 ifneq ("@ALLEGRO@","no")
-LISPOBJS = ics.fasl ics-pvs.fasl
+LISPOBJS = ics.fasl
 endif
 
 ics_all.o: $(CMX)
@@ -141,10 +141,6 @@ ics_stub.c ics.h ics.lisp: ics.ml ics.mli ../../chameleon/$(ARCH)/chameleon
 ics.fasl: ics.lisp
 	@ALLEGRO@ -e '(let ((excl:*cltl1-in-package-compatibility-p* t)) \
 	(compile-file "ics.lisp") (excl:exit))'
-
-ics-pvs.fasl: ics-pvs.lisp
-	  @ALLEGRO@ -e '(let ((excl:*cltl1-in-package-compatibility-p* t)) \
-		(compile-file "ics-pvs.lisp") (excl:exit))'
 
 GENERATED = lexer.ml parser.mli parser.ml
 
@@ -171,7 +167,7 @@ $(LIBDIR):
 
 .PRECIOUS : $(OBJDIR)/%.ml $(OBJDIR)/%.mli $(OBJDIR)/%.mly 
 .PRECIOUS : $(OBJDIR)/%.mll $(OBJDIR)/mlgmp.c
-.PRECIOUS : $(OBJDIR)/ics-pvs.lisp $(OBJDIR)/ics_error.c
+.PRECIOUS : $(OBJDIR)/ics_error.c
 
 
 $(OBJDIR)/%.ml: $(SRCDIR)/%.ml
@@ -192,8 +188,6 @@ $(OBJDIR)/mlgmp.c: $(SRCDIR)/mlgmp.c
 $(OBJDIR)/ics_error.c: $(SRCDIR)/ics_error.c
 	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
 
-$(OBJDIR)/ics-pvs.lisp: $(SRCDIR)/ics-pvs.lisp
-	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
 
 ### Automated tests
 

@@ -29,10 +29,6 @@ val solve : Ics.theories -> Ics.term * Ics.term -> unit
 
 val solution : Ics.term list -> unit
 
- (*s Get witnesses for an uninterpreted terms. *)
-
-val witness : Ics.term list -> unit
-
    (*s Asserts argument term to the current context.
      There are three different outcomes. In case, <term> is found to be implied
      by the current context, `Valid.' is returned, and if <term> is found to be
@@ -92,10 +88,6 @@ val cnstrnt: Ics.term -> unit
     (*s Computes canonical representative of argument using context information. *)
     
 val can : Ics.term -> unit
-
-    (*s Normalize a term. *)
-
-val norm : Ics.term -> unit
 
     (*s Display use list. *)
 
