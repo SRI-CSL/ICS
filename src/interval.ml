@@ -297,15 +297,15 @@ let fold flt fle fgt fge foo fco foc fcc ftop fbot l  =
 	(*s Pretty printing *)
 
 let low_pp fmt = function
-  | Neginf -> Format.fprintf fmt "( "
+  | Neginf -> Format.fprintf fmt "(-inf "
   | Low(k,q) -> Format.fprintf fmt "%s" (if k = Strict then "(" else "["); Q.pp fmt q
 
 let high_pp fmt = function
-  | Posinf -> Format.fprintf fmt " )"
+  | Posinf -> Format.fprintf fmt " inf)"
   | High(k,q) -> Q.pp fmt q; Format.fprintf fmt "%s" (if k = Strict then ")" else "]")
 
 let interval_pp fmt (dom,i,j) =
-  let domstr = match dom with Real -> "" | Int -> "int" | NonintReal -> "nonintreal" in
+  let domstr = match dom with Real -> "real" | Int -> "int" | NonintReal -> "nonintreal" in
   Format.fprintf fmt "@[%s" domstr; 
   low_pp fmt i;
   Format.fprintf fmt "..";
