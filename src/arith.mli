@@ -11,9 +11,7 @@
  * benefit corporation.
  *)
 
-(** Module [Arith]: Constructors, recognizers, and accessors for
-  linear arithmetic terms. Solvers for rational and integer arithmetic.
-  Processing arithmetic equalities.
+(** Equality theory of linear arithmetic.
 
   A linear arithmetic term is built-up from rational constants,
   linear multiplication of a rational with a variable, and n-ary
@@ -163,7 +161,8 @@ val fold : (Term.t -> 'a -> 'a) -> Term.t -> 'a -> 'a
     accumulates the results starting with [e]. *)
 
 val map: (Term.t -> Term.t) -> Term.t -> Term.t
-  (** - [map f (mk_num q)] equals [mk_num q]
+  (** Applying a term transformer [f] at uninterpreted positions.
+    - [map f (mk_num q)] equals [mk_num q]
     - [map f (mk_multq q x)] equals [mk_multq q (map f x)]
     - [map f (mk_addl al)] equals [mk_addl (List.map f al)]
     - Otherwise, [map f x] equals [f x] *)

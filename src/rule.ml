@@ -215,98 +215,25 @@ and arith_fme e s =
       | _ ->
 	  s 
 
-and fme x a s =
-  Trace.msg "rule" "Fme" (x, a) Term.pp_equal;
+and fme u a s =                    (* [u = a]. *)
+  Trace.msg "rule" "Fme" (u, a) Term.pp_equal;
   try
-    let i1 = c s x in
-    let dom1 = Cnstrnt.dom_of i1 in
-    let (lo1, hi1) = Cnstrnt.endpoints_of i1 in
-    let (q1, z1, a1) = Arith.destructure a in
-      folduse Th.la z1
-	(fun (y, b) s ->
-	   if Term.eq y x then s else
-	     let (q2, z2, a2) = Arith.destructure b in
-	       if not(Term.eq z1 z2) then s else
-		 try
-		   let i2 = c s y in
-		   let dom2 = Cnstrnt.dom_of i2 in
-		   let (lo2, hi2) = Cnstrnt.endpoints_of i2 in
-		   let dom = Dom.Real in
-		     (match Q.sign q1, Q.sign q2 with
-			| Sign.Pos, Sign.Pos ->
-			    less dom (q2, lo2, a2) (q1, hi1, a1)
-			      (less dom (q1, lo1, a1) (q2, hi2, a2) s)
-			| Sign.Pos, Sign.Neg ->
-			    less dom (q2, hi2, a2) (q1, hi1, a1)
-			      (less dom (q1, lo1, a1) (q2, lo2, a2) s)
-			| Sign.Neg, Sign.Pos ->
-			    less dom (q1, hi1, a1) (q2, hi2, a2)
-			      (less dom (q2, lo2, a2) (q1, lo1, a1) s)
-			| Sign.Neg, Sign.Neg ->
-			    less dom (q1, hi1, a1) (q2, lo2, a2)
-			      (less dom (q2, hi2, a2) (q1, lo1, a1) s)
-			| _ ->
-			    s)
-		 with
-		     Not_found -> s)
-	s      
+    let i = c s u in               (* [u in i] *)
+      folduse Th.la (Arith.leading a)
+	(fun (v, b) s ->           (* [v = b] *)
+	   if Term.eq u v then s else
+	     try
+	       let j = c s v in    (* [v in j]. *)
+	       let q = Arith.multiple (a, b) in     (* [q * a = b]. *)
+	       let i' = Cnstrnt.multq (Q.inv q) j in
+	       let j' = Cnstrnt.multq q i in
+		 infer u i'        (* thus [u in 1/q * j] *)
+		   (infer v j' s)  (* and  [v in q * i] *)
+	     with
+		 Not_found -> s)
+	s
   with
       Not_found -> s
-
-	
-(** Generate an inequality [1/q1 * (p1 - m1) < 1/q2 * (p2 - m2)].
-  This is equivalent to 
-           [1/q1 * p1 - 1/q2 * p2 < 1/q1 * m1 - 1/q2 * m2].
-  Now, mutliply with [q = abs(q1 * q2)]
-*)	
-and less dom (q1, ep1, m1) (q2, ep2, m2) s = 
-  let (extq1, alpha) = Endpoint.destruct ep1 in
-  let (extq2, beta) = Endpoint.destruct ep2 in
-  let kind = alpha && beta in
-    Trace.msg "foo" "Less" (extq1, kind, extq2) (Pretty.triple Extq.pp Pretty.bool Extq.pp);
-    match Extq.destruct extq1, Extq.destruct extq2 with
-      | Extq.Inject(p1), Extq.Inject(p2) ->
-	  lessq dom (q1, p1, m1) kind (q2, p2, m2) s
-      | _ -> s
-
-and lessq dom (q1, p1, m1) kind (q2, p2, m2) s =
-  let a = Arith.mk_addq (Q.div p1 q1)
-	    (Arith.mk_multq (Q.minus (Q.inv q1)) m1) in
-  let b = Arith.mk_addq (Q.div p2 q2)
-	    (Arith.mk_multq (Q.minus (Q.inv q2)) m2) in
-  let ab = Can.term s (Arith.mk_sub a b) in
-  Trace.msg "foo" "Lowerzero" ab Term.pp; 
-  let i = Cnstrnt.mk_lower dom (Q.zero, kind) in
-  let (ab', i') = Atom.normalize (ab, i) in
-    if is_var ab' then
-      infer (v s ab') i' s
-    else 
-      try                       (* [x = c] in [la] and [q * a_sub_b = c] *)
-	multiple_infer (ab', i') s
-      with
-	  Not_found ->
-	    let (s', x) = name Th.la (s, ab') in
-	      infer x i' s'
-
-(* Inverse lookup for [a] which also takes linear multiplications of [a] 
- into considerations. Throws [Not_found] if no such multiple exists. *)
-
-and multiple_infer (a, i) s =                 (* [a in i] *)
-  let found = ref false in
-  let x = Arith.leading a in
-  let s' =  
-    folduse Th.la x
-      (fun (x, b) s ->                          (* [x = b] *)
-	 try
-	   let q = Arith.multiple (a, b) in     (* [q * a = b] *)
-	     found := true;
-	     infer x (Cnstrnt.multq q i) s      (* ==> [x in q * i] *)
-	 with
-	     Not_found -> s)
-      s  
-  in
-    if not(!found) then raise Not_found;   (* no multiple inverse found. *)
-    s'
 
 
 and ints x ml s = 
