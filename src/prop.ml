@@ -305,7 +305,7 @@ let atom_pp i =
   Trace.msg "foo23" "Atom.pp" i Pretty.number;
   let a = id_to_atom i in
     Atom.pp Format.std_formatter a
-let _ = Callback.register "atom_pp" atom_pp
+let _ = Callback.register "prop_atom_pp" atom_pp
 
 (** {6 Stack} *)
 
