@@ -185,7 +185,7 @@ module Make(Th: INTERP) = struct
      match mem s x, mem s y with
        | true, true -> restrict y s
        | true, false -> s
-       | false, true -> union x (apply s y) s
+       | false, true -> union x (apply s y) (restrict y s)
        | false, false -> s
    and veqs' = Veqs.add x y veqs in
    (s', veqs')
@@ -195,6 +195,7 @@ module Make(Th: INTERP) = struct
 
  let rec propagate s sl = 
    let propagate1 (x, b) acc =
+     Trace.msg 4 ("Prop(" ^ Th.name ^ ")") (x,b) pp_equal;
      if eq x b then
        acc
      else 
