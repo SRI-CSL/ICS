@@ -1,5 +1,4 @@
-
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -10,19 +9,21 @@
  * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
- * 
- * Author: Harald Ruess
- i*)
+ *)
 
-(*s Boolean constants. *)
+(** {6 Constants} *)
 
 let mk_true () = Bitvector.mk_one 1
 let mk_false () = Bitvector.mk_zero 1
 
+
+(** {6 Recognizers} *)
+
 let is_true a = (Term.eq a (mk_true()))
 let is_false a = (Term.eq a (mk_false()))
 
-(*s Boolean connectives. *)
+
+(** {6 Connectives} *)
 
 let mk_conj a b = 
   Bitvector.mk_bitwise 1 a b (mk_false())

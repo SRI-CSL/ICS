@@ -1,5 +1,4 @@
-
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -12,7 +11,7 @@
  * benefit corporation.
  * 
  * Author: Harald Ruess
- i*)
+ *)
 
 type t = 
   | Yes
@@ -28,7 +27,7 @@ let is_sub a b =
     | No, No -> true
 
 let inter =
-  let yes = Some(Yes) in   (** avoid repetitive creation of constants. *)
+  let yes = Some(Yes) in   (* avoid repetitive creation of constants. *)
   let no = Some(No) in
   let x = Some(X) in
   fun a b -> match a, b with

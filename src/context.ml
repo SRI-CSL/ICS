@@ -1,5 +1,4 @@
-
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -10,19 +9,15 @@
  * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
- * 
- * Author: Harald Ruess, N. Shankar
- i*)
+ *)
 
-(*i*)
 open Term
 open Three
 open Mpa
 open Sym
 open Th
-(*i*)
 
-(*s Decision procedure state. *)
+(** Decision procedure state. *)
 
 
 type t = {
@@ -40,7 +35,7 @@ let empty = {
 } 
 
 
-(*s Accessors for components of partitioning. *)
+(** Accessors for components of partitioning. *)
 
 let ctxt_of s = s.ctxt
 let p_of s = s.p
@@ -51,7 +46,7 @@ let eqs_of s = Array.get s.eqs
 let upper_of s = s.upper
 
 
-(*s Equality test. Do not take upper bounds into account. *)
+(** Equality test. Do not take upper bounds into account. *)
 
 let eq s t =              
  Partition.eq s.p t.p &&
@@ -61,7 +56,7 @@ let eq s t =
    s.eqs t.eqs
 
 
-(*s Destructive updates. *)
+(** Destructive updates. *)
 
 let extend a s = 
   (s.ctxt <- Atom.Set.add a s.ctxt; s)
@@ -85,7 +80,7 @@ let name i (s, b) =
     (update s i ei', x')
 
 
-(*s Shallow copying. *)
+(** Shallow copying. *)
 
 let copy s = {
   ctxt = s.ctxt;
@@ -94,7 +89,7 @@ let copy s = {
   upper = s.upper}
 
 
-(*s Canonical variables module [s]. *)
+(** Canonical variables module [s]. *)
 
 let v s = V.find (v_of s)
 
@@ -106,7 +101,7 @@ let fold s f x = V.fold (v_of s) f (v s x)
 
 
 
-(*s Constraint of [a] in [s]. *)
+(** Constraint of [a] in [s]. *)
 
 let cnstrnt s = 
   let rec of_term a =
@@ -128,12 +123,12 @@ let cnstrnt s =
       of_term
 
 
-(*s Choosing a variable. *)
+(** Choosing a variable. *)
 
 let choose s = V.choose (v_of s)
 
 
-(*s Pretty-printing. *)
+(** Pretty-printing. *)
   
 let pp fmt s =
   let pps i sl =   
@@ -144,7 +139,7 @@ let pp fmt s =
   Array.iter (fun i eqs -> pps i eqs) s.eqs
 
 
-(*s Parameterized operations on solution sets. *)
+(** Parameterized operations on solution sets. *)
 
 let mem i s = Solution.mem (eqs_of s i)
 
@@ -160,7 +155,7 @@ let rec inv i s =
   else 
     Solution.inv (eqs_of s i)
 
-(*s Search for largest match on rhs. For example, if [a] is
+(** Search for largest match on rhs. For example, if [a] is
  of the form [x * y] and there is an equality [u = x^2 * y],
  then [inv_pprod s a] returns [u * x] if there is no larger
  rhs which matches [a]. *)
@@ -206,7 +201,7 @@ and inv_pprod s a =
 let equality i s = Solution.equality (eqs_of s i)
 
 
-(*s Variable partitioning. *)
+(** Variable partitioning. *)
 
 let rec is_equal s x y =
   match  Term.is_equal x y with
@@ -214,7 +209,7 @@ let rec is_equal s x y =
     | res -> res
 
 
-(*s [sigma]-normal forms. *)
+(** [sigma]-normal forms. *)
 
 let sigma s f =
   match f with
@@ -228,7 +223,7 @@ let sigma s f =
     | Bvarith(op) -> Bvarith.sigma op
     | Uninterp _ -> mk_app f
 
-(*s Folding over the use list. *)
+(** Folding over the use list. *)
 
 let folduse i x f s = 
   Trace.msg "foo4" "folduse" (Set.elements (use i s x)) (Pretty.list Term.pp);
@@ -245,11 +240,19 @@ let folduse i x f s =
 
 (* Component-wise solver. Only defined for fully interpreted theories. *)
 
-let solve i _ = 
+let solve i s = 
   Trace.func "context" "solve" 
     Fact.pp_equal
     (Pretty.list Fact.pp_equal)
-    (Th.solve i)
+    (fun e ->
+       let (a, b, _) = Fact.d_equal e in
+	 if Th.eq i Th.la &&
+	   Arith.is_diophantine (c s) a &&
+	   Arith.is_diophantine (c s) b
+	 then
+	   Arith.zsolve e
+	 else
+	   Th.solve i e)
 
 let fuse i e s =
   install s i (Solution.fuse i (s.p, eqs_of s i) [e])
@@ -262,8 +265,7 @@ let rec compose i e s =
     let sl' = solve i s e' in
       install s i (Solution.compose i (s.p, eqs_of s i) sl')
   with
-      Exc.Unsolved -> 
-	Format.eprintf "Warning: Incomplete Solver@.";
+      Exc.Unsolved ->   (* Incomplete Solver *)
 	ignore i e s
 
 and ignore i e s =
@@ -291,7 +293,7 @@ let lookup s a =
 	      Not_found -> a
 
 
-(*s List all constraints with finite extension. *)
+(** List all constraints with finite extension. *)
 
 let rec split s =
   Atom.Set.union 
@@ -325,7 +327,7 @@ and split_arrays s =
 
 
 
-(*s Administration of changed sets. For each of component [v], [d], [c] of the
+(** Administration of changed sets. For each of component [v], [d], [c] of the
  partition there is such a set stored in respective global variables [V.changed],
  [D.changed], and [C.changed]. Here, we define the change sets for the theory-specific
  solution sets. In addition, functions for saving, resetting, and restoring are provided. *)
@@ -371,7 +373,7 @@ module Changed = struct
 end
   
 
-(*s Update rules work on the following global variables together with the index
+(** Update rules work on the following global variables together with the index
  for creating new variables. Within a [protect] environment, updates are performed
  destructively. Global variables are protected! *)
 

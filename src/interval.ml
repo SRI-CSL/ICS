@@ -9,21 +9,12 @@
  * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
- * 
- * Author: Harald Ruess
  *)
 
 open Mpa
 open Sign
 open Endpoint
 
-(** General real intervals are represented by their endpoints [a] and [b]
-  and two bits of information [alpha] and [beta], with [alpha] (resp. [beta])
-  specifying whether [a] (resp. [b]) belongs to the interval. More formally.
-  [(a,b,true,true)] denotes the closed interval [{x in R | u <= x <= v}],
-  [(a,b,true,false)] denotes the right-open interval [{x in R | u <= x < v}],
-  [(a,b,false,true)] denotes the left-open interval [{x in R | u < x <= v}],
-  and [(a,b,false,false)] denotes the open interval [{x in R | u < x < v}]. *)
 
 type t = tnode
 
@@ -33,7 +24,7 @@ and tnode = {
   hi : Endpoint.t
 }
 
-(** Accessors. *)
+(** {6 Accessors} *)
 
 let dom i = i.dom
 let lo i = i.lo
@@ -41,8 +32,7 @@ let hi i = i.hi
 
 let destructure i = (i.dom,i.lo,i.hi)
 
-
-(** Equality. *)
+(** {6 Equality} *)
 
 let eq i j =
   Dom.eq i.dom j.dom &&
@@ -50,7 +40,7 @@ let eq i j =
   Endpoint.eq i.hi j.hi
 
 
-(** Constructing intervals. *)
+(** {6 Constructors} *)
 
 let mk_empty =
   let z = Endpoint.strict Mpa.Q.zero in
@@ -123,10 +113,6 @@ and makeint lo hi =
   else
     {dom = Dom.Int; lo = lo'; hi = hi'}
 
-
-
-(** Derived constructors. *)
-
 let mk_real = make (Dom.Real, Endpoint.neginf, Endpoint.posinf)
 let mk_int = make (Dom.Int, Endpoint.neginf, Endpoint.posinf)
 let mk_nonint = make (Dom.Nonint, Endpoint.neginf, Endpoint.posinf)
@@ -138,7 +124,8 @@ let mk_singleton q =
 
 let mk_zero = mk_singleton Q.zero
 
-(* Tests for special intervals. *)
+
+(** {6 Recognizers} *)
 
 let is_empty i = eq i mk_empty
 
@@ -155,7 +142,7 @@ let d_singleton i =
 
 let is_zero i = (eq i mk_zero)
 
-(** Return rational endpoints. *)
+(** {6 Accessors} *)
 
 let rational_endpoints i =
   let (a,_) = Endpoint.destruct i.lo 
@@ -165,7 +152,7 @@ let rational_endpoints i =
     | Some(q), Some(p) -> Some(q,p)
     | _ -> None
 
-(** Test if [q] is in the interval [i]. *)
+(** {6 Membership test} *)
 
 let mem q i =
   Dom.mem q i.dom &&
@@ -199,7 +186,7 @@ let mem q i =
     | Extq.Posinf ->
 	false
 
-(** Printing an interval. *)
+(** {6 Pretty-printing} *)
 
 let pp fmt i =
   let (a,alpha) = Endpoint.destruct i.lo in
@@ -221,7 +208,8 @@ let pp fmt i =
 	Format.fprintf fmt "%s" (if beta && Extq.is_q b then "]" else ")")
       end
 
-(* Union and intersection of intervals. *)
+
+(* {6 Connectives} *)
 
 let mu a c alpha gamma =
   match Extq.cmp a c with
@@ -263,14 +251,15 @@ let union i j =
   make (d', lo', hi')
 
 
+(** {6 Interval Arithmetic} *)
+
 (* The implementation of interval arithmetic 
  operations follows the tables given in ``Interval Arithmetic: 
  from Principles to Implementation'' by Hickey, Ju, and Emden in the 
  Journal of ACM, 2002. *)
 
 
-(** Addition and Subtraction. *)
-
+(** Adding two intervals *)
 let rec add i j =
   let (a,alpha) = Endpoint.destruct i.lo
   and (b,beta) = Endpoint.destruct i.hi
@@ -289,7 +278,7 @@ and add_dom d1 d2 =
     | _, Dom.Real -> Dom.Real
     | Dom.Int, Dom.Int -> Dom.Int
     | Dom.Int, Dom.Nonint -> Dom.Nonint
-    | Dom.Nonint, Dom.Nonint -> Dom.Nonint
+    | Dom.Nonint, Dom.Nonint -> Dom.Real  (* overapproximation. *)
     | Dom.Nonint, Dom.Int -> Dom.Nonint
 
 
@@ -322,10 +311,9 @@ let classify i =
 	   | Neg -> N1
 	   | Pos -> M)
 
-(** Multiplication of general real intervals. *)
-
-let mult i j =
-  let dom = Dom.union i.dom j.dom
+(** Multiplying two intervals *)
+let rec mult i j =
+  let dom = mult_dom i.dom j.dom 
   and (a,alpha) = Endpoint.destruct i.lo
   and (b,beta) = Endpoint.destruct i.hi
   and (c,gamma) = Endpoint.destruct j.lo 
@@ -337,7 +325,7 @@ let mult i j =
     (k && (Extq.is_zero c))
   in
   let ( * ) = Extq.mult in
-  let make lo hi = make (dom,lo,hi) in
+  let make lo hi = make (dom, lo, hi) in
   match classify i, classify j with
     | (P0 | P1), (P0 | P1) ->
 	make (a * c, kind a c alpha gamma) (b * d, kind b d beta delta)
@@ -364,15 +352,26 @@ let mult i j =
     | (P0 | P1 | M | N0 | N1 | Z), Z ->
 	mk_zero
 
+and mult_dom d1 d2 =
+  match d1, d2 with
+    | Dom.Int, Dom.Int -> Dom.Int
+    | _ -> Dom.Real         (* Overapproximation *)
+
+
+(** Multiplying an interval with a rational *)
 let multq q i = 
   if Endpoint.eq i.lo Endpoint.neginf && Endpoint.eq i.hi Endpoint.posinf then 
-    i
+    if Q.is_integer q then i else make (Dom.Real, i.lo, i.hi)
   else 
     mult (mk_singleton q) i
 
+
+(** Interval Subtraction *)
 let subtract i j =
   add i (multq (Mpa.Q.minus Q.one) j)
 	
+
+(** Interval Division. *)
 let div i j =
   let dom = Dom.Real
   and (a,alpha) = Endpoint.destruct i.lo
@@ -435,7 +434,6 @@ let expt n l =
     c
 
 (** Comparing two intervals. *)
-
 let sub i j =
   let lo_ge (a,alpha) (c, gamma) =
     match Extq.cmp a c with
@@ -453,7 +451,8 @@ let sub i j =
   lo_ge (Endpoint.destruct i.lo) (Endpoint.destruct j.lo) &&
   hi_le (Endpoint.destruct i.hi) (Endpoint.destruct j.hi)
  
-  
+
+(** Test for disjointness of intervals. *)
 let disjoint i j =
   let (b,beta) = Endpoint.destruct i.hi 
   and (c,gamma) = Endpoint.destruct j.lo in
@@ -467,7 +466,9 @@ let disjoint i j =
 	   | Mpa.Q.Less -> true
 	   | Mpa.Q.Equal -> not (delta && alpha)
 	   | Mpa.Q.Greater -> false)
-     
+
+
+(** Comparison of two intervals. *)     
 let rec cmp i j =
   if eq i j then 
     Binrel.Same
@@ -496,6 +497,4 @@ and to_q x =
   match Extq.to_q x with
     | Some(q) -> q
     | None -> assert false
-
-
 

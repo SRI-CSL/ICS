@@ -1,5 +1,4 @@
-
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -10,15 +9,11 @@
  * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
- * 
- * Author: Harald Ruess
- i*)
+ *)
 
-(*i*)
 open Mpa         
-(*i*)
 
-(*s Set of rational numbers. *)
+(** Set of rational numbers. *)
 
 module Diseqs = Set.Make(
   struct
@@ -27,7 +22,7 @@ module Diseqs = Set.Make(
   end)
 
 
-(*s A constraint consists an interval and a set of rational numbers. *)
+(** A constraint consists an interval and a set of rational numbers. *)
 
 type t = Interval.t * Diseqs.t
 
@@ -51,7 +46,7 @@ let is_unbounded (i, _) =
     Endpoint.eq Endpoint.posinf hi
 
 
-(*s Empty constraint. *)
+(** Empty constraint. *)
 
 let mk_empty = (Interval.mk_empty, Diseqs.empty)
 
@@ -88,13 +83,13 @@ let is_neg (i, _) =
 
 
 
-(*s Membership. *)
+(** Membership. *)
 
 let mem q (i,qs) =
   Interval.mem q i && not(Diseqs.mem q qs)
 
 
-(*s Constructing a constraint from components *)
+(** Constructing a constraint from components *)
 
 let of_interval i = (i, Diseqs.empty)
 
@@ -143,7 +138,7 @@ and normalize (i, qs) =
       
 
 
-(*s Constraint for the real number line, the integers, and the
+(** Constraint for the real number line, the integers, and the
  natural numbers. *)
 
 let mk_real = 
@@ -159,7 +154,7 @@ let mk_nat =
   let i = Interval.make (Dom.Int, Endpoint.nonstrict Q.zero, Endpoint.posinf) in
   of_interval i
 
-(*s Constructing singleton constraints. *)
+(** Constructing singleton constraints. *)
 
 let mk_singleton q = 
   of_interval (Interval.mk_singleton q)
@@ -225,25 +220,25 @@ let mk_zero = mk_singleton Mpa.Q.zero
 let mk_one = mk_singleton Mpa.Q.one
 
 
-(*s Disequality constraint. *)
+(** Disequality constraint. *)
 
 let mk_diseq q = (Interval.mk_real, Diseqs.singleton q)
 
 
-(*s Checks wether [c] is a subconstraint of [d]. *)
+(** Checks wether [c] is a subconstraint of [d]. *)
 
 let sub (i,qs) (j,ps) =
   Interval.sub i j &&
   Diseqs.subset ps qs
   
 
-(*s Intersection of two constraints *)
+(** Intersection of two constraints *)
 
 let inter (i,qs) (j,ps) =
   make (Interval.inter i j, Diseqs.union qs ps)
 
 
-(*s Comparison. *)
+(** Comparison. *)
 
 let rec cmp c d =
   let (i,qs) = destruct c in
@@ -284,7 +279,7 @@ and analyze c =
 
 
 
-(*s Status. *)
+(** Status. *)
 
 let status c =
   if is_empty c then
@@ -295,13 +290,13 @@ let status c =
       | None -> Status.Other
 
 
-(*s Are [c] and [d] disjoint. *)
+(** Are [c] and [d] disjoint. *)
 
 let is_disjoint c d =
   is_empty (inter c d)
 
 
-(*s Printing constraints. *)
+(** Printing constraints. *)
 
 let pp fmt c =
   let (i,qs) = destruct c in
@@ -314,7 +309,7 @@ let pp fmt c =
     end
 
 
-(*s Additional constructors. *)
+(** Additional constructors. *)
 
 let of_endpoints (dom, lo, hi) = 
   of_interval (Interval.make (dom, lo, hi))
@@ -341,7 +336,7 @@ let mk_nonneg dom = mk_ge dom Q.zero
 let mk_nonpos dom = mk_le dom Q.zero
 
 
-(*s Abstract interpretation. *)
+(** Abstract interpretation. *)
 
 let addq q (j, ps) = 
   if Mpa.Q.is_zero q then
@@ -352,7 +347,7 @@ let addq q (j, ps) =
     let ps' = Diseqs.fold (fun p -> Diseqs.add (Q.add q p)) ps Diseqs.empty in
       make (j', ps')
 
-let add (i,_) (j,_) = 
+let add (i, _) (j, _) = 
   of_interval (Interval.add i j)
 
 let subtract (i,_) (j,_) =

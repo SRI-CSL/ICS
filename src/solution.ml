@@ -1,5 +1,4 @@
-
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -10,14 +9,10 @@
  * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
- * 
- * Author: Harald Ruess, N. Shankar
- i*)
+ *)
 
-(*i*)
 open Term
 open Th
-(*i*)
 
 type t = {
     find: (Term.t * Fact.justification option) Map.t;
@@ -38,7 +33,7 @@ let is_empty s =
 let eq s t =
   s.find == t.find
 
-(*s Changed sets. *)
+(** Changed sets. *)
 
 let changed = Array.create Set.empty
 
@@ -59,17 +54,17 @@ module Changed = struct
 end
 
 
-(*s Fold over the [find] structure. *)
+(** Fold over the [find] structure. *)
 
 let fold f s = Term.Map.fold f s.find
 
 
-(*s Solution set *)
+(** Solution set *)
 
 let to_list s =
   fold (fun x (b,_) acc -> (x, b) :: acc) s []
 
-(*s Pretty-printer. *)
+(** Pretty-printer. *)
 
 let pp i fmt s =
   Pretty.string fmt "\n";
@@ -106,13 +101,13 @@ let mem s x =
    
 let use s = Use.find s.use
     
-(*s Does a variable occur in [s]. *)
+(** Does a variable occur in [s]. *)
 
 let occurs s x =
   mem s x || not (Term.Set.is_empty (use s x))
 
 
-(*s [union x b s] adds new equality [x = b] to [s],
+(** [union x b s] adds new equality [x = b] to [s],
  possibly overwriting an equality [x = ...] *)
 
 let union i e s =  
@@ -134,7 +129,7 @@ let union i e s =
        use = Use.add x b use'}
 
 
-(*s Extend with binding [x = b], where [x] is fresh *)
+(** Extend with binding [x = b], where [x] is fresh *)
 
 let extend i b s = 
   let x = Term.mk_fresh_var (Name.of_string "v") None in
@@ -142,7 +137,7 @@ let extend i b s =
     Trace.msg (to_string i) "Extend" e Fact.pp_equal;
     (x, union i e s)
 
-(*s Restrict domain. *)
+(** Restrict domain. *)
 
 let restrict i x s =
   try
@@ -155,7 +150,7 @@ let restrict i x s =
   with
       Not_found -> s
 	    
-	    (*s [name e a] returns a variable [x] if there is
+	    (** [name e a] returns a variable [x] if there is
 	      a solution [x = a]. Otherwise, it creates a new name
 	      [x'] and installs a solution [x' = a] in [e]. *)
 
@@ -197,7 +192,7 @@ and assoc x = function
 
 and eqs = ref []
 
-(*s Fuse. *)
+(** Fuse. *)
 
 let rec fuse i (p, s) r = 
   Trace.msg (Th.to_string i) "Fuse" r (Pretty.list Fact.pp_equal);
@@ -267,7 +262,7 @@ and vareq i e (p, s) =
 
 
 
-(*s Composition. *)
+(** Composition. *)
 
 let compose i (p, s) r =
   Trace.call (Th.to_string i) "Compose" r (Pretty.list Fact.pp_equal);

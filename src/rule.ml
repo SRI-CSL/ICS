@@ -10,8 +10,6 @@
  * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
- * 
- * Author: Harald Ruess, N. Shankar
  *)
 
 open Term
@@ -27,7 +25,6 @@ type 'a transform = Context.t * 'a -> Context.t * 'a
 
 
 (** Extend with fresh variable equality. *)
-
 let extend =  
   let v = Name.of_string "v" in
     (fun (s, a) ->
@@ -182,22 +179,28 @@ let rec arith_star (chla, chc) =
   foldc chc arith_cnstrnt
 
 and arith_cnstrnt c s =
+  Trace.msg "rule" "Arith_cnstrnt" c Fact.pp_cnstrnt;
   let (x, i, _) = Fact.d_cnstrnt c in
-    folduse Th.la x
-      (fun (y, b) s ->
-	 match b with
-	   | App(Arith(op), xl) ->
-	       (try
-		  let i = Arith.tau (Context.c s) op xl in
-		    infer y i s
-		with
-		    Not_found -> s)
-	   | _ ->
-	       s)
-      s
+    match Cnstrnt.d_singleton i with
+      | Some(q) ->
+	  let e = Fact.mk_equal x (Arith.mk_num q) None in
+	    compose Th.la e s
+      | None ->
+	  folduse Th.la x
+	    (fun (y, b) s ->
+	       match b with
+		 | App(Arith(op), xl) ->
+		     (try
+			let i = Arith.tau (Context.c s) op xl in
+			  infer y i s
+		      with
+			  Not_found -> s)
+		 | _ ->
+		     s)
+	    s
  
 and arith_fme e s = 
-  Trace.msg "rule" "Arith_deduce" e Fact.pp_equal;
+  Trace.msg "rule" "Arith_fme" e Fact.pp_equal;
   let (x, b, _) = Fact.d_equal e in
     match b with
       | App(Arith(Num(q)), []) -> 
@@ -212,35 +215,36 @@ and arith_fme e s =
       | _ ->
 	  s 
 
-and fme x b s =
+and fme x a s =
+  Trace.msg "rule" "Fme" (x, a) Term.pp_equal;
   try
     let i1 = c s x in
     let dom1 = Cnstrnt.dom_of i1 in
     let (lo1, hi1) = Cnstrnt.endpoints_of i1 in
-    let (q1, z1, ml1) = Arith.destructure b in
+    let (q1, z1, a1) = Arith.destructure a in
       folduse Th.la z1
 	(fun (y, b) s ->
 	   if Term.eq y x then s else
-	     let (q2, z2, ml2) = Arith.destructure b in
+	     let (q2, z2, a2) = Arith.destructure b in
 	       if not(Term.eq z1 z2) then s else
 		 try
 		   let i2 = c s y in
 		   let dom2 = Cnstrnt.dom_of i2 in
 		   let (lo2, hi2) = Cnstrnt.endpoints_of i2 in
-		   let dom = Dom.Real (* Dom.union dom1 dom2 *) in
+		   let dom = Dom.Real in
 		     (match Q.sign q1, Q.sign q2 with
 			| Sign.Pos, Sign.Pos ->
-			    less dom (q2, lo2, ml2) (q1, hi1, ml1)
-			      (less dom (q1, lo1, ml1) (q2, hi2, ml2) s)
+			    less dom (q2, lo2, a2) (q1, hi1, a1)
+			      (less dom (q1, lo1, a1) (q2, hi2, a2) s)
 			| Sign.Pos, Sign.Neg ->
-			    less dom (q2, hi2, ml2) (q1, hi1, ml1)
-			      (less dom (q1, lo1, ml1) (q2, lo2, ml2) s)
+			    less dom (q2, hi2, a2) (q1, hi1, a1)
+			      (less dom (q1, lo1, a1) (q2, lo2, a2) s)
 			| Sign.Neg, Sign.Pos ->
-			    less dom (q1, hi1, ml1) (q2, hi2, ml2)
-			      (less dom (q2, lo2, ml2) (q1, lo1, ml1) s)
+			    less dom (q1, hi1, a1) (q2, hi2, a2)
+			      (less dom (q2, lo2, a2) (q1, lo1, a1) s)
 			| Sign.Neg, Sign.Neg ->
-			    less dom (q1, hi1, ml1) (q2, lo2, ml2)
-			      (less dom (q2, hi2, ml2) (q1, lo1, ml1) s)
+			    less dom (q1, hi1, a1) (q2, lo2, a2)
+			      (less dom (q2, hi2, a2) (q1, lo1, a1) s)
 			| _ ->
 			    s)
 		 with
@@ -250,43 +254,63 @@ and fme x b s =
       Not_found -> s
 
 	
-(** Generate an inequality [1/q1 * (p1 - m1) < 1/q2 * (p2 - m2). *)	
+(** Generate an inequality [1/q1 * (p1 - m1) < 1/q2 * (p2 - m2)].
+  This is equivalent to 
+           [1/q1 * p1 - 1/q2 * p2 < 1/q1 * m1 - 1/q2 * m2].
+  Now, mutliply with [q = abs(q1 * q2)]
+*)	
 and less dom (q1, ep1, m1) (q2, ep2, m2) s = 
   let (extq1, alpha) = Endpoint.destruct ep1 in
   let (extq2, beta) = Endpoint.destruct ep2 in
+  let kind = alpha && beta in
+    Trace.msg "foo" "Less" (extq1, kind, extq2) (Pretty.triple Extq.pp Pretty.bool Extq.pp);
     match Extq.destruct extq1, Extq.destruct extq2 with
-      | Extq.Posinf, Extq.Posinf -> 
-	  s
-      | Extq.Posinf, _ -> 
-	  raise Exc.Inconsistent
-      | Extq. Neginf, Extq.Neginf -> 
-	  s
-      | _, Extq.Neginf -> 
-	  raise Exc.Inconsistent
       | Extq.Inject(p1), Extq.Inject(p2) ->
-	  let a = Arith.mk_addq (Q.div p1 q1)
-		    (Arith.mk_multq (Q.minus (Q.inv q1)) m1) in
-	  let b = Arith.mk_addq (Q.div p2 q2)
-		    (Arith.mk_multq (Q.minus (Q.inv q2)) m2) in
-	  let a_sub_b = Can.term s (Arith.mk_sub a b) in
-	  let i' = Cnstrnt.mk_lower dom (Q.zero, alpha && beta) in
-	    (match a_sub_b with
-	       | App(Arith(Num(q)), []) -> 
-		   if Cnstrnt.mem q i' then s else raise Exc.Inconsistent
-	       | App(Arith(Multq(q)), [x']) ->
-		   infer x' (Cnstrnt.multq (Q.inv q) i') s
-	       | _ ->
-		   let (s', x') = name Th.la (s, a_sub_b) in
-		     Trace.msg "fme" "fme" (a_sub_b, i') Term.pp_in;
-		     infer x' i' s')
-      | _ ->
-	  s
+	  lessq dom (q1, p1, m1) kind (q2, p2, m2) s
+      | _ -> s
 
-(* Problem: x <= y, y <= z, z <= x. Here, [name] above generates a fresh
- variable. Probably, something smarter is needed, such as looking for a
- rhs such that a linear multiple of it matches the current term. *)
+and lessq dom (q1, p1, m1) kind (q2, p2, m2) s =
+  let a = Arith.mk_addq (Q.div p1 q1)
+	    (Arith.mk_multq (Q.minus (Q.inv q1)) m1) in
+  let b = Arith.mk_addq (Q.div p2 q2)
+	    (Arith.mk_multq (Q.minus (Q.inv q2)) m2) in
+  let ab = Can.term s (Arith.mk_sub a b) in
+  Trace.msg "foo" "Lowerzero" ab Term.pp; 
+  let i = Cnstrnt.mk_lower dom (Q.zero, kind) in
+  let (ab', i') = Atom.normalize (ab, i) in
+    if is_var ab' then
+      infer (v s ab') i' s
+    else 
+      try                       (* [x = c] in [la] and [q * a_sub_b = c] *)
+	multiple_infer (ab', i') s
+      with
+	  Not_found ->
+	    let (s', x) = name Th.la (s, ab') in
+	      infer x i' s'
+
+(* Inverse lookup for [a] which also takes linear multiplications of [a] 
+ into considerations. Throws [Not_found] if no such multiple exists. *)
+
+and multiple_infer (a, i) s =                 (* [a in i] *)
+  let found = ref false in
+  let x = Arith.leading a in
+  let s' =  
+    folduse Th.la x
+      (fun (x, b) s ->                          (* [x = b] *)
+	 try
+	   let q = Arith.multiple (a, b) in     (* [q * a = b] *)
+	     found := true;
+	     infer x (Cnstrnt.multq q i) s      (* ==> [x in q * i] *)
+	 with
+	     Not_found -> s)
+      s  
+  in
+    if not(!found) then raise Not_found;   (* no multiple inverse found. *)
+    s'
+
 
 and ints x ml s = 
+  Trace.msg "rule" "Arith_ints" (x, ml) (Pretty.pair Term.pp (Pretty.list Term.pp)); 
   let not_is_int m =
     not (Arith.is_int (c s) m)
   in
@@ -306,7 +330,7 @@ and ints x ml s =
 		  if Q.is_integer q then s else raise Exc.Inconsistent
 	      | _ ->
 		  if is_var a then infer a Cnstrnt.mk_int s else s   
-		                         (* do not introduce new names for now. *)
+		                  (* do not introduce new names for now. *)
 
 
 
@@ -546,7 +570,7 @@ let normalize s =
 (** [close s] applies the rules above until the resulting state is unchanged. *)
 	
 
-let maxclose = ref 999999999
+let maxclose = ref (-1)
 
 exception Maxclose
 
@@ -559,7 +583,7 @@ let rec close s =
 	Changed.reset ();
 	s := close1 ch !s;
 	n := !n + 1;
-	if !n > !maxclose then
+	if !n > !maxclose && !maxclose >= 0 then
 	  raise Maxclose
       done;
       normalize !s

@@ -1,5 +1,4 @@
-
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -12,14 +11,9 @@
  * benefit corporation.
  * 
  * Author: Harald Ruess
-i*)
+*)
 
-(*i*)
 open Mpa
-(*i*)
-
-
-(*s Interpreted symbols. *)
 
 type arith = 
   | Num of Mpa.Q.t  
@@ -54,8 +48,6 @@ type bvarith =
   | Unsigned
 
 
-(*s Symbols. *)
-
 type t = 
   | Uninterp of Name.t
   | Arith of arith
@@ -68,12 +60,8 @@ type t =
   | Bvarith of bvarith 
 
 
-(*s Comparison. *)
-
 let cmp = Pervasives.compare
 
-
-(*s Equality. *)
 
 let rec eq s t =
   match s, t with  
@@ -203,8 +191,7 @@ let pp fmt s =
 
 
 
-(*s Width of bitvector function symbols. *)
-
+(** Width of bitvector function symbols. *)
 let rec width f =
   match f with
     | Bv(b) -> Some(width_bv b)
@@ -225,12 +212,9 @@ and width_bv b =
 	n
 
 
-(*s Predefined symbol. *)
+(** {6 Some predefined symbols} *)
 
 let add = Arith(Add)
-
-(*s Function symbols for tuple theory. *)
-
 let tuple = Product(Tuple)
 let car = Product(Proj(0, 2))
 let cdr = Product(Proj(1, 2))

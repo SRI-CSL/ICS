@@ -1,5 +1,4 @@
-
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -12,7 +11,7 @@
  * benefit corporation.
  * 
  * Author: Harald Ruess
- i*)
+ *)
 
 type 'a printer = Format.formatter -> 'a -> unit
 
@@ -24,6 +23,12 @@ let string fmt str =
 
 let number fmt i =
   Format.fprintf fmt "%d" i
+
+let bool fmt = function
+  | true ->
+      Format.fprintf fmt "true"
+  | false ->
+      Format.fprintf fmt "false"
 
 let option pp fmt = function
   | None -> 
@@ -90,7 +95,7 @@ let list pp = list ("[", "; ", "]") pp
 
 let solution pp = list (eqn pp)
 
-(*s Redirecting output. *)
+(** Redirecting output. *)
 
 let to_stdout pp = pp Format.std_formatter
 

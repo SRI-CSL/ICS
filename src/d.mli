@@ -1,5 +1,4 @@
-
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -10,57 +9,71 @@
  * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
- * 
- * Author: Harald Ruess
-i*)
+ *)
 
-(*s Module [D]: Context for handling disequalities. *)
+(** Context for handling disequalities
+
+  @author Harald Ruess
+*)
+  
 
 type t
-
-val pp : Format.formatter -> t -> unit
-
-val changed : Term.Set.t ref
+  (** Elements of type {!D.t} represent sets of variable disequalities. *)
 
 
-(*s Return disequalities as bindings of the form [x |-> {y1,...,yn}].
- The interpretation of such a binding is the conjunction 
- [x <> y1 & ... & x <> yn] of all known disequalities for [x]. The
- bindings returned by [deq] are closed in that forall [x], [y] 
- such that [x |-> {...,y,...} ] then also [y |-> {....,x,....}] *)
+val pp : t Pretty.printer
+  (** Pretty-printing *)
+
+
+(** {6 Accessors} *)
+
 
 val deq_of : t -> Term.Set.t Term.Map.t
-
-
-(*s [deq s a] is just returns the binding for [a] in [deq_of s]. *)
+  (** Return disequalities as bindings of the form [x |-> {y1,...,yn}].
+    The interpretation of such a binding is the conjunction 
+    [x <> y1 & ... & x <> yn] of all known disequalities for [x]. The
+    bindings returned by [deq] are closed in that forall [x], [y] 
+    such that [x |-> {...,y,...} ] then also [y |-> {....,x,....}] *)
 
 val deq : t -> Term.t -> Term.Set.t
-
-(*s check if two terms are known to be disequal. *)
-
-val is_diseq: t -> Term.t -> Term.t -> bool
-
-
-(*s The empty disequality context. *)
-
-val empty : t
-
-
-(*s Is state unchanged. *)
-
-val eq : t -> t -> bool
-
-
-(*s [merge e s] merges a variable equality ['x = y'] *)
-
-val merge : Fact.equal -> t -> t
-
-
-(*s [add (a,b) s] disequality [a <> b] to the disequality context [s]. *)
-
-val add : Fact.diseq -> t -> t
-
-
-(*s Return disequalites for [x]. *)
+  (** [deq s a] just returns the binding for [a] in [deq_of s]. *)
 
 val disequalities : t -> Term.t -> Fact.diseq list
+  (** [disequalities s x] returns the maximal set of 
+    disequalites [di] of the form [x <> y] such that
+    [x <> y] is represented in [s]. *)
+
+
+(** {6 Recognizers} *)
+
+val is_diseq: t -> Term.t -> Term.t -> bool
+  (** Check if two terms are known to be disequal. *)
+
+
+(** {6 Constructors} *)
+
+
+val empty : t
+  (** The empty disequality context. *)
+
+val eq : t -> t -> bool
+  (** [eq s t] holds iff [s] and [t] are physically equal.
+    If [eq s t] equals [false], then it is not necessarily
+    true that [s] and [t] are not logically equivalent. *)
+ 
+val merge : Fact.equal -> t -> t
+  (** [merge e s] propagates an equality [e] of the form [x = y]
+    into the disequality context by computing a new disequality
+    context which is equal to [s] except that every [x] has been
+    replaced by [y]. Raises {!Exc.Inconsistent} if [x <> y] is
+    already in [s]. *)
+
+val add : Fact.diseq -> t -> t
+  (** [add d s] adds a disequality [d] of the form
+    [x <> y] to the disequality context [s]. As a side
+    effect, both [x] and [y] are added to the set {!D.changed}. *)
+
+val changed : Term.Set.t ref
+  (** Global variable for keeping track of changes in disequality
+    contexts. Updated by {!D.add} and {!D.changed}. *)
+

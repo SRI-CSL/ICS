@@ -1,5 +1,4 @@
-
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -10,18 +9,13 @@
  * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
- * 
- * Author: Harald Ruess, N. Shankar
- i*)
+ *)
 
-(*i*)
 open Sym
 open Term
 open Mpa
-(*i*)
 
 let rec mk_mult a b =
-  Trace.msg "nonlin" "Mult" (a, b) (Pretty.pair Term.pp Term.pp);
   if Term.eq a b then        (* [ a * a --> a^2] *)
     mk_expt 2 a
   else if Pp.is_one a then
@@ -67,7 +61,6 @@ and mk_multl al =
 
 
 and mk_expt n a =
-  Trace.msg "nonlin" "Expt" (a, n) (Pretty.pair Term.pp Pretty.number);
   if n = 0 then 
     Arith.mk_one
   else if n = 1 then
@@ -100,7 +93,6 @@ and mk_expt_arith n op xl =
 	assert false
 
 and mk_expt_add n xl =
-  Trace.msg "nonlin" "Expt_add" (Arith.mk_addl xl, n)  (Pretty.pair Term.pp Pretty.number);
   if n = 0 then
     Arith.mk_one
   else if n = 1 then 
@@ -112,11 +104,9 @@ and mk_expt_add n xl =
 
 	           
 let mk_div a b = 
-  Trace.msg "nonlin" "Div" (a, b) (Pretty.pair Term.pp Term.pp);
   mk_mult a (mk_expt (-1) b)
 
 let mk_inv a = 
-  Trace.msg "nonlin" "Inv" a Term.pp;
   mk_expt (-1) a
 
 

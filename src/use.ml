@@ -1,5 +1,5 @@
 
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -12,11 +12,9 @@
  * benefit corporation.
  * 
  * Author: Harald Ruess, N. Shankar
- i*)
+ *)
 
-(*i*)
 open Term
-(*i*)
 
 type t = Set.t Map.t
 
@@ -29,11 +27,11 @@ let find u a =
 
 let set = Map.add
 
-(*s empty use list. *)
+(** empty use list. *)
 
 let empty = Map.empty
 
-(*s [add x a use] adds [x] to the use of [y] for each toplevel
+(** [add x a use] adds [x] to the use of [y] for each toplevel
  uninterpreted term in [a]. *)
 
 let add x =
@@ -47,7 +45,7 @@ let add x =
 	   Not_found ->
 	     Map.add y (Set.singleton x) acc)
 
-(*s [remove x a s] deletes [x] from the use of [y] for each toplevel
+(** [remove x a s] deletes [x] from the use of [y] for each toplevel
  uninterpreted term in [a]. *)
 
 let remove x =
@@ -66,7 +64,7 @@ let remove x =
 	   Not_found -> acc)
 
 
-(*s Pretty-printing. *)
+(** Pretty-printing. *)
 
 let rec pp fmt u =
   Pretty.map Term.pp (Pretty.set Term.pp) fmt (to_list u)

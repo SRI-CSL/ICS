@@ -1,5 +1,4 @@
-
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -10,16 +9,17 @@
  * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
- * 
- * Author: Harald Ruess
- i*)
+ *)
 
-(*i*)
 open Sym
 open Term
 open Format
 open Mpa
-(*i*)
+
+let const c =  Bv(Const(c))
+let conc n m = Bv(Conc(n, m))
+let sub i j n = Bv(Sub(i, j, n))
+let bitwise n = Bv(Bitwise(n))
 
 
 let is_bvsym = function
@@ -69,7 +69,7 @@ let is_one a =
     | _ -> false
 
 
-(*s Creating fresh bitvector variables for solver. 
+(** Creating fresh bitvector variables for solver. 
  The index variable are always reset to the current value
  when solver is called. *)
 
@@ -82,7 +82,7 @@ let mk_fresh =
     else 
 	Var(Var.mk_fresh name None)
 
-(*s Bitvector symbols *)
+(** Bitvector symbols *)
 
 let width a =
   if Term.is_var a then None else
@@ -98,7 +98,7 @@ let iter f a =
     | _ -> f a
 
 
-(*s Fold functional. *)
+(** Fold functional. *)
 
 let rec fold f a e =
   match d_interp a with
@@ -137,7 +137,7 @@ let d_sub a =
     | _ -> None
 
 
-(*s Building up Bitvector BDDs *)
+(** Building up Bitvector BDDs *)
 
 let is_bvbdd a =
   is_zero a || is_one a || is_bitwise a
@@ -192,7 +192,7 @@ and build_fun n (s1,s2,s3) =
     | None ->
 	Term.mk_app (Bv(Bitwise(n))) [s1;s2;s3]
 
-(*s Term constructors. *)
+(** Term constructors. *)
 
 let rec mk_sub n i j a =
   assert (0 <= i && j < n && n >= 0);
@@ -304,7 +304,7 @@ and cut n i a =
   (mk_sub n 0 (i - 1) a, mk_sub n i (n - 1) a)
 
 
-(*s Derived bitwise constructors. *)
+(** Derived bitwise constructors. *)
 
 let mk_bwconj n a b = mk_bitwise n a b (mk_zero n)
 let mk_bwdisj n a b = mk_bitwise n a (mk_one n) b
@@ -312,7 +312,7 @@ let mk_bwneg n a = mk_bitwise n a (mk_zero n) (mk_one n)
 let mk_bwimp n a1 a2 = mk_bitwise n a1 a2 (mk_one n)
 let mk_bwiff n a1 a2 = mk_bitwise n a1 a2 (mk_bwneg n a2)
 
-(*s Mapping over bitvector terms. *)
+(** Mapping over bitvector terms. *)
 
 let map f =
   let rec loop a =
@@ -332,7 +332,7 @@ let map f =
   in
   loop
 
-(*s Does term [a] occur interpreted in [b]. *)
+(** Does term [a] occur interpreted in [b]. *)
 
 let rec occurs a b =
   let rec loop x =
@@ -349,7 +349,7 @@ let rec occurs a b =
   in
   loop b
 
-(*s Sigmatizing an expression. *)
+(** Sigmatizing an expression. *)
 
 let sigma op l =
   match op, l with
@@ -408,7 +408,7 @@ let decompose e =
   loop [] [e] 
 
 
-(*s Solving is based on the equation
+(** Solving is based on the equation
  [ite(x,p,n) = (p or n) and exists delta. x = (p and (n => delta))] *)
 
 and solve_bitwise n (a,b) =
@@ -444,7 +444,7 @@ and solve_bitwise n (a,b) =
     triangular_solve s []
 
 
-(*s Adding a solved pair [a |-> b] to the list of solved forms [sl],
+(** Adding a solved pair [a |-> b] to the list of solved forms [sl],
  and propagating this new binding to the unsolved equalities [el] and 
  the rhs of [sl]. It also makes sure that fresh variables [a] are never
  added to [sl] but only propagated. *)
@@ -486,7 +486,7 @@ and apply1 a x b =      (* substitute [x] by [b] in [a]. *)
   map (fun y -> if Term.eq x y then b else y) a
 
 
-(*s Toplevel solver. *)
+(** Toplevel solver. *)
 
 let rec solve e =
   let (a, b, _) = Fact.d_equal e in

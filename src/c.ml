@@ -1,5 +1,4 @@
-
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -12,13 +11,11 @@
  * benefit corporation.
  * 
  * Author: Harald Ruess
- i*)
+ *)
 
-(*i*)
 open Term
 open Sym
 open Mpa
-(*i*)
 
 type t = (Cnstrnt.t * Fact.justification option) Var.Map.t
 
@@ -51,7 +48,7 @@ let mem a s =
     | App _ -> false
 
 
-(*s [update x i s] updates the constraint map with the constraint [x in i]. *)
+(** [update x i s] updates the constraint map with the constraint [x in i]. *)
 
 let update a i prf s =
   match a with
@@ -62,7 +59,7 @@ let update a i prf s =
     | _ -> s
 
 
-(*s Restrict the map. *)
+(** Restrict the map. *)
 
 let restrict a s =
   match a with
@@ -73,7 +70,7 @@ let restrict a s =
     | _ -> s
 
 
-(*s Adding a new constraint. *)
+(** Adding a new constraint. *)
 
 let rec add c s =
   let (x, i, prf1) = Fact.d_cnstrnt c in    (* [prf1 |- x in i]. *)
@@ -98,7 +95,7 @@ let rec add c s =
 
 
 
-(*s Merge a variable equality [x = y] in the constraint map by
+(** Merge a variable equality [x = y] in the constraint map by
  adding [x in ij] for the canonical variable [x], where [x in i],
  [y in j] are in the constraint map and [ij] is the intersection of
  [i] and [j], and by removing the constraint for [y]. In case, [ij]
@@ -139,7 +136,7 @@ let merge e s =
 	s
 
 
-(*s Propagate disequalities to the constraint part. The following
+(** Propagate disequalities to the constraint part. The following
  is not complete and should be extended to all finite constraints,
  but the disequality sets might become rather large then. *)
 
@@ -166,7 +163,7 @@ let diseq d s =
   with
       Not_found -> s
 	
-(*s Split. *)
+(** Split. *)
 
 let split s =
   Var.Map.fold
@@ -178,7 +175,7 @@ let split s =
     s Atom.Set.empty
 
 
-(*s Pretty-printing. *)
+(** Pretty-printing. *)
 
 let pp fmt s =
   let l = to_list s in

@@ -16,13 +16,13 @@
 open Sym
 open Term
 
-(** {Symbols.} *)
+(** {6 Symbols.} *)
 
 let mult = Sym.Pp(Sym.Mult)
 let expt n = Sym.Pp(Sym.Expt(n))
 
 
-(** {Recognizers.} *)
+(** {6 Recognizers.} *)
 
 let rec is_interp a =
   is_expt a || is_mult a
@@ -37,7 +37,7 @@ and is_mult = function
   | _ -> false
 
 
-(** {Constructors.} *)
+(** {6 Constructors.} *)
 
 let mk_one = 
   mk_app mult []
@@ -143,7 +143,7 @@ and merge al bl =
 let mk_inv a = mk_expt (-1) a
 	
 
-(** {Sigma normal forms.} *)
+(** {6 Sigma normal forms.} *)
 
 let sigma op l =
   match op, l with
@@ -166,7 +166,7 @@ let rec map f a =
     | _ ->
 	f a
 
-(** {Constraint}. *)
+(** {6 Constraint}. *)
 
 let tau ctxt op l =
   try
@@ -190,7 +190,7 @@ let to_list a =
     | _ -> [a]
 
     
-(** {Ordering relation.} *)
+(** {6 Ordering relation.} *)
 
 let cmp a b =
   let rec loop al bl =
@@ -264,7 +264,7 @@ let numerator a = fst(split a)
 let denumerator a = snd(split a)
 
 
-(** {Least common multiple.} *)
+(** {6 Least common multiple.} *)
 
 let lcm (pp, qq) =
   let rec lcmloop ((pl, ql, lcm) as acc) (al, bl) =
@@ -305,7 +305,7 @@ let lcm =
     lcm
 
 
-(**  {Divisibility.} *)
+(**  {6 Divisibility.} *)
 
 let div (pp, qq) =
   try

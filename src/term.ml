@@ -1,5 +1,4 @@
-
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -12,15 +11,12 @@
  * benefit corporation.
  * 
  * Author: Harald Ruess
- i*)
+ *)
 
-(*i*)
 open Mpa
 open Format
 open Sym
-(*i*)
 
-(*s Terms. *)
 
 type t =
   | Var of Var.t
@@ -38,7 +34,6 @@ let rec eq a b =
 and eql al bl =
   try List.for_all2 eq al bl with Invalid_argument _ -> false
 
-(*s Constructors. *)
 
 let mk_var x = Var(Var.mk_var x)
 
@@ -52,14 +47,10 @@ let is_fresh_var = function
   | _ -> false
 
 
-(*s Recognizers. *)
-
 let is_var = function Var _ -> true | _ -> false
 let is_app = function App _ -> true | _ -> false
 let is_const = function App(_,[]) -> true | _ -> false
 
-
-(*s Destructors. *)
 
 let to_var = function
   | Var(x) -> x
@@ -81,8 +72,6 @@ let args_of a =
   assert(is_app a);
   match a with App(_,l) -> l | _ -> assert false
 
-	
-(*s Structural comparison. *)
 
 let rec cmp a b =
   match a, b with
@@ -108,11 +97,6 @@ and cmpl l m =
 let (<<<) a b = (cmp a b <= 0)
 
 
-(*s [cmp] forces function applications to be smaller than constants.  
-  Thus, [cmp] makes sure that e.g. [f(x) = c] is added in  this order.
-  Otherwise, the term ordering is arbitrary and we use [Term.cmp] for
-  ordering all the other cases. *)
-
 let orient ((a, b) as e) =
   if cmp a b >= 0 then e else (b, a)
 
@@ -123,7 +107,7 @@ let max a b =
   if a <<< b then b else a
 
 
-(*s Some recognizers. *)
+(** Some recognizers. *)
 
 let is_interp_const = function
   | App((Arith _ | Bv _ | Product _), []) -> true
@@ -141,7 +125,7 @@ let is_uninterpreted = function
 let is_equal a b =
   if eq a b then
     Three.Yes
-  else match a, b with                                 (* constants from within a theory are *)
+  else match a, b with                         (* constants from within a theory are *)
     | App((Arith _ as c), []), App((Arith _ as d), []) (* assumed to interpreted differently *)
 	when not(Sym.eq c d) -> Three.No
     | App((Bv _ as c), []), App((Bv _ as d), [])
@@ -150,8 +134,7 @@ let is_equal a b =
 	Three.X
 
 
-(*s Mapping over list of terms. Avoids unnecessary consing. *)
-
+(** Mapping over list of terms. Avoids unnecessary consing. *)
 let rec mapl f l =
   match l with
     | [] -> []
@@ -160,14 +143,13 @@ let rec mapl f l =
 	if eq a' a && l1 == l1' then l else a' :: l1'
 
 
-(*s Association lists for terms. *)
-    
+(** Association lists for terms. *)   
 let rec assq a = function
   | [] -> raise Not_found
   | (x,y) :: xl -> if eq a x then y else assq a xl
 
-(*s Iteration over terms. *)
 
+(** Iteration over terms. *)
 let rec fold f a acc =
   match a with
     | Var _ -> f a acc
@@ -194,7 +176,7 @@ let rec subterm a b  =
 let occurs x b = subterm x b
 
 
-(*s Printer. *)
+(** {6 Pretty-Printing} *)
 
 let pretty = ref true  (* Infix/Mixfix output when [pretty] is true. *)
 
@@ -252,7 +234,7 @@ let to_string =
   Pretty.to_string pp
 
 
-(*s Pretty-printing of equalities/disequalities/constraints. *)
+(** Pretty-printing of equalities/disequalities/constraints. *)
 
 let pp_equal fmt (x,y) = 
   Pretty.infix pp "=" pp fmt (x,y)
@@ -264,7 +246,7 @@ let pp_in fmt (x,c) =
   Pretty.infix pp "in" Cnstrnt.pp fmt (x,c)
 
 
-(*s Sets and maps of terms. *)
+(** {6 Sets and maps of terms.} *)
 
 type trm = t  (* avoid type-check error below *)
 
@@ -281,8 +263,7 @@ module Map = Map.Make(
   end)
 
 
-(*s Set of variables. *)
-
+(** Set of variables. *)
 let rec vars_of a = 
   match a with
     | Var _ -> 

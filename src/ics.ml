@@ -1,5 +1,4 @@
-
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -12,20 +11,18 @@
  * benefit corporation.
  * 
  * Author: Harald Ruess
- i*)
+ *)
 
-(*i*)
 open Format
 open Sym
 open Term
-(*i*)
 
 
 let init (n, pp, eot, inch, outch) =
   Istate.initialize pp eot inch outch;
   if n = 0 then
-    Sys.catch_break true                 (*s raise [Sys.Break] exception upon *)
-                                         (*s user interrupt. *)
+    Sys.catch_break true                 (** raise [Sys.Break] exception upon *)
+                                         (** user interrupt. *)
 
 let set_maxloops n =
   Rule.maxclose := n
@@ -36,7 +33,7 @@ let _ = Callback.register "do_at_exit" do_at_exit
 
 let _ = Callback.register "init" init
 
-(*s Channels. *)
+(** Channels. *)
 
 type inchannel = in_channel
 type outchannel = Format.formatter
@@ -72,7 +69,7 @@ let name_eq = Name.eq
 let _ = Callback.register "name_eq" name_eq
 
 
-(*s Constrains. *)
+(** Constrains. *)
 
 type cnstrnt = Cnstrnt.t
 
@@ -149,7 +146,7 @@ let _ = Callback.register "cnstrnt_mult" cnstrnt_mult
 let cnstrnt_div = Cnstrnt.div
 let _ = Callback.register "cnstrnt_div" cnstrnt_div
 
-(*s Theories. *)
+(** Theories. *)
 
 type th = int
 
@@ -158,7 +155,7 @@ let _ = Callback.register "th_to_string" th_to_string
 
 
 
-(*s Function symbols. These are partitioned into uninterpreted
+(** Function symbols. These are partitioned into uninterpreted
  function symbols and function symbols interpreted in one of the
  builtin theories. For each interpreted function symbol there is
  a recognizer function [is_xxx].  Some values of type [sym] represent 
@@ -267,7 +264,7 @@ let _ = Callback.register "sym_is_unsigned" sym_is_unsigned
 
 
 
-(*s Terms ar either variables, uninterpreted applications,
+(** Terms ar either variables, uninterpreted applications,
   or interpreted applications including boolean terms. *)
   
 type term = Term.t
@@ -292,7 +289,7 @@ let term_pp a = Term.pp Format.std_formatter a; Format.print_flush ()
 let _ = Callback.register "term_pp" term_pp
 
 
-(*s Construct a variable. *)
+(** Construct a variable. *)
 
 let term_mk_var str =
   let x = Name.of_string str in
@@ -300,7 +297,7 @@ let term_mk_var str =
 let _ = Callback.register "term_mk_var" term_mk_var
 
 
-(*s Uninterpred function application and function update. *)
+(** Uninterpred function application and function update. *)
          
 let term_mk_uninterp x l =
   let f = Sym.Uninterp(Name.of_string x) in
@@ -308,7 +305,7 @@ let term_mk_uninterp x l =
 let _ = Callback.register "term_mk_uninterp" term_mk_uninterp
 
   
-(*s Constructing arithmetic expressions. *)
+(** Constructing arithmetic expressions. *)
 
 let term_mk_num = Arith.mk_num
 let _ = Callback.register "term_mk_num" term_mk_num
@@ -334,7 +331,7 @@ let _ = Callback.register "iterm_s_arith" term_is_arith
 
 
 
-(*s Constructing tuples and projections. *)
+(** Constructing tuples and projections. *)
 
 let term_mk_tuple = Tuple.mk_tuple
 let _ = Callback.register "term_mk_tuple" term_mk_tuple
@@ -343,7 +340,7 @@ let term_mk_proj i j = Tuple.mk_proj i j
 let _ = Callback.register "term_mk_proj" term_mk_proj
 
 
-(*s Bitvector terms. *)
+(** Bitvector terms. *)
 
 let term_mk_bvconst s = Bitvector.mk_const (Bitv.from_string s)
 let _ = Callback.register "term_mk_bvconst" term_mk_bvconst
@@ -370,7 +367,7 @@ let term_mk_bwnot n a =
 let _ = Callback.register "term_mk_bwnot" term_mk_bwnot
 
 	  
-(*s Boolean terms. *)
+(** Boolean terms. *)
 
 let term_mk_true = Boolean.mk_true
 let _ = Callback.register "term_mk_true" term_mk_true
@@ -378,7 +375,7 @@ let _ = Callback.register "term_mk_true" term_mk_true
 let term_mk_false = Boolean.mk_false
 let _ = Callback.register "term_mk_false" term_mk_false
 
-(*s Coproducts. *)
+(** Coproducts. *)
 
 let term_mk_inj = Coproduct.mk_inj
 let _ = Callback.register "term_mk_inj" term_mk_inj
@@ -386,7 +383,7 @@ let _ = Callback.register "term_mk_inj" term_mk_inj
 let term_mk_out = Coproduct.mk_out
 let _ = Callback.register "term_mk_out" term_mk_out
 
-(*s Atoms. *)
+(** Atoms. *)
 
 type atom = Atom.t
 type atoms = Atom.Set.t
@@ -462,7 +459,7 @@ let _ = Callback.register "term_is_false" term_is_false
 
 
 
-(*s Nonlinear terms. *)
+(** Nonlinear terms. *)
 
 
 let term_mk_mult = Sig.mk_mult
@@ -479,7 +476,7 @@ let term_mk_expt = Sig.mk_expt
 let _ = Callback.register "term_mk_expt" term_mk_expt
 
 
-(*s Builtin applications. *)
+(** Builtin applications. *)
 
 let term_mk_unsigned = Bvarith.mk_unsigned
 let _ = Callback.register "term_mk_unsigned" term_mk_unsigned
@@ -502,7 +499,7 @@ let term_mk_arith_apply c =
 let _ = Callback.register "term_mk_arith_apply" term_mk_arith_apply
 
 
-(*s Set of terms. *)
+(** Set of terms. *)
 
 type terms = Term.Set.t
 
@@ -511,7 +508,7 @@ type terms = Term.Set.t
 type 'a map = 'a Term.Map.t
 	  
 
-(*s Equalities. *)
+(** Equalities. *)
 
 let term_eq = Term.eq
 let _ = Callback.register "term_eq" term_eq
@@ -519,7 +516,7 @@ let _ = Callback.register "term_eq" term_eq
 let term_cmp = Term.cmp
 let _ = Callback.register "term_cmp" term_cmp
 
-(*s Trace level. *)
+(** Trace level. *)
     
 type trace_level = string
 
@@ -536,7 +533,7 @@ let trace_get = Trace.get
 let _ = Callback.register "trace_get" trace_get
 
 
-(*s Solution sets. *)
+(** Solution sets. *)
 
 type solution = Solution.t
 
@@ -557,7 +554,7 @@ let solution_is_empty = Solution.is_empty
 
 
 
-(*s States. *)
+(** States. *)
 
 open Process
 
@@ -601,7 +598,7 @@ let _ = Callback.register "context_ctxt_pp" context_ctxt_pp
 
 	  
 
-(*s Processing of new equalities. *)
+(** Processing of new equalities. *)
 
 type status = Context.t Process.status
 
@@ -635,7 +632,7 @@ let split s =
   Atom.Set.elements (Context.split s) 
 let _ = Callback.register "split" split
 
-(*s Normalization functions *)
+(** Normalization functions *)
 
 let can = Can.atom
 let _ = Callback.register "can" can
@@ -720,7 +717,7 @@ let _ = Callback.register "cmd_rep" cmd_rep
 let _ = Callback.register "cmd_batch" cmd_batch
 
 
-(*s Abstract sign interpretation. *)
+(** Abstract sign interpretation. *)
 
 let cnstrnt s a = 
   try
@@ -729,7 +726,7 @@ let cnstrnt s a =
       Not_found -> None
  
 
-(*s Tools *)
+(** Tools *)
 
 let reset () = Tools.do_at_reset ()
 let _ = Callback.register "reset" reset
@@ -741,7 +738,7 @@ let flush = print_flush
 let _ = Callback.register "flush" flush
 
 
-(*s Lists. *)
+(** Lists. *)
 
 let is_nil = function [] -> true | _ -> false
 let _ = Callback.register "is_nil" is_nil
@@ -756,7 +753,7 @@ let tail = List.tl
 let _ = Callback.register "tail" tail
 
 
-(*s Pairs. *)
+(** Pairs. *)
 
 let pair x y = (x,y)
 let _ = Callback.register "pair" pair
@@ -768,7 +765,7 @@ let snd = snd
 let _ = Callback.register "snd" snd
 
 
-(*s Triples. *)
+(** Triples. *)
 
 let triple x y z = (x,y,z)
 let _ = Callback.register "triple" triple
@@ -783,7 +780,7 @@ let third_of_triple = function (_,_,z) -> z
 let _ = Callback.register "third_of_triple" third_of_triple
   
 
-(*s Quadruples. *)
+(** Quadruples. *)
    
 let fst_of_quadruple  = function (x1,_,_,_) -> x1
 let _ = Callback.register "fst_of_quadruple" fst_of_quadruple
@@ -798,7 +795,7 @@ let fourth_of_quadruple = function (_,_,_,x4) -> x4
 let _ = Callback.register "fourth_of_quadruple" fourth_of_quadruple
     
 
-(*s Options. *)
+(** Options. *)
 
 let is_some = function
   | Some _ -> true
@@ -816,12 +813,12 @@ let _ = Callback.register "is_some" is_some
 let _ = Callback.register "is_none" is_none
 let _ = Callback.register "value_of" value_of
 
-(*s Sleeping. *)
+(** Sleeping. *)
 
 let sleep = Unix.sleep
 let _ = Callback.register "sleep" sleep
 	 
-(*s Multi-precision arithmetic.*)
+(** Multi-precision arithmetic.*)
 
 open Mpa
 

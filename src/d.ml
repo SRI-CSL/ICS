@@ -1,5 +1,4 @@
-
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -10,17 +9,13 @@
  * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
- * 
- * Author: Harald Ruess
-i*)
+*)
 
-(*i*)
 open Sym
 open Mpa
 open Status
-(*i*) 
 
-(*s Known disequalities; [x |-> {y,z}] is interpreted as [x <> y & x <> z].
+(** Known disequalities; [x |-> {y,z}] is interpreted as [x <> y & x <> z].
   The function is closed in that forall [x], [y] such that [x |-> {...,y,...} ]
   then also [y |-> {....,x,....}] *)
 
@@ -58,19 +53,19 @@ let pp fmt s =
     end
 
 
-(*s All terms known to be disequal to [a]. *)
+(** All terms known to be disequal to [a]. *)
 
 let deq s a =
   try Term.Map.find a s with Not_found -> Term.Set.empty
 
 
-(*s Check if two terms are known to be disequal. *)
+(** Check if two terms are known to be disequal. *)
 
 let is_diseq s a b =
   Term.Set.mem b (deq s a)
 
 
-(*s Adding a disequality over variables *)
+(** Adding a disequality over variables *)
 
 let rec add d s =
   let (x,y,_) = Fact.d_diseq d in
@@ -95,7 +90,7 @@ let rec add d s =
 	Term.Map.add x xd' (Term.Map.add y yd' s)
 
 
-(*s Propagating an equality between variables. *)
+(** Propagating an equality between variables. *)
 
 let merge e s =
   let (a, b, _) = Fact.d_equal e in
@@ -113,7 +108,7 @@ let merge e s =
       end 
 
 
-(*s Return disequalities for [x]. *)
+(** Return disequalities for [x]. *)
 
 let disequalities s x =
   Term.Set.fold

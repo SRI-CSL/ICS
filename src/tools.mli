@@ -1,5 +1,4 @@
-
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -10,28 +9,33 @@
  * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
- * 
- * Author: Jean-Christophe Filliatre, Harald Ruess
- i*)
+ *)
 
-(*s The purpose of the [Tools] module is to provide some functions and types,
-  which are used througout the code of ICS. *)
+(** The [Tools] module collects some functions and types,
+  which are used throughout the code of ICS. 
 
+  @author Jean-Christophe Filliatre
+  @author Harald Ruess
+ *)
 
-(*s Procedures [f] without parameters can be registered as exit procedures
-  by [add_to_exit f]. The registered exit procedures are then called by
-  [do_at_exit()]. Exit procedures are usually used for displaying some
-  statistics. *)
 
 val add_at_exit : (unit -> unit) -> unit
+  (** Procedures [f] without parameters can be registered as exit procedures
+    by [add_to_exit f].  Exit procedures can, for example be used for 
+    displaying statistics after running ICS. *)
+
 val do_at_exit : unit -> unit
-
-
-(*s [add_to_reset f] registers [f] as a reset procedure, which are then
-  called, one-by-one, by [do_at_reset()]. *)
-
+  (** Procedures [f] registered by {!Tools.add_at_exit} are called 
+    by [do_at_exit()]. The order in which these functions are called is
+    unspecified. *)
+  
 val add_at_reset : (unit -> unit) -> unit
+  (** [add_to_reset f] registers [f] as a reset procedure *)
+
 val do_at_reset : unit -> unit
+  (** [do_at_reset()].
+ which are then
+    called, one-by-one, by [do_at_reset()]. *)
 
 
 (*s [utime f a] returns not only the result of applying [f] to [a]

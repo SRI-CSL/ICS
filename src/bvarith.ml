@@ -1,5 +1,4 @@
-
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -10,15 +9,13 @@
  * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
- * 
- * Author: Harald Ruess
- i*)
+ *)
 
-(*i*)
 open Mpa
 open Sym
 open Term
-(*i*)
+
+let unsigned = Bvarith(Unsigned)
 
 let rec mk_unsigned = 
   let unsigned = mk_app (Bvarith(Unsigned)) in

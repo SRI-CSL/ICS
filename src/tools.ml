@@ -1,4 +1,4 @@
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -11,9 +11,9 @@
  * benefit corporation.
  * 
  * Author: Jean-Christophe Filliatre, Harald Ruess
- i*)
+ *)
 
-(*s Functions to run at exit. *)
+(** Functions to run at exit. *)
 
 let at_exit_functions = ref []
 
@@ -24,7 +24,7 @@ let do_at_exit () =
   List.iter (fun f -> f()) (List.rev !at_exit_functions)
 
 
-(*s Functions to run at reset. *)
+(** Functions to run at reset. *)
 
 let at_reset_functions = ref []
 
@@ -35,7 +35,7 @@ let do_at_reset () =
   List.iter (fun f -> f()) (List.rev !at_reset_functions)
 
 
-(*s Timing functions. *)
+(** Timing functions. *)
 
 open Unix
 
@@ -60,7 +60,7 @@ let profile str f =
     calls := !calls + 1;
     y
 
-(*s Simulate dynamic binding. *)
+(** Simulate dynamic binding. *)
 
 let dynamic_let (x, v) f a = 
   let saved = !x in
@@ -73,6 +73,6 @@ let dynamic_let (x, v) f a =
 	  x := saved;
 	  raise exc
 
-(*s Global variable for linenumers. *)
+(** Global variable for linenumers. *)
 
 let linenumber = ref 0

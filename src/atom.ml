@@ -1,5 +1,4 @@
-
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -10,16 +9,12 @@
  * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
- * 
- * Author: Harald Ruess
- i*)
+ *)
 
-(*i*)
 open Mpa
 open Status
 open Binrel
 open Sym
-(*i*)
 
 type t =
   | True
@@ -30,7 +25,7 @@ type t =
 
 
 
-(*s Constructors. *)
+(** {6 Constructors} *)
 
 let mk_true () = True
 
@@ -43,7 +38,7 @@ let mk_equal e =
     else if Term.is_interp_const a && Term.is_interp_const b then
       mk_false()
     else
-      Equal(e)    (* Larger Term on rhs *)
+      Equal(e)
 
 let rec mk_in c =
   let (a, c, j) = Fact.d_cnstrnt c in
@@ -77,6 +72,9 @@ and normalize (a, c) =
 	   | _ -> (a, c))
     | _ -> (a, c)
 
+let normalize =
+  Trace.func "foo" "Normalize" Term.pp_in Term.pp_in normalize
+
 let rec mk_diseq d =
   let (a, b, j) = Fact.d_diseq d in
     if Term.eq a b then 
@@ -101,32 +99,8 @@ let rec mk_diseq d =
 	    Diseq(Fact.mk_diseq a b j)
 
 
-(*s Constructing inequalities. *)
 
-(*
-let rec mk_lt a b =
-  lower (Q.lt, Cnstrnt.mk_lt Dom.Real, Cnstrnt.mk_gt Dom.Real) (a,b)
-	
-and mk_le a b =
-  lower (Q.le, Cnstrnt.mk_le Dom.Real, Cnstrnt.mk_ge Dom.Real) (a,b)
-
-and lower (f,less, greater) (a,b) =
-  let (q, ml) = Arith.poly_of (Arith.mk_sub a b) in 
-  match ml with
-    | [] ->                                  
-	if f q Q.zero then mk_true() else mk_false()
-    | m :: ml ->                                   (*s case [p * x + ml < q'] *)
-	let (p,x) = Arith.mono_of m in          (*s case [q + p * x + ml < 0] *)
-	assert(not(Q.is_zero p));        
-	let rel = (if Q.gt p Q.zero then less else greater) in
-	let c = rel (Q.minus (Q.div q p)) in
-	let ml' = List.map (Arith.mk_multq (Q.inv p)) ml in
-	let a = Arith.of_poly Q.zero ml' in
-	  mk_in (Fact.mk_cnstrnt (Arith.mk_add x a) c None)
-*)
-
-
-(*s Pretty-printing. *)
+(** {6 Pretty-printing} *)
 
 let pp fmt = function
   | True -> Pretty.string fmt "True"
@@ -135,7 +109,8 @@ let pp fmt = function
   | Diseq(d) -> Fact.pp_diseq fmt d
   | In(c) -> Fact.pp_cnstrnt fmt c
 
-(*s Set of atoms. *)
+
+(** {6 Set of atoms} *)
 
 type atom = t
 

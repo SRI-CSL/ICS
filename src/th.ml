@@ -1,5 +1,4 @@
-
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -10,15 +9,11 @@
  * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
- * 
- * Author: Harald Ruess
-i*)
+ *)
 
-(*i*)
 open Mpa
-(*i*)
 
-(*s Classification of function symbols. *)
+(** Classification of function symbols. *)
 
 type t = int
 
@@ -137,7 +132,7 @@ module Array = struct
 
 end
 
-(*s Theory-specific normalization. *)
+(** Theory-specific normalization. *)
 
 let maps = 
   let a = Array.create (fun _ a -> a) in
@@ -157,14 +152,14 @@ let maps =
 let map = Array.get maps
 
 
-(*s Theory-specific solver *)
+(** Theory-specific solver *)
 
 let solvers = 
   let a = Array.create (fun e -> [e]) in
     List.iter
       (fun (i, m) -> Array.set a i m)
       [la, (fun e ->
-	      match Arith.solve e with
+	      match Arith.qsolve e with
 		| None -> []
 		| Some(e') -> [e']);
        p, Tuple.solve;

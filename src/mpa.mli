@@ -1,4 +1,3 @@
-
 (*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
@@ -10,20 +9,23 @@
  * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
- * 
- * Author: Jean-Christophe Filliatre, Harald Ruess
  *)
 
 (** Multi-precision arithmetic. The purpose of this module is to
   abstract the necessary arithmetic functions of any multi-precision
   package such as Ocaml's bignums, GNU MP etc in order to switch
-  easily between packages. *)
+  more easily between different multi-precision arithmetic packages. 
 
-(** {6 iterators} *)
+  @author Jean-Christophe Filliatre
+  @author Harald Ruess
+*)
+
+(** {6 Integers} *)
 
 module Z : sig
 
   type t
+    (** Abstract type of integers.*)
 
   val zero : t
   val one : t
@@ -44,20 +46,22 @@ module Z : sig
   val ge : t -> t -> bool
 
   val of_int : int -> t
-  val gcd : t -> t -> t      (*s Greatest Common Divisor. *)
-  val lcm : t -> t -> t      (*s Least Common Multiple. *)
+  val gcd : t -> t -> t      (* Greatest Common Divisor. *)
+  val lcm : t -> t -> t      (* Least Common Multiple. *)
   val pow : int -> int -> t
 
   val to_string : t -> string
 
   val pp : Format.formatter -> t -> unit
 end
+(** Multi-precision integers. *)
 
-(** {6 iterators} *)
+(** {6 Rationals.} *)
 
 module Q : sig
 
   type t
+    (** Abstract type of rationals. *)
 
   val negone : t
   val zero : t
@@ -109,7 +113,7 @@ module Q : sig
 
   val pp : Format.formatter -> t -> unit
 end
-
+(** Multi-precision rationals. *)
 
 
 

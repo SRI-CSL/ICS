@@ -1,4 +1,3 @@
-
 (*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
@@ -10,50 +9,81 @@
  * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
- * 
- * Author: Harald Ruess
  *)
 
-(** Module [Sym]: Interpreted and uninterpreted function symbols *)
+(** Datatype for function symbols.  The set of function symbols is
+  partitioned into function symbols for the theories of
+  - uninterpreted functions
+  - linear arithmetic
+  - tuples
+  - cotuples
+  - bitvectors
+  - arrays
+  - power products
+  - function abstraction and application
+  - arithmetic interpretations of bitvectors. *)
 
-
-
-(** {Interpreted symbols} *)
 
 type arith = 
   | Num of Mpa.Q.t  
   | Add
   | Multq of Mpa.Q.t
+      (** Function symbols for linear arithmetic are
+	- [Num(q)] for a rational number [q],
+	- [Add] for addition,
+	- [Multq(q)] for multiplication by a rational [q]. *)
 
 type product = 
   | Tuple
   | Proj of int * int
+      (** Function symbols for the theory of tuples are
+	- [Tuple] for tupling
+	- [Proj(i,n)] for projecting the [i]-th component in an [n]-tuple. *)
 
 type coproduct = InL | InR | OutL | OutR
+    (** Function symbols for the theory of tuples are
+      - [InL] for left-injection,
+      - [InR] for right-injection,
+      - [OutR] for right-unpacking,
+      - [OutL] for left-unpacking. *)
+
 
 type bv =
   | Const of Bitv.t
   | Conc of int * int
   | Sub of int * int * int
   | Bitwise of int
+      (** Function symbols for the theory of bitvectors are
+	- [Const(b)] for constructing constant bitvectors,
+	- [Conc(n, m)] for concatenating bitvectors of length [n] and [m],
+	- [Sub(i,j,n)] for extracting bits [i] through [j] in a bv of length [n],
+	- [Bitwise(n)] for bitwise conditional on bitvectors of length [n]. *)
 
 type pprod = 
   | Mult
   | Expt of int
+      (** Function symbols of the theory of power products are
+	- [Mult] for nonlinear multiplication,
+	- [Expt(n)] for exponentiation with integer [n]. *)
 
 type apply = 
   | Apply of Cnstrnt.t option
   | Abs
+      (** Function symbols of the theory of functions
+	- [Apply(r)] of function application
+	- [Abs] of function abstraction *)
 
 type arrays = 
   | Select 
   | Update
+      (** Function symbols of the theory of arrays
+	- [Select] for array lookup
+	- [Update] for array update. *)
 
 type bvarith = 
   | Unsigned
-
-
-(** {Symbols} *)
+      (** Function symbols of the theory of arithmetic interpretations of bv
+	- [Unsigned] for the unsigned interpretation *)
 
 type t = 
   | Uninterp of Name.t       (* Uninterpreted function symbols. *)
@@ -67,26 +97,23 @@ type t =
   | Bvarith of bvarith       (* Bitvector interpretations. *)
 
 
-
-
 val eq : t -> t -> bool
-(** Equality test *)
+  (** Equality test *)
 
 
 val cmp : t -> t -> int
-(** Comparison. *)
+  (** Comparison. *)
 
 
 val pp : Format.formatter -> t -> unit
-(** Pretty printing *)
-
+  (** Pretty printing *)
 
 
 val width : t -> int option
-(** Width of a bitvector symbol. *)
+  (** Width of a bitvector symbol. *)
 
 
-(** {Miscellaneous symbols} *)
+(** {6 Miscellaneous symbols} *)
 
 val tuple : t
 val car : t

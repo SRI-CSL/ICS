@@ -1,5 +1,5 @@
 
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -12,12 +12,10 @@
  * benefit corporation.
  * 
  * Author: Harald Ruess
- i*)
+ *)
 
-(*i*)
 open Mpa
 open Sign
-(*i*)
 
 type extq =
   | Inject of Q.t
@@ -35,8 +33,6 @@ let posinf = Posinf
 
 let neginf = Neginf
 
-
-(*s Miscellaneous. *)
 
 let zero = inject Q.zero
 
@@ -76,14 +72,14 @@ let pp fmt x =
     | Neginf -> Format.fprintf fmt "-inf"
 
 
-(*s Test if argument is an integer. *)
+(** Test if argument is an integer. *)
 
 let is_int x =
   match x with
     | Inject q -> Q.is_integer q
     | _ -> false
 
-(*s Equality is just pointer comparison for hash-consing. *)
+(** Equality is just pointer comparison for hash-consing. *)
 
 let eq x y =
   match x, y with
@@ -93,7 +89,7 @@ let eq x y =
     | _ -> false
 
 
-(*s Ordering relation. *)
+(** Ordering relation. *)
 
 let lt x y =
   match x with
@@ -108,13 +104,13 @@ let lt x y =
 let le x y =
   eq x y || lt x y
 
-(*s Minimum and maximum. *)
+(** Minimum and maximum. *)
 
 let min x y = if lt x y then x else y
 
 let max x y = if lt x y then y else x
 
-(*s Comparisons. *)
+(** Comparisons. *)
 
 let cmp x y =
   match x, y with
@@ -126,7 +122,7 @@ let cmp x y =
     | Posinf, Posinf -> Q.Equal
     | Posinf, _ -> Q.Greater
 
-(*s Sign computation. *)
+(** Sign computation. *)
 
 let sign x =
   match x with
@@ -136,7 +132,7 @@ let sign x =
 
 
 
-(*s Arithmetic operations *)
+(** Arithmetic operations *)
 
 exception Undefined
 

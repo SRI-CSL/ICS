@@ -10,15 +10,13 @@
  * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
- * 
- * Author: Harald Ruess
  *)
 
 open Mpa
 open Sym
 open Term
 
-(** {Symbols} *)
+(** {6 Symbols} *)
 
 let num q = Arith(Num(q))
 
@@ -27,7 +25,7 @@ let multq q = Arith(Multq(q))
 let add = Arith(Add)
 
 
-(** {Theory-specific recognizers}. *)
+(** {6 Theory-specific recognizers} *)
 
 let is_interp a =
   match a with
@@ -35,7 +33,7 @@ let is_interp a =
     | _ -> false
 
 
-(** {Iterators}. *)
+(** {6 Iterators} *)
 
 let rec fold f a e = 
   match a with
@@ -49,7 +47,7 @@ let rec fold f a e =
 	f a e
 	
 
-(** {Destructors}. *)
+(** {6 Destructors} *)
 
 let d_num = function
   | App(Arith(Num(q)), []) -> Some(q)
@@ -68,7 +66,7 @@ let monomials = function
   | App(Arith(Add), xl) -> xl
   | x -> [x]
 
-(** {Recognizers}. *)
+(** {6 Recognizers} *)
 
 let is_num = function
   | App(Arith(Num _), []) -> true
@@ -91,7 +89,7 @@ let is_multq = function
   | _ -> false
 
 
-(** {Constants}. *)
+(** {6 Constants} *)
 
 let mk_num q = App(Arith(Num(q)), [])
 
@@ -100,7 +98,7 @@ let mk_one = mk_num(Q.one)
 let mk_two = mk_num(Q.of_int 2)
 
 
-(** {Normalizations}. *)
+(** {6 Normalizations} *)
 
 let poly_of a =
   match a with
@@ -138,7 +136,7 @@ let of_mono q x =
       | None -> mk_app (multq q) [x]
 
 
-(** {Constructors}. *)
+(** {6 Constructors} *)
 
 let rec mk_multq q a =
   let rec multq q = function
@@ -156,19 +154,24 @@ let rec mk_multq q a =
 	of_poly (Q.mult q p) (multq q ml)
 
 and mk_addq q a =
-  match a with
-    | App(Arith(Num(p)), []) ->
-	mk_num (Q.add q p)
-    | App(Arith(Multq(_)), [_]) ->
-	mk_app add [mk_num q; a]
-    | App(Arith(Add), xl) ->
-	(match xl with
-	   | App(Arith(Num(p)), []) :: xl' ->
-	       mk_app add (mk_num (Q.add q p) :: xl')
-	   | _ -> 
-	       mk_app add (mk_num q :: xl))
-    | _ ->
-	mk_app add [mk_num q; a]
+  if Q.is_zero q then a else
+    match a with
+      | App(Arith(Num(p)), []) ->
+	  mk_num (Q.add q p)
+      | App(Arith(Multq(_)), [_]) ->
+	  mk_app add [mk_num q; a]
+      | App(Arith(Add), xl) ->
+	  (match xl with
+	     | App(Arith(Num(p)), []) :: xl' ->
+		 let q_plus_p = Q.add q p in
+		   if Q.is_zero q_plus_p then
+		     mk_app add xl'
+		   else 
+		     mk_app add (mk_num q_plus_p :: xl')
+	     | _ -> 
+		 mk_app add (mk_num q :: xl))
+      | _ ->
+	  mk_app add [mk_num q; a]
 
 and mk_add a b =
   let rec map2 f l1 l2 =      (* Add two polynomials *)
@@ -249,7 +252,7 @@ let rec sigma op l =
 
 
 (** Solving of an equality [a = b] in the rationals. *)
-let rec solve e =
+let rec qsolve e =
   let (a, b, j) = Fact.d_equal e in
     match mk_sub a b with
       | App(Arith(Num(q)), []) ->     (* [q = 0] *)
@@ -298,7 +301,7 @@ let destructure a =
 	raise Not_found
 	
 
-(** Integer test. *)
+(** Integer test. Incomplete. *)
 let rec is_int c a = 
   let is_int_var x = 
     try 
@@ -316,6 +319,19 @@ let rec is_int c a =
 	  List.for_all (is_int c) xl
       | _ ->
 	  false
+
+(** Test if all variables are interpreted in the integers. *)
+let rec is_diophantine c a =
+  try
+    let rec loop = function
+      | App(Arith(Num(_)), []) -> true
+      | App(Arith(Multq(_)), [x]) -> Cnstrnt.sub (c x) Cnstrnt.mk_int
+      | App(Arith(Add), xl) -> List.for_all loop xl
+      | a -> Cnstrnt.sub (c a) Cnstrnt.mk_int
+    in 
+      loop a
+  with
+      Not_found -> false
 
 
 (** Constraints. *)
@@ -338,8 +354,10 @@ let rec tau c op al =
 and cnstrnt_of_monomials c ml =
   try
     let of_monomial = function
-      | App(Arith(Num(q)), []) -> Cnstrnt.mk_singleton q
-      | App(Arith(Multq(q)), [x]) -> Cnstrnt.multq q (c x)
+      | App(Arith(Num(q)), []) -> 
+	  Cnstrnt.mk_singleton q
+      | App(Arith(Multq(q)), [x]) -> 
+	  Cnstrnt.multq q (c x)
       | x -> c x 
     in
       match ml with
@@ -359,3 +377,135 @@ and cnstrnt_of_monomials c ml =
 
 and cnstrnt c a =
   cnstrnt_of_monomials c (monomials a)
+
+
+(** Check if there exists a [q] such that [q * a] equals [b]. *)
+let rec multiple (a, b) =
+  let divnum q p =         (* return [r] s.t. [r * q = p]. *)
+    if Q.is_zero q then
+      if Q.is_zero p then Q.one else raise Not_found
+    else 
+      Q.div p q
+  in   
+  let al = monomials a and bl = monomials b in
+    match al, bl with
+      | [], [] -> Q.one
+      | [], _ -> 
+	  raise Not_found
+      | _, [] -> 
+	  raise Not_found
+      | a :: al', b :: bl' ->
+	  (match a, b with     (* first check for constant monomials. *)
+	     | App(Arith(Num(q)), []), App(Arith(Num(p)), []) ->
+		 check (divnum q p) al' bl'
+	     | App(Arith(Num _), _), _ ->
+		 raise Not_found
+	     | _, App(Arith(Num _), _) ->
+		 raise Not_found
+	     | _ ->
+		 let (q, x) = mono_of a 
+		 and (p, y) = mono_of b in
+		   if Term.eq x y then
+		     check (divnum q p) al' bl'
+		   else 
+		     raise Not_found)
+
+and check r al bl =   (* check if [r * al = bl] *)
+  match al, bl with
+    | [], [] -> r
+    | [], _ -> raise Not_found
+    | _, [] -> raise Not_found
+    | a :: al', b :: bl' ->
+	let (q, x) = mono_of a 
+	and (p, y) = mono_of b in
+	 if Term.eq x y && Q.equal (Q.mult r q) p then
+	   check r al' bl'
+	 else 
+	   raise Not_found
+
+let multiple =
+  Trace.func "foo" "Multiple" (Pretty.pair Term.pp Term.pp) Mpa.Q.pp
+    multiple
+
+
+let leading = function
+  | App(Arith(Num _), _) -> 
+      raise Not_found
+  | App(Arith(Multq(q)), [x]) -> x 
+  | App(Arith(Add), (App(Arith(Num _), [])) :: m :: _) ->
+      let (_, x) = mono_of m in x
+  | App(Arith(Add), m :: ml) ->
+      let (_, x) = mono_of m in x
+  | _ ->
+      raise Not_found
+
+let leading = 
+  Trace.func "foo" "Leading" Term.pp Term.pp leading
+    
+
+(** {6 Integer solver} *)
+
+let mk_fresh =
+  let name = Name.of_string "a" in
+    fun () -> Var(Var.mk_fresh name None)
+
+
+module Euclid = Euclid.Make(
+  struct
+   type q = Mpa.Q.t
+   let eq = Mpa.Q.equal
+   let ( + ) = Mpa.Q.add
+   let inv = Mpa.Q.minus
+   let zero = Mpa.Q.zero
+   let ( * ) = Mpa.Q.mult
+   let one = Mpa.Q.one
+   let ( / ) = Mpa.Q.div
+   let floor q = Mpa.Q.of_z (Mpa.Q.floor q)
+   let is_int = Mpa.Q.is_integer
+  end)
+
+
+let rec zsolve e = 
+  let (a, b, _) = Fact.d_equal e in
+  let (q, ml) = poly_of (mk_sub a b) in   (* [q + ml = 0] *)
+    if ml = [] then
+      if Q.is_zero q then [] else raise(Exc.Inconsistent)
+    else
+      let (cl, xl) = vectorize ml in     (* [cl * xl = ml] in vector notation *)
+	match Euclid.solve cl (Q.minus q) with
+	  | None -> raise Exc.Inconsistent
+	  | Some(d, pl) -> 
+	      let gl = general cl (d, pl) in
+		List.map2 (fun x a -> Fact.mk_equal x a None) xl gl
+	     
+and vectorize ml =
+  let rec loop (ql, xl) = function
+    | [] -> 
+	(List.rev ql, List.rev xl) 
+    | m :: ml ->
+	let (q, x) = mono_of m in
+	  loop (q :: ql, x :: xl) ml
+  in
+    loop ([], []) ml
+
+
+(** Compute the general solution of a linear Diophantine
+  equation with coefficients [al], the gcd [d] of [al]
+  and a particular solution [pl]. In the case of four
+  coeffients, compute, for example,
+   [(p0 p1 p2 p3) + k0/d * (a1 -a0 0 0) + k1/d * (0 a2 -a1 0) + k2/d * (0 0 a3 -a2)]
+  Here, [k0], [k1], and [k2] are fresh variables. Note that
+  any basis of the vector space of solutions [xl] of the 
+  equation [al * xl = 0] would be appropriate. *)
+and general al (d, pl) =
+  let rec loop al zl =
+    match al, zl with
+      | [_], [_] -> zl
+      | a0 :: ((a1 :: al'') as al'),  z0 :: z1 :: zl'' ->
+          let k = mk_fresh () in
+          let e0 = mk_add z0 (mk_multq (Q.div a1 d) k) in
+          let e1 = mk_add z1 (mk_multq (Q.div (Q.minus a0) d) k) in
+            e0 :: loop al' (e1 :: zl'')
+      | _ -> assert false
+  in
+    loop al (List.map mk_num pl)

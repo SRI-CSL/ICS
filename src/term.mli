@@ -1,5 +1,4 @@
-
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -10,40 +9,14 @@
  * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
- * 
- * Author: Harald Ruess
- i*)
+ *)
 
-(*s Terms are the basic data structures of ICS. *)
+(** A term is either a variable [Var(s)] with a name [s] of type {!Name.t} or
+  an application [App(f,l)] of a function symbol of type {!Sym.t}
+  to a list of argument terms. 
 
-(*i*)
-open Hashcons
-open Mpa
-(*i*)
-
-(*s Terms.  A term is either a variable [Var(s)], where the name [s] is a string, an
- application [App(f,l)] of a `function symbol' to a list of arguments, an update
- expression [Update(a,i,v)], or a term interpreted in one of the theories of linear
- arithmetic [Arith], propositional logic, [Prop], propositional sets [Set], tuples
- [Tuple], or bitvectors [Bv]. By definition, all entitities of type [t] are hash-consed.
- Therefore, equality tests between terms can be done in constant time using the equality
- [===] from the module [Hashcons].
-
- Arithmetic terms are either numerals of the form [Num(q)], n-ary addition [Add(l)],
- linear multiplication [Multq(q,a)], nonlinear multiplication [Mult(l)], or division.
- Arithmetic terms built up solely from [Num], [Add], and [Multq] are considered to
- be interpreted, since [Mult] and [Div] are considered to be uninterpreted, in general.
- However, certain simplification rules for these uninterpreted function symbols are
- built-in.
-
- Propositional terms are either [False], [True], or conditionals [Ite(a,b,c)].
- Other propositional connectives can be encoded using these constructor.
-
- A tuple term is either a tuple [Tup(l)] or the [i]-th projection [Proj(i,n,_)]
- from an [n]-tuple.
-	
- Set of terms are implemented using Patricia trees.  Operations
- on these sets are described below in the submodule [Set]. *)
+  @author Harald Ruess
+*)
 
 
 type t =
@@ -51,84 +24,142 @@ type t =
   | App of Sym.t * t list
  
 
-(*s Constructing and destructing terms *)
+(** {6 Constructors} *)
 
 val mk_var : Name.t -> t
+  (** Constructing a variable. *)
+
+
 val mk_const : Sym.t -> t
+  (** [mk_const c] constructs a function application 
+    of symbol [c] to the empty argument list. *)
+
 val mk_app : Sym.t -> t list -> t
+  (* [mk_app f l] constructs a function application of symbol [f]
+     to a list [l]. *)
 
 val mk_fresh_var : Name.t -> int option -> t
-val is_fresh_var : t -> bool
-val name_of : t -> Name.t
+  (** [mk_fresh_var n None] constructs a fresh variable, where
+    'fresh' means that the index part of this fresh variable
+    (see Module {!Var}) is larger than {!Var.k}; as a side-effect,
+    {!Var.k} is incremented. [mk_fresh_var n Some(k)] simply constructs
+    a variable of name [n] and index [k]. *)
 
-val destruct : t -> Sym.t * t list
 
-val sym_of : t -> Sym.t
-val args_of : t -> t list
-
-(*s Equality of terms. *)
-
-val eq : t -> t -> bool
-
-val eql : t list -> t list -> bool
-
-val cmp : t -> t -> int
-
-val (<<<): t -> t -> bool
-
-val orient : t * t -> t * t
-
-val max : t -> t -> t
-val min : t -> t -> t
-
-(*s Test if term is a constant. *)
-
-val is_const : t -> bool
+(** {6 Recognizers} *)
 
 val is_var : t -> bool
-val is_app : t -> bool
+  (** [is_var a] holds iff [a] is of the form [Var _]. *)
 
-val to_var : t -> Var.t
+val is_app : t -> bool
+  (** [is_app a] holds iff [a] is of the form [App _]. *)
+
+val is_const : t -> bool
+  (** [is_const a] holds iff [a] is of the form [App(_,[])]. *)
 
 val is_interp_const : t -> bool
+  (** [is_interp_const a] holds if [a] is a constant of the
+    form [App(c,[])] and [c] is an interpreted function symbol 
+    (see module {!Sym}). *)
+
+val is_fresh_var : t -> bool
+  (** [is_fresh_var a] holds if [a] is a variable and if it is
+    of category 'fresh' (see module {!Var}). *)
+
+
+(** {6 Destructors} *)
+
+val name_of : t -> Name.t
+  (** [name_of a] returns the name [n] if [a] is a variable of the
+    form [Var(n)]; otherwise the result is undefined. *)
+
+val destruct : t -> Sym.t * t list
+  (** [destruct a] destructure an application [a] of the form
+    [App(f, l)] into [(f, l)]. *)
+
+val sym_of : t -> Sym.t
+  (** [sym_of a] returns the function symbol [f] of an application
+    [a] of the form [App(f,_)]. *)
+
+val args_of : t -> t list
+  (** [sym_of a] returns the argument list [l] of an application
+    [a] of the form [App(_,l)]. *)
+
+val to_var : t -> Var.t
+  (** [to_var a] returns [x] if [a] is of the form [Var(x)]. *)
+
+
+(** {6 Comparisons} *)
+
+val eq : t -> t -> bool
+  (** [eq a b] holds iff [a] and [b] are syntactically equal.
+    This comparison is linear in the size of [a] and [b]. *)
+  
+
+val eql : t list -> t list -> bool
+  (** [eql al bl] holds iff [al] and [bl] are of the
+    form [a1;...;an] and [b1;...;bn], respectively, and
+    if [eq ai bi] holds for all [i]. *)
+  
+
+val cmp : t -> t -> int
+  (** [cmp a b] realizes a total ordering on terms. It returns
+    [0] if [eq a b] holds. Values less than [0] are interpreted
+    as '[a] is less than [b]' and values greater than [0] as
+    '[a] is greater than [b]'.  Variables are greater than
+    applications, variables [Var(x)] and [Var(y)] are ordered 
+    according to {!Var.cmp}[x y]
+    (in particular, internal variables are always greater than
+    external ones), and function applications [App(f, al)] and
+    [App(g, bl)] are ordered using a lexicographic ordering
+    on the function symbols [f] and [g] as given by {!Sym.cmp}[f g]
+    and the orderings on respective terms in the argument lists [al]
+    and [bl]. *)
+
+
+val (<<<): t -> t -> bool
+  (** [a <<< b] iff [cmp a b <= 0]. *)
+
+val orient : t * t -> t * t
+  (** [orient (a, b)] is [(b, a)] if [b] is greater than [a],
+    and [(a, b)] otherwise. *)
+
+val max : t -> t -> t
+
+val min : t -> t -> t
 
 val is_equal : t -> t -> Three.t
 
 
-(*s Fold operator on terms. *)
+(** {6 Iterators} *)
 
 val fold : (t -> 'a -> 'a) -> t -> 'a -> 'a
-
-
-(*s Iteration operator on terms. *)
+  (** Fold operator on terms. *)
 
 val iter : (t -> unit) -> t -> unit
+  (** Iteration operator on terms. *)
+
+val mapl : (t -> t) -> t list -> t list  
+  (** Mapping over list of terms. Avoids unnecessary consing. *)
 
 
-(*s Predicate holds for all subterms. *)
+(** {6 Predicates} *)
 
 val for_all : (t -> bool) -> t -> bool
-
-(*s [subterm a b] holds if [a] is a subterm of [b]. *)
+  (** Predicate holds for all subterms. *)
 
 val subterm : t -> t -> bool
-
-(*s [occurs x a] holds if term [x] occurs in [a]. *)
+  (** [subterm a b] holds if [a] is a subterm of [b]. *)
 
 val occurs : t -> t -> bool
+  (** [occurs x a] holds if term [x] occurs in [a]. *)
 
-    
-(*s Mapping over list of terms. Avoids unnecessary consing. *)
-
-val mapl : (t -> t) -> t list -> t list
-
-
-(*s Association lists for terms. *)
 
 val assq : t -> (t * 'a) list -> 'a
+  (** Association lists for terms. *)
 
 
-(*s Printer. *)
+(** {6 Pretty-Printing} *)
 
 val pretty : bool ref
 
@@ -136,14 +167,12 @@ val pp : Format.formatter -> t -> unit
 
 val to_string : t -> string
 
-
-(*s Pretty-printing pairs as equalities/disequalities/constraints. *)
-
 val pp_equal : (t * t) Pretty.printer
 val pp_diseq : (t * t) Pretty.printer
 val pp_in : (t * Cnstrnt.t) Pretty.printer
 
-(*s Sets and maps of terms. *)
+
+(** {6 Sets and maps of terms} *)
 
 type trm = t
 
@@ -152,7 +181,9 @@ module Set : (Set.S with type elt = trm)
 module Map : (Map.S with type key = trm)
 
 
-(*s Return set of variables. *)
-
 val vars_of : t -> Set.t
- 
+  (** Return set of variables. *)
+
+
+
+

@@ -1,5 +1,4 @@
-
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -10,19 +9,15 @@
  * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
- * 
- * Author: Harald Ruess
-i*)
+ *)
 
-(*i*)
 open Ics
-(*i*)
 
-(*s Module [Main]: Toplevel of ICS command line interpreter. *)
+(** ICS command line interpreter. *)
 
 let _ = Sys.catch_break true
  
-(*s Options. *)
+(** {6 Options} *)
 
 let stat_flag = ref false
 let timing_flag = ref false
@@ -35,7 +30,7 @@ let disable_nonlin_flag = ref false
 let maxloops_flag = ref !Rule.maxclose
 let portnum_flag = ref None
      
-(*s Interactive toplevel. Read commands from standard input and evaluate them. *)
+(** {6 Interactive toplevel} *)
 
 let rec repl inch =
   try
@@ -64,6 +59,9 @@ and usage () =
       Format.eprintf "\nCopyright (c) 2001,2002 SRI International.";
       Format.eprintf "\nType 'help.' for help about help, and 'Ctrl-d' to exit.@."
     end
+
+
+(** {6 Batch level processing} *)
 
 and batch l =
   usage();

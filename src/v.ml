@@ -1,5 +1,4 @@
-
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -10,13 +9,9 @@
  * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
- * 
- * Author: Harald Ruess, N. Shankar
-i*)
+ *)
 
-(*i*)
 open Term
-(*i*)
 
 type t = {
   find : (Term.t * Fact.justification option) Map.t;
@@ -90,7 +85,7 @@ let restrict x s =
 	      Not_found -> newfind
       in
       let inv' =
-	let newinv = Map.remove x s.inv in  (*s remove the inverse of [x]. *)
+	let newinv = Map.remove x s.inv in  (** remove the inverse of [x]. *)
 	  try 
 	    let invy = inv s y in           (* remove [x] from the inverse of [y]. *)
 	    let invy' = Set.remove x invy in
@@ -108,8 +103,7 @@ let restrict x s =
       Not_found -> s
 
 
-(*s Canonical representative with dynamic path compression. *)
-
+(** Canonical representative with dynamic path compression. *)
 let find' s x =
   let rec loop acc x =
     try
@@ -125,16 +119,14 @@ let find' s x =
   let s' = List.fold_right (fun x -> union x y None) xl s in
   (s', y)
 
-(*s Variable equality modulo [s]. *)
-
+(** Variable equality modulo [s]. *)
 let is_equal s x y = 
   let x' = find s x 
   and y' = find s y in
     Term.eq x' y'
 
 
-(*s The empty context. *)
-
+(** The empty context. *)
 let empty = {
   find = Map.empty;
   inv = Map.empty
@@ -143,10 +135,9 @@ let empty = {
 let is_empty s = (s.find == Map.empty)
 
 
-(*s Starting from the canonical representative [x' = find s x], the
+(** Starting from the canonical representative [x' = find s x], the
   function [f] is applied to each [y] in [inv s x'] and the results are
   accumulated. *)
-
 let fold s f x =
   let rec loop y acc =
     let acc' = f y acc in
@@ -160,8 +151,7 @@ let fold s f x =
 
 
 
-(*s Adding a binding [a |-> b] to a context [s]. *)
-
+(** Adding a binding [a |-> b] to a context [s]. *)
 let merge e s =
   let (x, y, prf) = Fact.d_equal e in   (* [prf |- x = y] *)
   let (x', prf1) = justification s x in (* [prf1 |- x = x']. *)
@@ -174,12 +164,11 @@ let merge e s =
 	union x' y' prf' s
 
 
-(*s Extension of the equivalence class for [x]. *)
-
+(** Extension of the equivalence class for [x]. *)
 let ext s x = fold s Set.add x Set.empty
 
 
-(*s Iteration. *)
+(** Iteration. *)
 
 let iter s f x =
   let rec loop y =
@@ -192,8 +181,6 @@ let iter s f x =
   let y = find s x in
     loop y
 
-
-(*s Exists/Forall *)
 
 let exists s p x =
   let rec loop y =
@@ -219,8 +206,7 @@ let for_all s p x =
     loop y
 
 
-(*s Choose an element satisfying some property. *)
-
+(** Choose an element satisfying some property. *)
 exception Found
 
 let choose s p x =
@@ -239,10 +225,9 @@ let choose s p x =
       Found -> !result
  
 
-(*s Set of canonical representatives with non-trivial equivalence classes.
+(** Set of canonical representatives with non-trivial equivalence classes.
  These are the variables occurring in the codomain of [find] which are not
  themselves in the domain of [find]. *)
-
 let canrepr s = 
   Map.fold 
     (fun _ (y, _) acc -> 
@@ -254,10 +239,9 @@ let canrepr s =
     Set.empty
 
 
-(*s Representation of the equivalence classes as a map with the
+(** Representation of the equivalence classes as a map with the
  canonical representatives as domain and the corresponding extensions
  in the codomain. The following is not terribly efficient. *)
-
 let partition s =
   Set.fold 
     (fun x -> 
@@ -266,8 +250,7 @@ let partition s =
     Map.empty
     
 
-(*s Pretty-printing. *)
-
+(** Pretty-printing. *)
 let pp fmt s =
   if not(is_empty s) then
     let m = partition s in

@@ -1,5 +1,4 @@
-
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -12,13 +11,11 @@
  * benefit corporation.
  * 
  * Author: Harald Ruess
- i*)
+ *)
 
-(*i*)
 open Name.Map
-(*i*)
 
-(*s Global state. *)
+(** Global state. *)
 
 type t = {
   mutable current : Context.t;
@@ -40,7 +37,7 @@ let init () = {
 
 let s = init ()
 
-(*s Initialize. *)
+(** Initialize. *)
 
 let initialize pp eot inch outch =
   Term.pretty := pp;
@@ -49,7 +46,7 @@ let initialize pp eot inch outch =
   s.outchannel <- outch
   
 
-(*s Accessors to components of global state. *)
+(** Accessors to components of global state. *)
 
 let current () = s.current
 let symtab () = s.symtab
@@ -58,7 +55,7 @@ let inchannel () = s.inchannel
 let outchannel () = s.outchannel
 
 
-(*s Adding to symbol table *)
+(** Adding to symbol table *)
 
 let def n =
   Trace.proc "istate" "def" Term.pp 
@@ -81,21 +78,21 @@ let entry_of n =
   with
       Not_found -> None
 			   
-(*s Type from the symbol table. *)
+(** Type from the symbol table. *)
 
 let type_of n =
   match Symtab.lookup n s.symtab with
     | Symtab.Type(c) -> Some(c)
     | _ -> None
 
-(*s Get context for name in symbol table *)
+(** Get context for name in symbol table *)
 
 let context_of n = 
   match Symtab.lookup n s.symtab with
     | Symtab.State(c) -> c
     | _ -> raise (Invalid_argument("No context of name " ^ (Name.to_string n)))
 
-(*s Getting the width of bitvector terms from the signature. *)
+(** Getting the width of bitvector terms from the signature. *)
 
 let width_of a =
   if Term.is_var a then
@@ -109,7 +106,7 @@ let width_of a =
   else
     Bitvector.width a
 
-(*s Resetting all of the global state. *)
+(** Resetting all of the global state. *)
 
 let reset () = 
   Tools.do_at_reset ();
@@ -117,13 +114,13 @@ let reset () =
   s.symtab <- Symtab.empty;
   s.counter <- 0
 
-(*s Getting either current context or explicitly specified context. *)
+(** Getting either current context or explicitly specified context. *)
 
 let get_context = function
   | None -> s.current
   | Some(n) -> context_of n
 
-(*s Set input and output channels. *)
+(** Set input and output channels. *)
 
 let set_inchannel ch = 
   s.inchannel <- ch
@@ -135,13 +132,13 @@ let flush () = Format.fprintf s.outchannel "@?"
 let nl () = Format.fprintf s.outchannel "\n"
 
 
-(*s Context. *)
+(** Context. *)
 
 let ctxt_of = function
   | None -> Context.ctxt_of s.current
   | Some(n) -> Context.ctxt_of (context_of n)
 
-(*s Canonization w.r.t current state. *)
+(** Canonization w.r.t current state. *)
 
 let can = 
   Trace.func "istate" "can" Atom.pp Atom.pp
@@ -156,7 +153,7 @@ let sigma f l =
 
 
 
-(*s Create a fresh name for a state. *)
+(** Create a fresh name for a state. *)
 
 let rec fresh_state_name () =
   s.counter <- s.counter + 1;
@@ -168,7 +165,7 @@ let rec fresh_state_name () =
       Not_found -> 
 	n
 
-(*s Change current state. *)
+(** Change current state. *)
 
 let save arg =
   let n = match arg with
@@ -193,7 +190,7 @@ let remove n =
 let forget () =
   s.current <- Context.empty
 
-(*s Adding a new fact *)
+(** Adding a new fact *)
 
 let process n =
   let t = (get_context n) in
@@ -220,7 +217,7 @@ let unsat n a =
     | Process.Inconsistent -> true
     | _ -> false
 
-(*s Accessors. *)
+(** Accessors. *)
 
 let diseq n a =
   let s = get_context n in
@@ -239,14 +236,14 @@ let cnstrnt n a =
       Not_found -> None
 
 
-(*s Applying maps. *)
+(** Applying maps. *)
 
 
 let find n i x = Context.find i (get_context n) x
 let inv n i b = Context.inv i (get_context n) b
 let use n i = Context.use i (get_context n)
 
-(*s Solution sets. *)
+(** Solution sets. *)
 
 let solution n i = 
   Solution.fold
@@ -254,7 +251,7 @@ let solution n i =
     (Context.eqs_of (get_context n) i)
     []
 
-(*s Variable partitioning. *)
+(** Variable partitioning. *)
 
 let partition () = 
   Term.Map.fold
@@ -263,7 +260,7 @@ let partition () =
     (V.partition (Context.v_of s.current))
     []
 
-(*s Solver. *)
+(** Solver. *)
 
 let solve i (a, b) = 
   try
@@ -276,7 +273,7 @@ let solve i (a, b) =
     | Exc.Inconsistent -> raise(Invalid_argument("Unsat"))
     | Exc.Unsolved -> raise(Invalid_argument("Unsolvable"))
  
-(*s Equality/disequality test. *)
+(** Equality/disequality test. *)
 
 let is_equal a b =
   Can.eq s.current a b
@@ -289,6 +286,6 @@ let is_int a =
       Not_found -> false
 	
 
-(*s Splitting. *)
+(** Splitting. *)
 
 let split () = Context.split s.current

@@ -10,17 +10,11 @@
  * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
- * 
- * Author: Harald Ruess, N. Shankar
  *)
 
-(*i*)
 open Sym
 open Term
 open Context
-(*i*)
-
-(** {Miscellaneous.} *)
 
 type sign = Pos of Term.t | Neg of Term.t
 
@@ -47,9 +41,6 @@ and findequiv th s a =
       a
   with
       Not_found -> a
-
-    
-(** {Canonization of terms.} *)
 
 let rec term s =
   Trace.func "canon" "Term" Term.pp Term.pp
@@ -109,17 +100,8 @@ and arith s op l =       (* special treatment for arithmetic *)
 	in
 	  failwith str
       
-
-
-
-(** {Canonical Term Equality.} *)
-
 let eq s a b =
   Term.eq (term s a) (term s b)
-
-
-
-(** {Canonization of atoms.} *)
 
 let rec atom s = 
   Trace.func "canon" "Atom" Atom.pp Atom.pp
@@ -218,7 +200,7 @@ and normalize1 s (a, c) =
 		| Neg(ds) -> 
 		    (arrange a q ds, upper dom beta))
 	 | _ ->
-	     (match Cnstrnt.d_lower c with  (*s [a > q] or [a >= q]. *)
+	     (match Cnstrnt.d_lower c with  (* [a > q] or [a >= q]. *)
 		| Some(dom, alpha, q) ->
 		    (match signed_denum s a with
 		       | Pos(ds) -> 

@@ -1,5 +1,4 @@
-
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -10,21 +9,23 @@
  * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
- * 
- * Author: Harald Ruess
- i*)
+ *)
 
-(*i*)
 open Sym
 open Term
-(*i*)
+
+let inl = Coproduct(InL)
+let inr = Coproduct(InR)
+let outl = Coproduct(OutL)
+let outr = Coproduct(OutR)
+
 
 let is_interp = function
   | App(Coproduct _, _) -> true
   | _ -> false
 
 
-(*s Fold iterator  *)
+(** Fold iterator  *)
 
 let rec fold f a e = 
   match a with
@@ -32,7 +33,7 @@ let rec fold f a e =
     | _ -> f a e
 
 
-(*s Constructors for tuples and projections. *)
+(** Constructors for tuples and projections. *)
 
 let mk_inl =
   let sym = Coproduct(InL) in
@@ -75,7 +76,7 @@ let rec mk_out i x =
     mk_outr (mk_out (i - 1) x)
 
 
-(*s Sigmatizing. *)
+(** Sigmatizing. *)
 
 let sigma op l =
   match op, l with
@@ -86,7 +87,7 @@ let sigma op l =
     | _ -> assert false
 
  
-(*s Apply term transformer [f] at uninterpreted positions. *)
+(** Apply term transformer [f] at uninterpreted positions. *)
 
 let rec map f a =
   match a with
@@ -98,7 +99,7 @@ let rec map f a =
 
 
 
-(*s Solving tuples. *) 
+(** Solving tuples. *) 
 
 let rec solve e =
   let (a, b, _) = Fact.d_equal e in
@@ -116,8 +117,8 @@ and solve1 (a, b) el sl =
   else if Term.is_var b then
     solvevar (b, a) el sl
   else match a with
-    | App(Coproduct(op), [x]) ->  (*s solve [inY(x) = b] is [x = outY(b)]. *)
-	let rhs' = match op with  (*s solve [outY(x) = b] is [x = inY(b)]. *)
+    | App(Coproduct(op), [x]) ->  (** solve [inY(x) = b] is [x = outY(b)]. *)
+	let rhs' = match op with  (** solve [outY(x) = b] is [x = inY(b)]. *)
 	  | InL -> mk_outl b
 	  | InR -> mk_outr b
 	  | OutL -> mk_inl b
@@ -148,3 +149,4 @@ and substl a b =
 
 and subst1 a x b =      (* substitute [x] by [b] in [a]. *)
   map (fun y -> if Term.eq x y then b else y) a
+

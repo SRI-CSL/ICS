@@ -1,5 +1,4 @@
-
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -10,25 +9,19 @@
  * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
- * 
- * Author: Harald Ruess
- i*)
+ *)
 
-(*i*)
 open Mpa
 open Format
-(*i*)
-
-(*s Variables. *)
 
 type t = 
   | External of Name.t
-  | Internal of Name.t * int
+  | Fresh of Name.t * int
   | Bound of int
 
 let name_of = function
   | External(n) -> n
-  | Internal(n, i) ->  
+  | Fresh(n, i) ->  
       let str = Format.sprintf "%s!%d" (Name.to_string n) i in
 	Name.of_string str
   | Bound(n) ->
@@ -39,7 +32,7 @@ let eq x y =
   match x, y with
     | External(n), External(m) -> 
 	Name.eq n m
-    | Internal(n,i), Internal(m,j) -> 
+    | Fresh(n,i), Fresh(m,j) -> 
 	Name.eq n m && i = j
     | Bound(n), Bound(m) ->
 	n = m
@@ -48,11 +41,11 @@ let eq x y =
 
 let cmp x y =
   match x, y with
-    | External _, Internal _ -> -1
-    | Internal _, External _ -> 1
+    | External _, Fresh _ -> -1
+    | Fresh _, External _ -> 1
     | External(n), External(m) -> 
 	Name.cmp n m
-    | Internal(n, i), Internal(m, j) -> 
+    | Fresh(n, i), Fresh(m, j) -> 
 	let c1 = Name.cmp n m in
 	if c1 != 0 then c1 else Pervasives.compare i j
     | Bound(n), Bound(m) ->
@@ -63,7 +56,7 @@ let cmp x y =
 let (<<<) x y = (cmp x y <= 0)
 
 
-(*s Sets and maps of terms. *)
+(** {6 Sets and maps of terms} *)
 
 type var = t
 
@@ -79,7 +72,8 @@ module Map = Map.Make(
     let compare = cmp
   end)
 
-(*s Constructors. *)
+
+(** {6 Constructors} *)
 
 let mk_var x = External(x)
 
@@ -88,24 +82,25 @@ let _ = Tools.add_at_reset (fun () -> k := 0)
 
 let mk_fresh x = function
   | Some(k) -> 
-      Internal(x, k)
+      Fresh(x, k)
   | None ->
       incr(k);
-      Internal(x, !k)
+      Fresh(x, !k)
 
 let mk_free i = Bound(i)
 
-(*s Recognizers. *)
+(** {6 Recognizers} *)
 
 let is_var = function External _ -> true | _ -> false
-let is_fresh = function Internal _ -> true | _ -> false
+let is_fresh = function Fresh _ -> true | _ -> false
 let is_free = function Bound _ -> true | _ -> false
 
 let d_free = function
   | Bound(i) -> i
   | _ -> assert false
 
-(*s Printer. *)
+
+(** {6 Printer} *)
 
 let pp fmt x =
   Name.pp fmt (name_of x)

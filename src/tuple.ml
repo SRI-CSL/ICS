@@ -1,5 +1,4 @@
-
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -10,20 +9,18 @@
  * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
- * 
- * Author: Harald Ruess
- i*)
+ *)
 
-(*i*)
 open Sym
 open Term
-(*i*)
+
+let product = Product(Tuple)
+
+let proj i n = Product(Proj(i, n))
 
 let is_interp = function
   | App(Product _, _) -> true
   | _ -> false
-
-(*s Destructors. *)
 
 let d_tuple = function
   | App(Product(Tuple), xl) -> Some(xl)
@@ -34,8 +31,7 @@ let d_proj = function
   | _ -> None
 
 
-(*s Fold iterator  *)
-
+(** Fold iterator  *)
 let rec fold f a e = 
   match a with
     | App(Product(Tuple), xl) ->
@@ -46,8 +42,7 @@ let rec fold f a e =
 	f a e
  
 
-(*s Constructors for tuples and projections. *)
-
+(** Constructors for tuples and projections. *)
 let mk_tuple = 
   let product = Product(Tuple) in
     function
@@ -70,8 +65,7 @@ let mk_proj i n a =
 	Term.mk_app (Product(Proj(i, n))) [a]
 
 
-(*s Apply term transformer [f] at uninterpreted positions. *)
-
+(** Apply term transformer [f] at uninterpreted positions. *)
 let rec map f a =
   match a with
     | App(Product(Tuple), xl) ->
@@ -86,8 +80,7 @@ let rec map f a =
 	f a
 
 
-(*s Sigmatizing. *)
-
+(** Canonization. *)
 let sigma op l =
   match op, l with
     | Tuple, _ -> 
@@ -98,14 +91,12 @@ let sigma op l =
 	assert false
 
 
-(*s Fresh variables. *)
-
+(** Fresh variables. *)
 let mk_fresh =
   let name = Name.of_string "t" in
     fun () -> Var(Var.mk_fresh name None)
 
-(*s Solving tuples. *) 
-
+(** Solving tuples. *) 
 let rec solve e =
   let (a, b, _) = Fact.d_equal e in
     solvel [(a, b)] []
@@ -138,9 +129,8 @@ and solvevar (x, b) el sl =
   else 
     solvel el (add (x, b) sl)
 	
-(*s [(a0,...,a{n-1}) = b] iff [a0 = proj{0,n}(b)] and ... 
+(** [(a0,...,a{n-1}) = b] iff [a0 = proj{0,n}(b)] and ... 
  and [a{n-1} = proj{n-1, n}(b)] *)
-
 and tuple_solve al b acc = 
   let n = List.length al in
   let rec loop i al acc =
@@ -153,9 +143,8 @@ and tuple_solve al b acc =
   in
   loop 0 al acc
 
-(*s [solve (proj i n s, t) = (s, \list{c0,...,t,...cn-1})]
+(** [solve (proj i n s, t) = (s, \list{c0,...,t,...cn-1})]
      where [ci] are fresh, [s] at [i]-th position. *)
-
 and proj_solve i n s t =
   let rec args j acc =
     if j = -1 then acc

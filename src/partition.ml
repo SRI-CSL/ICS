@@ -1,5 +1,4 @@
-
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -10,16 +9,12 @@
  * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
- * 
- * Author: Harald Ruess, N. Shankar
- i*)
+ *)
 
-(*i*)
 open Term
 open Three
-(*i*)
 
-(*s Equalities and disequalities over variables and constraints on variables *)
+(** Equalities and disequalities over variables and constraints on variables *)
 
 type t = {
   mutable v : V.t;              (* Variable equalities. *)
@@ -36,42 +31,42 @@ let empty = {
 
 let copy p = {v = p.v; d = p.d; c = p.c}
 
-(*s Accessors. *)
+(** Accessors. *)
 
 let v_of s = s.v
 let d_of s = s.d
 let c_of s = s.c
 
 
-(*s Destructive Updates. *)
+(** Destructive Updates. *)
 
 let update_v p v = (p.v <- v; p)
 let update_d p d = (p.d <- d; p)
 let update_c p c = (p.c <- c; p)
 
 
-(*s Canonical variables module [s]. *)
+(** Canonical variables module [s]. *)
 
 let v s = V.find s.v
 
-(*s Constraint for a variable. *)
+(** Constraint for a variable. *)
 
 let c s = C.apply s.c
 
 
-(*s All disequalities of some variable [x]. *)
+(** All disequalities of some variable [x]. *)
 
 let deq s = D.deq s.d
 
 
-(*s Pretty-printing. *)
+(** Pretty-printing. *)
   
 let pp fmt s =
   V.pp fmt s.v;
   D.pp fmt s.d;
   C.pp fmt s.c
 
-(*s Test if states are unchanged. *)
+(** Test if states are unchanged. *)
 
 let eq s t =
   V.eq s.v t.v &&
@@ -79,7 +74,7 @@ let eq s t =
   C.eq s.c t.c
  
 
-(*s Equality test. *)
+(** Equality test. *)
 
 let is_equal s x y =
   let x' = v s x in
@@ -100,7 +95,7 @@ let is_equal s x y =
 	Not_found -> Three.X
 
 
-(*s Test for integerness. *)
+(** Test for integerness. *)
 
 let is_int s x = 
   try 
@@ -124,7 +119,7 @@ let merge e s =
 	let c' = C.merge e s.c in
 	  update_v (update_d (update_c s c') d') v'
 
-(*s Add a constraint. *)
+(** Add a constraint. *)
 
 let add c s =
   let c' = C.add c s.c in  
@@ -134,7 +129,7 @@ let add c s =
 	  update_c s c'
       end 
 
-(*s Add a disequality. *)
+(** Add a disequality. *)
 
 let diseq d s = 
   let (x, y, _) = Fact.d_diseq d in
@@ -153,14 +148,14 @@ let restrict xs s =
   let v' = Set.fold V.restrict xs s.v in
     update_v s v'
 
-(*s Stored facts. *)
+(** Stored facts. *)
 
 let equality p = V.equality p.v
 let disequalities p = D.disequalities p.d
 let cnstrnt p = C.to_fact p.c
 
 
-(*s Management of changed sets. *)
+(** Management of changed sets. *)
 
 module Changed = struct
 
