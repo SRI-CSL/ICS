@@ -87,7 +87,6 @@ CMO = sign.cmo three.cmo \
       partition.cmo \
       solution.cmo \
       context.cmo \
-      simplify.cmo \
       shostak.cmo \
       symtab.cmo istate.cmo \
       help.cmo \
