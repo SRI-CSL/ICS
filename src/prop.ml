@@ -458,14 +458,14 @@ module Assignment = struct
 
   type t = {
     valuation : (Name.t * bool) list;
-    literals : Atom.t list
+    literals : Atom.Set.t
   }
 
   let pp fmt rho =
     if rho.valuation <> [] then
 	Pretty.map Name.pp Pretty.bool fmt rho.valuation;
-    if rho.literals <> [] then
-      Pretty.list Atom.pp fmt rho.literals
+    if not(Atom.Set.is_empty rho.literals) then
+      Pretty.list Atom.pp fmt (Atom.Set.elements rho.literals)
 
 end
 
@@ -521,10 +521,10 @@ and assignment () =
     Atom.Map.fold
       (fun a id acc ->
 	  (match icsat_get_assignment id with
-	     | (-1) -> Atom.negate Arith.mk_neg a :: acc  
-	     | 0 -> acc               (* don't care *)
-	     | 1 -> a :: acc       (* true *)
+	     | (-1) -> Atom.Set.add (Atom.negate Arith.mk_neg a) acc  
+	     | 0 -> acc                      (* don't care *)
+	     | 1 -> Atom.Set.add a acc       (* true *)
 	     | _ -> failwith "ICSAT: invalid return value of icsat_get_assignment"))
-      !atom_to_id_tbl []
+      !atom_to_id_tbl Atom.Set.empty
   in
     { Assignment.valuation = valuation; Assignment.literals = literals }
