@@ -697,6 +697,7 @@ and refine c s =
 
 (** Deduce new constraints from an equality *)
 and deduce i e s =
+  Trace.msg "rule" "Deduce" e Fact.pp_equal;
   if Th.eq i Th.la then
     deduce_la e s
   else if Th.eq i Th.bvarith then
@@ -847,15 +848,14 @@ and add c s =
       | Sign.T ->
 	  s
       | _ ->
-	  let b = Can.term s a in
-	  let (b, i) = normalize (b, i) in
+	  let (b, i) = normalize (Can.term s a, i) in
 	    if is_slack b then
 	      refine (Fact.mk_cnstrnt b i prf) s
 	    else 
 	      let d = if is_int s a then Some(Dom.Int) else None in
 	      let alpha = if i = Sign.Pos then false else true in
 	      let k = Term.mk_slack None alpha d in
-		equality (Fact.mk_equal k a None)
+		equality (Fact.mk_equal k b None)
 		  (refine (Fact.mk_cnstrnt k i None) s)
 
 

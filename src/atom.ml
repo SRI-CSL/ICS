@@ -90,8 +90,8 @@ let mk_in (a, c) =
 
 let mk_ge (a, b) = mk_in (Arith.mk_sub a b, Sign.Nonneg)
 let mk_gt (a, b) = mk_in (Arith.mk_sub a b, Sign.Pos)
-let mk_le (a, b) = mk_ge (b, a)
-let mk_lt (a, b) = mk_gt (b, a)
+let mk_le (a, b) = mk_in (Arith.mk_sub a b, Sign.Nonpos)
+let mk_lt (a, b) = mk_in (Arith.mk_sub a b, Sign.Neg)
 	
 
 (** {6 Pretty-printing} *)
