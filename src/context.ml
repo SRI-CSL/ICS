@@ -518,18 +518,10 @@ let rec equality e s =
   let extend_i i (x, b) s =  
     let x = v s x 
     and b = replace i s b in
-      if not(mem i s x) then
-	let e' = Fact.mk_equal x b None in
-	  extend i e' s
-      else  
-	try
-	  let y = inv i s b in
-	  let e' = Fact.mk_equal x y None in
-	    merge_v e s
-	with
-	    Not_found ->
-	      let e' = Fact.mk_equal x b None in
-		compose i s (Th.solve i e')
+    let (s, y) = name i (s, b) in
+      if Term.eq x y then s else
+	let e' = Fact.mk_equal x y None in
+	  merge_v e' s
   in
     match a, b with
       | Var _, Var _ -> 
