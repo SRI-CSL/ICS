@@ -676,7 +676,7 @@ void LPSolver::setup_ics(unsigned int f_idx)
 	queue<unsigned int> & to_setup = tmp_queue;
 	to_setup.reset();
 	assert(check_marks());
-	
+	reset_marks(); 
 	queue_push(to_setup, f_idx);
 	
 	while (!to_setup.is_empty()) {
@@ -761,12 +761,12 @@ bool LPSolver::is_satisfiable(LPFormulaId f)
 	if (verbose)
 		cerr << "    propagating extended constraints...\n";
 
-	if (propagate_rich_constraints() != 0) {
-		// an inconsistency was detected...
-		clock_t end = clock();
-		preproc_time = ((double) (end - start)) / CLOCKS_PER_SEC;
-		return false; /* formula is not satisfiable */
-	}
+ 	if (propagate_rich_constraints() != 0) {
+ 		// an inconsistency was detected...
+ 		clock_t end = clock();
+ 		preproc_time = ((double) (end - start)) / CLOCKS_PER_SEC;
+ 		return false; /* formula is not satisfiable */
+ 	}
 
 	if (lookahead_optimization) {
 		if (!apply_lookahead_optimization()) {
@@ -1188,7 +1188,6 @@ bool LPSolver::check_counter_example_main_loop(LPFormulaId f_id)
 	else 
 		return true;
 
-
 	const LPFormula * formula = formula_manager->get_formula(f_idx);
 	LPFormulaId val = get_formula_value(f_idx);
 
@@ -1260,9 +1259,19 @@ bool LPSolver::check_counter_example_main_loop(LPFormulaId f_id)
 		feature_not_implemented_yet();
 		break;
 	case LP_PROPOSITION:
-	case LP_EQ:
-		// do nothing...
 		break;
+	case LP_EQ: {
+		bool ics_result;
+		if (val == LPTrueId) 
+			ics_result = ics_interface.assert_formula_in_scratch_state(f_idx);
+		else
+			ics_result = ics_interface.assert_formula_in_scratch_state(-f_idx);
+		if (!ics_result) {
+			assert(false);
+			return false;
+		}
+		break;
+	}
 	default:
 		assert(false);
 	}
@@ -1278,6 +1287,7 @@ bool LPSolver::check_assignment(LPFormulaId root_id) {
 		return false;
 	}
 	
+ 	ics_interface.reset_scratch_state();
 	bool result = check_counter_example_main_loop(root_id);
 	reset_marks();
 	return result;
