@@ -258,6 +258,7 @@ let constructors () =
   cprintf "  if (((*r) & 1) == 0) { remove_global_root(r); }\n}\n";
   (* "" *)
 
+  lprintf "\n(ff:def-foreign-call %s_process_wrapper  ())\n" !base;
   lprintf "\n(ff:def-foreign-call %s_void  ())\n" !base;
   lprintf "\n(ff:def-foreign-call %s_false ())\n" !base;
   lprintf "\n(ff:def-foreign-call %s_true  ())\n" !base;
@@ -350,7 +351,7 @@ let output_code l =
   cprintf "  longjmp(catch, -1);\n";
   cprintf "}\n\n";
   cprintf "/* Wrappers for interrupt handlers. */\n";
-  cprintf "value* process_wrapper (value* x1, value* x2) {\n";
+  cprintf "value* ics_process_wrapper (value* x1, value* x2) {\n";
   cprintf "   auto value* return_value;\n";
   cprintf "   if ((setjmp(catch)) != 0) return (value*) NULL;\n";
   cprintf "   old_handler = signal(SIGINT,new_handler);\n";
