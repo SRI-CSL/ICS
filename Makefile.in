@@ -18,6 +18,7 @@ OCAMLOPT = @OCAMLOPT@
 OCAMLLEX = @OCAMLLEX@
 OCAMLYACC= @OCAMLYACC@
 OCAMLDEP = @OCAMLDEP@
+OCAMLMKLIB = @OCAMLMKLIB@
 OCAMLDOC = @OCAMLDOC@
 
 OCAMLWEBSTY = $$HOME/tex/ocamlweb.sty
@@ -59,7 +60,7 @@ endif
 INCLUDE =
 CFLAGS = 
 BFLAGS = -g $(INCLUDE)
-OFLAGS = $(INCLUDE) # -compact -inline 3 -noassert -unsafe
+OFLAGS = $(INCLUDE) -compact -inline 3 -noassert -unsafe
 LIBS = $(LIBGMPA)
 
 # Object files
@@ -77,8 +78,8 @@ CMO = three.cmo \
       dom.cmo \
       name.cmo \
       th.cmo \
-      sym.cmo \
       trace.cmo \
+      sym.cmo \
       var.cmo \
       term.cmo \
       euclid.cmo \
@@ -128,7 +129,7 @@ SRCMLI = $(addprefix $(SRCDIR)/,$(CMO:.cmo=.mli))
 ICSAT= $(SATDIR)/lib/icsat.a
 
 
-.PHONY : all all-chdir
+.PHONY : all all-chdir ocaml-lib
 all: $(OBJDIR) $(LIBDIR) $(BINDIR) $(ICSAT)
 	$(MAKE) -C chameleon all
 	$(MAKE) -C $(OBJDIR) -f ../../Makefile all-chdir
@@ -183,6 +184,12 @@ $(LIBDIR)/libics.a: $(OBJS)
 
 ics_stub.c ics.h ics.lisp: ics.ml ics.mli ../../chameleon/$(ARCH)/chameleon
 	../../chameleon/$(ARCH)/chameleon ics.ml
+
+ocaml-lib:
+	(cd $(OBJDIR);\
+	 $(OCAMLMKLIB) -custom -o ics unix.cma $(CMO) $(CMX) $(COBJS) \
+		-cclib $(LIBGMPA) -cclib -licsat -cclib $(LIBCPP)) #; \
+         # cp ics.cma ics.cmxa ics.cmi libics.a ics.a $(LIBDIR))
 
 GENERATED = lexer.ml parser.mli parser.ml
 
@@ -275,6 +282,7 @@ ics.tar.gz:
                   ./sat/lib/ \
                   ./src/*.c \
                   ./src/parser.mly ./src/lexer.mll \
+                  ./src/lexer.mli \
                   ./src/main.ml \
                   ./$(SRC)  ./$(SRCMLI))
 
@@ -377,6 +385,10 @@ clean::
 	rm -rf profile.out
 	rm -f $(BINDIR)/ics $(BINDIR)/ics.byte 
 	rm -rf $(SRCDIR)/parser.output
+	rm -rf $(SRCDIR)/lexer.ml
+	rm -rf $(SRCDIR)/lexer.mli
+	rm -rf $(SRCDIR)/parser.ml
+	rm -rf $(SRCDIR)/parser.mli
 	rm -rf obj/*  lib/* bin/*
 	rm -f $(DOCDIR)/*.aux  $(DOCDIR)/*.toc
 	rm -f $(DOCDIR)/api.tex
@@ -396,6 +408,8 @@ install:
 	cp $(LIBDIR)/libics.so $(libdir)
 	cp $(LIBDIR)/libics.a $(libdir)
 	cp $(OBJDIR)/ics.h $(includedir)
+        # mkdir -p $(OCAMLSTDLIB)/ics
+        # cp $(ICSAT) $(OCAMLSTDLIB)/ics/libicsat.a
 
 uninstall:
 	rm -f $(bindir)/ics
@@ -406,6 +420,10 @@ uninstall:
 # Static dependencies for the generated files.
 
 lexer.ml:  lexer.mll
+
+lexer.cmi: lexer.ml
+	$(OCAMLC) -c lexer.ml
+
 parser.mli parser.ml: parser.mly
 
   
