@@ -61,6 +61,8 @@ let assign pp1 pp2 fmt (x,a) =
 let map pp1 pp2 fmt =
   list ("[", "; ", "]") (assign pp1 pp2) fmt
 
+let tuple pp = list ("(", ", ", ")") pp
+
 let list pp = list ("[", "; ", "]") pp
 
 let solution pp = list (eqn pp)

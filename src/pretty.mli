@@ -26,6 +26,8 @@ val list : 'a printer -> 'a list printer
 
 val pair : 'a printer -> 'b printer -> ('a * 'b) printer
 
+val tuple : 'a printer -> 'a list printer
+
 val infix : 'a printer -> string -> 'b printer -> ('a * 'b) printer
 
 val eqn : 'a printer -> ('a * 'a) printer
