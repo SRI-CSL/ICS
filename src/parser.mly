@@ -184,6 +184,7 @@ command:
 | USE optterm    DOT { Cmd.use $2 }
 | FIND optterm   DOT { Cmd.find $2 }
 | SIGMA term     DOT  { Cmd.sigma $2 }
+| POLARITY term  DOT { Cmd.polarity $2 }
 | VERBOSE CONST  DOT { Cmd.verbose (int_of_string $2) }
 | RESET          DOT { Cmd.reset () }
 | DROP           DOT { Cmd.drop () }
