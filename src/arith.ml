@@ -147,13 +147,14 @@ let rec mk_multq q a =
 	of_poly (Q.mult q p) (multq q ml)
 
 and mk_add a b =
+  Trace.call "linarith" "Add" (a, b) (Pretty.infix Term.pp " + " Term.pp);
   let rec  map2 f l1 l2 =      (* Add two polynomials *)
     match l1, l2 with
       | [], _ -> l2
       | _ , [] -> l1
       | m1 :: l1', m2 :: l2' ->
-	  let (q1,x1) =  mono_of m1 in
-	  let (q2,x2) = mono_of m2 in
+	  let (q1, x1) =  mono_of m1 in
+	  let (q2, x2) = mono_of m2 in
 	  let cmp = Term.cmp x1 x2 in
 	  if cmp = 0 then
 	    let q = f q1 q2 in
@@ -168,7 +169,9 @@ and mk_add a b =
   in
   let (q,l) = poly_of a in
   let (p,m) = poly_of b in
-  of_poly (Q.add q p) (map2 Q.add l m)
+  let c = of_poly (Q.add q p) (map2 Q.add l m) in
+    Trace.exit "linarith" "Add" c Term.pp;
+    c
 
 and mk_addl l =
   match l with
@@ -190,28 +193,33 @@ and mk_sub a b =
 
 (*s Apply term transformer [f] at uninterpreted positions. *)
 
-let rec map f a =
-  match a with
-    | App(Arith(op), l) ->
-	(match op, l with
-	   | Num _, [] -> 
-	       a
-	   | Multq(q), [x] ->
-	       let x' = map f x in
-		 if Term.eq x x' then a else mk_multq q x'
-	   | Add, [x; y] -> 
-	       let x' = map f x and y' = map f y in
-		 if Term.eq x x' && Term.eq y y' then a
-		 else mk_add x' y'
-	   | Add, xl -> 
-	       let xl' = Term.mapl (map f) xl in
-		 if xl == xl' then a else
-		   mk_addl xl'
-	   | _ -> 
-	       assert false)
-    | _ ->
-	f a
-
+let rec map f =
+  Trace.func "linarith" "Map" Term.pp Term.pp
+    (fun a ->
+       match a with
+	 | App(Arith(op), l) ->
+	     (match op, l with
+		| Num _, [] -> 
+		    a
+		| Multq(q), [x] ->
+		    let x' = map f x in
+		      if x == x' then a else 
+			mk_multq q x'
+		| Add, [x; y] -> 
+		    let x' = map f x and y' = map f y in
+		      if x == x' && y == y' then a else 
+			mk_add x' y'
+		| Add, xl -> 
+		    let xl' = Term.mapl (map f) xl in
+		      if xl == xl' then a else
+			mk_addl xl'
+		| _ -> 
+		    assert false)
+	 | _ ->
+	     let b = f a in
+	       Trace.msg "map" "Apply" (a, b) (Pretty.infix Term.pp " |-> " Term.pp);
+	       b)
+    
 (*s Replace [x] with [a] in [b]. *)
 
 let replace x a b =
@@ -260,7 +268,8 @@ let rec cnstrnt ctxt = function
 (*s Solving of an equality [a = b] in the rationals and the integers. 
   Solve for maximal monomial which satisfies predicate [pred]. *)
 
-let rec solve_for pred (a,b) =
+let rec solve pred e =
+  let (a, b, _) = Fact.d_equal e in
   let (q,l) = poly_of (mk_sub a b) in
   if l = [] then
     if Q.is_zero q then None else raise(Exc.Inconsistent)
@@ -272,7 +281,8 @@ let rec solve_for pred (a,b) =
       if Term.eq x b then 
 	None
       else 
-	Some(orient pred x b)
+	let (x, b) = orient pred x b in
+	Some(Fact.mk_equal x b None)
     with
 	Not_found -> 
 	  raise Exc.Unsolved
@@ -303,37 +313,3 @@ and destructure pred l =
 	   raise Not_found
    in
    loop [] l
-
-
-(*s Split a term into the part with constraints and the unconstraint part.
- Also, return the constraint for the term with a constraint. *)
-
-let split ctxt a =
-  let (constr, unconstr) = 
-    List.fold_right
-      (fun x (constr, unconstr) ->
-	 try
-	   let i = cnstrnt ctxt x in
-	   let constr' =  (match constr with
-	     | None -> Some([x], i)
-	     | Some(yl, j) -> Some(x :: yl, Cnstrnt.add i j))
-	   in
-	   (constr', unconstr)
-	 with
-	     Not_found ->
-	       let unconstr' = match unconstr with
-		 | None -> Some([x])
-		 | Some(yl) -> Some(x :: yl)
-	       in
-	       (constr, unconstr'))
-      (monomials a)
-      (None, None)
-  in
-  let constr' = match constr with
-    | Some(xl, i) -> Some(mk_addl xl, i)
-    | None -> None
-  and unconstr' = match unconstr with
-    | Some(yl) -> Some(mk_addl yl)
-    | None -> None
-  in
-  (constr', unconstr')
