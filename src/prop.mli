@@ -29,6 +29,8 @@ val mk_var : Name.t -> t
 val mk_poslit : Atom.t -> t
 val mk_neglit : Atom.t -> t
 val mk_ite : t -> t -> t -> t
+val mk_conj2 : t -> t -> t
+val mk_disj2 : t -> t -> t
 val mk_conj : t list -> t
 val mk_disj : t list -> t
 val mk_iff : t -> t -> t
