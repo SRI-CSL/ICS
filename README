@@ -1,6 +1,11 @@
 ICS: Integrated Canonizer and Solver
 ====================================
 
+Decision procedure for the combination of theories
+based on Shostak's procedure. See also:
+
+http://ics.csl.sri.com
+
 
 License:
 --------
@@ -23,13 +28,15 @@ To compile ICS, you need to install first:
 
 
 
-Installation:
--------------
+Installation from sources  
+-------------------------
 
-autoconf 	                        [to create configure from configure.in]
-./configure [--with-gmp=/path/to/gmp]   [creates the Makefile etc from XXX.in]
-make			                [builds ICS]
-make doc		                [generates documentation (optional)]
+After unpacking the source distribution and 'cding' to this directory, do:
+
+1> ./configure [--with-gmp=/path/to/gmp] [--prefix=/path/to/binaries]  ; creates the Makefile etc from XXX.in
+2> make			                   ; builds ICS
+3> make doc		                   ; generates documentation (optional)
+4> make install                            ; installs executables and libraries in directory $prefix
 
 Binaries will be in ./bin/$(ARCH)/ 
 Libraries in ./lib/$(ARCH)/
@@ -48,4 +55,3 @@ Sam Owre, and N. Shankar.
 
 GMP ocaml interface was originally written by David Monniaux, 
 and patched for ocaml 3.00 by Jean-Christophe Filliâtre.
-
