@@ -202,12 +202,15 @@ let vars_of (a, _) =
 let list_of_vars a = 
   Term.Var.Set.elements (vars_of a)
 
-let occurs ((x, a) as p) =
+let occurs (x, atm) =
   let rec term_occurs = function
     | Term.Var _ as y -> Term.eq x y
-    | Term.App(_, sl, _) -> List.exists term_occurs sl
+    | Term.App(_, sl, _) -> term_occurs_list sl
+  and term_occurs_list = function
+    | [] -> false
+    | s :: sl -> term_occurs s || term_occurs_list sl
   in
-    match a with
+    match atm with
       | TT -> false
       | FF -> false
       | Equal(a, b) -> term_occurs a || term_occurs b
@@ -215,19 +218,37 @@ let occurs ((x, a) as p) =
       | Nonneg(a) -> term_occurs a
       | Pos(a) -> term_occurs a
 
-let is_connected (a, _) (b, _) =
+let rec is_connected =
+  let module Hash = Hashtbl.Make(
+      struct
+	type t = (atom * int) * (atom * int)
+	let equal (a1, a2) (b1, b2) = equal a1 b1 && equal a2 b2
+	let hash ((_, n), (_, m)) = (n + m) land 0x3FFFFFFF
+      end)
+    in
+    let table = Hash.create 17 in
+    let _ =  Tools.add_at_reset (fun () -> Hash.clear table) in 
+      fun atm1 atm2 ->
+	try
+	  Hash.find table (atm1, atm2)
+	with
+	    Not_found ->
+	      let result = is_connected0 atm1 atm2 in
+		Hash.add table (atm1, atm2) result; 
+		result
+   
+and is_connected0 (atm1, _) (atm2, _) =  
   let rec term_is_connected = function
-    | Term.Var _ as x -> occurs (x, b)
+    | Term.Var _ as x -> occurs (x, atm2)
     | Term.App(_, sl, _) -> List.exists term_is_connected sl
   in
-    match a with
+    match atm1 with
       | TT -> false
       | FF -> false
       | Equal(a, b) -> term_is_connected a || term_is_connected b
       | Diseq(a, b) -> term_is_connected a || term_is_connected b
       | Nonneg(a) -> term_is_connected a
       | Pos(a) -> term_is_connected a
-
 
 module Set = struct
   type t = Ptset.t

@@ -50,8 +50,8 @@ let args () =
 	"Set proofmode to [No | Dep]";
         "-eot", Arg.String Ics.set_eot, 
 	"Print string argument after each transmission";
-	"-cone_of_influence", Arg.Unit(fun() -> Context.coi_enabled := true), 
-	"Enable cone of influence reduction for explanations of inconsistencies";
+	"-cone_of_influence", Arg.Int(fun i -> Context.coi_enabled := i), 
+	"Cone of influence reduction for explanations [0 = disabled; 1 = syntactic; 2 = semantic]";
         "-server", Arg.Int (fun portnum -> portnum_flag := Some(portnum)), 
 	"Run in server mode";
 	"-verbose", set_true Ics.set_verbose,

@@ -157,7 +157,7 @@ module Status = struct
 
 end
 
-let coi_enabled = ref true
+let coi_enabled = ref 0   (* disabled *)
 
 let rec add s atm =
   let atm', rho' = Combine.simplify (s.eqs, s.p) atm in
@@ -181,11 +181,17 @@ let rec add s atm =
 	     Status.Ok(s')
        with
 	 | Jst.Inconsistent(rho) -> 
-	     let tau = if !coi_enabled then  cone_of_influence atm rho else rho in
+	     let tau = 
+	       if !coi_enabled <= 0 then rho
+	       else if !coi_enabled = 1 then 
+		 syntactic_cone_of_influence atm rho
+	       else 
+		 semantic_cone_of_influence atm rho
+	     in
 	       Status.Inconsistent(tau))
 
 
-and cone_of_influence atm rho =
+and syntactic_cone_of_influence atm rho =
   let allatms = Jst.axioms_of rho in
   let visited = ref (Atom.Set.singleton atm) in
   let todo = Stack.create () in
@@ -207,62 +213,57 @@ and cone_of_influence atm rho =
 	Stack.Empty -> !visited
   in
     Stack.push atm todo;
-    Jst.of_axioms (loop ())
-	
+    let atms = loop () in  
+      trace_coi atms allatms;
+      Jst.of_axioms atms
 
 
-(** {i Cone of influence} computation
-  - (1) assert atom contributing to inconsistency
-           i.e. [8 - x6 > 0].
-  - (2) pick up cone of influence of (1), in this case 
-          [coi(x6) = {x8 = x6, x6 = x4, x6 >= 0}]
-  - (3) repeat cone of influence 
-          [coi(x4, x6) = -8 + x4 >= 0, x4 >= 0, x8 = 1 + x11, x8 >= 0]
-        until inconsistency is detected. *)
-and semantic_cone_of_influence atm0 rho =
+and semantic_cone_of_influence atm rho =
   let allatms = Jst.axioms_of rho in
-  let rec loop visited s todo =
+  let visited = ref (Atom.Set.singleton atm) in
+  let s = ref empty in
+  let todo = Stack.create () in
+  let rec loop () =
     try
-      let atm = Atom.Set.choose todo in
-      let coi = 
-	Atom.Set.filter
-	  (fun atm1 -> 
-	       not(Atom.Set.mem atm1 visited) && 
-	     Atom.is_connected atm1 atm)
-	  allatms
-      in
-      let (visited', s') =
-	Atom.Set.fold 
-	  (fun coi1 (visited1, s1) ->
-	     let visited1 = Atom.Set.add coi1 visited1 in
-		 match add s1 coi1 with
-		   | Status.Valid _ -> (visited1, s1)
-		   | Status.Ok(s2) -> (visited1, s2)
-		   | Status.Inconsistent _ -> raise(Found(visited1)))
-	    coi (visited, s)
-      in
-      let todo' = 
-	Atom.Set.union (Atom.Set.remove atm todo) coi 
-      in
-	loop visited' s' todo'
+      let current = Stack.pop todo in
+	Atom.Set.iter
+	  (fun atm ->
+	     if not(Atom.Set.mem atm !visited) &&
+	       Atom.is_connected atm current 
+	     then
+	       match add !s atm with
+		 | Status.Valid _ -> ()
+		 | Status.Ok(s') -> 
+		     s := s'; 
+		     visited := Atom.Set.add atm !visited; 
+		     Stack.push atm todo
+		 | Status.Inconsistent _ -> 
+		     raise(Found(Atom.Set.add atm !visited)))
+	  allatms;
+	loop ()
     with
-	Not_found ->
-	  begin
-	    Format.eprintf "\nWarning: possible incompleteness detected by cone of influence reduction@.";
-	    allatms
-	  end
+	Stack.Empty -> !visited
   in
-  let visited0 = Atom.Set.empty
-  and s0 = empty
-  and todo0 = Atom.Set.singleton atm0 in
-  let atms = 
-    try
-      loop visited0 s0 todo0
-    with
-	Found(atms) -> atms
-  in
-    Jst.of_axioms atms
+    Stack.push atm todo;
+    let proofmode = Jst.Mode.get () in
+      try
+	Jst.Mode.set Jst.Mode.No;
+	let atms = try loop () with Found(atms) -> atms in
+	  trace_coi atms allatms;
+	  Jst.Mode.set proofmode;
+	  Jst.of_axioms atms
+      with
+	  exc -> 
+	    Jst.Mode.set proofmode;
+	    raise exc
+	  
+
+and trace_coi atms1 atms2 =
+  Trace.msg "coi" "COI" 
+    (Atom.Set.cardinal atms1, Atom.Set.cardinal atms2) 
+    (Pretty.pair Pretty.number Pretty.number)
 	
+
 let addl atms =
   let rec loop s = function
     | [] -> 
@@ -276,12 +277,11 @@ let addl atms =
     loop atms
 
 
-
 (* For debugging:  *)
 let add =
   let pp0 fmt s = Mode.set Mode.None (pp fmt) s in
   let ppc fmt s = Mode.set Mode.Context (pp fmt) s in
-    Trace.func2 "top" "Process" ppc Atom.pp (Status.pp pp0) 
+    Trace.func2 "top" "Process" ppc Atom.pp (Status.pp pp0)
       add
 
 
