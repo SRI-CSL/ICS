@@ -1,67 +1,36 @@
 sigma eps.
-
-sigma conc[4,5](x,y).
-
-sigma x[10,0,7].
-
-sigma x[10,1,7][7,2,3].
-
-sigma bw_and[4](x,y).
-
 sigma 0b1111.
-
 sigma 0b0000.
-
 sigma 0b101.
+sigma x +4,5+ y.
+sigma x^10^[0:7].
+sigma x^10^[1:7]^7^[2:3] = x^10^[3:4].
+sigma x &4& y = y &4& x.
+sigma 0b101 |3| 0b010 = 0b111.
+sigma 0b000 ++ 0b111 = 0b000111.
+sigma 0b00011^^[0:2] ++ 0b111 = 0b000111.
+sigma 0b000 && 0b000 = 0b000.
+sigma 0b1001110110^10^[3:7] = 0b11101.
+sigma (x +3,5+ y)^^[2:3] = x^4^[2:3].
+sigma x +7,5+ y^12^[2:3].
+sigma 0b001 || 0b101 = 0b101.
+sigma (x &7& 0b0000000)^^[5:6] = 0b00.
+sigma (x +7,5+ y)^^[7:9] = y^5^[0:2].
+sigma (0b0000000 &7& x)^7^[2:5] = 0b0000.
+sigma 0b1111111 &7& x = x.
+sigma 0b0000000 &7& x = 0b0000000.
+sigma x +16,12+ x^16^[0:11].
+sigma y +4,24+ 0b000000000000 ++ 0b111111111111.
+sigma 0b0 ++ 0b1 +1,3+ x.
 
-sigma bw_or[3](0b101,0b010).
+solve (x +3,4+ y) = (u +3,4+ v).
+solve (x +3,4+ y) = (u +4,3+ v).
 
-sigma conc[3,3](0b000,0b111).
+solve 0b1110 +4,3+ x = 0b111 +3,4+ x.
 
-sigma conc[3,3](0b00011[5,0,2],0b111).
-
-sigma bw_and[3](0b000,0b000).
-
-sigma 0b1001110110[10,3,7].
-
-sigma conc[3,5](x,y)[8,2,3].  (* canon makes nonsense here *)
-
-sigma conc[7,5](x,y)[12,2,3].
-
-sigma conc[7,5](x,y)[12,7,9].
-
-sigma bw_xor[3](0b001,0b101).
-
-sigma bw_and[7](0b0000000,x)[7,5,6].
-
-sigma bw_and[7](0b0000000,x)[7,2,5].   
-
-sigma bw_and[7](0b1111111,x)[7,2,5].
-
-sigma bw_and[7](0b1111111,x).  
-
-sigma bw_and[3](x,y) = x.
-
-sigma conc[16,12](x, x[16,0,11]).
-
-sigma conc[4,24](y, conc[12,12](0b000000000000,0b111111111111)).
-
-sigma conc[1,4](0b0,conc[1,3](0b1,x)).
-
-solve conc[3,4](x,y) = conc[3,4](u,v).
-
-solve conc[4,3](x,y) = conc[3,4](u,v).
-
-solve conc[4,3](0b1110, x) = conc[3,4](0b111,y).
-
-solve conc[3,34](y, conc[16,18](x, conc[16,2](x,z)))
-      = conc[16,21](x, conc[4,17](w, conc[1,16](0b1,x))).
-      
-solve conc[3,4](x,y) = 0b0010000.
-
-solve conc[3,4](x,y) = conc[4,3](0b0010,z).  
-
-
+solve y +3,34+ x +37,2+ z = x +16,21+ w +4,17+ 0b1 +1,16+ x.
+   
+solve x +3,4+ y = 0b0010 +4,3+ z.
 
       
 
