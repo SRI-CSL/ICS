@@ -12,10 +12,14 @@
 *)
 
 type entry = 
-  | Def of Term.t
+  | Def of defn
   | Arity of int
   | Type of Cnstrnt.t
   | State of Context.t
+
+and defn = 
+  | Term of Term.t
+  | Prop of Prop.t
 
 and t = entry Name.Map.t
 
@@ -57,7 +61,8 @@ let rec pp fmt s =
 and pp_entry fmt e =
   let pr = Format.fprintf fmt in
   match e with
-    | Def(x) -> pr "@[def("; Term.pp fmt x; pr ")@]"
+    | Def(Term(x)) -> pr "@[def("; Term.pp fmt x; pr ")@]"
+    | Def(Prop(x)) -> pr "@[def("; Prop.pp fmt x; pr ")@]"
     | Arity(a) -> pr "@[sig("; Format.fprintf fmt "%d" a; pr ")@]"
     | Type(c) -> pr "@[type("; Cnstrnt.pp fmt c; pr ")@]"
     | State(s) -> 

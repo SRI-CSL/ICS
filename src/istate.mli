@@ -112,7 +112,7 @@ val nl : unit -> unit
 
 (** {6 Symbol table commands} *)
 
-val def : Name.t -> Term.t -> unit
+val def : Name.t -> Symtab.defn -> unit
   (** [def n a] adds a {i term definition} of name [n] for term [a] to the
     current symbol table. Raises [Invalid_argument], if [n] is already in 
     the domain of the table. *)

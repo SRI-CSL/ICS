@@ -128,8 +128,7 @@ let args () =
         "Optimizations for SAT solver based on polarities";
 	"-clause_relevance", Arg.Int(Prop.set_clause_relevance),
         "Deletion of conflict clauses (default 50) in SAT";
-        "-cleanup_period", Arg.Int(Prop.set_cleanup_period
-),
+        "-cleanup_period", Arg.Int(Prop.set_cleanup_period),
         "Garbage collection for SAT after number of conflicts (default 2000)"
       ]
       (fun f -> files := f :: !files)

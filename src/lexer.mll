@@ -26,7 +26,7 @@ let keyword =
   List.iter 
     (fun (s,tk) -> Hashtbl.add kw_table s tk)
     [ "arith", ARITH; "tuple", TUPLE;
-      "let", LETIN; "in", IN; "inf", INF;
+      "in", IN; "inf", INF;
       "bot", BOT; "int", INT; "nonint", NONINT; "real", REAL; "top", TOP;
       "bitvector", BV; "with", WITH;
       "proj", PROJ;
@@ -35,7 +35,7 @@ let keyword =
       "drop", DROP; "can", CAN; "assert", ASSERT; "exit", EXIT; 
       "valid", VALID; "unsat", UNSAT;
       "save", SAVE; "restore", RESTORE; "remove", REMOVE; "forget", FORGET;
-      "reset", RESET; "sig", SIG; "type", TYPE; "def", DEF;
+      "reset", RESET; "sig", SIG; "type", TYPE; "def", DEF; "prop", PROP;
       "sigma", SIGMA; "solve", SOLVE; "help", HELP;
       "set", SET; "toggle", TOGGLE; "trace", TRACE;  "untrace", UNTRACE; 
       "find", FIND; "inv", INV; "use", USE; "solution", SOLUTION; "partition", PARTITION;
@@ -121,12 +121,9 @@ rule token = parse
   | '_'        { UNDERSCORE } 
   | "<<"       { CMP }
   | "::"       { LISTCONS }
-  | ":="       { DEF }
   | "[]"       { NIL }
   | '.'        { DOT }
   | '$'        { APPLY }
   | '@'        { KLAMMERAFFE } 
   | eof        { EOF }
-(*  | _          { raise Parsing.Parse_error } *)
-
-
+  | _          { raise Parsing.Parse_error }

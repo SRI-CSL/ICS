@@ -77,3 +77,7 @@ let dynamic_let (x, v) f a =
 (** {6 Global variable for linenumers} *)
 
 let linenumber = ref 0
+
+type mode = Atom | Prop
+
+let mode = ref Atom

@@ -27,6 +27,8 @@ type t =
   | Neg of t 
   | Let of Name.t * t * t
 
+val pp : t Pretty.printer
+
 (** {6 Constructors} *)
  
 val mk_true : t

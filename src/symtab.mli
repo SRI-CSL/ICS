@@ -19,10 +19,14 @@
 
 
 type entry = 
-  | Def of Term.t
+  | Def of defn
   | Arity of int
   | Type of Cnstrnt.t
   | State of Context.t
+
+and defn = 
+  | Term of Term.t
+  | Prop of Prop.t
 
 and t
 

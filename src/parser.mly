@@ -36,15 +36,14 @@ let equal_width_of a b =
    | None, None -> 
        raise (Invalid_argument (Term.to_string a ^ " not a bitvector."))
 
-
 %}
 
 %token DROP CAN ASSERT EXIT SAVE RESTORE REMOVE FORGET RESET SYMTAB SIG VALID UNSAT
 %token TYPE SIGMA
-%token SOLVE HELP DEF TOGGLE SET TRACE UNTRACE CMP FIND USE INV SOLUTION PARTITION
+%token SOLVE HELP DEF PROP TOGGLE SET TRACE UNTRACE CMP FIND USE INV SOLUTION PARTITION
 %token SHOW CNSTRNT SYNTAX COMMANDS SPLIT SAT
 %token DISEQ CTXT 
-%token LETIN IN DEF
+%token IN DEF
 %token EOF
 
 %token ARITH TUPLE
@@ -183,7 +182,7 @@ term:
 var:
   name  { try
 	    match Symtab.lookup $1 (Istate.symtab()) with
-	      | Symtab.Def(a) -> a
+	      | Symtab.Def(Symtab.Term(a)) -> a
 	      | _ -> Term.mk_var $1
 	  with
 	      Not_found -> Term.mk_var $1 }
@@ -263,6 +262,32 @@ bv:
 | term BWIFF term     { Bitvector.mk_bwiff (equal_width_of $1 $3) $1 $3 }
 ;
 
+
+propmode:  { Tools.mode := Tools.Prop }
+atommode:  { Tools.mode := Tools.Atom }
+
+prop: topprop { $1 }
+
+propnegatable: negatable { $1 }
+
+topprop:
+  LBRA prop RBRA                 { $2 } 
+| name                            { try
+				      match Symtab.lookup $1 (Istate.symtab()) with
+					| Symtab.Def(Symtab.Prop(p)) -> p
+					| _ -> Prop.mk_var $1
+				      with
+					  Not_found -> Prop.mk_var $1 }
+| propnegatable                   { Prop.mk_poslit $1 }
+| prop CONJ prop                  { Prop.mk_conj [$1; $3] }
+| prop DISJ prop                  { Prop.mk_disj [$1; $3] }
+| prop BIIMPL prop                { Prop.mk_iff $1 $3 }
+| prop XOR prop                   { Prop.mk_neg (Prop.mk_iff $1 $3) }
+| prop IMPL prop                  { Prop.mk_disj [Prop.mk_neg $1; $3] }
+| NEG prop %prec prec_unary       { Prop.mk_neg $2 }
+| IF prop THEN prop ELSE prop END { Prop.mk_ite $2 $4 $6 }
+;
+
 negatable:  
   term EQUAL term          { Atom.mk_equal($1, $3)}
 | term DISEQ term          { Atom.mk_diseq($1, $3) }
@@ -282,21 +307,6 @@ dom:
 | NONINT { Dom.Nonint }
 ;
 
-prop:
-  LBRA prop RBRA                  { $2 } 
-| name                            { Prop.mk_var $1 }
-| negatable                       { Prop.mk_poslit $1 }
-| prop CONJ prop                  { Prop.mk_conj [$1; $3] }
-| prop DISJ prop                  { Prop.mk_disj [$1; $3] }
-| prop BIIMPL prop                { Prop.mk_iff $1 $3 }
-| prop XOR prop                   { Prop.mk_neg (Prop.mk_iff $1 $3) }
-| prop IMPL prop                  { Prop.mk_disj [Prop.mk_neg $1; $3] }
-| NEG prop %prec prec_unary       { Prop.mk_neg $2 }
-| IF prop THEN prop ELSE prop END { Prop.mk_ite $2 $4 $6 }
-| LETIN IDENT DEF prop IN prop END  { Prop.mk_let (Name.of_string $2) $4 $6 }
-;
-
-
 termlist:             { [] }
 | term                { [$1] }
 | termlist COMMA term { $3 :: $1 }
@@ -310,7 +320,8 @@ command:
   CAN atom                  { Result.Atom(Istate.can $2) }
 | CAN term                  { Result.Term(Istate.cant $2) }
 | ASSERT optname atom       { Result.Process(Istate.process $2 $3) }
-| DEF name ASSIGN term      { Result.Unit(Istate.def $2 $4) }
+| DEF name ASSIGN term      { Result.Unit(Istate.def $2 (Symtab.Term($4))) }
+| PROP name ASSIGN prop     { Result.Unit(Istate.def $2 (Symtab.Prop($4))) }
 | SIG name COLON signature  { Result.Unit(Istate.sgn $2 $4) }
 | RESET                     { Result.Unit(Istate.reset ()) }
 | SAVE name                 { Result.Name(Istate.save(Some($2))) }

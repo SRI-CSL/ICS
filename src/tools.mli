@@ -63,3 +63,8 @@ val dynamic_let : 'a ref * 'a -> ('b -> 'c) -> 'b -> 'c
 
 val linenumber : int ref
   (** [linenumber] used by lexer and parser. *)
+
+type mode = Atom | Prop
+    (** tie-breaker used by lexer and parser. *)
+
+val mode : mode ref

@@ -22,6 +22,8 @@ type t =
   | Neg of t
   | Let of Name.t * t * t
 
+let pp fmt p = Pretty.string fmt "<prop ...>"
+
 let mk_true = True
 let mk_false = False
 let mk_var n = Var(n)
@@ -89,7 +91,7 @@ external icsat_d_not : prop -> prop = "icsat_d_not"
 external icsat_num_arguments : prop -> int = "icsat_num_arguments"
 external icsat_get_argument : prop -> int -> prop = "icsat_get_argument"
 
-external icsat_get_assignment2 : int -> int = "icsat_get_assignment"
+external icsat_get_assignment : int -> int = "icsat_get_assignment"
 
 (** Parameter settings for SAT solver *)
 
@@ -319,7 +321,11 @@ and assignment p acc =
     | Var _ -> acc
     | Atom(a) -> 
 	let i = atom_to_id a in
-	  Atom.Set.add a acc
+	  (match icsat_get_assignment i with
+	     | (-1) -> Atom.Set.add (Atom.negate a) acc  (* unsat *)
+	     | 0 -> acc                                  (* don't care *)
+	     | 1 -> Atom.Set.add a acc                   (* valid *)
+	     | _ -> failwith "ICSAT: invalid return value of icsat_get_assignment")
     | Disj(pl) ->
 	List.fold_right assignment pl acc
     | Iff(p, q) -> 

@@ -57,11 +57,9 @@ let outchannel () = s.outchannel
 
 (** Adding to symbol table *)
 
-let def n =
-  Trace.proc "istate" "def" Term.pp 
-  (fun a ->
-     let e = Symtab.Def(a) in
-       s.symtab <- Symtab.add n e s.symtab)
+let def n a =
+  let e = Symtab.Def(a) in
+    s.symtab <- Symtab.add n e s.symtab
   
 let sgn n a =
   let e = Symtab.Arity(a) in
