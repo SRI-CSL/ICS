@@ -138,9 +138,9 @@ let (<<<) a b =
 let pp fmt = function
   | True -> Pretty.string fmt "True"
   | False -> Pretty.string fmt "False"
-  | Equal(x,y) -> Pretty.infix Term.pp "=" Term.pp fmt (x,y)
-  | Diseq(x,y) -> Pretty.infix Term.pp "=" Term.pp fmt (x,y)
-  | In(c,x) -> Pretty.infix Term.pp "=" Cnstrnt.pp fmt (x,c)
+  | Equal(x,y) -> Term.pp_equal fmt (x,y)
+  | Diseq(x,y) -> Term.pp_diseq fmt (x,y)
+  | In(c,x) -> Term.pp_in fmt (x,c)
 
 (*s Set of atoms. *)
 
@@ -148,7 +148,7 @@ type atom = t
 
 module Set = Set.Make(
   struct
-    type t = atom 
+    type t = atom
     let compare a b =
       if eq a b then 0 else Pervasives.compare a b
   end)

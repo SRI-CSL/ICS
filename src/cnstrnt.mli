@@ -14,10 +14,92 @@
  * Author: Harald Ruess
  i*)
 
-(*s Best type from both static and dynamic information. *)
+(*s Module [Cnstrnt]: real number constraints. *)
 
-val arith : (Term.t -> Number.t) -> Term.t -> Number.t option
+(*i*)
+open Mpa
+(*i*)
 
-(*s Type from static information only. *)
+type t
 
-val of_term : Term.t -> Number.t option
+(*s Constructing and destructing intervals. *)
+
+module Diseqs: (Set.S with type elt = Q.t)
+
+val make : Interval.t * Diseqs.t -> t
+
+val destruct : t -> Interval.t * Diseqs.t
+
+val dom_of : t -> Dom.t
+
+(*s Derived Constructors. *)
+
+val mk_real : t
+val mk_int : t
+val mk_nat : t
+
+val mk_singleton : Mpa.Q.t -> t
+val mk_zero : t
+val mk_one : t
+
+val mk_diseq : Mpa.Q.t -> t
+
+(*s Recognizers and Accessors. *)
+
+val is_empty : t -> bool
+val is_full : t -> bool
+
+val d_singleton : t -> Mpa.Q.t option
+
+(*s Equality. *)
+
+val eq : t -> t -> bool
+
+(*s Comparison of constraints. *)
+
+val cmp : t -> t -> t Binrel.t
+
+(* Subconstraint. *)
+
+val sub : t -> t -> bool
+
+
+(*s Intersection of constraints. *)
+
+val inter : t -> t -> t
+
+(*s Pretty-printing constraints. *)
+
+val pp : Format.formatter -> t -> unit
+
+(*s Construct a constraint from an interval. *)
+
+val of_interval : Interval.t -> t
+
+(*s Additional constructors. *)
+
+val mk_oo : Dom.t -> Q.t -> Q.t -> t
+val mk_oc : Dom.t -> Q.t -> Q.t -> t
+val mk_co : Dom.t -> Q.t -> Q.t -> t
+val mk_cc : Dom.t -> Q.t -> Q.t -> t
+
+val mk_lt : Dom.t -> Q.t -> t
+val mk_le : Dom.t -> Q.t -> t
+val mk_gt : Dom.t -> Q.t -> t
+val mk_ge : Dom.t -> Q.t -> t
+
+val mk_pos : Dom.t -> t
+val mk_neg : Dom.t -> t
+val mk_nonneg : Dom.t -> t
+val mk_nonpos : Dom.t -> t
+
+
+(*s Abstract interpretation. *)
+
+val add : t -> t -> t
+val addl : t list -> t
+val mult : t -> t -> t
+val multl : t list -> t
+val expt : int -> t -> t
+val multq : Q.t -> t -> t
+val div : t -> t -> t

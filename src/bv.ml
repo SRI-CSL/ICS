@@ -54,10 +54,10 @@ let use = BV.use
 let merge e s =
   let (x,y) = Veq.destruct e in
   if BV.occurs s x then
-    let (s', es', _) = 
+    let (s', es') = 
       BV.compose s (Bitvector.solve (BV.norm s x, BV.norm s y))
     in
-    (s',es')
+    (s', Veqs.remove e es')
   else
     (s, Veqs.empty)
 

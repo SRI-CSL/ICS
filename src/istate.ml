@@ -65,6 +65,33 @@ let typ n c =
   s.symtab <- Symtab.add n e s.symtab
 
 
+let entry_of n = 
+  try
+    Some(Symtab.lookup n s.symtab)
+  with
+      Not_found -> None
+			   
+(*s Type from the symbol table. *)
+
+let type_of n =
+  match Symtab.lookup n s.symtab with
+    | Symtab.Type(c) -> Some(c)
+    | _ -> None
+
+(*s Getting the width of bitvector terms from the signature. *)
+
+let width_of a =
+  if Term.is_var a then
+    let n = Term.name_of a in
+    try
+      match Symtab.lookup n s.symtab with
+	| Symtab.Arity(i) -> Some(i)
+	| _ -> None
+    with
+	Not_found -> None
+  else
+    Bitvector.width a
+
 (*s Resetting all of the global state. *)
 
 let reset () = 
@@ -73,6 +100,7 @@ let reset () =
   s.symtab <- Symtab.empty;
   s.inchannel <- Pervasives.stdin;
   s.outchannel <- Format.std_formatter
+
 
 (*s Set input and output channels. *)
 
@@ -94,6 +122,13 @@ let can p =
   s.current <- t;
   b
 
+let cant p = 
+  let (t, b) = Shostak.can_t s.current p in
+  s.current <- t;
+  b
+
+let sigma f l =
+  Shostak.sigma s.current f l
 
 
 (*s Adding a new fact *)
@@ -137,16 +172,13 @@ let forget () =
 
 (*s Accessors. *)
 
-let diseq_of () = failwith "to do" 
-
 let diseq a =
-  failwith "to do"
+  let a' = cant a in
+  Term.Set.elements (D.deq (s.current.Shostak.d) a')
 
 let cnstrnt a =
-  Shostak.cnstrnt s.current a
-
-let cnstrnts () =
-  Shostak.cnstrnts s.current
+  let a' = cant a in
+  Shostak.cnstrnt s.current a'
 
 (*s Applying maps. *)
 
@@ -167,3 +199,20 @@ let partition () =
     (Shostak.partition s.current)
     []
  
+(*s Equality/disequality test. *)
+
+let is_equal a b =
+  let t = current () in
+  let (t',a') = Shostak.can_t t a in
+  let (_,b') = Shostak.can_t t' b in
+  Term.eq a' b'
+
+let is_diseq a b =
+  Shostak.is_diseq s.current a b
+
+let is_int a =
+  match Shostak.cnstrnt s.current a with
+    | Some(c) -> Cnstrnt.dom_of c = Dom.Int
+    | None -> false
+	
+let tests () = Shostak.tests s.current

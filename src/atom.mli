@@ -20,7 +20,7 @@ type t  =
   | True
   | Equal of Term.t * Term.t
   | Diseq of Term.t * Term.t
-  | In of Number.t * Term.t
+  | In of Cnstrnt.t * Term.t
   | False
 
 val eq : t -> t -> bool
@@ -34,11 +34,17 @@ val mk_equal : Term.t -> Term.t -> t
 
 val mk_diseq : Term.t -> Term.t -> t
 
-val mk_in : Number.t -> Term.t -> t
+val mk_in : Cnstrnt.t -> Term.t -> t
 
 (*s Mapping over atoms and applying [f] to terms. *)
 
 val map : (Term.t -> Term.t) -> t -> t
+
+
+(*s Pretty-printing. *)
+
+val pp : t Pretty.printer
+
 
 (*s The less-then constructor [lt (a,b)] builds a constraint corresponding to
   the fact that the difference [sub(a,b)] is negative. Similarly, 
@@ -48,10 +54,6 @@ val map : (Term.t -> Term.t) -> t -> t
 
 val mk_lt : Term.t -> Term.t -> t
 val mk_le : Term.t -> Term.t -> t
-
-(*s Make negation. *)
-
-val mk_neg : t -> t
 
 (*s Comparison on atoms. *)
 

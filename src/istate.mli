@@ -37,24 +37,39 @@ val nl : unit -> unit
 
 val def : Name.t -> Term.t -> unit
 val sgn : Name.t -> int -> unit
-val typ : Name.t -> Number.t -> unit
+val typ : Name.t -> Cnstrnt.t -> unit
+
+(*s Symbol table entry. *)
+
+val entry_of : Name.t -> Symtab.entry option
+ 
+(*s Type from symbol table. *)
+
+val type_of : Name.t -> Cnstrnt.t option
+
+
+(*s Getting the width of bitvector terms from the signature. *)
+
+val width_of : Term.t -> int option
+
 
 (*s State-dependent destructors. *)
 
 (*s Context of. *)
 
-val ctxt_of : unit -> Atom.Set.t
+val ctxt_of : unit -> Atom.t list
 
 (*s Canonization w.r.t current state. *)
 
-val can_t : Term.t -> Term.t
-val can_a : Atom.t -> Atom.t
+val can : Atom.t -> Atom.t
+
+val cant : Term.t -> Term.t
+
+val sigma : Sym.t -> Term.t list -> Term.t
 
 (*s Adding a new fact *)
 
-val process_a : Atom.t -> Shostak.t Shostak.status
-
-val process_p :Prop.t -> Shostak.t Shostak.status
+val process : Atom.t -> Shostak.t Shostak.status
 
 (*s Compress the current state. *)
 
@@ -68,43 +83,32 @@ val restore : Name.t -> unit
 val remove : Name.t -> unit
 val forget : unit -> unit
 
-(*s Accessors. *)
-
-val u_of : unit -> Term.t Term.Map.t
-val v_of : unit -> Term.t Term.Map.t
-val a_of : unit -> Term.t Term.Map.t
-val t_of : unit -> Term.t Term.Map.t
-val bv_of : unit -> Term.t Term.Map.t
 
 (*s Applying maps. *)
 
-val find : Shostak.e -> Term.t -> Term.t
-val inv : Shostak.e -> Term.t -> Term.t
-val use : Shostak.e -> Term.t -> Term.Set.t
+val find : Theories.t -> Term.t -> Term.t
+val inv : Theories.t -> Term.t -> Term.t
+val use : Theories.t -> Term.t -> Term.Set.t
 
 (*s Solution set for equality theories. *)
 
-val solution: Shostak.e -> (Term.t * Term.t) list
+val solution: Theories.t -> (Term.t * Term.t) list
 
 (*s Variable partitioning. *)
 
-val partition: unit -> Term.t Term.Map.t
+val partition: unit -> (Term.t * Term.t) list
 
+(*s Disequalities. *)
 
-(*s Theory-specific operations. *)
+val diseq : Term.t -> Term.t list
 
-val diseq_of: unit -> Term.Set.t Term.Map.t
-val diseq : Term.t -> Term.Set.t
+(*s Constraint. *)
 
-val cnstrnt_of : unit -> Number.t Term.Map.t
-val cnstrnt : Term.t -> Number.t option
+val cnstrnt : Term.t -> Cnstrnt.t option
 
-val prop_of : unit -> Prop.t
+(*s Equality/disequality test. *)
 
-(*s Toggle variables. *)
+val is_equal : Term.t -> Term.t -> bool
+val is_diseq : Term.t -> Term.t -> bool
 
-type toggle = 
-  | Printall
-
-val toggle : toggle ->  unit
-
+val tests : unit -> Builtin.tests

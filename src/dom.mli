@@ -15,11 +15,10 @@
  i*)
 
 (*s Module [Dom]: Various subdomains of numbers. [Real] denotes the domain
- of the real numbers, [Int] all integers, and [Nonint] all reals which are
- not integers.  Obviously, [Int] and [Nonint] domains are disjoint, and there
- there is a reflexive subdomain ordering [<] with [Int < Real], [Nonint < Real]. *)
+ of the real numbers, [Int] all integers.  There is a reflexive subdomain 
+ ordering [<] with [Int < Real] *)
 
-type t = Int | Nonint | Real
+type t = Int | Real
 
 (*s Equality on domains. *)
 
@@ -30,21 +29,11 @@ val eq : t -> t -> bool
 
 val union : t -> t -> t
 
-(*s [compl d] returns the complement domain. *)
 
-val compl : t -> t
-
-(*s [inter d1 d2] returns [d] iff the domain of [d] is the intersection of the
- domains of [d1] and [d2]. In case, this intersection is empty, the exception
- [Empty] is raised. *)
-
-exception Empty
+(*s [inter d1 d2] returns [d] iff the domain of [d] is the intersection 
+ of the domains of [d1] and [d2]. *)
 
 val inter : t -> t -> t
-
-(*s [disjoint d1 d2] tests if the domains of [d1] and [d2] are disjoint. *)
-
-val disjoint: t -> t -> bool
 
 (* [sub d1 d2] tests if the domain of [d1] is a subdomain of [d2]. *)
 
@@ -53,12 +42,15 @@ val sub : t -> t -> bool
 (*s [cmp d1 d2] returns [Sub] ([Equal], [Disjoint], [Super]) if the domain of [d1] 
  is a subset (is equal, is disjoint, is a superset) of [d2]. *)
 
-val cmp : t -> t -> Binrel.t
+val cmp : t -> t -> unit Binrel.t
 
-(*s [of_q u] returns [Int] if the rational [u] is integer and [Nonint] 
- otherwise. *)
+(*s [of_q u] returns [Int] if the rational [u] is integer and [Real] *)
 
 val of_q : Mpa.Q.t -> t
+
+(*s [mem q d] tests if [q] is a member of [d]. *)
+
+val mem : Mpa.Q.t -> t -> bool
 
 (*s Pretty-printing *)
 

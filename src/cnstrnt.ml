@@ -36,6 +36,10 @@ let destruct c = c
 let eq (i, qs) (j, ps) = 
   Interval.eq i j && Diseqs.equal qs ps
 
+let dom_of (i,_) =
+  let (d,_,_) = Interval.destructure i in
+  d
+
 
 (*s Empty constraint. *)
 
@@ -51,42 +55,77 @@ let is_full (i,qs) =
 
 let of_interval i = (i, Diseqs.empty)
 
-let make (i, qs) =
-  let eq q e =     (* test if [q] falls on endpoint [e]. *)
-    Endpoint.is_nonstrict e && 
-    Endpoint.is_q e && 
-    Q.equal (Endpoint.q_of e) q
-  in
-  Diseqs.fold 
-    (fun q (j,ps) ->
-       if Interval.mem q j then
-	 let (d,l,h) = Interval.destructure j in
-	 if eq q l then  
-	   (Interval.make (d, Endpoint.strict (Endpoint.q_of l), h), ps)
-	 else if eq q h then
-	   (Interval.make (d, l, Endpoint.strict (Endpoint.q_of h)), ps)
-	 else 
-	   (j, Diseqs.add q ps)
-       else 
-	 (j, Diseqs.add q ps))
-    qs
+exception Found of Mpa.Q.t
+
+let rec make (i, qs) =
+  if Interval.is_empty i then
+    mk_empty
+  else if Diseqs.is_empty qs then
     (i, Diseqs.empty)
-	   
+  else 
+    let (d, lo, hi) = Interval.destructure i in
+    if d = Dom.Int then
+      let (a, alpha) = Endpoint.destruct lo in
+      match alpha, endpoint a qs with
+	| true, Some(p) -> 
+	    let i' = Interval.make (Dom.Int, Endpoint.make (a,false), hi) in
+	    make (i', Diseqs.remove p qs)
+	| _ ->
+	    let (b, beta) = Endpoint.destruct hi in
+	    match beta, endpoint b qs with
+	      | true, Some(p) ->
+		  let i' = Interval.make (Dom.Int, lo, Endpoint.make (b,false)) in
+		  make (i', Diseqs.remove p qs)
+	      | _ ->
+		  normalize (i, qs)
+    else
+      normalize (i, qs)
+
+and endpoint a qs =
+  match Extq.to_q a with
+    | None -> None
+    | Some(q) -> 
+	try
+	  Diseqs.iter
+	    (fun p -> 
+	       if Mpa.Q.equal q p then raise (Found p))
+	    qs;
+	  None
+	with
+	    Found(p) -> Some(p)
+
+and normalize (i, qs) = 
+  let qs' = Diseqs.filter (fun q -> Interval.mem q i) qs in
+  (i, qs')
+      
+
 
 (*s Constraint for the real number line, the integers, and the
  natural numbers. *)
 
-let mk_real = of_interval Interval.mk_real
+let mk_real = 
+  of_interval Interval.mk_real
 
-let mk_int = of_interval Interval.mk_int
-let mk_nat = of_interval (Interval.make (Dom.Int, Endpoint.nonstrict Q.zero, Endpoint.posinf))
+let mk_int = 
+  of_interval Interval.mk_int
+
+let mk_nat = 
+  let i = Interval.make (Dom.Int, Endpoint.nonstrict Q.zero, Endpoint.posinf) in
+  of_interval i
 
 (*s Constructing singleton constraints. *)
 
-let mk_singleton q = of_interval (Interval.mk_singleton q)
+let mk_singleton q = 
+  of_interval (Interval.mk_singleton q)
 
-let d_singleton (i,_) = 
-  Interval.d_singleton i
+let d_singleton (i,qs) =
+  match Interval.d_singleton i with
+    | Some(q) -> 
+	assert(Diseqs.is_empty qs);
+	Some(q)
+    | None ->
+	None
+	
 
 let mk_zero = mk_singleton Mpa.Q.zero
 let mk_one = mk_singleton Mpa.Q.one
@@ -95,6 +134,7 @@ let mk_one = mk_singleton Mpa.Q.one
 (*s Disequality constraint. *)
 
 let mk_diseq q = (Interval.mk_real, Diseqs.singleton q)
+
 
 (*s Checks wether [c] is a subconstraint of [d]. *)
 
@@ -106,32 +146,48 @@ let sub (i,qs) (j,ps) =
 (*s Intersection of two constraints *)
 
 let inter (i,qs) (j,ps) =
-  (Interval.inter i j, Diseqs.union qs ps)
+  make (Interval.inter i j, Diseqs.union qs ps)
+
 
 (*s Comparison. *)
 
-let cmp c d =
-  let (i,qs) = destruct c 
-  and (j,ps) = destruct d in
+let rec cmp c d =
+  let (i,qs) = destruct c in
+  let (j,ps) = destruct d in
   match Interval.cmp i j with 
-    | Binrel.Disjoint -> Binrel.Disjoint
-    | Binrel.Overlap -> Binrel.Overlap
-    | Binrel.Same when Diseqs.equal qs ps -> Binrel.Same
-    | Binrel.Same when Diseqs.subset qs ps -> Binrel.Super
-    | Binrel.Same when Diseqs.subset ps qs -> Binrel.Sub
-    | Binrel.Same -> Binrel.Overlap
-    | Binrel.Singleton(q) when Diseqs.mem q qs ||  Diseqs.mem q ps -> Binrel.Disjoint
-    | Binrel.Singleton(q) -> Binrel.Singleton(q)
-    | Binrel.Sub when Diseqs.subset ps qs -> Binrel.Sub
-    | Binrel.Sub -> Binrel.Overlap
-    | Binrel.Super when Diseqs.subset qs ps -> Binrel.Super
-    | Binrel.Super -> Binrel.Overlap
- 
+    | Binrel.Disjoint -> 
+	Binrel.Disjoint
+    | Binrel.Overlap(k) -> 
+	analyze (make (k, Diseqs.union qs ps))
+    | Binrel.Same when Diseqs.equal qs ps -> 
+	Binrel.Same
+    | Binrel.Same when Diseqs.subset qs ps -> 
+	Binrel.Super
+    | Binrel.Same when Diseqs.subset ps qs -> 
+	Binrel.Sub
+    | Binrel.Same -> 
+	analyze (make (i, Diseqs.union qs ps))
+    | Binrel.Singleton(q) when Diseqs.mem q qs || Diseqs.mem q ps -> 
+	Binrel.Disjoint
+    | Binrel.Singleton(q) ->
+	Binrel.Singleton(q)
+    | Binrel.Sub when Diseqs.subset ps qs ->
+	Binrel.Sub
+    | Binrel.Sub -> 
+	analyze (make (i, Diseqs.union qs ps))
+    | Binrel.Super when Diseqs.subset qs ps ->
+	Binrel.Super
+    | Binrel.Super ->
+	analyze (make (j, Diseqs.union qs ps))
 
-(*s Checks wether two given lists are disjoint*)
+and analyze c =
+  if is_empty c then
+    Binrel.Disjoint
+  else 
+    match d_singleton c with
+      | Some(q) -> Binrel.Singleton(q)
+      | None -> Binrel.Overlap(c)
 
-let disjoint (i,_) (j,_) =
-  Interval.disjoint i j
 
 (*s Printing constraints. *)
 
@@ -141,7 +197,7 @@ let pp fmt c =
   Interval.pp fmt i;
   if not(Diseqs.is_empty qs) then
     begin
-      Format.fprintf fmt " with ";
+      Format.fprintf fmt " but ";
       Pretty.set Mpa.Q.pp fmt (Diseqs.elements qs)
     end
 

@@ -19,3 +19,5 @@
 exception Inconsistent
   
 exception Valid
+
+exception Unsolved

@@ -17,10 +17,11 @@
 (*s Module [Sym]: Interpreted and uninterpreted function symbols *)
 
 
-type linarith = 
+type arith = 
   | Num of Mpa.Q.t  
-  | Multq of Mpa.Q.t
   | Add
+  | Mult
+  | Expt of int
 
 type tuple = 
   | Product 
@@ -32,23 +33,18 @@ type bv =
   | Sub of int * int * int
   | Bitwise of int
 
+type boolean =
+  | True
+  | False
+
 type interp = 
-  | Arith of linarith
+  | Arith of arith
   | Tuple of tuple
   | Bv of bv
-
-type internal =
-  | Label of int
-  | Slack of int * Number.t
-  | FreshBv of int
-  | FreshT of int
-
-type uninterp = 
-  | External of Name.t
-  | Internal of internal
+  | Boolean of boolean
 
 type sym = 
-  | Uninterp of uninterp
+  | Uninterp of Name.t
   | Interp of interp
 
 type t
@@ -68,21 +64,25 @@ val destruct : t -> sym
 (*s Constructing Symbols. *)
 
 val mk_uninterp : Name.t -> t
-val mk_internal : internal -> t
 val mk_interp : interp -> t
 
 
 (*s Arithmetic Symbols. *)
 
 val mk_num : Mpa.Q.t -> t
-val mk_multq : Mpa.Q.t -> t
 val mk_add : t
-
+val mk_mult : t
+val mk_expt : int -> t
 
 (*s Symbols from theory of tuples. *)
 
 val mk_tuple : t
 val mk_proj : int -> int -> t
+
+(*s Symbols from theory of Booleans. *)
+
+val mk_true : t
+val mk_false : t
 
 
 (*s Symbols from theory of bitvectors. *)
@@ -95,8 +95,9 @@ val mk_bv_bitwise : int -> t
 
 (*s Builtin symbols. *)
 
-val mk_expt : t
-val mk_mult : t
+val is_builtin : t -> bool
+
+val mk_div : t
 val mk_sin : t
 val mk_cos : t
 val mk_unsigned : t
@@ -105,34 +106,29 @@ val mk_select : t
 val mk_floor : t
 val mk_ceiling : t
 
+
+type builtin = Sin | Cos | Unsigned | Update | Select | Floor | Ceiling | Div
+
+val builtin : t -> builtin
+
 (*s Comparison. *)
 
 val cmp : t -> t -> int
 
 (*s Pretty printing *)
 
-val pp : bool -> Format.formatter -> t -> unit
-
+val pp : Format.formatter -> t -> unit
 
 val is_arith : t -> bool
 val is_tuple : t -> bool
 val is_interp : t -> bool
 
 val is_uninterp : t -> bool
-val d_uninterp : t -> uninterp
+val d_uninterp : t -> Name.t
 val d_interp : t -> interp option
-
-val is_internal : t -> bool
 
 val is_interpreted_const : t -> bool
 
-(*s Create a fresh label. *)
-
-val mk_label : int -> t
-val mk_fresh_label : unit -> t
-
-val mk_slack : int -> Number.t -> t
-val mk_fresh_slack : Number.t -> t
 
 (*s Width of a bitvector symbol. *)
 

@@ -19,7 +19,7 @@ i*)
 type entry = 
   | Def of Term.t
   | Arity of int
-  | Type of Number.t
+  | Type of Cnstrnt.t
   | State of Shostak.t
 
 and t

@@ -18,7 +18,7 @@ i*)
 open Term
 (*i*)
 
-let is_cod a =
+let iscod a =
   not(is_var a) &&
   List.for_all is_var (args_of a)
 
@@ -95,6 +95,11 @@ let solution s =
     []
 
 
+(*s Partitioning. *)
+
+let partition s =
+  Map.fold (fun x y acc -> (x,y) :: acc) s.v []
+
 
 (*s Variable equality modulo [s]. *)
 
@@ -126,7 +131,7 @@ let u s a =
     let b =
       choose
 	(fun y ->
-	   assert(is_cod y);
+	   (* assert(iscod y); *)
 	   let g, m = destruct y in
 	   (Sym.eq f g) && 
 	   try List.for_all2 (veq s) l m with Invalid_argument _ -> false)
@@ -225,8 +230,7 @@ let congruent s a b =
       Invalid_argument _ -> false
 	
 
-let merge e s =  
-  Trace.msg 5 "Merge(u)" e Veq.pp;
+let merge e s = 
   let (a,b) = Veq.destruct e in
   assert(is_var a && is_var b);
   let addv x y xl =              (* do not add original variable equality. *)
@@ -258,7 +262,7 @@ let merge e s =
   in
   Trace.call 5 "Merge(u)" (a,b) (Pretty.eqn Term.pp);
   let (s', xl) = merge1 a b (s, Veqs.empty) in
-(*  Trace.exit 5 "Merge(u)" xl (Pretty.list Veq.pp); *)
+  Trace.exit 5 "Merge(u)" xl (Veqs.pp);
   (s', xl)
 
 (*s Creating a fresh label term. *)
@@ -269,7 +273,7 @@ let _ = Tools.add_at_reset (fun () -> labels := Set.empty)
 let mk_label = 
   let name = Name.of_string "v" in
   fun () -> 
-    let v = mk_fresh name in
+    let v = mk_fresh name None in
     labels := Set.add v !labels;
     v
 
@@ -313,17 +317,16 @@ let compress s =
 (*s Pretty-printing. *)
 
 let pp fmt s = 
-  let to_list m = Map.fold (fun x y acc -> (x,y) :: acc) m [] in
   if not(Map.empty == s.v) then
     begin
       Pretty.string fmt "v:"; 
-      Pretty.map Term.pp Term.pp fmt (to_list s.v);
+      Pretty.solution Term.pp fmt (partition s);
       Pretty.string fmt "\n"
     end;
   if not(Map.empty == s.u) then
     begin
       Pretty.string fmt "u:"; 
-      Pretty.map Term.pp Term.pp fmt (to_list s.u);
+      Pretty.solution Term.pp fmt (solution s);
       Pretty.string fmt "\n"
     end
 

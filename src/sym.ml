@@ -191,6 +191,32 @@ let mk_update = make(Uninterp(Name.of_string "update"))
 let mk_select = make(Uninterp(Name.of_string "select"))
 let mk_floor = make(Uninterp(Name.of_string "floor"))
 let mk_ceiling = make(Uninterp(Name.of_string "ceiling"))
+let mk_div = make(Uninterp(Name.of_string "div"))
+
+
+let is_builtin f = 
+  eq f mk_sin ||
+  eq f mk_cos ||
+  eq f mk_unsigned ||
+  eq f mk_update ||
+  eq f mk_select ||
+  eq f mk_floor ||
+  eq f mk_ceiling ||
+  eq f mk_div
+
+type builtin = Sin | Cos | Unsigned | Update | Select | Floor | Ceiling | Div
+
+let builtin f =
+  assert (is_builtin f);
+  if eq f mk_sin then Sin
+  else if eq f mk_cos then Cos
+  else if eq f mk_unsigned then Unsigned
+  else if eq f mk_update then Update
+  else if eq f mk_select then Select
+  else if eq f mk_floor then Floor
+  else if eq f mk_ceiling then Ceiling
+  else if eq f mk_div then Div
+  else assert false
 
 (*s Some recognizers. *)
 
