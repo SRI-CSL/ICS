@@ -203,17 +203,57 @@
 
 (defun ics-sigma (expr)
   (let ((term (term-unwrap (translate-to-ics expr))))
-    (prog1
-	(translate-from-ics term)
-      (value-free! term))))
+    (multiple-value-bind (expr bndngs)
+	  (translate-from-ics term)
+      (assert (null bndngs))
+      (value-free! term)
+      expr)))
 
 (defun ics-canon (state expr)
-  (with-ics-pair (freshvars term)
-             (ics_norm (state-unwrap state) 
-		       (term-unwrap (translate-to-ics expr)))
-    (prog1
-	(values (translate-from-ics term) freshvars)
-      (value-free! term))))
+  (let ((term (ics_can (state-unwrap state)
+		       (term-unwrap (translate-to-ics expr)))))
+    (multiple-value-bind (expr bndngs)
+	(translate-from-ics term)
+      (value-free! term)
+      (if (null bndngs) expr
+         (make!-forall-expr bndngs expr)))))
+
+(defun ics-check (state expr &optional names)
+  "Checks whether or not the expression EXPR holds in context STATE.
+   Returns *TRUE* if expression EXPR is valid in context STATE,
+   *FALSE* if it is unsatisfiable, and a list of solutions for VARS otherwise."
+  (assert (state-wrap? state))
+  (assert (typep expr 'expr))
+  (let ((status (ics_check (state-unwrap state)
+			   (term-unwrap (translate-to-ics expr)))))
+    (cond ((holds (ics_is_check_valid status))
+	   *true*)
+	  ((holds (ics_is_check_inconsistent status))
+	   *false*)
+	  (t
+	   (when names
+	     (let ((states (translate-states-from-ics*
+			    (ics_d_check_satisfiable status))))
+	       (mapcar #'(lambda (state)
+			   (ics-solution state names))
+		       states)))))))
+
+(defun translate-states-from-ics* (states)
+  (if (holds (ics_is_nil states)) nil
+    (with-ics-list (head tail) states
+      (cons (state-wrap head) (translate-states-from-ics* tail)))))
+
+(defun ics-solution (state names)
+  "Given a STATE and PVS name expressions NAMES compute a list of
+   solutions of the form (x . (e1 ... en)) for each x in NAMES; the
+   ei do not contain any of NAMES as subterms. The second argument is
+   the list of bindings for newly introduced variables."
+  (assert (state-wrap? state))
+  (assert (every #'(lambda (name) (typep name 'name-expr)) names))
+  (let* ((vars (translate-list-as-set-to-ics* names))
+	 (solution (ics_state_solutions (state-unwrap state) vars)))
+    (translate-solution-from-ics solution)))
+		
 
 ;; Translating from PVS expressions to ICS terms
 
@@ -374,12 +414,6 @@
 	    (t
 	     (ics_mk_uninterp trm trms))))))
 
-(defun translate-update-to-ics (op args)
-  (translate-to-ics*
-   (make!-reduced-application
-    (translate-update-to-if op)
-    args)))
-
 (defmethod translate-to-ics* ((expr cases-expr))
   (translate-to-ics* (translate-cases-to-if expr)))
 
@@ -419,6 +453,13 @@
     (let ((trm (translate-to-ics* (car exprs))))
       (ics_cons (term-unwrap trm) (translate-list-to-ics* (cdr exprs))))))
 
+(defun translate-list-as-set-to-ics* (exprs)
+  (if (null exprs)
+      (ics_terms_empty)
+    (let ((trm (translate-to-ics* (car exprs))))
+      (ics_terms_add (term-unwrap trm) (translate-list-as-set-to-ics* (cdr exprs))))))
+
+
 (defmethod translate-to-ics* ((expr projection-application))
   (let* ((arg (argument expr))
 	 (width (width-of (type arg)))
@@ -441,14 +482,15 @@
 ;; If *translate-fresh-vars* is set to [nil], this function
 ;; returns [nil] whenever the corresponding ics term contains fresh variables
 
-
 (defun translate-from-ics (arg)
-  (let ((trm (if (term-wrap? arg) (term-unwrap arg) arg)))
-    (let ((*bndngs* nil))
-      (declare (special *bndngs*))
-      (let ((expr (translate-from-ics* trm)))
-	(assert (not (null expr)))
-	(values expr *bndngs*)))))
+  "Translate an ICS term to a PVS expression. This expression may
+   contain fresh variables. The second result is a list of bindings
+   for these newly introduced variables."
+  (let ((trm (if (term-wrap? arg) (term-unwrap arg) arg))
+	(*bndngs* nil))
+    (declare (special *bndngs*))
+    (let ((expr (translate-from-ics* trm)))
+       (values expr *bndngs*))))
 
 (defun translate-from-ics* (trm)
   (assert (integerp trm))
@@ -490,6 +532,13 @@
       (cons (translate-from-ics* head)
 	    (translate-list-from-ics* tail)))))
 
+(defun translate-terms-from-ics* (trms)       ;; translate as list
+  (if (holds (ics_terms_is_empty trms)) '()
+    (with-ics-pair (trm rest-trms)
+          (ics_terms_choose trms)
+       (cons (translate-from-ics* trm)
+	     (translate-terms-from-ics* rest-trms)))))
+
 ;; Arithmetic expressions
 
 (defun translate-arith-from-ics* (trm)
@@ -509,7 +558,7 @@
 
 (defun translate-q-from-ics* (q)
   (let* ((str (ics_string_of_num q))
-	 (val (parse-integer (excl:native-to-string str))))
+	 (val (parse-integer (excl:native-to-string str))))   ; how to parse a rational?
     (make!-number-expr val)))
  
 (defun translate-num-from-ics* (trm)
@@ -616,7 +665,6 @@
       (make!-application
        (translate-from-ics* op)
        (translate-list-from-ics* args))))
-
 
 ;; Translating updates
 
@@ -747,3 +795,211 @@
 	   (make-real_pred expr)))))
 
 
+;; Translating other ICS datatypes to PVS
+
+(defun translate-term-list-from-ics (tl)
+  "Translate a list of ICS terms to a corresponding list of
+   PVS expression in the same order. Bindings for all newly
+   introduced variables are returned as the second argument."
+  (if (holds (ics_is_nil tl))
+      (values nil nil)
+    (with-ics-list (head tail) tl
+       (multiple-value-bind (expr1 bndngs1)
+            (translate-from-ics* head)
+          (multiple-value-bind (exprs2 bndngs2)
+                    (translate-term-list-from-ics tail)
+            (let ((bndngs (union bndngs1 bndngs2 :test #'tc-eq))
+		  (exprs (cons expr1 exprs2)))
+	      (values exprs bndngs)))))))
+
+(defun translate-terms-from-ics (trms)
+  "Translate a set of ICS terms as a list of PVS expressions."
+  (if (holds (ics_terms_is_empty trms))
+      (values nil nil)
+    (with-ics-pair (trm rest-trms)
+          (ics_terms_choose trms)
+       (multiple-value-bind (expr1 bndngs1)
+	   (translate-from-ics* trm)
+	 (multiple-value-bind (exprs2 bndngs2)
+	     (translate-terms-from-ics rest-trms)
+	   (let ((bndngs (union bndngs1 bndngs2 :test #'tc-eq))
+		 (exprs (cons expr1 exprs2)))
+	     (values exprs bndngs)))))))
+
+(defun translate-subst-from-ics (subst)
+  "Translate a set of ICS terms as a list of PVS expressions. Also
+   returns bndngs for the newly introduced variables for fresh ICS terms."
+  (translate-term-cross-term-list-from-ics*
+   (ics_subst_to_list subst)))
+
+(defun translate-term-cross-term-list-from-ics* (lst)
+  (if (holds (ics_is_nil lst))
+      (values nil nil)
+    (with-ics-pair (var trm)
+	(ics_head lst)
+      (multiple-value-bind (expr-of-var bndngs-of-var)
+	  (translate-from-ics var)
+	(assert (null bndngs-of-var))
+	(multiple-value-bind (expr-of-trm bndngs-of-trm)
+	    (translate-from-ics trm)
+	  (multiple-value-bind (exprs-of-rest bndngs-of-rest)
+	      (translate-term-cross-term-list-from-ics* (ics_tail lst))
+	    (let ((bndngs (union bndngs-of-trm bndngs-of-rest :test #'tc-eq))
+		  (pairs (acons expr-of-var expr-of-trm exprs-of-rest)))
+	      (values pairs bndngs))))))))
+
+(defun translate-solution-from-ics (solutions)
+  "Generate a list with bindings of the form (x . (e1 ... en))
+   from an ICS solution; the order is unspecified. Eventually,
+   all expressions ei should to be external."
+  (if (holds (ics_is_nil solutions))
+      (values nil nil)
+    (with-ics-pair (var trms)
+	(ics_head lst)
+      (multiple-value-bind (expr-of-var bndngs-of-var)
+	  (translate-from-ics var)
+	(assert (null bndngs-of-var))
+	(multiple-value-bind (exprs-of-trms bndngs-of-trms)
+	    (translate-terms-from-ics trms)
+	  (multiple-value-bind (exprs-of-rest bndngs-of-rest)
+	      (translate-solution-from-ics (ics_tail lst))
+	    (let ((bndngs (union bndngs-of-trms bndngs-of-rest :test #'tc-eq))
+		  (pairs (acons expr-of-var expr-of-trms exprs-of-rest)))
+	      (values pairs bndngs))))))))
+
+(defun translate-map-term-to-terms-from-ics (map)
+  "Generate an association list with entries of the form
+   (TRM . (TRM1 ... TRMn)) from MAP; the order is unspecified."
+  (translate-term-cross-terms-list-from-ics* (ics_map_to_list map)))
+
+(defun translate-term-cross-terms-list-from-ics* (lst)
+  (break "to do"))
+
+;; Pretty-printing PVS equivalents of various ICS data structures
+
+(defun ics-term-pp (trm)
+  (multiple-value-bind (expr bndngs)
+      (translate-from-ics trm)
+    (declare (ignore bndngs))
+    (format t "~a" expr)))
+
+(defun ics-term-list-pp (lst)
+  (multiple-value-bind (exprs bndngs)
+      (translate-term-list-from-ics lst)
+    (declare (ignore bndngs))
+    (format t "\[~{~a~^,~}\]" exprs)))
+
+(defun ics-term-set-pp (set)
+  (multiple-value-bind (exprs bndngs)
+      (translate-terms-from-ics set)
+    (declare (ignore bndngs))
+    (format t "\{~{~a~^,~}\}" exprs)))
+
+(defun ics-subst-pp (subst)
+  (multiple-value-bind (assocs bndngs)
+      (translate-subst-from-ics subst)
+    (declare (ignore bndngs))
+    (loop for (x . y) in assocs
+	  do (format t  "~a |-> ~a~%" x y))))
+
+(defun ics-map-term-to-terms-pp (map)
+  (multiple-value-bind (assocs bndngs)
+      (translate-map-term-to-terms-from-ics map)
+    (declare (ignore bndngs))
+    (loop for (trm . trms) in assocs
+	  do (ics-term-pp trm)
+	     (format t " |-> ")
+	     (ics-term-set-pp trms)
+	     (format t "~%"))))
+
+(defun ics-solution-pp (solution)
+   (multiple-value-bind (assocs bndngs)
+      (translate-solution-from-ics solution)
+    (declare (ignore bndngs))
+    (loop for (trm . trms) in assocs
+	  do (format t  "~a |-> ~{~a~^,~}~%" trm trms))))
+	
+;; Querying ICS data base
+
+(defun ics-query (state &key (context? t) uninterp arith bool tuple diseqs cnstrnts)
+  (when context? (ics-query-context state))
+  (ics-query-find arith (ics_theory_arith) state)
+  (ics-query-find bool (ics_theory_boolean) state)
+  (ics-query-find tuple (ics_theory_tuple) state)
+  (ics-query-find uninterp (ics_theory_eq) state)
+  (ics-query-diseqs diseqs state)
+  (ics-query-cnstrnts cnstrnts state))
+
+(defun ics-query-context (state)
+  "Display the logical context of STATE."
+  (assert (state-wrap? state))
+  (let ((trms (ics_state_ctxt_of (state-unwrap state))))
+    (multiple-value-bind (exprs bndngs)
+	(translate-term-list-from-ics trms)
+      (declare (ignore bndngs))
+      (format t "~%Context:~%")
+      (loop for expr in exprs do
+	    (format t "~%~a" expr)))))
+
+(defmethod ics-query-find ((arg null) theory state)
+  (declare (ignore state))
+  nil)
+
+(defmethod ics-query-find ((arg string) theory state)
+  (let ((expr (pc-typecheck (pc-parse arg 'expr))))
+    (ics-query-find expr theory state)))
+
+(defmethod ics-query-find ((arg expr) theory state)
+  (assert (state-wrap? state))
+  (let ((trm (term-unwrap (translate-to-ics arg)))
+	(state (state-unwrap state)))
+    (ics-term-pp (ics_state_find theory state trm))))
+
+(defmethod ics-query-find (arg theory state)
+  (assert (state-wrap? state))
+  (let ((state (state-unwrap state)))			
+    (ics-subst-pp (ics_state_find_of theory state))))
+
+(defmethod ics-query-diseqs ((arg null) state)
+  (declare (ignore state))
+  nil)
+
+(defmethod ics-query-diseqs ((arg string) state)
+  (let ((expr (pc-typecheck (pc-parse arg 'expr))))
+    (ics-query-diseqs expr)))
+
+(defmethod ics-query-diseqs ((arg expr) state)
+  (assert (state-wrap? state))
+  (let ((term (term-unwrap (translate-to-ics arg)))
+	(state (state-unwrap state)))
+    (ics-term-set-pp (ics_state_diseqs state term))))
+
+(defmethod ics-query-diseqs (arg state)
+  (assert (state-wrap? state))
+  (declare (ignore arg))
+  (let ((state (state-unwrap state)))
+    (ics-map-term-to-terms-pp (ics_state_diseqs_of state))))
+
+(defmethod ics-query-cnstrnts ((cnstrnts null) state)
+  (declare (ignore state))
+  nil)
+
+(defmethod ics-query-cnstrnts ((arg string) state)
+  (let ((expr (pc-typecheck (pc-parse arg 'expr))))
+    (ics-query-cnstrnts expr)))
+
+(defmethod ics-query-cnstrnts ((arg expr) state)
+  (assert (state-wrap? state))
+  (let* ((term (term-unwrap (translate-to-ics arg)))
+	 (state (state-unwrap state))
+	 (cnstrnt (ics_cnstrnt state term))
+	 (expr (translate-cnstrnt-from-ics* cnstrnt term)))
+    (format t "~a" expr)))
+
+(defmethod ics-query-cnstrnts (arg state)
+  (assert (state-wrap? state))
+  (declare (ignore arg))
+  (let* ((state (state-unwrap state))
+	 (cnstrnts (ics_state_cnstrnts_of state)))
+    (break "to do")))
+  
