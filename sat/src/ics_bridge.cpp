@@ -176,8 +176,8 @@ extern "C" {
 	}
 
   int ics_sat(LPFormulaId root_id) {
-    cout << "working!!! root_id = " << root_id << "\n";
-		sat_formula_manager->dump_formula(cout, root_id);
+    DBG_CODE(cout << "working!!! root_id = " << root_id << "\n";
+						 sat_formula_manager->dump_formula(cout, root_id););
 		if (sat_solver != NULL) 
 			delete sat_solver;
 		sat_solver = new LPSolver(sat_formula_manager);
@@ -201,6 +201,7 @@ extern "C" {
 		clock_t end = clock();
 		SAT_total_solver_time = ((double) (end - start)) / CLOCKS_PER_SEC;		
 		cout << "result = " << result << endl;
+		DBG_CODE(cout << "result = " << result << endl;);
 		return result;
   }
 
