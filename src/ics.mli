@@ -21,8 +21,8 @@ i*)
 
  There are two sets of interface functions.  The functional interface
  provides functions for building up the main syntactic categories of
- ICS such as terms, atoms, and propositions and for extending
- logical contexts using [process], which is side-effect free.
+ ICS such as terms and atoms, and for extending logical contexts 
+ using [process],  which is side-effect free.
 
  In contrast to this functional interface, the command interface
  manipulates a global state consisting, among others, of symbol tables 
@@ -46,13 +46,13 @@ i*)
 val init : int -> unit
 
 
-(*s Controls. [reset] clears all the global tables. This
- does not only include the current context but also internal tables used 
- for hash-consing and memoization purposes.
- [gc] triggers a full major collection of ocaml's garbage collector.
- Finally, [set_verbose] controls the amount of trace messages.
+(*s Controls. [reset] clears all the global tables. This does not only 
+ include the current context but also internal tables used  for hash-consing 
+ and memoization purposes. [gc] triggers a full major collection of ocaml's garbage 
+ collector. Finally, [set_verbose] controls the amount of trace messages.
  The default is [0], which means that nothing is printed at all.
- The higher the value, the more numerous the messages are. *)
+ The higher the value, the more numerous the messages are.  
+ [do_at_exit] clears out internal data structures. *)
 
 val reset : unit -> unit
     
@@ -61,9 +61,7 @@ val gc : unit -> unit
 val set_verbose : int -> unit
 
 val do_at_exit : unit -> unit
-    
-val flush : unit -> unit
-
+ 
 
 (*s Channels. [inchannel] is the type of input channels. A channel
  of name [str] is opened with [in_of_string str]. This function 
@@ -71,7 +69,7 @@ val flush : unit -> unit
  [outchannel] is the type of formatting output channels, and channels
  of this type are opened with [out_of_string].  [stdin], [stdout],
  and [stderr] are predefined channels for standard input, standard
- output, and standard error. *)
+ output, and standard error. [flush] flushes the [stdout] channel. *)
 
 type inchannel
 type outchannel
@@ -81,6 +79,9 @@ val stdout : unit -> outchannel
 val stderr : unit -> outchannel
 val in_of_string : string -> inchannel 
 val out_of_string : string -> outchannel
+   
+val flush : unit -> unit
+
 
 
 (*s Multi-precision rational numbers. [num_of_int n]
@@ -110,18 +111,34 @@ val name_to_string : name -> string
 val name_eq : name -> name -> bool
 
 
-(*s Constraints on reals are defined by the grammar
-      \begin{verbatim}
-      <cnstrnt> ::= <dom> [<intervals>] 
-      \end{verbatim}
-    where [<intervals>] and [<dom>] are defined above. A real
-    number is in such a constraint if it satisfies both the domain
-    and the interval constraint.  [cnstrnt_of_string str] parses
-    the string [str] according to this grammar and produces the
-    corresponding constraint representation. Likewise, [cnstrnt_input in]
-    parses the concrete syntax of constraints from the input channel [in]. 
-    Constraints [c] are printed to output channel [out] using [cnstrnt_output out c]
-    and to the standard output using [cnstrnt_pp c].
+(*s Arithmetic constraints. A constraint consists of a domain
+ restriction [Int] or [Real] , a real interval, and a set of 
+ disequality numbers. A real number satisfies such a constraint
+ if, first, it satisfies the domain restriction, second, it 
+ is a member of the interval, and, third, it is none of the 
+ numbers in the disequality set.
+
+ [cnstrnt_of_string str] parses the string [str] according to
+ the nonterminal [cnstrnteof] in module [Parser] (see its specification
+ in file [parser.mly]) and produces the corresponding constraint representation. 
+ In contrast, [cnstrnt_input in] parses the concrete syntax of constraints from 
+ the input channel [in]. Constraints [c] are printed to the output channel [out] 
+ using [cnstrnt_output out c] and to the standard output using [cnstrnt_pp c].
+
+ For the definition of constraint constructors see Module [Cnstrnt]. 
+ [cnstrnt_mk_int()] constructs an integer constraint, [cnstrnt_mk_nat()]
+ a constraint for the natural numbers, [cnstrnt_mk_singleton q] is the
+ constraint which holds only of [q], [cnstrnt_mk_diseq q] holds for all
+ reals except for [q], [cnstrnt_mk_oo l h] constructs an open interval
+ with lower bound [l] and upper bound [h], [cnstrnt_mk_oc l h] is the
+ left-open, right-closed interval with lower bound [l] and upper bound [h], 
+ [cnstrnt_mk_co l h] is the left-closed, right-open interval with lower 
+ bound [l] and upper bound [h], [cnstrnt_mk_cc l h] is the closed interval 
+ with lower bound [l] and upper bound [h]. 
+
+ The intersection of two constraints [c], [d] is computed by [cnstrnt_inter c d],
+ that is, a real [q] is in both [c] and [d] iff it is in  [cnstrnt_inter c d].
+ 
  *)
 
 type cnstrnt
@@ -142,9 +159,17 @@ val cnstrnt_mk_cc : q -> q -> cnstrnt
 val cnstrnt_mk_lt : q -> cnstrnt
 val cnstrnt_mk_le : q -> cnstrnt
 
-val cnstrnt_union : cnstrnt -> cnstrnt -> cnstrnt
 val cnstrnt_inter : cnstrnt -> cnstrnt -> cnstrnt
-val cnstrnt_compl : cnstrnt -> cnstrnt
+
+(*s Abstract interval interpretation. A real number [x] is in
+ [cnstrnt_add c d] iff there are real numbers [y] in [c] and 
+ [z] in [d] such that [x = y + x]. Likewise, [x] is in 
+ [cnstrnt_multq q c] iff there exists [y] in [c] such that
+ [x = q * y].  In constrast to these exact abstract operators,
+ [cnstrnt_mult] and [cnstrnt_div] compute overaprroximations,
+ that is, if [x] in [c] and [y] in [d] then there exists
+ a [z] in [cnstrnt_mult c d] ([cnstrnt_div c d]) such that
+ [z = x * y] ([z = x/y]). *)
 
 val cnstrnt_add : cnstrnt -> cnstrnt -> cnstrnt
 val cnstrnt_multq : q -> cnstrnt -> cnstrnt
@@ -152,17 +177,25 @@ val cnstrnt_mult : cnstrnt -> cnstrnt -> cnstrnt
 val cnstrnt_div : cnstrnt -> cnstrnt -> cnstrnt
 
    
-(*s Terms. Terms are either variables, uninterpreted function application, 
+(*s Terms. Terms are either variables, application of uninterpreted functions, 
  or interpreted constants and operators drawn from a combination of theories.
- Currently, ICS supports linear arithmetic, both rational and integer,
- tuples, function (array update) update, sets, and bitvectors.
+ The interpreted operators are drawn from the theory of arithmetic, tuples,
+ propostional constants, and bitvectors.
+
+ [term_of_string] parses a string according to the grammar for the nonterminal
+ [termeof] in module [Parser] (see its specification in file [parser.mly]) and
+ builds a corresponding term. Similary, [term_input] builds a term by reading
+ from an input channel. 
+
+ [term_output out a] prints term [a] on the output channel [out], and [term_pp a]
+ is equivalent to [term_output stdout a]. 
 
  Terms are build using constructors, whose names are all of the form [mk_xxx].
  For each constructor [mk_xxx] there is a corresponding recognizer [is_xxx]
  which reduces to true if its argument term has been built
  with the constructor [mk_xxx]. Moreover, for each constructor
- [mk_xxx}] above there is a corresponding desctructor [d_xxx$]
- for analyzing the components of such a constructor term. *)
+ [mk_xxx}] above there is a corresponding desctructor [d_xxx]
+ for analyzing the components of such a constructor term.  *)
 
 
 type term
@@ -172,60 +205,63 @@ val term_input : inchannel -> term
 val term_output : outchannel -> term -> unit
 val term_pp : term -> unit
 
-(*s Equality and Comparison.
-  Both the equality test [eq] and comparison [cmp] on terms
-  works in constant time. Comparison [cmp a b] returns either
+(*s Equality and Comparison. Comparison [cmp a b] returns either
   [-1], [0], or [1] depending on whether [a] is less than [b],
-  the arguments are equal, or [a] is greater than [b]. *)
+  the arguments are equal, or [a] is greater than [b] according
+  to the builtin term ordering (see [Term.(<<<)]). [term_eq a b] 
+  is true iff if [term_cmp a b] returns [0]. *)
 
 val term_eq : term -> term -> bool
 val term_cmp : term -> term -> int
 
-(*s Function applications are created using the [mk_app~f~l]
-  constructor.  In general, the name of the function [f] is
-  specified by an arbitrary term and not only by a function
-  symbol. Function update [update~f~x~a] specifices the
-  update of function [f] at position [x] with value [a]. *)
+
+(*s Given a string [s], [term_mk_var s] constructs a 
+ variable with name [s] and [term_mk_uninterp s al]
+ constructs an application of an uninterpreted function
+ symbol [s] to a list of argument terms.  If [s] is any
+ of the builtin function symbols specified in module 
+ [Builtin], the builtin simplifications are applied to
+ this application. *)
 
 val term_mk_var : string -> term
 
 val term_mk_uninterp : string -> term list -> term
 
 
-     (*s Arithmetic terms include rational constants built from
-      [mk_num q];  in addition, linear arithmetic terms are built
-      using binary and $n$-ary versions for addition and
-      multiplication, unary negation [mk_unary_minus], and a
-      binary subtraction constructor [mk_minus]. Internally, [mk_times]
-      and [mk_times2] build up different data structures for linear
-      multiplication, i.e.  multiplication by a constant number, and
-      nonlinear multiplication. [is_multq] is successful only if its
-      argument is indeed a linear multiplication, and [is_mult] yields
-      true only if the actual argument is indeed nonlinear.
-    *)
+(*s Arithmetic terms include rational constants built from
+ [term_mk_num q], linear multiplication [term_mk_multq q a],
+ addition [term_mk_add a b] of two terms, n-ary 
+ addition [term_mk_addl al] of a list of terms [al],
+ subtraction [term_mk_sub a b] of term [b] from term [a],
+ negation [term_mk_unary_minus a], multiplication
+ [term_mk_mult a b], and exponentiation [term_mk_expt n a].
+ These constructors build up arithmetic terms in a canonical
+ form as defined in module [Arith]. [term_is_arith a] holds
+ iff the toplevel function symbol of [a] is any of the 
+ function symbols interpreted in the theory of arithmetic. *)
  
+
 val term_mk_num : q -> term
 val term_mk_multq : q -> term -> term
 val term_mk_add : term -> term -> term 
 val term_mk_addl : term list -> term   
 val term_mk_sub : term -> term -> term
 val term_mk_unary_minus : term -> term
+val term_mk_mult : term -> term -> term
+val term_mk_multl : term list -> term
+val term_mk_expt : int -> term -> term
 
 val term_is_arith : term -> bool
 
-    (*s Tuples are built using the [mk_tuple] constructor, and
-      projection of the [i]-th component of a tuple [t] of
-      length [n] is realized using [mk_proj i n t];
-      [is_tuple a] and [is_proj a] are the respective recognizers,
-      while [d_tuple] returns the tuple entries as a list, and
-      [d_proj] returns the triple [(i,n,a)] for a projection
-      constructed with [mk_proj i n a].
-    *)
+
+(*s Tuples are built using the [mk_tuple] constructor, and
+  projection of the [i]-th component of a tuple [t] of
+  length [n] is realized using [mk_proj i n t]. *)
     
 val term_mk_tuple : term list -> term
 val term_mk_proj : int -> int -> term -> term
 
-    (*s Terms representing the usual propositional constants *)
+(*s Boolean constants. *)
     
 val term_mk_true  : unit -> term
 val term_mk_false : unit -> term
@@ -233,20 +269,6 @@ val term_mk_false : unit -> term
 val term_is_true : term -> bool
 val term_is_false : term -> bool
  
-     (*s Addtional nonlinear terms. *)
-
-val term_mk_mult : term -> term -> term
-val term_mk_multl : term list -> term
-val term_mk_expt : term -> term -> term
-
-
-     (*s Builtin "uninterpreted" terms. *)
-
-val term_mk_unsigned : term -> term
-
-val term_mk_update : term -> term -> term -> term
-val term_mk_select : term -> term -> term
-
 
     (*s Bitvectors *)
 
@@ -256,15 +278,33 @@ val term_mk_bvconc : int * int -> term -> term -> term
 val term_mk_bwite : int -> term * term * term -> term
 val term_mk_bwand : int -> term -> term -> term
 val term_mk_bwor : int -> term -> term -> term
-val term_mk_bwxor : int -> term -> term -> term
 val term_mk_bwnot : int -> term -> term
 
-    (*s Equality and disequality. [mk_equal a b] constructs equalites,
-        whereas [mk_diseq a b] yields a disequality of the form
-        [mk_not(mk_equal a b)]. *)
+
+(*s Builtin simplifying constructors. *)
+
+val term_mk_unsigned : term -> term
+
+val term_mk_update : term -> term -> term -> term
+val term_mk_select : term -> term -> term
+
+val term_mk_div : term -> term -> term
+val term_mk_floor : term -> term
+val term_mk_ceiling : term -> term
+
+val term_mk_sin : term -> term
+val term_mk_cos : term -> term
+
+
+(*s Atoms. [atom_mk_true()] is the trivially true atom,
+ [atom_mk_false()] is the trivially false atom, and 
+ given terms [a], [b], the constructor [mk_equal a b]
+ constructs an equality constraint, [mk_diseq a b] a 
+ disequality constraint, and [atom_mk_in a c] constructs
+ a membership constraint for [a] and a arithmetic constraint [c]. 
+ Atoms are printed to [stdout] using [atom_pp]. *)
 
 type atom
-type atoms
 
 val atom_pp : atom -> unit
       
@@ -274,20 +314,13 @@ val atom_mk_in  : cnstrnt -> term -> atom
 val atom_mk_true : unit -> atom
 val atom_mk_false : unit -> atom
 
-    (*s  Constructors for unary arithmetic predicates.
-      [mk_int t] restricts the domain of interpretations of term
-      [t] to the integers. Similarly, [mk_real] restricts its
-      argument to the real numbers, [mk_pos] restricts its
-      argument to the positive real numbers, [mk_neg] restricts
-      its argument to the negative real numbers, [mk_nonneg]
-      restricts its argument to the nonnegative real numbers, and
-      [mk_nonpos] restricts its argument to the nonpositive real
-      numbers.  Membership test [mk_in a b] is equivalent
-      to [mk_app b a], [mk_notin a b] is equivalent to [mk_not(mk_in a b)],
-      and the remaining constructors such as [mk_int a] can be viewed as
-      abbreviations for [mk_in (cnstrnt_int) a], where [cnstrnt_int] represents
-      the set of integers (see below). 
-  *)
+
+(*s Derived atomic constraints. [atom_mk_int t] restricts the domain of 
+ interpretations of term [t] to the integers. Similarly, [atom_mk_real] 
+ restricts its argument to the real numbers. [atom_mk_lt a b] generates
+ the constraint ['a' < 'b'],  [atom_mk_le a b] yields ['a' <= 'b'], 
+ [atom_mk_gt a b] yields ['a' > 'b'], and [atom_mk_ge a b] yields ['a' >= 'b'].
+ *)
 
 val atom_mk_real : term -> atom
 val atom_mk_int : term -> atom
@@ -296,45 +329,16 @@ val atom_mk_lt : term -> term -> atom
 val atom_mk_le : term -> term -> atom
 val atom_mk_gt : term -> term -> atom
 val atom_mk_ge : term -> term -> atom
-val atom_neg : atom -> atom
 
 
-(*s Sets of terms. *)
-
-type terms
-
-(*s Term maps. *)
-
-type 'a map
-
-(*s Propositions. *)
-
-type prop 
-
-val prop_mk_true : prop
-val prop_mk_false : prop
-val prop_mk_poslit : atom -> prop
-val prop_mk_neglit : atom -> prop
-val prop_mk_ite : atom -> prop -> prop -> prop
-val prop_mk_neg : prop -> prop
-val prop_mk_conj : prop -> prop -> prop
-val prop_mk_disj : prop -> prop -> prop
-val prop_mk_xor : prop -> prop -> prop
-val prop_mk_imp : prop -> prop -> prop
-val prop_mk_iff : prop -> prop -> prop
-
-
-
-
-(*s A [state] or context can be thought of a function with
-  terms as both domain and codomain. Such a context determines
-  canonical representatives for terms. Contexts are represented
-  by the abstract data type [state].  An empty context
-  is built using the [init] operator. The canonical
-  representative of a term in a given context is determined by
-  [find]. [pp_find] prints the finite, non-identical part of the context
-  on standard output. [state_eq] tests if two states are identical.
-*)
+(*s Logical context.  An element of type [state] is a logical
+ context with [state_empty] the empty context. [state_eq s1 s2]
+ is a constant-time predicate for testing for identity of two
+ states. Thus, whenever this predicate holds its arguments states
+ are equivalent, but not necessarily the other way round. Logical
+ contexts are printed using [state_pp]. The set of atoms in a
+ context [s] are obtained with [state_ctxt_of s]. *)
+ 
 
 type state
 
@@ -342,20 +346,16 @@ val state_eq : state -> state -> bool
  
 val state_empty : unit -> state
 
-val state_ctxt_of : state -> atoms
-val state_diseqs_of : state -> terms map
-val state_cnstrnts_of : state -> cnstrnt map
+val state_ctxt_of : state -> atom list
 val state_pp : state -> unit
   
 
-(*s The operation [process] adds a new proposition to a state.
+(*s The operation [process s a] adds a new atom [a] to a logical context [s].
   The codomain of this function is of type [status], elements of
   which represent the three possible outcomes of processing a
-  proposition: 1. the argument is inconsistent in the
-  current context, 2. it is valid, or, 3., it is satisfiable but
-  not valid. In the third case, a modified state is obtained using
-  the destructor [d_consistent].
-*)
+  proposition: 1. the atom [a] is inconsistent in [s], 2. it is valid, or, 
+  3., it is satisfiable but not valid. In the third case, a modified state 
+  is obtained using the destructor [d_consistent]. *)
 
 type status
     
@@ -368,45 +368,108 @@ val d_consistent : status -> state
 val process : state -> atom -> status
 
 
-(*s [can] normalizes terms inside-out. The resulting term may contain *)
-(*s fresh variables as introduced by solvers but no rename variables. *)
+(*s Canonization. Given a logical context [s] and an atom [a],
+ [can s a] computes a semicanonical form of [a] in [s], that is,
+ if [a] holds in [s] it returns [Atom.True], if the negation of [a]
+ holds in [s] then it returns [Atom.False], and, otherwise, an
+ equivalent normalized atom built up only from variables is 
+ returned. The returned logical state might contain fresh variables. *)
 
 val can : state -> atom -> state * atom
 
-(*s Computing a best constraint in a given state. *)
+(*s Given a logical context [s] and a term [a], [cnstrnt s a]
+ computes the best possible arithmetic constraint for [a] in [s]
+ using constraint informatin in [s] and abstraction interval interpretation.
+ If no such constraint can be deduced, [None] is returned. *)
 
-val cnstrnt : state -> term -> Number.t option
+val cnstrnt : state -> term -> Cnstrnt.t option
 
 
-(*s Command interface for manipulating global state. *)
+(*s An imperative state [istate] does not only include a logical 
+ context of type [state] but also a symbol table and input and output 
+ channels. A global [istate] variable is manipulated and
+ destructively updated by commands. *)
 
 type istate
 
-val istate_current : unit -> state
+(*s [cmd_current ()] returns the current logical state. *)
 
-val istate_def : name -> term -> unit
-val istate_sig : name -> int -> unit
-val istate_type : name -> Number.t -> unit
-val istate_set_in_channel : inchannel -> unit
-val istate_set_out_channel : outchannel -> unit
-val istate_flush : unit -> unit
-val istate_nl : unit -> unit
-val istate_can : term -> term
-val istate_process : prop -> status
-(* val istate_check : names -> term -> (term * cnstrnt) map status *)
-val istate_reset : unit -> unit
-val istate_save : name -> unit
-val istate_restore : name -> unit
-val istate_remove : name -> unit
-val istate_forget : unit -> unit
+val cmd_current : unit -> state
 
-(*s Eval. [istate_eval] reads a command from the current
- input channel, modifies the current internal [istate] accordingly,
- and outputs the result to the current output channel. *)
+(*s [cmd_def n a] adds a definition [n] for [a] to the symbol table. *)
 
-val istate_eval : unit -> unit
+val cmd_def : name -> term -> unit
 
-    
+
+(*s [cmd_sig n i] declares a variable with name [n] to be interpreted
+ as a bitvector of width [i] by adding a corresponding entry to the
+ symbol table. *)
+
+val cmd_sig : name -> int -> unit
+
+(*s [cmd_type n c] adds a type definition [n] for [a] to the symbol table. *)
+
+val cmd_type : name -> Cnstrnt.t -> unit
+
+(*s [cmd_set_in_channel in] sets the current input channel to [in]. *)
+
+val cmd_set_in_channel : inchannel -> unit
+
+
+(*s [cmd_set_in_channel in] sets the current output channel to [out]. *)
+
+val cmd_set_out_channel : outchannel -> unit
+
+(*s [cmd_flush] flushed the current output channel. *)
+
+val cmd_flush : unit -> unit
+
+(*s [cmd_nl] writes a newline on the current output channel. *)
+
+val cmd_nl : unit -> unit
+
+
+(*s [cmd_can a] canonizes an atom and updates the current logical
+ state with newly introduced variables. *)
+
+val cmd_can : atom -> atom
+
+(*s [cmd_process a] adds atom [a] to the current logical context. *)
+
+val cmd_process : atom -> status
+
+(*s Install the intial [istate] with an empty context
+ and flush internal data structures. *)
+
+val cmd_reset : unit -> unit
+
+(*s [cmd_save n] adds a definition [n] for the current logical
+ state by introducing a new symbol table entry. *)
+
+val cmd_save : name -> unit
+
+(*s [cmd_restore n] restores the current logical state to
+ the logical state corresponding to [n] in the symbol table. *)
+
+val cmd_restore : name -> unit
+
+(*s [cmd_remove n] removes the symbol table entry corresponding to [n]. *)
+
+val cmd_remove : name -> unit
+
+(*s [cmd_forget ()] reinitializes the current logical context to the
+ empty context. *)
+
+val cmd_forget : unit -> unit
+
+(*s [cmd_eval] reads a command from the current input channel according
+ to the grammar for the nonterminal [commandeof] in module [Parser] (see
+ its specification in file [parser.mly], the current internal [istate] 
+ accordingly, and outputs the result to the current output channel. *)
+
+val cmd_eval : unit -> unit
+
+
 (*s Lists. *)
 
 val is_nil : 'a list -> bool

@@ -168,9 +168,10 @@ let _ = Callback.register "term_mk_var" term_mk_var
 
 (*s Uninterpred function application and function update. *)
          
-let term_mk_uninterp x =
-  let str = Name.of_string x in
-  App.sigma (Sym.mk_uninterp str)
+let term_mk_uninterp x l =
+  let f = Sym.mk_uninterp (Name.of_string x) in
+  let tests = Shostak.tests Shostak.empty in
+  App.sigma tests f l
 let _ = Callback.register "term_mk_uninterp" term_mk_uninterp
 
   
@@ -309,14 +310,33 @@ let _ = Callback.register "term_mk_expt" term_mk_expt
 
 (*s Builtin applications. *)
 
-let term_mk_unsigned = Builtin.mk_unsigned
+let emptytest = Shostak.tests Shostak.empty
+
+let term_mk_unsigned = Builtin.mk_unsigned emptytest
 let _ = Callback.register "term_mk_unsigned" term_mk_unsigned
 
-let term_mk_update = Builtin.mk_update
+let term_mk_update = Builtin.mk_update emptytest
 let _ = Callback.register "term_mk_update" term_mk_update
 
-let term_mk_select = Builtin.mk_select
+let term_mk_select = Builtin.mk_select emptytest
 let _ = Callback.register "term_mk_select" term_mk_select
+
+let term_mk_div = Builtin.mk_div emptytest
+let _ = Callback.register "term_mk_div" term_mk_div
+
+let term_mk_floor = Builtin.mk_floor emptytest
+let _ = Callback.register "term_mk_floor" term_mk_floor
+
+let term_mk_ceiling = Builtin.mk_ceiling emptytest
+let _ = Callback.register "term_mk_ceiling" term_mk_ceiling
+
+let term_mk_sin = Builtin.mk_sin emptytest
+let _ = Callback.register "term_mk_sin" term_mk_sin
+
+let term_mk_cos = Builtin.mk_cos emptytest
+let _ = Callback.register "term_mk_cos" term_mk_cos
+
+
 
 
 
@@ -355,14 +375,8 @@ let _ = Callback.register "state_eq" state_eq
 let state_empty () = Shostak.empty
 let _ = Callback.register "state_empty" state_empty
 
-let state_ctxt_of s = s.Shostak.ctxt
+let state_ctxt_of s = (Atom.Set.elements s.Shostak.ctxt)
 let _ = Callback.register "state_ctxt_of" state_ctxt_of
-
-let state_diseqs_of s = D.deq_of s.Shostak.d
-let _ = Callback.register "state_diseqs_of" state_diseqs_of
-
-let state_cnstrnts_of s = failwith "to do"
-let _ = Callback.register "state_cnstrnts_of" state_cnstrnts_of
 
 let state_pp s = Shostak.pp Format.std_formatter s; Format.print_flush()
 let _ = Callback.register "state_pp" state_pp
@@ -402,55 +416,55 @@ let _ = Callback.register "can" can
 
 type istate = Istate.t
 
-let istate_current = Istate.current
-let _ = Callback.register "istate_current" istate_current
+let cmd_current = Istate.current
+let _ = Callback.register "cmd_current" cmd_current
 
-let istate_symtab = Istate.symtab
-(* let _ = Callback.register "istate_symtab" istate_symtab *)
+let cmd_symtab = Istate.symtab
+(* let _ = Callback.register "cmd_symtab" cmd_symtab *)
 
-let istate_def = Istate.def
-let _ = Callback.register "istate_def" istate_def
+let cmd_def = Istate.def
+let _ = Callback.register "cmd_def" cmd_def
 
-let istate_sig = Istate.sgn
-let _ = Callback.register "istate_sig" istate_sig
+let cmd_sig = Istate.sgn
+let _ = Callback.register "cmd_sig" cmd_sig
 
-let istate_set_in_channel = Istate.set_inchannel 
-let _ = Callback.register "istate_set_in_channel" istate_set_in_channel
+let cmd_set_in_channel = Istate.set_inchannel 
+let _ = Callback.register "cmd_set_in_channel" cmd_set_in_channel
 
-let istate_set_out_channel = Istate.set_outchannel 
-let _ = Callback.register "istate_set_out_channel" istate_set_out_channel
+let cmd_set_out_channel = Istate.set_outchannel 
+let _ = Callback.register "cmd_set_out_channel" cmd_set_out_channel
 
-let istate_type = Istate.typ
-let _ = Callback.register "istate_type" istate_type
+let cmd_type = Istate.typ
+let _ = Callback.register "cmd_type" cmd_type
 
-let istate_flush = Istate.flush
-let _ = Callback.register "istate_flush" istate_flush
+let cmd_flush = Istate.flush
+let _ = Callback.register "cmd_flush" cmd_flush
 
-let istate_nl = Istate.nl
-let _ = Callback.register "istate_nl" istate_nl
+let cmd_nl = Istate.nl
+let _ = Callback.register "cmd_nl" cmd_nl
 
-let istate_can  = Istate.can
-let _ = Callback.register "istate_can" istate_can
+let cmd_can  = Istate.can
+let _ = Callback.register "cmd_can" cmd_can
 
-let istate_process = Istate.process
-let _ = Callback.register "istate_process" istate_process
+let cmd_process = Istate.process
+let _ = Callback.register "cmd_process" cmd_process
 
-let istate_reset = Istate.reset
-let _ = Callback.register "istate_reset" istate_reset
+let cmd_reset = Istate.reset
+let _ = Callback.register "cmd_reset" cmd_reset
 
-let istate_save = Istate.save
-let _ = Callback.register "istate_save" istate_save
+let cmd_save = Istate.save
+let _ = Callback.register "cmd_save" cmd_save
 
-let istate_restore = Istate.restore
-let _ = Callback.register "istate_restore" istate_restore
+let cmd_restore = Istate.restore
+let _ = Callback.register "cmd_restore" cmd_restore
 
-let istate_remove = Istate.remove
-let _ = Callback.register "istate_remove" istate_remove
+let cmd_remove = Istate.remove
+let _ = Callback.register "cmd_remove" cmd_remove
 
-let istate_forget = Istate.forget
-let _ = Callback.register "istate_forget" istate_forget
+let cmd_forget = Istate.forget
+let _ = Callback.register "cmd_forget" cmd_forget
 
-let istate_eval () =
+let cmd_eval () =
   try 
     Parser.commands Lexer.token (Lexing.from_channel (Istate.inchannel()))
   with 
@@ -460,7 +474,7 @@ let istate_eval () =
     | Sys.Break -> raise Sys.Break
     | exc -> Format.eprintf "Internal error.@."; raise exc
 
-let _ = Callback.register "istate_eval" istate_eval
+let _ = Callback.register "cmd_eval" cmd_eval
 
 
 (*s Abstract sign interpretation. *)
