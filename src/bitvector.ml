@@ -456,7 +456,7 @@ let rec add a b (el, sl) =
   else if inconsistent a b then
     raise Exc.Inconsistent
   else 
-    match Term.is_fresh_var a, Term.is_fresh_var b with 
+    match is_fresh_bv_var a, is_fresh_bv_var b with 
       | false, false ->
 	  (inste el a b, (a,b) :: insts sl a b)
       | true, true -> 
@@ -467,7 +467,9 @@ let rec add a b (el, sl) =
 	  else
 	    (inste el b a, insts sl b a)
       | false, true ->
-	  (inste el b a, insts sl b a)  
+	  (inste el b a, insts sl b a) 
+
+and is_fresh_bv_var _ = false    
      
 and inste el a b = 
   List.map (fun (x,y) -> (apply1 x a b, apply1 y a b)) el
