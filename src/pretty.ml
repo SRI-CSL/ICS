@@ -15,7 +15,6 @@
 (*i*)
 open Hashcons
 open Mpa
-open Bitv
 open Format
 open Term
 (*i*)
