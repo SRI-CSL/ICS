@@ -185,7 +185,7 @@ var:
 ;
 
 
-app: funsym LPAR termlist RPAR     { Partition.sigma0 $1 (List.rev $3) }
+app: funsym LPAR termlist RPAR     { Term.App.mk_app $1 (List.rev $3) }
 
 funsym: name                       { Sym.Uninterp.uninterp($1) }
 
