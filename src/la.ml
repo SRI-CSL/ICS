@@ -177,7 +177,10 @@ let inconsistent rho =
 
 
 (** Test if [a], [b] in the equality [a = b] have consistent domains. *) 
-let is_infeasible a b =
+let rec is_infeasible a b =
+  is_domain_incompatible a b	
+
+and is_domain_incompatible a b =
   try
     let d = Arith.dom_of a
     and e = Arith.dom_of b in
