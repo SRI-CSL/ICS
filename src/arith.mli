@@ -178,6 +178,8 @@ module Monomials : sig
   val is_pos : t -> bool
   val is_neg : t -> bool
   val is_var : Term.t -> t -> bool
+
+  val mapq : (Mpa.Q.t -> Mpa.Q.t) -> Term.t -> Term.t
  
   val fold: (t -> bool) -> (t -> 'a -> 'a) -> Term.t -> 'a -> 'a
     (** Folding over the non-constant monomials of an arithmetic term. *)

@@ -175,6 +175,19 @@ module Monomials = struct
 
   let of_term a = snd(poly_of a)
 
+  let mapq f a =
+    let p, ml = poly_of a in
+    let ml' = 
+      List.fold_right
+	(fun m acc ->
+	   let (q, x) = mono_of m in
+	   let q' = f q in
+	     if Mpa.Q.is_zero q' then acc else
+	       of_mono q' x :: acc)
+	ml [] 
+    in
+      of_poly p ml'
+
   let fold p f a e =
     List.fold_left
       (fun acc m ->
