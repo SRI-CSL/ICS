@@ -189,8 +189,8 @@ let output_c_stub f typ mltyp =
   cprintf "  CAMLlocal1(r);\n";                       (* return value *)
   cprintf "  set_ocaml_handlers();\n";
   cprintf "  if ((setjmp(icscatch)) != 0) {\n";
-  cprintf "    signal(SIGINT,old_handler);\n";
-  cprintf "    return (value*) NULL;\n";
+  cprintf "    signal(SIGINT,old_handler);\n  ";
+  output_fake_return !cout false mltyp;
   cprintf "  }\n";
   cprintf "  old_handler = signal(SIGINT,new_handler);\n"; 
   cprintf "  r = callback%s_exn(*%s_%s_rv," (arity f mltyp) !base f;
@@ -331,11 +331,11 @@ let output_code l =
   cprintf "#include <caml/callback.h>\n#include <caml/memory.h>\n";
   cprintf "#include <setjmp.h>\n";
   cprintf "#include <signal.h>\n";
-  cprintf "extern void set_ocaml_handlers(void);";
- cprintf "extern void restore_lisp_handlers(void);";
-  cprintf "extern void ics_error(char *, char *);";
+  cprintf "extern void set_ocaml_handlers(void);\n";
+  cprintf "extern void restore_lisp_handlers(void);\n";
+  cprintf "extern void ics_error(char *, char *);\n";
   cprintf "jmp_buf icscatch;\n";
-  cprintf "void (*old_handler)(int);\n";
+  cprintf "void (*old_handler)(int);\n\n";
   cprintf "/* New interrupt handler. */\n";
   cprintf "void new_handler (int foo) {\n";
   cprintf "  signal(SIGINT, old_handler);";
@@ -364,8 +364,13 @@ let output_code l =
        printf "%s added as %s with type %s\n" name rname typ)
     l;
   cprintf "\n/* Caml startup. */\n\n";
+  cprintf "int caml_started_p = 0;\n";
   cprintf "void %s_caml_startup() {\n" !base;
   cprintf " char ** a;\n";
+  cprintf " if (caml_started_p) {\n";
+  cprintf "  fprintf(stdout, \"### Caml already started\\n\");\n";
+  cprintf "  return;\n";
+  cprintf " }\n";
   cprintf " a = malloc(2*sizeof(char **));\n";
   cprintf " a[0] = malloc(4);\n";
   cprintf " a[0][0] = 'i';\n";
@@ -374,6 +379,7 @@ let output_code l =
   cprintf " a[0][3] = NULL;\n";
   cprintf " a[1] = NULL;\n"; 
   cprintf " set_ocaml_handlers();\n";
+  cprintf " caml_started_p = 1;\n";
   cprintf " fprintf(stdout, \"### Caml startup\\n\");\n";
   cprintf " fflush(stdout);\n";
   cprintf " caml_startup(a);\n";
