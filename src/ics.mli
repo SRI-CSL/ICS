@@ -797,13 +797,7 @@ val context_eq : context -> context -> bool
 
 val context_ctxt_of : context -> atom list
   (** [context_ctxt_of s] returns the logical context of [s] as a set of atoms. *)
-  
-val context_mem : th -> context -> Term.t -> bool
-  (** [context_mem th s x] iff [x = _] is in the solution set for theory [th] in [s]. *)
-  
-val context_apply : th -> context -> Term.t -> Term.t * justification
-  (** [apply th s x] is [a] when [x = a] is in the solution set for theory [th]
-    in [s]; otherwise [Not_found] is raised. *)
+
   
 val context_find : th -> context -> Term.t -> Term.t * justification
   (** [find th s x] is [a] if [x = a] is in the solution set for theory [th]
@@ -813,7 +807,7 @@ val context_inv : th -> context -> Term.t -> Term.t
   (** [inv th s a] is [x] if there is [x = a] in the solution set for
     theory [th]; otherwise [Not_found] is raised. *)
   
-val context_use : th -> context -> Term.t -> Term.Set.t
+val context_use : th -> context -> Term.t -> Term.t list
   (** [use th s x] consists of the set of all term variables [y] such
     that [y = a] in [s], and [x] is a variable [a]. *)
 
