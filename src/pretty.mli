@@ -18,28 +18,29 @@
 
 type 'a printer = Format.formatter -> 'a -> unit
 
-(*s If [get_print_all] is [true], then the pretty-printer [term] for
- terms and all other printers which use it, print terms in prefix
- notation and all signature information of function symbols is printed.
- Otherwise, a more or less pretty-printed form with appropriate infix
- notation and suppression of printing signatures is output. *)
+val string : string printer
 
-val get_print_all : unit -> bool
-val set_print_all : bool -> unit
+val number : int printer
 
-val sym : Sym.t printer
-val number : Number.t printer
-val term : Term.t printer
-val eqn : (Term.t * Term.t) printer
-val diseq : (Term.t * Term.t) printer
-val inn : (Term.t * Number.t) printer
-val tset : Term.Set.t printer
-val map: 'a printer -> 'a Term.Map.t printer
-val tmap : Term.t Term.Map.t printer
-val tlist : Term.t list printer
 val list : 'a printer -> 'a list printer
-val atom : Atom.t printer
-val atoms : Atom.Set.t printer
-val prop : Prop.t printer
-val infer : ((Term.t * Term.t) list * Atom.t list) printer
-val solution : (Term.t * Term.t) list printer
+
+val pair : 'a printer -> 'b printer -> ('a * 'b) printer
+
+val infix : 'a printer -> string -> 'b printer -> ('a * 'b) printer
+
+val eqn : 'a printer -> ('a * 'a) printer
+
+val solution : 'a printer -> ('a * 'a) list printer
+
+val infixl : 'a printer -> string -> 'a list printer
+
+val set : 'a printer -> 'a list printer
+
+val map : 'a printer -> 'b printer -> ('a * 'b) list printer
+
+(*s Redirecting pretty-printer output. *)
+
+val to_stdout : 'a printer -> ('a -> unit)
+val to_stderr : 'a printer -> ('a -> unit)
+
+val to_string : 'a printer -> ('a -> string)

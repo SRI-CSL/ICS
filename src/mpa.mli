@@ -25,6 +25,9 @@ module Z : sig
 
   type t
 
+  val add : t -> t -> t
+  val sub : t -> t -> t
+  val succ : t -> t
   val mult : t -> t -> t
   val divexact : t -> t -> t
   val expt : t -> int -> t

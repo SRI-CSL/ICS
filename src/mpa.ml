@@ -25,13 +25,15 @@ module Z = struct
   type t = Z.t
 
   let of_int = Z.from_int
+  let one = of_int 1
+  let add = Z.add
+  let sub = Z.sub
+  let succ a = add a one
   let mult = Z.mul
   let divexact = Z.divexact
   let gcd = Z.gcd
   let lcm a b = Z.divexact (Z.mul a b) (Z.gcd a b)
   let pow = Z.pow_ui_ui 
-
-  let one = of_int 1
 
   let rec expt x n =
     if n = 0 then one else mult x (expt x (n - 1))

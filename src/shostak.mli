@@ -44,9 +44,7 @@ type t = {
   ctxt : Atom.Set.t;    (* Current context. *)
   u : Cc.t;             (* Congruence closure data structure. *)
   i : Th.t;             (* Interpreted theories. *)
-  c : C.t;              (* Constraints. *)
-  d : D.t;              (* Disequalities. *)
-  p : Prop.t            (* Propositional cases. *)
+  d : D.t               (* Disequalities. *)
 }
 
 (*s Pretty-printing the context of a state. *)
@@ -59,21 +57,14 @@ val pp : t Pretty.printer
  function symbols (see module [Sym]) and the constraint context
  [c_of s]. *)
 
-val cnstrnt : t -> Term.t -> Number.t option
+val cnstrnt : t -> Term.t -> Cnstrnt.t option
 
 val is_diseq : t -> Term.t -> Term.t -> bool
 
-(*s The empty logical context. *)
+val tests : t -> Builtin.tests
 
-val empty : t
+val sigma : t -> Sym.t -> Term.t list -> Term.t
 
-
-(*s equality theories. *)
-
-
-type e = Uninterp | Interp of Th.i
-
-val name_of : e -> string
 
 (*s Variable partitioning. *)
 
@@ -81,18 +72,25 @@ val partition: t -> Term.t Term.Map.t
 
 (*s Solution sets for equality theories. *)
 
-val solution : e -> t -> (Term.t * Term.t) list
+val solution :Theories.t-> t -> (Term.t * Term.t) list
+
 
 (*s Parameterized operators *)
 
-val find : e -> t -> Term.t -> Term.t
-val inv : e -> t -> Term.t -> Term.t
-val use : e -> t -> Term.t -> Term.Set.t
+val find : Theories.t-> t -> Term.t -> Term.t
+val inv : Theories.t-> t -> Term.t -> Term.t
+val use : Theories.t-> t -> Term.t -> Term.Set.t
 
 (*s Canonization. *)
 
 val can_t : t -> Term.t -> t * Term.t
-val can_a : t -> Atom.t -> t * Atom.t
+
+val can : t -> Atom.t -> t * Atom.t
+
+
+(*s The empty logical context. *)
+
+val empty : t 
 
 (*s Processing *)
 
@@ -102,9 +100,7 @@ type 'a status =
   | Satisfiable of 'a
 
 
-val process_a : t -> Atom.t -> t status
-val process_p : t -> Prop.t -> t status
-
+val process: t -> Atom.t -> t status
 
 
 (*s Compressing the state. *)

@@ -62,57 +62,31 @@ let is_diseq s a b =
   Term.is_diseq a b || D.is_diseq s.d a b
 
 
-(*s Equality theories. *)
-
-type e = 
-  | Uninterp 
-  | Interp of Th.i
-
-let index a =
-  assert(not(is_var a));
-  match Th.index (Term.sym_of a) with
-    | Some(op) -> Interp(op)
-    | None -> Uninterp
-
-let name_of = function
-  | Uninterp -> "u"
-  | Interp(i) -> Th.name_of i
-
-let of_name = function
-  | "u" -> Uninterp
-  | x -> Interp(Th.of_name x)  (* might raise [Invalid_argument] *)
-
-
 (*s Parameterized operations. *)
 
 let inv i s = 
   match i with
-    | Uninterp -> Cc.u s.u 
-    | Interp(i) -> Th.inv i s.i
+    | Theories.Uninterp -> Cc.u s.u 
+    | Theories.Interp(i) -> Th.inv i s.i
 
 let find i s x =
   match i with
-    | Interp(i) -> (try Th.find i s.i x with Not_found -> x)
-    | Uninterp -> x
+    | Theories.Interp(i) -> (try Th.find i s.i x with Not_found -> x)
+    | Theories.Uninterp -> x
 
 let use i s = 
   match i with
-    | Interp(i) -> Th.use i s.i
-    | Uninterp -> Cc.use s.u
+    | Theories.Interp(i) -> Th.use i s.i
+    | Theories.Uninterp -> Cc.use s.u
 
-let sigma = function
-  | Uninterp -> App.sigma
-  | Interp i -> Th.sigma i
 
+	
 (*s Return solution sets. *)
 
 let solution e s =
   match e with
-    | Uninterp -> Cc.solution s.u
-    | Interp(i) -> Th.solution i s.i 
-
-let cnstrnts s =
-  Th.cnstrnts s.i
+    | Theories.Uninterp -> Cc.solution s.u
+    | Theories.Interp(i) -> Th.solution i s.i 
 
 
 (*s Variable partitioning. *)
@@ -122,56 +96,86 @@ let partition s = Cc.v_of s.u
 
 (*s Abstracting a term [a] in theory [i]. *)
 
-let rec abs i s a =
-  if Term.is_var a then
-    (s, a) 
-  else
-    match index a with
-      | Uninterp -> 
-	  let (x,u') = Cc.extend a s.u in
-	  ({s with u = u'}, x)
-      | Interp(th) ->
-	  let (x,i') = Th.extend th a s.i in
-	  ({s with i = i'}, x)
+let abs s a =
+  match Theories.index a with
+    | Theories.Uninterp -> 
+	let (x,u') = Cc.extend a s.u in
+	({s with u = u'}, x)
+    | Theories.Interp(th) ->
+	let (x,i') = Th.extend th a s.i in
+	({s with i = i'}, x)
 
 
 (*s Canonization of terms. *)
 
 let rec can_t s a =
+  Trace.call 7 "Can" a Term.pp;
+  let (s',a') = can_term s a in
+  let (s'',a'') = if is_var a' then (s', a') else abs s' a' in
+  Trace.exit 7 "Can" a'' Term.pp;
+  (s'',a'')
+
+and can_term s a =
   if is_var a then
     (s, v s a)
   else 
     let f, l = destruct a in
-    let i = index a in  
-    let (s',l') = can_l i s l in
-    let a' = sigma i f l' in
+    let i = Theories.index a in  
+    let (s',l') = can_list i s l in
+    let a' = sigma s f l' in
     try
       (s', v s' (inv i s' a'))
     with
 	Not_found ->
-	  abs i s' a'
+	  (s', a')
  
-	
-and can_l i s l =
+and can_list i s l =
   List.fold_right 
     (fun x (s, l) ->
-       let (s', x') = can_t s x in
-       let x'' = find i s x' in        (* not [s'] *)
-       let (s'', x''') = abs i s' x'' in
-       (s'', x''' :: l))
+       let (s', x') = can_term s x in
+       let x'' = find i s x' in (*i not [s'] i*)
+       if Term.is_var x'' || i = Theories.index x'' then
+	 (s', x'' :: l)
+       else 
+	 let (s'', x''') = abs s' x'' in
+	 (s'', x''' :: l))
     l
     (s, [])
+
+and is_equal s a b =
+  let (s',a') = can_t s a in
+  let (_, b') = can_t s' b in
+  Term.eq a' b'
+
+and sigma s f =
+  match Interp.index f with
+    | None -> App.sigma (tests s) f
+    | Some _ -> Th.sigma (tests s) f
+
+and tests s = {
+    Builtin.is_equal = is_equal s;
+    Builtin.is_diseq = is_diseq s;
+    Builtin.cnstrnt = cnstrnt s;
+    Builtin.find = 
+		 fun i x -> 
+		   let y = find i s x in
+		   if eq x y then None else Some(y)
+  }
   
 
 (*s Canonization of atoms. *)
 
-let rec can s a =
-  match a with
+let rec can s a = 
+  Trace.call 3 "Can" a Atom.pp;
+  let (s',a') = match a with
     | Atom.True -> (s, Atom.mk_true)
     | Atom.Equal(x,y) -> can_e s (x,y)
     | Atom.Diseq(x,y) -> can_d s (x,y)
     | Atom.In(c,x) -> can_c s c x
     | Atom.False -> (s, Atom.mk_false)
+  in
+  Trace.exit 3 "Can" a' Atom.pp;
+  (s',a')
 	  
 and can_e s (a,b) =
   let (s', x) = can_t s a in
@@ -200,23 +204,32 @@ and can_d  s (a,b) =
     (s'', p)
 
 and can_c s c a =
-  let (s,x) = can_t s a in
-  match cnstrnt s a with
-    | None -> 
-	(s, Atom.mk_in c x)
-    | Some(d) -> 
-	(match Cnstrnt.cmp c d with
-	   | Binrel.Same | Binrel.Sub -> 
-	       (s, Atom.mk_in c x)
-	   | Binrel.Super ->
-	       (s, Atom.mk_in d x)
-	   | Binrel.Disjoint ->
-	       (s, Atom.mk_false)
-	   | Binrel.Singleton(q) ->
-	       (s, Atom.mk_equal x (Arith.mk_num q))
-	   | Binrel.Overlap ->
-	       (s, Atom.mk_in (Cnstrnt.inter c d) x))
-
+  if Cnstrnt.is_empty c then
+    (s, Atom.mk_false)
+  else  
+    let (s,x) = can_t s a in
+    match Cnstrnt.d_singleton c with
+      | Some(q) -> 
+	  let (s,y) = can_t s (Arith.mk_num q) in
+	  (s, Atom.mk_equal x y)
+      | None ->
+	  (match cnstrnt s a with
+	     | None -> 
+		 (s, Atom.mk_in c x)
+	     | Some(d) -> 
+		 (match Cnstrnt.cmp c d with
+		    | Binrel.Same | Binrel.Sub -> 
+			(s, Atom.mk_in c x)
+		    | Binrel.Super ->
+			(s, Atom.mk_true)
+		    | Binrel.Disjoint ->
+			(s, Atom.mk_false)
+		    | Binrel.Singleton(q) ->
+			let (s',y) = can_t s (Arith.mk_num q) in
+			(s', Atom.mk_equal x y)
+		    | Binrel.Overlap(cd) ->
+			assert(Cnstrnt.d_singleton(cd) = None);
+			(s, Atom.mk_in cd x)))
 
 
 (*s Processing an atom *)
@@ -226,7 +239,8 @@ type 'a status =
   | Inconsistent 
   | Satisfiable of 'a
 
-let rec process s a =
+let rec process s a =  
+  Trace.msg 1 "Process" a Atom.pp;
   let (s', a') = can s a in
   match a' with
     | Atom.True -> Valid
@@ -238,18 +252,15 @@ let rec process s a =
 	     Exc.Inconsistent -> Inconsistent)
 
 and process1 s a =
-  Trace.msg 1 "Process" a Atom.pp;
-  let (s,a) = can s a in
   let s = {s with ctxt = Atom.Set.add a s.ctxt} in
   match a with
     | Atom.Equal(x,y) -> merge s (x,y)
     | Atom.Diseq(x,y) -> diseq s (x,y)
     | Atom.In(c,x) -> add s c x
     | Atom.True -> s  (* ignore. *)
-    | Atom.False -> 
-	raise Exc.Inconsistent
+    | Atom.False -> raise Exc.Inconsistent
 
-and merge s (x,y) = 
+and merge s ((x,y) as e) = 
   mergel s (Veqs.singleton (Veq.make x y))
   
 and mergel s es =

@@ -26,7 +26,7 @@ let list (pre,sep,post) pp fmt l =
   let rec iter = function
     | [] -> ()
     | [x] -> pp fmt x
-    | x :: l -> pp fmt x; string fmt sep; iter l
+    | x :: l -> pp fmt x; string fmt sep; Format.fprintf fmt "@,"; iter l
   in
   Format.fprintf fmt "@[%s" pre; 
   iter l; 
@@ -37,12 +37,12 @@ let pair pp1 pp2 fmt (a,b) =
   pp1 fmt a;
   string fmt ",";
   pp2 fmt b;
-  Format.fprintf fmt ")@]"
+  Format.fprintf fmt ")@]@?"
 
 let infix pp1 op pp2 fmt (a,b) =
   Format.fprintf fmt "@["; 
   pp1 fmt a; 
-  Format.fprintf fmt "%s" op; 
+  Format.fprintf fmt " %s " op; 
   pp2 fmt b;
   Format.fprintf fmt "@]"
 
@@ -62,6 +62,8 @@ let map pp1 pp2 fmt =
   list ("[", "; ", "]") (assign pp1 pp2) fmt
 
 let list pp = list ("[", "; ", "]") pp
+
+let solution pp = list (eqn pp)
 
 (*s Redirecting output. *)
 
