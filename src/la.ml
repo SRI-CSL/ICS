@@ -573,7 +573,9 @@ and process_solved_restricted ((p, s) as cfg) e =
 	let (diff, rho) = mk_diff e in                   (* [rho |- diff = 0] *)
 	  assert(Mpa.Q.is_nonpos (Arith.constant_of diff));
 	  let (k, tau) = mk_zero_slack diff rho in       (* [tau |- k = diff] *)
-	    add_to_t cfg (Fact.Equal.make (k, diff, tau));   
+	    add_to_t cfg (Fact.Equal.make (k, diff, tau)); 
+	    if Fact.Equal.is_diophantine e then
+	      gomery_cut cfg e;  
 	    infer cfg;
 	    (try
 	       let (a', rho') = S.apply t s k in         (* [rho' |- k = a'] *)
@@ -621,28 +623,58 @@ and choose_negvar_with_no_smaller_gain s a' =
 	     let g0 = Mpa.Q.div c0 (Mpa.Q.minus q) in (* gain of [y] in [k = a'] *)
 	     let (g1, _) = gain s y in                (* gain of [y] in [t] *)
 	       Mpa.Q.ge g1 g0)
-	  a')       
-     
+	  a')     
 
-(** Process a nonnegativity constraint [c] of the form [a >= 0]. *)
-and process_nonneg ((_, s) as cfg) c = 
-  let c = Fact.Nonneg.map (replace s) c in 
-    Trace.msg "la" "Process" c Fact.Nonneg.pp;
-    let (a, rho) = Fact.Nonneg.destruct c in           (* [rho |- a >= 0] *)
-      match Arith.is_nonneg a with                     (* cheap test. *)
-	| Three.Yes -> () 
-	| Three.No -> inconsistent rho
-	| Three.X -> 
-	    let (k, tau) = mk_nonneg_slack a rho in    (* [tau |- k = a] *)
-	    let e = Fact.Equal.make (k, a, tau) in
-	      try
-		let e' = isolate (choose_unrestricted a) e in
-		  compose1 r cfg e'
-	      with
-		  Not_found ->
-		    add_to_t cfg e;
-		    infer cfg
-		      
+(** Let [a = ceil(a) - def(a) = floor(a) + frac(a)].  If 
+        [x = b + Sigma_i ci*xi], 
+  then this can be rewritten as 
+        [x = ceil(b) - def(b) + Sigma_i floor(ci)*xi + Sigma_i frac(ci)*xi]
+  which can be rearranged as
+        [x - ceil(b) - Sigma_i floor(ci)*xi = -def(b) + Sigma_i frac(ci)*xi].
+  If all the [x] and [xi] range over non-negative integers, then the lhs is
+  integer and the rhs is a non-negative integer (since all the fracs are
+  non-negative and [def(b) > -1]).  So, we have to add the inequality that
+  [-def(b) + Sigma_i frac(ci)*xi >= 0], proceed. *)
+and gomery_cut ((_, s) as cfg) e =
+  assert(is_restricted_equality e);
+  let (x, a, rho) = Fact.Equal.destruct e in (* [rho |- x = a]. *)
+  let (b, ml) = Arith.destruct a in
+  let b' = Mpa.Q.minus (Mpa.Q.def b) in
+  let ml' = Arith.Monomials.mapq Mpa.Q.frac ml in
+  let a' = Arith.mk_addq b' ml' in
+  let rho' = Justification.dependencies [rho] in
+  let nn' = Fact.Nonneg.make (a', rho') in
+    Trace.msg "la" "Gomery" nn' Fact.Nonneg.pp;
+    process_nonneg1 cfg nn'
+
+  
+(** Process a nonnegativity constraint [nn] of the form [a >= 0]. *)
+and process_nonneg ((_, s) as cfg) nn = 
+  let nn = Fact.Nonneg.map (replace s) nn in
+    Trace.msg "la" "Process" nn Fact.Nonneg.pp;
+    process_nonneg1 cfg nn
+
+and process_nonneg1 ((_, s) as cfg) nn =
+  let (a, rho) = Fact.Nonneg.destruct nn in          (* [rho |- a >= 0] *)
+    match Arith.is_nonneg a with (* cheap test. *)
+      | Three.Yes -> 
+	  () 
+      | Three.No -> 
+	  inconsistent rho
+      | Three.X -> 
+	  let (k, tau) = mk_nonneg_slack a rho in    (* [tau |- k = a] *)
+	  let e = Fact.Equal.make (k, a, tau) in
+	    try
+	      let e' = isolate (choose_unrestricted a) e in
+		compose1 r cfg e'
+	    with
+		Not_found ->
+		  add_to_t cfg e;
+		  if Fact.Equal.is_diophantine e then
+		    gomery_cut cfg e;
+		  infer cfg
+	
+	      
 and add_to_t ((_, s) as cfg) e =
   let (k, a, rho) = Fact.Equal.destruct e in
     assert(is_restricted_var k && is_restricted a);
@@ -847,6 +879,10 @@ and is_pos cfg a =
 and is_le cfg (a, b) =
   is_nonneg cfg (Arith.mk_sub b a)
 
+(** Test if [a >= b]. *)
+and is_ge cfg (a, b) =
+  is_nonneg cfg (Arith.mk_sub a b)
+
 (** Test if [a > b]. *)
 and is_gt cfg (a, b) =
   is_pos cfg (Arith.mk_sub a b)
@@ -897,29 +933,48 @@ and process_diophantine_diseq cfg d =
   assert(Fact.Diseq.is_diophantine d);
   let (e, n, rho) = Fact.Diseq.d_diophantine d in
   let (min, max, taus) =                   (* [taus] together prove *)
-    contiguous_diseq_segment cfg (e, n)    (* [e] not in [[min+1, max-1]]. *)
+    contiguous_diseq_segment cfg (e, n)    (* [e] not in interval [[min..max]]. *)
   in
-  let min = Arith.mk_num min
-  and max = Arith.mk_num max in
-    match is_gt cfg (e, min) with    
-      | Some(tau') ->                                (* [tau' |- e > min] *)   
-	  let rho'' = Justification.dependencies (tau' :: taus) in  
-	  let c'' = Fact.Nonneg.make (Arith.mk_sub e max, rho'') in
-	    process_nonneg cfg c''                   (* [rho'' |- e >= max] *)     
-      | None -> 
-	  (match is_gt cfg (max, e)  with              
-	     | Some(tau'') ->                        (* [tau'' |- max > e] *)
-		 let rho' = Justification.dependencies (tau'' :: taus) in 
-		   (try
-		      process_nonneg cfg              (* now: [rho' |- e <= min] *)
-			(Fact.Nonneg.make (Arith.mk_sub min e, rho'))
-		    with                              (* reprocess! *)
-			Justification.Inconsistent _ -> 
-			  failwith "Unsoundness.")
-	     | None ->
-		 process_nondiophantine_diseq cfg d)
-	   
+  let l = Arith.mk_num (Q.sub min Q.one)
+  and h = Arith.mk_num (Q.add max Q.one) in
+    try
+      case_process_le cfg (e, l);           (* try [e <= l] *)
+      (try
+	 case_process_ge cfg (e, h);        (* try [e >= h] *)
+	 process_nondiophantine_diseq cfg d
+       with
+	   Justification.Inconsistent(tau) -> (* [tau |- e < h] *)
+	     let sigma = Justification.dependencies (tau :: rho :: taus) in
+	       process_le cfg (e, l, sigma))  (* [sigma |- e <= l] *)
+    with
+	Justification.Inconsistent(tau) ->   (* [tau |- e > l] *)
+	  let sigma = Justification.dependencies (tau :: rho :: taus) in
+	    process_ge cfg (e, h, sigma)  (* [sigma |- e >= h] *)
+
+and process_le cfg (a, b, rho) =
+  let nn = Fact.Nonneg.make (Arith.mk_sub b a, rho) in
+    process_nonneg cfg nn
+      
+and process_ge cfg (a, b, rho) =
+  let nn = Fact.Nonneg.make (Arith.mk_sub a b, rho) in
+    process_nonneg cfg nn
+
+and case_process_le cfg =
+  Trace.proc "la" "Case_le" (Pretty.pair Term.pp Term.pp)
+    (fun (a, b) ->
+       let dummy = Justification.dependencies [] in
+       let nn = Fact.Nonneg.make (Arith.mk_sub b a, dummy) in
+	 protect cfg process_nonneg nn)
+      
+and case_process_ge cfg =
+  Trace.proc "la" "Case_ge" (Pretty.pair Term.pp Term.pp)
+    (fun (a, b) ->
+       let dummy = Justification.dependencies [] in
+       let nn = Fact.Nonneg.make (Arith.mk_sub a b, dummy) in
+	 protect cfg process_nonneg nn)
+  
 and contiguous_diseq_segment (p, s) (e, n) = 
+  Trace.call "la" "Contigous" (e, n) (Pretty.pair Term.pp Mpa.Q.pp);
   let taus = ref [] in
   let rec upper max =                           (* [rho |- e <> n] *)
     let max' = Q.add max Q.one in
@@ -939,8 +994,9 @@ and contiguous_diseq_segment (p, s) (e, n) =
 	| None ->
 	    min
   in
-  let (max, min) = (lower n, upper n) in
-    (max, min, !taus)
+  let (min, max) = (lower n, upper n) in
+    Trace.exit "la" "Contiguous" (min, max) (Pretty.pair Mpa.Q.pp Mpa.Q.pp);
+    (min, max, !taus)
 
   
 (** {6 Extremal Values} *)    
