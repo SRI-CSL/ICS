@@ -332,11 +332,15 @@ value icsat_sat (value x1) {
 
 /** Parameter settings for SAT solver */
 
+extern void sat_set_verbose(int);
+
 void icsat_set_verbose(value x1) {
   CAMLparam1(x1);
   sat_set_verbose(Bool_val(x1));
   CAMLreturn0;
 }
+
+extern void  sat_set_remove_subsumed_clauses(int);
 
 void icsat_set_remove_subsumed_clauses(value x1) {
   CAMLparam1(x1);
@@ -362,15 +366,32 @@ void icsat_set_clause_relevance(value x1) {
   CAMLreturn0;
 }
 
+void icsat_set_num_refinements(value x1) {
+  CAMLparam1(x1);
+  sat_set_num_refinements(Int_val(x1));
+  CAMLreturn0;
+}
+
 void icsat_set_cleanup_period(value x1) {
   CAMLparam1(x1);
   sat_set_cleanup_period(Int_val(x1));
   CAMLreturn0;
 }
 
+extern int sat_get_assignment(LPFormulaId);
 
 value icsat_get_assignment(value x1) {
   CAMLparam1(x1);
   CAMLreturn(Val_int(sat_get_assignment(Int_val(x1))));
 }
+
+extern void sat_print_statistics();
+
+void icsat_print_statistics() {
+  CAMLparam0();
+  sat_print_statistics();
+  CAMLreturn0;
+}
+
+
 
