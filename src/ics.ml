@@ -17,24 +17,22 @@
 
 open Format
 
-external ics_licensed_to : unit -> unit = "ics_licensed_to"
 external ics_is_licensed : unit -> bool = "ics_is_licensed"
 
+let is_licensed = ref false
+
 let license_check () = 
-  if ics_is_licensed() then
+  if !is_licensed then
+    ()
+  else if ics_is_licensed() then
     begin
-      (* Format.eprintf "%s licensed to " Version.version;
-      ics_licensed_to (); 
-      Format.eprintf "@." *)
+      is_licensed := true;
     end 
   else 
     begin
-     Format.eprintf "\nThis copy of ICS appears to be unlicensed.";
-     Format.eprintf "\nPlease, obtain the license agreement at ics.csl.sri.com";
-     Format.eprintf "\nand follow the simple three step instructions for obtaining";
-     Format.eprintf "\na licensed copy of ICS.\n\n"
+      Format.eprintf "\nExit...";
+      exit(-1)
     end
-
 
 let init (n) =
   license_check ();
@@ -707,7 +705,8 @@ type context = Context.t
 let context_eq = Context.eq
 let _ = Callback.register "context_eq" context_eq  
 
-let context_empty () = Context.empty
+let context_empty () =
+  license_check(); Context.empty
 let _ = Callback.register "context_empty" context_empty
 
 let context_ctxt_of s = Context.ctxt_of s
@@ -793,7 +792,7 @@ let _ = Callback.register "set_outchannel" set_outchannel
 
 let set_inchannel inch =
   Istate.inchannel := inch
-let _ = Callback.register "set_inhannel" set_inchannel
+let _ = Callback.register "set_inchannel" set_inchannel
 
 let set_prompt str = Istate.prompt := str
 let _ = Callback.register "set_prompt" set_prompt
