@@ -73,15 +73,14 @@ module Cnstnt = struct
 end
 
 module Eqs =
-  Eqs.Close
-    (Eqs.MakeCnstnt(
-       struct
-	 let th = Th.bv
-	 let nickname = Th.to_string Th.bv
-	 let apply = Bitvector.apply
-	 let is_infeasible _ _ = None
-       end)
-       (Cnstnt))
+  Eqs.MakeCnstnt(
+    struct
+      let th = Th.bv
+      let nickname = Th.to_string Th.bv
+      let apply = Bitvector.apply
+      let is_infeasible _ _ = None
+    end)
+    (Cnstnt)
 
 type t = {eqs : Eqs.t; mutable interp : Interp.t}
     

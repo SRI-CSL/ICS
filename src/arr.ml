@@ -12,15 +12,14 @@
  i*)
 
 (** Equality set for arrays *)
-module A: Eqs.SET0 = 
-  Eqs.Close(
-    Eqs.Make(
-      struct
-	let th = Th.arr
-	let nickname = Th.to_string Th.arr
-	let apply = Funarr.apply Term.is_equal
-	let is_infeasible _ _ = None
-      end))
+module A: Eqs.SET = 
+  Eqs.Make0(
+    struct
+      let th = Th.arr
+      let nickname = Th.to_string Th.arr
+      let apply = Funarr.apply Term.is_equal
+      let is_infeasible _ _ = None
+    end)
 
 type t = A.t
 

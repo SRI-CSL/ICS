@@ -100,7 +100,7 @@ val minimize : config -> Justification.Eqtrans.t
 
 (** {6 Model construction} *)
 
-val model : Partition.t * t -> Term.Set.t -> Term.t Term.Map.t
+val model : Partition.t * t -> (Term.t * La.mode option) list -> Term.t Term.Map.t
 
 
 (** {6 Splits} *)

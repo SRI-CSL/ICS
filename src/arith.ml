@@ -32,7 +32,8 @@ let mk_zero = mk_num Q.zero
 let mk_one = mk_num Q.one
 let mk_two = mk_num (Q.of_int 2)
 
-let mk_inf = mk_num (Q.of_int 123456789)                 (* hack *)
+let mk_posinf = mk_num (Q.of_int 123456789)                 (* hack *)
+let mk_neginf = mk_num (Q.of_int (-123456789))
 let mk_eps = mk_num (Q.div Q.one (Q.of_int 123456789))
 
 

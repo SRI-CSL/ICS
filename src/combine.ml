@@ -16,7 +16,7 @@ open Th
 (** {6 Fully uninterpreted theory} *)
 
 
-module U = Eqs.Close(Eqs.Make(
+module U = Eqs.Make0(
   struct
     let th = Th.u
     let nickname = Th.to_string Th.u
@@ -26,28 +26,28 @@ module U = Eqs.Close(Eqs.Make(
 	  let yl' = Term.mapl (apply (x, b)) yl in
 	    if yl == yl' then a else Term.App.mk_app f yl'
     let is_infeasible _ _ = None
-  end))
+  end)
 
 (** {6 Product theory} *)
 
-module P = Eqs.Close(Eqs.Make(
+module P = Eqs.Make0(
   struct
     let th = Th.p
     let nickname = Th.to_string Th.p
     let apply = Product.apply
     let is_infeasible _ _ = None
-  end))
+  end)
 
 
 (** {6 Theory of Function Application and Abstraction} *)
 
-module APP = Eqs.Close(Eqs.Make(
+module APP = Eqs.Make0(
   struct
     let th = Th.app
     let nickname = Th.to_string Th.app
     let apply = Apply.apply
     let is_infeasible _ _ = None
-  end))
+  end)
 
 
 (** {6 Array of Equality Sets} *)
@@ -389,8 +389,8 @@ let solve i e =
 let model (p, s) =
   La.model (p, s.a)
 
-let maximize (p, s) = La.maximize (p, s.a)
-let minimize (p, s) = La.minimize (p, s.a)
+let maximize (p, s) = La.upper (p, s.a)
+let minimize (p, s) = La.lower (p, s.a)
 
 
 (** {6 Splits} *)

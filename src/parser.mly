@@ -23,33 +23,6 @@ let name_of_slack = Name.of_string "k"
 let name_of_zero_slack = Name.of_string "k0"
 let name_of_rename = Name.of_string "v"
 
-module Ebnf = struct
-
-  type t = 
-    | Nonterminal of string
-    | Terminal of string
-    | Alt of t list
-    | Optional of t
-    | Star of t
-    | Plus of t
-
-  let rec pp fmt = function
-    | Nonterminal(name) ->
-	Format.fprintf fmt "<%s>" name
-    | Terminal(name) ->
-	Format.fprintf fmt "'%s'" name
-    | Alt(dl) ->
-	Pretty.infixl pp " | " fmt dl
-    | Optional(d) ->
-	Format.fprintf fmt "[%s]*" (Pretty.to_string pp d)
-    | Star(d) ->
-	Format.fprintf fmt "[%s]*" (Pretty.to_string pp d)
-    | Plus(d) ->
-	Format.fprintf fmt "[%s]+" (Pretty.to_string pp d)
-
-end
-    
-
 
 %}
 
@@ -142,7 +115,7 @@ commands :
 ;
 
 commandsequence :
-  command DOT commandsequence    { ()  }
+  command DOT commandsequence    { () }
 | command DOT                    { () }
 | EOF                            { raise End_of_file }
 
@@ -174,27 +147,6 @@ namelist:
 | namelist COMMA name { $3 :: $1 }
 ;
 
-funsym: 
-  name                                                 { Sym.Uninterp.uninterp($1) }
-| PLUS                                                 { Sym.Arith.add }
-| TIMES                                                { Sym.Pprod.mult }
-| EXPT LBRA int RBRA                                   { Sym.Pprod.expt $3 }
-| CONS                                                 { Sym.Pair.cons }
-| CAR                                                  { Sym.Pair.car }
-| CDR                                                  { Sym.Pair.cdr }
-| CONC LBRA INTCONST COMMA INTCONST RBRA               { Sym.Bv.conc $3 $5 }
-| SUB LBRA INTCONST COMMA INTCONST COMMA INTCONST RBRA { Sym.Bv.sub $3 $5 $7 }
-| APPLY                                                { Sym.Fun.apply None }
-| LAMBDA                                               { Sym.Fun.abs }
-;
-
-constsym: 
-  rat       { Sym.Arith.num $1 }
-| TRUE      { Boolean.tt }
-| FALSE     { Boolean.ff }
-| BVCONST   { Sym.Bv.const (Bitv.from_string $1)  }
-;
-
 
 term:
   var              { $1 }
@@ -203,6 +155,8 @@ term:
 | arith            { $1 }     /* infix/mixfix syntax */
 | array            { $1 }
 | bv               { $1 }
+| product          { $1 }
+| boolean          { $1 }
 | coproduct        { $1 }
 | list             { $1 }
 | apply            { $1 }
@@ -227,31 +181,33 @@ var:
 	       Term.Var.mk_slack (Some(k)) Var.Zero
 	     else 
 	       Term.Var.mk_rename n (Some(k)) None }
-| FREE    { Term.Var(Var.mk_free $1) }
-;
-
-varset : var         { Term.Set.singleton $1 }
-| varset COMMA var  { Term.Set.add $3 $1 }
+| FREE   { Term.Var.mk_free $1 }
 ;
 
 
-app: 
-  funsym LPAR termlist RPAR     { Partition.sigma0 $1 (List.rev $3) }
-| constsym                      { Partition.sigma0 $1 [] }
-;
+app: funsym LPAR termlist RPAR     { Partition.sigma0 $1 (List.rev $3) }
+
+funsym: name                       { Sym.Uninterp.uninterp($1) }
 
 list: 
   term LISTCONS term            { Coproduct.mk_inj 1 (Product.mk_cons $1 $3) }
 | HEAD LPAR term RPAR           { Product.mk_car (Coproduct.mk_out 1 $3) }
 | TAIL LPAR term RPAR           { Product.mk_cdr (Coproduct.mk_out 1 $3) }
 | NIL                           { Coproduct.mk_inj 0 (Bitvector.mk_eps) }
+;
 
 apply: 
   term APPLY term               { Apply.mk_apply Partition.sigma0 None $1 $3 }
+| LAMBDA LPAR term RPAR         { Apply.mk_abs $3 }
 ;
 
+boolean: 
+  TRUE                          { Boolean.mk_true }
+| FALSE                         { Boolean.mk_false }
+;
      
 arith:
+  rat                           { Arith.mk_num $1 }
 | term PLUS term                { Arith.mk_add $1 $3 }
 | term MINUS term               { Arith.mk_sub $1 $3 }
 | MINUS term %prec prec_unary   { Arith.mk_neg $2 }
@@ -260,6 +216,11 @@ arith:
 | term EXPT int                 { Nonlin.mk_expt $3 $1 }
 ;
 
+product:
+  CONS LPAR term COMMA term RPAR { Product.mk_cons $3 $5 }
+| CAR LPAR term RPAR             { Product.mk_car $3 }
+| CDR LPAR term RPAR             { Product.mk_cdr $3 }
+;
 
 coproduct:
   INL LPAR term RPAR                    { Coproduct.mk_inl $3 }
@@ -277,8 +238,13 @@ array:
 ;
 
 
-bv:
-  term BVCONC term  
+bv: 
+  BVCONST                     { Bitvector.mk_const (Bitv.from_string $1)  }
+| CONC LBRA INTCONST COMMA INTCONST RBRA LPAR term COMMA term RPAR  
+                              { Bitvector.mk_conc $3 $5 $8 $10 }
+| SUB LBRA INTCONST COMMA INTCONST COMMA INTCONST RBRA LPAR term RPAR 
+                              { Bitvector.mk_sub $3 $5 $7 $10 }
+| term BVCONC term  
      { match Istate.width_of $1, Istate.width_of $3 with
 	 | Some(n), Some(m) -> 
 	     if n < 0 then
@@ -320,7 +286,6 @@ dom:
   INT          { Dom.Int }
 | REAL         { Dom.Real }
 ;
-
 
 termlist:             { [] }
 | term                { [$1] }
@@ -367,7 +332,7 @@ command:
 | UNTRACE                   { Istate.do_untrace None }
 | UNTRACE identlist         { Istate.do_untrace (Some($2)) }
 | SAT prop                  { Istate.do_sat $2 }
-| MODEL optname varset      { Istate.do_model ($2, $3) }
+| MODEL optname optvarspecs { Istate.do_model ($2, List.rev $3) }
 | ECHO STRING               { Format.eprintf "%s@." $2 }
 | GET varname               { Istate.do_get $2 }
 | varname ASSIGN value      { Istate.do_set ($1, $3)}
@@ -376,7 +341,29 @@ command:
 | INF optname term          { Istate.do_inf ($2, $3) }
 | help                      { $1 }
 ;
+
+optvarspecs:            { let ctxt = Context.ctxt_of !Istate.current in
+			  let xs = 
+			    Atom.Set.fold 
+			      (fun a -> Term.Set.union (Atom.vars_of a))
+			      ctxt Term.Set.empty 
+			  in
+			    Term.Set.fold 
+			      (fun x acc -> (x, None) :: acc) 
+			      xs [] }
+| varspecs              { $1 }
   
+varspecs: 
+  varspec                   { [$1] }
+| varspecs COMMA varspec    { $3 :: $1 }
+;
+
+varspec: 
+  var               { $1, None }
+| var PLUS          { $1, Some(La.Max) }
+| var MINUS         { $1, Some(La.Min) }
+;
+
 varname : IDENT            { Istate.Parameters.of_string $1 }
 
 value : IDENT              { $1 }

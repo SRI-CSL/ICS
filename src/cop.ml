@@ -14,7 +14,7 @@
 open Mpa
 
 
-module Cop = Eqs.Make(
+module Cop = Eqs.Make0(
   struct
     let th = Th.cop
     let nickname = Th.to_string Th.cop
@@ -24,8 +24,8 @@ module Cop = Eqs.Make(
 
 
 (** As a side effect, generate disequalities from rhs. *)
+(*
 module Diseqs = struct
-  type t = Cop.t
   type ext = unit
   let empty = ()
   let pp _ () = ()
@@ -41,8 +41,9 @@ module Diseqs = struct
 	       Partition.dismerge p d)
       s () 
 end
+*)
 
-module S = Eqs.Extend(Cop)(Diseqs)
+module S = Cop
 
 type t = S.t
 

@@ -15,14 +15,14 @@ open Mpa
 
 let nl = Some(Th.nl)
 
-module Eqs = Eqs.Close(Eqs.Make(
+module Eqs = Eqs.Make0(
   struct
     let th = Th.nl
     let nickname = Th.to_string Th.nl
     let apply = Pprod.apply
     let disapply _ a = a
     let is_infeasible _ _ = None
-  end))
+  end)
 
 type t = Eqs.t
 

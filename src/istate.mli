@@ -220,7 +220,7 @@ val do_valid : Name.t option * Atom.t -> unit
 val do_unsat : Name.t option * Atom.t -> unit
   (** Checking for unsatisfiablity. *)
 
-val do_model : Name.t option * Term.Set.t -> unit
+val do_model : Name.t option *  (Term.t * La.mode option) list -> unit
   (** Model construction. *)
 
 (** {6 Context Manipulations} *)
