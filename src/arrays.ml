@@ -21,16 +21,6 @@ open Sym
 open Context
 (*i*)
 
-(*s Selectors. *)
-
-let d_update a = match a with 
-  | App(Builtin(Update), [b; i; x]) -> (b, i, x)
-  | _ -> raise Not_found
-
-let d_select a = match a with 
-  | App(Builtin(Select), [a; i]) -> (a, i)
-  | _ -> raise Not_found
-
 
 (*s From the equality [x = y] and the facts
  [z1 = select(upd1,j1)], [z2 = update(a2,i2,k2)] in [s]
@@ -41,20 +31,20 @@ let propagate e s =
   let (x, y, _) = Fact.d_equal e in
     Set.fold
       (fun z1 s1 -> 
-	 match apply Theories.U s1 z1 with 
-	   | App(Builtin(Select), [upd1; j1])
+	 match apply Th.arr s1 z1 with 
+	   | App(Arrays(Select), [upd1; j1])
 	       when is_equal s1 y j1 = Three.Yes ->
 	       fold s1
 		 (fun z2 s2  -> 
-		    match apply Theories.U s2 z2 with 
-		      | App(Builtin(Update), [a2; i2; k2])
+		    match apply Th.arr s2 z2 with 
+		      | App(Arrays(Update), [a2; i2; k2])
 			  when is_equal s2 x i2 = Three.Yes -> 
 			  let e' = Fact.mk_equal (v s2 z1) (v s2 k2) None in
 			    update (Partition.merge e' (p_of s2)) s2
 		      | _ -> s2)
 		 upd1 s1
 	   | _ -> s1)
-      (use Theories.U s x)
+      (use Th.arr s x)
       s
 
 
@@ -68,20 +58,20 @@ let rec diseq d s =
   let (i, j, _) = Fact.d_diseq d in
   Set.fold
    (fun z1 s1 -> 
-      match apply Theories.U s1 z1 with
-	| App(Builtin(Select), [upd; j']) 
+      match apply Th.arr s1 z1 with
+	| App(Arrays(Select), [upd; j']) 
 	    when is_equal s1 j j' = Three.Yes ->
 	    fold s 
 	      (fun z2 s2 ->
-		 match apply Theories.U s2 z2 with
-		   | App(Builtin(Update), [a; i'; _])
+		 match apply Th.arr s2 z2 with
+		   | App(Arrays(Update), [a; i'; _])
 		       when is_equal s2 i i' = Three.Yes ->
-		       let (s', z3) = name Theories.U  (s, Term.mk_app Sym.select [a; j]) in
+		       let (s', z3) = name Th.arr (s, Arr.mk_select a j) in
 		       let e' = Fact.mk_equal (v s2 z1) (v s2 z3) None in
 		       let p' = Partition.merge e' (p_of s2) in
 			 update p' s'
 		   | _ -> s2)
 	      upd s1
 	| _ -> s)    
-    (use Theories.U s j)
+    (use Th.arr s j)
     s
