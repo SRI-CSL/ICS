@@ -1,4 +1,5 @@
 
+
 /*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
@@ -62,6 +63,7 @@ let equal_width_of a b =
 
 %token <string> BVCONST 
 %token <string * int> FRESH
+%token <int> FREE
 
 %token CONC SUB BWITE BWAND BWOR BWXOR BWIMP BWIFF BWNOT
 %token BVCONC 
@@ -69,7 +71,7 @@ let equal_width_of a b =
 %token TRUE FALSE
 %token PLUS MINUS TIMES DIVIDE EXPT
 %token LESS GREATER LESSOREQUAL GREATEROREQUAL  
-%token UNSIGNED APPLY 
+%token UNSIGNED APPLY LAMBDA
 %token WITH CONS CAR CDR NIL
 %token INL INR OUTL OUTR
 %token INJ OUT 
@@ -80,6 +82,7 @@ let equal_width_of a b =
 %right DISJ XOR IMPL
 %left BIIMPL CONJ
 %nonassoc EQUAL DISEQ LESS GREATER LESSOREQUAL GREATEROREQUAL
+%left APPLY
 %left UNION
 %left MINUS PLUS 
 %left DIVIDE
@@ -139,7 +142,8 @@ funsym:
 | CONC LBRA INTCONST COMMA INTCONST RBRA               { Sym.Bv(Sym.Conc($3, $5)) }
 | SUB LBRA INTCONST COMMA INTCONST COMMA INTCONST RBRA { Sym.Bv(Sym.Sub($3, $5, $7)) }
 | BWITE LBRA INTCONST RBRA                             { Sym.Bv(Sym.Bitwise($3)) }
-| APPLY range                            { Sym.Apply(Sym.Funapp($2)) }
+| APPLY range                            { Sym.Fun(Sym.Apply($2)) }
+| LAMBDA                                 { Sym.Fun(Sym.Abs) }
 ;
 
 range:                              { None }
@@ -165,6 +169,7 @@ term:
 | coproduct        { $1 }
 | boolean          { $1 }
 | list             { $1 }
+| apply            { $1 }
 ;
 
 var:
@@ -176,6 +181,7 @@ var:
 	      Not_found -> Term.mk_var $1 }
 | FRESH  { let (x,k) = $1 in 
 	   Term.mk_fresh_var (Name.of_string x) (Some(k)) }
+| FREE   { Term.Var(Var.mk_free $1) }
 ;
 
 
@@ -189,6 +195,8 @@ list:
 | TAIL LPAR term RPAR           { Tuple.mk_proj 1 2 (Coproduct.mk_out 1 $3) }
 | NIL                           { Coproduct.mk_inj 0 (Tuple.mk_tuple []) }
 
+apply: 
+  term APPLY term               { Apply.mk_apply None $1 [$3] }
 
      
 arith:

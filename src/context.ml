@@ -172,7 +172,7 @@ let sigma s f =
     | Product(op) -> Tuple.sigma op
     | Bv(op) -> Bitvector.sigma op
     | Coproduct(op) -> Coproduct.sigma op
-    | Apply(op) -> Apply.sigma op
+    | Fun(op) -> Apply.sigma op
     | Pp(op) -> Pp.sigma op
     | Arrays(op) -> Arr.sigma op
     | Bvarith(op) -> Bvarith.sigma op

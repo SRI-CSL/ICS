@@ -42,8 +42,8 @@ type pprod =
   | Expt of int
 
 type apply = 
-  | Funapp of Cnstrnt.t option
-  | Lambda of int
+  | Apply of Cnstrnt.t option
+  | Abs
 
 type arrays = 
   | Select 
@@ -62,7 +62,7 @@ type t =
   | Coproduct of coproduct   (* 2-ary coproducts *)
   | Bv of bv                 (* Bitvector function symbols. *)
   | Pp of pprod              (* Power products. *)
-  | Apply of apply           (* Lambda abstraction and application *)
+  | Fun of apply             (* Lambda abstraction and application *)
   | Arrays of arrays         (* Theory of arrays. *)
   | Bvarith of bvarith       (* Bitvector interpretations. *)
 

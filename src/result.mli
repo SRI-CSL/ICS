@@ -27,7 +27,7 @@ type t =
   | Bool of bool
   | Solution of (Term.t * Term.t) list
   | Context of Context.t
-  | Process of Name.t Shostak.status
+  | Process of Name.t Process.status
   | Symtab of Symtab.t
   | Entry of Symtab.entry
   | Int of int

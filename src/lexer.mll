@@ -47,7 +47,8 @@ let keyword =
       "inr", INR; "inl", INL; "outr", OUTR; "outl", OUTL;
       "inj", INJ; "out", OUT;
       "hd", HEAD; "tl", TAIL;
-      "unsigned", UNSIGNED; "apply", APPLY
+      "unsigned", UNSIGNED; "apply", APPLY;
+      "lambda", LAMBDA
     ];
   fun s ->
     try Hashtbl.find kw_table s with Not_found -> IDENT s
@@ -79,6 +80,11 @@ rule token = parse
                      let x = String.sub s 0 i in
 		     let k = int_of_string (String.sub s (i + 1) (n - i - 1)) in
 		       FRESH (x, k) }
+
+  | '!' int    { let s = Lexing.lexeme lexbuf in
+		 let n = String.length s in
+		 let k = int_of_string (String.sub s 1 (n - 1)) in
+		   FREE k }
   | ','        { COMMA }
   | '('        { LPAR }
   | ')'        { RPAR }
@@ -116,6 +122,7 @@ rule token = parse
   | "::"       { LISTCONS }
   | "[]"       { NIL }
   | '.'        { DOT }
+  | '$'        { APPLY }
   | '@'        { KLAMMERAFFE }
   | eof        { EOF }  
   | _          { raise Parsing.Parse_error }

@@ -80,9 +80,9 @@ CMO = sign.cmo three.cmo \
       bitvector.cmo \
       boolean.cmo \
       pp.cmo \
-      apply.cmo \
       arr.cmo \
       bvarith.cmo \
+      apply.cmo \
       app.cmo \
       th.cmo \
       atom.cmo \
@@ -98,7 +98,7 @@ CMO = sign.cmo three.cmo \
       arrays.cmo \
       deduce.cmo \
       rule.cmo \
-      shostak.cmo \
+      process.cmo \
       symtab.cmo istate.cmo \
       help.cmo \
       result.cmo \

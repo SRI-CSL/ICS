@@ -26,7 +26,7 @@ i*)
 
  In contrast to this functional interface, the command interface
  manipulates a global state consisting, among others, of symbol tables 
- and the current logical context.  The [istate_eval] procedure, which 
+ and the current logical context.  The [cmd_rep] procedure, which 
  reads commands from the current input channel and manipulates the global
  structures accordingly, is used to implement the ICS interactor.
 
@@ -39,17 +39,15 @@ i*)
 
 (*s Controls. [reset] clears all the global tables. This does not only 
  include the current context but also internal tables used  for hash-consing 
- and memoization purposes. [gc] triggers a full major collection of ocaml's garbage 
- collector. Finally, [set_verbose] controls the amount of trace messages.
- The default is [0], which means that nothing is printed at all.
- The higher the value, the more numerous the messages are.  
- [do_at_exit] clears out internal data structures. *)
+ and memoization purposes. [gc] triggers a full major collection of 
+ ocaml's garbage collector. [do_at_exit] clears out internal data structures. *)
 
 val reset : unit -> unit
     
 val gc : unit -> unit
 
 val do_at_exit : unit -> unit
+
 
 (*s [set_maxloops n] determines an upper number of loops in
  the main ICS loop. [n < 0] determines that there is no such
@@ -58,7 +56,15 @@ val do_at_exit : unit -> unit
 val set_maxloops : int -> unit
 
 
-(*s Rudimentary control on tracing. *)
+(*s Rudimentary control on trace messages, which are 
+ sent to [stderr]. These functions are mainly included
+ for debugging purposes, and are usually not being used
+ by the application programmer. [trace_add str] enables 
+ tracing of functions associated with trace level [str].
+ [trace_add "all"] enables all tracing. [trace_remove str]
+ removes [str] from the set of active trace levels, and
+ [trace_reset()] disables all tracing. [trace_get()] returns
+ the set of active trace levels. *) 
 
 
 val trace_reset : unit -> unit
@@ -86,15 +92,6 @@ val outchannel_of_string : string -> outchannel
   
 val flush : unit -> unit
 
-
-(*s Initialization. [init n] sets the verbose level to [n]. The higher
- the verbose level, the more trace information is printed to [stderr]
- (see below). There are no trace messages for [n = 0]. In addition, 
- initialization makes the system to raise the [Sys.Break] exception upon
- user interrupt [^C^C].  The [init] function should be called before
- using any other function in this API. *)
-
-val init : int * bool * string * inchannel * outchannel -> unit
 
 
 (*s Multi-precision rational numbers. [num_of_int n]
@@ -132,11 +129,13 @@ val name_eq : name -> name -> bool
  numbers in the disequality set.
 
  [cnstrnt_of_string str] parses the string [str] according to
- the nonterminal [cnstrnteof] in module [Parser] (see its specification
- in file [parser.mly]) and produces the corresponding constraint representation. 
- In contrast, [cnstrnt_input in] parses the concrete syntax of constraints from 
- the input channel [in]. Constraints [c] are printed to the output channel [out] 
- using [cnstrnt_output out c] and to the standard output using [cnstrnt_pp c].
+ the nonterminal [cnstrnteof] in module [Parser] (see its 
+ specification in file [parser.mly]) and produces the corresponding 
+ constraint representation.  In contrast, [cnstrnt_input in] parses 
+ the concrete syntax of constraints from the input channel [in]. 
+ Constraints [c] are printed to the output channel [out] 
+ using [cnstrnt_output out c] and to the standard output 
+ using [cnstrnt_pp c].
 
  For the definition of constraint constructors see Module [Cnstrnt]. 
  [cnstrnt_mk_int()] constructs an integer constraint, [cnstrnt_mk_nat()]
@@ -149,10 +148,9 @@ val name_eq : name -> name -> bool
  bound [l] and upper bound [h], [cnstrnt_mk_cc l h] is the closed interval 
  with lower bound [l] and upper bound [h]. 
 
- The intersection of two constraints [c], [d] is computed by [cnstrnt_inter c d],
- that is, a real [q] is in both [c] and [d] iff it is in  [cnstrnt_inter c d].
- 
- *)
+ The intersection of two constraints [c], [d] is computed 
+ by [cnstrnt_inter c d], that is, a real [q] is in both [c] and [d]
+ iff it is in  [cnstrnt_inter c d]. *)
 
 type cnstrnt
 
@@ -176,6 +174,7 @@ val cnstrnt_mk_ge : q -> cnstrnt
 
 val cnstrnt_inter : cnstrnt -> cnstrnt -> cnstrnt
 
+
 (*s Abstract interval interpretation. A real number [x] is in
  [cnstrnt_add c d] iff there are real numbers [y] in [c] and 
  [z] in [d] such that [x = y + x]. Likewise, [x] is in 
@@ -191,19 +190,126 @@ val cnstrnt_multq : q -> cnstrnt -> cnstrnt
 val cnstrnt_mult : cnstrnt -> cnstrnt -> cnstrnt
 val cnstrnt_div : cnstrnt -> cnstrnt -> cnstrnt
 
+(*s Theories. A theory is associated with each function symbol.
+ These theories are indexed by naturals between 0 and 8 according
+ to the following table
+  
+ 0 Theory of uninterpreted function symbols.
+ 1 Linear arithmetic theory.
+ 2 Product theory.
+ 3 Bitvector theory.
+ 4 Coproducts.
+ 5 Power products. 
+ 6 Theory of function abstraction and application. 
+ 7 Array theory. 
+ 8 Theory of bitvector interpretation(s). 
+*)
+
+type th = int
+
+val th_to_string : th -> string
+
+
+(*s Function symbols. These are partitioned into uninterpreted
+ function symbols and function symbols interpreted in one of the
+ builtin theories. For each interpreted function symbol there is
+ a recognizer function [is_xxx].  Some values of type [sym] represent 
+ families of function symbols. The corresponding indices can be obtained
+ using the destructor [d_xxx] functions (only after checking that [is_xxx]
+ holds. *)
+
+type sym
+
+val sym_is_uninterp : sym -> bool
+val sym_is_interp : th -> sym -> bool
+
+
+(*s [sym_eq] tests for equality of two function symbols. *)
+
+val sym_eq : sym -> sym -> bool
+
+(*s [sym_cmp] provides a total ordering on function symbols.
+ It returns a negative integer if [s < t], [0] if [s] is equal to [t],
+ and a positive number if [s > t]. *)
+
+val sym_cmp : sym -> sym -> int
+
+
+(*s Arithmetic function symbols are either numerals, addition, or
+ linear multiplication. *)
+
+val sym_is_num : sym -> bool
+val sym_d_num : sym -> q
+
+val sym_is_add : sym -> bool
+
+val sym_is_multq : sym -> bool
+val sym_d_multq : sym -> q
+
+
+(* Symbols interpreted in the theory of products. *)
+
+val sym_is_tuple : sym -> bool
+
+val sym_is_proj : sym -> bool
+val sym_d_proj : sym -> int * int
+
+(*s Symbols interpreted in the theory of coproducts. *)
+
+val sym_is_inl : sym -> bool
+val sym_is_inr : sym -> bool
+val sym_is_outl : sym -> bool
+val sym_is_outr : sym -> bool
+
+(*s Symbols in the bitvector theory. *)
+
+val sym_is_bv_const : sym -> bool
+
+val sym_is_bv_conc : sym -> bool
+val sym_d_bv_conc : sym -> int * int
+
+val sym_is_bv_sub : sym -> bool
+val sym_d_bv_sub : sym -> int * int * int
+
+val sym_is_bv_bitwise : sym -> bool
+val sym_d_bv_bitwise : sym -> int
+
+(*s Symbols from the theory of power products. *)
+
+val sym_is_mult : sym -> bool
+
+val sym_is_expt : sym -> bool
+
+
+(*s Symbols from the theory of function abstraction and application. *)
+
+val sym_is_apply : sym -> bool
+val sym_d_apply : sym -> cnstrnt option
+
+val sym_is_abs : sym -> bool
+
+(*s Symbols from the theory of arrays. *)
+
+val sym_is_select : sym -> bool
+
+val sym_is_update : sym -> bool
+
+(*s Symbols from the theory of arithmetic interpretations of bitvectors. *)
+
+val sym_is_unsigned : sym -> bool
+
    
-(*s Terms. Terms are either variables, application of uninterpreted functions, 
- or interpreted constants and operators drawn from a combination of theories.
- The interpreted operators are drawn from the theory of arithmetic, tuples,
- propostional constants, and bitvectors.
+(*s Terms. Terms are either variables, application of 
+ uninterpreted functions, or interpreted constants and operators 
+ drawn from a combination of theories..
 
  [term_of_string] parses a string according to the grammar for the nonterminal
  [termeof] in module [Parser] (see its specification in file [parser.mly]) and
  builds a corresponding term. Similary, [term_input] builds a term by reading
  from an input channel. 
 
- [term_output out a] prints term [a] on the output channel [out], and [term_pp a]
- is equivalent to [term_output stdout a]. 
+ [term_output out a] prints term [a] on the output channel [out], 
+ and [term_pp a] is equivalent to [term_output stdout a]. 
 
  Terms are build using constructors, whose names are all of the form [mk_xxx].
  For each constructor [mk_xxx] there is a corresponding recognizer [is_xxx]
@@ -378,11 +484,17 @@ val context_eq : context -> context -> bool
 val context_empty : unit -> context
 
 val context_ctxt_of : context -> atom list
+
 val context_u_of : context -> solution
+
 val context_a_of : context -> solution
+
 val context_t_of : context -> solution
+
 val context_bv_of : context -> solution
+
 val context_pp : context -> unit
+
 val context_ctxt_pp : context -> unit
 
 
@@ -446,6 +558,16 @@ val cnstrnt : context -> term -> cnstrnt option
  context of type [state] but also a symbol table and input and output 
  channels. A global [istate] variable is manipulated and
  destructively updated by commands. *)
+
+
+(*s Initialization. [init n] sets the verbose level to [n]. The higher
+ the verbose level, the more trace information is printed to [stderr]
+ (see below). There are no trace messages for [n = 0]. In addition, 
+ initialization makes the system to raise the [Sys.Break] exception upon
+ user interrupt [^C^C].  The [init] function should be called before
+ using any other function in this API. *)
+
+val init : int * bool * string * inchannel * outchannel -> unit
 
 
 (*s [cmd_eval] reads a command from the current input channel according

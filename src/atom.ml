@@ -43,23 +43,23 @@ let mk_equal e =
     else if Term.is_interp_const a && Term.is_interp_const b then
       mk_false()
     else
-      Equal(Fact.mk_equal a b None)     (* Larger Term on rhs *)
+      Equal(e)    (* Larger Term on rhs *)
 
 let rec mk_in c =
-  let (a, c, _) = Fact.d_cnstrnt c in
+  let (a, c, j) = Fact.d_cnstrnt c in
   if Cnstrnt.is_empty c then
     False
   else 
     match Cnstrnt.d_singleton c with
     | Some(q) ->
-	mk_equal (Fact.mk_equal a (Arith.mk_num q) None)
+	mk_equal (Fact.mk_equal a (Arith.mk_num q) j)
     | None -> 
 	(match a with
 	   | Term.App(Sym.Arith(Sym.Num(q)), []) -> 
 	       if Cnstrnt.mem q c then True else raise Exc.Inconsistent
 	   | _ ->
 	       let (a', c') = normalize (a, c) in
-		 In(Fact.mk_cnstrnt a' c' None))
+		 In(Fact.mk_cnstrnt a' c' j))
 
 and normalize (a, c) =
   match a with
@@ -78,27 +78,27 @@ and normalize (a, c) =
     | _ -> (a, c)
 
 let rec mk_diseq d =
-  let (a, b, _) = Fact.d_diseq d in
+  let (a, b, j) = Fact.d_diseq d in
     if Term.eq a b then 
       mk_false()
     else if Term.is_interp_const a && Term.is_interp_const b then
       mk_true()
     else if Term.eq a (Boolean.mk_true()) then
-      mk_equal(Fact.mk_equal b (Boolean.mk_false()) None)
+      mk_equal(Fact.mk_equal b (Boolean.mk_false()) j)
     else if Term.eq a (Boolean.mk_false()) then
-      mk_equal(Fact.mk_equal b (Boolean.mk_true()) None)
+      mk_equal(Fact.mk_equal b (Boolean.mk_true()) j)
     else if Term.eq b (Boolean.mk_true()) then
-      mk_equal(Fact.mk_equal a (Boolean.mk_false()) None)
+      mk_equal(Fact.mk_equal a (Boolean.mk_false()) j)
     else if Term.eq b (Boolean.mk_false()) then
-      mk_equal(Fact.mk_equal a (Boolean.mk_true()) None)
+      mk_equal(Fact.mk_equal a (Boolean.mk_true()) j)
     else
       match Arith.d_num a, Arith.d_num b with
 	| Some(q), _ -> 
-	    mk_in(Fact.mk_cnstrnt b (Cnstrnt.mk_diseq q) None)
+	    mk_in(Fact.mk_cnstrnt b (Cnstrnt.mk_diseq q) j)
 	| _, Some(p) -> 
-	    mk_in(Fact.mk_cnstrnt a (Cnstrnt.mk_diseq p) None)
+	    mk_in(Fact.mk_cnstrnt a (Cnstrnt.mk_diseq p) j)
 	| None, None -> 
-	    Diseq(Fact.mk_diseq a b None)
+	    Diseq(Fact.mk_diseq a b j)
 
 
 (*s Constructing inequalities. *)

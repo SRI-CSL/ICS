@@ -19,7 +19,9 @@ type t
 
 type rule = string
 
-type justification = rule * t list
+type justification =
+  | Axiom
+  | Rule of rule * justification list
 
 type equal
 type diseq

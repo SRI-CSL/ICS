@@ -24,12 +24,16 @@ open Format
 type t = 
   | External of Name.t
   | Internal of Name.t * int
+  | Bound of int
 
 let name_of = function
   | External(n) -> n
   | Internal(n, i) ->  
       let str = Format.sprintf "%s!%d" (Name.to_string n) i in
-      Name.of_string str
+	Name.of_string str
+  | Bound(n) ->
+      let str = Format.sprintf "!%d" n in
+	Name.of_string str
 
 let eq x y =
   match x, y with
@@ -37,7 +41,10 @@ let eq x y =
 	Name.eq n m
     | Internal(n,i), Internal(m,j) -> 
 	Name.eq n m && i = j
-    | _ -> false
+    | Bound(n), Bound(m) ->
+	n = m
+    | _ -> 
+	false
 
 let cmp x y =
   match x, y with
@@ -48,6 +55,10 @@ let cmp x y =
     | Internal(n, i), Internal(m, j) -> 
 	let c1 = Name.cmp n m in
 	if c1 != 0 then c1 else Pervasives.compare i j
+    | Bound(n), Bound(m) ->
+	Pervasives.compare n m
+    | _ ->
+	Pervasives.compare x y
 
 let (<<<) x y = (cmp x y <= 0)
 
@@ -86,10 +97,17 @@ let mk_slack =
   let slackname = Name.of_string "k" in
     mk_fresh slackname
 
+let mk_free i = Bound(i)
+
 (*s Recognizers. *)
 
 let is_var = function External _ -> true | _ -> false
 let is_fresh = function Internal _ -> true | _ -> false
+let is_free = function Bound _ -> true | _ -> false
+
+let d_free = function
+  | Bound(i) -> i
+  | _ -> assert false
 
 let is_slack =
   let slackname = Name.of_string "k" in
@@ -101,6 +119,5 @@ let is_slack =
 
 (*s Printer. *)
 
-let pp fmt = function
-  | External(n) -> Name.pp fmt n
-  | Internal(n,i) -> Format.fprintf fmt "%s!%d" (Name.to_string n) i
+let pp fmt x =
+  Name.pp fmt (name_of x)

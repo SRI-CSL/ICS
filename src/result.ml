@@ -26,7 +26,7 @@ type t =
   | Bool of bool
   | Solution of (Term.t * Term.t) list
   | Context of Context.t
-  | Process of Name.t Shostak.status
+  | Process of Name.t Process.status
   | Symtab of Symtab.t
   | Entry of Symtab.entry
   | Int of int
@@ -46,9 +46,7 @@ let output fmt = function
   | Bool(x) -> Format.fprintf fmt "%s" (if x then "true" else "false")
   | Solution(sl) -> Pretty.list (Pretty.eqn Term.pp) fmt sl
   | Context(c) -> Context.pp fmt c
-  | Process(Shostak.Valid) -> Format.fprintf fmt "Valid"
-  | Process(Shostak.Inconsistent) -> Format.fprintf fmt "Unsat"
-  | Process(Shostak.Satisfiable(n)) -> Format.fprintf fmt "Ok(%s)" (Name.to_string n)
+  | Process(status) -> Process.pp Name.pp fmt status
   | Symtab(sym) -> Symtab.pp fmt sym
   | Entry(e) -> Symtab.pp_entry fmt e
   | Int(i) -> Format.fprintf fmt "%d" i

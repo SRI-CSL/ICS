@@ -14,17 +14,24 @@
  * Author: Harald Ruess
  i*)
 
-(*i*)
-open Mpa
-open Term
-(*i*)
 
-(*s Module [Apply]: Theoruy of function application and abstraction *)
+(*s Module [Shostak]: extending a logical context using a version
+ of Shostak's algorithm. *)
 
-val mk_apply : Cnstrnt.t option -> Term.t -> Term.t list -> Term.t
 
-val mk_abs : Term.t -> Term.t
+(*s [process s a] extends the logical context [s] with an atom [a].
+ The return value is [Valid] if [a] can be shown to be valid in [s],
+ [Inconsistent] if [s] conjoined with [a] can be shown to be 
+ inconsistent, and [Satisfiable(s')] otherwise. In the latter case,
+ [s'] is a logical state equivalent to [s] conjoined with [a]. *)
 
-val sigma : Sym.apply -> Term.t list -> Term.t
 
-val map: (Term.t -> Term.t) -> Term.t -> Term.t
+type 'a status =
+  | Valid
+  | Inconsistent 
+  | Ok of 'a
+
+val pp : 'a Pretty.printer -> 'a status Pretty.printer
+
+
+val atom: Context.t -> Atom.t -> Context.t status

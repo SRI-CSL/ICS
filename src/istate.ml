@@ -206,25 +206,25 @@ let forget () =
 
 let process n a =
   let t = (get_context n) in
-  let status = Shostak.process t a in
+  let status = Process.atom t a in
   match status with      (* Update state and install new name in symbol table *)
-    | Shostak.Satisfiable(t') -> 
+    | Process.Ok(t') -> 
 	s.current <- t';
 	let n = save None in
-	Shostak.Satisfiable(n)
-    | Shostak.Valid ->
-	Shostak.Valid
-    | Shostak.Inconsistent ->
-	Shostak.Inconsistent
+	Process.Ok(n)
+    | Process.Valid ->
+	Process.Valid
+    | Process.Inconsistent ->
+	Process.Inconsistent
 
 let valid n a =
-  match Shostak.process (get_context n) a with 
-    | Shostak.Valid -> true
+  match Process.atom (get_context n) a with 
+    | Process.Valid -> true
     | _ -> false
 
 let unsat n a =
-  match Shostak.process (get_context n) a with 
-    | Shostak.Inconsistent -> true
+  match Process.atom (get_context n) a with 
+    | Process.Inconsistent -> true
     | _ -> false
 
 (*s Accessors. *)

@@ -24,6 +24,10 @@ type t = int
 
 let eq i j = (i = j)
 
+let of_int i = i
+
+let to_int i = i
+
 
 let names = ["u"; "la"; "p"; "bv"; "cop"; "nl"; "app"; "arr"; "bva"]
 
@@ -73,7 +77,7 @@ let of_sym = function
   | Sym.Coproduct _ -> cop
   | Sym.Arrays _ -> arr
   | Sym.Pp _ -> pprod
-  | Sym.Apply _ -> app
+  | Sym.Fun _ -> app
   | Sym.Bvarith _ -> bvarith
 
 

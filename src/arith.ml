@@ -262,7 +262,7 @@ let rec cnstrnt ctxt = function
   Solve for maximal monomial which satisfies predicate [pred]. *)
 
 let rec solve_for pred e =
-  let (a, b, _) = Fact.d_equal e in
+  let (a, b, j) = Fact.d_equal e in
   let (q,l) = poly_of (mk_sub a b) in
   if l = [] then
     if Q.is_zero q then None else raise(Exc.Inconsistent)
@@ -275,7 +275,7 @@ let rec solve_for pred e =
 	None
       else 
 	let (x, b) = orient pred x b in
-	Some(Fact.mk_equal x b None)
+	Some(Fact.mk_equal x b j)
     with
 	Not_found -> 
 	  raise Exc.Unsolved

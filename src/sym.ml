@@ -43,8 +43,8 @@ type pprod =
   | Expt of int
 
 type apply = 
-  | Funapp of Cnstrnt.t option
-  | Lambda of int
+  | Apply of Cnstrnt.t option
+  | Abs
 
 type arrays = 
   | Select 
@@ -63,7 +63,7 @@ type t =
   | Coproduct of coproduct
   | Bv of bv
   | Pp of pprod
-  | Apply of apply
+  | Fun of apply
   | Arrays of arrays  
   | Bvarith of bvarith 
 
@@ -83,7 +83,7 @@ let rec eq s t =
     | Coproduct(op1), Coproduct(op2) -> op1 = op2
     | Bv(f), Bv(g) -> eq_bv f g
     | Pp(f), Pp(g) -> eq_pp f g
-    | Apply(f), Apply(g) -> eq_apply f g
+    | Fun(f), Fun(g) -> eq_apply f g
     | Bvarith(f), Bvarith(g) -> eq_interp f g
     | Arrays(f), Arrays(g) -> eq_arrays f g
     | _ -> false
@@ -112,8 +112,8 @@ and eq_product f g =
 
 and eq_apply f g =
   match f, g with
-    | Funapp _, Funapp _ -> true
-    | Lambda i, Lambda j -> i = j
+    | Apply _, Apply _ -> true
+    | Abs, Abs -> true
     | _ -> false
 
 and eq_arith f g =
@@ -146,7 +146,7 @@ let pp fmt s =
       | Coproduct(op) -> coproduct op
       | Arrays(op) -> array op
       | Pp(op) -> pprod op
-      | Apply(op) -> apply op
+      | Fun(op) -> apply op
       | Bvarith(op) -> interp op
 
   and arith op =
@@ -185,12 +185,12 @@ let pp fmt s =
 
   and apply op =
     match op with
-      | Funapp(Some(c)) -> 
+      | Apply(Some(c)) -> 
 	  Pretty.string fmt ("apply[" ^ Pretty.to_string Cnstrnt.pp c ^ "]")
-      | Funapp(None) ->
+      | Apply(None) ->
 	  Pretty.string fmt "apply"
-      | Lambda(i) -> 
-	  Pretty.string fmt ("lambda[" ^  string_of_int i ^ "]")
+      | Abs -> 
+	  Pretty.string fmt "lambda"
 
   and pprod op =
     match op with

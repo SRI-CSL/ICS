@@ -19,28 +19,76 @@ open Sym
 open Term
 (*i*)
 
-let mk_apply r a al =
-  mk_app (Apply(Funapp(r))) (a :: al)
-    
-let mk_lambda i a =
-  mk_app (Apply(Lambda(i))) [a]
-    
+let mk_abs a =
+  mk_app (Fun(Abs)) [a]
+
+
+let rec mk_apply r a al =
+  match a, al with
+    | App(Fun(Abs), [x]), [y] -> 
+	subst x y 0
+    | _ ->
+	mk_app (Fun(Apply(r))) (a :: al)
+ 
+
+and subst a s k =
+  match a with
+    | Var(x) -> 
+	if Var.is_free x then
+          let i = Var.d_free x in
+            if k < i then 
+              Var(Var.mk_free(i-1))
+            else if i = k then
+              s
+            else 
+              Var(Var.mk_free i)
+	else 
+	  a
+    | App(Fun(Abs), [x]) ->
+        mk_abs (subst x (lift s 0) (k + 1))
+    | App(Arith(op), xl) ->
+	Arith.sigma op (substl xl s k)
+(*    | App(Pp(Mult), xl) ->
+	Sig.mk_multl (substl xl s k) *)
+    | App(f, xl) ->
+	mk_app f (substl xl s k)
+
+and substl al s k =
+  mapl (fun x -> subst x s k) al
+
+and lift a k =
+  match a with
+    | Var(x) ->
+	if Var.is_free x then
+	  let i = Var.d_free x in
+	    if i < k then a else Var(Var.mk_free(i + 1))
+	else 
+	  a
+    | App(Fun(Abs), [x]) ->
+	mk_abs (lift x (k + 1))
+    | App(f, xl) ->
+	mk_app f (liftl xl k)
+
+and liftl al k =
+  mapl (fun a -> lift a k) al
+
+
 let sigma op al =
   match op, al with
-    | Funapp(r), x :: xl -> mk_apply r x xl
-    | Lambda(i), [x] -> mk_lambda i x
+    | Apply(r), x :: xl -> mk_apply r x xl
+    | Abs, [x] -> mk_abs x
     | _ -> assert false
 	
 let rec map f a =
   match a with
-    | App(Apply(Funapp(r)), x :: xl) ->
+    | App(Fun(Apply(r)), x :: xl) ->
 	let x' = map f x in
 	let xl' = mapl (map f) xl in
 	  if x == x' && xl == xl' then a else
 	    mk_apply r x' xl'
-    | App(Apply(Lambda(i)), [x]) ->
+    | App(Fun(Abs), [x]) ->
 	let x' = map f x in
 	  if x == x' then a else 
-	    mk_lambda i x'
+	    mk_abs x'
     | _ ->
 	f a

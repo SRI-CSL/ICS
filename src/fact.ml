@@ -20,7 +20,9 @@ type t =
   | Diseq of diseq
   | Cnstrnt of cnstrnt
 
-and justification = rule * t list
+and justification =
+  | Axiom
+  | Rule of string * justification list
 
 and equal = Term.t * Term.t * justification option
 and diseq = Term.t * Term.t * justification option

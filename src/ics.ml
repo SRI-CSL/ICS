@@ -150,6 +150,122 @@ let _ = Callback.register "cnstrnt_mult" cnstrnt_mult
 let cnstrnt_div = Cnstrnt.div
 let _ = Callback.register "cnstrnt_div" cnstrnt_div
 
+(*s Theories. *)
+
+type th = int
+
+let th_to_string n = Th.to_string (Th.of_int n)
+let _ = Callback.register "th_to_string" th_to_string
+
+
+
+(*s Function symbols. These are partitioned into uninterpreted
+ function symbols and function symbols interpreted in one of the
+ builtin theories. For each interpreted function symbol there is
+ a recognizer function [is_xxx].  Some values of type [sym] represent 
+ families of function symbols. The corresponding indices can be obtained
+ using the destructor [d_xxx] functions (only after checking that [is_xxx]
+ holds. *)
+
+open Sym
+
+type sym = Sym.t
+
+let sym_is_uninterp = function Uninterp _ -> true | _ -> false
+let _ = Callback.register "sym_is_uninterp" sym_is_uninterp
+
+let sym_is_interp n sym =
+  Th.eq (Th.of_int n) (Th.of_sym sym)
+let _ = Callback.register "sym_is_interp" sym_is_interp
+
+let sym_eq = Sym.eq
+let _ = Callback.register "sym_eq" sym_eq
+
+let sym_cmp = Sym.cmp
+let _ = Callback.register "sym_cmp" sym_cmp
+
+let sym_is_num = function Arith(Num _) -> true | _ -> false
+let _ = Callback.register "sym_is_num" sym_is_num
+
+let sym_d_num = function Arith(Num(q)) -> q | _ -> assert false
+let _ = Callback.register "sym_d_num" sym_d_num
+
+let sym_is_multq = function Arith(Multq _) -> true | _ -> false
+let _ = Callback.register "sym_is_multq" sym_is_multq
+
+let sym_d_multq = function Arith(Multq(q)) -> q | _ -> assert false
+let _ = Callback.register "sym_d_multq" sym_d_multq
+
+let sym_is_add = function Arith(Add) -> true | _ -> false
+let _ = Callback.register "sym_is_add" sym_is_add
+
+let sym_is_tuple = function Product(Tuple) -> true | _ -> false
+let _ = Callback.register "sym_is_tuple" sym_is_tuple
+
+let sym_is_proj = function Product(Proj _) -> true | _ -> false
+let _ = Callback.register "sym_is_proj" sym_is_proj
+
+let sym_d_proj = function Product(Proj(i,n)) -> (i,n) | _ -> assert false
+let _ = Callback.register "sym_d_proj" sym_d_proj
+
+let sym_is_inl = function Coproduct(InL) -> true | _ -> false
+let _ = Callback.register "sym_is_inl" sym_is_inl
+
+let sym_is_inr = function Coproduct(InR) -> true | _ -> false
+let _ = Callback.register "sym_is_inr" sym_is_inr
+
+let sym_is_outl = function Coproduct(OutL) -> true | _ -> false
+let _ = Callback.register "sym_is_outl" sym_is_outl
+
+let sym_is_outr = function Coproduct(OutR) -> true | _ -> false
+let _ = Callback.register "sym_is_outr" sym_is_outr
+
+let sym_is_bv_const = function Bv(Const _) -> true | _ -> false
+let _ = Callback.register "sym_is_bv_const" sym_is_bv_const
+
+let sym_is_bv_conc = function Bv(Conc _) -> true | _ -> false
+let _ = Callback.register "sym_is_bv_conc" sym_is_bv_conc
+
+let sym_d_bv_conc = function Bv(Conc(n, m)) -> (n, m) | _ -> assert false
+let _ = Callback.register "sym_d_bv_conc" sym_d_bv_conc
+
+let sym_is_bv_sub = function Bv(Sub _) -> true | _ -> false
+let _ = Callback.register "sym_is_bv_sub" sym_is_bv_sub
+
+let sym_d_bv_sub = function Bv(Sub(n, i, j)) -> (n, i, j) | _ -> assert false
+let _ = Callback.register "sym_d_bv_sub" sym_d_bv_sub
+
+let sym_is_bv_bitwise = function Bv(Bitwise _) -> true | _ -> false
+let _ = Callback.register "sym_is_bv_bitwise" sym_is_bv_bitwise
+
+let sym_d_bv_bitwise = function Bv(Bitwise(n)) -> n | _ -> assert false
+let _ = Callback.register "sym_d_bv_bitwise" sym_d_bv_bitwise
+
+let sym_is_mult = function Pp(Mult) -> true | _ -> false
+let _ = Callback.register "sym_is_mult" sym_is_mult
+
+let sym_is_expt = function Pp(Mult) -> true | _ -> false
+let _ = Callback.register "sym_is_expt" sym_is_expt
+
+let sym_is_apply = function Fun(Apply _) -> true | _ -> false
+let _ = Callback.register "sym_is_apply" sym_is_apply
+
+let sym_d_apply = function Fun(Apply(i)) -> i | _ -> assert false
+let _ = Callback.register "sym_d_apply" sym_d_apply
+
+let sym_is_abs = function Fun(Abs) -> true | _ -> false
+let _ = Callback.register "sym_is_abs" sym_is_abs
+
+let sym_is_select = function Arrays(Select) -> true | _ -> false
+let _ = Callback.register "sym_is_select" sym_is_select
+
+let sym_is_update = function Arrays(Update) -> true | _ -> false
+let _ = Callback.register "sym_is_update" sym_is_update
+
+let sym_is_unsigned = function Bvarith(Unsigned) -> true | _ -> false
+let _ = Callback.register "sym_is_unsigned" sym_is_unsigned
+
+
 
 
 (*s Terms ar either variables, uninterpreted applications,
@@ -290,15 +406,15 @@ let atom_to_string = Pretty.to_string Atom.pp
 let _ = Callback.register "atom_to_string" atom_to_string
 
 let atom_mk_equal a b = 
-  Atom.mk_equal (Fact.mk_equal a b None)
+  Atom.mk_equal (Fact.mk_equal a b (Some(Fact.Axiom)))
 let _ = Callback.register "atom_mk_equal" atom_mk_equal  
 
 let atom_mk_diseq a b = 
-  Atom.mk_diseq (Fact.mk_diseq a b None)
+  Atom.mk_diseq (Fact.mk_diseq a b (Some(Fact.Axiom)))
 let _ = Callback.register "atom_mk_diseq" atom_mk_diseq
 
 let atom_mk_in i a = 
-  Atom.mk_in (Fact.mk_cnstrnt a i None)
+  Atom.mk_in (Fact.mk_cnstrnt a i (Some(Fact.Axiom)))
 let _ = Callback.register "atom_mk_in" atom_mk_in
 
 let atom_mk_true = Atom.mk_true
@@ -430,7 +546,7 @@ let solution_is_empty = Solution.is_empty
 
 (*s States. *)
 
-open Shostak
+open Process
 
 type context = Context.t
 
@@ -474,32 +590,32 @@ let _ = Callback.register "context_ctxt_pp" context_ctxt_pp
 
 (*s Processing of new equalities. *)
 
-type status = Context.t Shostak.status
+type status = Context.t Process.status
 
 let is_consistent r = 
   (match r with
-     | Shostak.Satisfiable _ -> true
+     | Process.Ok _ -> true
      | _ -> false)
 let _ = Callback.register "is_consistent" is_consistent
 
-let is_redundant r = (r = Shostak.Valid)
+let is_redundant r = (r = Process.Valid)
 let _ = Callback.register "is_redundant" is_redundant
 
 let is_inconsistent r =
-   (r = Shostak.Inconsistent)
+   (r = Process.Inconsistent)
 let _ = Callback.register "is_inconsistent" is_inconsistent  
 
 let d_consistent r =
   match r with
-    | Shostak.Satisfiable s -> s
+    | Process.Ok s -> s
     | _ -> (context_empty())
          (* failwith "Ics.d_consistent: fatal error" *)
 	
 let _ = Callback.register "d_consistent" d_consistent 
  
 let process s =
-  Trace.func "api" "Process" Atom.pp (Shostak.pp_status Context.pp)
-    (Shostak.process s)
+  Trace.func "api" "Process" Atom.pp (Process.pp Context.pp)
+    (Process.atom s)
 let _ = Callback.register "process" process   
 
 let split s = 
@@ -534,7 +650,7 @@ let rec cmd_rep () =
 and cmd_output fmt result =
   (match result with
      | Result.Process(status) -> 
-	 Shostak.pp_status Name.pp fmt status
+	 Process.pp Name.pp fmt status
      | Result.Unit() ->
 	 Format.fprintf fmt ":unit"
      | Result.Bool(true) ->

@@ -81,7 +81,7 @@ val abstract_atom: Atom.t -> Atom.t
 
 (*s Adding a new fact *)
 
-val process : Name.t option -> Atom.t -> Name.t Shostak.status
+val process : Name.t option -> Atom.t -> Name.t Process.status
 
 (*s Checking for validity/unsatisfiability. *)
 
