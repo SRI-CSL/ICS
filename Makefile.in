@@ -238,15 +238,17 @@ benchmarks: $(BINDIR)/ics
 	time -f "user = %U system = %S" $(BINDIR)/ics tests/bench/$$f > /dev/null;\
 	done
 
-PROFFILE = tests/bench/linsys-100
+PROFFILE=./examples/ineq3.ics
 
 profile:
 	make clean
-	make OFLAGS=-p ics
+	autoconf
+	./configure
+	make OFLAGS=-p           
 	./ics $(PROFFILE)
 	gprof $(BINDIR)/ics gmon.out > profile.out
 
-CPROFFILE = tests/bench/trans-1000
+CPROFFILE = ./examples/ineq3.ics
 
 cprofile:
 	$(MAKE) BFLAGS="" OCAMLC="ocamlcp -p fmt" OCAMLLINK="ocamlcp -p fmt" clean ics.byte
@@ -271,9 +273,6 @@ web:: ics.tar.gz $(BINDIR)/ics $(BINDIR)/ics.byte $(LIBDIR)/libics.so $(LIBDIR)/
 
 
 ICSDIR = $(shell basename $(PWD))
-
-# ics.tar.gz:	distclean
-#	(cd .. ; tar -cvz --file=$(ICSDIR)/ics.tar.gz --mode="u+rw" --atime-preserve --exclude=CVS --exclude=ics.tar.gz --exclude=help --exclude=old --exclude=examples --exclude=licenses ics)
 
 ics.tar.gz:	distclean
 	(tar -cvz --file=./ics.tar.gz \
