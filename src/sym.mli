@@ -20,8 +20,7 @@
 type arith = 
   | Num of Mpa.Q.t  
   | Add
-  | Mult
-  | Expt of int
+  | Multq of Mpa.Q.t
 
 type tuple = 
   | Product 
@@ -33,100 +32,59 @@ type bv =
   | Sub of int * int * int
   | Bitwise of int
 
-type interp = 
+type t = 
+  | Uninterp of Name.t
   | Arith of arith
   | Tuple of tuple
   | Bv of bv
 
-type sym = 
-  | Uninterp of Name.t
-  | Interp of interp
 
-type t
-
-(*s Equal. *)
+(*s Equality test *)
 
 val eq : t -> t -> bool
-
-
-(*s Constructing and destructing a symbol. *)
-
-val make : sym -> t
-
-val destruct : t -> sym
-
-
-(*s Constructing Symbols. *)
-
-val mk_uninterp : Name.t -> t
-val mk_interp : interp -> t
-
-
-(*s Arithmetic Symbols. *)
-
-val mk_num : Mpa.Q.t -> t
-val mk_add : t
-val mk_mult : t
-val mk_expt : int -> t
-
-(*s Symbols from theory of tuples. *)
-
-val mk_tuple : t
-val mk_proj : int -> int -> t
-
-
-(*s Symbols from theory of bitvectors. *)
-
-val mk_bv_const : Bitv.t -> t
-val mk_bv_conc : int -> int -> t
-val mk_bv_sub : int -> int -> int -> t
-val mk_bv_bitwise : int -> t
-
-
-(*s Builtin symbols. *)
-
-val is_builtin : t -> bool
-
-val mk_div : t
-val mk_sin : t
-val mk_cos : t
-val mk_unsigned : t
-val mk_update : t
-val mk_select : t
-val mk_floor : t
-val mk_ceiling : t
-
-
-type builtin = Sin | Cos | Unsigned | Update | Select | Floor | Ceiling | Div
-
-val builtin : t -> builtin
 
 (*s Comparison. *)
 
 val cmp : t -> t -> int
 
+
 (*s Pretty printing *)
 
 val pp : Format.formatter -> t -> unit
-
-val is_arith : t -> bool
-val is_tuple : t -> bool
-val is_interp : t -> bool
-
-val d_arith : t -> arith option
-
-val is_uninterp : t -> bool
-val d_uninterp : t -> Name.t
-val d_interp : t -> interp option
-
-val is_interpreted_const : t -> bool
 
 
 (*s Width of a bitvector symbol. *)
 
 val width : t -> int option
 
-(*s [mk_fresh x] creates a fresh function symbol of name [x!k], where [k]
- is some integer. *)
 
-val mk_fresh : string -> int option -> t
+(*s Classification of function symbols. *)
+
+type theories = 
+  | U
+  | T
+  | BV
+  | A
+
+val theory_of : t -> theories
+
+val name_of_theory : theories -> string
+
+val theory_of_name : string -> theories
+
+val interp_theory_of_name : string -> theories
+
+(*s Some predefined function symbols. *)
+
+val select : t
+val update : t
+val unsigned : t
+val floor : t
+val ceiling : t
+val mult : t
+val expt : t
+val div : t
+val sin : t
+val cos : t
+
+
