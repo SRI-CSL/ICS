@@ -39,6 +39,9 @@ let mk_slack =
 let is_external x = 
   not(is_slack x)
 
+let is_linear_slack_combination a =
+  Arith.for_all (fun (_,x) -> is_slack x) a
+
 
 (*s An arithmetic context consists of a solution set of equations
  of the form [x = a], where [x] is a variable and [a] is an arithmetic
@@ -93,22 +96,15 @@ let mem s = A.mem s.a
 let use s = A.use s.a
 
 let cnstrnt s a =
-  let rec loop a =
-  match Arith.d_interp a with
-    | Some(Sym.Num(q), []) -> Cnstrnt.mk_singleton q
-    | Some(Sym.Mult, l) -> Cnstrnt.multl (List.map loop l)
-    | Some(Sym.Add, l) -> Cnstrnt.addl (List.map loop l)
-    | Some(Sym.Expt(n), [x]) -> Cnstrnt.expt n (loop x)
-    | _ ->
-	(match C.cnstrnt a s.c with
-	   | Some(c) -> c
-	   | None -> loop (A.apply s.a a))      (* might raise [Not_found] *)
-  in
-  try
-    Some(loop a)
-  with 
-      Not_found -> 
-	if is_slack a then Some(Cnstrnt.mk_real) else None
+  let b = A.find s.a a in
+  match C.cnstrnt s.c b with
+    | Some(d) ->
+	Some(d)
+    | None when is_linear_slack_combination a ->
+	Some(Cnstrnt.mk_real)
+    | None ->
+	None
+
 
 (*s Extend the domain of equality map. *)
 
@@ -127,47 +123,9 @@ let extend b s =
 
 let rec refine s (a, d) = 
  Trace.msg 6 "Refine(a)" (a, d) pp_in;
- if is_slack a then
-   refine_slack s (a, d)
- else
-   let (a, d) = normalize (a, d) in
-   if is_slack a then
-     refine_slack s (a, d)
-   else 
-     refine_nonslack s (a, d)
-     
+ let (sc', seqs') = C.add (a, d) s.c in
+ ({s with c = sc'}, seqs') 
 
-and refine_slack s (k, c) =
-  assert(is_slack k);
-  let (sc', seqs') = C.add (k, c) s.c in
-  ({s with c = sc'}, seqs')
-
-and refine_nonslack s (a,c) =
-  match cnstrnt s a with
-    | Some(d) ->
-	(match Cnstrnt.cmp c d with
-	   | Binrel.Disjoint ->
-	       raise Exc.Inconsistent
-	   | (Binrel.Super | Binrel.Same) ->  (* already known. *)
-	       (s, [])
-	   | _ ->
-	       let k = mk_slack () in          (* this may loop... *)
-	       ({s with c = C.extend (k, c) s.c}, [(k, a)]))
-    | None ->
-	let k = mk_slack () in
-	({s with c = C.extend (k, c) s.c}, [(k, a)])
-
-(*s Normalize constraint such as ['2 * x + 5' in 'c'] 
- to ['x' in '1/2 ** (c -- 5)'], where ['**'], ['--']
- are abstract interval operations for linear multiplication and subtraction. *)
-
-and normalize (a,c) =
-  match Arith.decompose a with
-    | (q, None) -> 
-	(a, c)
-    | (q, Some(p, a')) ->
-	let c' = Cnstrnt.multq (Mpa.Q.inv p) (Cnstrnt.addq (Mpa.Q.minus q) c) in
-	(a', c')
 
 
 (*s Propagate an equality between two terms. First, solve for an
@@ -216,7 +174,6 @@ and propagate_internal s (k,b) =
 	   | Binrel.Sub ->
 	       let (sa', veqs') = A.propagate s.a [(k, b)] in
 	       let sc' = C.restrict k s.c in
-	       Trace.msg 0 "Generate" (b,ck) Term.pp_in;
 	       ({s with a = sa'; c = sc'}, veqs', [(b, ck)])
 	   | Binrel.Singleton(q) ->
 	       let (sa', veqs') = A.propagate s.a [k, Arith.mk_num q] in
@@ -229,7 +186,7 @@ and propagate_internal s (k,b) =
     | None, None ->
 	(s, Veqs.empty, [])
     | _ ->
-	failwith "Unreachable"
+	failwith ("Propagate: Unreachable" ^ (Pretty.to_string pp_equal (k,b)))
 
 
 (*s Iterate [refine] and [propagate] until new new [seqs] equalities between slack
@@ -242,18 +199,29 @@ let rec install s (seqs, cnstrnts) veqs =
 	(s, veqs)
     | (a,b) :: seqs', _ ->
 	let (s', veqs', cnstrnts') = propagate s (a,b) in
-	install s' (seqs', cnstrnts') (Veqs.union veqs' veqs)
+	install s' (seqs', cnstrnts' @ cnstrnts) (Veqs.union veqs' veqs)
     | _, (a,c) :: cnstrnts' ->
-	let (s', seqs') = refine s (a,c) in
+	let (s', seqs') = refine s (a, c) in
 	install s' (seqs' @ seqs, cnstrnts') veqs
 
 let install_equality s (a, b) =
   Trace.msg 5 "Internal(a)" (a,b) pp_equal;
   install s ([(a,b)], []) Veqs.empty
     
-let install_cnstrnt s (a, c) =
-  Trace.msg 5 "Cnstrnt(a)" (a, c) pp_in;
-  install s ([], [(a,c)]) Veqs.empty
+let install_cnstrnt s (x, c) =
+  assert(is_var x);
+  Trace.msg 5 "Cnstrnt(a)" (x, c) pp_in;
+  try
+    let b = apply s x in
+    if is_linear_slack_combination b then
+      install s ([], [(b,c)]) Veqs.empty
+    else 
+      let k = mk_slack () in
+      install s ([(x,k)], [(k,c)]) Veqs.empty
+  with
+      Not_found -> 
+	let k = mk_slack () in
+	install s ([(x,k)], [(k,c)]) Veqs.empty
 
 
 (*s Adding a new equality between variables and infer new facts. *)
@@ -297,6 +265,7 @@ let rec add (x,c) s =
 		      let (y, sa') = A.extend n s.a in
 		      install_equality {s with a = sa'} (x,y))
 	   | Binrel.Overlap(cd) ->
-	       install_cnstrnt s (x,cd))
+	       install_cnstrnt s (x, cd))
     | None ->
 	install_cnstrnt s (x,c)
+
