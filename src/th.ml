@@ -98,16 +98,6 @@ let exists_but i p =
   let p' j = if i <> j then p j else true in
     exists p'
 
-let of_sym = function
-  | Sym.Uninterp _ -> u
-  | Sym.Arith _ -> a
-  | Sym.Pair _ -> p
-  | Sym.Bv _ -> bv
-  | Sym.Coproduct _ -> cop
-  | Sym.Arrays _ -> arr
-  | Sym.Pp _ -> nl
-  | Sym.Fun _ -> app
-
 
 let inj =
   let a = Some(a)

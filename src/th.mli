@@ -40,8 +40,6 @@ val arr : t
 
 val u : t
 
-val of_sym : Sym.t -> t
-  
 val to_string : t -> string
 val of_string : string -> t
   
