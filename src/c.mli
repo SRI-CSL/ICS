@@ -28,6 +28,8 @@ val find : t -> Term.t -> Cnstrnt.t
 
 val mem : Term.t -> t -> bool
 
+val singletons : t -> Term.Set.t
+
 (*s Constraint for an arithmetic term. *)
 
 val cnstrnt : t -> Term.t -> Cnstrnt.t
@@ -36,7 +38,7 @@ val cnstrnt : t -> Term.t -> Cnstrnt.t
 
 val empty : t 
 
-val unchanged : t -> t -> bool
+val eq : t -> t -> bool
 
 (*s Extend the constraint map. *)
 
