@@ -367,7 +367,11 @@ let mult i j =
     | (P0 | P1 | M | N0 | N1 | Z), Z ->
 	mk_zero
 
-let multq q = mult (mk_singleton q)
+let multq q i = 
+  if Endpoint.eq i.lo Endpoint.neginf && Endpoint.eq i.hi Endpoint.posinf then 
+    i
+  else 
+    mult (mk_singleton q) i
 
 let subtract i j =
   add i (multq (Mpa.Q.minus Q.one) j)
