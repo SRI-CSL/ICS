@@ -23,13 +23,13 @@ val eq : t -> t -> bool
 
 (** {6 Accessors} *)
 
-val apply : t -> Term.t -> Term.t * Justification.t
+val apply : t -> Term.t -> Term.t * Jst.t
 
-val find : t -> Term.t -> Term.t * Justification.t
+val find : t -> Term.t -> Term.t * Jst.t
 
-val inv : t -> Term.t -> Term.t * Justification.t
+val inv : t -> Term.t -> Term.t * Jst.t
 
-val dep : t -> Term.t -> Term.Set.t
+val dep : t -> Term.t -> Term.Var.Set.t
 
 val is_dependent : t -> Term.t -> bool
 val is_independent : t -> Term.t -> bool
@@ -44,7 +44,7 @@ val is_empty : t -> bool
 
 val copy : t -> t
 
-val name : Partition.t * t -> Justification.Eqtrans.t
+val name : Partition.t * t -> Jst.Eqtrans.t
 
 val merge : Partition.t * t -> Fact.Equal.t -> unit
 

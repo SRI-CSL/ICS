@@ -70,7 +70,7 @@ and pp_entry fmt e =
       | Type(c) -> pr "@[type("; Dom.pp fmt c; pr ")@]"
       | State(s) -> 
 	  pr "@[state(";
-	  Pretty.set Atom.pp fmt (Atom.Set.elements (Context.ctxt_of s));
+	  Pretty.list Atom.pp fmt (Context.ctxt_of s);
 	  pr ")@]"
 
 and pretty = ref true

@@ -19,11 +19,11 @@ let is_interp = function
   | _ -> false
 
 let is_cons = function
-  | Term.App(sym, [_;_], _) when Sym.eq sym Sym.Pair.cons -> true
+  | Term.App(sym, [_;_], _) when Sym.Product.is_cons sym -> true
   | _ -> false
 
 let d_interp = function
-  | Term.App(sym, al, _) -> (Sym.Pair.get sym, al)
+  | Term.App(sym, al, _) -> (Sym.Product.get sym, al)
   | _ -> raise Not_found
 
 let d_cons a =
@@ -49,7 +49,7 @@ let mk_cons a b =
       if Term.eq x x' then x else raise Not_found
   with
       Not_found -> 
-	Term.App.mk_app Sym.Pair.cons [a; b]
+	Term.App.mk_app Sym.Product.mk_cons [a; b]
 
 
 (** [car(cons(a, _))] reduces to [a]. *)
@@ -58,7 +58,7 @@ let mk_car a =
     fst(d_cons a)
   with
       Not_found -> 
-	Term.App.mk_app Sym.Pair.car [a]
+	Term.App.mk_app Sym.Product.mk_car [a]
   
 
 (** [cdr(cons(_, b))] reduces to [b]. *)
@@ -67,7 +67,7 @@ let mk_cdr a =
     snd(d_cons a)
   with
       Not_found -> 
-	Term.App.mk_app Sym.Pair.cdr [a]
+	Term.App.mk_app Sym.Product.mk_cdr [a]
 
 
 (** Tuple constructors *)

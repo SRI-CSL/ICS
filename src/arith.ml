@@ -26,7 +26,7 @@ let is_pure = Term.is_pure Th.a
 
 (** {6 Constants} *)
 
-let mk_num q = Term.App.mk_const (Sym.Arith.num q)
+let mk_num q = Term.App.mk_const (Sym.Arith.mk_num q)
 
 let mk_zero = mk_num Q.zero
 let mk_one = mk_num Q.one
@@ -53,7 +53,7 @@ let d_multq = function
   | _ -> raise Not_found
 
 let d_add = function
-  | Term.App(sym, al, _) when Sym.eq sym Sym.Arith.add -> al
+  | Term.App(sym, al, _) when Sym.eq sym Sym.Arith.mk_add -> al
   | _ -> raise Not_found
 
 let monomials a =
@@ -73,7 +73,7 @@ let destruct a =
        | Sym.Add, [b1; b2] ->
 	   (try (d_num b1, b2) with Not_found -> (Mpa.Q.zero, a))
        | Sym.Add, b :: bl ->   (* now [bl] contains at least two elements *)
-	   (try (d_num b, Term.App.mk_app Sym.Arith.add bl) 
+	   (try (d_num b, Term.App.mk_app Sym.Arith.mk_add bl) 
 	    with Not_found -> (Mpa.Q.zero, a))
        | _ -> 
 	   (Mpa.Q.zero, a))
@@ -141,7 +141,7 @@ let of_poly q l =
     match m with 
       | [] -> mk_zero
       | [x] -> x
-      | _ -> Term.App.mk_app Sym.Arith.add m
+      | _ -> Term.App.mk_app Sym.Arith.mk_add m
 
 let mono_of a = 
   try d_multq a with Not_found -> (Q.one, a)
@@ -156,7 +156,7 @@ let of_mono q x =
       let p = d_num x in
 	mk_num (Q.mult q p)
     with
-	Not_found -> Term.App.mk_app (Sym.Arith.multq q) [x]
+	Not_found -> Term.App.mk_app (Sym.Arith.mk_multq q) [x]
 
 
 (** {6 Iterators} *)
@@ -325,7 +325,7 @@ let rec mk_multq q a =
 	of_poly (Q.mult q p) (multq q ml)
 
 and mk_addq q a =
-  let add = Term.App.mk_app Sym.Arith.add in
+  let add = Term.App.mk_app Sym.Arith.mk_add in
   if Q.is_zero q then a else
     try
       (match d_interp a with
@@ -422,7 +422,6 @@ let rec map f a =
 
 (** Replacing a variable with a term. *)
 
-
 let apply (x, b) =
   let lookup y = if Term.eq x y then b else y in
     map lookup
@@ -471,6 +470,14 @@ let rec dom_of a =
 let is_int a =
   try
     Dom.sub (dom_of a) Dom.Int
+  with
+      Not_found -> false
+
+let is_infeasible (a, b) =
+  try
+    let d = dom_of a
+    and e = dom_of b in
+      Dom.disjoint d e
   with
       Not_found -> false
 
@@ -564,9 +571,7 @@ and general al (d, pl) =
 let integer_solve = ref true
 
 let solve e =
-  if !integer_solve && 
-    is_diophantine_equation e 
-  then
+  if !integer_solve && is_diophantine_equation e then
     zsolve e
   else 
     match qsolve e with

@@ -40,7 +40,7 @@ val print_justification : bool ref
 
 (** {6 Facts} *)
 
-type t = Atom.t * Justification.t
+type t = Atom.t * Jst.t
  
 val pp : t Pretty.printer
 
@@ -72,9 +72,11 @@ module Equal : sig
 
   val pp : t Pretty.printer
 
-  val make : Term.t * Term.t * Justification.t -> t
+  val make : Term.t * Term.t * Jst.t -> t
 
-  val destruct : t -> Term.t * Term.t * Justification.t
+  val destruct : t -> Term.t * Term.t * Jst.t
+
+  val both : (Term.t -> bool) -> t -> bool
 
   val is_var : t -> bool
 
@@ -82,33 +84,33 @@ module Equal : sig
 
   val is_diophantine : t -> bool
 
-  val map : Justification.Eqtrans.t -> t -> t
+  val map : Jst.Eqtrans.t -> t -> t
 
-  val map_lhs : Justification.Eqtrans.t -> t -> t
+  val map_lhs : Jst.Eqtrans.t -> t -> t
 
-  val map_rhs : Justification.Eqtrans.t -> t -> t
+  val map_rhs : Jst.Eqtrans.t -> t -> t
 
-  val map2 : Justification.Eqtrans.t * Justification.Eqtrans.t -> t -> t
+  val map2 : Jst.Eqtrans.t * Jst.Eqtrans.t -> t -> t
 
   module Inj : sig
 
-    val apply1 : Term.apply -> t -> Justification.Eqtrans.t
+    val apply1 : Term.apply -> t -> Jst.Eqtrans.t
 
     val trans : (Term.Equal.t -> Term.Equal.t) -> t -> t
 
-    val solver : (Term.Equal.t -> Term.Equal.t list) -> t -> t list 
+    val solver : Th.t -> (Term.Equal.t -> Term.Equal.t list) -> t -> t list 
 
-    val norm : Term.apply -> t list -> Justification.Eqtrans.t
+    val norm : Term.apply -> t list -> Jst.Eqtrans.t
 
-    val replace : Term.map -> Justification.Eqtrans.t -> Justification.Eqtrans.t
+    val replace : Term.map -> Jst.Eqtrans.t -> Jst.Eqtrans.t
 
-    val mapargs : (Sym.t -> Term.t list -> Term.t * Justification.t) 
-                     -> (Sym.t -> Justification.Eqtrans.t) -> Justification.Eqtrans.t
+    val mapargs : (Sym.t -> Term.t list -> Term.t * Jst.t) 
+                     -> (Sym.t -> Jst.Eqtrans.t) -> Jst.Eqtrans.t
       (* [mapargs app f a] maps [f op] over the arguments [al] of
 	 an application [a] of the form [op(al)]. If [a] is not
 	 an application, [Not_found] is raised. *)
 
-    val mapl : Justification.Eqtrans.t -> Term.t list -> Term.t list * Justification.t list
+    val mapl : Jst.Eqtrans.t -> Term.t list -> Term.t list * Jst.t list
   end
 
 end 
@@ -120,19 +122,19 @@ module Diseq : sig
 
   type t
 
-  val make : Term.t * Term.t * Justification.t -> t
+  val make : Term.t * Term.t * Jst.t -> t
 
-  val destruct : t -> Term.t * Term.t * Justification.t
+  val destruct : t -> Term.t * Term.t * Jst.t
 
   val pp : t Pretty.printer
 
-  val map : Justification.Eqtrans.t -> t -> t
+  val map : Jst.Eqtrans.t -> t -> t
 
   val is_var : t -> bool
 
   val is_diophantine : t -> bool
 
-  val d_diophantine : t -> Term.t * Mpa.Q.t * Justification.t
+  val d_diophantine : t -> Term.t * Mpa.Q.t * Jst.t
 
 
   module Set : (Set.S with type elt = t)
@@ -149,12 +151,12 @@ module Nonneg : sig
 
   val pp : t Pretty.printer
 
-  val make : Term.t * Justification.t -> t
-  val destruct : t -> Term.t * Justification.t
+  val make : Term.t * Jst.t -> t
+  val destruct : t -> Term.t * Jst.t
 
-  val holds : t -> Justification.Three.t
+  val holds : t -> Jst.Three.t
 
-  val map : Justification.Eqtrans.t -> t -> t
+  val map : Jst.Eqtrans.t -> t -> t
               
 end 
 
@@ -167,28 +169,28 @@ module Pos : sig
 
   val pp : t Pretty.printer
 
-  val make : Term.t * Justification.t -> t
-  val destruct : t -> Term.t * Justification.t
+  val make : Term.t * Jst.t -> t
+  val destruct : t -> Term.t * Jst.t
 
-  val map : Justification.Eqtrans.t -> t -> t
+  val map : Jst.Eqtrans.t -> t -> t
               
 end 
               
 
 (** {6 Constructors} *)
 
-val mk_true : Justification.t -> t
-val mk_false : Justification.t -> t
-val mk_equal : Justification.Rel2.t -> Term.t * Term.t * Justification.t -> t
-val mk_diseq : Justification.Rel2.t -> Term.t * Term.t * Justification.t -> t
-val mk_nonneg : Justification.Rel1.t -> Term.t * Justification.t -> t
-val mk_pos : Justification.Rel1.t ->  Term.t * Justification.t -> t
+val mk_true : Jst.t -> t
+val mk_false : Jst.t -> t
+val mk_equal : Jst.Rel2.t -> Term.t * Term.t * Jst.t -> t
+val mk_diseq : Jst.Rel2.t -> Term.t * Term.t * Jst.t -> t
+val mk_nonneg : Jst.Rel1.t -> Term.t * Jst.t -> t
+val mk_pos : Jst.Rel1.t ->  Term.t * Jst.t -> t
 
 
-val map : (Justification.Rel2.t *                      (* [is_equal] *)
-           Justification.Rel1.t *                      (* [is_nonneg] *)
-           Justification.Rel1.t)                       (* [is_pos] *)
-             -> Justification.Eqtrans.t -> t -> t
+val map : (Jst.Rel2.t *                      (* [is_equal] *)
+           Jst.Rel1.t *                      (* [is_nonneg] *)
+           Jst.Rel1.t)                       (* [is_pos] *)
+             -> Jst.Eqtrans.t -> t -> t
 
 
 (** {6 Set of facts} *)

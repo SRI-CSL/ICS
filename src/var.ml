@@ -19,6 +19,15 @@ type t =
   | Bound of int
 
 and slack = Zero | Nonneg of Dom.t
+
+let nonneg = 
+  let nn_int = Nonneg(Dom.Int)
+  and nn_real = Nonneg(Dom.Real)
+  and nn_nonint = Nonneg(Dom.Nonint) in
+    function
+      | Dom.Int -> nn_int
+      | Dom.Real -> nn_real
+      | Dom.Nonint -> nn_nonint
  
 
 (** {6 Constructors} *)

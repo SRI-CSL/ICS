@@ -32,7 +32,7 @@ let d_expt = function
 
 let d_mult = function
   | Term.App(sym, al, _) 
-      when Sym.eq sym Sym.Pprod.mult -> al
+      when Sym.Pprod.is_mult sym -> al
   | _ -> 
       raise Not_found
 
@@ -85,11 +85,11 @@ let rec iter f a =
 (** {6 Constructors.} *)
 
 let mk_one = 
-  Term.App.mk_app Sym.Pprod.mult []
+  Term.App.mk_app Sym.Pprod.mk_mult []
 
 let is_one = function
   | Term.App(sym, [], _) 
-      when Sym.eq Sym.Pprod.mult sym -> true
+      when Sym.Pprod.is_mult sym -> true
   | _ -> false
 
 let rec mk_expt n a = 
@@ -105,14 +105,14 @@ let rec mk_expt n a =
 	| Mult, [] ->        (* [1^n = 1] *)
 	    mk_one
 	| Mult, [x] -> 
-	    Term.App.mk_app (Sym.Pprod.expt n) [x]
+	    Term.App.mk_app (Sym.Pprod.mk_expt n) [x]
 	| Mult, xl ->        (* [(x1*...*xk)^n = x1^n*...*...xk^n] *)
 	    mk_multl (Term.mapl (mk_expt n) xl)
 	| _ ->
-	    Term.App.mk_app (Sym.Pprod.expt n) [a]
+	    Term.App.mk_app (Sym.Pprod.mk_expt n) [a]
       with
 	  Not_found ->  
-	    Term.App.mk_app (Sym.Pprod.expt n) [a]
+	    Term.App.mk_app (Sym.Pprod.mk_expt n) [a]
       
 and mk_multl al =
   List.fold_left mk_mult mk_one al
@@ -199,7 +199,7 @@ and merge al bl =
   match loop [] al bl with
     | [] -> mk_one
     | [c] -> c
-    | cl -> Term.App.mk_app Sym.Pprod.mult (List.sort compare cl)
+    | cl -> Term.App.mk_app Sym.Pprod.mk_mult (List.sort compare cl)
 
 let mk_inv a = mk_expt (-1) a
 	

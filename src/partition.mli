@@ -44,7 +44,7 @@ val pp : t Pretty.printer
 (** {6 Accessors} *)
 
 
-val find : t -> Justification.Eqtrans.t
+val find : t -> Jst.Eqtrans.t
 (** [v s x] returns the canonical representative of the equivalence
   class in the partitioning [s] containing the variable [x]. *)
 
@@ -53,7 +53,7 @@ val diseqs : t -> Term.t -> D.Set.t
   in the variable disequality part [d] of the partitioning [s].  Disequalities as
   obtained from the constraint part [c] are not necessarily included. *)
 
-val dom : t -> Term.t -> Dom.t * Justification.t
+val dom : t -> Term.t -> Dom.t * Jst.t
 (** [dom p a] returns a domain [d] for a term [a] together with
   a justification [rho] such that [rho |- a in d].  This function
   is extended to arithmetic constraints using an abstract domain
@@ -62,18 +62,18 @@ val dom : t -> Term.t -> Dom.t * Justification.t
 
 (** {6 Predicates} *)
 
-val is_equal : t -> Justification.Pred2.t
+val is_equal : t -> Jst.Pred2.t
 
-val is_diseq : t -> Justification.Pred2.t
+val is_diseq : t -> Jst.Pred2.t
 
-val is_equal_or_diseq : t -> Justification.Rel2.t
+val is_equal_or_diseq : t -> Jst.Rel2.t
 
-val is_in : t -> Dom.t -> Justification.Rel1.t
+val is_in : t -> Dom.t -> Jst.Rel1.t
 
 
 (** {6 Choose in equivalence class} *)
 
-val choose : t -> Justification.Eqtrans.t -> Justification.Eqtrans.t
+val choose : t -> Jst.Eqtrans.t -> Jst.Eqtrans.t
   (** [choose p apply x] chooses an [x'] such that [apply x'] does
     not raise [Not_found]. If there is no such [x'], then [Not_found]
     is raised. *)
@@ -111,12 +111,3 @@ val gc: (Term.t -> bool) -> t -> unit
 (** [gc p s] removes all noncanonical, internal variables [x] with [p x].
   [diseq] destructive updates the input partition [s]. In order to protect
   a partition [s], {!Partition.copy}[s] should be used. *)
-
-
-(** {6 Canonization} *)
-
-val sigma : t -> Sym.t -> Term.t list -> Term.t * Justification.t
-
-val sigma0 : Sym.t -> Term.t list -> Term.t
-
-

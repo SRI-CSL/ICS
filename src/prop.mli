@@ -16,18 +16,10 @@
   @author Harald Ruess
 *)
 
-type t =
-  | True
-  | False
-  | Var of Name.t
-  | Atom of Atom.t
-  | Disj of t list
-  | Iff of t * t
-  | Ite of t * t * t
-  | Neg of t 
-  | Let of Name.t * t * t
+type t
 
 val pp : t Pretty.printer
+
 
 (** {6 Constructors} *)
  
@@ -57,6 +49,7 @@ val set_cleanup_period : int -> unit
 val set_num_refinements : int -> unit
 
 val statistics : bool ref
+val print_consistent_context : bool ref
 
 module Assignment : sig
 

@@ -51,7 +51,10 @@ val set_statistic : bool -> unit
 val set_footprint : bool -> unit
 val set_justifications : bool -> unit
 val set_integer_solve : bool -> unit
- 
+val set_proofmode : string -> unit
+val set_gc_mode : string -> unit
+val set_gc_space_overhead : int -> unit
+val set_gc_max_overhead : int -> unit
 
 (** {6 Channels} *)
 
@@ -688,12 +691,12 @@ val atom_negate : atom -> atom
 
 type atoms
 
+(*
 val atoms_empty : unit -> atoms
 val atoms_singleton : atom -> atoms
 val atoms_add : atom -> atoms -> atoms
 val atoms_to_list : atoms -> atom list
-
-
+*)
 
 (** {6 Justifications} *)
 
@@ -720,7 +723,7 @@ val context_eq : context -> context -> bool
     predicate holds, its corresponding contexts are logically
     equivalent. *)
 
-val context_ctxt_of : context -> atoms
+val context_ctxt_of : context -> atom list
   (** [context_ctxt_of s] returns the logical context of [s] as a set of atoms. *)
   
 val context_mem : th -> context -> Term.t -> bool

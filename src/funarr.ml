@@ -37,7 +37,7 @@ let d_select_update a =
 type equalRel = Term.t -> Term.t -> Three.t
 
 let mk_create a =
-  Term.App.mk_app Sym.Array.create [a]
+  Term.App.mk_app Sym.Array.mk_create [a]
 
 (** Reducing patterns of the form [select(update(a,i,x), j)]
   according to the equations
@@ -47,7 +47,7 @@ let mk_create a =
  *)
 
 let select a i = 
-  Term.App.mk_app Sym.Array.select [a; i]
+  Term.App.mk_app Sym.Array.mk_select [a; i]
 
 let mk_select is_equal b j =
   try
@@ -63,7 +63,8 @@ let mk_select is_equal b j =
   with
      Not_found -> select b j
 
-let update a i x = Term.App.mk_app Sym.Array.update  [a; i; x]
+let update a i x = 
+  Term.App.mk_app Sym.Array.mk_update  [a; i; x]
 
 let rec mk_update is_equal a j y =
   try

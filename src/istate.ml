@@ -59,24 +59,11 @@ module Outchannel = struct
       
 end 
 
-module Bool = struct
-
-  let of_string = function
-    | "true" -> true
-    | "false" -> false
-    | _ -> raise(Invalid_argument "no such boolean value")
-
-  let to_string = function
-    | true -> "true"
-    | false -> "false"
-
-end 
-
 
 (** Initialize. *)
 
 let initialize pp ch inch outch =
-  Term.pretty := pp;
+  Pretty.flag := Pretty.Mixfix;
   Var.pretty := pp;
   eot := ch;
   inchannel := inch;
@@ -164,7 +151,7 @@ module Out = struct
 
   let proofmode mode =
     if !batch then nothing () else
-      Format.fprintf !outchannel ":%s@?" (Justification.Mode.to_string mode)
+      Format.fprintf !outchannel ":%s@?" (Jst.Mode.to_string mode)
     
   let three res =
     if !batch then nothing () else 
@@ -192,10 +179,10 @@ module Out = struct
     if !batch then nothing () else 
       let fmt = !outchannel in
 	Format.fprintf fmt ":term "; Term.pp fmt a;
-	if not(Justification.is_none rho) then
+	if not(Jst.is_none rho) then
 	  begin
 	    Format.fprintf fmt "\n:justification ";
-	    Justification.pp fmt rho
+	    Jst.pp fmt rho
 	  end ;
 	Format.fprintf fmt "@?"
 
@@ -215,10 +202,10 @@ module Out = struct
     if !batch then nothing () else 
       let fmt = !outchannel in
 	Format.fprintf fmt ":dom "; Dom.pp fmt d;
-	if not(Justification.is_none rho) then
+	if not(Jst.is_none rho) then
 	  begin
 	    Format.fprintf fmt "\n:justification ";
-	    Justification.pp fmt rho
+	    Jst.pp fmt rho
 	  end ;
 	Format.fprintf fmt "@?"
 
@@ -227,10 +214,10 @@ module Out = struct
       let fmt = !outchannel in
 	Format.fprintf fmt "\n:atom "; 
 	Atom.pp fmt a;
-	if not(Justification.is_none j) then
+	if not(Jst.is_none j) then
 	  begin
 	    Format.fprintf fmt "\n:justification ";
-	    Justification.pp fmt j
+	    Jst.pp fmt j
 	  end;
 	Format.fprintf fmt "@?"
 
@@ -245,9 +232,9 @@ module Out = struct
   let unsat j =
     let fmt = !outchannel in
       Format.fprintf fmt ":unsat ";
-      if not(Justification.is_none j) then
+      if not(Jst.is_none j) then
 	begin
-	  Justification.pp fmt j
+	  Jst.pp fmt j
 	end;
       Format.fprintf fmt "@?"
 
@@ -255,9 +242,9 @@ module Out = struct
     if !batch then nothing () else 
       let fmt = !outchannel in
 	Format.fprintf fmt ":valid ";
-	if not(Justification.is_none j) then
+	if not(Jst.is_none j) then
 	  begin
-	    Justification.pp fmt j
+	    Jst.pp fmt j
 	  end;
 	Format.fprintf fmt "@?"
     
@@ -265,14 +252,14 @@ module Out = struct
     if !batch then nothing () else 
       let fmt = !outchannel in
 	Format.fprintf fmt ":terms "; 
-	Pretty.set Term.pp fmt (Term.Set.elements ts);
+	Pretty.set Term.pp fmt (Term.Var.Set.elements ts);
 	Format.fprintf fmt "@?"
 
-  let atoms ts =
+  let hypotheses hyps =
     if !batch then nothing () else 
       let fmt = !outchannel in
 	Format.fprintf fmt "\n:atoms "; 
-	Pretty.set Atom.pp fmt (Atom.Set.elements ts);
+	Pretty.list Atom.pp fmt hyps;
 	Format.fprintf fmt "@?"
 
   let incomplete () = 
@@ -306,17 +293,17 @@ module Out = struct
   let yes_or_no res =
     if !batch then nothing () else
       match res with
-	| Justification.Three.X ->
+	| Jst.Three.X ->
 	    Format.fprintf !outchannel ":unknown@?"
-	| Justification.Three.Yes(rho) ->
+	| Jst.Three.Yes(rho) ->
 	    Format.fprintf !outchannel ":yes ";
-	    if not(Justification.is_none rho) then
-	      Justification.pp !outchannel rho;
+	    if not(Jst.is_none rho) then
+	      Jst.pp !outchannel rho;
 	    Format.fprintf !outchannel "@?"
-	| Justification.Three.No(rho) ->
+	| Jst.Three.No(rho) ->
 	    Format.fprintf !outchannel ":no ";
-	    if not(Justification.is_none rho) then
-	      Justification.pp !outchannel rho;
+	    if not(Jst.is_none rho) then
+	      Jst.pp !outchannel rho;
 	    Format.fprintf !outchannel "@?"
 
   let sat (n, rho) =
@@ -689,11 +676,11 @@ let do_cmp =
 let do_ctxt =
   Command.register "ctxt"
     (fun n ->
-       let atms = match n with 
+       let hyps = match n with 
 	 | None -> Context.ctxt_of !current
 	 | Some(n) -> Context.ctxt_of (context_of n)
        in
-	 Out.atoms atms)
+	 Out.hypotheses hyps)
     {args = "<ident>";
      short = "Output logical context."; 
      description = 
@@ -735,7 +722,7 @@ let do_can =
 let do_sigma =
   Command.register "sigma"
     (fun a ->
-       Out.term (a, Justification.refl a))
+       Out.term (Jst.Eqtrans.id a))
     {args = "<term>";
      short = "Theory-specific canonization"; 
      description = 
@@ -881,10 +868,10 @@ let do_process =
     (fun (n, a) ->
        let t = (get_context n) in
 	 if !batch then
-	   (match Context.add_unprotected t a with
+	   (match Context.add t a with
 	      | Context.Status.Inconsistent(rho) -> 
 		  if !batch then (* Exit in batch mode when inconsistency is detected *)
-		    raise(Justification.Inconsistent(rho))
+		    raise(Jst.Inconsistent(rho))
 	      | _ -> ())
 	 else
 	   match Context.add t a with  (* Update state and install new name in symbol table *)
@@ -894,7 +881,7 @@ let do_process =
 	     | Context.Status.Valid(rho) ->  Out.valid rho
 	     | Context.Status.Inconsistent(rho) -> 
 		 (if !batch then (* Exit in batch mode when inconsistency is detected *)
-		    raise(Justification.Inconsistent(rho))
+		    raise(Jst.Inconsistent(rho))
 		  else 
 		    Out.unsat rho))
     {args = "[<ident>]  <atom>";
@@ -977,7 +964,7 @@ let do_diseq =
 	   let ds = Partition.diseqs (Context.partition_of s) b in
 	     D.Set.iter
 	       (fun (x, rho2) ->        (* [rho2 |- x <> b] *)
-		  let rho = Justification.subst_diseq (x, a) rho2 [rho1] in
+		  let rho = Jst.subst_diseq (x, a) rho2 [rho1] in
 		    Out.term (x, rho))
 	       ds
 	 with
@@ -1146,7 +1133,7 @@ let do_is_equal =
   Command.register "is_equal"
     (fun (a, b) ->
        Out.yes_or_no 
-       (Justification.Rel2.apply 
+       (Jst.Rel2.apply 
 	  (Combine.can (Context.config_of !current))
 	  (Combine.is_equal (Context.config_of !current))
 	  a b))
@@ -1167,13 +1154,13 @@ let do_sat =
     (fun p ->
        match Prop.sat !current p with
 	 | None -> 
-	     let rho = Justification.oracle "SAT" in
+	     let rho = Jst.oracle "SAT" [] in
 	       if !batch then (* Exit in batch mode when inconsistency is detected *)
-		 raise(Justification.Inconsistent(rho))
+		 raise(Jst.Inconsistent(rho))
 	       else
 		 Out.unsat rho
 	 | Some(rho, s') -> 
-	     if !batch then () else 
+	     (* if !batch then () else *)
 	       let n = fresh_state_name () in
 		 symtab := Symtab.add n (Symtab.State(s')) !symtab;
 		 Out.sat (n, rho))
@@ -1257,18 +1244,18 @@ module Parameters = struct
 
   let get var =
     match var with
-      | Compactify -> Bool.to_string !Context.compactify
-      | Footprint -> Bool.to_string !Fact.footprint
-      | Pretty ->  Bool.to_string !Term.pretty
-      | Statistics ->  Bool.to_string !Prop.statistics
-      | Proofmode ->  Justification.Mode.to_string !Justification.proofmode
-      | Justifications -> Bool.to_string !Fact.print_justification
+      | Compactify -> string_of_bool !Context.compactify
+      | Footprint -> string_of_bool !Fact.footprint
+      | Pretty ->  string_of_bool (not(!Pretty.flag = Pretty.Sexpr))
+      | Statistics ->  string_of_bool !Prop.statistics
+      | Proofmode ->  Jst.Mode.to_string !Jst.proofmode
+      | Justifications -> string_of_bool !Fact.print_justification
       | Inchannel -> Inchannel.to_string !inchannel
       | Outchannel -> Outchannel.to_string !outchannel
       | Eot -> !eot
       | Prompt -> !prompt
-      | Index -> Bool.to_string !Eqs.pp_index
-      | IntegerSolve -> Bool.to_string !Arith.integer_solve
+      | Index -> string_of_bool !Eqs.pp_index
+      | IntegerSolve -> string_of_bool !Arith.integer_solve
       | Clock -> 
 	  let times =  Unix.times() in
 	  let utime =  times.Unix.tms_utime in
@@ -1277,20 +1264,20 @@ module Parameters = struct
 	
   let set var value =
     match var with
-      | Compactify -> Context.compactify := Bool.of_string value
-      | Index -> Eqs.pp_index := Bool.of_string value
-      | Footprint ->  Fact.footprint := Bool.of_string value
-      | Statistics -> Prop.statistics := Bool.of_string value
-      | Proofmode -> Justification.proofmode := Justification.Mode.of_string value
-      | Justifications -> Fact.print_justification :=  Bool.of_string value
+      | Compactify -> Context.compactify := bool_of_string value
+      | Index -> Eqs.pp_index := bool_of_string value
+      | Footprint ->  Fact.footprint := bool_of_string value
+      | Statistics -> Prop.statistics := bool_of_string value
+      | Proofmode -> Jst.proofmode := Jst.Mode.of_string value
+      | Justifications -> Fact.print_justification :=  bool_of_string value
       | Inchannel -> inchannel := Inchannel.of_string value
       | Outchannel -> outchannel := Outchannel.of_string value
       | Eot -> eot := value
       | Prompt -> prompt := value 
-      | IntegerSolve -> Arith.integer_solve := Bool.of_string value
+      | IntegerSolve -> Arith.integer_solve := bool_of_string value
       | Pretty -> 
-	  Term.pretty := Bool.of_string value;
-	  Var.pretty := Bool.of_string value
+	  Pretty.flag := if bool_of_string value then Pretty.Mixfix else Pretty.Prefix;
+	  Var.pretty := bool_of_string value
       | Clock -> 
 	  raise(Invalid_argument "Can not reset clock")
 	
@@ -1570,7 +1557,7 @@ let _ =
 
 let _ = 
   Nonterminal.register "prop"
-    ["(<prop>)";
+    ["[<prop>]";
      "<ident>";
      "<prop> & <prop>";
      "<prop> | <prop>";

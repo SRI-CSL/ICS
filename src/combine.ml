@@ -25,7 +25,7 @@ module U = Eqs.Make0(
       | Term.App(f, yl, _) as a -> 
 	  let yl' = Term.mapl (apply (x, b)) yl in
 	    if yl == yl' then a else Term.App.mk_app f yl'
-    let is_infeasible _ _ = None
+    let is_infeasible _ = false
   end)
 
 (** {6 Product theory} *)
@@ -35,7 +35,7 @@ module P = Eqs.Make0(
     let th = Th.p
     let nickname = Th.to_string Th.p
     let apply = Product.apply
-    let is_infeasible _ _ = None
+    let is_infeasible _ = false
   end)
 
 
@@ -46,7 +46,7 @@ module APP = Eqs.Make0(
     let th = Th.app
     let nickname = Th.to_string Th.app
     let apply = Apply.apply
-    let is_infeasible _ _ = None
+    let is_infeasible _ = false
   end)
 
 
@@ -122,14 +122,19 @@ let is_empty_but i s =
        
 
 let is_dependent s = function
-  | Uninterpreted -> U.is_dependent s.u
-  | Shostak(A)-> La.is_dependent s.a
-  | Shostak(P)-> P.is_dependent s.p
-  | Shostak(BV) -> Bv.is_dependent s.bv
-  | Shostak(COP) -> Cop.is_dependent s.cop
-  | Can(NL) -> Nl.is_dependent s.nl
-  | Can(APP) -> APP.is_dependent s.app
-  | Can(ARR) -> Arr.is_dependent s.arr
+  | Uninterpreted -> 
+      U.is_dependent s.u
+  | Shostak(i)->
+      (match i with
+	 | A -> La.is_dependent s.a
+	 | P-> P.is_dependent s.p
+	 | BV -> Bv.is_dependent s.bv
+	 | COP -> Cop.is_dependent s.cop)
+  | Can(i) ->
+      (match i with
+	 | NL -> Nl.is_dependent s.nl
+	 | APP -> APP.is_dependent s.app
+	 | ARR -> Arr.is_dependent s.arr)
 
 let is_independent s = function
   | Uninterpreted -> U.is_independent s.u
@@ -167,10 +172,10 @@ let find s = function
   | Can(ARR) -> Arr.find s.arr
 
 
-(* No interpretations for uninterpreted theory! *)
+(** No interpretations for uninterpreted theory! *)
 let interp (p, s) i a =
   match i with
-    | Uninterpreted -> Justification.Eqtrans.id a 
+    | Uninterpreted -> Jst.Eqtrans.id a 
     | Shostak(A) -> La.apply s.a a
     | Shostak(P) -> apply s Th.p a 
     | Shostak(BV) -> apply s Th.bv a  
@@ -190,7 +195,7 @@ let inv (p, s) =
       | Can(APP) -> APP.inv s.app a
       | Can(ARR) -> Arr.inv s.arr a
   in
-    Justification.Eqtrans.compose (Partition.find p) inv'
+    Jst.Eqtrans.compose (Partition.find p) inv'
 
 let dep s = function
   | Uninterpreted -> U.dep s.u
@@ -220,22 +225,19 @@ let rec process_equal (p, s) i e =
   match i with
     | Uninterpreted -> 
 	U.fuse  (p, s.u) [e]
-    | Shostak(i)-> 
-	merge (p, s) i e 
+    | Shostak(i)->  
+	let e' = Fact.Equal.map (replace s i) e in
+	  (match i with
+	     | A -> La.process_equal (p, s.a) e'
+	     | BV -> Bv.process_equal (p, s.bv) e'
+	     | P -> P.compose (p, s.p) (solve P e')
+	     | COP -> Cop.process_equal (p, s.cop) e')
     | Can(ARR) ->
 	Arr.process_equal (p, s.arr) e
     | Can(i') -> 
 	let e' = Fact.Equal.map (name (p, s) i) e in
 	  fuse (p, s) i' e'
-	    
-and merge (p, s) i e =
-  let e' = Fact.Equal.map (replace s i) e in
-    match i with
-      | A -> La.process_equal (p, s.a) e'
-      | BV -> Bv.process_equal (p, s.bv) e'
-      | P -> P.compose  (p, s.p) (solve P e')
-      | COP -> Cop.process_equal (p, s.cop) e'
-
+	
 and replace s i =
   let inj = Fact.Equal.Inj.replace in
   match i with
@@ -246,13 +248,7 @@ and replace s i =
 	
 	  
 and solve i =
-  let slv = match i with
-    | A -> Arith.solve
-    | P -> Product.solve
-    | BV -> Bitvector.solve
-    | COP -> Coproduct.solve
-  in
-    Fact.Equal.Inj.solver slv
+  failwith "deprecated"
       
 and fuse (p, s) i e =
   match i with
@@ -301,20 +297,72 @@ let propagate (p, s) e =
 	()
 
 
+(** {6 Predicates} *)
+
+(** Test if terms [a] and [b] are equal or disequal in [s]. *)
+let is_equal ((p, _) as cfg) =
+    (Partition.is_equal_or_diseq p)
+
+let is_pos (p, s) a = 
+  match La.is_pos (p, s.a) a with
+    | Some(tau) -> 
+	Jst.Three.Yes(tau)
+    | None -> 
+	(match La.is_nonpos (p, s.a) a with
+	   | Some(tau) -> Jst.Three.No(tau)
+	   | None -> Jst.Three.X)
+	
+let is_nonneg (p, s) a = 
+ match La.is_nonneg (p, s.a) a with
+    | Some(tau) -> 
+	Jst.Three.Yes(tau)
+    | None -> 
+	(match La.is_neg (p, s.a) a with
+	   | Some(tau) -> Jst.Three.No(tau)
+	   | None -> Jst.Three.X)
+
+let is_neg cfg a = is_pos cfg (Arith.mk_neg a)
+
+let is_nonpos cfg a = is_nonneg cfg (Arith.mk_neg a)
+
+
+
 (** {6 Canonization} *)
 
-let sigma (p, _) = 
-  Partition.sigma p
+(** Sigma normal forms for individual theories. These are largely independent
+ of the current state, except for sigma-normal forms for arrays, which use
+ variable equalities and disequalities. *)
+let sigma cfg f al =
+  let inj sigma op l =
+    let b = sigma op l in
+    let rho =  Jst.sigma ((f, l), b) [] in
+      (b, rho)
+  in
+    match Sym.get f with
+      | Sym.Arith(op) ->  inj Arith.sigma op al
+      | Sym.Product(op) -> inj  Product.sigma op al
+      | Sym.Bv(op) ->  inj Bitvector.sigma op al
+      | Sym.Coproduct(op) -> inj Coproduct.sigma op al
+      | Sym.Fun(op) -> inj Apply.sigma op al
+      | Sym.Pp(op) -> inj Pprod.sigma op al
+      | Sym.Uninterp _ -> inj Term.App.mk_app f al
+      | Sym.Arrays(op) -> 
+	  let rhos = ref [] in
+	  let is_equal' = Jst.Three.to_three rhos (is_equal cfg) in
+	  let b = Funarr.sigma is_equal' op al in
+	  let rho = Jst.sigma ((f, al), b) !rhos in
+	    (b, rho)
+	
 
 	
 let rec can ((p, s) as cfg) a =
   let interp_can op =                      (* Apply interpretation on canonized term. *)
-    Justification.Eqtrans.compose_partial1 (* If there is no interpretation, return canonized result. *)
+    Jst.Eqtrans.compose_partial1 (* If there is no interpretation, return canonized result. *)
       (interp cfg (Sym.theory_of op))
       (can cfg)
   in 
     try
-      Justification.Eqtrans.compose
+      Jst.Eqtrans.compose
 	(uninterp cfg)                                   (* Never fails. *)                
 	(Fact.Equal.Inj.mapargs (sigma cfg) interp_can)  (* Fails if not an application. *)
 	a 
@@ -325,40 +373,11 @@ and uninterp ((p, _) as cfg) a =
   try
     let (a', rho') = inv cfg a in
     let (a'', rho'') = Partition.find p a' in
-    let tau'' = Justification.trans (a'', a', a) rho'' rho' in
+    let tau'' = Jst.trans a'' a' a rho'' rho' in
       (a'', tau'')
   with
       Not_found -> Partition.find p a
  
-
-(** {6 Predicates} *)
-
-(** Test if terms [a] and [b] are equal or disequal in [s]. *)
-let is_equal ((p, _) as cfg) =
-    (Partition.is_equal_or_diseq p)
-
-let is_pos (p, s) a = 
-  match La.is_pos (p, s.a) a with
-    | Some(tau) -> 
-	Justification.Three.Yes(tau)
-    | None -> 
-	(match La.is_nonpos (p, s.a) a with
-	   | Some(tau) -> Justification.Three.No(tau)
-	   | None -> Justification.Three.X)
-	
-let is_nonneg (p, s) a = 
- match La.is_nonneg (p, s.a) a with
-    | Some(tau) -> 
-	Justification.Three.Yes(tau)
-    | None -> 
-	(match La.is_neg (p, s.a) a with
-	   | Some(tau) -> Justification.Three.No(tau)
-	   | None -> Justification.Three.X)
-
-let is_neg cfg a = is_pos cfg (Arith.mk_neg a)
-let is_nonpos cfg a = is_nonneg cfg (Arith.mk_neg a)
-
-
 
 (** {6 Solver} *)
 
@@ -388,17 +407,17 @@ let minimize (p, s) = La.lower (p, s.a)
 module Split = struct
 
   type t = {
-    finint: La.Finite.t Term.Map.t;
+    finint: La.Finite.t Term.Var.Map.t;
     arridx: Term.Set2.t
   }
 
   let is_empty spl =
     Term.Set2.is_empty spl.arridx &&
-    Term.Map.empty == spl.finint
+    Term.Var.Map.empty == spl.finint
 
   let pp fmt spl =
-    if not(spl.finint == Term.Map.empty) then
-      (let l = Term.Map.fold (fun x fin acc -> (x, fin) :: acc) spl.finint [] in
+    if not(spl.finint == Term.Var.Map.empty) then
+      (let l = Term.Var.Map.fold (fun x fin acc -> (x, fin) :: acc) spl.finint [] in
 	 Pretty.map Term.pp La.Finite.pp fmt l);
     if not(Term.Set2.is_empty spl.arridx) then
       Pretty.set Term.Equal.pp fmt (Term.Set2.elements spl.arridx)

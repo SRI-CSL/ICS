@@ -36,22 +36,22 @@ val is_dependent : t -> Th.t -> Term.t -> bool
 type config = Partition.t * t
 
 
-val apply : t -> Th.t -> Justification.Eqtrans.t
+val apply : t -> Th.t -> Jst.Eqtrans.t
 
-val find : t -> Th.t -> Justification.Eqtrans.t
+val find : t -> Th.t -> Jst.Eqtrans.t
 
-val interp :  config -> Th.t -> Justification.Eqtrans.t
+val interp :  config -> Th.t -> Jst.Eqtrans.t
 
-val inv : config -> Justification.Eqtrans.t
+val inv : config -> Jst.Eqtrans.t
 
-val dep : t -> Th.t -> Term.t -> Term.Set.t
+val dep : t -> Th.t -> Term.t -> Term.Var.Set.t
 
 
 (** {6 Process} *)
 
 val copy : t -> t
 
-val name : config -> Th.t -> Justification.Eqtrans.t
+val name : config -> Th.t -> Jst.Eqtrans.t
 
 val process_equal :  config -> Th.t -> Fact.Equal.t -> unit
 
@@ -72,30 +72,30 @@ val propagate : config -> Fact.Equal.t -> Th.t * Th.t -> unit
 
 (** {6 Theory-specific operations} *)
 
-val sigma : config -> Sym.t -> Term.t list -> Term.t * Justification.t
+val sigma : config -> Sym.t -> Term.t list -> Term.t * Jst.t
 
-val can : config -> Justification.Eqtrans.t
+val can : config -> Jst.Eqtrans.t
 
 val solve : Th.t -> Term.Equal.t -> Term.Subst.t
 
 (** {6 Predicates} *)
 
-val is_equal : config -> Justification.Rel2.t
+val is_equal : config -> Jst.Rel2.t
 
-val is_nonpos : config -> Justification.Rel1.t
+val is_nonpos : config -> Jst.Rel1.t
   (** [is_nonpos s a] returns [Some(rho)] if [a <= 0] holds in [s]. 
     In this case [rho |- a <= 0]. Otherwise, [None] is returned. *)
 
-val is_pos : config -> Justification.Rel1.t
+val is_pos : config -> Jst.Rel1.t
 
-val is_nonneg : config -> Justification.Rel1.t
+val is_nonneg : config -> Jst.Rel1.t
 
-val is_neg : config -> Justification.Rel1.t
+val is_neg : config -> Jst.Rel1.t
 
 
-val maximize : config -> Justification.Eqtrans.t
+val maximize : config -> Jst.Eqtrans.t
 
-val minimize : config -> Justification.Eqtrans.t
+val minimize : config -> Jst.Eqtrans.t
 
 
 (** {6 Model construction} *)
@@ -108,7 +108,7 @@ val model : Partition.t * t -> (Term.t * La.mode option) list -> Term.t Term.Map
 module Split : sig
 
   type t = {
-    finint: La.Finite.t Term.Map.t;
+    finint: La.Finite.t Term.Var.Map.t;
     arridx: Term.Set2.t
   }
 

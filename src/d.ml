@@ -20,11 +20,10 @@ open Mpa
   The function is closed in that forall [x], [y] such that [x |-> {..., y,...}]
   then also [y |-> {...., x,....}] *)
 
-
 module Set = Set.Make(
   struct
-    type t = Term.t * Justification.t
-    let compare (x, _) (y, _) = Term.cmp x y
+    type t = Term.t * Jst.t
+    let compare (x, _) (y, _) = Term.Var.compare x y
   end)
 
 exception Found of Set.elt
@@ -87,11 +86,11 @@ let map_diseqs s f a =
     if Term.eq a x then ds else
       Set.fold 
 	(fun (z, tau) ->                       (* [tau |- y <> z] *)
-	   let sigma = Justification.subst_diseq (x, z) tau [rho] in
+	   let sigma = Jst.subst_diseq (x, z) tau [rho] in
 	     Set.add (z, sigma))
 	ds Set.empty
 
-exception Found of Justification.t
+exception Found of Jst.t
 
 (** Check if two terms are known to be disequal. *)
 let is_diseq s x y =
@@ -126,8 +125,8 @@ let rec merge e s =
   let (x, y, rho) = Fact.Equal.destruct e in         (* [rho |- x = y] *)
     match is_diseq s x y with
       | Some(tau) ->                                 (* [tau |- x <> y] *)
-	  let sigma = Justification.contradiction rho tau in
-	    raise(Justification.Inconsistent(sigma))
+	  let sigma = Jst.contradiction rho tau in
+	    raise(Jst.Inconsistent(sigma))
       | None -> 
 	  let dx = diseqs s x 
 	  and dy = diseqs s y in
@@ -143,7 +142,7 @@ let rec merge e s =
 		 let dz = diseqs s z in
 		   try
 		     let dz' = Set.remove (assoc x dz) dz in
-		     let sigma = Justification.subst_diseq (z, y) tau [rho] in
+		     let sigma = Jst.subst_diseq (z, y) tau [rho] in
 		     let dz'' = Set.add (y, sigma) dz' in  (* [sigma|-z<>y] *)
 		       Term.Map.add z dz'' s
 		   with

@@ -20,8 +20,6 @@
   corresponding definitions. 
 *)
 
-val tt : Sym.t
-val ff : Sym.t
  
 val mk_true : Term.t
 val mk_false : Term.t

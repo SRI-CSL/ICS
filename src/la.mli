@@ -48,18 +48,18 @@ val pp : t Pretty.printer
 
 (** {6 Accessors} *)
 
-val apply : t -> Justification.Eqtrans.t
+val apply : t -> Jst.Eqtrans.t
   (** [apply s x] returns [a] if [x = a] is in [s]; otherwise
     [Not_found] is raised. *)
   
-val find : t -> Justification.Eqtrans.t
+val find : t -> Jst.Eqtrans.t
   (** [find s x] returns [a] if [x = a] is in [s], and [x] otherwise. *)
 
-val inv : t -> Justification.Eqtrans.t
+val inv : t -> Jst.Eqtrans.t
   (** [inv s a] returns [x] if [x = a] is in [s]; otherwise
     [Not_found] is raised. *)
 
-val dep : t -> Term.t -> Term.Set.t
+val dep : t -> Term.t -> Term.Var.Set.t
   (** [dep s y] returns the set of [x] such that [x = a] in [s]
     and [y] occurs in [a]. *)
 
@@ -87,7 +87,7 @@ type config = Partition.t * t
       A configuration {i represents{ the conjunction of variable
       equalities and disequalities in [p] and the equalities in [s]. *)
 
-val name : config -> Justification.Eqtrans.t
+val name : config -> Jst.Eqtrans.t
   (** [name (p, s) a] returns a canonical variable [x] 
     with [x = a] in the [r] part of [s].  If there is no such 
     variable, it creates such a variable [v] and updates [s] to 
@@ -98,7 +98,7 @@ val process_equal : config -> Fact.Equal.t -> unit
     over {i pure}, linear arithmetic terms
     [process_equal (p, s) e] adds [e] to [(p, s)]. 
     If [e] conjoined with [s] and [p] is {i inconsistent},
-    then {!Justification.Inconsistent} is raised.  Besides 
+    then {!Jst.Inconsistent} is raised.  Besides 
     {i destructively} updating [s], all generated variable 
     equalities and disequalities are propagated into the 
     partitioning [p].  *)
@@ -108,7 +108,7 @@ val process_nonneg : config -> Fact.Nonneg.t -> unit
     constraint [nn] of the form [a >= 0] with [a] a pure
     linear arithmetic term, [process_nonneg (p, s) nn] adds 
     [nn] to [(p, s)]. If [nn] conjoined with [s] and [p] is 
-    {i inconsistent}, then {!Justification.Inconsistent} is 
+    {i inconsistent}, then {!Jst.Inconsistent} is 
     raised.  Besides {i destructively} updating [s], all 
     generated variable equalities and disequalities are propagated
     into the partitioning [p].  *)
@@ -118,7 +118,7 @@ val process_pos : config -> Fact.Pos.t -> unit
     constraint [pp] of the form [a > 0] with [a] a pure
     linear arithmetic term, [process_nonneg (p, s) pp] adds 
     [pp] to [(p, s)]. If [pp] conjoined with [s] and [p] is 
-    {i inconsistent}, then {!Justification.Inconsistent} is 
+    {i inconsistent}, then {!Jst.Inconsistent} is 
     raised.  Besides {i destructively} updating [s], all 
     generated variable equalities and disequalities are propagated
     into the partitioning [p].  *)
@@ -129,7 +129,7 @@ val process_diseq : config -> Fact.Diseq.t -> unit
     [a] a linear term and [b] a rational constant, 
     [process_diseq (p, s) d] adds 
     [d] to [(p, s)]. If [d] conjoined with [s] and [p] is 
-    {i inconsistent}, then {!Justification.Inconsistent} is 
+    {i inconsistent}, then {!Jst.Inconsistent} is 
     raised.  Besides {i destructively} updating [s], all 
     generated variable equalities and disequalities are 
     propagated into the partitioning [p].  *)
@@ -139,29 +139,31 @@ val process_diseq : config -> Fact.Diseq.t -> unit
 
 exception Unbounded
 
-val upper : config -> Justification.Eqtrans.t
+val upper : config -> Jst.Eqtrans.t
   (** [upper s a] returns either
     - [(b, rho)] such that [b+] is empty and [rho |- a = b], or
     - raises [Unbounded] if [a] is unbounded in [s]. *)
 
-val lower : config -> Justification.Eqtrans.t
+val lower : config -> Jst.Eqtrans.t
 
-val is_nonpos : config -> Justification.Pred.t
+val is_nonpos : config -> Jst.Pred.t
   (** [is_nonpos s a] returns [Some(rho)] if [a <= 0] holds in [s]. 
     In this case [rho |- a <= 0]. Otherwise, [None] is returned. *)
 
-val is_nonneg : config -> Justification.Pred.t
+val is_nonneg : config -> Jst.Pred.t
   (** [is_nonneg s a] returns [Some(rho)] if [a >= 0] holds in [s]. 
     In this case [rho |- a >= 0]. Otherwise, [None] is returned. *)
 
-val is_pos : config -> Justification.Pred.t
+val is_pos : config -> Jst.Pred.t
   (** [is_pos s a] returns [Some(rho)] if [a > 0] holds in [s]. 
     In this case [rho |- a > 0]. Otherwise, [None] is returned. *)
 
-val is_neg : config -> Justification.Pred.t
+val is_neg : config -> Jst.Pred.t
   (** [is_neg s a] returns [Some(rho)] if [a < 0] holds in [s]. 
     In this case [rho |- a < 0]. Otherwise, [None] is returned. *)
 
+val is_diseq : config -> Jst.Pred2.t
+  (** [is_diseq s a b] returns [None] or [Some(rho)] with [rho |- a <> b]. *)
 
 
 (** {6 Finite Interpretations} *)
@@ -187,7 +189,7 @@ module Finite : sig
     interpretation [fin] for [x] such that [x] is
     interpreted in [D(fin)] or raises [Unbounded]. *)
 
-  val of_config : config -> t Term.Map.t
+  val of_config : config -> t Term.Var.Map.t
   (** [of_config (p, s)] returns a map of finite domain
     interpretations for all variables in [s] with a 
     finite interpretation. *)

@@ -22,18 +22,16 @@ let print_justification = ref false
 
 (** {6 Facts} *)
 
-type t = Atom.t * Justification.t
+type t = Atom.t * Jst.t
     (** A {i fact} is just an atom together with a justification. *)
 
 type fct = t
-
-let compare (a1, _) (a2, _) = Atom.compare a1 a2
 
 let rec pp fmt (a, j) =
   if !print_justification then
     begin
       Format.fprintf fmt "\n";
-      Justification.pp fmt j;
+      Jst.pp fmt j;
       Format.fprintf fmt "\n|---------\n"
     end;
   Atom.pp fmt a;
@@ -50,7 +48,7 @@ let justification_of (_, j) = j
 
 module Equal = struct
 
-  type t = Term.t * Term.t * Justification.t
+  type t = Term.t * Term.t * Jst.t
 
   let lhs_of (a, _, _) = a
   let rhs_of (_, b, _) = b
@@ -58,11 +56,14 @@ module Equal = struct
   let destruct e = e
 
   (** Inject an equality fact into a fact. *)
-  let inj (a, b, rho) = (Atom.Equal(a, b), rho)
+  let inj (a, b, rho) = (Atom.mk_equal(a, b), rho)
 
   let pp fmt e = pp fmt (inj e)
 
-  let make (a, b, rho) =                   (* [rho |- a = b] *)
+  let both p (a, b, _) = p a && p b
+    
+
+  let make (a, b, rho) =                    (* [rho |- a = b] *)
     let (a, b) = Term.orient (a, b) in
       (a, b, rho)
 
@@ -73,19 +74,19 @@ module Equal = struct
 	| true, true ->
 	    e
 	| true, false ->
-	    let rho' = Justification.subst_equal (a', b') rho [beta] in
+	    let rho' = Jst.subst_equal1 a' b' rho beta in
 	      make (a', b', rho')
 	| false, true ->
-	    let rho' = Justification.subst_equal (a', b') rho [alpha] in
+	    let rho' = Jst.subst_equal1 a' b' rho alpha in
 	      make (a', b', rho')
 	| _ -> 
-	    let rho' = Justification.subst_equal (a', b') rho [alpha; beta] in
+	    let rho' = Jst.subst_equal2 a' b' rho alpha beta in
 	      make (a', b', rho')
 
   let map f = map2 (f, f)
 
-  let map_lhs f = map2 (f, Justification.Eqtrans.id)
-  let map_rhs f = map2 (Justification.Eqtrans.id, f)
+  let map_lhs f = map2 (f, Jst.Eqtrans.id)
+  let map_rhs f = map2 (Jst.Eqtrans.id, f)
 
 
   let is_var (a, b, _) =
@@ -99,26 +100,26 @@ module Equal = struct
 
   module Inj = struct
 
-    let solver f (a, b, rho) =         (* [rho |- a = b] *)
-      let tau = Justification.solve (a, b) rho in  
+    let solver th f (a, b, rho) =         (* [rho |- a = b] *)
+      let tau = Jst.solve th (a, b) rho in  
 	try
 	  let sl = f (a, b) in
 	  let justify (a, b) = (a, b, tau) in  (* [tau |- e] if [e] in [solve(a, b)] *)
 	    List.map justify sl
 	with
 	    Exc.Inconsistent -> 
-	      raise(Justification.Inconsistent(tau))
+	      raise(Jst.Inconsistent(tau))
 
     let trans f e =
       let (a, b, rho) = destruct e in
       let (a', b') = f (a, b) in
-      let rho' = Justification.dependencies1 rho in
+      let rho' = Jst.dependencies1 rho in
 	make (a', b', rho')
 
     let apply1 f (x, b, rho) a =
       let a' = f (x, b) a in
-	if a == a' then Justification.Eqtrans.id a else
-	  let rho' = Justification.apply1 (a', a) rho in
+	if a == a' then Jst.Eqtrans.id a else
+	  let rho' = Jst.apply1 (a', a) rho in
 	    (a', rho')
 
     let norm apply el a = 
@@ -132,7 +133,7 @@ module Equal = struct
 	      apply_star acc' el
       in
       let b = apply_star a el in
-      let rho = Justification.apply (a, b) !hyps in
+      let rho = Jst.apply (a, b) !hyps in
 	(b, rho)
 
       
@@ -147,32 +148,32 @@ module Equal = struct
 	    Not_found -> y
       in
       let b = map lookup a in
-      let rho = Justification.apply (a, b) !hyps in
+      let rho = Jst.apply (a, b) !hyps in
 	(b, rho)
 
     let mapargs mk_app f a =
       let (op, al) = Term.App.destruct a in
 	match al with
 	  | [] -> 
-	      Justification.Eqtrans.id a
+	      Jst.Eqtrans.id a
 	  | [a1] ->
 	      let (b1, rho1) = f op a1 in
-		if a1 == b1 then Justification.Eqtrans.id a else 
+		if a1 == b1 then Jst.Eqtrans.id a else 
 		  let (b, tau) = mk_app op [b1] in
-		  let sigma = Justification.subst_equal (a, b) tau [rho1] in
+		  let sigma = Jst.subst_equal1 a b tau rho1 in
 		    (b, sigma)
 	  | _ ->
 	      let rhol = ref [] in                    (* [rhoi |- bi = ai] *)
-	      let f' = Justification.Eqtrans.acc rhol (f op) in
+	      let f' = Jst.Eqtrans.acc rhol (f op) in
 	      let bl = Term.mapl f' al in                                
-		if al == bl then Justification.Eqtrans.id a else 
+		if al == bl then Jst.Eqtrans.id a else 
 		  let (b, tau) = mk_app op bl in      (* [tau |- b = op(bl)] *)
-		  let sigma = Justification.subst_equal (a, b) tau !rhol in 
+		  let sigma = Jst.subst_equal (a, b) tau !rhol in 
 		    (b, sigma)                        (* [sigma |- a = b] *)
 
     let mapl f al =
       let rhol = ref [] in      
-      let f' = Justification.Eqtrans.acc rhol f in
+      let f' = Jst.Eqtrans.acc rhol f in
       let bl = Term.mapl f' al in 
         (bl, !rhol)
 		 
@@ -185,14 +186,14 @@ end
 
 module Diseq = struct
 
-  type t = Term.t * Term.t * Justification.t
+  type t = Term.t * Term.t * Jst.t
 
   let destruct d = d
 
   let lhs_of (a, _, _) = a
   let rhs_of (_, b, _) = b
 
-  let inj (a, b, j) = (Atom.Diseq(a, b), j)
+  let inj (a, b, j) = (Atom.mk_diseq(a, b), j)
 
   let pp fmt d = pp fmt (inj d)
 
@@ -220,7 +221,10 @@ module Diseq = struct
 	    (Arith.mk_multq lcm a, Arith.mk_multq lcm b)
 	in
 	let q', c' = Arith.destruct (Arith.mk_sub a' b') in  (* [q' + c' <> 0] *)
-	  (c', Arith.mk_num (Mpa.Q.minus q'), rho)           (* ==> [x' <> -q'] *)
+	  if Mpa.Q.is_nonneg q' then
+	    (Arith.mk_neg c', Arith.mk_num q', rho)          (* ==> [-c' <> q'] *)
+	  else 
+	    (c', Arith.mk_num (Mpa.Q.minus q'), rho)         (* ==> [c' <> -q'] *)
       else 
 	let (a, b) = Term.orient (a, b) in
 	  (a, b, rho)
@@ -231,7 +235,7 @@ module Diseq = struct
       match a == a', b == b' with
 	| true, true -> d
 	| _ ->
-	    let rho' = Justification.subst_diseq (a', b') rho [alpha'; beta'] in
+	    let rho' = Jst.subst_diseq (a', b') rho [alpha'; beta'] in
 	      make (a', b', rho')
 
   let d_diophantine ((a, b, rho) as d) = 
@@ -258,9 +262,9 @@ end
 
 module Nonneg = struct
 
-  type t = Term.t * Justification.t
+  type t = Term.t * Jst.t
 
-  let inj (a, rho) = (Atom.Nonneg(a), rho)
+  let inj (a, rho) = (Atom.mk_nonneg(a), rho)
 
   let pp fmt c = pp fmt (inj c)
 
@@ -273,22 +277,20 @@ module Nonneg = struct
 	  (a, rho)
     with
 	Not_found -> (a, rho)
-
-  let make = Trace.func "foo9" "Make.Nonneg" pp pp make
-          
+     
   let destruct c = c
 	  
   let map f ((a, rho) as c) =
     let (a', alpha') = f a in                    (* [alpha' |- a = a'] *)
       if a == a' then c else
-	let rho' = Justification.subst_nonneg a' rho [alpha'] in
+	let rho' = Jst.subst_nonneg a' rho [alpha'] in
 	  make (a', rho')
 
   let holds (a, rho) =
     match Arith.is_nonneg  a with
-      | Three.No -> Justification.Three.No(rho)
-      | Three.Yes -> Justification.Three.Yes(rho)
-      | Three.X -> Justification.Three.X
+      | Three.No -> Jst.Three.No(rho)
+      | Three.Yes -> Jst.Three.Yes(rho)
+      | Three.X -> Jst.Three.X
    
 end
 
@@ -297,9 +299,9 @@ end
 
 module Pos = struct
 
-  type t = Term.t * Justification.t
+  type t = Term.t * Jst.t
 
-  let inj (a, rho) = (Atom.Pos(a), rho)
+  let inj (a, rho) = (Atom.mk_pos(a), rho)
 
   let pp fmt c = pp fmt (inj c)
 
@@ -320,7 +322,7 @@ module Pos = struct
   let map f ((a, rho) as c) =
     let (a', alpha') = f a in                    (* [alpha' |- a = a'] *)
       if a == a' then c else
-	let rho' = Justification.subst_pos a' rho [alpha'] in
+	let rho' = Jst.subst_pos a' rho [alpha'] in
 	  make (a', rho')
 
 end
@@ -352,52 +354,48 @@ let make fct =
 let mk_true rho = make (Atom.mk_true, rho)
 let mk_false rho = make (Atom.mk_false, rho)
 
-let mk_axiom a = make (a, Justification.axiom a)
+let mk_axiom a = make (a, Jst.axiom a)
 
-open Justification.Three
+open Jst.Three
 
 let mk_equal is_equal (a, b, rho) =  
   match is_equal a b with
     | Yes(tau) -> 
-	let sigma = Justification.dependencies2 rho tau in
-	  mk_true sigma
+	mk_true (Jst.valid rho tau)
     | No(tau) -> 
-	mk_false (Justification.contradiction rho tau)
+	mk_false (Jst.contradiction rho tau)
     | X -> 
-	make (Atom.Equal(a, b), rho)
+	make (Atom.mk_equal(a, b), rho)
 
 let mk_diseq is_equal (a, b, rho) =  
   match is_equal a b with
     | Yes(tau) -> 
-	mk_false (Justification.contradiction rho tau)
+	mk_false (Jst.contradiction rho tau)
     | No(tau) ->
-	let sigma = Justification.dependencies2 rho tau in
-	  mk_true sigma
+	mk_true (Jst.valid rho tau)
     | X -> 
-	make (Atom.Diseq(a, b), rho)
+	make (Atom.mk_diseq(a, b), rho)
 
 let mk_nonneg is_nonneg (a, rho) =
   match is_nonneg a with
     | Yes(tau) ->
-	let sigma = Justification.dependencies2 rho tau in
-	  mk_true sigma
+	mk_true (Jst.valid rho tau)
     | No(tau) -> 
-	mk_false (Justification.contradiction rho tau)
+	mk_false (Jst.contradiction rho tau)
     | X -> 
-	make (Atom.Nonneg(a), rho)
+	make (Atom.mk_nonneg(a), rho)
 
 let mk_pos is_pos (a, rho) = 
   match is_pos a with
     | Yes(tau) -> 
-	let sigma = Justification.dependencies2 rho tau in
-	  mk_true sigma
+	mk_true (Jst.valid rho tau)
     | No(tau) -> 
-	mk_false (Justification.contradiction rho tau)
+	mk_false (Jst.contradiction rho tau)
     | X -> 
-	make (Atom.Pos(a), rho)
+	make (Atom.mk_pos(a), rho)
 
 let map (is_equal, is_nonneg, is_pos) f ((atm, rho) as fct) =
-  match atm with
+  match Atom.atom_of atm with
     | Atom.True -> 
 	fct
     | Atom.False -> 
@@ -406,41 +404,41 @@ let map (is_equal, is_nonneg, is_pos) f ((atm, rho) as fct) =
 	let (a', b', rho') = Equal.map f (a, b, rho) in
 	  if a == a' && b == b' then fct else
 	    (match is_equal a' b' with
-	       | Justification.Three.Yes(tau') ->  
-		   mk_true(Justification.dependencies2 rho' tau')
-	       | Justification.Three.No(tau') -> 
-		   mk_false(Justification.dependencies2 rho' tau')
-	       | Justification.Three.X -> 
+	       | Jst.Three.Yes(tau') ->  
+		   mk_true (Jst.valid rho' tau')
+	       | Jst.Three.No(tau') -> 
+		   mk_false (Jst.contradiction rho' tau')
+	       | Jst.Three.X -> 
 		   mk_equal is_equal (a', b', rho'))
     | Atom.Diseq(a, b) ->
 	let (a', b', rho') = Diseq.map f (a, b, rho) in
 	  if a == a' && b == b' then fct else 
 	    (match is_equal a' b' with
-	       | Justification.Three.Yes(tau') -> 
-		   mk_false(Justification.dependencies2 rho' tau')
-	       | Justification.Three.No(tau') -> 
-		   mk_true(Justification.dependencies2 rho' tau')
-	       | Justification.Three.X -> 
+	       | Jst.Three.Yes(tau') -> 
+		   mk_false(Jst.contradiction rho' tau')
+	       | Jst.Three.No(tau') -> 
+		   mk_true (Jst.valid rho' tau')
+	       | Jst.Three.X -> 
 		   mk_diseq is_equal (a', b', rho'))
     | Atom.Nonneg(a) ->
 	let (a', rho') = Nonneg.map f (a, rho) in
 	  if a == a' then fct else
 	    (match is_nonneg a' with
-	      | Justification.Three.Yes(tau') ->  
-		  mk_true(Justification.dependencies2 rho' tau')
-	      | Justification.Three.No(tau') -> 
-		  mk_false(Justification.dependencies2 rho' tau')
-	      | Justification.Three.X -> 
+	      | Jst.Three.Yes(tau') ->  
+		  mk_true (Jst.valid rho' tau')
+	      | Jst.Three.No(tau') -> 
+		  mk_false (Jst.contradiction rho' tau')
+	      | Jst.Three.X -> 
 		  mk_nonneg is_nonneg (a', rho'))
     | Atom.Pos(a) ->
 	let (a', rho') = Pos.map f (a, rho) in
 	  if a == a' then fct else
 	    (match is_pos a' with
-	       | Justification.Three.Yes(tau') -> 
-		   mk_true(Justification.dependencies2 rho' tau')
-	       | Justification.Three.No(tau') -> 
-		   mk_false(Justification.dependencies2 rho' tau')
-	       | Justification.Three.X -> 
+	       | Jst.Three.Yes(tau') -> 
+		   mk_true (Jst.valid rho' tau')
+	       | Jst.Three.No(tau') -> 
+		   mk_false (Jst.contradiction rho' tau')
+	       | Jst.Three.X -> 
 		   mk_pos is_pos (a', rho'))
 	    
 

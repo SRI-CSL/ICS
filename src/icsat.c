@@ -32,6 +32,38 @@ void icsat_deregister(value* r) {
   }
 }
 
+/* Explanation Interface */
+
+
+int icsat_explain_is_empty() {
+  CAMLparam0();
+  static value * closure = NULL;
+  if (closure == NULL) { closure = caml_named_value("prop_explain_is_empty"); }
+  CAMLreturn(Bool_val(callback(*closure, Val_unit)));
+}
+
+int icsat_is_explained() { 
+  CAMLparam0();
+  static value * closure = NULL;
+  if (closure == NULL) { closure = caml_named_value("prop_is_explained"); }
+  return(Bool_val(callback(*closure, Val_unit)));
+}
+
+int icsat_explain_pop() {
+  CAMLparam0();
+  static value * closure = NULL;
+  if (closure == NULL) { closure = caml_named_value("prop_explain_pop"); }
+  CAMLreturn(Int_val(callback(*closure, Val_unit)));
+}
+
+int icsat_explain_size() {
+  CAMLparam0();
+  static value * closure = NULL;
+  if (closure == NULL) { closure = caml_named_value("prop_explain_size"); }
+  CAMLreturn(Int_val(callback(*closure, Val_unit)));
+}
+
+
 /* Lists */
 
 int icsat_is_nil(value x1) {
@@ -60,24 +92,6 @@ value icsat_tail(value x1) {
   static value * closure = NULL;
   if (closure == NULL) { closure = caml_named_value("prop_tail"); }
   CAMLreturn((value)(callback(*closure, x1)));
-}
-
-/* Explanation function returns a list of atoms ids. */
-/* Should only be called immediately after */
-/* inconsistent processing. */
-
-value icsat_explain() { 
-  CAMLparam0();
-  static value * closure = NULL;
-  if (closure == NULL) { closure = caml_named_value("prop_explain"); }
-  CAMLreturn((value)(callback(*closure, Val_unit)));
-}
-
-int icsat_is_explained() { 
-  CAMLparam0();
-  static value * closure = NULL;
-  if (closure == NULL) { closure = caml_named_value("prop_explain"); }
-  return(Bool_val(callback(*closure, Val_unit)));
 }
 
 

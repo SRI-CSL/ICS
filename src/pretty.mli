@@ -16,6 +16,10 @@
   @author Harald Ruess
 *)
 
+type mode = Mixfix | Prefix | Sexpr
+
+val flag : mode ref
+
 type 'a printer = Format.formatter -> 'a -> unit
 
 val unit : unit printer
@@ -46,6 +50,11 @@ val infix : 'a printer -> string -> 'b printer -> ('a * 'b) printer
   (** [infix p str q (a, b)] prints [a] using printer [p], then it prints
     [str], and then [b] using printer [b]. *)
 
+val mixfix : string -> 'a printer -> 
+             string -> 'b printer -> 
+             string -> 'c printer -> string
+               -> ('a * 'b * 'c) printer
+
 val eqn : 'a printer -> ('a * 'a) printer
   (** Print a pair as an equality. *)
 
@@ -55,6 +64,9 @@ val solution : 'a printer -> ('a * 'a) list printer
 val infixl : 'a printer -> string -> 'a list printer
   (** [infixl pp op] prints a list [[a1;...;an]] in the
     form [a1 op ... op an]. *)
+
+val apply : 'b printer -> (string * 'b list) printer
+
 
 val set : 'a printer -> 'a list printer
   (** Printing of a list as a set. *)

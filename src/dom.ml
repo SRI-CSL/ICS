@@ -139,3 +139,12 @@ let pp fmt d =
 
 
 let to_string = Pretty.to_string pp
+
+let inj =
+  let int = Some(Int)
+  and real = Some(Real)
+  and nonint = Some(Nonint) in
+    function
+      | Int -> int
+      | Real -> real
+      | Nonint -> nonint

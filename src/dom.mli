@@ -51,12 +51,13 @@ val union : t -> t -> t
 
 exception Empty
 
-
 val compl : t -> t
 
 val inter : t -> t -> t
  (** [inter d1 d2] returns [d] iff the denotation of [d] is the 
    nonempty intersection of the denotations of [d1] and [d2]. *)
+
+val inj : t -> t option
 
 val multq : Mpa.Q.t -> t -> t
 

@@ -22,8 +22,7 @@
   @author Harald Ruess
 *)
 
-
-type t =
+type atom =
   | True
   | Equal of Term.t * Term.t
   | Diseq of Term.t * Term.t
@@ -31,9 +30,14 @@ type t =
   | Pos of Term.t
   | False
 
+type t
 
-val compare : t -> t -> int
-val eq : t -> t -> bool
+
+val atom_of : t -> atom
+val index_of : t -> int
+
+val of_atom : atom -> t
+val of_index : int -> t
 
 
 (** {6 Constructors} *)
@@ -72,7 +76,7 @@ val negate : t -> t
 
 (** {6 Accessors} *)
 
-val vars_of : t -> Term.Set.t
+val vars_of : t -> Term.Var.Set.t
 
 val is_connected : t -> t -> bool
 
@@ -81,9 +85,11 @@ val is_connected : t -> t -> bool
 
 val pp : t Pretty.printer
 
+val to_string : t -> string
 
-(** {6 Set of atoms} *)
+
+(** {6 Sets and Maplets} *)
 
 module Set : (Set.S with type elt = t)
 
-val hash : t -> int
+module Map : (Map.S with type key = t)

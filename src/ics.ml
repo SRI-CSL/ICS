@@ -26,7 +26,7 @@ let init (n) =
 let set_profile b = Tools.profiling := b
 let _ = Callback.register "set_profile" set_profile
 
-let set_pretty b = Term.pretty := b
+let set_pretty b = Pretty.flag := Pretty.Mixfix
 let _ = Callback.register "set_pretty" set_pretty
 
 let set_compactify b = Context.compactify := b
@@ -62,8 +62,30 @@ let _ = Callback.register "set_justifications" set_justifications
 let set_statistic b =  Prop.statistics := b
 let _ = Callback.register "set_statistic" set_statistic
 
-let set_integer_solve b =  Arith.integer_solve := b
+let set_integer_solve b = Arith.integer_solve := b
 let _ = Callback.register "set_integer_solve" set_integer_solve
+
+let set_proofmode str = Jst.proofmode := Jst.Mode.of_string str
+let _ = Callback.register "set_proofmode" set_proofmode
+
+let set_gc_mode str =   
+  let control= Gc.get() in
+    match str with
+      | "lazy" -> Gc.set {control with Gc.space_overhead = 10000; Gc.max_overhead = 1000000}
+      | "eager" -> Gc.set {control with Gc.space_overhead = 10; Gc.max_overhead = 100}
+      | str -> raise(Invalid_argument "no such GC option")
+let _ = Callback.register "set_gc_mode" set_gc_mode
+
+let set_gc_space_overhead overhead =  
+  let control = Gc.get () in
+    Gc.set {control with Gc.space_overhead = overhead}
+let _ = Callback.register "set_gc_space_overhead" set_gc_space_overhead
+
+let set_gc_max_overhead overhead = 
+  let control = Gc.get () in
+    Gc.set {control with Gc.max_overhead = overhead}
+let _ = Callback.register "set_gc_max_overhead" set_gc_max_overhead
+
 
 let do_at_exit () = Tools.do_at_exit ()
 let _ = Callback.register "do_at_exit" do_at_exit
@@ -352,7 +374,7 @@ let _ = Callback.register "term_mk_var" term_mk_var
 (** Uninterpred function application and function update. *)
          
 let term_mk_uninterp x l =
-  let f = Sym.Uninterp.uninterp (Name.of_string x) in
+  let f = Sym.Uninterp.make (Name.of_string x) in
   App.sigma f l
 let _ = Callback.register "term_mk_uninterp" term_mk_uninterp
 
@@ -476,6 +498,7 @@ let _ = Callback.register "atom_negate" atom_negate
 
 type atoms = Atom.Set.t
 
+(*
 let atoms_empty () =   
   Format.eprintf "Atoms_empty@.";
   Atom.Set.empty 
@@ -492,6 +515,7 @@ let atoms_to_list atms =
   Format.eprintf "Atoms_to_list@.";
   Atom.Set.elements atms
 let _ = Callback.register "atoms_to_list" atoms_to_list
+*)
 
 let term_is_true = Boolean.is_true
 let _ = Callback.register "term_is_true" term_is_true
@@ -537,52 +561,52 @@ let _ = Callback.register "prop_mk_iff" prop_mk_iff
 let prop_mk_neg = Prop.mk_neg
 let _ = Callback.register "prop_mk_neg" prop_mk_neg
 
-let prop_is_true = function Prop.True -> true | _ -> false
+let prop_is_true a = failwith "to do"
 let _ = Callback.register "prop_is_true" prop_is_true
 
-let prop_is_false = function Prop.False -> true | _ -> false
+let prop_is_false a = failwith "to do"
 let _ = Callback.register "prop_is_false" prop_is_false
 
-let prop_is_var = function Prop.Var _ -> true | _ -> false
+let prop_is_var a = failwith "to do"
 let _ = Callback.register "prop_is_var" prop_is_var
 
-let prop_is_atom = function Prop.Atom _ -> true | _ -> false
+let prop_is_atom a = failwith "to do"
 let _ = Callback.register "prop_is_atom" prop_is_atom
 
-let prop_is_ite = function Prop.Ite _ -> true | _ -> false
+let prop_is_ite a = failwith "to do"
 let _ = Callback.register "prop_is_ite" prop_is_ite
 
-let prop_is_disj = function Prop.Disj _ -> true | _ -> false
+let prop_is_disj a = failwith "to do"
 let _ = Callback.register "prop_is_disj" prop_is_disj
 
-let prop_is_iff = function Prop.Iff _ -> true | _ -> false
+let prop_is_iff a = failwith "to do"
 let _ = Callback.register "prop_is_iff" prop_is_iff
 
-let prop_is_neg = function Prop.Neg _ -> true | _ -> false
+let prop_is_neg a = failwith "to do"
 let _ = Callback.register "prop_is_neg" prop_is_neg
 
-let prop_is_let = function Prop.Let _ -> true | _ -> false
+let prop_is_let a = failwith "to do"
 let _ = Callback.register "prop_is_let" prop_is_let
 
-let prop_d_atom =  function Prop.Atom(a) -> a | _ -> assert false
+let prop_d_atom a =  failwith "to do"
 let _ = Callback.register "prop_d_atom" prop_d_atom
 
-let prop_d_var = function Prop.Var(x) -> x | _ -> assert false
+let prop_d_var  a= failwith "to do"
 let _ = Callback.register "prop_d_var" prop_d_var
 
-let prop_d_ite = function Prop.Ite(x, y, z) -> (x, y, z) | _ -> assert false
+let prop_d_ite a = failwith "to do"
 let _ = Callback.register "prop_d_ite" prop_d_ite
 
-let prop_d_disj = function Prop.Disj xl -> xl | _ -> assert false
+let prop_d_disj a = failwith "to do"
 let _ = Callback.register "prop_d_disj" prop_d_disj
 
-let prop_d_iff = function Prop.Iff(x, y) -> (x, y) | _ -> assert false
+let prop_d_iff a = failwith "to do"
 let _ = Callback.register "prop_d_iff" prop_d_iff
 
-let prop_d_neg = function Prop.Neg(x) -> x | _ -> assert false
+let prop_d_neg a = failwith "To do"
 let _ = Callback.register "prop_d_neg" prop_d_neg
 
-let prop_d_let = function Prop.Let(x, p, q) -> (x, p, q) | _ -> assert false
+let prop_d_let a = failwith "to do"
 let _ = Callback.register "prop_d_let" prop_d_let
 
 
@@ -594,7 +618,7 @@ let _ = Callback.register "assignment_pp" assignment_pp
 let assignment_valuation x = x.Prop.Assignment.valuation
 let _ = Callback.register "assignment_valuation" assignment_valuation
 
-let assignment_literals x = x.Prop.Assignment.literals
+let assignment_literals x = failwith "to do" (* x.Prop.Assignment.literals *)
 let _ = Callback.register "assignment_literals" assignment_literals
 
 let prop_sat s p =
@@ -633,8 +657,7 @@ let _ = Callback.register "term_mk_select" term_mk_select
 let term_mk_div = Nonlin.mk_div
 let _ = Callback.register "term_mk_div" term_mk_div
 
-let term_mk_apply = 
-  Apply.mk_apply Partition.sigma0 None
+let term_mk_apply = Apply.mk_apply Term.App.mk_app None
 let _ = Callback.register "term_mk_apply" term_mk_apply
 
 (** Set of terms. *)
@@ -681,9 +704,9 @@ let _ = Callback.register "trace_get" trace_get
 
 (** {6 Justifications} *)
 
-type justification = Justification.t
+type justification = Jst.t
 
-let justification_pp = Justification.pp Format.std_formatter
+let justification_pp = Jst.pp Format.std_formatter
 let _ = Callback.register "justification_pp" justification_pp
 
 
@@ -697,10 +720,10 @@ let _ = Callback.register "context_eq" context_eq
 let context_empty () = Context.empty
 let _ = Callback.register "context_empty" context_empty
 
-let context_ctxt_of = Context.ctxt_of
+let context_ctxt_of s = Context.ctxt_of s
 let _ = Callback.register "context_ctxt_of" context_ctxt_of
 
-let context_use = Context.dep
+let context_use s = failwith "to do"
 let _ = Callback.register "context_use" context_use
 
 let context_inv i s a = 
@@ -721,7 +744,7 @@ let context_pp s = Context.pp Format.std_formatter s; Format.print_flush()
 let _ = Callback.register "context_pp" context_pp
 
 let context_ctxt_pp s = 
-  let al = (Atom.Set.elements (Context.ctxt_of s)) in
+  let al = Context.ctxt_of s in
   let fmt = Format.std_formatter in
     List.iter
       (fun a ->
@@ -826,14 +849,14 @@ and cmd_batch (inch) =
 	Istate.do_quit 0
     | Sys.Break -> 
 	Istate.do_quit 1
-    | Justification.Inconsistent(rho) ->
+    | Jst.Inconsistent(rho) ->
 	Format.fprintf !Istate.outchannel "\n:unsat ";
-	Justification.pp !Istate.outchannel rho;
+	Jst.pp !Istate.outchannel rho;
 	Format.fprintf !Istate.outchannel "@.";
 	Istate.do_quit (-1)
     | exc -> 
 	Istate.do_error ("Exception " ^ (Printexc.to_string exc)); 
-	Istate.do_quit 4 
+	Istate.do_quit (-2)
 
 let _ = Callback.register "cmd_rep" cmd_rep
 let _ = Callback.register "cmd_batch" cmd_batch

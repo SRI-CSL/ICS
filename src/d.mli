@@ -32,20 +32,20 @@ val eq : t -> t -> bool
 (** {6 Accessors} *)
 
 
-module Set : (Set.S with type elt = Term.t * Justification.t)
+module Set : (Set.S with type elt = Term.t * Jst.t)
 
 val diseqs : t -> Term.t -> Set.t
  (** [diseqs s x] returns set of  disequalites of the form [x <> y] 
    such that [x <> y] is represented in [s]. *)
 
 
-val map_diseqs : t -> Justification.Eqtrans.t -> Term.t -> Set.t
+val map_diseqs : t -> Jst.Eqtrans.t -> Term.t -> Set.t
  
 
 
 (** {6 Recognizers} *)
 
-val is_diseq: t -> Term.t -> Term.t -> Justification.t option
+val is_diseq: t -> Term.t -> Term.t -> Jst.t option
   (** Check if two terms are known to be disequal. *)
 
 

@@ -42,18 +42,18 @@ val is_empty : t -> bool
 
 (** {6 Accessors} *)
 
-val apply : t -> Justification.Eqtrans.t
+val apply : t -> Jst.Eqtrans.t
   (** [apply s x] returns [a] if [x = a] is in [s]; otherwise
     [Not_found] is raised. *)
 
-val find : t -> Justification.Eqtrans.t
+val find : t -> Jst.Eqtrans.t
   (** [find s x] returns [a] if [x = a] is in [s], and [x] otherwise. *)
 
-val inv : t -> Justification.Eqtrans.t
+val inv : t -> Jst.Eqtrans.t
   (** [inv s a] returns [x] if [x = a] is in [s]; otherwise
     [Not_found] is raised. *)
 
-val dep : t -> Term.t -> Term.Set.t
+val dep : t -> Term.t -> Term.Var.Set.t
   (** [dep s y] returns the set of [x] such that [x = a] in [s]
     and [y] occurs in [a]. *)
 
@@ -77,7 +77,7 @@ type config = Partition.t * t
     (** A {i configuration} consists of a pair [(p, s)] with
       [p] a partitioning and [s] an array equality set. *)
     
-val name : config -> Justification.Eqtrans.t
+val name : config -> Jst.Eqtrans.t
   (** [name (p, s) a] returns a canonical variable [x] 
     with [x = a] in [s].  If there is no such variable,
     it creates such a variable [v] and updates [s] to 
@@ -88,7 +88,7 @@ val process_equal : config -> Fact.Equal.t -> unit
   (** [process_equal (p, s) e] conjoins an array solution
     set [s] with an equality [e] over {i flat} array terms.
     If [e] conjoined with [s] and [p] is {i inconsistent},
-    then {!Justification.Inconsistent} is raised.  Besides 
+    then {!Jst.Inconsistent} is raised.  Besides 
     {i destructively} updating [s], all generated variable 
     equalities and disequalities are propagated into the 
     partitioning [p].  Notice, however, that not all variable
@@ -102,7 +102,7 @@ val process_diseq : config -> Fact.Diseq.t -> unit
  (** [process_diseq (p, s) d] conjoins an array solution
    set [s] with a disequality [d] over variables.
    If [d] conjoined with [s] and [p] is {i inconsistent},
-   then {!Justification.Inconsistent} is raised.  Besides 
+   then {!Jst.Inconsistent} is raised.  Besides 
    {i destructively} updating [s], all generated variable 
    equalities and disequalities are propagated into the 
    partitioning [p].  Notice, however, that not all variable
@@ -115,7 +115,7 @@ val process_diseq : config -> Fact.Diseq.t -> unit
 val process_complete : config -> unit
   (** Detect all inconsistencies. In particular, 
     if [process_complete (p, s)] does not raise 
-    {!Justification.Inconsistent}, then [p] conjoined 
+    {!Jst.Inconsistent}, then [p] conjoined 
     with [s] is satisfiable. [process_complete] has
     worst-case  exponential runtime behavior. *)
 

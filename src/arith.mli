@@ -272,4 +272,7 @@ val dom_of : Term.t -> Dom.t
 
 val is_int : Term.t -> bool
 
+val is_infeasible : Term.t * Term.t -> bool
+  (** [is_infeasible (a, b)] checks if [a = b] is infeasible. *)
+
 

@@ -28,13 +28,10 @@ let d_of p = p.d
 let empty = {v = V.empty; d = D.empty}
 
 (** Pretty-printing *)
-let pp fmt p =
-  V.pp fmt p.v;
-  D.pp fmt p.d
+let pp fmt p = V.pp fmt p.v; D.pp fmt p.d
 
 (** Test if states are unchanged. *)
-let eq p q = 
-  V.eq p.v q.v && D.eq p.d q.d
+let eq p q = V.eq p.v q.v && D.eq p.d q.d
 
 
 (** Choose in equivalence class. *)
@@ -59,7 +56,7 @@ let diseqs p x =
     if Term.eq x y then ds else
       D.Set.fold 
 	(fun (z, tau) ->                       (* [tau |- y <> z] *)
-	   let sigma = Justification.subst_diseq (x, z) tau [rho] in
+	   let sigma = Jst.subst_diseq (x, z) tau [rho] in
 	     D.Set.add (z, sigma))
 	ds D.Set.empty
 
@@ -86,34 +83,39 @@ let dom p a =
        d
   in
   let d = of_term a in
-  let rho = Justification.dependencies !hyps in
+  let rho = Jst.dependencies !hyps in
     (d, rho)
 
 
 
 (** {6 Predicates} *)
 
-(** Apply the equality test on canonical variables. *)
-let is_equal p = 
-  Justification.Pred2.apply 
-    (find p) 
-    (V.is_equal p.v)
+(** Apply the equality test on variables only. *)
+let is_equal p x y =
+  if Term.is_var x && Term.is_var y then
+    V.is_equal p.v x y
+  else 
+    None
 
 
 (** Apply the equality test on canonical variables. *)
 let is_diseq p = 
-  Justification.Pred2.apply 
+  Jst.Pred2.apply 
     (find p) 
     (D.is_diseq p.d)
 
 
 (** Test for equality or disequality of canonical variables. *)
-let is_equal_or_diseq p =
-  Justification.Rel2.apply
-    (find p)
-    (Justification.Rel2.of_preds
-       (V.is_equal p.v)            (* positive test *)
-       (D.is_diseq p.d))           (* negative test *)
+let is_equal_or_diseq p x y =
+  if Term.is_var x && Term.is_var y then
+    Jst.Rel2.apply
+      (find p)
+      (Jst.Rel2.of_preds
+	 (V.is_equal p.v)            (* positive test *)
+	 (D.is_diseq p.d))           (* negative test *)
+      x y
+  else 
+    Jst.Three.X
 
 
 (** Test whether [x] is known to be in domain [d] by looking up
@@ -124,14 +126,14 @@ let is_in p d x =
     try
       let d' = Term.Var.dom_of x in
 	if Dom.sub d d' then
-	  Justification.Three.Yes(rho')
+	  Jst.Three.Yes(rho')
 	else if Dom.disjoint d d' then
-	  Justification.Three.No(rho')
+	  Jst.Three.No(rho')
 	else 
-	  Justification.Three.X
+	  Jst.Three.X
     with
 	Not_found -> 
-	  Justification.Three.X
+	  Jst.Three.X
 
 
 
@@ -139,30 +141,31 @@ let is_in p d x =
 
 (** Shallow copy for protecting against destructive 
   updates in [merge], [diseq], and [gc]. *)
-let copy p = { v = p.v; d = p.d }
+let copy p = {v = p.v; d = p.d}
 
 
 (** Merge a variable equality. *)
 let rec merge p e =  
-  Trace.msg "p" "Merge(p)" e Fact.Equal.pp;
   let (x, y, rho) = Fact.Equal.destruct e in  (* to do: add variables for *)
     merge1 p e                                (* domains. *)
 	
 and merge1 p e =
   let e' = Fact.Equal.map (find p) e in   (* Merge with old canonical forms. *)
+    assert(Fact.Equal.both (V.is_canonical p.v) e');
     p.d <- D.merge e' p.d;
-    p.v <- V.merge e' p.v;
+    p.v <- V.merge e' p.v
+(*
     let e'' = Fact.Equal.map_rhs (find p) e' in (* Propagate new can form *)
       p.d <- D.merge e'' p.d                    (* into disequalities. *)
+*)
 
 
 (** Add a disequality of the form [x <> y]. *)
 let dismerge p d =  
-  Trace.msg "p" "Dismerge(p)" d Fact.Diseq.pp;
   let d' = Fact.Diseq.map (find p) d in
   let (x', y', rho') = Fact.Diseq.destruct d' in
     if Term.eq x' y' then
-      raise(Justification.Inconsistent(rho'))
+      raise(Jst.Inconsistent(rho'))
     else 
       p.d <- D.add d' p.d
  
@@ -176,36 +179,4 @@ let dismerge p d =
 let gc f p = 
   let v' = V.gc f p.v in
     p.v <- v'
-
-
-(** {6 Canonical forms} *)
- 
-(** Sigma normal forms for individual theories. These are largely independent
- of the current state, except for sigma-normal forms for arrays, which use
- variable equalities and disequalities. *)
-let rec sigma p sym l = 
-  try
-    let op = Sym.Array.get sym in
-    let rhos = ref [] in
-    let is_equal' = Justification.Three.to_three rhos (is_equal_or_diseq p) in
-    let b = Funarr.sigma is_equal' op l in
-    let rho = Justification.sigma ((sym, l), b) !rhos in
-      (b, rho)
-  with
-      Not_found ->
-	let b = sigma0 sym l in
-	let rho =  Justification.sigma ((sym, l), b) [] in
-	  (b, rho)
-	  
-and sigma0 f =
-  match Sym.get f with
-    | Sym.Arith(op) -> Arith.sigma op
-    | Sym.Pair(op) -> Product.sigma op
-    | Sym.Bv(op) -> Bitvector.sigma op
-    | Sym.Coproduct(op) -> Coproduct.sigma op
-    | Sym.Fun(op) -> Apply.sigma op
-    | Sym.Pp(op) -> Pprod.sigma op
-    | Sym.Arrays(op) -> Funarr.sigma Term.is_equal op
-    | Sym.Uninterp _ -> Term.App.mk_app f
-
 

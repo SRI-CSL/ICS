@@ -13,6 +13,10 @@
  * Author: Harald Ruess
  *)
 
+type mode = Mixfix | Prefix | Sexpr
+
+let flag = ref Mixfix
+
 type 'a printer = Format.formatter -> 'a -> unit
 
 let unit fmt () =
@@ -89,12 +93,22 @@ let infix pp1 op pp2 fmt (a,b) =
   pp2 fmt b;
   Format.fprintf fmt ""
 
+let mixfix str1 pp1 str2 pp2 str3 pp3 str4 fmt (a, b, c) =
+  string fmt str1; 
+  pp1 fmt a; 
+  string fmt str2;
+  pp2 fmt b;
+  string fmt str3;
+  pp3 fmt c;
+  string fmt str4
+
 let eqn pp = infix pp "=" pp
 
 let infixl pp op =
   list ("", op, "") pp
 
 let set pp fmt = list ("{", ", ", "}") pp fmt
+
 
 let assign pp1 pp2 fmt (x,a) =
   Format.fprintf fmt "@[";
@@ -107,6 +121,10 @@ let map pp1 pp2 fmt =
   list ("[", "; ", "]") (assign pp1 pp2) fmt
 
 let tuple pp = list ("(", ", ", ")") pp
+
+let apply qq fmt (f, al) =
+  Format.fprintf fmt "%s" f; 
+  tuple qq  fmt al
 
 let list pp = list ("[", "; ", "]") pp
 

@@ -15,7 +15,7 @@ open Mpa
 
 module Bitvs = Set.Make(
   struct
-    type t = Bitv.t * Justification.t
+    type t = Bitv.t * Jst.t
     let compare (b, _) (c, _) = 
       if Bitv.equal b c then 0 else Pervasives.compare b c
   end)
@@ -38,16 +38,16 @@ module Interp = struct
     try
       let (n, bs) = Term.Map.find x m in
 	if n <> Bitv.length b then
-	  let sigma = Justification.dependencies0 in
-	    raise(Justification.Inconsistent(sigma))
+	  let sigma = Jst.oracle "bv" [] in
+	    raise(Jst.Inconsistent(sigma))
 	else
 	  let bs' = Bitvs.add (b, rho) bs in
 	  let card = Z.of_int (Bitvs.cardinal bs') in
 	  let max = Z.expt Z.two n in
 	    if Z.ge card max then
 	      let rhol = Bitvs.fold (fun (_, rho) acc -> rho :: acc) bs' [] in 
-	      let phi = Justification.dependencies rhol in
-		raise(Justification.Inconsistent(phi))
+	      let phi = Jst.oracle "bv" rhol in
+		raise(Jst.Inconsistent(phi))
 	    else if Z.equal card (Z.sub max Z.one) then
 	      m (* to do: generate possible equality *)
 	    else 
@@ -58,8 +58,8 @@ module Interp = struct
 end 
 
 (** Index for equalities [x = c] *)
-module Cnstnt = struct       
-  type t = Bitv.t
+module Cnstnt = struct 
+  let th = Th.bv      
   let is_diseq a b =
     try
       let c = Bitvector.d_const a
@@ -78,7 +78,7 @@ module Eqs =
       let th = Th.bv
       let nickname = Th.to_string Th.bv
       let apply = Bitvector.apply
-      let is_infeasible _ _ = None
+      let is_infeasible _ = false
     end)
     (Cnstnt)
 
@@ -112,7 +112,7 @@ let replace s =
   Fact.Equal.Inj.replace Bitvector.map
     (find s)
 
-let solve = Fact.Equal.Inj.solver Bitvector.solve
+let solve = Fact.Equal.Inj.solver Th.bv Bitvector.solve
 
 let process_equal ((p, s) as cfg) e =  
   let e' = Fact.Equal.map (replace s) e in
@@ -128,13 +128,13 @@ let rec process_diseq ((p, s) as cfg) d =
       | None, None -> ()
       | Some(b, tau), Some(c, sigma) ->  (* [tau |- x = b] *)
 	  if Bitv.equal b c then         (* [sigma |- y = c] *)
-	    let phi = Justification.dependencies [rho; tau; sigma] in
-	      raise(Justification.Inconsistent(phi))
+	    let phi = Jst.oracle "bv" [rho; tau; sigma] in
+	      raise(Jst.Inconsistent(phi))
       | Some(b, tau), None ->
-	  let phi = Justification.dependencies2 rho tau in
+	  let phi = Jst.oracle "bv" [rho; tau] in
 	    s.interp <- Interp.add_diseq x (b, phi) s.interp
       | None, Some(c, sigma) ->
-	  let phi = Justification.dependencies2 rho sigma in
+	  let phi = Jst.oracle "bv" [ rho; sigma] in
 	    s.interp <- Interp.add_diseq y (c, phi) s.interp
 *)
 

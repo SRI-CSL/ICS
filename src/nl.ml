@@ -21,7 +21,7 @@ module Eqs = Eqs.Make0(
     let nickname = Th.to_string Th.nl
     let apply = Pprod.apply
     let disapply _ a = a
-    let is_infeasible _ _ = None
+    let is_infeasible _ = false
   end)
 
 type t = Eqs.t
@@ -45,7 +45,7 @@ let rec inv s a =
     try 
       let (c, sigma) = inv1 s b in    (* [sigma |- y = z] *)
 	assert(not(Term.eq b c));
-	let tau = Justification.trans (a, b, c) rho sigma in
+	let tau = Jst.trans a b c rho sigma in
 	  inv_plus (c, tau)
     with 
 	Not_found -> (b, rho)
@@ -75,7 +75,7 @@ and inv1 s a =
 	    if Term.eq a a' then 
 	      raise Not_found
 	    else 
-	      let rho' = Justification.groebner (a', a) rho in
+	      let rho' = Jst.groebner (a', a) rho in
 		(a', rho')
       | None ->
 	  raise Not_found
@@ -104,9 +104,9 @@ let rec propagate (p, la, nl) e =
       let (y, b, tau) = Fact.Equal.destruct e in  (* [tau |- y = b] *)
       let c = Nonlin.apply (x, a) b in
 	if not(b == c) then                       (* [sigma |- b = c] *)
-	  let sigma = Justification.dependencies1 rho in 
+	  let sigma = Jst.dependencies1 rho in 
 	  let (d, upsilon) = purify (p, la, nl) c in (* [upsilon |- c = d] *)
-	  let omega' = Justification.trans (y, b, c) tau sigma in
+	  let omega' = Jst.trans y b c tau sigma in
 	  let e' = Fact.Equal.make (y, c, omega') in  (* [omega' |- y = c] *)
 	    if Pprod.is_interp d then
 	      Eqs.update (p, nl) e'
@@ -114,7 +114,7 @@ let rec propagate (p, la, nl) e =
 	      begin
 		Eqs.restrict (p, nl) y;
 		Fact.Eqs.push (Some(Th.nl)) e';
-		let omega'' = Justification.trans (y, c, d) omega' upsilon in
+		let omega'' = Jst.trans y c d omega' upsilon in
 		let e'' = Fact.Equal.make (y, d, omega'') in
 		  Fact.Eqs.push (Some(Th.nl)) e''
 	      end 
@@ -151,7 +151,7 @@ and purify (p, la, nl) a =
     with
 	Not_found -> a
   in
-  let rho = Justification.dependencies !hyps in
+  let rho = Jst.dependencies !hyps in
     (b, rho)
 	     
 			      
@@ -174,16 +174,16 @@ and deduce s e =
     match sign a, sign b with
       | None, None -> ()
       | None, Some(d, sigma) ->
-	  let omega = Justification.dependencies [rho; sigma] in
+	  let omega = Jst.dependencies [rho; sigma] in
 	    process_sign s ((a, d), omega)   (* [omega |- a in d] *)
       | Some(c, tau), None ->
-	  let omega = Justification.dependencies [rho; tau] in
+	  let omega = Jst.dependencies [rho; tau] in
 	    process_sign s ((b, c), omega)   (* [omega |- b in c] *)
       | Some(c, tau), Some(d, sigma) -> 
 	  let cd = Sign.inter c d in
-	    (let omega1 = Justification.dependencies [rho; tau; sigma] in
+	    (let omega1 = Jst.dependencies [rho; tau; sigma] in
 	       process_sign s ((a, cd), omega1));
-	    (let omega2 = Justification.dependencies  [rho; tau; sigma] in
+	    (let omega2 = Jst.dependencies  [rho; tau; sigma] in
 	       process_sign s ((b, cd), omega2))
 
 *)

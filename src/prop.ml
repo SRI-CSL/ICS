@@ -32,40 +32,18 @@ let rec pp fmt = function
   | Neg(p) -> 
       Pretty.string fmt "~("; pp fmt p; Pretty.string fmt ")"
   | Let(x, p, q) ->
-      Pretty.string fmt "let ";
-      Name.pp fmt x;
-      Pretty.string fmt " := ";
-      pp fmt p;
-      Pretty.string fmt " in ";
-      pp fmt q;
-      Pretty.string fmt " end"
+      Pretty.mixfix "let" Name.pp ":=" pp "in" pp "end" fmt (x, p, q)
   | Ite(p, q, r) ->
-      Pretty.string fmt "if ";
-      pp fmt p;
-      Pretty.string fmt " then ";
-      pp fmt q;
-      Pretty.string fmt " else ";
-      pp fmt r;
-      Pretty.string fmt " end"
-
-let rec occurs x = function
-  | True -> false
-  | False -> false
-  | Var(y) -> Name.eq x y
-  | Atom _ -> false
-  | Disj(pl) -> List.exists (occurs x) pl
-  | Iff(p, q) -> occurs x p || occurs x q
-  | Neg(p) -> occurs x p
-  | Let(y, p, q) -> if Name.eq x y then false else occurs x p || occurs x q
-  | Ite(p, q, r) -> occurs x p || occurs x q || occurs x r
+      Pretty.mixfix "if" pp "then" pp "else" pp "end" fmt (p, q, r)
 
 let mk_true = True
 let mk_false = False
 let mk_var n = Var(n)
-let mk_poslit = function
-  | Atom.True -> True
-  | Atom.False -> False
-  | a -> Atom(a)
+let mk_poslit a =
+  match Atom.atom_of a with
+    | Atom.True -> True
+    | Atom.False -> False
+    | _ ->  Atom(a)
 let mk_neglit a = mk_poslit (Atom.negate a)
 let mk_disj pl = Disj(pl)
 let mk_iff p q = Iff(p, q)
@@ -74,24 +52,6 @@ let mk_neg p = Neg(p)
 let mk_conj pl = mk_neg (mk_disj (List.map mk_neg pl))
 let mk_let x p q = Let(x, p, q)
 
-let rec apply rho q =
-  match q with
-    | Var(x) -> 
-	(try
-	   List.assoc x rho
-	 with
-	     Not_found -> q)
-    | (True | False | Atom _) -> q
-    | Disj(ql) ->
-	mk_disj (List.map (apply rho) ql)
-    | Iff(q1, q2) -> 
-	mk_iff (apply rho q1) (apply rho q2)
-    | Ite(q1, q2, q3) -> 
-	mk_ite (apply rho q1) (apply rho q2) (apply rho q3)
-    | Neg(q1) ->
-	mk_neg (apply rho q1)
-    | Let(x, q1, q2) -> 
-	apply ((x, q1) :: rho) q2
 
 (** {6 Translations to/from ICSAT propositions} *)
 
@@ -142,68 +102,44 @@ external set_clause_relevance : int -> unit = "icsat_set_clause_relevance"
 external set_cleanup_period : int -> unit = "icsat_set_cleanup_period"
 external set_num_refinements : int -> unit = "icsat_set_num_refinements"
 
-
-(** Translating to and from propositions *)
-
-module Atomtbl = Hashtbl.Make(
-  struct
-    type t = Atom.t
-    let equal = Atom.eq
-    let hash = Atom.hash  (* not clear if this is a good enough hash function. *)
-  end)
+let print_consistent_context = ref true
 
 
-module Inttbl = Hashtbl.Make(
-  struct
-    type t = int
-    let equal = (=)
-    let hash x = x
-  end)
+(** {6 Translating to and from propositions} *)
 
-module Nametbl = Hashtbl.Make(
-  struct
-    type t = Name.t
-    let equal = Name.eq
-    let hash = Name.hash
-  end)
-
-let id = ref 0
-let atomtbl = Atomtbl.create 17
-let inttbl = Inttbl.create 17
-
-let idtbl = Atomtbl.create 17   (* internal [id] of ICSAT of an atom. *)
-let vartbl = Nametbl.create 17  (* internal [id] of ICSAT for a variable *)
+(** Identification [a |-> i] of atoms [a] in a propositional
+ formula with {i consecutive} natural numbers as required by ICSAT. *)
+let atom_to_id_tbl = ref Atom.Map.empty
 
 let atom_to_id a =
   try
-    Atomtbl.find atomtbl a
+    Atom.Map.find a !atom_to_id_tbl 
+  with
+      Not_found -> 
+	let b = Atom.negate a in
+	let i = Atom.index_of a   (* returns identifier [i] unique to [a]. *)
+	and j = Atom.index_of b in
+	let id = icsat_mk_atom i j in
+	  atom_to_id_tbl := Atom.Map.add a id !atom_to_id_tbl; 
+	  id
+
+
+(** Identification [n <-> i] of variable names [n] in a 
+  propositional formula with consecutive indices as required by ICSAT. *)
+let vartbl = Name.Hash.create 17 (* internal [id] of ICSAT for a variable *)
+
+let mk_icsat_id x =
+  try
+    Name.Hash.find vartbl x
   with
       Not_found ->
-	let i = !id in
-	  id := !id + 1;
-	  Atomtbl.add atomtbl a i;
-	  Inttbl.add inttbl i a;
-	  i
+	let id = icsat_mk_var (Name.to_string x) in
+	  Name.Hash.add vartbl x id; id
 
-let id_to_atom i =
-  try
-    Inttbl.find inttbl i
-  with
-      Not_found -> failwith "Fatal error: no atom for ICSAT identifier"
-
-let atom_to_icsat_id a =
-  try
-    Atomtbl.find idtbl a
-  with
-      Not_found -> failwith "ICSAT: no such atom id"
-
-let var_to_icsat_id x =
-  try
-    Nametbl.find vartbl x
-  with
-      Not_found -> failwith "ICSAT: no such var id"
+let var_to_id = mk_icsat_id
 
 
+(** Translate propositional formula to one understood by ICSAT. *)
 let to_prop p =
   let rec translate rho p =
     match p with
@@ -216,20 +152,9 @@ let to_prop p =
 	     let q = List.assoc x rho in
 	       translate rho q
 	   with
-	       Not_found -> 
-		 let id = icsat_mk_var (Name.to_string x) in
-		   if not(Nametbl.mem vartbl x) then
-		     Nametbl.add vartbl x id;
-		   id)
+	       Not_found -> var_to_id x)
       | Atom(a) -> 
-	  assert(Atom.is_negatable a);
-	  let b = Atom.negate a in
-	  let i = atom_to_id a in
-	  let j = atom_to_id b in
-	  let id = icsat_mk_atom i j in
-	    if not(Atomtbl.mem idtbl a) then
-	      Atomtbl.add idtbl a id;
-	    id
+	  atom_to_id a
       | Let(x, p, q) ->
 	  (match p with
 	     | Var _ ->
@@ -276,34 +201,33 @@ and d_disj p =
     done;
     !args
 
-  
-(** {6 Lists} *)
-
-let is_nil = function [] -> true | _ -> false
-let _ = Callback.register "prop_is_nil" is_nil
-
-let head = List.hd
-let _ = Callback.register "prop_head" head
-
-let tail = List.tl
-let _ = Callback.register "prop_tail" tail
-
-let length = List.length
-let _ = Callback.register "prop_length" length
+ 
 
 (** {6 Atoms} *)
 
 let is_connected i j =
-  let a = id_to_atom i 
-  and b = id_to_atom j in
+  let a = Atom.of_index i 
+  and b = Atom.of_index j in
     Atom.is_connected a b
 let _ = Callback.register "atom_is_connected" is_connected
 
 let atom_pp i =
-  let a = id_to_atom i in
+  let a = Atom.of_index i in
     Atom.pp Format.std_formatter a;
     Format.print_flush ()
 let _ = Callback.register "prop_atom_pp" atom_pp
+
+
+(** {6 Lists} *)
+
+(** Callbacks for processing lists. *)
+module Lists = struct
+  let is_nil l = (l = [])
+  let _ = Callback.register "prop_is_nil" is_nil
+  let _ = Callback.register "prop_head" List.hd
+  let _ = Callback.register "prop_tail" List.tl
+  let _ = Callback.register "prop_length" List.length
+end
 
 
 (** {6 Stack} *)
@@ -337,45 +261,67 @@ let stackpp () =
   Stack.iter (fun (s, _) -> Context.pp Format.std_formatter s) stack
 let _ = Callback.register "prop_stackpp" stackpp
 
-let explained = ref false
-let explanation = ref []
 
-let is_explained () = !explained
-let _ = Callback.register "prop_is_explained" is_explained
+(* Interface for shipping explanations to SAT solver *)
+module Explanation = struct
 
-let explain () = !explanation
-let _ = Callback.register "prop_explain" explain
+  let explained = ref false
+  let explanation = Stack.create ()
+
+  let reset () =
+    explained := false;
+    Stack.clear explanation
+
+  let install hyps = 
+    explained := true;
+    assert(Stack.is_empty explanation);
+    Atom.Set.iter
+      (fun a -> 
+	 let i =  Atom.index_of a in
+	 Stack.push i explanation)
+      hyps
+
+  let noinstall () =
+    explained := false
+
+
+  let is_explained () = !explained
+  let _ = Callback.register "prop_is_explained" is_explained
+
+  let size () = Stack.length explanation
+  let _ = Callback.register "prop_explain_size" size
+	    
+  let is_empty () = Stack.is_empty explanation
+  let _ = Callback.register "prop_explain_is_empty" is_empty
+	    
+  let pop () = Stack.pop explanation
+  let _ = Callback.register "prop_explain_pop" pop
+
+end 
 
 
 let add i =
-  let a = id_to_atom i in
-    Trace.call "rule" "Add" a Atom.pp;
-    let result = match Context.add (top()) a with
+  let a = Atom.of_index i in
+    match Context.add (top()) a with
       | Context.Status.Valid _ -> 
 	  (let (s, al) = Stack.pop stack in
 	     push (s, a :: al);
-	     explained := false;
+	     Explanation.noinstall();
 	     1)
       | Context.Status.Inconsistent(rho) ->
 	  (try
-	     let axms = Justification.axioms_of rho in
-	     let ids = Atom.Set.fold (fun a acc -> atom_to_id a :: acc) axms [] in
-	       explained := true;
-	       explanation := ids;
+	     let hyps = Jst.axioms_of rho in
+	       Explanation.install hyps;
 	       0
 	   with
-	       Not_found -> 
-		 Format.eprintf "\nWarning: no explanation generated";
-		 explained := false;
+	       Not_found ->   (* No explanation generated *)
+		   Explanation.noinstall();
 		 0)
       | Context.Status.Ok(s) -> 
 	  (let (_, al) = Stack.pop stack in
 	     push (s, a :: al);
-	     explained := false;
+	     Explanation.noinstall();
 	     1)
-    in
-      Trace.call "rule" "Add" result Pretty.number;
-      result
 
 let _ = Callback.register "prop_add" add
 
@@ -384,12 +330,12 @@ let _ = Callback.register "prop_add" add
 
 let scratch = ref Context.empty 
 
-let reset_scratch_context () =
+let reset_scratch_context () = 
   scratch := Context.empty
 let _ = Callback.register "reset_scratch_context" reset_scratch_context
 
 let add_scratch_context i =
-  let a = id_to_atom i in
+  let a = Atom.of_index i in
     match Context.add !scratch a with
       | Context.Status.Valid _ -> 1
       | Context.Status.Inconsistent _ -> 0
@@ -401,17 +347,15 @@ let _ = Callback.register "add_scratch_context" add_scratch_context
 
 external icsat_sat : prop -> bool -> bool = "icsat_sat"
 
-let init s = 
+let initialize s = 
+  Explanation.reset();   (* Initialize explanation mechanism *)
   icsat_initialize();    (* Initialize SAT solver *)
   Stack.clear stack;     (* Initialize stack *)
   Stack.push (s, []) stack;
   initial := (s, []);    (* Initial context *)
   scratch := s;          (* Initialize scratch area *)
-  id := 0;               (* Initialize translation to props *)
-  Atomtbl.clear atomtbl;
-  Inttbl.clear inttbl;
-  Atomtbl.clear idtbl;
-  Nametbl.clear vartbl
+  atom_to_id_tbl :=  Atom.Map.empty;
+  Name.Hash.clear vartbl
 
 let finalize () =
   icsat_finalize ()
@@ -435,9 +379,9 @@ end
 
 let rec sat s p =
   try
-    init s;
+    initialize s;
     let result = 
-      let mode = !Justification.proofmode != Justification.Mode.No in
+      let mode = !Jst.proofmode != Jst.Mode.No in
 	if icsat_sat (to_prop p) mode then
 	  begin
 	    debug();
@@ -456,22 +400,23 @@ let rec sat s p =
 	raise exc
 
 and debug () =
-  let fmt = Format.std_formatter in
-  let bl = ref [] in
-    Stack.iter
-      (fun (s, al) -> bl := (List.rev al) @ !bl)    
-      stack;
-    List.iter 
-      (fun a -> 
-	 Pretty.string fmt "assert ";
-         Atom.pp fmt a; 
-	 Pretty.string fmt ".\n")
-      !bl
+  if !print_consistent_context then
+    let fmt = Format.std_formatter in
+    let bl = ref [] in
+      Stack.iter
+	(fun (s, al) -> bl := (List.rev al) @ !bl)    
+	stack;
+      List.iter 
+	(fun a -> 
+	   Pretty.string fmt "\nassert ";
+           Atom.pp fmt a; 
+	   Pretty.string fmt ".@.")
+	!bl
 
         
 and assignment () =
   let valuation =
-    Nametbl.fold
+    Name.Hash.fold
       (fun x id acc ->
 	 match icsat_get_assignment id with
 	   | (-1) -> (x, false) :: acc
@@ -481,14 +426,14 @@ and assignment () =
       vartbl []
   in
   let literals = 
-    Atomtbl.fold
+    Atom.Map.fold
       (fun a id acc ->
 	  (match icsat_get_assignment id with
 	     | (-1) -> Atom.negate a :: acc  
 	     | 0 -> acc               (* don't care *)
-	     | 1 -> a :: acc          (* true *)
+	     | 1 -> a :: acc       (* true *)
 	     | _ -> failwith "ICSAT: invalid return value of icsat_get_assignment"))
-      idtbl []
+      !atom_to_id_tbl []
   in
     { Assignment.valuation = valuation; Assignment.literals = literals }
 	

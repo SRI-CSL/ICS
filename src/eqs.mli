@@ -16,10 +16,10 @@
   @author Harald Ruess
   @author N. Shankar
 
-  A {b solution set} is a set of equalities of the form [x = a],
-  where [x] is term variable. For each such equality, a 
-  {i justification} [rho] of type {!Justification.t} is 
-  stored.
+  A {b solution set} for theory [th] is a set of equalities of the 
+  form [x = a], where [x] is term variable and [a] is a [th]-pure
+  term application. For each such equality, a {i justification} [rho] 
+  of type {!Jst.t} is maintained.
 
   As an invariant, solution sets [s] are kept in {i functional} form, 
   that is, if [x = a] and [x = b] in [s], then [a] is identical with [b]. 
@@ -48,7 +48,7 @@ module type TH = sig
   val th : Th.t
   val nickname : string
   val apply : Term.Equal.t -> Term.t -> Term.t
-  val is_infeasible : Justification.Pred2.t
+  val is_infeasible : Term.Equal.t -> bool
 end
 
 
@@ -82,7 +82,7 @@ module type SET = sig
     (** [is_independent s x] holds iff [x] is a variable in some [a] with
       [y = a] in [s]. *)
 
-  val fold : (Term.t -> Term.t * Justification.t -> 'a -> 'a) -> t -> 'a -> 'a
+  val fold : (Term.t -> Term.t * Jst.t -> 'a -> 'a) -> t -> 'a -> 'a
     (** [fold f s e] applies [f x (a, rho)] for each [x = a] with justification
       [rho] in [s] and accumulates the result starting with [e]. The order of
       application is unspecified. *)
@@ -91,7 +91,7 @@ module type SET = sig
     (** [to_list s] returns the equality set [s] as a list of pairs [(x, a)]
       such that [x = a] is in [s]. *)
 
-  val apply : t -> Justification.Eqtrans.t
+  val apply : t -> Jst.Eqtrans.t
     (** [apply s x] yields [(b, rho)] if [x = b] in [s] with justification [rho];
       if [x] is not a dependent variable, [Not_found] is raised. *)
 
@@ -100,15 +100,15 @@ module type SET = sig
       justification [rho] if [x] is a {i dependent} variable. Otherwise,
       [Not_found] is raised. *)
 
-  val find : t -> Justification.Eqtrans.t
+  val find : t -> Jst.Eqtrans.t
     (** [find s x] yields [(b, rho)] if [x] is a dependent variable in [s]
       with [x = b]; otherwise, [(x, refl)] is returned with [refl] a
       justification of [x = x]. *)
 
-  val inv : t -> Justification.Eqtrans.t 
+  val inv : t -> Jst.Eqtrans.t 
     (** [inv s a] yields [(x, rho)] if [x = a] is in [s] with justification [rho]. *)
 
-  val dep : t -> Term.t -> Term.Set.t
+  val dep : t -> Term.t -> Term.Var.Set.t
     (** [dep s y] returns all [x] such that [x = a] in [s], and 
       the variable [y] occurs in [a]. In this case, we also say
       that [x] is {i dependent} on [y]. *)
@@ -147,7 +147,7 @@ module type SET = sig
       protecting [s] against {i destructive} updates of any
       of the following update functions. *)
     
-  val name:  config -> Justification.Eqtrans.t
+  val name:  config -> Jst.Eqtrans.t
     (** [name (f, g) (p, s) a] returns a variable [x] such 
       that [x = a] in [s]. If there is no such [x], a
       {i fresh} variable [v] is created, and [v = a] is
@@ -179,13 +179,12 @@ end
 
 (** {6 Extensions} *)
 
-type equality = Term.t * Term.t * Justification.t
+type equality = Term.t * Term.t * Jst.t
 
 module type EXT = sig
   type t
   val empty : t
   val pp : t Pretty.printer
-  val eq : t -> t -> bool
   val do_at_add :  Partition.t * t -> equality -> t
   val do_at_restrict : Partition.t * t -> equality -> t
 end
@@ -222,9 +221,11 @@ module type INDEX = sig
   val holds : Term.t -> bool
 end
 
-module Idx2Ext(Idx: INDEX): (EXT with type t = Term.Set.t) 
+type index = Term.Var.Set.t
 
-module MakeIndex(Th: TH)(Idx : INDEX): (SET with type ext = Term.Set.t)
+module Idx2Ext(Idx: INDEX): (EXT with type t = index) 
+
+module MakeIndex(Th: TH)(Idx : INDEX): (SET with type ext = index)
   (** Given a theory [Th] and a specification of indices [0] through
     [Idx.max], this functor constructs an equality set that {i extends}
     {!Eqs.Make}[(Th)] with [max] indices, whereby [index i] coincides
@@ -237,15 +238,16 @@ module MakeIndex(Th: TH)(Idx : INDEX): (SET with type ext = Term.Set.t)
 
   (** Specification of a constant index. *)
 module type CNSTNT = sig
+  val th : Th.t
   val is_const : Term.t -> bool
   val is_diseq : Term.t -> Term.t -> bool
 end 
 
-module Cnstnt2Ext(Cnstnt: CNSTNT)
-  : (EXT with type t = (Term.t * Justification.t) Term.Map.t)
+type cnstnt = (Term.t * Jst.t) Term.Var.Map.t
 
-module MakeCnstnt(Th: TH)(Cnstnt: CNSTNT)
-  : (SET with type ext = (Term.t * Justification.t) Term.Map.t)
+module Cnstnt2Ext(Cnstnt: CNSTNT): (EXT with type t = cnstnt)
+
+module MakeCnstnt(Th: TH)(Cnstnt: CNSTNT): (SET with type ext = cnstnt)
   (** Given a theory [Th] and a constant specification [C],
     this functor constructs an equality set that {i extends}
     {!Eqs.Make}[(Th)] with a {i constant index} [cnstnt s],
@@ -256,15 +258,13 @@ module MakeCnstnt(Th: TH)(Cnstnt: CNSTNT)
 
 
 module MakeIndexCnstnt(Th: TH)(Idx: INDEX)(Cnstnt: CNSTNT)
-:
-(SET with type ext = Term.Set.t * (Term.t * Justification.t) Term.Map.t)
+: (SET with type ext = index * cnstnt)
 
 
-(** {6 Combining two equality sets} *)
+(** {6 Combining equality sets} *)
 
 module type SET2 = sig
   type t 
-  type ext 
   type lext
   type rext
   val eq : t -> t -> bool
@@ -274,14 +274,14 @@ module type SET2 = sig
   type tag = Left | Right
   val is_dependent : tag -> t -> Term.t -> bool
   val is_independent :  tag -> t -> Term.t -> bool
-  val fold :  tag -> (Term.t -> Term.t * Justification.t -> 'a -> 'a) -> t -> 'a -> 'a
+  val fold :  tag -> (Term.t -> Term.t * Jst.t -> 'a -> 'a) -> t -> 'a -> 'a
   val to_list :  tag -> t -> (Term.t * Term.t) list
-  val apply :  tag -> t -> Justification.Eqtrans.t
+  val apply :  tag -> t -> Jst.Eqtrans.t
   val equality :  tag -> t -> Term.t -> Fact.Equal.t
-  val find :  tag -> t -> Justification.Eqtrans.t
-  val inv :  tag -> t -> Justification.Eqtrans.t 
-  val dep :  tag -> t -> Term.t -> Term.Set.t
-  val ext : t -> ext * lext * rext
+  val find :  tag -> t -> Jst.Eqtrans.t
+  val inv :  tag -> t -> Jst.Eqtrans.t 
+  val dep :  tag -> t -> Term.t -> Term.Var.Set.t
+  val ext : t -> lext * rext
   module Dep : sig
     val iter :  tag -> t -> (Fact.Equal.t -> unit) -> Term.t -> unit 
     val fold :  tag -> t -> (Fact.Equal.t -> 'a -> 'a) -> Term.t -> 'a  -> 'a
@@ -291,7 +291,7 @@ module type SET2 = sig
   end
   val copy : t -> t
   type config = Partition.t * t
-  val name:   tag -> config -> Justification.Eqtrans.t
+  val name:   tag -> config -> Jst.Eqtrans.t
   val update :  tag -> config -> Fact.Equal.t -> unit
   val restrict :  tag -> config -> Term.t -> unit
   val fuse:  tag -> config -> Fact.Equal.t list -> unit
@@ -302,15 +302,6 @@ end
 (** Combining two equality sets [Left] and [Right] and close with the
   specified extension. Most operators work component-wise and are parameterized
   with respect to {!Eqs.tag}. *)
-module Union(Left: SET)(Right: SET)(Ext: EXT)
- : (SET2 with type ext = Ext.t 
-         with type lext = Left.ext 
+module Union(Left: SET)(Right: SET)
+ : (SET2 with type lext = Left.ext 
          with type rext = Right.ext)
-
-module UnionCnstnt
-  (LTh: TH)
-  (LExt: EXT)
-  (RTh: TH)
-  (RExt: EXT)
-  (Cnstnt: CNSTNT)
-: SET2

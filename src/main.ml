@@ -37,8 +37,11 @@ let args () =
 	"-prompt", Arg.String Ics.set_prompt,
 	"Set prompt";
         "-pp", set_false Ics.set_pretty,
-	"Disable Pretty-Printing of terms";	"-nohelp", Arg.Clear Istate.help_enabled,
+	"Disable Pretty-Printing of terms";	
+	"-nohelp", Arg.Clear Istate.help_enabled,
 	"Disable help feature";
+	"-print_consistent_context", Arg.Unit(fun() -> Prop.print_consistent_context := true),
+	"Print consistent set of hypothesis in SAT solver";
 	"-trace", Arg.String Ics.trace_add,
 	"Enable tracing";
         "-version", Arg.Unit (fun () -> Format.eprintf "%s@." version; exit 0),
@@ -47,14 +50,14 @@ let args () =
 	"Disable compactification in SAT solver";
         "-expensive_simplify", Arg.Clear Context.cheap,
 	"Expensive but more complete simplification";
-	"-dependencies", Arg.Unit(fun()-> Justification.proofmode := Justification.Mode.Dep),
+	"-dependencies", Arg.Unit(fun () -> Ics.set_proofmode "dep"),
 	"Enable dependency generation";
+	"-proofmode", Arg.String(Ics.set_proofmode),
+	"Set proofmode to [Yes | No | Dep]";
         "-eot", Arg.String Ics.set_eot, 
 	"Print string argument after each transmission";
         "-server", Arg.Int (fun portnum -> portnum_flag := Some(portnum)), 
 	"Run in server mode";
-	"-noproofs", Arg.Unit(fun() -> Justification.proofmode := Justification.Mode.No),
-        "Disable proof generation";
 	"-verbose", set_true Ics.set_verbose,
         "Verbose flag for SAT solver";
 	"-progress", Arg.Set Istate.progress,
@@ -76,10 +79,16 @@ let args () =
         "-footprint", set_true Ics.set_footprint,
         "Traces generated facts on stderr";
 	"-integersolve", set_false Ics.set_integer_solve,
-        "Disables Solving for the integers"
+        "Disables Solving for the integers";
+	"-gc_space_overhead",  Arg.Int(Ics.set_gc_space_overhead),
+        "GC will work more if [space_overhead] is smaller (default 80)";
+	"-gc_max_overhead", Arg.Int(Ics.set_gc_max_overhead),
+        "Controlling heap compaction (default 500), [gc_max_overhead >= 1000000] disables compaction";
+	"-gc", Arg.String (Ics.set_gc_mode),
+	"Coarse-grained control over GC (lazy, eager)"
       ]
       (fun f -> files := f :: !files)
-      "Usage: ics [args] file1 ... filen";
+      "Usage: ics [args] <file> ... <file>";
     List.rev !files
 
 
@@ -137,6 +146,11 @@ let rec main () =
 		| l -> batch l)
 	 | Some(portnum) ->
 	     server portnum);
+      if !Tools.profiling then                  (* print gc statistics *)
+	begin
+	  Format.eprintf "\nGC statistics:\n";
+	  Gc.print_stat stderr
+	end;
       exit 0
   with
       exc ->

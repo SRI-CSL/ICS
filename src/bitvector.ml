@@ -56,7 +56,7 @@ let width a =
 
 (** {6 Constant bitvectors} *)
 
-let mk_const c = Term.App.mk_const(Sym.Bv.const c)
+let mk_const c = Term.App.mk_const(Sym.Bv.mk_const c)
 
 let mk_zero n = mk_const(Bitv.create n false)
 let mk_one n = mk_const(Bitv.create n true)
@@ -146,7 +146,7 @@ let rec mk_sub n i j a =
 	     failwith "Bv.mk_sub: ill-formed expression")
     with
 	Not_found -> 
-	  Term.App.mk_app (Sym.Bv.sub n i j) [a]
+	  Term.App.mk_app (Sym.Bv.mk_sub n i j) [a]
 	
 and mk_conc n m a b =
   assert (0 <= n && 0 <= m);
@@ -158,7 +158,7 @@ and mk_conc n m a b =
 	(try
 	   merge n m a b
 	 with
-	     Not_found -> Term.App.mk_app (Sym.Bv.conc n m) [a; b])
+	     Not_found -> Term.App.mk_app (Sym.Bv.mk_conc n m) [a; b])
 
 and merge n m a b =
   match to_option d_interp a, to_option d_interp b with

@@ -194,8 +194,3 @@ let rec map f a =
 (** Replacing a variable with a term. *)
 let apply (x, b) = 
   map (fun y -> if Term.eq x y then b else y)
-
-
-
-
-

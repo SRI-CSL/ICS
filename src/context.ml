@@ -48,16 +48,16 @@ open Mpa
 (** {6 Logical context} *)
 
 type t = {
-  mutable ctxt : Atom.Set.t;      (* Current context. *)
-  mutable p : Partition.t;        (* Variable partitioning. *)
-  eqs : Combine.t;                    (* Theory-specific solution sets. *)
-  mutable upper : int;            (* Upper bound on fresh variable index. *)
+  mutable ctxt : Atom.t list;      (* Current context. *)
+  mutable p : Partition.t;         (* Variable partitioning. *)
+  eqs : Combine.t;                 (* Theory-specific solution sets. *)
+  mutable upper : int;             (* Upper bound on fresh variable index. *)
 }
 
 
 (** The empty logical context. *)
 let empty = {
-  ctxt = Atom.Set.empty;
+  ctxt = [];
   p = Partition.empty;
   eqs = Combine.empty;
   upper = 0
@@ -126,7 +126,7 @@ let is_empty i s = Combine.is_empty s.eqs i
 (** Return a canonical variable [x] equal to [b]. If [b] is not a rhs in
   the equality set for theory [i], then such a variable [x] is newly created. *)
 let name i s = 
-  Justification.Eqtrans.compose 
+  Jst.Eqtrans.compose 
     (v s) 
     (Combine.name (s.p, s.eqs) i)
 
@@ -164,19 +164,19 @@ let abstract s a =
 	  let (bl, rhol) = of_args j al in    (* roughly, [rhok |- bk = ak] *) 
 	  let (c, rho) =                      (* [rho |- c = f(b1,...,bn)] *)
 	    if Term.eql al bl then 
-	      (a, Justification.refl a)
+	      Jst.Eqtrans.id a
 	    else 
 	      Combine.sigma (config_of s) f bl 
 	  in
 	    if i = Th.u || i = Th.arr || i <> j then
 	      let (x, tau) = name j s c in    (* [tau |- x = c] *)
-	      let sigma = Justification.subst_equal (x, a) tau (rho :: rhol) in
+	      let sigma = Jst.subst_equal (x, a) tau (rho :: rhol) in
 		(x, sigma)                    (* [sigma |- x = a] *)
 	    else 
 	      (c, rho)
   in
     match a with 
-      | Term.Var _ -> Justification.Eqtrans.id a
+      | Term.Var _ -> Jst.Eqtrans.id a
       | Term.App(f, _, _) -> of_term (Sym.theory_of f) a
 
 
@@ -189,23 +189,23 @@ module Fct = struct
   let is_equal s = Combine.is_equal (config_of s)
 
   let is_nonneg0 = 
-    let yes = Justification.Three.Yes(Justification.dependencies0) 
-    and no = Justification.Three.No(Justification.dependencies0) in
+    let yes = Jst.Three.Yes(Jst.dependencies0) 
+    and no = Jst.Three.No(Jst.dependencies0) in
       fun a -> 
 	match Arith.is_nonneg a with
 	  | Three.Yes -> yes
 	  | Three.No -> no
-	  | Three.X -> Justification.Three.X
+	  | Three.X -> Jst.Three.X
 
 	      
   let is_pos0 = 
-    let yes = Justification.Three.Yes(Justification.dependencies0) 
-    and no = Justification.Three.No(Justification.dependencies0) in
+    let yes = Jst.Three.Yes(Jst.dependencies0) 
+    and no = Jst.Three.No(Jst.dependencies0) in
       fun a -> 
 	match Arith.is_pos a with
 	  | Three.Yes -> yes
 	  | Three.No -> no
-	  | Three.X -> Justification.Three.X
+	  | Three.X -> Jst.Three.X
 
   let is_nonneg s a = 
     if !cheap then
@@ -242,10 +242,10 @@ let abst s =
 
 let rec process s ((atm, rho) as fct) =
   Trace.msg "rule" "Process" atm Atom.pp;
-  match atm with
+  match Atom.atom_of atm with
     | Atom.True -> ()
     | Atom.False -> 
-	raise(Justification.Inconsistent(rho))
+	raise(Jst.Inconsistent(rho))
     | Atom.Equal(a, b) -> 
 	process_equal s (Fact.Equal.make (a, b, rho))
     | Atom.Diseq(a, b) -> 
@@ -347,8 +347,8 @@ and gc s =
 module Status = struct
 
   type 'a t = 
-    | Valid of Justification.t
-    | Inconsistent of Justification.t
+    | Valid of Jst.t
+    | Inconsistent of Jst.t
     | Ok of 'a
 
   let pp_justification = ref true
@@ -358,7 +358,7 @@ module Status = struct
       if !pp_justification then
 	begin
 	  Format.fprintf fmt "\n";
-	  Justification.pp fmt rho
+	  Jst.pp fmt rho
 	end
     in
       match status with
@@ -372,52 +372,43 @@ module Status = struct
 end
 
 let add s atm =
-  let ((atm', rho') as fct) = 
-    simplify s (Fact.mk_axiom atm)
-  in
-    if Atom.is_true atm' then
-      Status.Valid(rho')
-    else if Atom.is_false atm' then
-      Status.Inconsistent(rho')
-    else 
-      let k' = !Term.Var.k in                  (* Save global variable. *)
+  let ((atm', rho') as fct') =  simplify s (Fact.mk_axiom atm) in
+  match Atom.atom_of atm' with
+    | Atom.True -> 
+	Status.Valid(rho')
+    | Atom.False  ->
+	Status.Inconsistent(rho')
+    | atm' -> 
 	(try 
-	   Term.Var.k := s.upper;
-	   let s' = copy s in                  (* Protect state against updates *)
-	     Fact.Eqs.clear();                 (* Clear out stacks before processing *)
-	     Fact.Diseqs.clear();
-	     process s' (abst s' fct);
-             close_star s';
-	     normalize s';
-	     s'.ctxt <- Atom.Set.add atm s'.ctxt;
-	     s'.upper <- !Term.Var.k;          (* Install variable counter. *)
-	     Term.Var.k := k';                 (* Restore old value of variable counter. *)
-	     Status.Ok(s')
+	   assert(Fact.Eqs.is_empty());
+	   assert(Fact.Diseqs.is_empty());
+	   Term.Var.k := s.upper;             (* Install fresh variable index *)
+	   let s = copy s in                  (* Protect state against updates *)
+	     process s (abst s fct');
+             close_star s;
+	     normalize s;
+	     s.ctxt <- atm :: s.ctxt;
+	     s.upper <- !Term.Var.k;          (* Install variable counter. *)
+	     Status.Ok(s)
 	 with
-	   | Justification.Inconsistent(rho) -> 
-	       Term.Var.k := k';               (* Restore global variable. *)
+	   | Jst.Inconsistent(rho) ->    
+	       Fact.Eqs.clear();              (* Empty out stacks *)
+               Fact.Diseqs.clear();            
 	       Status.Inconsistent(rho)
-	   | exc ->
-	       Term.Var.k := k'; raise exc)
+	   | exc ->   
+	       Fact.Eqs.clear();        
+               Fact.Diseqs.clear();      
+	       raise exc)
 
 
-let add_unprotected s atm =
-  let ((atm', rho') as fct) = 
-    simplify s (Fact.mk_axiom atm)
-  in
-    if Atom.is_true atm' then
-      Status.Valid(rho')
-    else if Atom.is_false atm' then
-      Status.Inconsistent(rho')
-    else 
-      (try 
-	 Fact.Eqs.clear();                 (* Clear out stacks before processing *)
-	 Fact.Diseqs.clear();
-	 process s (abst s fct);
-         close_star s;
-	 normalize s;
-	 s.ctxt <- Atom.Set.add atm s.ctxt;
-	 Status.Ok(s)
-       with
-	 | Justification.Inconsistent(rho) -> 
-	     Status.Inconsistent(rho))
+
+let rec is_invalid s = function
+  | [] -> None
+  | a :: al ->
+      (match add s a with
+	 | Status.Ok(s') -> is_invalid s' al
+	 | Status.Valid _ -> is_invalid s al
+	 | Status.Inconsistent(rho) -> Some(rho))
+  
+
+

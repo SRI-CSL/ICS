@@ -37,8 +37,8 @@ val eq : t -> t -> bool
 val empty : t
   (** The empty logical context *)
 
-val ctxt_of : t -> Atom.Set.t
-  (** [ctxt_of s] returns the logical context of [s] as a set of atoms. *)
+val ctxt_of : t -> Atom.t list
+  (** [ctxt_of s] returns the logical context of [s] as a list of atoms. *)
 
 val eqs_of : t -> Combine.t
   (** [eqs_of s] returns ths solution sets associated with [s]. *)
@@ -52,19 +52,19 @@ val upper_of : t -> int
   (** [upper_of s] returns an upper bound on the indices of all fresh
     variables in [s]. *)
 
-val apply : Th.t -> t -> Justification.Eqtrans.t
+val apply : Th.t -> t -> Jst.Eqtrans.t
   (** [apply th s x] is [a] when [x = a] is in the solution set for theory [th]
     in [s]; otherwise [Not_found] is raised. *)
 
-val find : Th.t -> t -> Justification.Eqtrans.t
+val find : Th.t -> t -> Jst.Eqtrans.t
   (** [find th s x] is [a] if [x = a] is in the solution set for theory [th]
     in [s]; otherwise, the result is just [x]. *)
 
-val inv : t -> Justification.Eqtrans.t
+val inv : t -> Jst.Eqtrans.t
   (** [inv s a] is [x] if there is [x = a] in the solution set for
     theory [th]; otherwise [Not_found] is raised. *)
 
-val dep : Th.t -> t -> Term.t -> Term.Set.t
+val dep : Th.t -> t -> Term.t -> Term.Var.Set.t
   (** [use th s x] consists of the set of all term variables [y] such
     that [y = a] in [s], and [x] is a variable [a]. *)
 
@@ -76,8 +76,8 @@ val simplify : t -> Fact.t -> Fact.t
 module Status : sig
 
   type 'a t = 
-    | Valid of Justification.t
-    | Inconsistent of Justification.t
+    | Valid of Jst.t
+    | Inconsistent of Jst.t
     | Ok of 'a
 
   val pp : 'a Pretty.printer -> 'a t Pretty.printer
@@ -95,5 +95,4 @@ val add : t -> Atom.t -> t Status.t
 
 val compactify : bool ref
 
-
-val add_unprotected : t -> Atom.t -> t Status.t
+val is_invalid : t -> Atom.t list -> Jst.t option

@@ -1,17 +1,27 @@
+
+
+
+
 (*
- * The contents of this file are subject to the ICS(TM) Community Research
- * License Version 1.0 (the ``License''); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- * http://www.icansolve.com/license.html.  Software distributed under the
- * License is distributed on an ``AS IS'' basis, WITHOUT WARRANTY OF ANY
- * KIND, either express or implied. See the License for the specific language
- * governing rights and limitations under the License.  The Licensed Software
- * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
- * ``ICS'' is a trademark of SRI International, a California nonprofit public
- * benefit corporation.
+ * hashcons: hash tables for hash consing
+ * Copyright (C) 2000 Jean-Christophe FILLIATRE
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License version 2, as published by the Free Software Foundation.
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * 
+ * See the GNU Library General Public License version 2 for more details
+ * (enclosed in the file LGPL).
  *)
 
-type 'a hashed = { 
+(*s Hash tables for hash-consing. (Some code is borrowed from the ocaml
+    standard library, which is copyright 1996 INRIA.) *)
+
+type 'a hash_consed = { 
   hkey : int;
   tag : int;
   node : 'a }
@@ -22,7 +32,7 @@ type 'a t = {
 
 and 'a bucketlist =
   | Empty
-  | Cons of 'a hashed * 'a bucketlist
+  | Cons of 'a hash_consed * 'a bucketlist
 
 let create initial_size =
   let s = if initial_size < 1 then 1 else initial_size in
@@ -46,7 +56,7 @@ let resize tbl =
     let rec insert_bucket = function
 	Empty -> ()
       | Cons(data, rest) ->
-          insert_bucket rest; (* preserve original order of elements *)
+insert_bucket rest; (* preserve original order of elements *)
           let nidx = data.hkey mod nsize in
           ndata.(nidx) <- Cons(data, ndata.(nidx)) in
     for i = 0 to osize - 1 do
@@ -68,23 +78,22 @@ let find h key hkey =
   match h.data.(hkey mod (Array.length h.data)) with
     Empty -> raise Not_found
   | Cons(d1, rest1) ->
-      if key = d1.node then d1 else
+if key = d1.node then d1 else
       match rest1 with
         Empty -> raise Not_found
       | Cons(d2, rest2) ->
-          if key = d2.node then d2 else
+if key = d2.node then d2 else
           match rest2 with
             Empty -> raise Not_found
           | Cons(d3, rest3) ->
-              if key = d3.node then d3 else begin
+if key = d3.node then d3 else begin
                 let rec find = function
                     Empty ->
-                      raise Not_found
+raise Not_found
                   | Cons(d, rest) ->
-                      if key = d.node then d else find rest
+if key = d.node then d else find rest
                 in find rest3
               end
-
 
 let gentag =
   let r = ref 0 in
@@ -94,22 +103,9 @@ let hashcons h node =
   let hkey = Hashtbl.hash_param 10 100 node in
   try 
     find h node hkey
-  with Not_found -> 
-    let hnode = { hkey = hkey; tag = gentag(); node = node } in
+  with Not_found -> let hnode = { hkey = hkey; tag = gentag(); node = node } in
     add h hkey hnode;
     hnode
-
-let mem h node =
-  let hkey = Hashtbl.hash_param 10 100 node in
-  try 
-    let _ = find h node hkey in
-    true
-  with 
-      Not_found -> false
-
-let (===) = (==)
-
-let ( =/= ) x y = not(x == y)
 
 let iter f h =
   let rec bucket_iter = function
@@ -144,7 +140,7 @@ let stat h =
 module type HashedType =
   sig
     type t
-    val equal : t -> t -> bool
+    val equal : t * t -> bool
     val hash : t -> int
   end
 
@@ -154,9 +150,8 @@ module type S =
     type t
     val create : int -> t
     val clear : t -> unit
-    val hashcons : t -> key -> key hashed
-    val mem : t -> key -> bool
-    val iter : (key hashed -> unit) -> t -> unit
+    val hashcons : t -> key -> key hash_consed
+    val iter : (key hash_consed -> unit) -> t -> unit
     val stat : t -> unit
   end
 
@@ -180,20 +175,20 @@ module Make(H : HashedType) : (S with type key = H.t) =
       match h.data.(hkey mod (Array.length h.data)) with
         Empty -> raise Not_found
       | Cons(d1, rest1) ->
-          if H.equal key d1.node then d1 else
+	  if H.equal (key, d1.node) then d1 else
           match rest1 with
             Empty -> raise Not_found
           | Cons(d2, rest2) ->
-              if H.equal key d2.node then d2 else
+	      if H.equal (key, d2.node) then d2 else
               match rest2 with
                 Empty -> raise Not_found
               | Cons(d3, rest3) ->
-                  if H.equal key d3.node then d3 else begin
+		  if H.equal (key, d3.node) then d3 else begin
                     let rec find = function
                         Empty ->
-                          raise Not_found
+			  raise Not_found
                       | Cons(d, rest) ->
-                          if H.equal key d.node then d else find rest
+			  if H.equal (key, d.node) then d else find rest
                     in find rest3
                   end
 
@@ -201,29 +196,11 @@ module Make(H : HashedType) : (S with type key = H.t) =
       let hkey = H.hash node in
       try 
 	find h node hkey
-      with Not_found -> 
-	let hnode = { hkey = hkey; tag = gentag(); node = node } in
+      with Not_found -> let hnode = { hkey = hkey; tag = gentag(); node = node } in
 	add h hkey hnode;
 	hnode
-
-    let mem h node =
-      let hkey = Hashtbl.hash_param 10 100 node in
-      try 
-	let _ = find h node hkey in
-	true
-      with 
-	  Not_found -> false
 
     let iter = iter
 
     let stat = stat
   end
-
-
-
-
-
-
-
-
-

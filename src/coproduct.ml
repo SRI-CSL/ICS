@@ -13,7 +13,7 @@
 
 
 let is_interp = function
-  | Term.App(sym, _, _) -> (Sym.theory_of sym) = Th.cop
+  | Term.App(sym, _, _) -> Sym.Coproduct.is sym
   | _ -> false
 
 let is_pure = Term.is_pure Th.cop
@@ -47,25 +47,29 @@ let mk_inl a =
   try 
     d_outl a 
   with 
-      Not_found -> Term.App.mk_app Sym.Coproduct.inl [a]
+      Not_found ->
+	Term.App.mk_app Sym.Coproduct.mk_inl [a]
 
 let mk_inr a =
   try 
     d_outr a 
   with 
-      Not_found -> Term.App.mk_app Sym.Coproduct.inr [a]
+      Not_found -> 
+	Term.App.mk_app Sym.Coproduct.mk_inr [a]
 
 let mk_outr a =
   try
     d_inr a 
   with
-      Not_found -> Term.App.mk_app Sym.Coproduct.outr [a]
+      Not_found -> 
+	Term.App.mk_app Sym.Coproduct.mk_outr [a]
 
 let mk_outl a =
   try
     d_inl a 
   with
-      Not_found -> Term.App.mk_app Sym.Coproduct.outl [a]
+      Not_found -> 
+	Term.App.mk_app Sym.Coproduct.mk_outl [a]
 
 
 (** Generalize injection. *)
@@ -116,8 +120,8 @@ let sigma op l =
 let rec map f a =
   try
     let op, x = d_interp a in
-	let x' = map f x in
-	  if x == x' then a else sigma op [x']
+    let x' = map f x in
+      if x == x' then a else sigma op [x']
   with
       Not_found -> f a
 

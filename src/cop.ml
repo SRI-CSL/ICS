@@ -19,7 +19,7 @@ module Cop = Eqs.Make0(
     let th = Th.cop
     let nickname = Th.to_string Th.cop
     let apply = Coproduct.apply
-    let is_infeasible _ _ = None
+    let is_infeasible _ = false
   end)
 
 
@@ -36,7 +36,7 @@ module Diseqs = struct
       (fun y (b, tau) _ ->                 (* [tau |- y = b] *)
 	 if Term.eq x y then () else 
 	   if Coproduct.is_diseq a b then  (* [a <> b] in [COP]. *)
-	     let sigma = Justification.dependencies [rho; tau] in
+	     let sigma = Justification.oracle "cop" [rho; tau] in
 	     let d = Fact.Diseq.make (x, y, sigma) in
 	       Partition.dismerge p d)
       s () 
@@ -73,7 +73,7 @@ let replace s =
     (find s)
 
 let solve = 
-  Fact.Equal.Inj.solver Bitvector.solve
+  Fact.Equal.Inj.solver Th.cop Bitvector.solve
 
 
 let process_equal ((p, s) as cfg) e =  

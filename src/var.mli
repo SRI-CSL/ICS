@@ -79,6 +79,9 @@ val mk_rename : Name.t -> int -> Dom.t option -> t
 
 type slack = Zero | Nonneg of Dom.t
 
+val nonneg : Dom.t -> slack
+  (** [nonneg d] constructs [Nonneg(d)]. *)
+
 val mk_slack : int -> slack -> t
   (** - [mk_slack i Zero] creates a  {i zero slack} variable with [0]
     as the only possible interpretation.

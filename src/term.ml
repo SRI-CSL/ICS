@@ -211,8 +211,6 @@ module Var = struct
     end)
 
 
-
-
   (** {7 Recognizers} *)
 
   let is_zero_slack = function Var(x, _) -> Var.is_zero_slack x | _ -> false

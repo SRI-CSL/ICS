@@ -187,7 +187,7 @@ var:
 
 app: funsym LPAR termlist RPAR     { Term.App.mk_app $1 (List.rev $3) }
 
-funsym: name                       { Sym.Uninterp.uninterp($1) }
+funsym: name                       { Sym.Uninterp.make $1 }
 
 list: 
   term LISTCONS term            { Coproduct.mk_inj 1 (Product.mk_cons $1 $3) }
@@ -197,7 +197,7 @@ list:
 ;
 
 apply: 
-  term APPLY term               { Apply.mk_apply Partition.sigma0 None $1 $3 }
+  term APPLY term               { Apply.mk_apply Term.App.mk_app None $1 $3 }
 | LAMBDA LPAR term RPAR         { Apply.mk_abs $3 }
 ;
 
@@ -344,11 +344,11 @@ command:
 
 optvarspecs:            { let ctxt = Context.ctxt_of !Istate.current in
 			  let xs = 
-			    Atom.Set.fold 
-			      (fun a -> Term.Set.union (Atom.vars_of a))
-			      ctxt Term.Set.empty 
+			    List.fold_right
+			      (fun a -> Term.Var.Set.union (Atom.vars_of a))
+			      ctxt Term.Var.Set.empty 
 			  in
-			    Term.Set.fold 
+			    Term.Var.Set.fold 
 			      (fun x acc -> (x, None) :: acc) 
 			      xs [] }
 | varspecs              { $1 }

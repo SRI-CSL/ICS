@@ -29,12 +29,10 @@ extern "C" {
 	void icsat_atom_pp(int x1);
 	void icsat_stackpp();
 
-	int icsat_is_nil(value x1);
-	int icsat_length(value x1);
-	int icsat_head(value x1);
-	value icsat_tail(value x1);
-	value icsat_explain();
-	int icsat_is_explained();
+  int icsat_is_explained();
+  int icsat_explain_is_empty();
+  int icsat_explain_size();
+  int icsat_explain_pop();
 
 }
 

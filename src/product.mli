@@ -96,7 +96,7 @@ val apply: Term.Equal.t -> Term.t -> Term.t
 
 (** {6 Canonization} *)
 
-val sigma : Sym.pair -> Term.t list -> Term.t
+val sigma : Sym.product -> Term.t list -> Term.t
   (** [sigma op l] applies the function symbol [op] from the pair 
     theory to the list [l] of argument terms to build a canonical
     term equal to [op(l)]. *)

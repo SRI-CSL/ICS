@@ -35,7 +35,7 @@ let of_string str =
 	  incr current;
           StringHash.add table str n; n
 
-let eq (s, i) (t, j) =     (* s = t *)
+let eq (s, i) (t, j) =   (*  s = t *)
   assert(if s == t then s = t else not(s = t));
   (s == t)
 

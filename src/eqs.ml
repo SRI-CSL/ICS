@@ -29,7 +29,6 @@ module Use = struct
 
   let set = Term.Var.Map.add
 
-  (** empty use list. *)
   let empty = Term.Var.Map.empty
 
   let pp_set fmt us =
@@ -37,7 +36,6 @@ module Use = struct
 
   (** [add x y m] adds [x] to the use of [y]. *)
   let add1 x y m =
-    Trace.msg "use" "Add" (x, y) (Pretty.pair Term.pp Term.pp);
     try 
       let uy = Term.Var.Map.find y m in
       let uy' = Term.Var.Set.add x uy in
@@ -52,7 +50,6 @@ module Use = struct
 
   (** [remove x y s] deletes [x] from the use of [y]. *)
   let remove1 x y m = 
-    Trace.msg "use" "Rem" (x, y) (Pretty.pair Term.pp  Term.pp);
     try 
       let uy = Term.Var.Map.find y m in
       let uy' = Term.Var.Set.remove x uy in
@@ -93,7 +90,7 @@ module type TH = sig
   val th : Th.t
   val nickname : string
   val apply : Term.Equal.t -> Term.t -> Term.t
-  val is_infeasible : Jst.Pred2.t
+  val is_infeasible : Term.Equal.t -> bool
 end
 
 type equality = Term.t * Term.t * Jst.t
@@ -139,7 +136,6 @@ module type EXT = sig
   type t
   val empty : t
   val pp : t Pretty.printer
-  val eq : t -> t -> bool
   val do_at_add :  Partition.t * t -> equality -> t
   val do_at_restrict : Partition.t * t -> equality -> t
 end
@@ -148,7 +144,6 @@ module Ext0: (EXT with type t = unit) =
 struct
   type t = unit
   let empty = ()
-  let eq _ _ = true
   let pp _ _ = ()
   let do_at_add _ _ = () 
   let do_at_restrict _ _ = ()
@@ -159,15 +154,12 @@ module CombineExt(Left: EXT)(Right: EXT): EXT with type t = Left.t * Right.t =
     type t = Left.t * Right.t
     let pp fmt (l, r) = 
       Left.pp fmt l; Right.pp fmt r
-    let empty = (Left.empty, Right.empty)
-    let eq (l1, r1) (l2, r2) = 
-      Left.eq l1 l2 && Right.eq r1 r2
+    let empty = 
+      (Left.empty, Right.empty)
     let do_at_add (p, (l, r)) e =
-      (Left.do_at_add (p, l) e, 
-       Right.do_at_add (p, r) e)
+      (Left.do_at_add (p, l) e, Right.do_at_add (p, r) e)
     let do_at_restrict (p, (l, r)) e =
-      (Left.do_at_restrict (p, l) e,
-       Right.do_at_restrict (p, r) e)
+      (Left.do_at_restrict (p, l) e, Right.do_at_restrict (p, r) e)
   end
 
 
@@ -175,7 +167,11 @@ module CombineExt(Left: EXT)(Right: EXT): EXT with type t = Left.t * Right.t =
 
 module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
   
-  (** [x |-> (a, rho)] in [find] represent the equality [x = a] with justificationo [rho] *)
+  (** [x |-> (a, rho)] in [find] represent the equality [x = a] 
+    with justification [rho]. We also write [rho |- x = a]. 
+    [inv] is just the inverse [a |-> x] for every such entry in [find].
+    [dep] indexes for each nondependent variables the set of variables 
+    dependent on it, and [ext] is an extension field. *)
   type t = {
     mutable find: (Term.t * Jst.t) Term.Var.Map.t;
     mutable inv : Term.t Term.Map.t;          (* inverse find *)
@@ -249,8 +245,9 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
 
   let inv s a =
     let x = Term.Map.find a s.inv in
-    let (_, rho) = apply s x in
-      (x, rho)
+      assert(Term.Var.Map.mem x s.find);
+      let (_, rho) = apply s x in
+	(x, rho)
 
   let ext s = s.ext
 
@@ -299,29 +296,27 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
      Trace.msg Th.nickname "Update" e Fact.Equal.pp; 
      let (x, b, rho) = Fact.Equal.destruct e in
        assert(Term.is_var x);
-       match Th.is_infeasible x b with
-	 | None ->
-	     (try                  (* restrict, then update. *)
-		let (b', rho') = apply s x in 
-		  s.dep <- Use.remove_but b x b' s.dep; 
-		  (* s.dep <- Use.remove x b' s.dep; *)  
-		  s.dep <- Use.add x b s.dep; 
-		  s.ext <- Ext.do_at_restrict (p, s.ext) (x, b, rho');
+       assert(Term.is_pure Th.th b);
+       if Th.is_infeasible (x, b) then
+	 Jst.inconsistent rho
+       else 
+	 (try                  (* restrict, then update. *)
+	    let (b', rho') = apply s x in 
+	      s.dep <- Use.remove_but b x b' s.dep; 
+	      s.dep <- Use.add x b s.dep; 
+	      s.ext <- Ext.do_at_restrict (p, s.ext) (x, b, rho');
+	      s.find <- Term.Var.Map.add x (b, rho) s.find;
+	      s.inv <- Term.Map.add b x s.inv;
+	      s.ext <- Ext.do_at_add (p, s.ext) (x, b, rho)
+	  with 
+	      Not_found ->     (* extend *)
+		begin
+		  s.dep <- Use.add x b s.dep;
 		  s.find <- Term.Var.Map.add x (b, rho) s.find;
 		  s.inv <- Term.Map.add b x s.inv;
 		  s.ext <- Ext.do_at_add (p, s.ext) (x, b, rho)
-	      with 
-		  Not_found ->     (* extend *)
-		    begin
-		      s.dep <- Use.add x b s.dep;
-		      s.find <- Term.Var.Map.add x (b, rho) s.find;
-		      s.inv <- Term.Map.add b x s.inv;
-		      s.ext <- Ext.do_at_add (p, s.ext) (x, b, rho)
-		    end)
-	 | Some(tau) -> 
-	     let sigma = Jst.dependencies2 rho tau in
-	       raise(Jst.Inconsistent(tau))
-
+		end)
+	    
 	 
    let restrict (p, s) x =
      try
@@ -341,17 +336,15 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
 	 restrict (p, s) x 
        else if Term.is_var b then
 	 begin
-	   Partition.merge p e;     (* propagate new variable equality. *)
+	   publish p e;      (* propagate new variable equality. *)
 	   merge (p, s) e           (* and merge in solution set *)
 	 end 
        else
 	 try
-	   let (y, rho2) = inv s b in           (* [rho2 |- y = b]. *)
+	   let (y, rho2) = inv s b in                  (* [rho2 |- y = b]. *)
 	     if not(Term.eq x y) then
-	       let rho' =                       (* [rho' |- x = y]. *)          
-		 Jst.trans x b y rho1 rho2
-	       in
-		 Partition.merge p (Fact.Equal.make (x, y, rho'));
+	       let tau = Jst.trans x b y rho1 rho2 in  (* [tau |- x = y]. *)          
+		 publish p (Fact.Equal.make (x, y, tau));
 		 if Term.(<<<) y x then 
 		   restrict (p, s) x 
 		 else 
@@ -362,11 +355,18 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
 	 with
 	     Not_found -> 
 	       add (p, s) e
+
+   and publish p e =
+     let (x, y, _) = Fact.Equal.destruct e in 
+       if not(Term.Var.is_fresh Th.th x)   (* fresh variables of theory are *)
+	 || not(Term.Var.is_fresh Th.th y) (* considered to be internal. *)
+       then 
+	 Partition.merge p e
 	       
    and merge (p, s) e =
      let (x, y, rho1) = Fact.Equal.destruct e in
        try                                        (* [rho1 |- x = y]. *)
-	 let (a, rho2) = apply s y in             (* [ rho2 |- y = a]. *)
+	 let (a, rho2) = apply s y in             (* [rho2 |- y = a]. *)
 	   if Term.(<<<) y x then 
 	     restrict (p, s) x 
 	   else 
@@ -388,7 +388,7 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
 	 inv s b 
        with 
 	   Not_found ->
-	     let dom = try Some(Arith.dom_of b) with Not_found -> None in
+	     let dom = try Dom.inj (Arith.dom_of b) with Not_found -> None in
 	     let x = Term.Var.mk_rename (Name.of_string "v") None dom in 
 	     let rho = Jst.extend (x, b) in
 	       update (p, s) (Fact.Equal.make (x, b, rho));
@@ -438,28 +438,30 @@ module Idx2Ext(Idx: INDEX): (EXT with type t = Term.Var.Set.t) =
       Format.fprintf fmt "\n%s: " Idx.name;
       Pretty.set Term.pp fmt (Term.Var.Set.elements s)
     let empty = Term.Var.Set.empty 
-    let eq = (==)
     let do_at_add (p, s) (x, a, _) = 
       if Idx.holds a then Term.Var.Set.add x s else s
     let do_at_restrict (p, s) (x, a, _) =
       Term.Var.Set.remove x s
 end
 
+type index = Term.Var.Set.t
+type cnstnt = (Term.t * Jst.t) Term.Var.Map.t
 
-module MakeIndex(Th: TH)(Idx : INDEX): (SET with type ext = Term.Var.Set.t) =
+module MakeIndex(Th: TH)(Idx : INDEX): (SET with type ext = index) =
   Make(Th)(Idx2Ext(Idx))
 
 
 (** {6 Constant extensions} *)
 
 module type CNSTNT = sig
+  val th : Th.t
   val is_const : Term.t -> bool
   val is_diseq : Term.t -> Term.t -> bool
 end 
 
-module Cnstnt2Ext(Cnstnt: CNSTNT): (EXT with type t = (Term.t * Jst.t) Term.Var.Map.t) =
+module Cnstnt2Ext(Cnstnt: CNSTNT): (EXT with type t = cnstnt) =
   struct
-    type t = (Term.t * Jst.t) Term.Var.Map.t
+    type t = cnstnt
     let pp fmt s =
       if not(s == Term.Var.Map.empty) then
 	begin
@@ -471,24 +473,23 @@ module Cnstnt2Ext(Cnstnt: CNSTNT): (EXT with type t = (Term.t * Jst.t) Term.Var.
 	    Pretty.map Term.pp Term.pp fmt l   
 	end 
     let empty = Term.Var.Map.empty
-    let eq = (==)
 	       (** Generate disequalities [x <> y] for constant equalities 
 		 [x = a] and [y = b] with [a <> b]. *)
+    let th = Th.inj Cnstnt.th
     let do_at_add (p, s) (x, a, rho) = 
-      Term.Var.Map.iter                         (* [rho |- x = a] *)
+      Term.Var.Map.iter                     (* [rho |- x = a] *)
 	(fun y (b, tau) ->                  (* [tau |- y = b] *)
 	   if Cnstnt.is_diseq a b then      (* [sigma |- x <> y] *)
-	     let sigma = Jst.dependencies2 rho tau in
+	     let sigma = Jst.const (x, y) rho tau in
 	     let d = Fact.Diseq.make (x, y, sigma) in
-	       Partition.dismerge p d)
+	       Fact.Diseqs.push th d)
       s;
       if Cnstnt.is_const a then Term.Var.Map.add x (a, rho) s else s
     let do_at_restrict (_, s) (x, a, _) =
       if Cnstnt.is_const a then Term.Var.Map.remove x s else s
 end
 
-module MakeCnstnt(Th: TH)(Cnstnt: CNSTNT)
-  : (SET with type ext = (Term.t * Jst.t) Term.Var.Map.t) =
+module MakeCnstnt(Th: TH)(Cnstnt: CNSTNT): (SET with type ext = cnstnt) =
   Make(Th)(Cnstnt2Ext(Cnstnt))
 
 
@@ -496,15 +497,14 @@ module MakeCnstnt(Th: TH)(Cnstnt: CNSTNT)
 (** {6 Solution sets with constant index} *)
 
 module MakeIndexCnstnt(Th: TH)(Idx: INDEX)(Cnstnt: CNSTNT)
-  : (SET with type ext = Term.Var.Set.t * (Term.t * Jst.t) Term.Var.Map.t) =
+  : (SET with type ext = index * cnstnt) =
   Make(Th)(CombineExt(Idx2Ext(Idx))(Cnstnt2Ext(Cnstnt)))
 
 
 (** {6 Combining two equality sets} *)
 
 module type SET2 = sig
-  type t 
-  type ext
+  type t
   type lext
   type rext
   val eq : t -> t -> bool
@@ -521,7 +521,7 @@ module type SET2 = sig
   val find :  tag -> t -> Jst.Eqtrans.t
   val inv :  tag -> t -> Jst.Eqtrans.t 
   val dep :  tag -> t -> Term.t -> Term.Var.Set.t
-  val ext : t -> ext * lext * rext
+  val ext : t -> lext * rext
   module Dep : sig
     val iter :  tag -> t -> (Fact.Equal.t -> unit) -> Term.t -> unit 
     val fold :  tag -> t -> (Fact.Equal.t -> 'a -> 'a) -> Term.t -> 'a  -> 'a
@@ -539,16 +539,14 @@ module type SET2 = sig
 end
 
 
-module Union(Left: SET)(Right: SET)(Ext: EXT) = 
+module Union(Left: SET)(Right: SET) = 
 struct
 
   type t = {                    (* to do: establish confluence across theories. *)
     mutable left : Left.t; 
-    mutable right : Right.t; 
-    mutable ext : Ext.t 
+    mutable right : Right.t;
   }
 
-  type ext = Ext.t
   type lext = Left.ext
   type rext = Right.ext
       
@@ -558,22 +556,16 @@ struct
 		 
   let pp fmt s = 
     Left.pp fmt s.left;
-    Right.pp fmt s.right;
-    if !pp_index then 
-      begin
-	Ext.pp fmt s.ext
-      end
+    Right.pp fmt s.right
       
   let empty = { 
     left = Left.empty; 
-    right = Right.empty; 
-    ext = Ext.empty
+    right = Right.empty;
   }
 		
   let copy s = {
     left = Left.copy s.left; 
     right = Right.copy s.right; 
-    ext = s.ext
   }
 		                                                    
   let is_empty s = 
@@ -598,7 +590,7 @@ struct
   let find = case_tag Left.find Right.find
   let inv = case_tag Left.inv Right.inv
   let dep = case_tag Left.dep Right.dep
-  let ext s = (s.ext, Left.ext s.left, Right.ext s.right)
+  let ext s = (Left.ext s.left, Right.ext s.right)
 
   let apply2 s x =
     try apply Left s x with Not_found -> apply Right s x
@@ -656,136 +648,3 @@ struct
 
 end
     
-
-
-module UnionCnstnt
-  (LTh: TH)
-  (LExt: EXT)
-  (RTh: TH)
-  (RExt: EXT)
-  (Cnstnt: CNSTNT) =
-struct
-                                   (* to do: establish confluence across theories. *)
-  module Ext = Cnstnt2Ext(Cnstnt)
-
-  module LExt1 = CombineExt(Ext)(LExt)
-  module RExt1 = CombineExt(Ext)(RExt)
-
-  module Left = Make(LTh)(LExt1)
-  module Right = Make(RTh)(RExt1)
-
-  type t = {                  
-    mutable left : Left.t; 
-    mutable right : Right.t; 
-    mutable ext : Ext.t 
-  }
-
-  type ext = Ext.t
-  type lext = Left.ext
-  type rext = Right.ext
-      
-  let eq s t = 
-    Left.eq s.left t.left && 
-    Right.eq s.right t.right
-		 
-  let pp fmt s = 
-    Left.pp fmt s.left;
-    Right.pp fmt s.right;
-    if !pp_index then 
-      begin
-	Ext.pp fmt s.ext
-      end
-      
-  let empty = { 
-    left = Left.empty; 
-    right = Right.empty; 
-    ext = Ext.empty
-  }
-		
-  let copy s = {
-    left = Left.copy s.left; 
-    right = Right.copy s.right; 
-    ext = s.ext
-  }
-		                                                    
-  let is_empty s = 
-    Left.is_empty s.left && 
-    Right.is_empty s.right
-
-  type tag = Left | Right
-	     
-  (** Depending on value of [tag] apply either [f_left] to left part of
-    state or [f_right] to the right part. *)
-  let case_tag f_left f_right tag s =
-    match tag with
-      | Left -> f_left s.left
-      | Right -> f_right s.right
-
-  let is_dependent = case_tag Left.is_dependent Right.is_dependent
-  let is_independent = case_tag Left.is_independent Right.is_independent
-  let fold tag f = case_tag (Left.fold f) (Right.fold f) tag
-  let to_list = case_tag Left.to_list Right.to_list
-  let apply = case_tag Left.apply Right.apply
-  let equality = case_tag Left.equality Right.equality
-  let find = case_tag Left.find Right.find
-  let inv = case_tag Left.inv Right.inv
-  let dep = case_tag Left.dep Right.dep
-  let ext s = (s.ext, Left.ext s.left, Right.ext s.right)
-
-  let apply2 s x =
-    try apply Left s x with Not_found -> apply Right s x
-
-  module Dep = struct
-    let iter = case_tag Left.Dep.iter Right.Dep.iter
-    let fold tag = case_tag Left.Dep.fold Right.Dep.fold tag
-    let for_all = case_tag Left.Dep.for_all Right.Dep.for_all
-    let exists = case_tag Left.Dep.for_all Right.Dep.for_all
-    let choose = case_tag Left.Dep.choose Right.Dep.choose
-  end
-    
-  type config = Partition.t * t
-
-  (** Establish confluence across solution sets; if [x = a] in [Left]
-    and [y = a] in Right, then [x = y]. *)
-  let do_at_add tag (p, s) e =
-    let (x, a, rho) = Fact.Equal.destruct e in
-      try                         
-	(match tag with
-	   | Right ->
-	       let (y, tau) = Left.inv s.left a in        (* [tau |- y = a] *)
-	       let  sigma = Jst.trans x a y tau rho in
-		 Partition.merge p (Fact.Equal.make (x, y, sigma));
-		 Left.restrict (p, s.left) y              (* restrict [y = a] in [Left]. *)
-	   | Left ->
-	       let (y, tau) = Right.inv s.right a in      (* [tau |- y = a] *)
-	       let  sigma = Jst.trans x a y tau rho in
-		 Partition.merge p (Fact.Equal.make (x, y, sigma));
-		 Left.restrict (p, s.left) x)             (* restrict [x = a] in [Left] *)
-      with
-	  Not_found -> ()
-	    
-  (** Depending on [tag] call either the update function [f_left]
-    on the left configuration [(p, s.left)] or [f_right] on the
-    right configuration [f_right]. *)
-  let update_case_tag f_left f_right tag (p, s) =
-    match tag with 
-      | Left -> f_left (p, s.left)   
-      | Right -> f_right (p, s.right)
-	  
-  let name = update_case_tag Left.name Right.name
-	       
-  let update tag cfg e =                                
-    update_case_tag Left.update Right.update tag cfg e;
-    do_at_add tag cfg e                        (* establish confluence *)
-      
-  let restrict = update_case_tag Left.restrict Right.restrict
-		   
-  let fuse = update_case_tag Left.fuse Right.fuse
-
-  let compose tag cfg el =
-    update_case_tag Left.compose Right.compose tag cfg el;
-    List.iter (do_at_add tag cfg) el            (* establish confluence *)
-
-end
-    
-

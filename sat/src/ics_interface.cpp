@@ -168,22 +168,21 @@ bool ICSInterface::is_explained()
 
 pair<int *,int> ICSInterface::explain()
 {
-	static int * result = NULL;
-	static int result_size = -1;
-	value atom_list = icsat_explain();
-	int len = icsat_length(atom_list);
-	if (len > result_size) {
-		if (result_size > 0)
-			delete result;
-		result = new int[len * 2];
-		result_size = len * 2;
-	}
-	int i = 0;
-	while (!icsat_is_nil(atom_list)) {
-		assert(i < len);
-		result[i] = icsat_head(atom_list);
-		i++;
-		atom_list = icsat_tail(atom_list);
-	}
-	return pair<int*,int>(result, len);
+  static int * result = NULL;
+  static int result_size = -1;
+  int len = icsat_explain_size();
+  assert(len >= 0);
+  if (len > result_size) {
+    if (result_size > 0)
+      delete result;
+    result = new int[len * 2];
+    result_size = len * 2;
+  }
+  int i = 0;
+  while (!icsat_explain_is_empty()) {
+    assert(i < len);
+    result[i] = icsat_explain_pop();
+    i++;
+  }
+  return pair<int*,int>(result, len);
 }

@@ -18,7 +18,7 @@ module A: Eqs.SET =
       let th = Th.arr
       let nickname = Th.to_string Th.arr
       let apply = Funarr.apply Term.is_equal
-      let is_infeasible _ _ = None
+      let is_infeasible _ = false
     end)
 
 type t = A.t
@@ -102,7 +102,7 @@ let interp (p, s) = Partition.choose p (apply s)
 
 let uninterp (p, s) a =
   try
-    Justification.Eqtrans.compose
+    Jst.Eqtrans.compose
       (Partition.find p)
       (inv s)
       a
@@ -122,12 +122,12 @@ let diseqs ((p, _) as cfg) a =
 (** [is_equal cfg a b] holds iff [a] and [b] are
   equal in the configuration [cfg]. *)
 let is_equal ((p, _) as cfg) =
-  Justification.Pred2.apply (uninterp cfg)
+  Jst.Pred2.apply (uninterp cfg)
     (Partition.is_equal p)
 
 
 let is_equal_or_diseq ((p, _) as cfg) =
-  Justification.Rel2.apply (uninterp cfg)
+  Jst.Rel2.apply (uninterp cfg)
     (Partition.is_equal_or_diseq p)
 
 let mk_select = Funarr.mk_select Term.is_equal
@@ -161,11 +161,11 @@ let rec abstract cfg a =
     let op, al = Funarr.d_interp a in
     let (bl, rhol) = Fact.Equal.Inj.mapl (abstract cfg) al in 
     let b = Funarr.sigma Term.is_equal op bl in         (* [rho |- a = b] *)
-    let rho = Justification.subst_equal (b, a) (Justification.refl a) rhol in
+    let rho = Jst.abstract (a, b) rhol in
     let (x, tau) = name cfg b in
-      (x, Justification.trans (x, b, a) tau rho)
+      (x, Jst.trans x b a tau rho)
   with
-      Not_found -> Justification.Eqtrans.id a
+      Not_found -> Jst.Eqtrans.id a
 
   
 let rec process_equal cfg e =
@@ -197,7 +197,7 @@ and arr1_eq ((p, s) as cfg) e =
 	 Iter.update cfg v  
 	 (fun (v, (a, i', x), sigma) ->       (* [sigma |- v = a[i:=x]] *)
 	    if Term.eq i i' then              (* ==> [phi |- u = x] *)
-	      let phi = Justification.dependencies [rho; tau; sigma] in
+	      let phi = Jst.array 1 u x [rho; tau; sigma] in
 	      let e' = Fact.Equal.make (u, x, phi) in
 		merge p e';
 		A.restrict cfg u))
@@ -214,10 +214,11 @@ and arr2_deq ((_, s) as cfg) d =
       (fun (v, (u, j), rho) ->                (* [rho |- v = u[j]] *)
 	 assert(Term.eq j j');
 	 Iter.update cfg u
-	   (fun (u, (a, i, x), tau) ->          (* [tau |- u = a[i:=x]] *)
-	      if Term.eq i i' then              (* ==> [phi |- v = a[j]] *)
-		let phi = Justification.dependencies [rho'; rho; tau] in
-		let e = Fact.Equal.make (v, mk_select a j, phi) in
+	   (fun (u, (a, i, x), tau) ->        (* [tau |- u = a[i:=x]] *)
+	      if Term.eq i i' then            (* ==> [phi |- v = a[j]] *)
+		let aj = mk_select a j in    
+		let phi = Jst.array 2 v aj [rho'; rho; tau] in
+		let e = Fact.Equal.make (v, aj, phi) in
 		  A.update cfg e))
   in
     propagate (i', j');
@@ -232,7 +233,7 @@ and arr3_eq ((p, _) as cfg) e =
 	 (Iter.update cfg v 
 	    (fun (v, (b, j', y), sigma) ->      (* [sigma |- v = b[j':= y]] *)
 	       if Term.eq j j' then             (* ==> [phi' |- x = y] *)
-		 let phi' = Justification.dependencies [rho; tau; sigma] in
+		 let phi' = Jst.array 3 x y [rho; tau; sigma] in
 		 let e' = Fact.Equal.make (x, y, phi') in
 		   merge p e')))          
 	  
@@ -249,8 +250,9 @@ and arr4_eq ((p, _) as cfg) e =
 		     (D.Set.iter
 			(fun (i', theta) ->    (* [theta |- i <> k] *)
 			   if Term.eq i i' then  
-			     let phi'' = Justification.dependencies [rho; tau; sigma; phi; theta] in
-			     let e'' = Fact.Equal.make (mk_select a i, mk_select b i, phi'') in
+			     let ai = mk_select a i and bi = mk_select b i in
+			     let phi'' = Jst.array 4 ai bi [rho; tau; sigma; phi; theta] in
+			     let e'' = Fact.Equal.make (ai, bi, phi'') in
 			       merge p (Fact.Equal.map (name cfg) e''))
 			(diseqs cfg k)))
 	           (diseqs cfg j)))
@@ -267,9 +269,10 @@ and arr4_deq ((p, s) as cfg) d =
 		  (fun (k, ups) ->                  (* [ups |- i <> k] *)
 		     (Iter.update_index s k
 		        (fun (v, (b, k, y), phi) -> (* [phi |- v = b[k:=y]] *)
-			   if not(Term.eq a b) then
-			     let theta = Justification.dependencies [rho; tau; sigma; ups; phi] in
-			     let e = Fact.Equal.make (mk_select a i, mk_select b i, theta) in
+			   if not(Term.eq a b) then  
+			     let ai = mk_select a i and bi = mk_select b i in
+			     let theta = Jst.array 4 ai bi [rho; tau; sigma; ups; phi] in
+			     let e = Fact.Equal.make (ai, bi, theta) in
 			       merge p (Fact.Equal.map (name cfg) e))))
 		  (diseqs cfg i)))
 	    (diseqs cfg j)))
@@ -296,7 +299,7 @@ and arr5_deq ((p, s) as cfg) d =
 		           (fun (v2, (a', k, y), theta) -> 
 			      if Term.eq a a' then  (* [theta |- w2 = a[k:=y]] *)
 			        let phil = [rho; rho1; rho2; tau; sigma; theta] in
-			        let phi = Justification.dependencies phil in
+			        let phi = Jst.array 5 v1 v2 phil in
 			        let e = Fact.Equal.make (v1, v2, phi) in
 				  merge p e))
 	                 (diseqs cfg i)))
@@ -318,9 +321,7 @@ and arr6_deq ((p, s) as cfg) d =
 		   Iter.update cfg v'
 		     (fun (v', (a', j', y'),sigma2) -> (* [sigma2 |- v' = a[i:=x]] *)
 		 if Term.eq a a' && Term.eq j j' && Term.eq y y' then
-		   let phi = Justification.dependencies 
-			       [rho; tau1; sigma1; tau2; sigma2] 
-		   in
+		   let phi = Jst.array 6 u v [rho; tau1; sigma1; tau2; sigma2] in
 		     merge p (Fact.Equal.make (u, v, phi))))))
 	
 
