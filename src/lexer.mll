@@ -1,8 +1,8 @@
 
 (*i*)
 {
-  open Lexing
-  open Parser
+open Lexing
+open Parser
 (*i*)
 
 (*s A lexer for terms. *)
@@ -11,18 +11,22 @@ let keyword =
   let kw_table = Hashtbl.create 17 in
   List.iter 
     (fun (s,tk) -> Hashtbl.add kw_table s tk)
-    [ "can", CAN; "sigma", SIGMA; "solve", SOLVE; "reset", RESET;
-      "drop", DROP; "assert", ASSERT; "find", FIND; "universe", UNIVERSE; "use", USE;
-      "check", CHECK; "verbose", VERBOSE; "norm", NORM; "compare", COMPARE;
-      "sign", POLARITY; "typ", TYP;
+    [ "can", CAN; "simp", SIMP; "sigma", SIGMA; "solve", SOLVE; "reset", RESET;
+      "for", FOR; "drop", DROP; "assert", ASSERT; "find", FIND; "ext", EXT;
+      "use", USE;
+      "uninterp", UNINTERP;
+      "check", CHECK; "verbose", VERBOSE; "norm", NORM; "ctxt", CTXT;
+      "commands", COMMANDS; "syntax", SYNTAX;
+      "cnstrnt", CNSTRNT; "help", HELP;
       "proj", PROJ; "floor", FLOOR;
       "int", INT; "real", REAL; "neg", NEG; "nonneg", NONNEG; "pos", POS;
       "nonpos", NONPOS;
-      "in", IN; "notin", NOTIN; "compl", COMPL; "inter", INTER; "union", UNION;
+      "in", IN; "notin", NOTIN; "compl", COMPL; "inter", INTER; "union", UNION; "sub", SUB;
       "diff", DIFF; "symdiff", SYMDIFF; "empty", EMPTY; "full", FULL;
       "unsigned", UNSIGNED;
-      "bw_and", BVAND; "bw_or", BVOR; "bw_xor", BVXOR;  "conc", BVCONC; 
-      "true", TRUE; "false", FALSE; "if", IF; "then", THEN; "else", ELSE; "fi", FI;
+      "true", TRUE; "false", FALSE; "if", IF; "then", THEN; "else", ELSE; "end", END;
+      "setif", SETIF; "bvif", BVIF;
+      "conc", BV_CONC; "extr", BV_EXTR; "bvor", BV_OR; "bvand", BV_AND; "bvxor", BV_XOR; "bvcompl", BV_COMPL;
       "integer", INTEGER_PRED;
       "forall", FORALL; "exists", EXISTS
     ];
@@ -43,9 +47,10 @@ rule token = parse
   | space+     { token lexbuf }
   | '%' [^ '\n']* {token lexbuf }
   | ident      { keyword (lexeme lexbuf) }
-  | ['0'-'9']+ { CONST (lexeme lexbuf) }
+  | ['0'-'9']+ { INTCONST (int_of_string (lexeme lexbuf)) }
+  | ['0'-'9']+ '/' ['0'-'9']+ { RATCONST (Ics.num_of_string (lexeme lexbuf)) }
   | "0b" ['0'-'1']+ { let s = lexeme lexbuf in 
-		      CONSTBV (String.sub s 2 (String.length s - 2)) }
+		      BV_CONST (String.sub s 2 (String.length s - 2)) }
   | ','        { COMMA }
   | '('        { LPAR }
   | ')'        { RPAR }
@@ -53,12 +58,12 @@ rule token = parse
   | ']'        { RBRA }
   | '{'        { LCUR }
   | '}'        { RCUR }
-  | '|'        { BAR }
   | '+'        { PLUS }
   | '-'        { MINUS }
   | '*'        { TIMES }
   | '/'        { DIVIDE }
   | '='        { EQUAL }
+  | "=="       { SETEQ }
   | "::"       { CONV }
   | ":="       { ASSIGN }
   | "<>"       { DISEQ }
@@ -66,14 +71,19 @@ rule token = parse
   | "<="       { LESSOREQUAL }
   | ">"        { GREATER }
   | ">="       { GREATEROREQUAL }
-  | "&" | "&&" { AND }
-  | "|" | "||" { OR }
-  | "##"       { XOR }
-  | "~"        { NOT }
+  | '&'        { AND }
+  | '|'        { OR }
+  | '#'        { XOR }
+  | '~'        { NOT }
   | "=>"       { IMPLIES }
   | "->"       { IMPLIES }
   | "<=>"      { IFF }
   | "<->"      { IFF }
+  | ".."       { DOTDOT }
+  | "<<"       { CMP }
+  | "[" ['0'-'9']+ "]" { let s = lexeme lexbuf in
+			 let str = String.sub s 1 (String.length s - 2) in
+			 WIDTH (int_of_string str) }
   | ":"        { COLON}
   | ';'        { SEMI }
   | '.'        { DOT }
