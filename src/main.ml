@@ -45,6 +45,8 @@ let args () =
         "Display version number";
         "-compactify",  set_true Ics.set_compactify,
 	"Disable compactification in SAT solver";
+	"-justifications", Arg.Unit (fun () -> Justification.proofmode := Justification.Mode.No),
+	"Disable justifications";
         "-eot", Arg.String Ics.set_eot, 
 	"Print string argument after each transmission";
         "-server", Arg.Int (fun portnum -> portnum_flag := Some(portnum)), 
