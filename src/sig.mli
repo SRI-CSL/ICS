@@ -24,8 +24,6 @@ val mult : Context.t -> Term.t * Term.t -> Term.t
 val multl : Context.t -> Term.t list -> Term.t
 val expt : Context.t -> Term.t -> Term.t -> Term.t
 val update : Context.t -> Term.t * Term.t * Term.t -> Term.t
-val floor : Context.t -> Term.t -> Term.t
-val ceiling : Context.t -> Term.t -> Term.t
 val unsigned : Context.t -> Term.t -> Term.t
 
 (* [i = j => select(update(a,i,x), j) = x]
@@ -34,8 +32,6 @@ val unsigned : Context.t -> Term.t -> Term.t
 val update : Context.t -> Term.t * Term.t * Term.t -> Term.t
 val select : Context.t -> Term.t * Term.t -> Term.t
 
-val sin : Context.t -> Term.t -> Term.t
-val cos : Context.t -> Term.t -> Term.t
 
 (*s [cancel s (a, b)] cancels a power products [a] and [b]. *)
 
@@ -43,9 +39,9 @@ val cancel : Context.t -> Term.t * Term.t -> Term.t * Term.t
 
 (*s Applications. *)
 
-val apply : Context.t -> Sym.range option -> Term.t -> Term.t list -> Term.t
+val apply : Context.t -> Sym.range -> Term.t -> Term.t -> Term.t
 
-val lambda : Context.t -> Var.t -> Term.t -> Term.t
+val lambda : Context.t -> int -> Term.t -> Term.t
 
 (*s Sigma-normal forms. *)
 
