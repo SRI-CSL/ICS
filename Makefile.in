@@ -103,6 +103,8 @@ CMI = $(CMO:.cmo=.cmi)
 CMX = $(CMO:.cmo=.cmx)
 
 SRC = $(addprefix $(SRCDIR)/,$(CMO:.cmo=.ml))
+SRCMLI = $(addprefix $(SRCDIR)/,$(CMO:.cmo=.mli))
+
 
 .PHONY : all all-chdir
 all: $(OBJDIR) $(LIBDIR) $(BINDIR)
@@ -263,8 +265,17 @@ web:: ics.tar.gz $(BINDIR)/ics $(BINDIR)/ics.byte $(LIBDIR)/libics.so $(LIBDIR)/
 
 ICSDIR = $(shell basename $(PWD))
 
+# ics.tar.gz:	distclean
+#	(cd .. ; tar -cvz --file=$(ICSDIR)/ics.tar.gz --mode="u+rw" --atime-preserve --exclude=CVS --exclude=ics.tar.gz --exclude=help --exclude=old --exclude=examples --exclude=licenses ics)
+
 ics.tar.gz:	distclean
-	(cd .. ; tar -cvz --file=$(ICSDIR)/ics.tar.gz --mode="u+rw" --atime-preserve --exclude=CVS --exclude=ics.tar.gz --exclude=help --exclude=old --exclude=examples --exclude=licenses ics)
+	(tar -cvz --file=./ics.tar.gz \
+                  --mode="u+rw" \
+                  ./README ./Makefile.in ./configure ./configure.in ./ics-mode.el \
+                  ./ics.in \
+                  ./chameleon \
+                  ./$(DOCDIR)/doc.ps.gz  ./$(DOCDIR)/doc.pdf \
+                  ./$(SRC)  ./$(SRCMLI))
 
 ### Update executables in Lab
 
@@ -377,7 +388,7 @@ tags:
 
 clean::	distclean
 	rm -f config.cache config.log confdefs.h config.status
-	rm -f configure Makefile
+	rm -f Makefile
 
 distclean::
 	rm -f gmon.out
