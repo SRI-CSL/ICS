@@ -74,7 +74,7 @@ CMX = $(CMO:.cmo=.cmx)
 all: $(OBJDIR) $(LIBDIR) $(BINDIR)
 	$(MAKE) -C $(OBJDIR) -f ../../Makefile all-chdir
 
-all-chdir: ics $(LIBDIR)/libics.so $(LIBDIR)/libics.a ics.byte
+all-chdir: ics $(LIBDIR)/libics.so $(LIBDIR)/libics.a ics.byte $(OBJDIR)/ics-pvs.lisp 
 	@echo 
 	@echo ICS Build complete
 	@echo 
@@ -98,7 +98,7 @@ OBJS = ics_all.o ics_stub.o ics_error.o mlgmp.o
 ics_all.o: $(CMX)
 	$(OCAMLOPT) -output-obj -o $@ unix.cmxa $(CMX)
 
-$(LIBDIR)/libics.so: $(OBJS)
+$(LIBDIR)/libics.so: $(OBJS) 
 	gcc -shared -o $(LIBDIR)/libics.so $(OBJS) \
 	  $(OCAMLSTDLIB)/libunix.a \
 	  $(LIBGMPA) \
