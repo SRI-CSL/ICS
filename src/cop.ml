@@ -11,92 +11,27 @@
  * benefit corporation.
  *)
 
-open Mpa
 
-
-(** As a side effect, generate disequalities from rhs. *)
-module Diseqs: Eqs.EXT = struct
-  type t = unit
-  let empty = ()
-  let pp _ () = ()
-  let do_at_restrict _ _ = ()
-  let do_at_add (p, (), find) (x, a, rho) =   (* [rho |- x = a] *)
-    Term.Var.Map.iter
-      (fun y (b, tau) ->                      (* [tau |- y = b] *)
-	 if Coproduct.is_diseq a b then       (* [a <> b] in [COP]. *)
-	   let sigma = Jst.dep2 rho tau in
-	   let d = Fact.Diseq.make (x, y, sigma) in
-	     Partition.dismerge p d)
-      find
+(** Encoding of the theory of coproducts as a Shostak theory. *)
+module T: Shostak.T = struct
+  let th = Th.cop
+  let map = Coproduct.map
+  let solve e =
+    let (a, b, rho) = Fact.Equal.destruct e in
+      try
+	let sl = Coproduct.solve (a, b) in
+	let inj (a, b) = Fact.Equal.make (a, b, rho) in
+	  List.map inj sl
+      with
+	  Exc.Inconsistent -> raise(Jst.Inconsistent(rho))
+  let disjunction _ = raise Not_found
 end
 
-module Cop = Eqs.Make(
-  struct
-    let th = Th.cop
-    let nickname = Th.to_string Th.cop
-    let map = Coproduct.map
-    let is_infeasible _ = false
-  end)
-  (Diseqs)
+(** Solved equalities. *)
+module E = Shostak.E(T)
 
+(** Inference system for coproducts as an instance of
+  a Shostak inference system. *)
+module Infsys: (Infsys.IS with type e = E.t) =
+  Shostak.Make(T)
 
-module S = Cop
-
-type t = S.t
-
-let eq = S.eq
-let empty = S.empty
-let is_empty = S.is_empty
-let pp = S.pp
-let copy = S.copy
-
-let apply = S.apply
-let find = S.find
-let inv = S.inv
-let dep = S.dep
-
-let fold = S.fold
-
-let is_dependent = S.is_dependent
-let is_independent = S.is_independent
-
-let uninterp (p, s) =
-  Jst.Eqtrans.compose 
-    (Partition.find p)
-    (Jst.Eqtrans.totalize (inv s))
-
-let name = S.name
-
-(** [replace s a] substitutes dependent variables [x]
-  in [a] with their right hand side [b] if [x = b] in [s].
-  The result is canonized. *)
-let replace s =
-  Jst.Eqtrans.replace Coproduct.map (find s)
-
-
-(** [a <> b] if [solve(S[a] = S[b])] is inconsistent. *)
-let is_diseq ((_, s) as cfg) a b =
-  if is_empty s || not(Term.is_pure Th.cop a) || not(Term.is_pure Th.cop b) then
-    None
-  else 
-    let (a', rho) = replace s a
-    and (b', tau) = replace s b in
-      try
-	let _ = Coproduct.solve (a', b') in
-	  None
-      with
-	  Exc.Inconsistent -> Some(Jst.dep2 rho tau)
-
-let merge ((p, s) as cfg) e =  
-  let e' = Fact.Equal.map (replace s) e in
-    Trace.msg "cop" "Process" e' Fact.Equal.pp;
-    let sl = Fact.Equal.equivn Coproduct.solve e' in
-      S.compose (p, s) sl
-
-let dismerge (p, s) d =
-  if not(is_empty s) then
-    let d = Fact.Diseq.map (replace s) d in
-    let (a, b, rho) = Fact.Diseq.destruct d in
-      if Coproduct.solve (a, b) = [] then 
-	raise(Jst.Inconsistent(rho))
-	  

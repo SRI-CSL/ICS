@@ -11,7 +11,10 @@
  * benefit corporation.
  *)
 
+(** Domain restrictions. *)
+
 type t = Int | Real | Nonint
+    (** Real number restrictions. *)
 
 let eq d1 d2 = (d1 = d2)
 

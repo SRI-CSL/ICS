@@ -11,85 +11,22 @@
  * benefit corporation.
  *)
 
-(** Bitvector decision procedures
+(** Inference system for bitvector theory {!Th.bv}.
 
   @author Harald Ruess
+
+  The inference system for this theory is obtained as a variation
+  of inference systems for Shostak theories as defined in module {!Shostak}.
 *)
 
-type t
-  (** Representation of sets of equalities of the 
-    form [x = a] with [x] a variable and [a] a bitvector term. *)
+module E: Shostak.EQS
+  (** Equality set for inference system. *)
 
-val eq : t -> t -> bool
-  (** [eq s1 s2] succeeds if [s1] and [s2] are identical. If
-    [eq s1 s2] holds, then [s1] and [s2] are logically equivalent. *)
+module Infsys: (Infsys.IS with type e = E.t)
+  (** Inference system for the bitvector theory {!Th.bv}
+    as defined in module {!Bitvector}.  This inference system
+    is a variation of the inference system {!Shostak.Make} 
+    for Shostak theories. *)
+    
+    
 
-val pp : t Pretty.printer
-  (** Pretty-printing a bitvector equality set} *)
-
-val empty : t
-  (** The empty bitvector equality set. *)
-
-val is_empty : t -> bool
-  (** [is_empty s] succeeds iff [s] represents the empty equality set. *)
-  
-val apply : t -> Term.t -> Term.t * Jst.t
- (** [apply s x] returns [a] if [x = a] is in [s]; 
-   otherwise [Not_found] is raised. *)
-
-val find : t -> Term.t -> Term.t * Jst.t
-  (** [find s x] returns [a] if [x = a] is in [s], and [x] otherwise. *)
-
-val inv : t -> Term.t -> Term.t * Jst.t
-  (** [inv s a] returns [x] if [x = a] is in [s]; 
-    otherwise [Not_found] is raised. *)
-
-val dep : t -> Term.t -> Term.Var.Set.t
-  (** [dep s y] returns the set of [x] such 
-    that [x = a] in [s] and [y] occurs in [a]. *)
-
-val is_dependent : t -> Term.t -> bool
-  (** [is_dependent s x] holds iff there is an [a] such 
-    that [x = a] in [s]. *)
-
-val is_independent : t -> Term.t -> bool
-  (** [is_independent s y] holds iff [y] occurs in some [a] such 
-    that [x = a] in [s]. *)
-
-val fold : (Term.t -> Term.t * Jst.t -> 'a -> 'a) -> t -> 'a -> 'a
-  (** [fold f s e] applies [f x (a, rho)] for each [x = a] with justification
-    [rho] in [s] and accumulates the result starting with [e]. The order of
-    application is unspecified. *)
-
-
-val is_diseq : Partition.t * t -> Jst.Pred2.t
-  (** [is_diseq (_, s) a b] holds iff [s] implies a <> b] in the theory
-    of bitvectors *)
-
-val copy : t -> t
- (** The update functions {!Bv.name}, {!Bv.merge},
-    and {!Bv.dismerge} {b destructively} update equality
-    sets. The function [copy s] can be used to protect state [s]
-    against these updates. *)
-
-val name : Partition.t * t -> Jst.Eqtrans.t
-  (** [name (p, s) a] returns a canonical variable [x] 
-    with [x = a] in [s].  If there is no such variable,
-    it creates such a variable [v] and updates [s] to 
-    include the equality [v = a]. *)
-
-val merge : Partition.t * t -> Fact.Equal.t -> unit
-  (** [merge (p, s) e] conjoins a bitvector solution
-    set [s] with an equality [e] over bitvector terms.
-    If [e] conjoined with [s] and [p] is {i inconsistent},
-    then {!Jst.Inconsistent} is raised.  Besides 
-    {i destructively} updating [s], all generated 
-    variable equalities and disequalities are 
-    propagated into the partitioning [p]. *)
-
-val dismerge : Partition.t * t -> Fact.Diseq.t -> unit
-  (** Propagation of variable disequalites [x <> y]. If this
-    disequality together with the [p] and [s] imply an
-    equality [x = b] or [y = b], then this equality is 
-    merged into [s].  Otherwise, if an inconsistency is
-    detected, {Jst.Inconsistent} is raised. *)

@@ -11,7 +11,7 @@
  * benefit corporation.
  *)
 
-(** Linear arithmetic decision procedures
+(** Linear arithmetic decision procedure 
 
   @author Harald Ruess
   @author N. Shankar
@@ -20,7 +20,8 @@
   for real and integer linear arithmetic based on the Simplex algorithm.
 *)
 
-type t
+
+module S : (Solution.SET with type ext = Term.Var.Set.t)
   (** States [s] consist of two solution sets [(r, t)] with 
     - [r] the {i regular} solution set with equalities of the 
     form [x = a] with [x] a nonslack variable (see {!Term.Var.is_slack})
@@ -31,143 +32,54 @@ type t
     A state [s] {i represents} the conjunction of equalities in [r] and [t]. 
     [s |= p] if the atom [p] is {i valid} in [s].  *)
 
-val eq : t -> t -> bool
-  (** [eq s1 s2] holds if the respective solution sets of [s1] 
-    and [s2] are identical. *)
 
-val empty : t
-  (** The {i empty} state *)
+type tag = R | T
 
-val is_empty : t -> bool
-  (** [is_empty s] holds iff [s] represents an empty state [s]. *)
+val pp : tag -> S.t Pretty.printer
 
-val pp : t Pretty.printer
-  (** Pretty-printing a state. *)
+val can : Partition.t * S.t -> Jst.Eqtrans.t
+  (** [replace s a] substitutes dependent variables [x]
+    in [a] with their right hand side [b] if [x = b] in [s].
+    The result is canonized using {!Arith.map}. *)
 
 
+module Infsys : (Infsys.IS with type e = S.t)
+  (** Inference system for linear arithmetic. *)
 
-(** {6 Accessors} *)
-
-val apply : t -> Jst.Eqtrans.t
-  (** [apply s x] returns [a] if [x = a] is in [s]; otherwise
-    [Not_found] is raised. *)
-  
-val find : t -> Jst.Eqtrans.t
-  (** [find s x] returns [a] if [x = a] is in [s], and [x] otherwise. *)
-
-val inv : t -> Jst.Eqtrans.t
-  (** [inv s a] returns [x] if [x = a] is in [s]; otherwise
-    [Not_found] is raised. *)
-
-val dep : t -> Term.t -> Term.Var.Set.t
-  (** [dep s y] returns the set of [x] such that [x = a] in [s]
-    and [y] occurs in [a]. *)
-
-val is_dependent : t -> Term.t -> bool
-  (** [is_dependent s x] holds iff there is an [a] such that [x = a] in [s]. *)
-
-val is_independent : t -> Term.t -> bool
-  (** [is_independent s y] holds iff [y] occurs in some [a] such that
-    [x = a] in [s]. *)
-
-
-(** {6 Iterators} *)
-
-val fold : (Term.t -> Term.t * Jst.t -> 'a -> 'a) -> t -> 'a -> 'a
-  (** [fold f s e] applies [f x (a, rho)] for each [x = a] with justification
-    [rho] in [s] and accumulates the result starting with [e]. The order of
-    application is unspecified. *)
-
-
-(** {6 Processing} *)
-
-
-val copy : t -> t
-  (** The update functions {!La.name}, {!La.merge},
-    and {!La.dismerge}, {!La.process_nonneg}, {!La.process_pos}, 
-    and {b destructively} update equality sets. The function [copy s] 
-    can be used to protect state [s] against these updates. *)
-
-
-type config = Partition.t * t
-    (** A {i configuration} consists of a pair [(p, s)] with
-      [p] a partitioning and [s] a linear arithmetic equality set.
-      A configuration {i represents{ the conjunction of variable
-      equalities and disequalities in [p] and the equalities in [s]. *)
-
-val name : config -> Jst.Eqtrans.t
-  (** [name (p, s) a] returns a canonical variable [x] 
-    with [x = a] in the [r] part of [s].  If there is no such 
-    variable, it creates such a variable [v] and updates [s] to 
-    include the equality [v = a]. *)
-
-val process_equal : config -> Fact.Equal.t -> unit
-  (** Given a configuration [(p, s)] and an equality [e]
-    over {i pure}, linear arithmetic terms
-    [process_equal (p, s) e] adds [e] to [(p, s)]. 
-    If [e] conjoined with [s] and [p] is {i inconsistent},
-    then {!Jst.Inconsistent} is raised.  Besides 
-    {i destructively} updating [s], all generated variable 
-    equalities and disequalities are propagated into the 
-    partitioning [p].  *)
-
-val process_nonneg : config -> Fact.Nonneg.t -> unit
-  (** Given a configuration [(p, s)] and an nonnegativity
-    constraint [nn] of the form [a >= 0] with [a] a pure
-    linear arithmetic term, [process_nonneg (p, s) nn] adds 
-    [nn] to [(p, s)]. If [nn] conjoined with [s] and [p] is 
-    {i inconsistent}, then {!Jst.Inconsistent} is 
-    raised.  Besides {i destructively} updating [s], all 
-    generated variable equalities and disequalities are propagated
-    into the partitioning [p].  *)
-
-
-val process_diseq : config -> Fact.Diseq.t -> unit
-  (** Given a configuration [(p, s)] and an disequality
-    constraint [a <> b] with [a], [b] either variables or
-    [a] a linear term and [b] a rational constant, 
-    [dismerge (p, s) d] adds 
-    [d] to [(p, s)]. If [d] conjoined with [s] and [p] is 
-    {i inconsistent}, then {!Jst.Inconsistent} is 
-    raised.  Besides {i destructively} updating [s], all 
-    generated variable equalities and disequalities are 
-    propagated into the partitioning [p].  *)
-
-
-(** {6 Boundary Values} *)
 
 exception Unbounded
 
-val upper : config -> Jst.Eqtrans.t
+val upper : Partition.t * S.t -> Jst.Eqtrans.t
   (** [upper s a] returns either
     - [(b, rho)] such that [b+] is empty and [rho |- a = b], or
     - raises [Unbounded] if [a] is unbounded in [s]. *)
 
-val lower : config -> Jst.Eqtrans.t
+val lower : Partition.t * S.t -> Jst.Eqtrans.t
 
-val is_nonpos : config -> Jst.Pred.t
+val is_equal : Partition.t * S.t -> Jst.Pred2.t
+
+val is_nonpos : Partition.t * S.t -> Jst.Pred.t
   (** [is_nonpos s a] returns [Some(rho)] if [a <= 0] holds in [s]. 
     In this case [rho |- a <= 0]. Otherwise, [None] is returned. *)
 
-val is_nonneg : config -> Jst.Pred.t
+val is_nonneg : Partition.t * S.t -> Jst.Pred.t
   (** [is_nonneg s a] returns [Some(rho)] if [a >= 0] holds in [s]. 
     In this case [rho |- a >= 0]. Otherwise, [None] is returned. *)
 
-val is_pos : config -> Jst.Pred.t
+val is_pos : Partition.t * S.t -> Jst.Pred.t
   (** [is_pos s a] returns [Some(rho)] if [a > 0] holds in [s]. 
     In this case [rho |- a > 0]. Otherwise, [None] is returned. *)
 
-val is_neg : config -> Jst.Pred.t
+val is_neg : Partition.t * S.t -> Jst.Pred.t
   (** [is_neg s a] returns [Some(rho)] if [a < 0] holds in [s]. 
     In this case [rho |- a < 0]. Otherwise, [None] is returned. *)
 
-val is_diseq : config -> Jst.Pred2.t
+val is_diseq : Partition.t * S.t -> Jst.Pred2.t
   (** [is_diseq s a b] returns [Some(rho)] if [a<>b] holds in [s]. 
-    In this case, [rho |- a <> ]. Otherwise, [None] is returned. *)
+    In this case, [rho |- a <> b]. Otherwise, [None] is returned. *)
 
 
-(** {6 Finite Interpretations} *)
-
+(** Finite Interpretations. *)
 module Finite : sig
 
   module Zset : (Set.S with type elt = Mpa.Z.t)
@@ -184,25 +96,22 @@ module Finite : sig
 
   val pp : t Pretty.printer
 
-  val of_var : config -> Term.t -> t
+  val of_var : Partition.t * S.t -> Term.t -> t
   (** [of_var (p, s) x] returns either a finite domain
     interpretation [fin] for [x] such that [x] is
     interpreted in [D(fin)] or raises [Unbounded]. *)
 
-  val disjunction : config -> Term.t * t
+  val disjunction : Partition.t * S.t -> Term.t * t
   (** [of_config (p, s)] returns a finite domain
     interpretations for one of the variables in [s] with a 
     finite interpretation. *)
 	
 end 
 
-type mode = Max | Min
-
-val model : config -> (Term.t * mode option) list -> Term.t Term.Map.t
+val model : S.t -> Term.t list -> Term.t Term.Map.t
   (** [model (p, s) xs] returns an assignment [rho]
     for the variables in [xs] with bindings [x |-> q].
     [q] is either a rational number or a rational 
     number added to the multiple of a "small" constant [eps].
     The assignment [rho] can be extended to a model of [s]. *)
-  
-    
+ 

@@ -11,6 +11,8 @@
  * benefit corporation.
  *)
 
+(** Propositional logic solver based on lazy theorem proving. *)
+
 type t =
   | True
   | False
@@ -49,15 +51,15 @@ let rec pp fmt = function
 let mk_true = True
 let mk_false = False
 let mk_var n = Var(n)
+let mk_disj = function
+  | [] -> False
+  | pl -> Disj(pl)
 let mk_poslit a =
   match Atom.atom_of a with
     | Atom.TT -> True
     | Atom.FF -> False
     | _ ->  Atom(a)
-let mk_neglit a = mk_poslit (Atom.negate a)
-let mk_disj = function
-  | [] -> False
-  | pl -> Disj(pl)
+let mk_neglit a = mk_poslit (Atom.negate Arith.mk_neg a)
 let mk_iff p q = Iff(p, q)
 let mk_ite p q r = Ite(p, q, r)
 let mk_neg p = Neg(p)
@@ -154,7 +156,7 @@ let atom_to_id a =
     Atom.Map.find a !atom_to_id_tbl 
   with
       Not_found -> 
-	let b = Atom.negate a in
+	let b = Atom.negate Arith.mk_neg a in
 	let i = Atom.index_of a   (* returns identifier [i] unique to [a]. *)
 	and j = Atom.index_of b in
 	let id = icsat_mk_atom i j in
@@ -515,7 +517,7 @@ and assignment () =
     Atom.Map.fold
       (fun a id acc ->
 	  (match icsat_get_assignment id with
-	     | (-1) -> Atom.negate a :: acc  
+	     | (-1) -> Atom.negate Arith.mk_neg a :: acc  
 	     | 0 -> acc               (* don't care *)
 	     | 1 -> a :: acc       (* true *)
 	     | _ -> failwith "ICSAT: invalid return value of icsat_get_assignment"))

@@ -11,6 +11,8 @@
  * benefit corporation.
  *)
 
+(** Operations on bitvectors. *)
+
 open Mpa
 
 let bitv2nat b =
@@ -434,7 +436,7 @@ and inconsistent a b =
   position on which bitconstants differ. *)
 let is_diseq a b =
   try
-    let _ = solve (a, b) in
-      false
+    let sl = solve (a, b) in
+      sl <> []
   with
       Exc.Inconsistent -> true

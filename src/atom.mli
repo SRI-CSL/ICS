@@ -28,9 +28,6 @@
   holds iff [i = j] with [i], [j] the indices associated with [a], [b], respectively.
 *)
 
-val crossmultiply : bool ref
-  (** Enable/Disable crossmultiplication. *)
-
 (** {6 Equalities} *)
 
 module Equal : sig
@@ -49,11 +46,12 @@ module Equal : sig
   val both_sides : (Term.t -> bool) -> t -> bool
   val is_var : t -> bool
   val is_pure : Th.t -> t -> bool
-  val is_diophantine : t -> bool
   val holds : t -> Three.t
-  val eq : t -> t -> bool
+  val eq : t -> t -> bool 
+  val compare : t -> t -> int
   val map2 : (t -> 'c) * (t -> 'a -> 'b -> 'c) -> 'a Term.transformer * 'b Term.transformer -> t -> t * 'c
   val map : (t -> 'b) * (t -> 'a -> 'a -> 'b) -> 'a Term.transformer -> t -> t * 'b
+  val status : t -> Term.status
 end 
               
 
@@ -68,11 +66,9 @@ module Diseq : sig
   val pp : t Pretty.printer
   val both_sides : (Term.t -> bool) -> t -> bool
   val is_var : t -> bool
-  val is_diophantine : t -> bool
-  val d_diophantine : t -> Term.t * Mpa.Q.t
-  val holds : t -> Three.t
   val map : (t -> 'b) * (t -> 'a -> 'a -> 'b) -> 'a Term.transformer -> t -> t * 'b
   val compare : t -> t -> int
+  val status : t -> Term.status
 end 
       
   
@@ -83,8 +79,8 @@ module Nonneg : sig
   val pp : t Pretty.printer
   val make : Term.t -> t
   val destruct : t -> Term.t
-  val holds : Term.t -> Three.t
   val map : (t -> 'b) * (t -> 'a -> 'b) -> 'a Term.transformer -> t  -> t * 'b
+  val status : t -> Term.status
 end 
 
 
@@ -95,8 +91,8 @@ module Pos : sig
   val pp : t Pretty.printer
   val make : Term.t -> t
   val destruct : t -> Term.t
-  val holds : Term.t -> Three.t
   val map : (t -> 'b) * (t -> 'a -> 'b) -> 'a Term.transformer -> t -> t * 'b
+  val status : t -> Term.status
 end 
 
 
@@ -129,13 +125,6 @@ val mk_equal : Term.t * Term.t -> t
 val mk_diseq : Term.t * Term.t -> t
 val mk_nonneg : Term.t -> t
 val mk_pos : Term.t -> t
-val mk_neg : Term.t -> t
-val mk_nonpos : Term.t -> t
-val mk_le : Term.t * Term.t -> t
-val mk_lt : Term.t * Term.t -> t
-val mk_ge : Term.t * Term.t -> t
-val mk_gt : Term.t * Term.t -> t
-
 
 val of_equal : Equal.t -> t
 val of_diseq : Diseq.t -> t
@@ -154,7 +143,7 @@ val is_pure : Th.t -> t -> bool
 
 val is_negatable : t -> bool
 
-val negate : t -> t
+val negate : (Term.t -> Term.t) -> t -> t
 
 
 (** {6 Accessors} *)

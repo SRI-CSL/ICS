@@ -11,92 +11,11 @@
  * benefit corporation.
  *)
 
+(** Inference system for the theory of combinatory logic. *)
+
 open Mpa
 
-module L = Eqs.Make0(
-  struct
-    let th = Th.app
-    let nickname = Th.to_string Th.app
-    let map = Apply.map
-    let is_infeasible _ = false
-  end)
-
-module S = L
-
-type t = S.t
-
-let eq = S.eq
-let empty = S.empty
-let is_empty = S.is_empty
-let pp = S.pp
-let copy = S.copy
-
-let apply = S.apply
-let find = S.find
-let inv = S.inv
-let dep = S.dep
-
-(** Either return a fully interpreted term or a canonical variable. *)
-let interp (p, s) =
-  Jst.Eqtrans.replace Apply.map
-    (Jst.Eqtrans.compose
-       (Partition.find p)
-       (Jst.Eqtrans.totalize
-	  (Partition.choose p (apply s))))
-
-
-let is_dependent = S.is_dependent
-let is_independent = S.is_independent
-
-let fold = S.fold
-
-let name = S.name
-
-
-(** [replace s a] substitutes dependent variables [x]
-  in [a] with their right hand side [b] if [x' = b] in [s] with [x = x'] in [p]. *)
-let replace (p, s) =
-  Jst.Eqtrans.replace Apply.map 
-    (Jst.Eqtrans.totalize
-       (Partition.choose p (apply s)))
-
-(** [a <> b] if [solve(S[a] = S[b])] is inconsistent. *)
-let is_diseq ((_, s) as cfg) a b =
-  if is_empty s || not(Term.is_pure Th.cop a) || not(Term.is_pure Th.cop b) then
-    None
-  else 
-    let (a', rho) = replace cfg a
-    and (b', tau) = replace cfg b in
-      try
-	let _ = Apply.solve (a', b') in
-	  None
-      with
-	  Exc.Inconsistent -> Some(Jst.dep2 rho tau)
-
-  
-let solve = 
-  Trace.func "l" "Solve" Fact.Equal.pp (Pretty.list Fact.Equal.pp)
-    (Fact.Equal.equivn Apply.solve) 
-
-let merge ((p, s) as cfg) e =
-  Trace.msg "l" "Process" e Fact.Equal.pp;
-  let e' = Fact.Equal.map (replace cfg) e in
-    try
-      let sl = solve e' in
-	S.compose (p, s) sl
-    with
-	Exc.Incomplete ->
-	  let e'' = Fact.Equal.map_lhs (S.name cfg) e' in
-	    S.compose cfg [e'']
-
-
-let dismerge (p, s) d =
-  if not(is_empty s) then
-    let d = Fact.Diseq.map (replace (p, s)) d in
-    let (a, b, rho) = Fact.Diseq.destruct d in
-      if Apply.solve (a, b) = [] then 
-	raise(Jst.Inconsistent(rho))
-
+(*
 
 exception Found	of Term.t * Term.t
  
@@ -116,3 +35,99 @@ and split_in_term a =
 	raise(Found(b, c))
     | _, al ->
 	List.iter split_in_term al
+*)
+
+module T: Shostak.T = struct
+  let th = Th.app
+  let map = Apply.map
+  let solve e = 
+    let (a, b, rho) = Fact.Equal.destruct e in
+      try
+	let sl = Apply.solve (a, b) in
+	let inj (a, b) = Fact.Equal.make (a, b, rho) in
+	  List.map inj sl
+      with
+	  Exc.Inconsistent -> raise(Jst.Inconsistent(rho))
+  let disjunction _ = raise Not_found
+end
+
+
+module E = Shostak.E(T)
+
+
+module Infsys0: (Infsys.IS with type e = E.t) = struct
+
+  type e = E.t
+
+  module I = Shostak.Make(T)
+
+  let ths = I.ths
+
+  (** Replace foreign first-order terms. *)
+  let rec export (g, s, p) = 
+    E.S.fold export1 s (g, s, p)
+
+  and export1 e (g, s, p) =
+    let (x, a, rho) = Fact.Equal.destruct e in
+      if is_first_order a then
+	let g = Fact.Input.Equal.add g e
+	and s = E.S.restrict s x in
+	  (g, s, p)
+      else
+	(g, s, p)
+
+  and is_first_order a =
+    try
+      let f = Term.App.sym_of a in
+      let i = Sym.theory_of f in
+	not(i = Th.app)
+    with
+	Not_found -> false
+
+  let abstract = I.abstract
+
+  let merge i e (g, s, p) = 
+    let (g, s, p) = I.merge i e (g, s, p) in
+      export (g, s, p)
+
+  let dismerge i d (g, s, p) = 
+    let (g, s, p) = I.dismerge i d (g, s, p) in
+      export (g, s, p)
+
+  let branch = I.branch
+ 
+ let normalize = I.normalize
+
+  let propagate e (g, s, p) = 
+    let (g, s, p) = I.propagate e (g, s, p) in
+      export (g, s, p)
+
+   (** Apply disequality [x <> y] to [C x y a b]. *)
+  let propagate_diseq d (g, s, p) =
+    let (g, s, p) = I.propagate_diseq d (g, s, p) in
+    let (x, y, rho) = Fact.Diseq.destruct d in
+    let disapply e (p, s) = 
+      let (z, a, tau) = Fact.Equal.destruct e in
+      let a' = Apply.disapply (x, y) a in
+	if a == a' then (p, s) else 
+	  let e' = Fact.Equal.make (z, a', Jst.dep2 rho tau) in
+	    E.S.update (p, s) e'
+    in
+    let (p, s) = E.S.Dep.fold s disapply x (p, s) in
+    let (p, s) = E.S.Dep.fold s disapply y (p, s) in
+      export (g, s, p)
+			  
+end
+
+
+
+(** Tracing inference system. *)
+module Infsys: (Infsys.IS with type e = E.t) =
+  Infsys.Trace(Infsys0)
+    (struct
+       type t = E.t
+       let level = "cl"
+       let eq = E.S.eq
+       let diff = E.S.diff
+       let pp = E.S.pp
+     end)

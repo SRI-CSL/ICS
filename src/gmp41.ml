@@ -30,9 +30,9 @@
  * Public License.
  *)
 
-(** modified by @author Harald Ruess *)
-  
+(** GMP 4.1 interface. *)
 
+(** modified by @author Harald Ruess *)
 type rounding_mode =
     GMP_RNDN
   | GMP_RNDZ

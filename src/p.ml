@@ -11,72 +11,28 @@
  * benefit corporation.
  *)
 
-open Mpa
 
-module P = Eqs.Make0(
-  struct
-    let th = Th.p
-    let nickname = Th.to_string Th.p
-    let map = Product.map
-    let is_infeasible _ = false
-  end)
-
-
-module S = P
-
-type t = S.t
-
-let eq = S.eq
-let empty = S.empty
-let is_empty = S.is_empty
-let pp = S.pp
-let copy = S.copy
-
-let apply = S.apply
-let find = S.find
-let inv = S.inv
-let dep = S.dep
-
-let is_dependent = S.is_dependent
-let is_independent = S.is_independent
-
-let fold = S.fold
-
-
-let name = S.name
-
-
-(** [replace s a] substitutes dependent variables [x]
-  in [a] with their right hand side [b] if [x = b] in [s].
-  The result is canonized. *)
-let replace s = Jst.Eqtrans.replace Product.map (find s)
-
-
-(** [a <> b] if [solve(S[a] = S[b])] is inconsistent. *)
-let is_diseq ((_, s) as cfg) a b =
-  if is_empty s || not(Term.is_pure Th.p a) || not(Term.is_pure Th.p b) then
-    None
-  else 
-    let (a', rho) = replace s a
-    and (b', tau) = replace s b in
+(** Description of the theory of products as a convex Shostak theory. *)
+module T = struct
+  let th = Th.p
+  let map = Product.map
+  let solve e = 
+    let (a, b, rho) = Fact.Equal.destruct e in
       try
-	let _ = Product.solve (a', b') in
-	  None
+	let sl = Product.solve (a, b) in
+	let inj (a, b) = Fact.Equal.make (a, b, rho) in
+	  List.map inj sl
       with
-	  Exc.Inconsistent -> Some(Jst.dep2 rho tau)
+	  Exc.Inconsistent -> raise(Jst.Inconsistent(rho))
+  let disjunction _ =
+    raise Not_found
+end
 
+(** Equality sets for product inference system. *)
+module E = Shostak.E(T)
 
-let solve = Fact.Equal.equivn Product.solve
+(** Inference system for products as an instance of a
+  Shostak inference system. *)
+module Infsys: (Infsys.IS with type e = E.t) =
+  Shostak.Make(T)
 
-let merge ((p, s) as cfg) e =  
-  let e' = Fact.Equal.map (replace s) e in
-    Trace.msg "p" "Process" e' Fact.Equal.pp;
-    let sl = solve e' in
-      S.compose (p, s) sl
-
-let dismerge (p, s) d =
-  if not(is_empty s) then
-    let d = Fact.Diseq.map (replace s) d in
-    let (a, b, rho) = Fact.Diseq.destruct d in
-      if Product.solve (a, b) = [] then 
-	raise(Jst.Inconsistent(rho))

@@ -11,127 +11,169 @@
  * benefit corporation.
  *)
 
-(** {b Equality theories}.
+(** Combined inference system
 
   @author Harald Ruess
-  @author N. Shankar
+  @author N. Shankar 
+
+  Inference system for the union of the theories
+  - {!Th.u} of uninterpreted functions,
+  - {!Th.la} of linear arithmetic,
+  - {!Th.nl} of nonlinear multiplication,
+  - {!Th.p} of products,
+  - {!Th.cop} of coproducts,
+  - {!Th.cl} of combinatory logic,
+  - {!Th.arr} of functional arrays,
+  - {!Th.set} of propositional sets,
+  - {!Th.bv} of bitvectors.
 *)
 
-type t
 
-val pp : Th.t -> t Pretty.printer
+val sigma : Sym.t -> Term.t list -> Term.t
+  (** Theory-specific canonizers. *)
+
+
+val solve : Th.t -> Term.Equal.t -> Term.Subst.t
+  (** Theory-specific solvers. *)
+
+
+(** Combination of individual equality sets. *)
+module E : sig
+
+  type t
+    (** Combined equality set. *)
+
+    (** Projections to individual equality sets. *)
+  val u_of : t -> U.S.t
+  val a_of : t -> A.t
+  val la_of : t -> La.S.t
+  val nl_of : t -> Nl.E.t
+  val p_of : t -> P.E.t
+  val cop_of : t -> Cop.E.t
+  val cl_of : t -> L.E.t
+  val arr_of : t -> Arr.E.t
+  val set_of : t -> Pset.E.t
+
+  val empty: t 
+    (** The empty equality configuration. *)
+ 
+  val is_empty: t -> bool
+    (** Succeeds if all individual equality sets are empty. *)
+
+  val eq : t -> t -> bool
+    (** Identity test for two equality sets. Failure does
+      imply that the argument equality sets are not logically equivalent. *)
+
+  val pp : t Pretty.printer
+    (** Pretty-printing of combined equality set. *)
+
+  val pp_i : Th.t -> t Pretty.printer
+    (** Pretty-printing of an individual equality set. *)
+
+  val find : t * Partition.t -> Th.t -> Jst.Eqtrans.t
+    (** [find s th x] is [a] if [x = a] is in the solution set for theory [th]
+      in [s]; otherwise, the result is just [x]. *)
+
+  val inv : t * Partition.t -> Jst.Eqtrans.t
+    (** [inv s a] is [x] if there is [x = a] in the solution set for
+      theory [th]; otherwise [Not_found] is raised. *)
+
+  val dep : Th.t -> t -> Term.t -> Term.Var.Set.t
+    (** [dep i s x] returns a set [ys] of variables such that
+      [y] in [ys] iff there is an [x = a] in [s] with [y] a subterm of [a]. *)
+
+  val diff : t -> t -> t
+    (** [diff s1 s2] returns the equality set [s] such that an equality [e]
+      is in [s] iff if it is in [s1] but not in [s2]. *)
+
+end 
+
+
+type t = E.t Infsys.config
+    (** Configurations [(g, e, p)] for the combined inference system consist
+      - of a global input [g],
+      - a combined euqality set [e], and
+      - a variable partition [p]. *)
+
+val pp : t Pretty.printer
+  (** Pretty-printing a configuration for a combined inference system. *)
 
 val eq : t -> t -> bool
+  (** Identity test for combined inference system. If [eq c1 c2] succeeds,
+    then [c1], [c2] are logically equivalent. On the other side, however,
+    failure of this test does not imply that [c1] and [c2] are not equivalent. *)
 
 val empty : t
+  (** The empty configuration for the combined inference system. *)
 
-val is_empty : t -> Th.t -> bool
+val is_empty : t -> bool
+  (** [is_empty (g, e, p)] holds iff [g], [e], [p] are all empty. *)
 
-val is_dependent : t -> Th.t -> Term.t -> bool
-  (** [is_dependent th s x] iff [x = _] is in the solution set for 
-    theory [th] in [s]. *)
-
-
-type config = Partition.t * t
+val make : Fact.Input.t * E.t * Partition.t -> t
+  (** Construct a configuration from its components. *)
 
 
-val find : t -> Th.t -> Jst.Eqtrans.t
-  (** [find th s x] is [a] if [x = a] is in the solution set for theory [th]
-    in [s]; otherwise, the result is just [x]. *)
+val process : t -> t 
+  (** Given a starting configuration [(g, e, p)], process applies
+    all rules of the combined inference system (except branching rules).
+    The source and target configuration of [process] are {i equivalent},
+    although the target configuration might contain internally generated
+    variables not present in the source configuration. *)
 
-val inv : config -> Jst.Eqtrans.t
-  (** [inv s a] is [x] if there is [x = a] in the solution set for
-    theory [th]; otherwise [Not_found] is raised. *)
+val do_destructive : bool ref
+  (** If [do_destructive] is set, [process] performs destructive updates
+    for efficiency.  Except for differences in time and memory consumption,
+    there should be no observable difference in behavior. *)
 
-val dep : t -> Th.t -> Term.t -> Term.Var.Set.t
-  (** [use th s x] consists of the set of all term variables [y] such
-    that [y = a] in [s], and [x] is a variable [a]. *)
-
-val fold : (Term.t -> Term.t * Jst.t -> 'a -> 'a) -> t -> Th.t -> 'a -> 'a
-  (** [fold f s i e] applies [f x (a, rho)] for each [x = a] in [i]
-    with justification [rho] in [s] and accumulates the result starting 
-    with [e]. The order of application is unspecified. *)
-
-
-(** {6 Process} *)
-
-val copy : t -> t
-
-val abstract : config -> Atom.t -> Fact.t
-
-val process : config -> Fact.t -> unit
-
-val propagate_equal : config -> Fact.Equal.t -> unit
-  (** [propagate_equal s e (i, j)] propagates an equality over
-    [i] terms to the solution set for theory [j]. *)
-
-val propagate_diseq : config -> Fact.Diseq.t -> unit
-
-val propagate_nonneg : config -> Fact.Nonneg.t -> unit
+val is_sat :  t -> t option
+  (** [is_sat [c]] applies applicable {i branching rules} until 
+    it finds a satisfiable configuration [d] (with empty input) for 
+    which no branching rule is applicable; in this case [Some(d)] is returned.
+    Otherwise, all branching states are unsatisfiable, and [None] is returned. *)
 
 
-
-(** {6 Theory-specific operations} *)
-
-
-val dom : config -> Term.t -> Dom.t * Jst.t
+val dom : E.t * Partition.t -> Term.t -> Dom.t * Jst.t
 (** [dom p a] returns a domain [d] for a term [a] together with
   a justification [rho] such that [rho |- a in d].  This function
   is extended to arithmetic constraints using an abstract domain
   interpretation. Raises [Not_found] if no domain constraint is found. *)
-  
-val sigma : config -> Sym.t -> Term.t list -> Term.t * Jst.t
 
-val can : config -> Jst.Eqtrans.t
+val can : E.t * Partition.t -> Jst.Eqtrans.t
+  (** Given an equality set [e] and a partition [p] as obtained
+    from processing, [can (e, p) a] returns a term [b] equivalent
+    to [a] in [(e, p)] together with a justification [rho].  If
+    no further branching is applicable on [(e, p)], then [can (e, p)]
+    is a canonizer in the sense that [can (e, p) a] is syntactically
+    equal to [can (e, p) b] iff the equality [a = b] follows from [(e, p)]
+    in the supported union of theories. *)
+
+val simplify : E.t * Partition.t -> Atom.t -> Atom.t * Jst.t
+  (** Simplification of atoms in a context [(e, p)] by canonizing
+    component terms using {!Combine.can}.  Simplification is
+    incomplete in the sense that there are 
+    - valid atoms [a] in [(e, p)] which do not reduce to {!Atom.true},
+    - unsatisfiable atoms [a] in [(e, p)] which do not reduce to {!Atom.false}. *)
+
 
 val cheap : bool ref
-  (** Cheap simplification *)
+  (** If [cheap] is set, {!Combine.simplify} only performs cheap 
+    simplifications for disequalities and inequalities. Setting [cheap]
+    to [false] make {!Combine.simplify} more complete. *)
 
-val simplify : config -> Atom.t -> Fact.t
-
-val solve : Th.t -> Term.Equal.t -> Term.Subst.t
-
-(** {6 Predicates} *)
-
-val cheap : bool ref
-
-val is_equal_or_diseq : config -> Jst.Rel2.t
-
-val is_nonpos : config -> Jst.Rel1.t
-  (** [is_nonpos s a] returns [Some(rho)] if [a <= 0] holds in [s]. 
-    In this case [rho |- a <= 0]. Otherwise, [None] is returned. *)
-
-val is_pos : config -> Jst.Rel1.t
-
-val is_nonneg : config -> Jst.Rel1.t
-
-val is_neg : config -> Jst.Rel1.t
-
-(** {6 Garbage collection} *)
-
-val gc : config -> unit
+val gc : t -> t
+  (** [gc c] garbage collects internal variables in configuration [c]
+    as introduced by {!Combine.process}. *)
 
 
-val maximize : config -> Jst.Eqtrans.t
+val maximize : E.t * Partition.t -> Jst.Eqtrans.t
+  (** [maximize c a] returns either
+    - [(b, rho)] such that [b+] is empty and [rho |- la => a = b], or
+    - raises {!La.Unbounded} if [a] is unbounded in the linear 
+    arithmetic [la] equality set of [c]. *)
 
-val minimize : config -> Jst.Eqtrans.t
+val minimize : E.t * Partition.t -> Jst.Eqtrans.t
+  (** Minimize is the dual of maximize. *)
 
 
-(** {6 Model construction} *)
-
-val model : Partition.t * t -> (Term.t * La.mode option) list -> Term.t Term.Map.t
-
-
-(** {6 Splits} *)
-
-module Split : sig
-
-  type t = 
-    | Finint of Term.t * La.Finite.t
-    | Equal of Term.t * Term.t
-
-  val pp : t Pretty.printer
-
-end 
-
-val split : config -> Split.t
+val model : E.t * Partition.t -> Term.t list -> Term.t Term.Map.t
+  (** Model construction. Experimental. *)

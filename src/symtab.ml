@@ -11,6 +11,8 @@
  * benefit corporation.
 *)
 
+(** Datatype for symbol table. *)
+
 type entry = 
   | Def of defn
   | Arity of int

@@ -1,6 +1,6 @@
 (*
  * The contents of this file are subject to the ICS(TM) Community Research
- * License Versicn 1.0 (the ``License''); you may not use this file except in
+ * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
  * http://www.icansolve.com/license.html.  Software distributed under the
  * License is distributed on an ``AS IS'' basis, WITHOUT WARRANTY OF ANY
@@ -11,34 +11,47 @@
  * benefit corporation.
  *)
 
-
-(** Term canonizers and normalization functions for atoms. 
+(** Inference system for canonizable, ground confluent theories.
 
   @author Harald Ruess
+
+  A {i canonizable and ground confluent} theory [th] is specified 
+  by means of a
+  - replacement [map f a] for replacing uninterpreted 
+  subterms of [a] with [f a] and canonizing the result,
+  - a theory-specific canonizer,
+  - and a [deduce] function for making equality sets ground confluent.
 *)
 
+module type T = sig
+  val th : Th.t
+  val map : (Term.t -> Term.t) -> Term.t -> Term.t
+  val sigma : Sym.t -> Term.t list -> Term.t
+end
 
-val term : Context.t -> Term.t -> Term.t
-  (** [term s a] computes a canonical normal form of [a] with respect
-    to the equality theory in [s]. That is, [Term.eq (term s a) (term s b)]
-    holds if and only if the [term s a] and [term s b] are equal in the
-    equality theory of [s]. *)
+module type DEDUCE = sig
+  type t
+  val of_equal : Fact.Equal.t -> Partition.t * t -> Fact.Equal.t list
+  val of_var_equal : Fact.Equal.t -> Partition.t * t -> Fact.Equal.t list
+  val of_var_diseq : Fact.Diseq.t -> Partition.t * t -> Fact.Equal.t list
+  val disjunction : Partition.t * t -> Fact.t list
+end
 
-val arith : Context.t -> Sym.arith -> Term.t list -> Term.t
-  (** [arith s op al] yields a canonical term [b] such 
-    that [Term.mk_app op al] is equal to [b] in the equality
-    theory of [s]. *)
+module Trace(D: DEDUCE): (DEDUCE with type t = D.t)
 
-val eq : Context.t -> Term.t -> Term.t -> bool
-  (** [eq s a b] is [true] if and only if [a] and [b] are
-    equal in the equality theory of [s]. *)
+module type EQS = sig
+  module S : Solution.SET0
+  type t = S.t
+  val find : Partition.t * t -> Jst.Eqtrans.t
+  val inv : Partition.t * t -> Jst.Eqtrans.t
+  val can : Partition.t * t -> Jst.Eqtrans.t
+end 
 
-val atom : Context.t -> Atom.t -> Atom.t
-  (** [atom s a] normalizes atom [a] in context [s]. 
-    For equalities [e], this function is a canonizer in the
-    sense that [atom s e] reduces to [Atom.mk_true] if [e]
-    holds in [s] and [Atom.mk_false] if the negation of 
-    [e] holds in [s].  Denumerators in equalities and inequalities 
-    are cross-multiplied.  Similarly, constraints [c] of the form [a in i], 
-    [atom s c] are normalized by crossmultiplying denumerators with
-    a fixed sign in [s]. *)
+(** Constructing an inference system from a canonizable
+  and ground confluent theory. *)
+module E(Can: T): EQS
+
+module Make(Can: T)
+           (Deduce: (DEDUCE with type t = E(Can).t))
+: 
+(Infsys.IS with type e = E(Can).t)

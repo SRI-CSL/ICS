@@ -11,6 +11,8 @@
  * benefit corporation.
  *)
 
+(** Justifications. *)
+
 module Mode = struct
   
   type t = No | Dep
@@ -343,3 +345,58 @@ module Rel2 = struct
     Trace.func2 lvl name Term.pp Term.pp Three.pp
 end
 
+
+(*
+Atom transformer
+
+val map : Jst.Rel2.t * Jst.Rel1.t * Jst.Rel1.t -> Jst.Eqtrans.t -> Atom.t -> t
+  (** [map (is_equal , is_nonneg, is_pos) f atm] replaces terms [a]
+   in atom [atm] with [f a] to obtain a simplified atom [atm'].
+    The predicates [is_equal], [is_nonneg], [is_pos] are used to
+      simplify the result. The second result is a justification [rho]
+     with [rho |- atm <=> atm']. *)
+
+
+
+     
+let rec map (is_equal, is_nonneg, is_pos) f atm =
+  match Atom.atom_of atm with
+    | Atom.TT -> 
+	mk_holds atm
+    | Atom.FF -> 
+	mk_holds atm
+    | Atom.Equal(a, b) -> 
+	let (a', alpha) = f a and (b', beta) = f b in
+	  if a == a' && b == b' then mk_holds atm else
+	    let rho = Jst.dep2 alpha beta in
+	      (match is_equal a' b' with
+		 | Jst.Three.Yes(tau) -> (Atom.mk_true, Jst.dep2 rho tau)
+		 | Jst.Three.No(tau) -> (Atom.mk_false, Jst.dep2 rho tau)
+		 | Jst.Three.X -> (Atom.mk_equal (a', b'), rho))
+    | Atom.Diseq(a, b) ->
+	let (a', alpha) = f a and (b', beta) = f b in
+	  if a == a' && b == b' then mk_holds atm else
+	    let rho = Jst.dep2 alpha beta in
+	      (match is_equal a' b' with
+		   | Jst.Three.No(tau) -> (Atom.mk_true, Jst.dep2 rho tau)
+		   | Jst.Three.Yes(tau) -> (Atom.mk_false, Jst.dep2 rho tau)
+		   | Jst.Three.X -> (Atom.mk_diseq (a', b'), rho))
+    | Atom.Nonneg(a) -> 
+	let (a', alpha) = f a in
+	  if a == a' then mk_holds atm else
+	    (match is_nonneg a' with
+	       | Jst.Three.Yes(tau) -> (Atom.mk_true, Jst.dep2 alpha tau)
+	       | Jst.Three.No(tau) -> (Atom.mk_false, Jst.dep2 alpha tau)
+	       | Jst.Three.X -> (Atom.mk_nonneg a', alpha))
+    | Atom.Pos(a) -> 
+	let (a', alpha) = f a in
+	  if a == a' then mk_holds atm else
+	    (match is_pos a' with
+	       | Jst.Three.Yes(tau) -> (Atom.mk_true, Jst.dep2 alpha tau)
+	       | Jst.Three.No(tau) -> (Atom.mk_false, Jst.dep2 alpha tau)
+	       | Jst.Three.X -> (Atom.mk_pos a', alpha))  
+
+let map preds f = 
+  Trace.func "foo" "Map" Atom.pp (Pretty.pair Atom.pp Jst.p
+
+				  *)

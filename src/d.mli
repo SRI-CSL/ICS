@@ -11,7 +11,7 @@
  * benefit corporation.
  *)
 
-(** Disequalities
+(** Disequality context.
 
   @author Harald Ruess
 *)
@@ -47,15 +47,22 @@ val is_diseq: t -> Term.t -> Term.t -> Jst.t option
 
 val empty : t
   (** The empty disequality context. *)
+
+val is_empty : t -> bool
  
-val merge : Fact.Equal.t -> t -> t
+val merge : Fact.Equal.t -> t -> t * Fact.Diseq.Set.t
   (** [merge e s] propagates an equality [e] of the form [x = y]
     into the disequality context by computing a new disequality
     context which is equal to [s] except that every [x] has been
     replaced by [y]. Raises {!Exc.Inconsistent} if [x <> y] is
-    already in [s]. *)
+    already in [s]. The second argument returns newly generated
+    disequalities. *)
 
-val add : Fact.Diseq.t -> t -> t
+val add : Fact.Diseq.t -> t -> t * Fact.Diseq.Set.t
   (** [add d s] adds a disequality [d] of the form
     [x <> y] to the disequality context [s]. As a side
-    effect, both [x] and [y] are added to the set {!D.changed}. *)
+    effect, both [x] and [y] are added to the set {!D.changed}.
+    The second argument returns newly generated disequalities (at most one). *)
+
+val diff : t -> t -> t
+  (** [diff d1 d2] contains all disequalities in [d1] not in [d2]. *)

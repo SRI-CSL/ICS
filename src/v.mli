@@ -63,11 +63,13 @@ val is_canonical : t -> Term.t -> bool
 val empty : t
   (** The empty variable context. *)
 
+val is_empty : t -> bool
+
 val merge : Fact.Equal.t -> t -> t
   (** Adding a variable equality [x = y] to a context [s].
     As a side effect, [x] is added to the global variable {!V.changed}.
     In addition, every non-external variable [v] which is canoncal in
-    [s] but not in [merge e s], is added to {removabl se}. *)
+    [s] but not in [merge e s], is added to [removabl s e]. *)
 
 val gc : (Term.t -> bool) -> t -> t
   (** [gc filter s] removes variables [x] in [removable s],
@@ -101,6 +103,5 @@ val choose : t -> (Term.t -> 'a option) -> Term.t -> 'a
     which satisfies [p]. If there is no such [y], the exception [Not_found]
     is raised. *)
 
-
-
-
+val diff : t -> t -> t
+  (** [diff s1 s2] contains all variable equalities in [s1] but not in [s2]. *)

@@ -11,6 +11,7 @@
  * benefit corporation.
  *)
 
+(** Rudimentary tracer. *)
 
 type level = string
 
@@ -61,30 +62,7 @@ let is_active l =
     (Levels.mem l !levels ||
      Levels.mem "all" !levels)
 
-
-let call level op args pp =
-  if is_active level then
-    begin
-      Format.eprintf "%s: %s <-- " level op;
-      pp Format.err_formatter args;
-      Format.eprintf "@." 
-    end
-
-let exit level op res pp =
-  if is_active level then
-    begin
-       Format.eprintf "%s: %s --> " level op;
-       pp Format.err_formatter res;
-       Format.eprintf "@."
-    end
-
-let msg level op args pp =
-  if is_active level then
-    begin
-      Format.eprintf "%s: %s\t" level op;
-      pp Format.err_formatter args;
-      Format.eprintf "@." 
-    end
+let indent = ref 0
 
 let rec whitespace level n =
   if is_active level then
@@ -94,29 +72,51 @@ let rec whitespace level n =
 	| n -> (Format.eprintf "%d " n; whitespace level (n - 1))
     end  
 
-let indent = ref 0
+let call level op args pp =
+  if is_active level then
+    begin
+      whitespace level !indent;
+      indent := !indent + 1;
+      Format.eprintf "%s: %s <-- " level op;
+      pp Format.err_formatter args;
+      Format.eprintf "@." 
+    end
+
+let exit level op res pp =
+  if is_active level then
+    begin 
+      indent := !indent - 1;
+      whitespace level !indent;
+       Format.eprintf "%s: %s --> " level op;
+       pp Format.err_formatter res;
+       Format.eprintf "@."
+    end
+
+let fail level name exc =
+  indent := !indent - 1;
+  whitespace level !indent;
+  (if is_active level then
+     Format.eprintf "Exit %s: %s@." name (Printexc.to_string exc));
+  raise exc
+
+let msg level op args pp =
+  if is_active level then
+    begin
+      Format.eprintf "%s: %s\t" level op;
+      pp Format.err_formatter args;
+      Format.eprintf "@." 
+    end
 
 let func level name pp qq f a =
   if is_active level then
     begin
       try  
-	whitespace level !indent;
-	indent := !indent + 1;
 	call level name a pp;
 	let b = f a in
-	  indent := !indent - 1;
-	  whitespace level !indent;
 	  exit level name b qq;
 	  b
       with
-	| exc -> 
-	    begin
-	      indent := !indent - 1;
-	      whitespace level !indent;
-	      (if is_active level then
-		 Format.eprintf "Exit: %s@." (Printexc.to_string exc));
-	      raise exc
-	    end
+	| exc -> fail level name exc
     end
   else
     f a

@@ -11,6 +11,8 @@
  * benefit corporation.
  *)
 
+(** Datatype for storing variable equalities. *)
+
 (** Elements of type [t] represent sets of directed variable equalities [y = x] 
   such that [x] is less than [y] according to the variable comparison {!Var.cmp}. 
   These sets are functional in the sense that whenever both [x1 = y] and [x2 = y]
@@ -39,6 +41,8 @@ let garbage_collection_enabled = ref true
 module Pre = struct
 
   type t = 
+
+
     | Empty
     | Node of Term.t
     | Union of t * t
@@ -153,12 +157,14 @@ let inv s x =
 
 (** Constraint associated with equivalence class [x]. *)
 let cnstrnt s x =
-  try
-    Term.Var.Map.find x s.cnstrnt
-  with
-      Not_found -> 
-	let c = Term.Var.cnstrnt_of x in
-	  (c, Jst.dep0)
+  let (x, rho) = find s x in
+    try
+      let (c, tau) = Term.Var.Map.find x s.cnstrnt in
+	(c, Jst.dep2 rho tau)
+    with
+	Not_found -> 
+	  let c = Term.Var.cnstrnt_of x in
+	    (c, rho)
 
 
 (** Set of removable variables. *)
@@ -181,7 +187,6 @@ let pp_as_equalities = ref false
 let pp fmt s =
   if not(is_empty s) then
     begin
-      Pretty.string fmt "\nv:";
       if !pp_as_equalities then
 	Pretty.set Fact.Equal.pp fmt (to_equalities s)
       else 
@@ -297,7 +302,6 @@ let rec merge e s =
     if Term.eq x y then s else
       begin 
 	Trace.msg "v" "Union" e Fact.Equal.pp;
-	Fact.Eqs.push None e;
 	union s eql
       end 
 
@@ -398,3 +402,12 @@ let gc f s =
     if f x then restrict s x else s
   in
   Term.Var.Set.fold gc1 s.removable s
+
+(** Difference. *)
+let diff s1 s2 =
+  fold 
+    (fun x (y, rho) acc ->
+       match is_equal s2 x y with
+	 | Some _ -> acc
+	 | None -> union acc (x, y, rho) )
+    s1 empty

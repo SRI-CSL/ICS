@@ -11,6 +11,8 @@
  * benefit corporation.
  *)
 
+(** Linear arithmetic operators. *)
+
 open Mpa
 
 
@@ -122,6 +124,10 @@ let rec is_diophantine a =
   with
       Not_found -> Term.Var.is_int a
 
+let is_diophantine = 
+  Trace.func "foo3" "Arith.is_diophantine" Term.pp Pretty.bool
+    is_diophantine
+
 
 let is_diophantine_equation e =
   is_diophantine (Term.Equal.lhs e) &&
@@ -196,6 +202,18 @@ let rec fold f a acc =
        | _ -> f a acc)
   with
       Not_found -> f a acc
+
+exception Not_holds
+
+let for_all f a =
+  try
+    iter
+      (fun x ->
+	 if not(f(x)) then raise Not_holds)
+      a;
+    true
+  with
+      Not_holds -> false
 
 
 module Monomials = struct

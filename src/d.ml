@@ -11,6 +11,8 @@
  * benefit corporation.
  *)
  
+
+(** Datatype for storing variable disequalities *)
        
 
 module Set = Set.Make(
@@ -41,13 +43,15 @@ type t =  Set.t Term.Map.t
 
 let empty = Term.Map.empty
 
+let is_empty s = (s == empty)
+
 let eq s t = (s == t)
 
 let fold = Term.Map.fold
 let iter = Term.Map.iter
 
 
-(** All terms known to be disequal to [a]. *)
+(** All terms known to be disequal to [x]. *)
 let diseqs s x =
   try Term.Map.find x s with Not_found -> Set.empty
 
@@ -86,7 +90,6 @@ let rec pp fmt s =
   let ds = to_set s in
   if not(Fact.Diseq.Set.is_empty ds) then
     begin
-      Pretty.string fmt "\nd:";
       Pretty.list Fact.Diseq.pp fmt (Fact.Diseq.Set.elements ds)
     end
     
@@ -123,10 +126,10 @@ let add d s =
   assert(closed s);
   let (x, y, rho) = Fact.Diseq.destruct d in    (* [rho |- x <> y] *)
     match is_diseq s x y with
-      | Some _ -> s
+      | Some _ -> 
+	  (s, Fact.Diseq.Set.empty)
       | None ->
 	  Trace.msg "d" "Add(d)" d Fact.Diseq.pp;
-	  Fact.Diseqs.push None d;      (* new disequality *)
 	  let dx' = Set.add (y, rho) (diseqs s x)
 	  and dy' = Set.add (x, rho) (diseqs s y) in
 	  let s' = 
@@ -134,8 +137,8 @@ let add d s =
 	      (Term.Map.add y dy' s)
 	  in
 	    assert(closed s');
-	    s'
-	    
+	    (s', Fact.Diseq.Set.singleton d)
+
 	
 (** Propagating an equality between variables. *)
 let merge e s =
@@ -143,11 +146,14 @@ let merge e s =
   assert(Fact.Equal.is_var e);
   assert(closed s);
   let (x, y, rho) = Fact.Equal.destruct e in           (* [rho |- x = y] *)
-    if Term.eq x y then s else
+    if Term.eq x y then 
+      (s, Fact.Diseq.Set.empty)
+    else
       match is_diseq s x y with
 	| Some(tau) ->                                 (* [tau |- x <> y] *)
 	    raise(Jst.Inconsistent(Jst.dep2 rho tau))
 	| None -> 
+	    let fresh = ref Fact.Diseq.Set.empty in
 	    (try
 	       let dx = Term.Map.find x s
 	       and dy = diseqs s y in
@@ -157,12 +163,12 @@ let merge e s =
 		   Set.fold 
 		     (fun (z, tau) ->                       (* [tau |- x <> z] *)
 			let sigma = Jst.dep2 tau rho in     (* ==> [sigma |- y <> z]. *)
-			  Fact.Diseqs.push None (Fact.Diseq.make (y, z, sigma));
+			  fresh := Fact.Diseq.Set.add (Fact.Diseq.make (y, z, sigma)) !fresh;
 			  Set.add (z, sigma))
 		     dx Set.empty
 		 in
 		 let (s', dy') = 
-		   (Term.Map.remove x s, Set.union dx' dy)     (* [dx] has to incorporate the new equality! *)
+		   (Term.Map.remove x s, Set.union dx' dy)   (* [dx] has to incorporate the new equality! *)
 		 in
 		 let (s'', dy'') = 
 		   Set.fold
@@ -174,7 +180,7 @@ let merge e s =
 			      let sigma = Jst.dep2 tau rho in  (* [sigma|- z <> y] *)
 			      let dz'' = Set.add (y, sigma) dz' in 
 			      let dy' = Set.add (z, sigma) dy in
-				Fact.Diseqs.push None (Fact.Diseq.make (y, z, sigma));
+				fresh := Fact.Diseq.Set.add (Fact.Diseq.make (y, z, sigma)) !fresh;
 				(Term.Map.add z dz'' s, dy')
 			  with
 			      Not_found -> (s, dy))
@@ -187,9 +193,26 @@ let merge e s =
 		 in
 		   assert(closed s''');
 		   assert(not(occurs s''' x));
-		   s'''
+		   (s''', !fresh)
 	     with      
 		 Not_found -> 
 		   assert(not(occurs s x));
-		   s)
+		   (s, !fresh))
  
+
+
+(** Difference. *)
+let diff d1 d2 =
+  fold
+    (fun x ds acc ->
+       Set.fold 
+       (fun (y, rho) acc ->
+	  (match is_diseq d2 x y with
+	     | Some _ -> acc
+	     | None -> 
+		 let (acc', _) = add (Fact.Diseq.make (x, y, rho)) acc in
+		   acc'))
+       ds acc)
+    d1 empty
+
+

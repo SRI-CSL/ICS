@@ -179,6 +179,10 @@ val fold : (Term.t -> 'a -> 'a) -> Term.t -> 'a -> 'a
  (** [fold f a e] applies [f] at uninterpreted positions of [a]
    and accumulates results starting with [e]. *)
 
+val for_all :  (Term.t -> bool) -> Term.t -> bool
+  (** [for_all f] holds iff [f x] holds for all top-level
+    uninterpreted [x] in [a]. *)
+
 
 val map: (Term.t -> Term.t) -> Term.t -> Term.t
   (** Applying a term transformer [f] at uninterpreted positions.
@@ -188,7 +192,7 @@ val map: (Term.t -> Term.t) -> Term.t -> Term.t
     - Otherwise, [map f x] equals [f x] *)
 
 val apply: Term.Equal.t -> Term.t -> Term.t
-  (** [apply (x, b) a occurrences of [x] in [a] with [b], and normalizes. *)
+  (** [apply (x, b)] a occurrences of [x] in [a] with [b], and normalizes. *)
 
 
 module Monomials : sig

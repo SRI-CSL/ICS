@@ -13,6 +13,8 @@
  * Author: Harald Ruess
  *)
 
+(** Application programming interface. *)
+
 open Format
 
 
@@ -68,9 +70,6 @@ let _ = Callback.register "set_reduce_explanation" set_reduce_explanation
 
 let set_integer_solve b = Arith.integer_solve := b
 let _ = Callback.register "set_integer_solve" set_integer_solve
-
-let set_crossmultiply b = Atom.crossmultiply := b
-let _ = Callback.register "set_crossmultiply" set_crossmultiply
 
 let set_proofmode str = Jst.Mode.set(Jst.Mode.of_string str)
 let _ = Callback.register "set_proofmode" set_proofmode
@@ -469,20 +468,20 @@ let atom_mk_false () = Atom.mk_false
 let _ = Callback.register "atom_mk_false" atom_mk_false
 
 
-let atom_mk_lt a b = Atom.mk_lt (a, b)
+let atom_mk_lt a b = Atom.mk_pos (Arith.mk_sub b a)
 let _ = Callback.register "atom_mk_lt"  atom_mk_lt
 
-let atom_mk_le a b = Atom.mk_le (a, b)
+let atom_mk_le a b = Atom.mk_nonneg (Arith.mk_sub b a)
 let _ = Callback.register "atom_mk_le"  atom_mk_le
 
-let atom_mk_gt a b = Atom.mk_gt (a, b)
+let atom_mk_gt a b =  Atom.mk_pos (Arith.mk_sub a b) 
 let _ = Callback.register "atom_mk_gt" atom_mk_gt
 
-let atom_mk_ge a b = Atom.mk_ge (a, b)
+let atom_mk_ge a b = Atom.mk_nonneg (Arith.mk_sub a b)
 let _ = Callback.register "atom_mk_ge" atom_mk_ge
 
 
-let atom_negate = Atom.negate
+let atom_negate = Atom.negate Arith.mk_neg
 let _ = Callback.register "atom_negate" atom_negate
 
 
@@ -607,7 +606,7 @@ let prop_sat s p =
     | Some(rho, _) -> Some(rho)
 let _ = Callback.register "prop_sat" prop_sat
 
-let term_mk_mult = Nonlin.mk_mult
+let term_mk_mult = Pprod.mk_mult
 let _ = Callback.register "term_mk_mult" term_mk_mult
 
 let rec term_mk_multl = function
@@ -709,7 +708,7 @@ let _ = Callback.register "context_find" context_find
 let context_apply s = failwith "to do" (* Context.apply *)
 let _ = Callback.register "context_apply" context_apply
 
-let context_mem i s = Combine.is_dependent (Context.eqs_of s) i
+let context_mem i s = failwith "to do"
 let _ = Callback.register "context_mem" context_mem
 
 let context_pp s = Context.pp Format.std_formatter s; Format.print_flush()
@@ -795,9 +794,14 @@ let rec cmd_rep () =
     done 
   with
     | End_of_file -> 
+	Format.eprintf "\n:%s@." (Printexc.to_string End_of_file);
 	Istate.do_quit 0
     | Sys.Break -> 
-	Istate.do_quit 1
+	Format.eprintf "\n:%s@." (Printexc.to_string Sys.Break);
+	if !Istate.batch then
+	  Istate.do_quit 1
+	else 
+	  cmd_rep ()
     | Failure("drop") -> 
 	()
     | exc -> 
@@ -821,6 +825,7 @@ and cmd_batch (inch) =
     | End_of_file -> 
 	0
     | Sys.Break -> 
+	Format.eprintf "\n:%s@." (Printexc.to_string Sys.Break);
 	1
     | exc ->   
 	Format.fprintf !Istate.outchannel ":error %s@." (Printexc.to_string exc); 

@@ -11,11 +11,13 @@
  * benefit corporation.
  *)
 
-(** Rudimententary tracing capability. All trace messages are
-  directed to {!Format.stderr}. The amount of tracing output
-  is determined by the the set of active {b trace levels}. 
+(** Rudimentary tracing capability. 
 
   @author Harald Ruess
+
+  All trace messages are
+  directed to {!Format.stderr}. The amount of tracing output
+  is determined by the the set of active {b trace levels}. 
 *)
 
 type level = string
@@ -26,10 +28,11 @@ val reset : unit -> unit
   (** Reset the set of trace levels to the empty set, that is,
     all tracing is disabled. *)
 
-
 val add : level -> unit
   (** [add l] activates the trace level [l]. *)
 
+val is_active : level -> bool
+  (** Test if certain trace level is active. *)
 
 val remove : level -> unit
   (** [remove l] deactivates the trace level [l]. *)
@@ -38,6 +41,8 @@ val remove : level -> unit
 val get : unit -> level list
   (** [get ()] returns the set of currently active trace levels
     as a list. *)
+
+val indent : int ref
 
 val call : level -> string -> 'a -> 'a Pretty.printer -> unit
   (** [call l name arg pp] outputs a function call trace message
@@ -48,6 +53,10 @@ val exit : level -> string -> 'a -> 'a Pretty.printer -> unit
  (** [exit l name arg pp] outputs a function exit trace message
     if [l] is currently active by first outputting [name] followed
     by printing [arg] using the [pp] printer. *)
+
+val fail : level -> string -> exn -> unit
+  (** [fail l exc] outputs a failure warining if [l] is curently
+    active, and raises exception [exc]. *)
 
 val msg : level -> string -> 'a -> 'a Pretty.printer -> unit
   (** [msg l name arg pp] outputs a trace message

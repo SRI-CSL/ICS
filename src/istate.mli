@@ -39,9 +39,9 @@ module Parameters : sig
     | Eot
     | Prompt
     | IntegerSolve
-    | Crossmultiply
     | Index
     | Clock
+    | Diff
 
   val to_string : t -> string
   val of_string : string -> t
@@ -221,7 +221,7 @@ val do_valid : Name.t option * Atom.t list -> unit
 val do_unsat : Name.t option * Atom.t list -> unit
   (** Checking for unsatisfiablity. *)
 
-val do_model : Name.t option *  (Term.t * La.mode option) list -> unit
+val do_model : Name.t option *  Term.t list -> unit
   (** Model construction. *)
 
 val do_check_sat : Name.t option -> unit
@@ -237,12 +237,8 @@ val do_remove : Name.t -> unit
 
 val do_forget : unit -> unit
 
+val do_undo : unit -> unit
 
-
-(** {6 Predicates} *)
-
-val do_is_equal : Term.t * Term.t -> unit
-  (** Equality/disequality test. *)
 
 (** {6 Sat solver} *)
 

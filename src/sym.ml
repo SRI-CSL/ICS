@@ -11,6 +11,8 @@
  * benefit corporation.
  *)
 
+(** Function symbols. *)
+
 type t = sym * int
     (** A symbol consists of the the symbol itself together with
       a hash value, which may not be unique to the symbol. *)

@@ -9,9 +9,9 @@
  * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
- * 
- * Author: Harald Ruess
  *)
+
+(** Pretty-printing. *)
 
 open Format
 
@@ -95,7 +95,7 @@ let option pp fmt =
 let break = ref true
 	
 let list (pre, sep, post) pp fmt l =
-  let separator = List.length l > 3 in
+  let separator = List.length l >= 3 in
   let rec iter l =
     match l with
       | [] -> ()

@@ -19,7 +19,7 @@
 {
 open Parser
 
-(** A lexer for terms. *)
+(** Lexical analysis. *)
 
 let keyword =
   let kw_table = Hashtbl.create 31 in
@@ -39,7 +39,7 @@ let keyword =
       "sigma", SIGMA; "solve", SOLVE; "help", HELP; "model", MODEL; "check", CHECK;
       "set", SET; "toggle", TOGGLE; "get", GET; "trace", TRACE;  "untrace", UNTRACE; 
       "find", FIND; "inv", INV; "dep", USE; "solution", SOLUTION; "partition", PARTITION;
-      "syntax", SYNTAX; "commands", COMMANDS; "ctxt", CTXT; "diseq", DISEQ; "echo", ECHO;
+      "syntax", SYNTAX; "commands", COMMANDS; "ctxt", CTXT; "diseq", DISEQ; "echo", ECHO; "undo", UNDO;
       "show", SHOW; "symtab", SYMTAB; "sign", SIGN; "dom", DOM; "split", SPLIT; "sat", SAT;
       "true", TRUE; "false", FALSE;
       "empty", EMPTY; "full", FULL; "union" , UNION; "inter", INTER; "diff", DIFF;

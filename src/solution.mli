@@ -16,119 +16,186 @@
   @author Harald Ruess
   @author N. Shankar
 
-  A {b solution set} is a set of equalities of the form [x = a],
-  where [x] is term variable.
+  A {b solution set} for theory [th] is a set of equalities of the 
+  form [x = a], where [x] is term variable and [a] is a [th]-pure
+  term application. For each such equality, a {i justification} [rho] 
+  of type {!Jst.t} is maintained.
 
-  As an invariant, solution sets [s] are kept in functional form, 
-  that is, if [x = a] and [x = b] in [s], then [a] is identical with [b]. 
-  In addition, solution sets are injective, that is, [x = a] and [y = a] are 
-  not in a solution set for [x <> y]. 
+  As an invariant, solution sets [s] are kept in 
+  - {i functional} form, that is, if [x = a] and [x = b] in [s], 
+  then [a] is identical with [b], and
+  - solution sets are {i injective}, that is, [x = a] and [y = a] 
+  are not in a solution set for [x <> y].
 *)
 
-type t
-  (** Abstract datatype for representing a solution set. *)
+val pp_index : bool ref
 
 
-(** {6 Accessors} *)
-
-val apply : t -> Term.t -> Term.t
-  (** [apply s x] returns [b] if [x = b] is in [s], and 
-    raises [Not_found] otherwise. *)
-
-val find : t -> Term.t -> Term.t
-  (** [find s x] returns [b] if [x = b] is in [s], and [x] otherwise. 
-    For non-variable argument [a], [find s a] always returns [a]. *)
-
-val use : t -> Term.t -> Term.Set.t
-  (** [use s x] returns all [y] such that [y = a] in [s]
-    and [x] is a variable in [Term.vars a]. *)
-
-val equality : t -> Term.t -> Fact.equal
-
-val inv : t -> Term.t -> Term.t
-  (** [inv s b] returns [x] if [x = b] is in [s]; 
-    otherwise [Not_found] is raised. *)
-
-val to_list : t -> (Term.t * Term.t) list
-  (** [to_list s] returns a list of pairs [(x, a)], where [x] is a
-    variable and [a] a term for the equalities [x = a] in the 
-    solution set [s]. *)
-
-val pp : Th.t -> t Pretty.printer
-  (** Pretty-printing of theory-specific solution set. *)
+(** Iterators over {i dependency} index. *)
+module type DEP = sig
+  type eqs
+  val iter : eqs -> (Fact.Equal.t -> unit) -> Term.t -> unit 
+    (** [iter s f y] applies [f] to each equality [e] of the
+      form [x = a] with justification [rho] such that [x]
+      is {i dependent} on [y]. *)
+    
+  val fold : eqs -> (Fact.Equal.t -> 'a -> 'a) -> Term.t -> 'a  -> 'a
+    (** [fold s f y e] accumulates, starting with [e], applications 
+      of [f] to each equality [x = a] which [x] dependent on [y]. *)
+    
+  val for_all : eqs -> (Fact.Equal.t -> bool) -> Term.t -> bool
+    (** [for_all s p y] holds iff [p e] holds for all equalities
+      [x = a] with [x] dependent on [y]. *)
+    
+  val exists : eqs -> (Fact.Equal.t -> bool) -> Term.t -> bool
+    (** [exists s p y] holds iff [p e] holds for all equalities
+      [x = a] with [x] dependent on [y]. *)
+    
+  val choose : eqs -> (Fact.Equal.t -> bool) -> Term.t -> Fact.Equal.t
+    (** [choose s y] returns equality [e] of the form [x = a]
+      if [x] is dependent on [y]; otherwise, [Not_found] is raised. *)
+end
 
 
-(** {6 Iterators} *)
+(** Signature for equality sets. *)
+module type SET = sig
+  type t 
+    (** Representation of a set of equalities of the form [rho |- x = a],
+      where [x] is a variable, [a] a non-variable term, and [rho] is
+      a justification of the equality [x = a]. *)
 
-val fold : (Term.t -> Term.t * Fact.justification option -> 'a -> 'a) 
-               -> t -> 'a -> 'a
-  (** [fold f s e] applies [f x a] to all [x = a] in
-    the solution set [s] in an unspecified order and
-    accumulates the result. *)
+  type ext
+    (** Extension field. *)
+    
+  val eq : t -> t -> bool
+    (** Test for identity of two solution sets. *)
 
-val replace : (Term.t -> Term.t) -> t -> Term.t -> Term.t
-  (** [replace v s a] replaces all variables [x] in [a] with [b] if [x = b] is 
-    in [s] and normalizes the result. *)
+  val pp : t Pretty.printer
+    (** Pretty-printing a solution set. If {!Eqs.pp_index} is set
+      to [true], then the {i dependency index} is printed, too. *)
+
+  val empty : t
+    (** The empty equality set. *)
+
+  val is_empty : t -> bool
+    (** [is_empty s] holds iff [s] does not contain any equalities. *)
+
+  val is_dependent : t -> Term.t -> bool
+    (** [is_dependent s x] holds iff there is an [a] such that [x = a] is in [s]. *)
+
+  val is_independent : t -> Term.t -> bool
+    (** [is_independent s x] holds iff [x] is a variable in some [a] with
+      [y = a] in [s]. *)
+
+  val iter : (Fact.Equal.t -> unit) -> t -> unit
+    (** [iter f s] applies [f e] for each equality fact [e] in [s].
+      The order of application is unspecified. *)
+
+  val fold : (Fact.Equal.t -> 'a -> 'a) -> t -> 'a -> 'a
+    (** [fold f s acc] applies [f e] for each equality [e] in [s]
+      and accumulates the result starting with [acc]. The order of
+      application is unspecified. *)
+
+  val for_all : (Fact.Equal.t -> bool) -> t -> bool
+    (** [for_all f s] checks if [f e] holds for all equalities [e] in [s]. *)
+
+  val to_list : t -> Fact.Equal.t list
+    (** [to_list s] builds up a list of equalities from the solved form [s]. *)
+
+  val equality : t -> Term.t -> Fact.Equal.t
+    (** [equality s x] yields an equality [e] of the form [x = a] with
+      justification [rho] if [x] is a {i dependent} variable. Otherwise,
+      [Not_found] is raised. *)
+
+  val apply : t -> Jst.Eqtrans.t
+    (** [apply s x] yields [(b, rho)] if [x = b] in [s] with justification [rho];
+      if [x] is not a dependent variable, [Not_found] is raised. *)
+
+  val find : t -> Jst.Eqtrans.t
+    (** [find s x] yields [(b, rho)] if [x] is a dependent variable in [s]
+      with [x = b]; otherwise, [(x, refl)] is returned with [refl] a
+      justification of [x = x]. *)
+
+  val inv : t -> Jst.Eqtrans.t 
+    (** [inv s a] yields [(x, rho)] if [rho |- x = a] is in [s] with 
+      justification [rho]. *)
+
+  val replace : t -> Jst.Eqtrans.t
+    (** [replace s a] one-step replaces occurrences of [x] 
+      in [a] by [b] if [rho |- x = b] is in [s]. The result
+      is normalized using [T.map] and the resulting justification
+      [tau] includes all such justifications [rho] for equality replacement. *)
+
+  val dep : t -> Term.t -> Term.Var.Set.t
+    (** [dep s y] returns all [x] such that [x = a] in [s], and 
+      the variable [y] occurs in [a]. In this case, we also say
+      that [x] is {i dependent} on [y]. *)
+
+  val ext : t -> ext
+    (** Return the value of the extension field. *)
+
+  module Dep : (DEP with type eqs = t)
+    
+  val restrict : t -> Term.t -> t
+    (** [restrict s x] removes equalities of the form [x = a] in [s]. *)
+
+  type config = Partition.t * t
+
+  val update : config -> Fact.Equal.t -> config
+    (** [update s e] updates [s] with a 
+      new equality of the form, say, [x = a]. 
+      Any [x = b] already in the state, is removed. *)
+    
+  val fuse: config -> Fact.Equal.t list -> config
+    (** [fuse s t] is the representation of the solution set
+      [{ x = replace t b | x = b in s}]. That is, the equalities of [t]
+      are propagated to the right-hand sides of [s]. *)
+
+  val fuse1 : config -> Fact.Equal.t -> config
+    (** Fusing a single equality. *)
+
+  val compose : config -> Fact.Equal.t list -> config
+    (** [compose (p, s) t] represents [fuse (p, s) t] union [t].
+      It is assumed that the domains of [s] and [t] are disjoint. *)
+
+  val diff : t -> t -> t
+    (** [diff s1 s2] contains all equalities in [s1] that are not in [s2]. *)
+
+  val copy : t -> t
+
+    
+end
+
+(** An {i equality theory} is specified by means of
+  - its name [th],
+  - a term [map f a] for replacing uninterpreted positions [x] of [a]
+  with [f x] and canonizing the resulting term in theory [th].
+  - side effects when updating and restricting solution sets. *)
+module type EXT = sig
+  type t
+  val pp: t Pretty.printer
+  val empty : t
+  val update : t -> Fact.Equal.t -> t
+  val restrict : t -> Fact.Equal.t -> t
+end
 
 
-(** {6 Predicates} *)
+(** Specification of an equality theory. *)
+module type TH = sig
+  val th : Th.t
+  val map : (Term.t -> Term.t) -> Term.t -> Term.t
+end
 
-val mem : t -> Term.t -> bool
-  (** [mem s x] holds iff [x = _] is in [s]. *)
+module Make(T: TH)(Ext: EXT): (SET with type ext = Ext.t)
+  (** Functor for constructing an equality set for theory specification [T].
+    Updates and restrictions have the respective side effects as before methods. *)
+   
 
-val occurs : t -> Term.t -> bool
-  (** [occurs s x] holds if either [mem s x] or if [x] is
-    a variable in some [b] where [y = b] is in [s]. *)
+module type SET0 = (SET with type ext = unit)
 
-val is_empty : t -> bool
-  (** [is_empty s] holds iff [s] does not contain any equalities. *)
+module Make0(T: TH): SET0
+  (** Functor for constructing a solution set for theory specification [T0].
+    The resulting solution set does not have side effects. *)
 
-val eq : t -> t -> bool
-  (** [eq s t] tests if the solution sets [s] and [t] are identical
-    in the sense that the sets of equalities are stored at the same
-    memory location. *)
-  
-
-(** {6 Manipulating solution sets} *)
-
-val empty : t
-  (** The [empty] solution set, which does not contain any equality. *)
-
-val restrict : Th.t -> Term.t -> t -> t 
-  (** [restrict s x] removes equalities [x = a] from [s]. *)
-
-val extend : Th.t -> Fact.equal -> t -> t
-  (** [update i e s] adds an equality [e] of the form [x = b] to [s];
-    It is assumed that [x] is not already in the domain of [s]. *)
-
-
-val name : Th.t -> Term.t * t -> Term.t * t
-  (** [name i s a] returns the variable [x] if there is
-    an equation [x = a] in [s].  Otherwise, it creates a 
-    fresh variable [x'] and installs a solution [x' = a] in [s]. *)
-
-val fuse : Th.t -> t -> Fact.equal list -> Term.Set.t * Fact.Equalset.t * t
-  (** [fuse norm (p, s) r] propagates the equalities in [r] on 
-    the right-hand side of equalities in [s]. The return value [(p', s')] consists 
-    vi  of an extension of the partition [p] with newly generated variable equalities
-    and a modified solution set [s'], which is obtained by transforming every
-    [x = b] in [s] to [x = norm(r)(b)].  Here, [norm(r)(b)] replaces occurrences
-    of [z] in [b] with [a] if [z = a] is in [r] and normalizes the result according
-    to the [norm] argument function. If [norm(r)(b)] reduces
-    to a variable, say [y], then the variable equality [x = y] is added to
-    the partition [p]. This may trigger an exception [Not_found], if the
-    disequality [x <> y] can be deduced from the partition [p].  This equality
-    is also propagated in the resulting [s'] in that every occurrence of [x]
-    is replaced by [y].  In case [norm(r)(b)] results in a non-variable [b'],
-    the equality [x = b'] is added if there is no [y = b'] already in the solution 
-    set. If there is such a [y], then the equality [x = y] is added to the 
-    partitioning [p] and only one of [x = b'], [y = b'] is retained in the
-    resulting solution set. *)
-
-val compose : Th.t -> t -> Fact.equal list -> Term.Set.t * Fact.Equalset.t * t
-  (** [compose norm (p,s) r] is a [fuse] step followed by
-    extending (and possibly overwriting [x = ...]) 
-    the resulting [s'] with all [x = b], for [b]
-    a non-variable term, in [sl]. If [b] is a variable, then
-    it is added to [v'] and [ch'] is extended accordingly. *)
-
+module Proj(S: SET): SET0
+  (** Projecting out extensions of a solution set. *)

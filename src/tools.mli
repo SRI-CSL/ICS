@@ -25,6 +25,8 @@ val linenumber : int ref
 
 val profiling : bool ref
 
+val destructive : bool ref
+
 
 (** {6 Exit functions} *)
 

@@ -24,6 +24,44 @@
   every [xi] occurs only one in a power product.
 *)
 
+module Sig: Acsym.SIG 
+
+                        (** Same as {!Acsym.TERM}. *)
+val d_interp : Term.t -> Term.t * Term.t
+val is_interp : Term.t -> bool
+val iterate : Term.t -> int -> Term.t
+val multiplicity: Term.t -> Term.t -> int
+val decompose : Term.t -> (Term.t * int) * Term.t option
+val fold : (Term.t -> int -> 'a -> 'a) -> Term.t -> 'a -> 'a
+val iter : (Term.t -> int -> unit) -> Term.t -> unit
+val sigma : Sym.pprod -> Term.t list -> Term.t
+val map : (Term.t -> Term.t) -> Term.t -> Term.t
+  
+val mk_mult : Term.t -> Term.t -> Term.t
+  (** Constructing a term for representing [a * b].
+    The result is a nonlinear term. *)
+  
+val mk_multl : Term.t list -> Term.t
+  
+val mk_expt : Term.t -> int -> Term.t
+  
+val divide : Term.t -> (Term.t * int) -> Term.t
+  
+val dom : (Term.t -> Dom.t) ->  Sym.pprod -> Term.t list -> Dom.t
+  (** [tau lookup op al] returns a constraint in {!Cnstrnt.t} given a [lookup]
+    function, which is applied to each noninterpreted term, and by
+    propagation using abstract domain operations for the interpreted
+    symbols. If [lookup] raises [Not_found] for one uninterpreted 
+    subterm (not equal to [op(al)]), the result is {!Cnstrnt.real}. *)
+
+val dom_of : Term.t -> Dom.t
+  
+
+
+
+
+
+(*
 
 val is_interp : Term.t -> bool
   (** [is_interp a] holds iff [a] is of the form described above. *)
@@ -69,3 +107,5 @@ val dom : (Term.t -> Dom.t) ->  Sym.pprod -> Term.t list -> Dom.t
 
 val dom_of : Term.t -> Dom.t
 
+
+*)

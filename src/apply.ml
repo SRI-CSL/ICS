@@ -11,6 +11,8 @@
  * benefit corporation.
  *)
 
+(** Operations on combinatory logic terms. *)
+
 let d_interp a =
   match a with
    | Term.App(sym, al, _) -> (Sym.Cl.get sym, al)
@@ -133,6 +135,9 @@ let rec mk_apply op a =
 and mk_apply2 op a1 a2 =
   mk_apply (mk_apply op a1) a2
 
+and mk_apply3 op a1 a2 a3 =
+  mk_apply (mk_apply (mk_apply op a1) a2) a3 
+
 
 and mk_apply_star op = function
   | [] -> op
@@ -145,6 +150,7 @@ and mk_cases a b c d =
 
 
 and sigma op al =
+  Trace.msg "foo32" "Cl.sigma" (op, al) (Sym.Cl.pp Term.pp);
   match op, al with
     | Sym.Apply, [x; y] -> mk_apply x y
     | Sym.S, [] -> mk_s ()
@@ -152,7 +158,14 @@ and sigma op al =
     | Sym.I, [] -> mk_i ()
     | Sym.C, [] -> mk_c ()
     | Sym.Reify(f, n), [] -> mk_reify (f, n)
-    | _ -> 
+    | Sym.C, [a; b; c; d] -> mk_cases a b c d
+    | Sym.S, [a; b; c] -> mk_apply3 (mk_s()) a b c
+    | Sym.K, [a; b] -> mk_apply2 (mk_k()) a b
+    | Sym.I, [a] -> mk_apply (mk_i()) a
+    | Sym.Apply, [c; a1; a2; a3; a4] when is_c(c) -> mk_cases a1 a2 a3 a4
+    | Sym.Apply, [s; a1; a2; a3] when is_s(s) -> mk_apply3 (mk_s()) a1 a2 a3
+    | Sym.Apply, [k; a1; a2] when is_k(k) -> mk_apply2 (mk_k()) a1 a2
+    | _ ->
 	assert false
 
 (** Build a first-order application of function symbol [f]. *)
@@ -216,18 +229,18 @@ let abstract x =
   in
   let rec abst a =
     Trace.msg "bar" "Abst(x)" a Term.pp; 
-    if is_binding a then                      (* [[x]x = I] *)
+    if is_binding a then                (* [[x]x = I] *)
       mk_i()
-    else if not(occurs_bound a) then          (* [[x]a = K a] if [x] notin [a]. *)
+    else if not(occurs_bound a) then    (* [[x]a = K a] if [x] notin [a]. *)
       mk_apply (mk_k()) a
     else 
       try
 	let (a1, a2) = d_binary_apply a in
 	  if is_binding a2 && not(occurs_bound a1) then
-	    a1                                (* [[x]a1 x = a1] if [x] notin [a1]. *)
+	    a1                          (* [[x]a1 x = a1] if [x] notin [a1]. *)
 	  else 
 	    mk_apply2 (mk_s()) (abst a1) (abst a2)
-      with                                    (* [[x]a1 a2 = S ([x]a1) ([x]a2)] *)
+      with                              (* [[x]a1 a2 = S ([x]a1) ([x]a2)] *)
 	  Not_found -> 
 	    assert(Term.is_app a);            (* reify first-order terms *)
 	    let (f, al) = Term.App.destruct a in
@@ -237,6 +250,24 @@ let abstract x =
 
 let abstract = Trace.func2 "bar" "Abstract" Name.pp Term.pp Term.pp abstract
 
+(** Propagate a disequalities [x <> y]. *)
+let disapply (x, y) a =
+  try
+    (match d_interp a with
+       | Sym.Apply, [c; a1; a2; _; b] when is_c c ->
+	   if Term.eq x a1 && Term.eq y a2
+	     || Term.eq x a2 && Term.eq y a1 
+	   then
+	     b
+	   else 
+	     a
+       | _ ->
+	   a)
+  with
+      Not_found -> a
+	     
+	       
+
 
 let rec map f a =
   try
@@ -245,6 +276,11 @@ let rec map f a =
 	   let x' = map f x and y' = map f y in
 	     if x == x' && y == y' then a else
 	       mk_apply x' y'
+       | Sym.Apply, op :: al ->
+	   let op' = map f op in
+	   let al' = Term.mapl (map f) al in
+	     if op == op' && al == al' then a else 
+	       mk_apply_star op' al'
        | _ , [] ->
 	   a
        | _ ->
@@ -307,9 +343,9 @@ let is_fo_app = function
   | _ -> false
 
 
-let z = Name.of_string  "____@@@z###$____"
+let z() = Name.of_string  "____@@@z###$____"
 let mk_bound () = 
-  Term.Var.mk_var z Var.Cnstrnt.Unconstrained
+  Term.Var.mk_var (z()) Var.Cnstrnt.Unconstrained
 
 (** Ordinary variables and reified non-constants are {i flexible}. *)
 let is_flexible x =
@@ -399,7 +435,7 @@ and imitate x al b =
     | [a] -> 
 	let y = mk_fresh () in
 	let zb = mk_bound () in
-	  (x, abstract z (mk_cases zb a b (mk_apply y zb)))
+	  (x, abstract (z()) (mk_cases zb a b (mk_apply y zb)))
     | _ -> 
 	raise Exc.Incomplete
 

@@ -11,12 +11,10 @@
  * benefit corporation.
  *)
 
-let version = "ICS 2.0 (Experimental, Wed Sep 17 13:54:25 PDT 2003)" 
 
 (** ICS command line interpreter. *)
 
 let _ = Sys.catch_break true
- 
 
 (** {6 Arguments} *)
 
@@ -32,7 +30,7 @@ let args () =
 	"Print timings";
 	"-profiles", Arg.Set Tools.profiling,          
 	"Print profiles";
-	"-index", Arg.Set Eqs.pp_index,          
+	"-index", Arg.Set Solution.pp_index,          
 	"Print internal indices";
 	"-prompt", Arg.String Ics.set_prompt,
 	"Set prompt";
@@ -42,7 +40,7 @@ let args () =
 	"Disable help feature";
 	"-trace", Arg.String Ics.trace_add,
 	"Enable tracing";
-        "-version", Arg.Unit (fun () -> Format.eprintf "%s@." version; exit 0),
+        "-version", Arg.Unit (fun () -> Format.eprintf "%s@." Version.version; exit 0),
         "Display version number";
         "-compactify",  set_true Ics.set_compactify,
 	"Disable compactification in SAT solver";
@@ -56,6 +54,8 @@ let args () =
 	"Print string argument after each transmission";
         "-server", Arg.Int (fun portnum -> portnum_flag := Some(portnum)), 
 	"Run in server mode";
+	"-destructive", Arg.Unit(fun() ->  Combine.do_destructive:= true),
+	"Use destructive version of ICS, potentially faster";
 	"-verbose", set_true Ics.set_verbose,
         "Verbose flag for SAT solver";
 	"-progress", Arg.Set Istate.progress,
@@ -78,8 +78,6 @@ let args () =
         "Try to further reduce explanations in SAT solving";
 	"-integersolve", set_false Ics.set_integer_solve,
         "Disables Solving for the integers";
-	"-crossmultiply", set_true Ics.set_crossmultiply,
-        "Enables crossmultiplication";
 	"-gc_space_overhead",  Arg.Int(Ics.set_gc_space_overhead),
         "GC will work more if [space_overhead] is smaller (default 80)";
 	"-gc_max_overhead", Arg.Int(Ics.set_gc_max_overhead),
@@ -96,11 +94,16 @@ let args () =
 
 let rec repl () =
   usage ();
-  Ics.cmd_rep ()
+  try
+    Ics.cmd_rep ()
+  with
+    | exc -> 
+	Format.eprintf "%s@." (Printexc.to_string exc);
+	Ics.cmd_rep ()
 
 and usage () =
   begin
-    Format.eprintf "%s: Integrated Canonizer and Solver." version;
+    Format.eprintf "%s: Integrated Canonizer and Solver." Version.version;
     Format.eprintf "\nCopyright (c) 2003 SRI International.";
     Format.eprintf "\nType 'help help.' for help about help, and 'Ctrl-d' to exit.@."
   end

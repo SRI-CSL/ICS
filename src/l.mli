@@ -16,49 +16,8 @@
   @author Harald Ruess
 *)
 
-type t
 
-val eq : t -> t -> bool
-val pp : t Pretty.printer
-val empty : t
-val is_empty : t -> bool
+module E: Shostak.EQS 
 
+module Infsys: (Infsys.IS with type e = E.t)
 
-(** {6 Accessors} *)
-
-val apply : t -> Term.t -> Term.t * Jst.t
-
-val find : t -> Term.t -> Term.t * Jst.t
-
-val inv : t -> Term.t -> Term.t * Jst.t
-
-val dep : t -> Term.t -> Term.Var.Set.t
-
-val is_dependent : t -> Term.t -> bool
-
-val is_independent : t -> Term.t -> bool
-
-
-val is_diseq : Partition.t * t -> Jst.Pred2.t
-  (** [is_diseq (_, s) a b] holds iff [s] implies a <> b] in the theory
-    of combinatory logic *)
-
-(** {6 Iterators} *)
-
-val fold : (Term.t -> Term.t * Jst.t -> 'a -> 'a) -> t -> 'a -> 'a
-  (** [fold f s e] applies [f x (a, rho)] for each [x = a] with justification
-    [rho] in [s] and accumulates the result starting with [e]. The order of
-    application is unspecified. *)
-
-
-(** {6 Updates} *)
-
-val copy : t -> t
-
-val name : Partition.t * t -> Jst.Eqtrans.t
-
-val merge : Partition.t * t -> Fact.Equal.t -> unit
-
-val dismerge : Partition.t * t -> Fact.Diseq.t -> unit
-
-val split : Partition.t * t -> Term.t * Term.t

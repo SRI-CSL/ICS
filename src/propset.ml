@@ -11,6 +11,8 @@
  * benefit corporation.
  *)
 
+(** Operations on propositional sets. *)
+
 
 let is_interp = function
   | Term.App(op, _, _) -> Sym.Propset.is op

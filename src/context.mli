@@ -46,13 +46,13 @@ val empty : t
 val ctxt_of : t -> Atom.t list
   (** [ctxt_of s] returns the logical context of [s] as a list of atoms. *)
 
-val eqs_of : t -> Combine.t
-  (** [eqs_of s] returns ths solution sets associated with [s]. *)
-
 val partition_of : t -> Partition.t
   (** [p_of s] returns the partitioning associated with [s]. *)
 
-val config_of : t -> Partition.t * Combine.t
+val eqs_of : t -> Combine.E.t
+
+val config_of : t -> Combine.E.t * Partition.t
+
 
 val upper_of : t -> int
   (** [upper_of s] returns an upper bound on the indices of all fresh
@@ -88,8 +88,11 @@ val is_valid : t -> Atom.t list -> bool
   (** [is_valid s al] is [true] iff the conjunction of 
     atoms in [al] is valid in [s]. *)
 
-val check_sat : t -> (Atom.t list * t) option
+val check_sat : t -> t option
   (** [check_sat s] performs case-splitting and returns
     - [Some(splits', s')] if there is a complete case-splitting path [splits']
     yielding a satisfiable extension [s'] of [s].
     - [None] if all case-splittinig paths yield an inconsistent context. *)
+
+val diff : t -> t -> t
+  (** Difference. *)

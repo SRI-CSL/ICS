@@ -11,6 +11,8 @@
  * benefit corporation.
  *)
 
+(** Three-valued datatype. *)
+
 type t = 
   | Yes
   | No

@@ -11,6 +11,8 @@
  * benefit corporation.
  *)
 
+(** Logical context manipulations. *)
+
 (** A {b logical context} consists of a set of atoms. Such a context is
   represented in terms of a 
     - {b partition} (see {!Partition.t}) and an 
@@ -45,10 +47,10 @@
 (** {6 Logical context} *)
 
 type t = {
-  mutable ctxt : Atom.t list;      (* Current context. *)
-  mutable p : Partition.t;         (* Variable partitioning. *)
-  eqs : Combine.t;                 (* Theory-specific solution sets. *)
-  mutable upper : int;             (* Upper bound on fresh variable index. *)
+  ctxt : Atom.t list;              (* Current context. *)
+  p : Partition.t;                 (* Variable partitioning. *)
+  eqs : Combine.E.t;               (* Theory-specific equality sets. *)
+  upper : int;                     (* Upper bound on fresh variable index. *)
 }
 
 
@@ -56,7 +58,7 @@ type t = {
 let empty = {
   ctxt = [];
   p = Partition.empty;
-  eqs = Combine.empty;
+  eqs = Combine.E.empty;
   upper = 0
 } 
 
@@ -64,16 +66,8 @@ let empty = {
 (** Identity test. Do not take upper bounds into account. *)
 let eq s1 s2 =              
   Partition.eq s1.p s2.p && 
-  Combine.eq s1.eqs s2.eqs
+  Combine.E.eq s1.eqs s2.eqs
 
-
-(** Shallow copying. *)
-let copy s = {
-  ctxt = s.ctxt;
-  p = Partition.copy s.p;
-  eqs = Combine.copy s.eqs;
-  upper = s.upper
-}
 
 module Mode = struct
 
@@ -99,8 +93,23 @@ end
 let rec pp fmt s =
   match !Mode.value with
     | Mode.Internals ->
-	Partition.pp fmt s.p;
-        Th.iter (fun i -> Combine.pp i fmt s.eqs)
+	(let v = Partition.v_of s.p in
+	   if not(V.is_empty v) then
+	     begin
+	       Format.fprintf fmt "\nV: ";
+	       V.pp fmt v
+	     end);
+	(let d = Partition.d_of s.p in
+	   if not(D.is_empty d) then
+	     begin
+	       Format.fprintf fmt "\nD: ";
+	       D.pp fmt d
+	    end);
+	if not(Combine.E.is_empty s.eqs) then
+	  begin
+	    Format.fprintf fmt "\n";
+            Combine.E.pp fmt s.eqs
+	  end 
     | Mode.Context -> 
 	Pretty.set Atom.pp fmt (List.rev s.ctxt)
     | Mode.None -> 
@@ -113,45 +122,9 @@ let ctxt_of s = s.ctxt
 let eqs_of s = s.eqs
 let partition_of s = s.p
 let upper_of s = s.upper
-let config_of s = (s.p, s.eqs)
+let config_of s = (s.eqs, s.p)
 
-
-	    
-
-(** Propagate newly deduced facts. *)   
-let rec close_star s =
-  if not(Fact.Eqs.is_empty()) then
-    begin
-      close_e s (Fact.Eqs.pop());
-      close_star s
-    end 
-  else if not(Fact.Diseqs.is_empty()) then
-    begin
-      close_d s (Fact.Diseqs.pop());
-      close_star s
-    end
-  else if not(Fact.Nonnegs.is_empty()) then
-    begin
-      close_nn s (Fact.Nonnegs.pop());
-      close_star s
-    end
-
-
-and close_e s (_, e) = 
-  Trace.msg "rule" "Close" e Fact.Equal.pp;
-  Combine.propagate_equal (s.p, s.eqs) e
-
-and close_d s (i, d) = 
-  Trace.msg "rule" "Close" d Fact.Diseq.pp;
-  Combine.propagate_diseq (s.p, s.eqs) d
-
-and close_nn s (i, nn) = 
-  Trace.msg "rule" "Close" nn Fact.Nonneg.pp;
-  Combine.propagate_nonneg (s.p, s.eqs) nn
-
-
-let normalize s =
-  Combine.gc (s.p, s.eqs)
+let normalize = Combine.gc 
 
 
 (** {6 Adding new atoms} *)
@@ -184,48 +157,73 @@ module Status = struct
 end
 
 
-let simplify s = 
-  Trace.func "rule" "Simplify" Atom.pp Fact.pp
-    (Combine.simplify (s.p, s.eqs))
-
-let process s = 
-  Trace.proc "rule" "Process" Fact.pp (Combine.process (s.p, s.eqs))
-
-let abstract s =
-  Trace.func "rule" "Abstract" Atom.pp Fact.pp
-    (Combine.abstract (s.p, s.eqs))
-    
-let add s atm =
-  let s = copy s in             (* Protect state against updates. *)
-  let ((atm', rho') as fct') = simplify s atm in
+let rec add s atm =
+  let ((atm', rho') as fct') = 
+    Combine.simplify (s.eqs, s.p) atm 
+  in
     if Atom.is_true atm' then
       Status.Valid(rho')
     else if Atom.is_false atm' then
       Status.Inconsistent(Jst.dep2 rho' (Jst.axiom atm))
     else 
       (try
-	 Fact.Eqs.clear();             (* Clearing out stacks. *)
-	 Fact.Diseqs.clear();
-	 Fact.Nonnegs.clear();
 	 Term.Var.k := s.upper;        (* Install fresh variable index *)
-	 let (atm'', rho'') = abstract s atm' in
-	 let fct'' = (atm'', Jst.dep3 rho' rho'' (Jst.axiom atm)) in
-	   process s fct''; 
-           close_star s;
-	   normalize s;   
-	   s.ctxt <- atm :: s.ctxt;    (* Update context. *)
-	   s.upper <- !Term.Var.k;     (* Install variable counter in state. *)
-	   Status.Ok(s)
-	 with
-	   | Jst.Inconsistent(rho) ->         
-	       Status.Inconsistent(rho)
-	   | exc ->     
-	       raise exc)
+	 let cfg0 = initial (atm', Jst.dep2 rho' (Jst.axiom atm)) s in
+	 let cfg1 = Combine.process cfg0 in
+	 let cfg2 = Combine.gc cfg1 in
+	 let (g, e, p) = cfg2 in
+	   assert(Fact.Input.is_empty g);
+	   let s' = {
+	     ctxt = atm :: s.ctxt;
+	     upper = !Term.Var.k;
+	     p = p;
+	     eqs = e
+	   } 
+	   in
+	     Status.Ok(s')
+       with
+	 | Jst.Inconsistent(rho) ->         
+	     Status.Inconsistent(rho))
+
+and initial (atm, rho) s =
+  match Atom.atom_of atm with
+    | Atom.Equal(a, b) -> 
+	let e = Fact.Equal.make (a, b, rho) in
+	let g0 = Fact.Input.Equal.add Fact.Input.empty e in
+	  Combine.make (g0, s.eqs, s.p)
+    | Atom.Diseq(a, b) -> 
+	let d = Fact.Diseq.make (a, b, rho) in
+	let g0 = Fact.Input.Diseq.add Fact.Input.empty d in
+	  Combine.make (g0, s.eqs, s.p)
+    | Atom.Nonneg(a) -> 
+	let k = mk_nonneg_slack a in
+	let e = Fact.Equal.make (a, k, rho) in
+	let g0 = Fact.Input.Equal.add Fact.Input.empty e in
+	  Combine.make (g0, s.eqs, s.p)
+    | Atom.Pos(a) -> 
+	let k = mk_nonneg_slack a in
+	let e = Fact.Equal.make (a, k, rho) in
+	let (z, rho) = Combine.can (s.eqs, s.p) (Arith.mk_zero()) in
+	let d = Fact.Diseq.make (k, z, rho) in
+	let g0 = 
+	  Fact.Input.Equal.add 
+	    (Fact.Input.Diseq.add Fact.Input.empty d)
+	    e
+	in
+	  Combine.make (g0, s.eqs, s.p)
+    | (Atom.TT | Atom.FF) ->
+	invalid_arg "unreachable"
+
+and mk_nonneg_slack a =
+  let d = try Arith.dom_of a with Not_found -> Dom.Real in
+  let k = Term.Var.mk_slack None (Var.nonneg d) in
+    k
+	
 
 let add =
   let pp0 fmt s = Mode.set Mode.None (pp fmt) s in
   let ppc fmt s = Mode.set Mode.Context (pp fmt) s in
-    Trace.func2 "top" "Process" ppc Atom.pp (Status.pp pp0) 
+    Trace.func2 "top" "Process" pp0 Atom.pp (Status.pp pp0) 
       add
 
 let addl =
@@ -264,41 +262,13 @@ let is_valid =
 
 (* Check if [s] is satisfiable after case-splittiing. *)
 let check_sat s =
-  let error_valid_arg s a =
-    invalid_arg (
-      Format.sprintf "Fatal Error: %s \n valid in case split for\n%s@."
-		   (Atom.to_string a)
-		   (Pretty.to_string pp s))
-  in
-  let rec check splits s =
-    try
-      (match Combine.split (s.p, s.eqs) with
-	 | Combine.Split.Finint(x, fin) -> 
-	     invalid_arg "Splits on integers: to do"
-	 | Combine.Split.Equal(i, j) -> 
-	     let e = Atom.mk_equal (i, j)
-	     and d = Atom.mk_diseq (i, j) in
-               (match add s e with
-		  | Status.Inconsistent _ ->
-		      (match add s d with
-			 | Status.Inconsistent _ -> None
-			 | Status.Ok(s') -> check (d :: splits) s'
-			 | Status.Valid _ -> error_valid_arg s d)
-		  | Status.Ok(s') ->
-		      (match check (e :: splits) s' with
-			 | None -> 
-			     (match add s d with
-				| Status.Inconsistent _ -> None
-				| Status.Ok(s'') -> check (d :: splits) s''  
-				| Status.Valid _ -> error_valid_arg s d)
-			 | Some(s'', splits'') -> 
-			     Some(s'', splits''))
-		  | Status.Valid _ -> 
-		      error_valid_arg s e))
-    with
-	Not_found -> Some(splits, s)
-  in
-    check [] s
+  Some(s)
 
 
-		 
+let diff s1 s2 =
+  let p' = Partition.diff s1.p s2.p
+  and eqs' = Combine.E.diff s1.eqs s2.eqs in
+    {s1 with p = p'; eqs = eqs'}
+
+let diff =
+  Trace.func2 "foo7" "Diff" pp pp pp diff

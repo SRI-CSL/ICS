@@ -11,8 +11,12 @@
  * benefit corporation.
  *)
 
+(** Inference system for the theory of propositional sets. *)
+
+
 open Mpa
 
+(*
 
 (** Index for equalities [x = c] *)
 module Cnstnt = struct 
@@ -94,5 +98,24 @@ let dismerge (p, s) d =
       if Propset.solve (a, b) = [] then 
 	raise(Jst.Inconsistent(rho))
 	  
+*)
+
+module T = struct
+  let th = Th.set
+  let map = Propset.map
+  let solve e =
+    let (a, b, rho) = Fact.Equal.destruct e in
+      try
+	let sl = Propset.solve (a, b) in
+	let inj (a, b) = Fact.Equal.make (a, b, rho) in
+	  List.map inj sl
+      with
+	  Exc.Inconsistent -> raise(Jst.Inconsistent(rho))
+  let disjunction _ = raise Not_found
+end
 
 
+module E = Shostak.E(T)
+
+module Infsys: (Infsys.IS with type e = E.t) =
+  Shostak.Make(T)

@@ -11,6 +11,8 @@
  * benefit corporation.
  *)
 
+(** Terms. *)
+
 (** A term is either a variable or an application of a function symbol
   to a possibly empty list of arguments. In addition, each term has
   an integer slot that can be used as a hash function for terms.  In 
@@ -417,6 +419,16 @@ let rec iter f a  =
     | Var _ -> f a
     | App(_, l, _) -> List.iter (iter f) (App.args_of a)
 
+exception Found of t
+
+let choose p a =
+  let select x = if p x then raise(Found(x)) in
+    try
+      iter select a;
+      raise Not_found
+    with
+	Found(x) -> x
+	
 let rec for_all p a  =
   p a && 
   match a with
@@ -438,6 +450,45 @@ let is_pure i =
     | App(f, al, _) -> Sym.theory_of f = i && List.for_all loop al
   in
     loop
+
+
+(** Facts are partitioned into 
+  - facts over {i variable} terms
+  - facts over {i pure} terms with all function symbols drawn from a single theory [i]
+  - facts over {i mixed} terms. *)
+type status = 
+  | Variable
+  | Pure of Th.t
+  | Mixed of Th.t * t
+
+let pp_status fmt = function
+  | Variable ->
+      Format.fprintf fmt "Var"
+  | Pure(i) ->
+      Format.fprintf fmt "Pure(%s)" (Th.to_string i)
+  | Mixed(i, a) -> 
+      Format.fprintf fmt "Mixed(%s, %s)" (Th.to_string i) (Pretty.to_string pp a)
+
+let rec status = function
+  | Var _ -> 
+      Variable
+  | App(f, al, _) -> 
+      let i = Sym.theory_of f in
+      let rec loop = function
+	| [] ->
+	    Pure(i)
+	| a :: al -> 
+	    (match status a with
+	       | Variable -> loop al
+	       | Pure(j) -> 
+		   if i = j then loop al else Mixed(j, a)
+	       | (Mixed _ as m) -> m)
+      in
+	loop al
+
+let status = 
+  Trace.func "foo" "status" pp pp_status status
+
 
 (** Return theory [i] if both [a] and [b] are [i]-pure. *)
 let pure_of (a, b) =

@@ -78,7 +78,7 @@ module Three : sig
     | X
 
   val to_three : jst list ref -> ('a -> 'b -> t) -> 'a -> 'b -> Three.t
-    (** [to_three fcts p a[ accumulate facts in the result of [p a]
+    (** [to_three fcts p a] accumulate facts in the result of [p a]
         in global variable [fcts] and returns a corresponding result of type
         {!Three.t}. *)
 

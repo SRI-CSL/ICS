@@ -11,6 +11,8 @@
  * benefit corporation.
  *)
 
+(** Inference system for array theory. *)
+
 (** Decision procedure for the theory of arrays [Arr] as defined in 
   module {!Funarr}. This procedure works by canonization of array terms
   and forward chaining on configurations.
@@ -25,7 +27,7 @@
 
   Forward chaining is used to keep configurations {i confluent}.
   - (1) [u = a[i:=x]] ==> [x = u[i]]
-  - (2) [i<>j] and [v = u[j], [u = a[i:=x]] ==> [v = a[j]]
+  - (2) [i<>j] and [v = u[j]], [u = a[i:=x]] ==> [v = a[j]]
   - (3) [i<>j] and [u = a[i:=x]] and [v = u[j:=y]] ==> [v = a[j:=y][i:=x]], 
   - (4) [u = v[i:=x]], [v = a[i:=y]] ==> [u = a[i:=x]]
   - (5) [v = u[j]], [u = create(a)] ==> [v = a]
@@ -46,577 +48,435 @@
   complete.
 *)
 
-let is_pure = Term.is_pure Th.arr
 
-let is_flat = Funarr.Flat.is
+module T: Can.T =
+  struct
+      
+    let th = Th.arr
 
-let arr = Th.to_string Th.arr
+    let map = Funarr.map Term.is_equal
 
-
-(** Test for disequalities; for now just partitions. *)
-let is_diseq (p, _) =
-  Partition.is_diseq p
-
-
-let is_equal_or_diseq (p, _) i j =
-  Partition.is_equal_or_diseq p i j
-
-(** Homomorphically apply equality transformer [f] at 
-  uninterpreted positions of [a]. *)
-let map c f a =
-  let hyps = ref [] in
-  let f' x =
-    let (a, rho) = f x in
-      if not(x == a) then hyps := rho :: !hyps; a
-  in
-  let is_equal_or_diseq' = 
-    Jst.Three.to_three hyps (is_equal_or_diseq c) 
-  in
-  let b = Funarr.map is_equal_or_diseq' f' a in
-    (b, Jst.dep !hyps)
-
-
-(** Equality set for arrays *)
-module A: Eqs.SET = 
-  Eqs.Make0(
-    struct
-      let th = Th.arr
-      let nickname = Th.to_string Th.arr
-      let map = Funarr.map Term.is_equal
-      let is_infeasible _ = false
-    end)
-
-type t = A.t
-
-let eq = A.eq
-let empty = A.empty
-let is_empty = A.is_empty
-let pp = A.pp
-let copy = A.copy
-
-let is_independent = A.is_independent
-let is_dependent = A.is_dependent
-
-let fold = A.fold
-let apply = A.apply
-let find = A.find
-let inv = A.inv
-let dep = A.dep
-
-
-type config = Partition.t * t
-    (** A {i configuration} consists of 
-      - variable equalities [v]
-      - variable disequalities [d]
-      - equalities of the form [x = a], [x] not necessarily
-      canonical, and [a] is a flat array term, that is, 
-      {!Arr.is_flat}[a] holds. *)
-
- 
-(** Apply [f (u, (a, i, x), sigma)] for each [u' = a[i:=x]] in [s] 
-  with [u=u'] in [p] and [u] canonical. *)
-let update_index_iter (p, s) i f =
-  A.Dep.iter s
-    (fun e ->
-       let (u', b, rho) = Fact.Equal.destruct e in
-	 try
-	   let (a, i', x) = Funarr.d_update b in
-	     if Term.eq i i' then
-	       let (u, tau) = Partition.find p u' in
-		 f (u, (a, i, x), Jst.dep2 rho tau)
-	 with
-	     Not_found -> ())
-    i
-
-(** Apply [f (u, (a, j), sigma)] for each [u' = a[j] in [s] 
-  with [u=u'] in [p] and [u] canonical. *)
-let select_index_iter (p, s) j f =
-  A.Dep.iter s
-    (fun e ->
-       let (u', b, rho) = Fact.Equal.destruct e in
-	 try
-	   let (a, j') = Funarr.d_select b in
-	     if Term.eq j j' then
-	       let (u, tau) = Partition.find p u' in
-		 f (u, (a, j), Jst.dep2 rho tau)
-	 with
-	     Not_found -> ())
-    j
-
-(** Apply [f (u, (a, i, x), sigma)] for each [u' = a[i:=x]] in [s]
-  and canonical [u] with [u = u'] in [p]. *)
-let update_iter (p, s) u f =
-  Partition.iter_if p
-    (fun u' ->
-       let (b, rho) = apply s u' in
-       let (a, i, x) = Funarr.d_update b in
-       let (u, tau) = Partition.find p u' in
-	 f (u, (a, i, x), Jst.dep2 rho tau))
-    u
-
-(** Apply [f (u, (a, j), sigma)] for each [u' = a[j]] in [s]
-  and canonical [u] with [u = u'] in [p]. *)
-let select_iter (p, s) u f =
-  Partition.iter_if p
-    (fun u' ->
-       let (b, rho) = apply s u' in
-       let (a, j) = Funarr.d_select b in
-       let (u, tau) = Partition.find p u' in
-	 f (u, (a, j), Jst.dep2 rho tau))
-    u
-
-(** Apply [f (u, a, sigma)] for each [u' = create(a)] in [s]
-  and canonical [u] with [u = u'] in [p]. *)
-let create_iter (p, s) u f =
-  Partition.iter_if p
-    (fun u' ->
-       let (b, rho) = apply s u' in
-       let a = Funarr.d_create b in
-       let (u, tau) = Partition.find p u' in
-	 f (u, a, Jst.dep2 rho tau))
-    u
-
-
-(** Create a fresh variable for renaming terms. *)
-let mk_rename = 
-  let v = Name.of_string "v" in
-    fun () -> Term.Var.mk_rename v None Var.Cnstrnt.Unconstrained
-  
-
-(** Lookup of dependent variables. *)
-let rec lookup ((p, s) as c) x =
-  if Term.is_app x then 
-    Jst.Eqtrans.id x
-  else 
-    let apply = Partition.choose p (A.apply s) in 
+    let sigma f al =
       try
-	Jst.Eqtrans.compose (lookup c) apply x
+	let op = Sym.Array.get f in
+	  Funarr.sigma Term.is_equal op al
       with
-	  Not_found -> 
-	    Partition.find p x
-    
+	  Not_found -> Term.App.mk_app f al
 
-(** Recursively replace variables [x] in [a] with [b], 
-  with [b] such that [y = b] in [s] for [x] and [y]
-  equal modulo [p]. *)
-let rec replace c =  
-  map c (lookup c)
+  end
+
+module E = Can.E(T)
 
 
 
-(** Recursively replace right-hand sides in [s] with 
-  corresponding left-hand side variables. *)
-let rec abstract ((p, s) as c) a =
-  if Term.is_var a then Partition.find p a else 
+(** Forward chaining is used to keep configurations {i confluent}.
+  - (1) [u = a[i:=x]] ==> [x = u[i]]
+  - (2) [i<>j] and [v = u[j]], [u = a[i:=x]] ==> [v = a[j]]
+  - (3) [i<>j] and [u = a[i:=x]] and [v = u[j:=y]] ==> [v = a[j:=y][i:=x]], 
+  - (4) [u = v[i:=x]], [v = a[i:=y]] ==> [u = a[i:=x]]
+  - (5) [v = u[j]], [u = create(a)] ==> [v = a] *)
+module D = struct
+
+  type t = E.t
+      
+  (** Destructors for equalities. *)
+  let d_update p e =
+    let (x, a, rho) = Fact.Equal.destruct e in
+    let (y, tau) = Partition.find p x in
+      (y, Funarr.d_update a, Jst.dep2 rho tau)
+      
+  let d_select p e =
+    let (x, a, rho) = Fact.Equal.destruct e in
+    let (y, tau) = Partition.find p x in
+      (y, Funarr.d_select a, Jst.dep2 rho tau)
+      
+  let d_create p e =
+    let (x, a, rho) = Fact.Equal.destruct e in
+    let (y, tau) = Partition.find p x in
+      (y, Funarr.d_create a, Jst.dep2 rho tau)
+      
+  let rec of_equal e (p, s) =
     try
-      Jst.Eqtrans.compose 
-	(Partition.find p) 
-	(A.inv s) 
-	a
+      of_update (d_update p e) (p, s)
     with
 	Not_found ->
 	  (try
-	     (match Funarr.d_interp a with
-		| Sym.Create, [b] -> 
-		    let (b', rho) = abstract c b in
-		      if b == b' then Jst.Eqtrans.id a else
-			let (a', tau) = abstract c (Funarr.mk_create b') in
-			  (a', Jst.dep2 rho tau)
-		| Sym.Select, [b; j] -> 
-		    let (b', rho) = abstract c b
-		    and (j', tau) = abstract c j in
-		      if b == b' && j == j' then Jst.Eqtrans.id a else
-			let (a', sigma) = 
-			  abstract c (Funarr.mk_select Term.is_equal b' j') 
-			in
-			  (a', Jst.dep3 rho tau sigma)
-		| Sym.Update, [b; i; x] -> 
-		    let (b', rho) = abstract c b
-		    and (i', tau) = abstract c i
-		    and (x', sigma) = abstract c x in
-		      if b == b' && i == i' && x == x' then 
-			Jst.Eqtrans.id a 
-		      else
-			let (a', theta) = 
-			  abstract c (Funarr.mk_update Term.is_equal b' i' x') 
-			in
-			  (a', Jst.dep4 rho tau sigma theta)
-	        | _ ->
-		    Jst.Eqtrans.id a)
+	     of_select (d_select p e) (p, s)
 	   with
-	      Not_found -> Jst.Eqtrans.id a)
+	       Not_found ->
+		 (try
+		    of_create (d_create p e) (p, s)
+		  with
+		      Not_found -> []))
 
-let abstract c = Jst.Eqtrans.trace "foobar" "Arr.abstract" (abstract c)
+  (** Propagate an update equality using rules (1), (2), (3), (4). *)
+  and of_update u (p, s) =
+    of_update1 u (p, s)
+      (of_update2 u (p, s) 
+	 (of_update3 u (p, s)
+	    (of_update4 u (p, s) [])))
 
-
-(** {i Canonization} with respect to a configuration [c]
-  of the form [(v, s)] with [v] variable equalities and [s]
-  an array context.
-  - [C[| . |] = (C^-1(.) o C[.])] *)
-let can c =
-  Jst.Eqtrans.compose
-    (abstract c)
-    (replace c)
-
-
-(** Lazy forward chaining for flat selection and update terms [b]. *)
-let rec lazy_chain c b =
-  try
-    let (a, j) = Funarr.d_select b in
-      lazy_chain_select c a j
-  with
-      Not_found -> 
-	(try 
-	   let (a, i, x) = Funarr.d_update b in
-	     lazy_chain_update c a i x 
-	 with 
-	     Not_found -> ())
- 
-(** Lazy forward chaining on selection [a[j]].
-  - (2') [i<>j], [v = u[j], [u' = a[i:=x]], [u = u'] ==> [v = a[j]] *)
-and lazy_chain_select c a j =
-  select_index_iter c j
-    (fun (v, (u, j'), rho) ->            (* [rho |- v = u[j]] *)
-       assert(Term.eq j j');
-       update_iter c u
-	 (fun (u', (a', i, x), tau) ->   (* [tau |- u = a[i:=x]] *)
-	    assert(Term.eq u u');
-	    if Term.eq a a' then
-	      match is_diseq c i j with
-		| None -> ()
-		| Some(sigma) ->         (* [sigma |- i <> j] *)
-		    let rho' = Jst.dep3 rho tau sigma in
-		    let e' = Fact.Equal.make (v, Funarr.Flat.mk_select a j, rho') in
-		      process_equal c e'))   (* ==> [rho,tau,sigma |- x = a[j]] by (2') *)  
-
-
-(** Lazy forward chaining on updates [a[i:=x]].
- - (3') [i<>j], [a = b[j:=y]], [u = b[i:=x]], [v = u[j:=y]] ==> [v = a[i:=x]] *)
-and lazy_chain_update c a i x =
-  () (* to do (3') *)
-
-
-(** Introduce a new name [u] for the flat term [a] if necessary 
-  and extend the context with a new equality [u = a]. The result
-  is always a variable. *)
-and flatname ((p, s) as c) a =
-  assert(is_flat a);
-  lazy_chain c a;
-  try
-    Jst.Eqtrans.compose 
-      (Partition.find p) 
-      (A.inv s) 
-      a
-  with
-      Not_found ->
-	let u = mk_rename () in
-	let rho = Jst.dep0 in
-	let e = Fact.Equal.make (u, a, rho) in
-	  update c e;
-	  (u, rho)
-
-
-(** Flatten a pure array term [a] and introduce variables as
-  necessary for naming subterms. The result is a variable [z]
-  equal to [a] in the extended context. *)
-and name ((p, s) as c) a =
-  assert(is_pure a);
-  if Term.is_var a then
-    Partition.find p a 
-  else 
-    try
-      Jst.Eqtrans.compose 
-	(Partition.find p) 
-	(A.inv s) a
-    with
-	Not_found -> 
-	  Jst.Eqtrans.compose
-	    (flatname c)
-	    (map c (name c)) a
-
-
-(** Extend [s] with an updated equation of the form [x = a]
-  and close under forward chaining. *)
-and update ((p, s) as c) e =
-  let (x, a, rho) = Fact.Equal.destruct e in
-    assert(Term.is_var x);
-    assert(is_flat a);
-    A.update c e;
-    chain c e
-
-
-(** Forward chaining on a new equality. *)
-and chain c e =
-  let (u, a, rho) = Fact.Equal.destruct e in
-    try
-      (match Funarr.d_interp a with
-	 | Sym.Update, [b; i; x] -> 
-	     chain_update c (u, (b, i, x), rho)
-	 | Sym.Select, [b; j] -> 
-	     chain_select c (u, (b, j), rho)
-	 | Sym.Create, [b] ->
-	     chain_create c (u, b, rho)
-	 | _ ->
-	     ())
-    with
-	Not_found -> ()
-
-
-(** Closing the state for a new equality [u = a[i:=x]] by applying
-  all forward chains with such an antecedent. *)
-and chain_update c e =   
-  chain_update_1 c e;
-  chain_update_2 c e;
-  chain_update_3 c e;
-  chain_update_4 c e
-
-
-(** Forward chain on 
-  - (1) [u' = a[i:=x]], [u = u'] ==> [x = u[i]] *)  (* [rho |- u = a[i:=x]] *)
-and chain_update_1 ((p, _) as c) (u', (a, i, x), rho) = 
-  let (u, tau) = Partition.find p u' in             (* [tau |- u = u'] *) 
-  let ui = Funarr.Flat.mk_select u i in
-  let e1 = Fact.Equal.make (x, ui, Jst.dep2 rho tau) in
-    Trace.msg "arr''" "Arr.chain(1)" e1 Fact.Equal.pp;
-    process_equal c e1
-
-
-(** Forward chain on third hypothesis in
-  - (2') [i<>j] and [v = u'[j]], [u = a[i:=x]], [u = u']] ==> [v = a[j]] *)
-and chain_update_2 ((p, _) as c) (u, (a, i, x), rho) =
-  Trace.msg "foo" "Chain2" (Fact.Equal.make (u,  (Funarr.Flat.mk_update a i x), rho)) Fact.Equal.pp;
-  D.Set.iter                              (* [rho |- u = a[i:=x]] *)
-    (fun (j, tau) ->                      (* [tau |- i <> j] *)
-       Trace.msg "foo" "Diseq" j Term.pp;
-       select_index_iter c j
-       (fun (v, (u', j'), sigma) ->     (* [sigma |- v = u[j]] *)
-	  assert(Term.eq j j');
-          Trace.msg "foo" "Select" (Funarr.Flat.mk_select u' j) Term.pp;
-	  match Partition.is_equal p u u' with
-	    | None -> ()
-	    | Some(theta) ->            (* [theta |- u = u'] *)
-		let rho' = Jst.dep4 rho tau sigma theta in
-		let e' = Fact.Equal.make (v, Funarr.Flat.mk_select a j, rho') in
-		  Trace.msg "arr''" "Arr.chain(2)" e' Fact.Equal.pp;
-		  process_equal c e'))
-    (Partition.diseqs p i)
-
-
-(** Forward chain on update hypotheses in
-  - (3') [i<>j], [u = a[i:=x]], [v = u'[j:=y]], [u = u'] ==> [v = a[j:=y][i:=x]] *)
-and chain_update_3 ((p, _) as c) (u, (a, i, x), rho) =
-  D.Set.iter                              (* [rho |- u = a[i:=x]] *)
-    (fun (j, tau) ->                      (* [tau |- i <> j] *)
-       update_index_iter c j
-       (fun (v, (u', j', y), sigma) -> (* [sigma |- v = u[j:=y]] *)
-	  assert(Term.eq j j');
-	  match Partition.is_equal p u u' with
-	    | None -> ()
-	    | Some(theta) ->           (* [theta |- u = u'] *)
-		let (ajy, ups) = name c (Funarr.Flat.mk_update a j y) in
-		let rho' = Jst.dep5 rho tau sigma theta ups in
-		let e' = Fact.Equal.make (v, Funarr.Flat.mk_update ajy i x, rho') in
-		  Trace.msg "arr''" "Arr.chain(3)" e' Fact.Equal.pp;
-		  process_equal c e'))
-    (Partition.diseqs p i)
-
-(** Forward chain on
-  - (4') [u = a[i:=x]], [v = u'[i:=y]], [u = u'] ==> [v = a[i:=y]] *)
-and chain_update_4 ((p, _) as c) (u, (a, i, x), rho) =
-  update_index_iter c i                     (* [rho |- u = a[i:=x]] *)
-    (fun (v, (u', i', y), tau) ->           (* [tau |- v = u'[i':=y]] *)
-       assert(Term.eq i i');
-       match Partition.is_equal p u u' with
-	 | None -> ()
-	 | Some(sigma) ->                   (* [sigma |- u = u'] *)
-	     let rho' = Jst.dep3 rho tau sigma in
-	     let e' = Fact.Equal.make (v, Funarr.Flat.mk_update a i y, rho') in
-	       Trace.msg "arr''" "Arr.chain(4)" e' Fact.Equal.pp;
-	       process_equal c e')
-					      
-
-(** Forward chaining on selection hypotheses. *)  
-and chain_select c e = 
-  chain_select_2 c e;
-  chain_select_5 c e
-
-
-(** Forward chaining on selection
- - (2') [i<>j] and [v = u[j]], [u' = a[i:=x]], [u = u'] ==> [v = a[j]] *)
-and chain_select_2 ((p, _) as c) (v, (u, j), rho) = 
-  D.Set.iter                              (* [rho |- v = u[j]] *)
-    (fun (i, tau) ->                      (* [tau |- i <> j] *)
-       update_index_iter c i
-         (fun (u', (a, i', x), sigma) ->  (* [sigma |- u = a[i:=x]] *)
-	    assert(Term.eq i i');
-	    match Partition.is_equal p u u' with
-	      | None -> ()
-	      | Some(ups) ->              (* [ups |- u = u'] *)
-		  let rho' = Jst.dep4 rho tau sigma ups in
-		  let e' = Fact.Equal.make (v, Funarr.Flat.mk_select a j, rho') in
-		    Trace.msg "arr''" "Arr.chain(2)" e' Fact.Equal.pp;
-		    process_equal c e'))
-    (Partition.diseqs p j)
-
-
-(** Forward chaining on selection 
- - (5') [u = v[j]], [v' = create(a)], [v = v'] ==> [u = a] *)
-and chain_select_5 ((p, s) as c) (u, (v, j), rho) = 
-  Partition.iter_if p                      (* [rho |- u = v[j]] *)
-    (fun v' ->
-       let (b, tau) = A.apply s v' in      (* [tau |- v' = create(a)] *)
-       let a = Funarr.d_create b in
-	 assert(Term.is_var a);
-	 match Partition.is_equal p v v' with
-	   | Some(sigma) ->                (* [sigma |- v = v'] *)
-	       let rho' = Jst.dep3 rho tau sigma in
-	       let e' = Fact.Equal.make (u, a, rho') in
-		 Trace.msg "arr''" "Arr.chain(5)" e' Fact.Equal.pp;
-		 Partition.merge p e'
-	   | None -> ())
-    v
-
-  
-
-(** Forward chaining on creation
-  - (5') [u = v'[j]], [v = create(a)], [v = v'] ==> [u = a] *)
-and chain_create ((p, s) as c) (v, a, rho) = (* [rho |- v = create(a)] *)
-  let (v', tau) = Partition.find p v in      (* [tau |- v = v'] *)
-    A.Dep.iter s
-      (fun e ->
-       let (u, b, sigma) = Fact.Equal.destruct e in
-	 try                                 (* [sigma |- u = v'[j]] *)
-	   let (v'', j) = Funarr.d_select b in
-	     if Term.eq v'' v' then
-	       let rho' = Jst.dep3 rho tau sigma in
-	       let e' = Fact.Equal.make (u, Funarr.Flat.mk_select v' j, rho') in
-		 Trace.msg "arr''" "Arr.chain(5)" e' Fact.Equal.pp;
-		 process_equal c e'
-	 with
-	     Not_found -> ())
-      v'  
-
-
-
-(** Merging a variable equality [x = y] by replacing [x] by [y] 
-  on right-hand sides of [s] and lazy forward chaining on the
-  resulting terms. *)
-and merge ((p, s) as c) e =
-  assert(Fact.Equal.is_var e);
-  let (x, y, rho) = Fact.Equal.destruct e in
-    A.Dep.iter s
-      (fun e' -> 
-	 let (x', a', rho') = Fact.Equal.destruct e' in
-	 let a'' = Funarr.Flat.apply (x, y) a' in
-	 let e'' = Fact.Equal.make (x', a'', Jst.dep2 rho rho') in
-	   update c e'')
-      x
-
-
-(** Like [name], but for variables do not necessarily return canonical
-  variable. *)
-and flatten c a =
-  if Term.is_var a then
-    Jst.Eqtrans.id a
-  else 
-    name c a
-
-
-(** Process an equality over pure array terms by flattening both sides
-  followed by merging the resulting variables. *)
-and process_equal ((p, _) as c) e = 
-  assert(Fact.Equal.both_sides is_pure e);
-  let e = Fact.Equal.map (flatten c) e in
-    assert(Fact.Equal.is_var e);
-    Partition.merge p e;
-    merge c e
-
-
-and process_diseq ((p, _) as c) d = 
-  assert(Fact.Diseq.both_sides is_pure d);
-  let d = Fact.Diseq.map (flatten c) d in
-    assert(Fact.Diseq.is_var d);
-    Partition.dismerge p d;
-    dismerge c d
-
-
-(** Propagating a disequality [i <> j] using forward chains [(2)] and [(3)]. *)
-and dismerge c d =
-  chain_on_diseq_2 c d;
-  chain_on_diseq_3 c d
-
-
-(** Propagating a disequality [i <> j] using
-  - (3') [i<>j], [u = a[i:=x]], [v = u'[j:=y]], [u = u'] ==> [v = a[j:=y][i:=x]] *)
-and chain_on_diseq_3 ((p, s) as c) d =
-  let (i, j, rho) = Fact.Diseq.destruct d in  (* [rho |- i <> j] *)
-    update_index_iter c i
-      (fun (u, (a, i', x), tau) ->            (* [tau |- u = a[i:=x]] *)
-	 assert(Term.eq i i');
-	 update_index_iter c j
-	   (fun (v, (u', j', y), sigma) ->    (* [sigma |- v = u[j:=y]] *)
-	      assert(Term.eq j j');
-	      match Partition.is_equal p u u' with
-		| None -> ()
-		| Some(ups) ->                (* [ups |- u = u'] *)
-		    let (ajy, nu) = name c (Funarr.Flat.mk_update a j y) in
-		    let rho' = Jst.dep5 rho tau sigma ups nu in
-		    let e' = Fact.Equal.make (v, Funarr.Flat.mk_update ajy i x, rho') in
-		      Trace.msg "arr''" "Arr.chain(3)" e' Fact.Equal.pp;
-		      process_equal c e'))
-  
-
-and chain_on_diseq_2 ((p, s) as c) d =
-  let (i, j, rho) = Fact.Diseq.destruct d in  (* [rho |- i <> j] *)
-  let chain2 (i, j) = 
-    select_index_iter c j
-      (fun (v, (u, j'), tau) ->               (* [tau |- v = u[j]] *)
-	 assert(Term.eq j j');
-	 update_index_iter c i
-	   (fun (u, (a, i', x), sigma) ->     (* [sigma |- u = a[i := x]] *)
-	      assert(Term.eq i i');
-	      let theta = Jst.dep3 rho tau sigma in
-	      let e = Fact.Equal.make (v, Funarr.Flat.mk_select a j, theta) in
-		Trace.msg "arr''" "Arr.chain(2)" e Fact.Equal.pp;
-		process_equal c e))
-  in
-    chain2 (i, j);  (* apply symmetrically *)
-    chain2 (j, i)
-
-
-(** Tracing. *)
-let name c = Jst.Eqtrans.trace "arr" "name" (name c)
-let process_diseq c = Trace.proc "arr" "process" Fact.Diseq.pp (process_diseq c)
-let process_equal c = Trace.proc "arr" "process" Fact.Equal.pp (process_equal c)
-let merge c = Trace.proc "arr" "merge" Fact.Equal.pp (merge c)
-let dismerge c = Trace.proc "arr" "dismerge" Fact.Diseq.pp (dismerge c)
-
-
-exception Found of Term.t * Term.t
-
-(** Return a possible case split. *)
-let split ((p, s) as cfg) =
-  try
-    (List.iter
-      (fun (_, b) ->
+  (** (1) [u = a[i:=x]] ==> [x = u[i]] *)
+  and of_update1 (u, (a, i, x), rho) (p, s) acc =
+    let ui = Funarr.Flat.mk_select u i in
+    let e = Fact.Equal.make (x, ui, rho) in
+      e :: acc
+    
+  (** (2) [i<>j], [v = u[j]], [u' = a[i:=x]], [u = u'] ==> [v = a[j]] *)
+  and of_update2 (u', (a, i, x), rho) (p, s) acc =               (* [rho |- u' = a[i:=x]] *)
+    let (u0, rho0) = Partition.find p u' in                      (* [rho0 |- u = u0] *)
+      E.S.Dep.fold s
+	(fun e acc ->
+	   try
+	     let (v, (u, j), tau) = d_select p e in      
+	       if not(Term.eq u u0) then acc else                (* [tau |- v' = u[j]] *)
+		 (match Partition.is_diseq p i j with
+		    | None -> acc
+		    | Some(sigma) ->                             (* [sigma |- i <> j] *)
+			let theta = Jst.dep4 rho0 rho tau sigma in
+			let aj = Funarr.Flat.mk_select a j in
+			let e = Fact.Equal.make (v, aj, theta) in
+			  e :: acc)
+	   with
+	       Not_found -> acc)
+	u0 acc
+    
+  (** (3) [i<>j] and [u = a[i:=x]] and [v = u[j:=y]] ==> [v = a[j:=y][i:=x]] *)
+  and of_update3 (u, (a, i, x), rho) (p, s) acc =
+    E.S.fold
+      (fun e acc ->
 	 try
-	   let (u', j) = Funarr.d_select b in
-	     (fun u -> 
-		try
-		  let (b, _) = apply s u in
-		  let (_, i, _) = Funarr.d_update b in
-		    match Partition.is_equal_or_diseq p i j with
-		      | Jst.Three.X -> 
-			  let (i, j) = Term.orient (i, j) in
-			    raise (Found (i, j))
-		      | _ -> 
-			  ()
-		with
-		    Not_found -> ())
-	     u'
+	   let (v, (u', j, y), tau) = d_update p e in
+	     if not(u == v) && Term.eq u u' then
+	       match Partition.is_diseq p i j with
+		 | None -> acc
+		 | Some(sigma) ->  
+		     let theta = Jst.dep3 rho tau sigma in
+		     let b =
+		       Funarr.Flat.mk_update
+			 (Funarr.Flat.mk_update a j y) i x
+		     in
+		     let e = Fact.Equal.make (v, b, theta) in
+		       e :: acc
+	     else 
+	       acc
 	 with
-	     Not_found -> ())
-       (A.to_list s);
-     raise Not_found)
-  with
-      Found(i, j) -> (i, j)
+	     Not_found -> acc)
+      s acc
+	     
+  (** (4) [u = v[i:=x]], [v = a[i:=y]]  ==> [u = a[i:=x]] *)
+  and of_update4 upd (p, s) acc =
+    of_update41 upd (p, s)
+      (of_update42 upd (p, s) acc)
+
+
+  and of_update41 (u, (v, i, x), rho) (p, s) acc = 
+    E.S.Dep.fold s
+      (fun e acc ->
+	 try
+	   let (v', (a, i', y), tau) = d_update p e in
+	     if Term.eq v v' && Term.eq i i' then
+	       let sigma = Jst.dep2 rho tau in
+	       let aix =  Funarr.Flat.mk_update a i x in
+	       let e = Fact.Equal.make (u, aix, sigma) in
+		 e :: acc
+	     else 
+	       acc
+	 with
+	     Not_found -> acc)
+      i acc
+
+  and of_update42 (v, (a, i, y), rho) (p, s) acc = 
+    E.S.Dep.fold s
+      (fun e acc ->
+	 try
+	   let (u, (v', i', x), tau) = d_update p e in
+	     if Term.eq v v' && Term.eq i i' then
+	       let sigma = Jst.dep2 rho tau in
+	       let e = Fact.Equal.make (u, Funarr.Flat.mk_update a i x, sigma) in
+		 e :: acc
+	     else 
+	       acc
+	 with
+	     Not_found -> acc)
+      i acc
+
+  (** Forward chain on selections, that is rules (2) and (5). *)
+  and of_select sel (p, s) =
+    of_select2 sel (p, s)
+       (of_select5 sel (p, s) [])
+
+  (** (2) [i<>j] and [v = u[j]], [u' = a[i:=x]], [u = u'], ==> [v = a[j]]. *)
+  and of_select2 (v, (u, j), rho) (p, s) =                 (* [rho |- v = u[j]] *)
+    Partition.fold p
+      (fun e acc ->
+	 try
+	   let (u', (a, i, x), tau) = d_update p e in      (* [tau |- u' = a[i:=x]] *)
+	     if not(Term.eq u u') then acc else            (* [u == u'] *)
+	       (match Partition.is_diseq p i j with 
+		 | None -> acc
+		 | Some(sigma) ->                          (* [sigma |- i <> j] *)  
+		     let theta = Jst.dep3 rho tau sigma in
+		     let aj = Funarr.Flat.mk_select a j in
+		     let e = Fact.Equal.make (v, aj, theta) in
+		       e :: acc)
+	 with
+	     Not_found -> acc)
+      u 
+
+  (** (5) [v = u[j]], [u = create(a)] ==> [v = a]. *)
+  and of_select5 (v, (u, j), rho) (p, s) = 
+    Partition.fold p
+      (fun e acc -> 
+	 try
+	   let (u', a, tau) = d_create p e in
+	     if Term.eq u u' then
+	       let e' = Fact.Equal.make (v, a, Jst.dep2 rho tau) in
+		 e' :: acc
+	     else 
+	       acc
+	 with
+	     Not_found -> acc)
+      u
+
+  (** Forward chain on create.
+    (5) [v = u[j]], [u = create(a)] ==> [v = a]. *)
+  and of_create (u, a, rho) (p, s) =
+    E.S.Dep.fold s
+      (fun e acc ->
+	 try
+	   let (v, (u', j), tau) = d_select p e in
+	     if Term.eq u u' then
+	       let theta = Jst.dep2 rho tau in
+	       let e' = Fact.Equal.make (v, a, theta) in
+		 e' :: acc
+	     else 
+	       acc
+	       
+	 with
+	     Not_found -> acc)
+      u []
+
+  (** Forward chain on variable equalities. *)
+  let rec of_var_equal e (p, s) = 
+    assert(Fact.Equal.is_var e);
+    of_var_equal2 e (p, s) 
+      (of_var_equal3 e (p, s)
+	 (of_var_equal4 e (p, s)
+	    (of_var_equal5 e (p, s) [])))
+
+  (** (2) [i<>j] and [v = u[j]], [u' = a[i:=x]], [u0 =v = u' =v u] ==> [v = a[j]] *)
+  and of_var_equal2 e (p, s) =
+    let u'' = Fact.Equal.lhs_of e in
+    let (u0, rho0) = Partition.find p u'' in
+      E.S.Dep.fold s
+	(fun e acc ->
+	   try
+	     let (v, (u, j), rho) = d_select p e in
+	       if not(Term.eq u0 u) then acc else
+		 D.Set.fold 
+		   (fun (i, tau) acc ->   
+		      E.S.Dep.fold s
+		        (fun e acc ->
+			   try
+			     let (u', (a, i', x), sigma) = d_update p e in
+			       if not(Term.eq i i') then acc else
+				 match Partition.is_equal p u0 u' with
+				   | None -> acc
+				   | Some(theta) -> 
+				       let ups = Jst.dep5 rho0 rho tau sigma theta in
+				       let e = Fact.Equal.make (v, Funarr.Flat.mk_select a j, ups) in
+					 e :: acc	 
+			   with
+			       Not_found -> acc)
+		        i acc)
+		   (Partition.diseqs p j)
+		   acc
+	   with
+	       Not_found -> acc)
+	u0
+
+  (** (3) [i<>j], [u' = a[i:=x]], [v = u[j:=y]], [u =v u'] ==> [v = a[j:=y][i:=x]] *)
+  and of_var_equal3 e (p, s) =
+    let (u0, rho) = Partition.find p (Fact.Equal.rhs_of e) in
+      E.S.Dep.fold s
+	(fun e1 acc1 ->
+	   try
+	     let (v, (u', j, y), tau) = d_update p e1 in
+	       if not(Term.eq u' u0) then acc1 else
+		 Partition.fold p
+		   (fun e2 acc2 ->
+		      try
+			let (u', (a, i, x), sigma) = d_update p e2 in
+			  match Partition.is_equal p u' u0, Partition.is_diseq p i j with
+			    | Some(theta), Some(ups) -> 
+				let eps = Jst.dep5 rho tau sigma theta ups in
+				let ajy = Funarr.Flat.mk_update a j y in
+				let ajyix = Funarr.Flat.mk_update ajy i x in
+				let e = Fact.Equal.make (v, ajyix, eps) in
+				  e :: acc2
+			    | _ ->
+				acc2
+		      with
+			  Not_found -> acc2)
+		   u0 acc1
+	   with
+	       Not_found -> acc1)
+	u0 
+    
+
+  (** (4) [u = v[i:=x]], [v' = a[i:=y]], [v = v'] ==> [u = a[i:=x]] *)
+  and of_var_equal4 e (p, s) =
+    let (v0, rho) = Partition.find p (Fact.Equal.rhs_of e) in
+      E.S.Dep.fold s
+	(fun e1 acc1 ->
+	   try
+	     let (u, (v', i, x), tau) = d_update p e1 in
+	       if not(Term.eq v0 v') then acc1 else
+		 Partition.fold p
+		   (fun e2 acc2 ->
+		      try
+			let (v', (a, i', y), sigma) = d_update p e2 in
+			  if not(Term.eq i i') then acc2 else
+			    match Partition.is_equal p v' v0 with
+			      | None -> acc2
+			      | Some(theta) -> 
+				  let aix = Funarr.Flat.mk_update a i x in
+				  let ups = Jst.dep4 rho tau sigma theta in
+				  let e = Fact.Equal.make (u, aix, ups) in
+				    e :: acc2
+		      with
+			  Not_found -> acc2)
+		   v0 acc1
+	   with
+	       Not_found -> acc1)
+	v0 
+      
+
+  (** (5) [v = u[j]], [u' = create(a)], [u =v u'] ==> [v = a] *)
+  and of_var_equal5 e (p, s) =
+    let (u0, rho) = Partition.find p (Fact.Equal.rhs_of e) in
+      E.S.Dep.fold s
+	(fun e1 acc1 ->
+	   try
+	     let (v, (u', j), tau) = d_select p e1 in
+	       if not(Term.eq u0 u') then acc1 else
+		 Partition.fold p
+		   (fun e2 acc2 ->
+		      try
+			let (u', a, sigma) = d_create p e2 in
+			  match Partition.is_equal p u0 u' with
+			    | None -> acc2 
+			    | Some(theta) ->
+				let ups = Jst.dep4 rho tau sigma theta in
+				let e = Fact.Equal.make (v, a, ups) in
+				  e :: acc2
+			  with
+			      Not_found -> acc2)
+		   u0 acc1	
+	   with
+	       Not_found -> acc1)
+	u0 
+
+  (** Chaining on disequalities. *)
+  let rec of_var_diseq d (p, s) = 
+    assert(Fact.Diseq.is_var d);
+    of_var_diseq2 d (p, s)
+      (of_var_diseq3 d (p, s) [])
+
+  (** (2) [i<>j] and [v = u[j]], [u = a[i:=x]] ==> [v = a[j]]. *)
+  and of_var_diseq2 d (p, s) =
+    let (i, j, rho) = Fact.Diseq.destruct d in
+      E.S.Dep.fold s
+	(fun e1 acc1 ->
+	   try
+	     let (v, (u, j'), tau) = d_select p e1 in
+	       if not(Term.eq j j') then acc1 else
+		 E.S.Dep.fold s
+		   (fun e2 acc2 ->
+		      try
+			let (u', (a, i', x), sigma) = d_update p e2 in
+			  if not(Term.eq u u') || not(Term.eq i i') then acc2 else
+			    let theta = Jst.dep3 rho tau sigma in
+			    let aj = Funarr.Flat.mk_select a j in
+			    let e = Fact.Equal.make (v, aj, theta) in
+			      e :: acc2
+		      with
+			  Not_found -> acc2)
+		   i acc1
+	   with
+	       Not_found -> acc1)
+	j
+
+  (** (3) [i<>j] and [u = a[i:=x]] and [v = u[j:=y]] ==> [v = a[j:=y][i:=x]] *)
+  and of_var_diseq3 d (p, s) =
+    let (i, j, rho) = Fact.Diseq.destruct d in
+      E.S.Dep.fold s
+	(fun e1 acc1 ->
+	   try
+	     let (u, (a, i', x), tau) = d_update p e1 in
+	       if not(Term.eq i i') then acc1 else
+		 E.S.Dep.fold s
+		   (fun e2 acc2 ->
+		      try
+			let (v, (u', j', y), sigma) = d_update p e2 in
+			  if not(Term.eq u u') || not(Term.eq j j') then acc2 else
+			    let theta = Jst.dep3 rho tau sigma in
+			    let aj = Funarr.Flat.mk_select a j in
+			    let e = Fact.Equal.make (v, aj, theta) in
+			      e :: acc2
+		      with
+			  Not_found -> acc2)
+		   j acc1
+	   with
+	       Not_found -> acc1)
+	i
+
+  exception Found of Fact.Equal.t * Fact.Diseq.t
+
+  (** If [s] contains pattern [u' = v[j]], [v' = a[i:=x]] with 
+    - [v = v'] in [p],
+    - not([p |= i = j])
+    - not([p |= i <> j]),
+    then suggest the case split [i = j] or [i <> j]. *)
+  let disjunction (p, s) = 
+    try
+      E.S.iter
+	(fun e1 ->
+	   let (u', (v, j), rho) = d_select p e1 in
+	     E.S.iter
+	       (fun e2 ->
+		  let (v', (a, i, x), tau) = d_update p e2 in
+		    match Partition.is_equal p v v' with
+		      | None -> ()
+		      | Some(sigma) ->
+			  match Partition.is_equal_or_diseq p i j with
+			    | Jst.Three.X -> 
+				let theta = Jst.dep3 rho tau sigma in
+				  raise(Found(Fact.Equal.make(i, j, theta),
+					      Fact.Diseq.make(i, j, theta)))
+			    | _ -> ())
+	       s)
+	s;
+      raise Not_found
+    with
+	Found(e, d) -> [Fact.Equal(e); Fact.Diseq(d)]
+ 
+end 
+
+module D0 = Can.Trace(D)
+
+module Infsys0: (Infsys.IS with type e = E.t) =
+  Can.Make(T)(D0)
+
+
+(** Congruence closure inference system. *)
+module Infsys: (Infsys.IS with type e = E.t) =
+  Infsys.Trace(Infsys0)
+    (struct
+       type t = E.t
+       let level = "arr"
+       let eq = E.S.eq
+       let diff = E.S.diff
+       let pp = E.S.pp
+     end)

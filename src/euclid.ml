@@ -11,6 +11,8 @@
  * benefit corporation.
  *)
 
+(** Euclidean Solver *)
+
 module type Rat =
 sig
   type q

@@ -13,17 +13,21 @@
  * Author: Harald Ruess
  *)
 
+(** Interpreter state. *)
+
 open Name.Map
 
 (** Global state. *)
 
 let current = ref Context.empty
+let previous = ref Context.empty
 let symtab = ref (Symtab.empty())
 let inchannel = ref Pervasives.stdin
 let outchannel = ref Format.std_formatter
 let eot = ref "" 
 let counter = ref 0
 let prompt = ref "ics> "
+let diff = ref false
 
 let batch = ref false
 
@@ -32,6 +36,7 @@ let set_prompt str =
 
 let set_eot str =
   eot := str
+
 
 (** Some Translations. *)
 
@@ -343,7 +348,10 @@ module Out = struct
   let context ctxt =
      if !batch then nothing () else
        begin
-	 Format.fprintf !outchannel ":state ";
+	 if !diff then
+	   Format.fprintf !outchannel ":diff "
+	 else 
+	   Format.fprintf !outchannel ":state ";
 	 Context.pp !outchannel ctxt;
 	 Format.fprintf !outchannel "@?"
        end 
@@ -696,23 +704,46 @@ let do_ctxt =
      examples = []; 
      seealso = ""}
 
+let do_undo = 
+  Command.register "undo"
+    (fun () ->
+       let tmp = !current in
+	 current := !previous;
+	 previous := tmp)
+
+    {args = "";
+     short = "Undo last state modifying command. Another consecutive undo
+              will yield the starting state"; 
+     description = "" ; 
+     examples = [];
+     seealso = ""}
+
+
 let do_show = 
   Command.register "show"
     (fun n th ->
        let s = match n with
-	 | None -> !current
+	 | None -> if !diff then Context.diff !current !previous else !current
 	 | Some(n) -> (context_of n) 
        in
 	 match th with
-	   | None -> Out.context s
+	   | None -> 
+	       Out.context s
 	   | Some(th) -> 
 	       (match th with
-		  | None -> Partition.pp !outchannel (Context.partition_of s)
-		  | Some(i) -> Combine.pp i !outchannel (Context.eqs_of s)))
+		  | None -> 
+		      Partition.pp !outchannel (Context.partition_of s)
+		  | Some(i) -> 
+		      Combine.E.pp_i i !outchannel (Context.eqs_of s)))
     {args = "[@<ident>] [<th>]'";
      short = "Output partition and theory-specific equality sets."; 
-     description = "" ; 
-     examples = []; 
+     description = "Display current logical state or parts of it. If parameter
+                    'showdiff' is set to 'true', then only added information w.r.t.
+                    the previous state is displayed." ; 
+     examples = [("show", "Display logical state"); 
+                  ("show v", "Display variable equalities only");
+                  ("show la", "Display linear arithmetic context");
+                  ("show@st", "Display context with name 'st'")]; 
      seealso = ""}
       
 
@@ -795,13 +826,13 @@ let do_save =
      examples = []; 
      seealso = "symtab"}
     
-
 let do_restore =
   Command.register "restore"
     (fun n -> 
        try
 	 match Symtab.lookup n !symtab with
 	   | Symtab.State(t) -> 
+	       previous := !current;
 	       current := t;
 	       Out.unit ()
 	   | _ -> 
@@ -831,6 +862,7 @@ let do_remove =
 let do_forget =
   Command.register "forget"
     (fun () ->
+       previous := !current;
        current := Context.empty;
        Out.unit ())
     {args = "";
@@ -884,6 +916,7 @@ let do_process1 =
        let t = get_context n in
 	 match Context.add t a with  (* Update state and install new name in symbol table *)
 	   | Context.Status.Ok(t') -> 
+	       previous := !current;
 	       current := t';
 	       let n = save_state None in Out.ok n
 	   | Context.Status.Valid(rho) ->  Out.valid rho
@@ -921,6 +954,7 @@ let do_process (n, al) =
   let t = get_context n in
     match Context.addl t al with  (* Update state and install new name in symbol table *)
       | Context.Status.Ok(t') -> 
+	  previous := !current;
 	  current := t';
 	  let n = save_state None in Out.ok n
       | Context.Status.Valid(rho) ->  Out.valid rho
@@ -978,11 +1012,10 @@ let do_check_sat =
 	 match Context.check_sat s with
 	   | None ->
 	       Out.prop_unsat ()
-	   | Some(splits', s') ->   
+	   | Some(s') ->   
 	       let sn = fresh_state_name() in
 		 symtab := Symtab.add sn (Symtab.State(s')) !symtab;
-		   Out.ok sn;
-		   Out.splits splits')
+		   Out.ok sn)
     {args = "[@<ident>]";
      short = "Perform complete case-split.";
      description = "Check returns  ':unsat' if all case-splits fail and ':ok s'
@@ -1083,8 +1116,9 @@ let do_split =
     (fun n ->
        let s = get_context n in
 	 (try
-	    let spl = Combine.split (Context.config_of s) in
-	     Combine.Split.pp !outchannel spl
+	    let spl = failwith "to do" (* Combine.split (Context.config_of s) *) in
+	     (* Combine.Split.pp !outchannel spl *)
+	      ()
 	  with
 	      Not_found -> 
 		Format.fprintf !outchannel ":none");
@@ -1103,7 +1137,7 @@ let do_find =
     (fun (n, th, x) ->
        let s = get_context n in
        let (b, rho) = match th with
-	 | Some(i) -> Combine.find (Context.eqs_of s) i x
+	 | Some(i) -> Combine.E.find (Context.config_of s) i x
 	 | None -> Partition.find (Context.partition_of s) x
        in
 	 Out.term (b, rho))
@@ -1122,7 +1156,7 @@ let do_inv =
   Command.register "inv"
     (fun (n, i, b) -> 
        try
-	 Out.term (Combine.inv (Context.config_of (get_context n)) b)
+	 Out.term (Combine.E.inv (Context.config_of (get_context n)) b)
        with
 	   Not_found -> Out.none ())
     {args = "[@<ident>] <th> <term> ";
@@ -1140,7 +1174,7 @@ let do_inv =
 let do_dep =
   Command.register "dep"
     (fun (n, i, a) -> 
-       Out.terms (Combine.dep (Context.eqs_of (get_context n)) i a))
+       Out.terms (Combine.E.dep i (Context.eqs_of (get_context n)) a))
     {args = "[@<ident>] <th> <term> ";
      short = "Return the lhs dependencies for variable <term> in solution set <th>."; 
      description = "" ; 
@@ -1173,25 +1207,6 @@ let do_solve =
      seealso = ""}
 
  
-(** Equality/disequality test. *)
-
-let do_is_equal =
-  Command.register "is_equal"
-    (fun (a, b) ->
-       Out.yes_or_no 
-       (Jst.Rel2.apply 
-	  (Combine.can (Context.config_of !current))
-	  (Combine.is_equal_or_diseq (Context.config_of !current))
-	  a b))
-    {args = "<term> <term> ";
-     short = "Test whether terms are equal or disequal."; 
-     description = 
-        "[is_equal a b] tests whether [a] and [b] are equal in the
-         current logical state. If proof generation is enabled, a 
-         justification is displayed." ; 
-     examples = []; 
-     seealso = ""}
-
 
 (** Sat solver *)
 
@@ -1249,9 +1264,9 @@ module Parameters = struct
     | Eot
     | Prompt
     | IntegerSolve
-    | Crossmultiply
     | Index
     | Clock
+    | Diff
 
   let to_string = function
     | Compactify -> "compactify"
@@ -1264,9 +1279,9 @@ module Parameters = struct
     | Eot -> "eot"
     | Prompt -> "prompt"
     | IntegerSolve -> "integersolve"
-    | Crossmultiply -> "crossmultiply"
     | Index -> "index"
     | Clock -> "clock"
+    | Diff -> "showdiff"
 
   let of_string = function
     | "compactify" -> Compactify
@@ -1279,9 +1294,9 @@ module Parameters = struct
     | "eot" -> Eot
     | "prompt" -> Prompt
     | "integersolve" -> IntegerSolve
-    | "crossmultiply" -> Crossmultiply
     | "index" -> Index
     | "clock" -> Clock
+    | "showdiff" -> Diff
     | str -> raise(Invalid_argument (str ^ " : no such variable"))
 
   let get var =
@@ -1295,19 +1310,20 @@ module Parameters = struct
       | Outchannel -> Outchannel.to_string !outchannel
       | Eot -> !eot
       | Prompt -> !prompt
-      | Index -> string_of_bool !Eqs.pp_index
+      | Index -> string_of_bool !Solution.pp_index
       | IntegerSolve -> string_of_bool !Arith.integer_solve
-      | Crossmultiply -> string_of_bool !Atom.crossmultiply
       | Clock -> 
 	  let times =  Unix.times() in
 	  let utime =  times.Unix.tms_utime in
 	  let systime = times.Unix.tms_stime in
 	    Format.sprintf "utime = %f, systime = %f" utime systime
+      | Diff -> 
+	  string_of_bool !diff
 	
   let set var value =
     match var with
       | Compactify -> V.garbage_collection_enabled := bool_of_string value
-      | Index -> Eqs.pp_index := bool_of_string value
+      | Index -> Solution.pp_index := bool_of_string value
       | Statistics -> Prop.statistics := bool_of_string value
       | Proofmode -> Jst.Mode.set (Jst.Mode.of_string value)
       | Justifications -> Fact.print_justification :=  bool_of_string value
@@ -1316,9 +1332,9 @@ module Parameters = struct
       | Eot -> eot := value
       | Prompt -> prompt := value 
       | IntegerSolve -> Arith.integer_solve := bool_of_string value
-      | Crossmultiply -> Atom.crossmultiply := bool_of_string value
       | Pretty -> Pretty.flag := Pretty.Mode.of_string value
       | Clock -> invalid_arg "Can not reset clock"
+      | Diff -> (diff := bool_of_string value;  Infsys.difference := bool_of_string value)
 	
 
   let reset () = 
@@ -1331,9 +1347,9 @@ module Parameters = struct
     set Eot "";
     set Prompt "ics> ";
     set IntegerSolve "true";
-    set Crossmultiply "false";
     set Index "false";
-    set Pretty "mixfix"
+    set Pretty "mixfix";
+    set Diff "false"
 
   let show fmt var =
     Format.fprintf fmt "\n%s = %s" (to_string var) (get var)
@@ -1350,7 +1366,7 @@ module Parameters = struct
     f Prompt;
     f Index;
     f IntegerSolve;
-    f Crossmultiply
+    f Diff
 
 
   let description = function
@@ -1366,7 +1382,7 @@ module Parameters = struct
     | IntegerSolve -> "Enable integer solver"
     | Index -> "Enable printing of indices"
     | Clock -> "Current user and system time"
-    | Crossmultiply -> "Enable crossmultiplication"
+    | Diff -> "Enable display of differences only in show command"
       
 end
 
@@ -1413,6 +1429,7 @@ let do_reset =
   Command.register "reset"
     (fun () -> 
        Tools.do_at_reset ();
+       previous := Context.empty;
        current := Context.empty;
        symtab := Symtab.empty();
        Parameters.reset ();
@@ -1432,16 +1449,19 @@ let do_reset =
 (** Only protect logical context. *)
 let protect f a =
   let save_current = !current
+  and save_previous = !previous
   and save_symtab = !symtab 
   and save_counter = !counter in
     try
       let b = f a in
+	previous := save_previous;
 	current := save_current;
 	symtab := save_symtab;
 	counter := save_counter;
 	b
     with
 	exc ->
+          previous := save_previous;
 	  current := save_current;
 	  symtab := save_symtab;
 	  counter := save_counter;

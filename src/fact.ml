@@ -22,6 +22,42 @@ let rec pp_justification fmt j =
 and print_justification = ref false
 
 
+
+(** Sigma normal forms for individual theories. *)
+let sigma f al =
+  Trace.msg "foo34" "Fact.sigma" (f, al) (Sym.pp Term.pp);
+  match Sym.get f with
+    | Sym.Arith(op) ->  Arith.sigma op al
+    | Sym.Product(op) -> Product.sigma op al
+    | Sym.Bv(op) ->  Bitvector.sigma op al
+    | Sym.Coproduct(op) -> Coproduct.sigma op al
+    | Sym.Propset(op) -> Propset.sigma op al
+    | Sym.Cl(op) -> Apply.sigma op al
+    | Sym.Pp(op) -> Pprod.sigma op al
+    | Sym.Uninterp _ -> Term.App.mk_app f al
+    | Sym.Arrays(op) -> Funarr.sigma Term.is_equal op al
+
+let instantiate (e, rho) a =
+  let (b, c) = Atom.Equal.destruct e in
+  let rec inst a =
+    if Term.eq a c then b else        (** ??? *)
+      try
+	let (f, al) = Term.App.destruct a in
+	let bl = Term.mapl inst al in
+	  Trace.msg "foo34" "Inst" (f, []) (Sym.pp Term.pp);
+	  Trace.msg "foo34" "Inst" al (Pretty.list Term.pp);
+	  sigma f bl
+      with
+	  Not_found -> a
+  in
+  let a' = inst a in
+    if Term.eq a' a then Jst.Eqtrans.id a else
+      (a', rho)
+
+let instantiate (e, rho) =
+  Jst.Eqtrans.trace "foo34" "Instantiate" (instantiate (e, rho))
+
+
 (** {6 Equality facts} *)
 
 module Equal = struct
@@ -39,8 +75,6 @@ module Equal = struct
 
   let make (a, b, rho) = (Atom.Equal.make (a, b), rho)
 
-  let make_inorder (a, b, rho) = (Atom.Equal.make_inorder (a, b), rho)
-
   let map2 (f, g) ((e, rho) as fct) = 
     let (a, b) = Atom.Equal.destruct e in
     let (a', alpha') = f a 
@@ -52,6 +86,9 @@ module Equal = struct
   let map_lhs f = map2 (f, Jst.Eqtrans.id)
   let map_rhs f = map2 (Jst.Eqtrans.id, f)
 
+  let instantiate e =
+    map (instantiate e)
+
   let pp fmt (e, rho) = 
     pp_justification fmt rho;
     Atom.Equal.pp fmt e
@@ -59,58 +96,14 @@ module Equal = struct
   let both_sides p (e, _) = Atom.Equal.both_sides p e
   let is_var = both_sides Term.is_var
   let is_pure i = both_sides (Term.is_pure i)
-  let is_diophantine  = both_sides Arith.is_diophantine
 
-  let theory_of (e, _) =
-    let (a, b) = Atom.Equal.destruct e in
-      match a, b with
-	| Term.Var _, Term.Var _ -> None
-	| Term.Var _, Term.App(g, _, _) -> Th.inj (Sym.theory_of g)
-	| Term.App(f, _, _), Term.Var _  -> Th.inj (Sym.theory_of f)
-	| Term.App(f, _, _), Term.App _  -> Th.inj (Sym.theory_of f)
+  let status (e, _) = Atom.Equal.status e
 
-
-  let equiv f ((e, rho) as eqn) =
-    let (a, b) = Atom.Equal.destruct e in
-      try
-	let (a', b') = f (a, b) in
-	  if a == a' && b == b' then eqn else
-	    let e' = Atom.Equal.make (a', b') in
-	      (e', rho)
-      with
-	  Exc.Inconsistent -> 
-	    raise(Jst.Inconsistent rho)
-	    
-  let equivn f (e, rho) =
-    let (a, b) = Atom.Equal.destruct e in
-      try
-	let el = f (a, b) in              (* don't turn equalities around *)
-	let inj e = (Atom.Equal.make_inorder e, rho) in
-	  List.map inj el
-      with
-	  Exc.Inconsistent -> 
-	    raise(Jst.Inconsistent rho)
-
-  let norm map el =
-     let lookup x =
-       let rec loop = function
-	 | [] -> 
-	     Jst.Eqtrans.id x
-	 | e :: el -> 
-	     let (y, b, rho) = destruct e in
-	       if Term.eq x y then (b, rho) else loop el
-       in
-	 loop el
-     in
-       Jst.Eqtrans.replace map lookup
-
-  let holds (e, rho) =
-    match Atom.Equal.holds e with
-      | Three.Yes -> Jst.Three.Yes(rho)
-      | Three.No -> Jst.Three.No(rho)
-      | Three.X -> Jst.Three.X
-	          
-    let trace lvl name = Trace.func lvl name pp pp
+  module Set = Set.Make(
+    struct
+      type t = Atom.Equal.t * Jst.t
+      let compare (e1, _) (e2, _) = Atom.Equal.compare e1 e2
+    end)
 
 end
 
@@ -132,7 +125,6 @@ module Diseq = struct
     pp_justification fmt rho;
     Atom.Diseq.pp fmt d
 			
-  let is_diophantine (d, _) = Atom.Diseq.is_diophantine d
   let is_var (d, _) = Atom.Diseq.is_var d
 			
   let of_diseq (d, rho) = (d, rho)
@@ -145,31 +137,13 @@ module Diseq = struct
       if a == a' && b == b' then deq else
 	(Atom.Diseq.make (a', b'), Jst.dep3 rho alpha' beta')
 
-  let to_var term_to_var  ((d, rho) as deq) =
-    let (a, b) = Atom.Diseq.destruct d in
-      match a, b with
-	| Term.Var _, Term.Var _ -> deq
-	| Term.Var _, Term.App(g, _, _) ->
-	    let j = Sym.theory_of g in
-	    let (y, beta) = term_to_var j b in
-	      (Atom.Diseq.make (a, y), Jst.dep2 rho beta)
-	| Term.App(f, _, _), Term.Var _ ->
-	    let i = Sym.theory_of f in
-	    let (x, alpha) = term_to_var i a in
-	      (Atom.Diseq.make (x, b), Jst.dep2 rho alpha)
-	| Term.App(f, _, _), Term.App(g, _, _) ->
-	    let i = Sym.theory_of f in
-	    let j = Sym.theory_of g in
-	    let (x, alpha) = term_to_var i a in
-	    let (y, beta) = term_to_var j b in
-	      (Atom.Diseq.make (x, y), Jst.dep3 rho alpha beta)
+
+  let instantiate e =
+    map (instantiate e)
 
   let both_sides p (d, _) = Atom.Diseq.both_sides p d
-		
-  let d_diophantine (d, rho) =  
-    let (a, b) = Atom.Diseq.destruct d in
-    let q = Arith.d_num b in
-      (a, q, rho)
+
+  let is_pure i = both_sides (Term.is_pure i)
 
   module Set = Set.Make(
     struct
@@ -177,168 +151,183 @@ module Diseq = struct
       let compare (d1, _) (d2, _) = Atom.Diseq.compare d1 d2
     end)
 
+
+  let status (d, _) = Atom.Diseq.status d
+
 end
-
-
-(** {6 Nonnegativity facts} *)
-
-module Nonneg = struct
-
-  type t = Atom.Nonneg.t * Jst.t
-
-  let pp fmt (nn, rho) =  pp_justification fmt rho; Atom.Nonneg.pp fmt nn
-  let make (a, rho) = (Atom.Nonneg.make a, rho)
-  let of_nonneg (nn, rho) = (nn, rho)
-  let destruct (nn, rho) = (Atom.Nonneg.destruct nn, rho)
-      
-  let map f ((nn, rho) as nonneg) =
-    let a = Atom.Nonneg.destruct nn in
-    let (a', alpha') = f a in
-      if a == a' then nonneg else
-	let nn' = Atom.Nonneg.make a' in
-	  (nn', Jst.dep2 rho alpha')
-    
-end
-
 
 
 (** {6 Facts} *)
 
-type t = Atom.t * Jst.t
+type t = 
+  | Equal of Equal.t
+  | Diseq of Diseq.t
 
-let rec pp fmt (atm, j) =
-  pp_justification fmt j;
-  Atom.pp fmt atm;
-  Format.fprintf fmt "@?"
-    
-let atom_of (a, _) = a
-		       
-let justification_of (_, j) = j
-						
-let mk_axiom atm = (atm, Jst.axiom atm)
+type fact = t  (* nickname *)
 
-let mk_holds atm = (atm, Jst.dep0)
-      
-let rec map (is_equal, is_nonneg, is_pos) f atm =
-  match Atom.atom_of atm with
-    | Atom.TT -> 
-	mk_holds atm
-    | Atom.FF -> 
-	mk_holds atm
-    | Atom.Equal(a, b) -> 
-	let (a', alpha) = f a and (b', beta) = f b in
-	  if a == a' && b == b' then mk_holds atm else
-	    let rho = Jst.dep2 alpha beta in
-	      (match is_equal a' b' with
-		 | Jst.Three.Yes(tau) -> (Atom.mk_true, Jst.dep2 rho tau)
-		 | Jst.Three.No(tau) -> (Atom.mk_false, Jst.dep2 rho tau)
-		 | Jst.Three.X -> (Atom.mk_equal (a', b'), rho))
-    | Atom.Diseq(a, b) ->
-	let (a', alpha) = f a and (b', beta) = f b in
-	  if a == a' && b == b' then mk_holds atm else
-	    let rho = Jst.dep2 alpha beta in
-	      (match is_equal a' b' with
-		   | Jst.Three.No(tau) -> (Atom.mk_true, Jst.dep2 rho tau)
-		   | Jst.Three.Yes(tau) -> (Atom.mk_false, Jst.dep2 rho tau)
-		   | Jst.Three.X -> (Atom.mk_diseq (a', b'), rho))
-    | Atom.Nonneg(a) -> 
-	let (a', alpha) = f a in
-	  if a == a' then mk_holds atm else
-	    (match is_nonneg a' with
-	       | Jst.Three.Yes(tau) -> (Atom.mk_true, Jst.dep2 alpha tau)
-	       | Jst.Three.No(tau) -> (Atom.mk_false, Jst.dep2 alpha tau)
-	       | Jst.Three.X -> (Atom.mk_nonneg a', alpha))
-    | Atom.Pos(a) -> 
-	let (a', alpha) = f a in
-	  if a == a' then mk_holds atm else
-	    (match is_pos a' with
-	       | Jst.Three.Yes(tau) -> (Atom.mk_true, Jst.dep2 alpha tau)
-	       | Jst.Three.No(tau) -> (Atom.mk_false, Jst.dep2 alpha tau)
-	       | Jst.Three.X -> (Atom.mk_pos a', alpha))  
+let pp fmt = function
+  | Equal(e) -> Equal.pp fmt e
+  | Diseq(d) -> Diseq.pp fmt d
 
-let map preds f = 
-  Trace.func "foo" "Map" Atom.pp (Pretty.pair Atom.pp Jst.pp) (map preds f)
+let of_equal e = Equal(e)
+
+let of_diseq(d) = Diseq(d)
 
 
-(** {6 Stacks} *)
+(** {6 Input facts} *)
 
-  
-module type STACK = sig
-  type t
-  val clear : unit -> unit
-  val push : Th.t option -> t -> unit
-  val pop : unit -> Th.t option * t
-  val is_empty : unit -> bool
-end
+module E = Equal
+module D = Diseq
 
-module type T = sig
-  type t
-  val pp : t Pretty.printer
-end
+module Input = struct
 
-module Stack(Arg: T) = struct 
+  type t = {
+    mutable eqs : E.Set.t;
+    mutable diseqs : D.Set.t 
+  }
 
-  type t = Arg.t
+  let empty = {
+    eqs = E.Set.empty;
+    diseqs = D.Set.empty
+  }
 
-  let stack = Stack.create ()
-
-  let th_to_string = function
-    | None -> "v"
-    | Some(i) -> Th.to_string i
-
-  let enabled = ref true
-
-  let clear () = 
-    if !enabled then
-      Stack.clear stack
-		   
-  let push i e =
-    if !enabled then
-      Stack.push (i, e) stack
-	
-  let pop () =
-    if !enabled then
-      Stack.pop stack
+  let copy s = 
+    if !Tools.destructive then
+      {eqs = s.eqs; diseqs = s.diseqs}
     else 
-      failwith "Fatal error: popping a disabled stack"
-	
-  let is_empty () = 
-    Stack.is_empty stack
-      
-end
-  
-module Eqs = Stack(
-  struct
-    type t = Equal.t
-    let pp = Equal.pp
-  end)
-  
-module Diseqs = Stack(
-  struct
-    type t = Diseq.t
-    let pp = Diseq.pp
-  end)
+      s
 
-module Nonnegs = Stack(
-  struct
-    type t = Nonneg.t
-    let pp = Nonneg.pp
-  end)
-  
-let with_disabled_stacks f a =
-  try
-    Eqs.enabled := false;
-    Diseqs.enabled := false;
-    Nonnegs.enabled := false;
-    let b = f a in
-      Eqs.enabled := true;
-      Diseqs.enabled := true;
-      Nonnegs.enabled := true;
-      b
-  with
-      exc ->
-	Eqs.enabled := true;
-	Diseqs.enabled := true;  
-	Nonnegs.enabled := true;
-	raise exc
+  let is_empty s = 
+    E.Set.is_empty s.eqs &&
+    D.Set.is_empty s.diseqs
+
+  let eq i j =
+    i.eqs == j.eqs &&
+    i.diseqs == j.diseqs
+
+
+  let add s = function
+    | Equal(e) -> 
+	let eqs' = E.Set.add e s.eqs in
+	if !Tools.destructive then (s.eqs <- eqs'; s) else 
+	  {s with eqs = eqs'}
+    | Diseq(d) -> 
+	let diseqs' =  D.Set.add d s.diseqs in
+	  if !Tools.destructive then (s.diseqs <- diseqs'; s) else
+	    {s with diseqs = diseqs'}
+
+
+  let to_list s =
+    let eqs = E.Set.fold (fun e acc -> of_equal e :: acc) s.eqs [] 
+    and diseqs = D.Set.fold (fun d acc -> of_diseq d :: acc) s.diseqs [] in
+      eqs @ diseqs
+   
+  let pp fmt s =
+    let l = to_list s in
+      if l = [] then
+	Pretty.string fmt "{}"
+      else 
+	begin
+	  Pretty.set pp fmt l;
+	  Format.fprintf fmt "@?"
+	end 
+			  
+
+  module Equal = struct
+
+    let is_empty s = E.Set.is_empty s.eqs 
+
+    let add s e = 
+      let eqs' = E.Set.add e s.eqs in
+	if !Tools.destructive then 
+	  (s.eqs <- eqs'; s)
+	else 
+	  {s with eqs = eqs'}
+
+    let remove s e = 
+      let eqs' = E.Set.remove e s.eqs in
+	if !Tools.destructive then
+	  (s.eqs <- eqs'; s)
+	else 
+	  {s with eqs = eqs'}
+
+    let choose s = 
+      let e = E.Set.choose s.eqs in
+	(e, remove s e)
+
+    let to_list s =
+      E.Set.elements s.eqs
+
+    let fold f s = E.Set.fold f s.eqs
+
+    let instantiate e s =
+      let inst = E.instantiate e in
+      E.Set.fold 
+	(fun e acc ->
+	   let e' = inst e in
+	     if e == e' then acc else
+	       E.Set.add e' (E.Set.remove e acc))
+	s s
+
+  end 
+
+  module Diseq = struct
+
+    let is_empty s = D.Set.is_empty s.diseqs
     
+    let add s d = 
+      let diseqs' = D.Set.add d s.diseqs in
+	if !Tools.destructive then
+	  (s.diseqs <- diseqs'; s)
+	else 
+	  {s with diseqs = diseqs'}
+		    
+    let remove s d = 
+      let diseqs' = D.Set.remove d s.diseqs in
+	if !Tools.destructive then
+	  (s.diseqs <- diseqs'; s)
+	else 
+	  {s with diseqs = diseqs'}
+      
+    let choose s = 
+      let d = D.Set.choose s.diseqs in
+	(d, remove s d)
+
+    let choose s = 
+      Trace.call "foo45" "Diseq.choose" s pp;
+      let (d', s') = choose s in
+	Trace.exit "foo45" "Diseq.choose" (d', s') (Pretty.pair  D.pp pp);
+	(d', s')
+	
+    let to_list s = 
+      D.Set.elements s.diseqs
+
+    let instantiate e s =
+      let inst = D.instantiate e in
+	D.Set.fold 
+	  (fun d acc ->
+	     let d' = inst d in
+	       if d == d' then acc else
+		 D.Set.add d' (D.Set.remove d acc))
+	s s
+	
+    let fold f s = D.Set.fold f s.diseqs
+
+  end 
+
+  let instantiate e s =
+    let eqs' = Equal.instantiate e s.eqs
+    and diseqs' = Diseq.instantiate e s.diseqs in
+      if !Tools.destructive then
+	(s.eqs <- eqs'; s.diseqs <- diseqs'; s)
+      else 
+	{s with eqs = eqs'; diseqs = diseqs'}
+    
+
+  let is_empty s = 
+    Equal.is_empty s &&
+    Diseq.is_empty s
+
+
+
+end 

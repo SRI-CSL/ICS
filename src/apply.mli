@@ -57,12 +57,15 @@ val sigma : Sym.cl -> Term.t list -> Term.t
     {!Apply.mk_apply} and {!Apply.mk_abs} to compute the normal-form of applying [f] to the 
     arguments [al]. *)
 
+
 val map: (Term.t -> Term.t) -> Term.t -> Term.t
   (** [map f a] applies the term transformer [f] to each uninterpreted 
     subterm of [a] and rebuilds the term [a] by using the simplifying constructors
     [mk_apply] and [mk_abs]. *)
 
 val apply : (Term.t * Term.t) -> Term.t -> Term.t
+
+val disapply : Term.t * Term.t -> Term.t -> Term.t
 
 val solve : Term.Equal.t -> Term.Equal.t list
   (** Work in progress. Not yet used in an essential way. *)

@@ -14,7 +14,9 @@
  * (enclosed in the file LGPL).
  i*)
 
-(* $Id: bitv.ml,v 1.2 2003/02/23 23:52:38 ruess Exp $ *)
+(* $Id: bitv.ml,v 1.3 2003/10/06 03:25:05 ruess Exp $ *)
+
+(** Bitvector constants. *)
 
 (*s Bit vectors. The interface and part of the code are borrowed from the 
     [Array] module of the ocaml standard library (but things are simplified

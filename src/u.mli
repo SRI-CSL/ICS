@@ -23,61 +23,8 @@
   - {i functional} in that [x = a] and [x = b] implies [a = b].
 *)
 
-type t
 
-val eq : t -> t -> bool
-  (** [eq s1 s2] holds iff [s1] and [s2] are identical. Failure
-    of this test does not necessarily imply that the states are
-    not logically equivalent. *)
+module S: Solution.SET0
 
-
-val pp : t Pretty.printer
-  (** Pretty-printing a congruence-closure state. *)
-
-val empty : t
-  (** The empty congruence closure state. *)
-
-val is_empty : t -> bool
-
-val is_flat : Term.t -> bool
-  (** [is_flat a] holds iff [a] is of the form [f(x1,...,xn)]
-    with [f] an uninterpreted function symbol (see {!Sym.Uninterp})
-    and all [xi] are term variables. *)
-
-
-(** {6 Accessors} *)
-
-val apply : t -> Term.t -> Term.t * Jst.t
-  (** [apply s x] yields [(b, rho)] with [rho |- x = b]
-    and [b] a {i flat} term, if [x = b] is in [s]. Otherwise,
-    [Not_found] is raised. *)
-
-val find : t -> Term.t -> Term.t * Jst.t
-  (** [find s a] yields [(b, rho)] with [rho |- a = b]
-    and [b] a {i flat} term, if [a = b] is in [s]. In
-    particular, [a] is a variable. Otherwise, [(a, rho)] is
-    returned with [rho |- a = a]. *)
-
-val inv : t -> Term.t -> Term.t * Jst.t
-
-val dep : t -> Term.t -> Term.Var.Set.t
-
-val is_dependent : t -> Term.t -> bool
-  (** [is_dependent s x] iff there is an [a] such that [x = a] in [s]. *)
-
-val is_independent : t -> Term.t -> bool
-  (** [is_independent s y] iff there are [x], [a] such that [x = a] in [s]
-    and [y] is an argument variable of the flat term [a]. *)
-
-val fold : (Term.t -> Term.t * Jst.t -> 'a -> 'a) -> t -> 'a -> 'a
-  (** [fold f s e] applies [f x (a, rho)] for each [x = a] with justification
-    [rho] in [s] and accumulates the result starting with [e]. The order of
-    application is unspecified. *)
-
-(** {6 Updates} *)
-
-val copy : t -> t
-
-val name : Partition.t * t -> Jst.Eqtrans.t
-
-val merge : Partition.t * t -> Fact.Equal.t -> unit
+(** Congruence closure inference system. *)
+module Infsys: (Infsys.IS with type e = S.t)

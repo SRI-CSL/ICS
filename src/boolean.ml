@@ -11,6 +11,8 @@
  * benefit corporation.
  *)
 
+(** Boolean constants. *)
+
 (** {6 Constants} *)
 
 let mk_true () = Bitvector.mk_one 1

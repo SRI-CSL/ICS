@@ -11,597 +11,595 @@
  * benefit corporation.
  *)
 
-open Th
+(** Theory-specific canonization. *)
+let sigma f al =
+  match Sym.get f with
+    | Sym.Arith(op) ->  Arith.sigma op al
+    | Sym.Product(op) -> Product.sigma op al
+    | Sym.Bv(op) ->  Bitvector.sigma op al
+    | Sym.Coproduct(op) -> Coproduct.sigma op al
+    | Sym.Propset(op) -> Propset.sigma op al
+    | Sym.Cl(op) -> Apply.sigma op al
+    | Sym.Pp(op) -> Pprod.sigma op al
+    | Sym.Uninterp _ -> Term.App.mk_app f al
+    | Sym.Arrays(op) -> Funarr.sigma Term.is_equal op al
 
-(** {6 Array of Equality Sets} *)
 
-type t = {
-  u : U.t;
-  a : La.t;
-  p : P.t;
-  bv : Bv.t;
-  cop : Cop.t;
-  nl : Nl.t;
-  app : L.t;
-  arr : Arr.t;
-  pset : Pset.t;
-}
+(** Individual solvers *)
+let solve th e =
+  match th with
+    | Th.Shostak(i) ->
+        (match i with
+           | Th.LA -> Arith.solve e
+           | Th.BV -> Bitvector.solve e
+           | Th.P -> Product.solve e
+           | Th.COP -> Coproduct.solve e
+           | Th.APP -> Apply.solve e
+           | Th.SET -> Propset.solve e)
+    | _ ->
+        raise Exc.Incomplete
+	
 
-let eq s1 s2 =  
-  U.eq s1.u s2.u &&
-  La.eq s1.a s2.a &&
-  P.eq s1.p s2.p &&
-  Bv.eq s1.bv s2.bv &&
-  Cop.eq s1.cop s2.cop &&
-  Nl.eq s1.nl s2.nl &&
-  L.eq s1.app s2.app &&
-  Arr.eq s1.arr s2.arr &&
-  Pset.eq s1.pset s2.pset
-  
+(** ICS inference system as the cross product
+       [u * a * p * cop * cl * arr * set * bv]
+  of the theory-specific inference systems. *)
+module Is = struct
 
-let empty = {
-  u = U.empty;
-  a = La.empty;
-  p = P.empty;
-  bv = Bv.empty;
-  cop = Cop.empty;
-  nl = Nl.empty;
-  app = L.empty;
-  arr = Arr.empty;
-  pset = Pset.empty
-}
+  (** Individual inference systems. *)
+  module U = U.Infsys
+  module A = A.Infsys
+  module P = P.Infsys
+  module Cop = Cop.Infsys
+  module Cl = L.Infsys
+  module Arr = Arr.Infsys
+  module Set = Pset.Infsys
+  module Bv = Bv.Infsys
+    
+  module Cross = Infsys.Cross
+    
+  (** Combined inference system. *)
+  module Combined =
+    (Cross(U)
+       (Cross(A)
+	  (Cross(P)
+	     (Cross(Cop)
+		(Cross(Cl)
+		   (Cross(Arr)
+		      (Cross(Set)(Bv))))))))
+end 
 
-let copy s = {
-  u = U.copy s.u;
-  a = La.copy s.a;
-  p = P.copy s.p;
-  bv = Bv.copy s.bv;
-  cop = Cop.copy s.cop;
-  nl = Nl.copy s.nl;
-  app = L.copy s.app;
-  arr = Arr.copy s.arr;
-  pset = Pset.copy s.pset
-}
+module E = struct
 
-let pp i fmt s =
-  match i with
-    | Uninterpreted -> 
-	U.pp fmt s.u
-    | Shostak(i) ->
+  type t = Is.Combined.e
+
+  let u_of (e: t) = fst e 
+  let a_of e = fst (snd e)
+  let la_of e = fst (a_of e)
+  let nl_of e = snd (a_of e)
+  let p_of e = fst (snd (snd e))
+  let cop_of (e: t) = fst (snd (snd (snd e)))
+  let cl_of e = fst (snd (snd (snd (snd e))))
+  let arr_of e = fst (snd (snd (snd (snd (snd e)))))
+  let set_of e = fst (snd (snd (snd (snd (snd (snd e))))))
+  let bv_of e = snd (snd (snd (snd (snd (snd (snd e))))))
+
+  let empty: t = 
+    (U.S.empty, 
+     ((La.S.empty, Nl.E.S.empty),
+      (P.E.S.empty, 
+       (Cop.E.S.empty, 
+	(L.E.S.empty, 
+	 (Arr.E.S.empty, 
+	  (Pset.E.S.empty, 
+	   Bv.E.S.empty)))))))
+    
+  let is_empty ((u, ((la, nl), (p, (cop, (cl, (arr, (set, bv))))))): t) =
+    U.S.is_empty u &&
+    La.S.is_empty la &&
+    Nl.E.S.is_empty nl &&
+    P.E.S.is_empty p &&
+    Cop.E.S.is_empty cop &&
+    L.E.S.is_empty cl &&
+    Arr.E.S.is_empty arr &&
+    Pset.E.S.is_empty set &&
+    Bv.E.S.is_empty bv
+
+
+  let eq ((u1, ((la1, nl1), (p1, (cop1, (cl1, (arr1, (set1, bv1))))))): t)
+         ((u2, ((la2, nl2), (p2, (cop2, (cl2, (arr2, (set2, bv2))))))): t) 
+    =
+   U.S.eq u1 u2 &&
+   La.S.eq la1 la2 &&
+   Nl.E.S.eq nl1 nl2 &&
+   P.E.S.eq p1 p2 &&
+   Cop.E.S.eq cop1 cop2 &&
+   L.E.S.eq cl1 cl2 &&
+   Arr.E.S.eq arr1 arr2 &&
+   Pset.E.S.eq set1 set2 &&
+   Bv.E.S.eq bv1 bv2
+    
+  let pp fmt ((u, ((la, nl), (p, (cop, (cl, (arr, (set, bv))))))): t) =
+    let name i =
+      Format.fprintf fmt "\n%s:" (Th.to_string i)
+    in
+      if not(U.S.is_empty u) then
+	(name Th.u; U.S.pp fmt u);
+      if not(La.S.is_empty la) then
+	(let name = Th.to_string Th.la in
+	   Format.fprintf fmt "\n%s(r):" name;
+           La.pp La.R fmt la;
+	   Format.fprintf fmt "\n%s(t):" name;
+	   La.pp La.T fmt la);
+      if not(Nl.E.S.is_empty nl) then
+	(name Th.nl; Nl.E.S.pp fmt nl);
+      if not(P.E.S.is_empty p) then
+	(name Th.p; P.E.S.pp fmt p);
+      if not(Cop.E.S.is_empty cop) then
+	(name Th.cop; Cop.E.S.pp fmt cop);
+      if not(L.E.S.is_empty cl) then
+	(name Th.app; L.E.S.pp fmt cl);
+      if not(Arr.E.S.is_empty arr) then
+	(name Th.arr; Arr.E.S.pp fmt arr);
+      if not(Pset.E.S.is_empty set) then
+	(name Th.set; Pset.E.S.pp fmt set);
+      if not(Bv.E.S.is_empty bv) then
+	(name Th.bv; Bv.E.S.pp fmt bv)
+
+  let pp_i i fmt e =
+    match i with
+      | Th.Uninterpreted ->  U.S.pp fmt (u_of e)
+      | Th.Shostak(i) -> 
+	  (match i with
+             | Th.LA -> 
+		 La.pp La.R fmt (la_of e); 
+		 Format.fprintf fmt "\n";
+		 La.pp La.T fmt (la_of e)
+             | Th.BV -> Bv.E.S.pp fmt (bv_of e)
+             | Th.P -> P.E.S.pp fmt (p_of e)
+             | Th.COP -> Cop.E.S.pp fmt (cop_of e)
+             | Th.APP -> L.E.S.pp fmt (cl_of e)
+             | Th.SET -> Pset.E.S.pp fmt (set_of e))
+      | Th.Can(i) ->
+	  (match i with
+	     | Th.NL -> Nl.E.S.pp fmt (nl_of e)
+	     | Th.ARR -> Arr.E.S.pp fmt (arr_of e))
+
+  let find (e, p) i =
+    match i with
+      | Th.Uninterpreted -> 
+	  Jst.Eqtrans.id  (* no find for uninterpreted theory. *)
+      | Th.Shostak(i) -> 
+	  (match i with
+             | Th.LA -> La.S.find (la_of e)
+             | Th.BV -> Bv.E.find (p, bv_of e)
+             | Th.P -> P.E.find (p, p_of e)
+             | Th.COP -> Cop.E.find (p, cop_of e)
+             | Th.APP -> L.E.find (p, cl_of e) 
+             | Th.SET -> Pset.E.find (p, set_of e))
+      | Th.Can(i) ->
+	  (match i with
+	     | Th.NL -> Nl.E.find (p, nl_of e)
+	     | Th.ARR -> Arr.E.find (p, arr_of e))
+
+  let inv (e, p) a = 
+    try
+      let i = Sym.theory_of (Term.App.sym_of a) in
 	(match i with
-	   | LA -> La.pp fmt s.a
-	   | P -> P.pp fmt s.p
-	   | BV -> Bv.pp fmt s.bv
-	   | COP -> Cop.pp fmt s.cop  
-	   | APP -> L.pp fmt s.app
-	   | SET -> Pset.pp fmt s.pset)
-    | Can(i) ->
-	(match i with
-	   | NL -> Nl.pp fmt s.nl
-	   | ARR -> Arr.pp fmt s.arr)
+	  | Th.Uninterpreted -> 
+	      Jst.Eqtrans.compose (Partition.find p) (U.S.inv (u_of e)) a
+	  | Th.Shostak(i) -> 
+	      (match i with
+		 | Th.LA -> La.S.inv (la_of e) a
+		 | Th.BV -> Bv.E.inv (p, bv_of e) a
+		 | Th.P -> P.E.inv (p, p_of e) a
+		 | Th.COP -> Cop.E.inv (p, cop_of e) a
+		 | Th.APP -> L.E.inv (p, cl_of e) a 
+		 | Th.SET -> Pset.E.inv (p, set_of e) a)
+	  | Th.Can(i) ->
+	      (match i with
+		 | Th.NL -> Nl.E.inv (p, nl_of e) a
+		 | Th.ARR -> Arr.E.inv (p, arr_of e) a))
+    with
+	Not_found -> Partition.find p a
 
-let is_empty s = function 
-  | Uninterpreted -> 
-      U.is_empty s.u
-  | Shostak(i) ->
-      (match i with
-	 | LA ->  La.is_empty s.a
-	 | P -> P.is_empty s.p
-	 | BV -> Bv.is_empty s.bv
-	 | COP -> Cop.is_empty s.cop 
-	 | APP -> L.is_empty s.app
-	 | SET -> Pset.is_empty s.pset)
-  | Can(i) ->
-      (match i with
-	 | NL -> Nl.is_empty s.nl
-	 | ARR -> Arr.is_empty s.arr)
+  let dep i e =
+    match i with
+      | Th.Uninterpreted -> 
+	  U.S.dep (u_of e)
+      | Th.Shostak(i) -> 
+	  (match i with
+             | Th.LA -> La.S.dep (la_of e)
+             | Th.BV -> Bv.E.S.dep (bv_of e)
+             | Th.P -> P.E.S.dep (p_of e)
+             | Th.COP -> Cop.E.S.dep (cop_of e)
+             | Th.APP -> L.E.S.dep (cl_of e)
+             | Th.SET -> Pset.E.S.dep (set_of e))
+      | Th.Can(i) ->
+	  (match i with
+	     | Th.NL -> Nl.E.S.dep (nl_of e)
+	     | Th.ARR -> Arr.E.S.dep (arr_of e))
 
-let is_empty_but i s =
-  Th.for_all_but i (is_empty s)
-       
-let is_dependent s = function
-  | Uninterpreted -> 
-      U.is_dependent s.u
-  | Shostak(i)->
-      (match i with
-	 | LA -> La.is_dependent s.a
-	 | P-> P.is_dependent s.p
-	 | BV -> Bv.is_dependent s.bv
-	 | COP -> Cop.is_dependent s.cop 
-	 | APP -> L.is_dependent s.app
-	 | SET -> Pset.is_dependent s.pset)
-  | Can(i) ->
-      (match i with
-	 | NL -> Nl.is_dependent s.nl
-	 | ARR -> Arr.is_dependent s.arr)
+  let diff ((u1, ((la1, nl1), (p1, (cop1, (cl1, (arr1, (set1, bv1))))))): t)
+           ((u2, ((la2, nl2), (p2, (cop2, (cl2, (arr2, (set2, bv2))))))): t) 
+    =
+    let u = U.S.diff u1 u2
+    and la = La.S.diff la1 la2
+    and bv = Bv.E.diff bv1 bv2
+    and p = P.E.diff p1 p2
+    and cop = Cop.E.diff cop1 cop2
+    and cl = L.E.diff cl1 cl2
+    and set = Pset.E.diff set1 set2
+    and nl = Nl.E.S.diff nl1 nl2
+    and arr = Arr.E.S.diff arr1 arr2 in
+      (u, ((la, nl), (p, (cop, (cl, (arr, (set, bv)))))))
 
-let is_independent s = function
-  | Uninterpreted -> U.is_independent s.u
-  | Shostak(LA)-> La.is_independent s.a 
-  | Shostak(P)-> P.is_independent s.p
-  | Shostak(BV) -> Bv.is_independent s.bv
-  | Shostak(COP) -> Cop.is_independent s.cop
-  | Shostak(SET) -> Pset.is_independent s.pset
-  | Can(NL) -> Nl.is_independent s.nl
-  | Shostak(APP) -> L.is_independent s.app
-  | Can(ARR) -> Arr.is_independent s.arr
-   
-let occurs s i x =
-  is_dependent s i x ||
-  is_independent s i x
+  let copy s =
+    if not(!Tools.destructive) then s else
+      let (u, ((la, nl), (p, (cop, (cl, (arr, (set, bv))))))) = s in
+      let u = U.S.copy u
+      and la = La.S.copy la
+      and bv = Bv.E.S.copy bv
+      and p = P.E.S.copy p
+      and cop = Cop.E.S.copy cop
+      and cl = L.E.S.copy cl
+      and set = Pset.E.S.copy set
+      and nl = Nl.E.S.copy nl
+      and arr = Arr.E.S.copy arr in
+	(u, ((la, nl), (p, (cop, (cl, (arr, (set, bv)))))))
+	
+end 
 
-let apply s =  function
-  | Uninterpreted -> U.apply s.u
-  | Shostak(LA)-> La.apply s.a
-  | Shostak(P)-> P.apply s.p
-  | Shostak(BV) -> Bv.apply s.bv
-  | Shostak(COP) -> Cop.apply s.cop
-  | Shostak(SET) -> Pset.apply s.pset
-  | Can(NL) -> Nl.apply s.nl
-  | Shostak(APP) -> L.apply s.app
-  | Can(ARR) -> Arr.apply s.arr
+module G = Fact.Input
+module P = Partition
 
-let find s = function
-  | Uninterpreted -> U.find s.u
-  | Shostak(LA)-> La.find s.a
-  | Shostak(P)-> P.find s.p
-  | Shostak(BV) -> Bv.find s.bv
-  | Shostak(COP) -> Cop.find s.cop
-  | Shostak(SET) -> Pset.find s.pset
-  | Can(NL) -> Nl.find s.nl
-  | Shostak(APP) -> L.find s.app
-  | Can(ARR) -> Arr.find s.arr
+module Tr: Infsys.LEVEL with type t = E.t = 
+struct
+  type t = E.t
+  let level = "rule"
+  let eq = E.eq
+  let diff = E.diff
+  let pp = E.pp
+end 
 
-let inv (p, s) a =
-  match Term.App.theory_of a with
-    | Uninterpreted -> U.inv s.u a
-    | Shostak(LA)-> La.inv s.a a
-    | Shostak(P)-> P.inv s.p a
-    | Shostak(BV) -> Bv.inv s.bv a
-    | Shostak(COP) -> Cop.inv s.cop a
-    | Shostak(SET) -> Pset.inv s.pset a
-    | Shostak(APP) -> L.inv s.app a
-    | Can(ARR) -> Arr.abstract (p, s.arr) a
-    | Can(NL) -> Nl.abstract (p, s.nl) a
+(** Tracing rule applications. *)
+module S: (Infsys.IS with type e = E.t) = 
+  Infsys.Trace(Is.Combined)(Tr)
 
-let dep s = function
-  | Uninterpreted -> U.dep s.u
-  | Shostak(LA)-> La.dep s.a
-  | Shostak(P)-> P.dep s.p
-  | Shostak(BV) -> Bv.dep s.bv
-  | Shostak(COP) -> Cop.dep s.cop
-  | Shostak(SET) -> Pset.dep s.pset
-  | Can(NL) -> Nl.dep s.nl
-  | Shostak(APP) -> L.dep s.app
-  | Can(ARR) -> Arr.dep s.arr
+type e = E.t
+type t = e Infsys.config
+    (** A configuration consists of a triple [(g, e, p)] with
+      - [g] the input facts,
+      - [e] the equality sets for the individual theories
+      - [p] the shared variable equalities and disequalities. *)
+    
+type processed = E.t * P.t
 
+let eq (g1, e1, p1) (g2, e2, p2) =
+  G.eq g1 g2 &&
+  E.eq e1 e2 &&
+  P.eq p1 p2
 
-let fold f s = function
-  | Uninterpreted -> U.fold f s.u
-  | Shostak(LA)-> La.fold f s.a
-  | Shostak(P)-> P.fold f s.p
-  | Shostak(BV) -> Bv.fold f s.bv
-  | Shostak(COP) -> Cop.fold f s.cop
-  | Shostak(SET) -> Pset.fold f s.pset
-  | Can(NL) -> Nl.fold f s.nl
-  | Shostak(APP) -> L.fold f s.app
-  | Can(ARR) -> Arr.fold f s.arr
+let empty = 
+  (G.empty, E.empty, P.empty)
 
+let make (g, e, p) = (g, e, p)
 
-(** No interpretations for uninterpreted theory! *)
-let interp (p, s) i a =
-  match i with
-    | Uninterpreted -> Jst.Eqtrans.id a 
-    | Shostak(LA) -> La.apply s.a a
-    | Shostak(P) -> apply s Th.p a 
-    | Shostak(BV) -> Bv.apply s.bv a  
-    | Shostak(COP) -> Cop.apply s.cop a 
-    | Shostak(SET) -> Pset.apply s.pset a 
-    | Can(NL) -> Nl.replace (p, s.nl) a
-    | Can(ARR) -> Arr.replace (p, s.arr) a
-    | _ -> Partition.choose p (apply s i) a
+let is_empty (g, e, p) = 
+  G.is_empty g &&
+  E.is_empty e &&
+  P.is_empty p
 
+let pp fmt ((g, e, p): t) = 
+  G.pp fmt g;
+  E.pp fmt e;
+  P.pp fmt p
 
-(** Totalized inverse map. *)
-let abstract ((p, _) as cfg) a =
-  try
-    Jst.Eqtrans.compose (Partition.find p) (inv cfg) a
-  with
-      Not_found -> Partition.find p a
-
-
-(** Return a variable for a term, possibly updating the state. *)
-let name (p, s) i a = 
-  match i with
-    | Uninterpreted -> U.name (p, s.u) a
-    | Shostak(LA)-> La.name (p, s.a) a
-    | Shostak(P)-> P.name  (p, s.p) a
-    | Shostak(BV) -> Bv.name  (p, s.bv) a
-    | Shostak(COP) -> Cop.name (p, s.cop) a
-    | Shostak(SET) -> Pset.name (p, s.pset) a
-    | Can(NL) -> Nl.name (p, s.nl) a
-    | Shostak(APP) -> L.name (p, s.app) a
-    | Can(ARR) -> Arr.name (p, s.arr) a
-
-
-
-(** {6 Predicates} *)
-
-let cheap = ref true
-
-let is_equal ((p, s) as cfg) a b =
-  if Term.eq a b then
-    Some(Jst.dep0)
+let copy ((g, e, p) as s) = 
+  if !Tools.destructive then 
+    (G.copy g, E.copy e, P.copy p)
   else 
-    Partition.is_equal p a b
+    s
 
-let is_diseq ((p, s) as cfg) =
-  Jst.Pred2.orelse
-    (Partition.is_diseq p)
-    (Jst.Pred2.orelse
-       (La.is_diseq (p, s.a))
-       (Jst.Pred2.orelse
-	  (P.is_diseq (p, s.p))
-	  (Jst.Pred2.orelse
-	     (Cop.is_diseq (p, s.cop))
-	     (Jst.Pred2.orelse
-		(Pset.is_diseq (p, s.pset))
-		(L.is_diseq (p, s.app))))))
-			    
+let protect f s = f (copy s)
 
-      
+let do_destructive = ref false
 
-(** Test if terms [a] and [b] are equal or disequal in [s]. *)
-let is_equal_or_diseq cfg =
-  Jst.Rel2.yes_or_no 
-    (is_equal cfg) 
-    (is_diseq cfg)
-   
-let rec is_pos (p, s) a = 
-  let is_pos0 = Jst.Three.of_three Atom.Pos.holds in
-    if !cheap || not(Term.is_pure Th.la a) then is_pos0 a else 
-      Jst.Rel1.orelse
-	is_pos0
-	(Jst.Rel1.yes_or_no 
-	   (La.is_pos (p, s.a)) 
-	   (La.is_nonpos (p, s.a)))
-	a
-
-let rec is_nonneg (p, s) a =
-  if !cheap || not(Term.is_pure Th.la a) then 
-    is_nonneg0 a 
+let with_destructive f s =
+  if !do_destructive then
+    try
+      Tools.destructive := true;
+      let s' = copy s in
+      let s'' = f s' in
+	Tools.destructive := false;
+	s''
+    with
+	exc -> 
+	  Tools.destructive := false;
+	  raise exc
   else 
-    Jst.Rel1.orelse
-      is_nonneg0
-      (Jst.Rel1.yes_or_no
-	 (La.is_nonneg (p, s.a))
-	 (La.is_neg (p, s.a)))
-      a
+    f s
 
-and is_nonneg0 a = Jst.Three.of_three Atom.Nonneg.holds a
-  
-let is_neg cfg a = is_pos cfg (Arith.mk_neg a)
-
-let is_nonpos cfg a = is_nonneg cfg (Arith.mk_neg a)
-
-
-(** {6 Canonization} *)
-
-(** Sigma normal forms for individual theories. These are largely independent
- of the current state, except for sigma-normal forms for arrays, which use
- variable equalities and disequalities. *)
-let rec sigma cfg f al =
-  let inj sigma op l = (sigma op l, Jst.dep0) in
-    match Sym.get f with
-      | Sym.Arith(op) ->  inj Arith.sigma op al
-      | Sym.Product(op) -> inj  Product.sigma op al
-      | Sym.Bv(op) ->  inj Bitvector.sigma op al
-      | Sym.Coproduct(op) -> inj Coproduct.sigma op al
-      | Sym.Propset(op) -> inj Propset.sigma op al
-      | Sym.Cl(op) -> inj Apply.sigma op al
-      | Sym.Pp(op) -> inj Pprod.sigma op al
-      | Sym.Uninterp _ -> inj Term.App.mk_app f al
-      | Sym.Arrays(op) -> 
-	  let rhos = ref [] in
-	  let is_equal' = Jst.Three.to_three rhos (is_equal_or_diseq cfg) in
-	  let b = Funarr.sigma is_equal' op al in
-	    (b, Jst.dep !rhos)
-
-let rec can ((p, s) as cfg) a =
-  let interp_can op =            (* Apply interpretation on canonized term. *)
-    Jst.Eqtrans.compose_partial1 (* If no interpretation, return canonized result. *)
-      (interp cfg (Sym.theory_of op))
-      (can cfg)
+(** Canonization of mixed terms. *)
+let rec can ((e, p) as s) a =
+  let sigma f al = (sigma f al, Jst.dep0) in
+  let interp_can f = 
+    let i = Sym.theory_of f in
+      Jst.Eqtrans.compose_partial1
+	(E.find s i) 
+	(can s)
   in 
     if Term.is_var a then
-      Partition.find p a
+      P.find p a
     else 
       try
 	Jst.Eqtrans.compose
-	  (abstract cfg)                         
-	  (Jst.Eqtrans.mapargs (sigma cfg) interp_can)
+	  (E.inv s)                       
+	  (Jst.Eqtrans.mapargs sigma interp_can)
 	  a 
       with 
 	  Not_found ->
-	    Partition.find p a
+	    P.find p a
 
-let is_canonical cfg a =
-  let (b, _) = can cfg a in
-    Term.eq a b
-	    
+let can s = Jst.Eqtrans.trace "canon" "Can" (can s)
 
-(** Solver *)
-let solve th e =
-  match th with
-    | Shostak(i) -> 
-	(match i with
-	   | LA -> Arith.solve e
-	   | BV -> Bitvector.solve e
-	   | P -> Product.solve e
-	   | COP -> Coproduct.solve e
-	   | APP -> Apply.solve e
-	   | SET -> Propset.solve e)
-    | _ -> 
-	raise Exc.Incomplete
+let is_canonical s a =
+  let (b, rho) = can s a in
+    if Term.eq a b then Some(rho) else None
+
+let is_equal s a b =
+  let (a', rho') = can s a
+  and (b', tau') = can s b in
+    if Term.eq a' b' then Some(Jst.dep2 rho' tau') else None
+
+(** Explicitly generated disequalities. *)
+let is_diseq ((e, p) as s) a b =
+  let (a', rho') = can s a
+  and (b', tau') = can s b in
+    match Partition.is_diseq p a' b' with
+      | Some(sigma') -> Some(Jst.dep3 rho' tau' sigma')
+      | None -> None
+
+let is_equal_or_diseq s =
+  Jst.Rel2.yes_or_no (is_equal s) (is_diseq s)
+
+let cheap = ref false
+
+(** Incomplete test. *)
+let is_nonneg ((e, p) as s) a =
+  if Term.is_pure Th.la a then
+    let la = E.la_of e in
+    let (b, rho) = La.can (p, la) a in
+      match Arith.is_nonneg b with
+	| Three.Yes -> Jst.Three.Yes(rho)
+	| Three.No -> Jst.Three.No(rho)
+	| Three.X -> Jst.Three.X
+  else 
+    Jst.Three.X
+
+(** Incomplete test. *)
+let is_pos ((e, p) as s) a =
+  if Term.is_pure Th.la a then
+    let la = E.la_of e in
+    let (b, rho) = La.can (p, la) a in
+      match Arith.is_pos b with
+	| Three.Yes -> Jst.Three.Yes(rho)
+	| Three.No -> Jst.Three.No(rho)
+	| Three.X -> Jst.Three.X
+  else 
+    Jst.Three.X
+	
+
+(** Simplification of an atom. *)  
+let simplify ((_, p) as s) atm =
+  let id atm = (atm, Jst.dep0) in
+  match Atom.atom_of atm with
+    | (Atom.TT | Atom.FF) -> 
+	id atm
+    | Atom.Equal(a, b) -> 
+	let (a', rho') = can s a 
+	and (b', tau') = can s b in
+	  if Term.eq a' b' then
+	    (Atom.mk_true, Jst.dep2 rho' tau')
+	  else              (* only check for explicit disequalities. *)
+	    (match Partition.is_diseq p a' b' with 
+	       | Some(sigma') -> 
+		   (Atom.mk_false, Jst.dep3 rho' tau' sigma')
+	       | None -> 
+		   if a == a' && b == b' then
+		     id atm
+		   else 
+		     (Atom.mk_equal (a', b'), Jst.dep2 rho' tau'))   
+    | Atom.Diseq(a, b) ->
+	let (a', rho') = can s a 
+	and (b', tau') = can s b in
+	  if Term.eq a' b' then
+	    (Atom.mk_false, Jst.dep2 rho' tau')
+	  else              (* only check for explicit disequalities. *)
+	    (match Partition.is_diseq p a' b' with
+	       | Some(sigma') -> 
+		   (Atom.mk_true, Jst.dep3 rho' tau' sigma')
+	       | None -> 
+		   if a == a' && b == b' then
+		     id atm
+		   else 
+		     (Atom.mk_diseq (a', b'), Jst.dep2 rho' tau'))
+    | Atom.Nonneg(a) -> 
+	let (a', rho') = can s a in
+	  (match is_nonneg s a' with
+	    | Jst.Three.Yes(tau') -> 
+		(Atom.mk_true, Jst.dep2 rho' tau')
+	    | Jst.Three.No(tau') ->
+		(Atom.mk_false, Jst.dep2 rho' tau')
+	    | Jst.Three.X ->
+		if a == a' then id atm else 
+		  (Atom.mk_nonneg a', rho'))
+    | Atom.Pos(a) -> 
+	let (a', rho') = can s a in
+	  (match is_pos s a' with
+	     | Jst.Three.Yes(tau') -> 
+		 (Atom.mk_true, Jst.dep2 rho' tau')
+	     | Jst.Three.No(tau') -> 
+		 (Atom.mk_false, Jst.dep2 rho' tau')
+	     | Jst.Three.X ->
+		 if a == a' then id atm else 
+		   (Atom.mk_pos a', rho'))
+
+let simplify s =
+  Trace.func "rule" "Simplify" Atom.pp (Pretty.pair Atom.pp Jst.pp)
+    (simplify s)
 
 
-(** Abstract domain interpretation *)
-let dom (p, _) a =
-  let hyps = ref [] in
-  let rec of_term a =
-    match a with
-      | Term.Var _ -> 
-	  of_var a
-      | Term.App(f, al, _) ->
-	  (try
-	     let op = Sym.Arith.get f in
-	       Arith.dom of_term op al
-	   with
-	       Not_found ->
-		 let op = Sym.Pprod.get f in
-		   Pprod.dom of_term op al)
-  and of_var x =
-     let (y, rho) = Partition.find p x in
-     let d = Term.Var.dom_of y in
-       if not(x == y) then hyps := rho :: !hyps;
-       d
-  in
-  let d = of_term a in
-  let rho = Jst.dep !hyps in
+(** Domain Interpretation. *)
+let dom s a =
+  let (b, rho) = can s a in
+  let d = Arith.dom_of b in
     (d, rho)
 
 
-(** {6 Atom transformers} *)
+(** {6 Processing} *)	
 
-let map cfg = 
-  Fact.map (is_equal_or_diseq cfg, is_nonneg cfg, is_pos cfg)
 
-let simplify cfg = map cfg (can cfg)
-
-(** Return a purified atom. *)
-let rec abstract cfg atm =
-  let (atm', rho) = map cfg (abstract_term cfg) atm in
-  let (atm'', tau) = abstract_atom cfg atm' in
-    (atm'', Jst.dep2 rho tau)
-    
-and abstract_atom cfg atm =
-  match Atom.atom_of atm with
-    | Atom.Equal(a, b) -> 
-	(try
-	   let i = Term.App.theory_of a and j = Term.App.theory_of b in
-	     if i = j then Fact.mk_holds atm else 
-	       let (x', rho') = name cfg i a in
-		 (Atom.mk_equal (x', b), rho')
-	 with
-	     Not_found -> Fact.mk_holds atm)
-    | Atom.Diseq(a, b) -> 
-	(try
-	   let i = Term.App.theory_of a and j = Term.App.theory_of b in
-	     if i = j then Fact.mk_holds atm else 
-	       let (x', rho') = name cfg i a in
-		 (Atom.mk_diseq (x', b), rho')
-	 with
-	     Not_found -> Fact.mk_holds atm)
-    | _ -> 
-	Fact.mk_holds atm
-
-and abstract_term ((p, s) as cfg) a =   
- (* assert(is_canonical cfg a); *)
-  let rec of_args j al =
-    let rho = ref Jst.dep0 in
-    let trans a =
-      let (b, tau) = of_term j a in
-	rho := Jst.dep2 tau !rho; b
+(** Apply applicable inference rules until input [G] is empty. *)   
+let rec process s =
+  let eval s =
+    let ((g, _, _) as s) = 
+      process_star s 
     in
-    let bl = Term.mapl trans al in
-      (bl, !rho)
-  and of_term i a =
-    match a with
-      | Term.Var _ ->  
-	  of_var a
-      | Term.App(f, al, _) ->
-	  let j = Sym.theory_of f in
-	  let (bl, rhos) = of_args j al in    (* roughly, [rhok |- bk = ak] *) 
-	  let (c, rho) =                      (* [rho |- c = f(b1,...,bn)] *)
-	    if Term.eql al bl then 
-	      Jst.Eqtrans.id a
-	    else 
-	      sigma cfg f bl 
-	  in
-	    if i = Th.u || i = Th.nl || i = Th.arr || i <> j then
-	      let (x, tau) = name cfg j c in  (* [tau |- x = c] *)
-	      let sigma = Jst.dep3 tau rho rhos in
-		(x, sigma)                    (* [sigma |- x = a] *)
-	    else 
-	      (c, rho)
-  and of_var a =
-    Jst.Eqtrans.id a
+      assert(G.is_empty g);
+      S.normalize s
   in
-    match a with 
-      | Term.Var _ -> of_var a
-      | Term.App(f, _, _) -> of_term (Sym.theory_of f) a
+    with_destructive
+      eval s
 
+and process_star ((g, _, _) as s) =
+  Trace.msg "process" "Process_star" g G.pp;
+  if G.is_empty g then s else
+    let s = process1 s in
+      process_star s
 
-(** {6 Processing} *)
-
-type config = Partition.t * t
-
-
-(** Processing a fact. *)
-let rec process (p, s) ((atm, rho) as fct) =
-  match Atom.atom_of atm with
-    | Atom.TT -> 
-	() (* skip *)
-    | Atom.FF -> 
-	raise(Jst.Inconsistent(rho))
-    | Atom.Equal(a, b) -> 
-	let e = Fact.Equal.make (a, b, rho) in
-	  process_equal (p, s) e
-    | Atom.Diseq(a, b) -> 
-	let d = Fact.Diseq.make (a, b, rho) in
-	  process_diseq (p, s) d
-    | Atom.Nonneg(a) -> 
-	let nn = Fact.Nonneg.make (a, rho) in
-	  process_nonneg (p, s) nn
-    | Atom.Pos(a) -> 
-	let nn = Fact.Nonneg.make (a, rho) 
-	and dd = Fact.Diseq.make (a, Arith.mk_zero(), rho) in
-	  process_nonneg (p, s) nn;
-	  process_diseq (p, s) dd
-
-and merge (p, s) e = 
-  assert(Fact.Equal.is_var e);
-  let (x, y, rho) = Fact.Equal.destruct e in
-    match is_diseq (p, s) x y with
-      | Some(tau) ->
-	  raise(Jst.Inconsistent(Jst.dep2 rho tau))
-      | None ->
-	  Partition.merge p e;
-	  process_equal (p, s) e
-
-and process_equal (p, s) e =
-  match Fact.Equal.theory_of e with
-    | Some(i) ->  
-	assert(Fact.Equal.is_pure i e);
-	process_equal1 i (p, s) e
-    | None -> 
-	assert(Fact.Equal.is_var e);
-	Partition.merge p e;
-	let x = Fact.Equal.lhs_of e in
-	  Th.iter
-	    (fun i -> 
-	       if not(is_empty s i) && occurs s i x then
-		 process_equal1 i (p, s) e)
-	    
-and process_equal1 th (p, s) e =
-   match th with
-     | Uninterpreted -> 
-	 U.merge  (p, s.u) e
-     | Shostak(i)->  
-	 (match i with
-	    | LA -> La.process_equal (p, s.a) e
-	    | BV -> Bv.merge (p, s.bv) e
-	    | P -> P.merge (p, s.p) e
-	    | COP -> Cop.merge (p, s.cop) e  
-	    | APP -> L.merge  (p, s.app) e
-	    | SET -> Pset.merge (p, s.pset) e)
-     | Can(i) ->
-	 (match i with
-	    | ARR -> Arr.process_equal (p, s.arr) e
-	    | NL ->  Nl.merge (p, s.nl) e)
-
-
-and dismerge (p, s) d =
-  assert(Fact.Diseq.is_var d); 
-  Partition.dismerge p d;
-  La.process_diseq (p, s.a) d;
-  P.dismerge (p, s.p) d;
-  Cop.dismerge (p, s.cop) d;
-  Pset.dismerge (p, s.pset) d;
-  L.dismerge (p, s.app) d;
-  Arr.dismerge (p, s.arr) d;
-  Bv.dismerge (p, s.bv) d
-	
-and process_diseq (p, s) d =
-  let d = Fact.Diseq.to_var (name (p, s)) d in
-    dismerge (p, s) d
-
-and process_nonneg (p, s) =
-  La.process_nonneg (p, s.a) 
-
-let propagate_equal ((p, s) as cfg) e =
-  if Fact.Equal.is_var e then
-    merge cfg e
-  else if Fact.Equal.is_pure Th.la e then
-    Nl.propagate (p, s.a, s.nl) e
-  else 
-    ()
-
-
-let propagate_diseq cfg d =
-  let (a, b, rho) = Fact.Diseq.destruct d in
-    match is_equal cfg a b with
-      | Some(tau) -> 
-	  raise(Jst.Inconsistent(Jst.dep2 rho tau))
-      | None ->
-	  process_diseq cfg d
-
-
-let propagate_nonneg cfg nn =
-  let nn' = Fact.Nonneg.map (can cfg) nn in
-    process_nonneg cfg nn'
-
- 
-(** Garbage collection. Remove all variables [x] which are are scheduled
- for removal in the partitioning. Check also that this variable [x] does
- not occur in any of the solution sets. Since [x] is noncanonical, this
- check only needs to be done for the non-Shostak theories, since all other 
- solution sets are kept in canonical form. *)
-let gc (p, s) =
-  let filter x =  
-    not (Th.exists 
-	   (fun i -> 
-	      (Th.is_can i || 
-	       Th.is_uninterpreted i) && 
-	      is_dependent s i x))
-  in
-    Partition.gc filter p
-
-
-(** {6 Model construction} *)
-
-let model (p, s) = La.model (p, s.a)
-
-let maximize (p, s) = La.upper (p, s.a)
-let minimize (p, s) = La.lower (p, s.a)
-
-
-(** {6 Splits} *)
-
-module Split = struct
-
-  type t = 
-    | Finint of Term.t * La.Finite.t
-    | Equal of Term.t * Term.t
-
-
-  let pp fmt = function
-    | Finint(x, fin) -> 
-	Term.pp fmt x;
-	Pretty.string fmt " in "; 
-	La.Finite.pp fmt fin
-    | Equal(i, j) -> 
-	Term.Equal.pp fmt (i, j)
-
-end 
-
-let split (p, s) =
+and process1 s =
+  let s1 = process_equal s in
+  let s2 = process_diseq s1 in
+    s2
+    
+and process_equal (((g, e, p) as s) : t) =
   try
-    let (i, j) = Arr.split (p, s.arr) in
-      Trace.msg "spl" "Split" (i, j) Term.Equal.pp;
-      Split.Equal(i, j)
+    let (e', g') = G.Equal.choose g in
+      Trace.msg "rule" "Input" e' Fact.Equal.pp;
+      let e' = Fact.Equal.map (can (e, p)) e' in
+      let (a', b', rho') = Fact.Equal.destruct e' in
+	(match is_equal (e, p) a' b' with
+	  | Some _ -> 
+	      (g', e, p)    (* drop. *)
+	  | None -> 
+	      let s' = 
+		match Fact.Equal.status e' with
+		  | Term.Variable ->
+		      assert(Fact.Equal.is_var e');
+		      (g', e, Partition.merge p e')
+		  | Term.Pure(i) -> 
+		      assert(Fact.Equal.is_pure i e');
+		      S.merge i e' (g', e, p)
+		  | Term.Mixed(i, a) -> 
+		      S.abstract i a s
+	      in
+		propagate s')
   with
-      Not_found ->
-	let (x, fin) = La.Finite.disjunction (p, s.a) in
-	  Trace.msg "spl" "Split" fin La.Finite.pp;
-	  Split.Finint(x, fin)
+      Not_found -> s
+
+(** Propagate all fresh variable equalities and 
+  disequalities in partitioning [p] to individual 
+  procedures. *)
+and propagate s =
+  try
+    let s' = propagate_equal s in
+      propagate s'
+  with
+      Not_found -> 
+	(try
+	   let s' = propagate_diseq s in
+	     propagate s' 
+	 with
+	     Not_found -> s)
+
+and propagate_equal ((g, e, p) as s) =
+  let (eq, p) = P.fresh_equal p in
+    S.propagate eq (g, e, p)
+
+and propagate_diseq ((g, e, p) as s) = 
+  let (d, p) = P.fresh_diseq p in
+    S.propagate_diseq d (g, e, p)
+
+and process_diseq ((g, e, p) as s) = 
+  try
+    let (d, g') = G.Diseq.choose g in 
+      Trace.msg "rule" "Input" d Fact.Diseq.pp;
+      let d = Fact.Diseq.map (can (e, p)) d in
+      let (a, b, rho) = Fact.Diseq.destruct d in
+	(match is_diseq (e, p) a b with
+	   | Some _ -> 
+	       (g', e, p)     (* drop. *)
+	   | None -> 
+	       let s' = 
+		 match Fact.Diseq.status d with
+		   | Term.Variable ->
+		       assert(Fact.Diseq.is_var d);
+		       let p' = Partition.dismerge p d in
+			 S.propagate_diseq d (g', e, p')
+		   | Term.Pure(i) -> 
+		       assert(Fact.Diseq.is_pure i d);
+		       S.dismerge i d (g', e, p)
+		   | Term.Mixed(i, a) ->
+		       S.abstract i a s
+	       in
+		 propagate s')
+  with
+      Not_found -> s
+
+(** Two terms [a], [b] are disequal in [(e, p)] if asserting
+  [a = b] yields a contradiction. This also takes into 
+  account all implicit disequalies. *)
+and is_diseq_complete (e, p) a b =
+  let d = Fact.Diseq.make (a, b, Jst.dep0) in
+  let s = (G.Diseq.add G.empty d, e, p) in
+    try
+      let _ = protect process s in
+	None
+    with
+	Jst.Inconsistent(rho) -> Some(rho)
+
+(** Search for satisfiable branch. *)
+let rec is_sat s =
+  match S.branch s with
+    | [] ->
+	invalid_arg "Combine.check: empty branching"
+    | [s] -> 
+	(try
+	   let s' = protect process s in
+	     Some(s')
+	 with
+	     Jst.Inconsistent _ -> None)
+    | sl ->
+	is_sat_orelse sl
+
+and is_sat_orelse sl =
+  match sl with
+    | [] -> 
+	None
+    | s :: sl -> 
+	(try
+	   let s' = protect process s in
+	     is_sat s'
+	 with
+	     Jst.Inconsistent _ -> is_sat_orelse sl)
+
+let gc s = s
+
+let model (e, p) =
+  La.model (E.la_of e)
+
+let minimize (e, p) a =
+  La.lower (p, E.la_of e) a
+
+let maximize (e, p) a =
+  La.upper (p, E.la_of e) a

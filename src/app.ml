@@ -11,6 +11,8 @@
  * benefit corporation.
  *)
 
+(** Operations on uninterpreted terms. *)
+
 open Term
 
 let sigma f l =

@@ -11,9 +11,8 @@
  * benefit corporation.
  *)
 
-open Mpa
 
-let crossmultiply = ref false
+(** Equality, disequality, and inequality atoms. *)
 
 let to_option f a =
   try Some(f a) with Not_found -> None
@@ -29,8 +28,10 @@ module Equal = struct
    let both_sides p (a, b) = p a && p b
    let is_var = both_sides Term.is_var
    let is_pure i = both_sides (Term.is_pure i)
-   let is_diophantine = both_sides Arith.is_diophantine
    let eq (a1, b1) (a2, b2) = a1 == a2 && b1 == b2
+   let compare (a1, b1) (a2, b2) = 
+     let cmp = Term.compare a1 a2 in
+       if cmp <> 0 then cmp else Term.compare b1 b2
    let vars_of (a, b) = Term.Var.Set.union (Term.vars_of a) (Term.vars_of b)
    let holds (a, b) = if Term.eq a b then Three.Yes else Three.X
 
@@ -43,9 +44,15 @@ module Equal = struct
 
    let map (id, h) f = map2 (id, h) (f, f)
 
-   type solve = t -> t list
-   type trans = t -> t
-   type apply = t -> Term.t -> Term.t
+   let status (a, b) =
+     match Term.status a, Term.status b with
+       | Term.Variable, Term.Variable -> Term.Variable
+       | (Term.Mixed _ as s1) , _ -> s1
+       | _, (Term.Mixed _ as s2) -> s2
+       | (Term.Pure(i) as s1), Term.Variable -> s1
+       | Term.Variable, (Term.Pure(j) as s2) -> s2
+       | Term.Pure(i), (Term.Pure(j) as s2) -> 
+	   if i = j then s2 else Term.Mixed(i, a)
 
 end
 
@@ -61,59 +68,9 @@ module Diseq = struct
    let compare (a1, b1) (a2, b2) = 
      let cmp = Term.compare a1 a2 in
        if cmp <> 0 then cmp else Term.compare b1 b2
-   let is_diophantine (a, b) = Arith.is_diophantine a && Arith.is_num b
-   let d_diophantine ((a, b) as d) = 
-     assert(is_diophantine d);
-     (a, Arith.d_num b)
    let is_var (a, b) = Term.is_var a && Term.is_var b
    let vars_of (a, b) = Term.Var.Set.union (Term.vars_of a) (Term.vars_of b)
-   let unsat () = (Arith.mk_zero(), Arith.mk_one())
-   let valid () = (Arith.mk_zero(), Arith.mk_zero())
-   let make ((a, b) as d) =
-     let build (a, b) =  (* do some normalizations such as [-x <> 0 == x <> 0]. *)
-       match to_option Arith.d_num a, to_option Arith.d_num b with
-	 | None, None ->
-	     Term.orient (a, b)
-	 | Some(q'), None -> 
-	     let (p', b') = Arith.mono_of b in  (* [q' <> p' * b'] *)
-	       if Mpa.Q.is_neg p' then
-		 (Arith.mk_num (Mpa.Q.minus q'), (Arith.mk_multq (Mpa.Q.minus p') b'))
-	       else 
-		 Term.orient (a, b)
-	 | None, Some(p') -> 
-             let (q', a') = Arith.mono_of a in  (* [q' * a' <> p'] *)
-	       if Mpa.Q.is_neg q' then
-		 let a'' = Arith.mk_multq (Mpa.Q.minus q') a' in
-		 let b'' = Arith.mk_num (Mpa.Q.minus p') in
-		   Term.orient (a'', b'')
-	       else 
-		 Term.orient (a, b)
-	 | Some(q'), Some(p') -> 
-	     if Mpa.Q.equal q' p' then unsat() else valid()
-     in
-     if is_var d then
-       build d
-     else if Term.is_var a && Arith.is_num b then
-       build (a, b)
-     else if is_diophantine d then
-       let lcm =                     (* least common multiple of denominators *)
-	 Mpa.Q.abs                   (* of the coefficients in [a] and [b]. *)
-	   (Mpa.Q.of_z
-	      (Mpa.Z.lcm 
-		 (Arith.lcm_of_denominators a)
-		 (Arith.lcm_of_denominators b)))
-       in
-       let (a', b') =                (* all coefficients are integer now. *)
-	 if Mpa.Q.is_one lcm then (a, b) else 
-	   (Arith.mk_multq lcm a, Arith.mk_multq lcm b)
-       in
-       let (q', c') = Arith.destruct (Arith.mk_sub a' b') in (* [q' + c' <> 0] *)
-	 if Mpa.Q.is_nonneg q' then
-	   build (Arith.mk_neg c', Arith.mk_num q')         (* ==> [-c' <> q'] *)
-	 else 
-	   build (c', Arith.mk_num (Mpa.Q.minus q'))        (* ==> [c' <> -q'] *)
-     else 
-       build d
+   let make (a, b) = Term.orient (a, b)
    let map2 (id, h) (f, g) ((a, b) as d) =
    let (a', alpha) = f a in               
    let (b', beta) = g b in
@@ -122,45 +79,33 @@ module Diseq = struct
    let map h f = map2 h (f, f)
    let holds (a, b) =
      if Term.eq a b then Three.No else Three.X
+
+   let status (a, b) =
+     match Term.status a, Term.status b with
+       | (Term.Mixed _ as s1), _ -> s1
+       | _, (Term.Mixed _ as s2) -> s2
+       | Term.Variable, Term.Variable -> Term.Variable
+       | Term.Pure(i), (Term.Pure(j) as s2) -> 
+	   if i = j then s2 else Term.Mixed(i, a)
+       | (Term.Pure(i) as s1), Term.Variable -> s1
+       | Term.Variable, (Term.Pure(j) as s2) -> s2
+
 end
 
 module Nonneg = struct
   type t = Term.t
   let pp fmt a = Pretty.post Term.pp fmt (a, ">=0")
-  let valid () = Arith.mk_zero ()
-  let invalid () = Arith.mk_num (Mpa.Q.negone)
-  let make a =
-    match Arith.is_nonneg a with
-      | Three.Yes -> valid()
-      | Three.No -> invalid()
-      | Three.X -> 
-	  if Pprod.is_interp a then
-	    match Pprod.decompose a with
-	      | ((x, n), None) -> 
-		  if n mod 2 = 0 || Term.Var.is_slack x then 
-		    valid ()
-		  else
-		    x 
-	      | _ -> 
-		  a
-	  else 
-	    a
-
-  let make = Trace.func "atom" "Atom.Nonneg.make" pp pp make
+  let make a = a
 
   let destruct c = c
-
-  let holds a = 
-    match Arith.is_nonneg a with
-      | Three.X -> 
-	  if Pprod.is_nonneg a then Three.Yes else Three.X
-      | res -> res
 
   let map (id, h) f a =
     let (a', rho') = f a in            
       if a == a' then (a, id a) else 
 	let a'' = make a' in
 	  (a'', h a'' rho')
+
+  let status = Term.status
 end
 
 module Pos = struct
@@ -170,37 +115,15 @@ module Pos = struct
 
   let destruct c = c
 
-  let holds = Arith.is_pos
-
-  let valid = Arith.mk_one
-  let unsat = Arith.mk_zero
-
-  let make a = 
-    let a =  
-      try
-	let (q, x) = Arith.d_multq a in
-	  if Mpa.Q.is_pos q then x else a
-      with
-	  Not_found -> a
-    in
-      match Arith.is_pos a with
-	| Three.Yes -> valid()
-	| Three.No -> unsat()
-	| Three.X -> 
-	    if Pprod.is_interp a then
-	      match Pprod.decompose a with 
-		| ((y, n), None) when not(n mod 2 = 0) -> y
-		| _ -> a
-	    else 
-	      a
-
-  let make = Trace.func "atom" "Atom.Pos.make" pp pp make
+  let make a = a
 
   let map (id, h) f a =
     let (a', rho') = f a in            
       if a == a' then (a, id a) else 
 	let a'' = make a' in
 	  (a'', h a'' rho')
+
+  let status = Term.status
 end
 
 
@@ -313,6 +236,26 @@ let mk_equal (a, b) =
     | Three.No -> mk_false
     | Three.X -> of_equal(Equal.make(a, b))
 
+
+(** Boolean constants for normalizing some diequalities. *)
+module Boolean = struct
+
+  let tt () = Sym.Bv.mk_const(Bitv.create 1 true)
+  let ff () =  Sym.Bv.mk_const(Bitv.create 1 false)
+
+  let mk_true () = Term.App.mk_const (tt())
+  let mk_false () = Term.App.mk_const (ff())
+
+  let is_true = function
+    | Term.App(f, [], _) when Sym.eq f (tt()) -> true
+    | _ -> false
+
+  let is_false = function
+    | Term.App(f, [], _) when Sym.eq f (ff()) -> true
+    | _ -> false
+
+end 
+
 let mk_diseq (a, b) =
   if Term.eq a b then mk_false else
     if Boolean.is_true a then
@@ -326,32 +269,14 @@ let mk_diseq (a, b) =
     else
       of_diseq(Diseq.make (a, b))
 
-let mk_nonneg a = 
+
+let mk_nonneg a =
   let b = Nonneg.make a in
-    match Nonneg.holds b with
-      | Three.Yes -> mk_true
-      | Three.No -> mk_false
-      | Three.X -> of_nonneg b
+    of_nonneg b
 
 let mk_pos a =
   let b = Pos.make a in
-    match Pos.holds b with
-      | Three.Yes -> mk_true
-      | Three.No -> mk_false
-      | Three.X ->
-	  if Arith.is_int b then       (* [a > 0] iff [a - 1 >= 0] for [a] an integer. *)
-	    mk_nonneg (Arith.mk_decr b)
-	  else 
-	    of_pos b
-
-let mk_neg a = mk_pos (Arith.mk_neg a)
-let mk_nonpos a = mk_nonneg (Arith.mk_neg a)
-
-let mk_ge (a, b) = mk_nonneg (Arith.mk_sub a b)  (* [a >= b] iff [a - b >= 0] *)
-let mk_gt (a, b) = mk_pos (Arith.mk_sub a b)     (* [a > b] iff [a - b > 0] *)
-let mk_le (a, b) = mk_nonneg (Arith.mk_sub b a)  (* [a <= b] iff [b - a >= 0] *)
-let mk_lt (a, b) = mk_pos (Arith.mk_sub b a)     (* [a < b] iff [b - a > 0] *)
-
+    of_pos b
 
 let is_pure i (a, _) =
   match a with 
@@ -368,14 +293,14 @@ let is_pure i (a, _) =
 
 let is_negatable _ = true
 
-let negate (a, _) =
+let negate mk_neg (a, _) =
   match a with
     | TT -> mk_false
     | FF -> mk_true
     | Equal(a, b) -> mk_diseq (a, b)
     | Diseq(a, b) -> mk_equal (a, b)
-    | Nonneg(a) -> mk_pos (Arith.mk_neg a)  (* [not(a >= 0)] iff [-a > 0] *)
-    | Pos(a) -> mk_nonneg (Arith.mk_neg a)  (* [not(a > 0)] iff [-a >= 0] *)
+    | Nonneg(a) -> mk_pos (mk_neg a)  (* [not(a >= 0)] iff [-a > 0] *)
+    | Pos(a) -> mk_nonneg (mk_neg a)  (* [not(a > 0)] iff [-a >= 0] *)
 
 
 

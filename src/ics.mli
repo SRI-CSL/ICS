@@ -85,12 +85,6 @@ val set_integer_solve : bool -> unit
   (** Enable/disable integer solver (default [true]). Disabling the 
     integer solver makes the procedure incomplete, but (usually) faster. *)
 
-val set_crossmultiply : bool -> unit
-  (** Enable/disable crossmultiplication (default [false]). When enabled,
-    it is the responsibility of the user of this interface to make sure
-    that an expression is never divided by [0]. Otherwise, results are
-    unspecified. *)
-
 val set_proofmode : string -> unit
   (** ICS supports various proof modes.
     - [No] disables generation of justifications
@@ -170,7 +164,7 @@ val name_of_string : string -> name
     such that {!Ics.name_to_string}[(n)] yields [str]. *)
 
 val name_to_string : name -> string
-  (** [name_to_string n] is the inverse operation of {!Ics.name_to_string}. *)
+  (** [name_to_string n] is the inverse operation of {!Ics.name_of_string}. *)
 
 val name_eq : name -> name -> bool
   (** [name_eq n m] holds iff the corresponding 
@@ -1051,7 +1045,3 @@ val fourth_of_quadruple : 'a * 'b * 'c *'d -> 'd
 val is_some : 'a option -> bool
 val is_none : 'a option -> bool
 val value_of : 'a option -> 'a
-
-
-
-

@@ -40,9 +40,7 @@ val eq : t -> t -> bool
 val pp : t Pretty.printer
 (** Pretty-printing a partitioning. *)
 
-
-(** {6 Accessors} *)
-
+val is_empty : t -> bool
 
 val find : t -> Jst.Eqtrans.t
 (** [find s x] returns the canonical representative of the equivalence
@@ -57,8 +55,7 @@ val cnstrnt : t -> Term.t -> Var.Cnstrnt.t * Jst.t
   (** [cnstrnt s x] returns a domain constraint on [x], or raises [Not_found]
     if the interpretation of [x] is unconstrained. *)
 
-
-(** {6 Predicates} *)
+val is_canonical : t -> Term.t -> bool
 
 val is_int : t -> Jst.Pred.t
 
@@ -68,9 +65,6 @@ val is_diseq : t -> Jst.Pred2.t
 
 val is_equal_or_diseq : t -> Jst.Rel2.t
 
-
-(** {6 Iterators} *)
-
 val choose : t -> Jst.Eqtrans.t -> Jst.Eqtrans.t
   (** [choose p apply x] chooses an [x'] such that [apply x'] does
     not raise [Not_found]. If there is no such [x'], then [Not_found]
@@ -78,34 +72,47 @@ val choose : t -> Jst.Eqtrans.t -> Jst.Eqtrans.t
 
 val iter_if : t -> (Term.t -> unit) -> Term.t -> unit
 
-
-(** {6 Updates} *)
+val fold : t -> (Fact.Equal.t -> 'a -> 'a) -> Term.t -> 'a -> 'a
 
 val empty : t
 (** The [empty] partition. *)
 
-val copy : t -> t
-(** [copy p] does a shallow copying of [p]. Should be called before
-  calling any of the update functions below to protect [p] from
-  destructive updates. *)
-
-val merge : t -> Fact.Equal.t -> unit
+val merge : t -> Fact.Equal.t -> t
 (** [merge e s] adds a new variable equality [e] of the form [x = y] into
   the partition [s]. If [x] is already equal to [y] modulo [s], then [s]
   is unchanged; if [x] and [y] are disequal in [s], then the 
   exception [Exc.Inconsistent] is raised; otherwise, the equality [x = y] is added to 
-  [s] to obtain [s'] such that [v s' x] is identical to [v s' y]. [merge] is
-  destructive and should be protected using {!Partition.copy}. *)
+  [s] to obtain [s'] such that [v s' x] is identical to [v s' y]. *)
 
-val dismerge : t -> Fact.Diseq.t -> unit
+val dismerge : t -> Fact.Diseq.t -> t
 (** [diseq d s] adds a disequality of the form [x <> y] to [s]. If [x = y] is
   already known in [s], that is, if [is_equal s x y] yields [Three.Yes], then
   an exception [Exc.Inconsistent] is raised; if [is_equal s x y] equals [Three.No]
-  the result is unchanged; otherwise, [x <> y] is added using [D.add]. [diseq] is
-  destructive and should be protected using {!Partition.copy}. *)
+  the result is unchanged; otherwise, [x <> y] is added using [D.add]. *)
+
+val gc: (Term.t -> bool) -> t -> t
+  (** [gc p s] removes all noncanonical, internal variables [x] with [p x].
+    [diseq] destructive updates the input partition [s]. *)
+
+val fresh_equal : t -> Fact.Equal.t * t
+  (** Chooses a "fresh" variable equality. Each such equality is returned
+    at most once. In case there are no fresh variable equalities, [Not_found]
+    is raised. *)
+
+val fresh_diseq : t -> Fact.Diseq.t * t
+  (** Chooses a "fresh" variable disequality. Each such disequality is returned
+    at most once. In case there are no fresh variable disequalities, [Not_found]
+    is raised. *)
+
+val copy : t -> t
+  (** [copy p] copies [p] to a partition which is observationally 
+    equal to [p].  It is used to protect partitions against destructive
+    updates when {!Tools.destructive} is set to true.  That is, 
+    if [p'] is [copy p], then destructive updates in [p'] do not 
+    affect [p]. *)
+
+val diff : t -> t -> t
+  (** [diff p q] contains all facts in [p] but not in [q]. *)
 
 
-val gc: (Term.t -> bool) -> t -> unit
-(** [gc p s] removes all noncanonical, internal variables [x] with [p x].
-  [diseq] destructive updates the input partition [s]. In order to protect
-  a partition [s], {!Partition.copy}[s] should be used. *)
+

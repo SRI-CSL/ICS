@@ -13,7 +13,6 @@
 
 open Sym
 
-
 let is_interp = function
   | Term.App(sym, _, _) -> Sym.Coproduct.is sym
   | _ -> false
@@ -57,7 +56,6 @@ let d_out a =
     | Sym.Out(d), b -> (d, b)
     | _ -> raise Not_found
 
-
 let mk_inl a =
   try 
     d_outl a 
@@ -71,7 +69,6 @@ let mk_inr a =
   with 
       Not_found -> 
 	Term.App.mk_app Sym.Coproduct.mk_inr [a]
-
 
 let mk_outr a =
   try
@@ -90,6 +87,7 @@ let mk_outl a =
 let mk_inX = function Sym.Left -> mk_inl | Sym.Right -> mk_inr
 let mk_outX = function Sym.Left -> mk_outl | Sym.Right -> mk_outr
 
+
 (** Generalize injection. *)
 let rec mk_inj i a = 
   if i <= 0 then
@@ -99,6 +97,7 @@ let rec mk_inj i a =
   else 
     mk_inr (mk_inj (i - 1) a)
 
+
 (** Generalized coinjection. *)
 let rec mk_out i a = 
   if i <= 0 then
@@ -107,7 +106,6 @@ let rec mk_out i a =
     mk_outr a
   else 
     mk_outr (mk_out (i - 1) a)
-
 
 
 (** Canonical forms *)

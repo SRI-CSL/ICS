@@ -11,12 +11,13 @@
  * benefit corporation.
  *)
 
-(** Nonlinear inferences.
+(** Inference system for the theory of nonlinear multiplication. 
 
   @author Harald Ruess
   @author N. Shankar
+*)
 
-  A nonlinear {i context} consists of equalities of the form [x = y*z] 
+(** A nonlinear {i context} consists of equalities of the form [x = y*z] 
   with [x], [y], [z] variables.
 
   The following invariants are maintained.
@@ -45,107 +46,19 @@
   into a nonlinear context.
 *)
 
-type t
-  (** Representation of a nonlinear context as a conjunction
-    of equalities [x = y*v]. *)
 
-val eq : t -> t -> bool
-  (** [eq s1 s2] holds if the respective solution sets of [s1] 
-    and [s2] are identical. *)
+module E: Can.EQS
+  (** Equality set for the inference system for nonlinear multiplication.
+    As an invariance we maintain that equalities are of the
+    form [x = y * z] with [x], [y], [z] variables. *)
 
-val pp : t Pretty.printer
-  (** Pretty.printing nonlinear contexts. *)
+module Infsys: (Infsys.IS with type e = E.t)
+  (** Inference system for nonlinear multiplication as 
+    an extension of the AC inference system {!Ac.Make}
+    instantiated with the signature {!Pprod.Sig} of nonlinear
+    multiplication.  
 
-val apply : t -> Term.t -> Term.t * Jst.t
-  (** [apply s x] returns [a] if [x = a] is in [s]; 
-    otherwise [Not_found] is raised. *)
-
-val find : t -> Term.t -> Term.t * Jst.t
-  (** [find s x] returns [a] if [x = a] is in [s], and [x] otherwise. *)
-  
-val inv : t -> Term.t -> Term.t * Jst.t
-  (** [inv s a] returns [x] if [x = a] is in [s]; otherwise
-    [Not_found] is raised. *)
-
-val dep : t -> Term.t -> Term.Var.Set.t
-  (** [dep s y] returns the set of [x] such that [x = a] in [s]
-    and [y] occurs in [a]. *)
-
-val is_dependent : t -> Term.t -> bool
-  (** [is_dependent s x] holds iff there is an [a] such that [x = a] in [s]. *)
-
-val is_independent : t -> Term.t -> bool
-  (** [is_independent s y] holds iff [y] occurs in some [a] such that
-    [x = a] in [s]. *)
-
-val fold : (Term.t -> Term.t * Jst.t -> 'a -> 'a) -> t -> 'a -> 'a
-  (** [fold f s e] applies [f x (a, rho)] for each [x = a] with justification
-    [rho] in [s] and accumulates the result starting with [e]. The order of
-    application is unspecified. *)
-
-val empty : t
-  (** Empty context. *)
-
-val is_empty : t -> bool
-  (** [is_empty s] holds iff [s] represents the empty context. *)
-
-type config =  Partition.t * t 
-
-val replace : config -> Jst.Eqtrans.t
-  (** For a pure {!Th.nl} term [a], [replace (p, s) a] returns 
-    a pure term with all variables equal to a dependent variables 
-    in [s] expanded. *)
-
-val abstract : config -> Jst.Eqtrans.t
-  (** [abstract (p, s) a] recursively replaces subterms [x * v] of [a]
-    with [y'] if [y = x * v] in [s] with [y] and [y'] equal modulo [p]. *)
-
-val can : config -> Jst.Eqtrans.t
-  (** For {!Th.nl}-pure terms [a], [b], the {i canonical} 
-    form [can (p, s) a] is equal to [can(p, s) b] 
-    iff [a = b] is {!Th.nl}-valid in [(p, s)]. *)
-
-val name : config -> Jst.Eqtrans.t
-  (** For a {!Th.nl}-pure term [a], [name (p, s) a] returns
-    a variable [y] equal to [a] in the (destructively) updated 
-    configuration [(p, s)]. *)
-
-val merge : config -> Fact.Equal.t -> unit
-  (** For an equality [e] of the form [x = y] with
-    variables [x], [y], [merge (p, s) e] destructively
-    updates the configuration [(p, s)] to propagate this
-    equality. This updated version is equivalent
-    to the input configuration conjoined with the input equality.
-    As another side effect, nonnegativity constraints might be deduced
-    and added to {!Fact.Nonnegs}. *)
-
-val process : config -> Fact.Equal.t -> unit
-  (** For an equality [e] of the form [a = b] with
-    [a], [b] {!Th.nl}-pure, [merge (p, s) e] destructively
-    updates the configuration [(p, s)] to propagate [e].
-    This updated version is equivalent to the input configuration 
-    conjoined with the input equality. 
-    As another side effect, nonnegativity constraints might be deduced
-    and added to {!Fact.Nonnegs}. *)
-
-
-val propagate : Partition.t * La.t * t -> Fact.Equal.t -> unit
-  (** For a solved equality [x = a] with [a] a linear arithmetic
-    term, [propagate (p, la, nl) e] deduces consequences from
-    this equality and the configuration [(p, nl)] by plugging
-    in this equality into equalities [nl]. As a side effect,
-    [la], [nl], [p] might be destructively updated. *)
-
-val copy : t -> t
- (** The update functions {!Nl.name}, {!Nl.merge},
-   and {!Nl.process} {b destructively} update equality sets. 
-   The function [copy s] can be used to protect state [s] against these 
-   updates. For example, {i let s' = Nl.copy s in ...} protects [s]
-   against updates in [s']. *)
-  
-val disjunction : config -> Term.Equal.t * Term.Equal.t
-  (** [disjunction (p, s)] generates an implied disjunction
-    of the form [(x, 0); (y, 1)] for representing the 
-    disjunction [x = 0] OR [y = 1]. *)
-
+    In addition to AC inferences, this inference system
+    - deduces, for example, [x >= 0] if [x = y * z] and [y, z >= 0]
+    - branches on [x = 0] or [a = 1] if [x = x * a]. *)
 

@@ -16,6 +16,9 @@
 /*s Module [Parser]: parser for ICS syntactic categories. */
 
 %{
+
+(** Command parser. *)
+
   open Mpa
   open Tools
 
@@ -29,7 +32,7 @@ let name_of_rename = Name.of_string "v"
 %token DROP CAN SIMPLIFY ASSERT EXIT SAVE RESTORE REMOVE FORGET RESET SYMTAB SIG VALID UNSAT
 %token TYPE SIGMA
 %token SOLVE HELP DEF PROP TOGGLE SET GET TRACE UNTRACE CMP FIND USE INV SOLUTION PARTITION MODEL
-%token SHOW SIGN DOM SYNTAX COMMANDS SPLIT SAT ECHO CHECK
+%token SHOW SIGN DOM SYNTAX COMMANDS SPLIT SAT ECHO CHECK UNDO
 %token DISEQ CTXT 
 %token IN NOTIN TT FF DEF
 %token EOF QUOTE
@@ -197,11 +200,18 @@ list:
 
 apply: 
   term APPLY term               { Apply.mk_apply $1 $3 }
-| LAMBDA name COLON term        { Apply.abstract $2 $4 }
 | S                             { Apply.mk_s () }
 | K                             { Apply.mk_k () }
 | I                             { Apply.mk_i () }
 | C                             { Apply.mk_c () }
+| LAMBDA namelist COLON term    { let nl = $2 in   (* in reverse order! *)
+				  let body = $4 in
+				  let rec abstract_star acc = function
+				    | [] -> assert false
+				    | [n] -> Apply.abstract n acc
+				    | n :: nl -> abstract_star (Apply.abstract n acc) nl
+				  in 
+				  abstract_star body nl }
 ;
 
 boolean: 
@@ -214,8 +224,8 @@ arith:
 | term PLUS term                { Arith.mk_add $1 $3 }
 | term MINUS term               { Arith.mk_sub $1 $3 }
 | MINUS term %prec prec_unary   { Arith.mk_neg $2 }
-| term TIMES term               { Nonlin.mk_mult $1 $3 }
-| term EXPT int                 { Nonlin.mk_expt $1 $3 }
+| term TIMES term               { Pprod.mk_mult $1 $3 }
+| term EXPT int                 { Pprod.mk_expt $1 $3 }
 ;
 
 product:
@@ -246,6 +256,7 @@ propset:
 | term UNION term                { Propset.mk_union $1 $3 }
 | term INTER term                { Propset.mk_inter $1 $3 }
 | COMPL term %prec prec_unary    { Propset.mk_compl $2 }
+;
 
 
 bv: 
@@ -286,10 +297,10 @@ atom:
 | TT                       { Atom.mk_true }
 | term EQUAL term          { Atom.mk_equal ($1, $3) }
 | term DISEQ term          { Atom.mk_diseq ($1, $3) }
-| term LESS term           { Atom.mk_lt ($1, $3) }
-| term GREATER term        { Atom.mk_gt ($1, $3) }
-| term LESSOREQUAL term    { Atom.mk_le ($1, $3) }
-| term GREATEROREQUAL term { Atom.mk_ge ($1, $3) }
+| term LESS term           { Atom.mk_pos (Arith.mk_sub $3 $1) }     /* [a < b] iff [b - a > 0] */
+| term GREATER term        { Atom.mk_pos (Arith.mk_sub $1 $3) }     /* [a > b] iff [a - b > 0] */
+| term LESSOREQUAL term    { Atom.mk_nonneg (Arith.mk_sub $3 $1) }  /* [a <= b] iff [b - a >= 0] */
+| term GREATEROREQUAL term { Atom.mk_nonneg (Arith.mk_sub $1 $3) }  /* [a >= b] iff [a - b >= 0] */
 | term SUBSET term         { Atom.mk_equal (Propset.mk_inter $1 $3, $1) }
 ;
 
@@ -362,30 +373,11 @@ command:
 | GET                       { Istate.do_show_vars () }
 | SUP optname term          { Istate.do_sup ($2, $3) }
 | INF optname term          { Istate.do_inf ($2, $3) }
+| UNDO                      { Istate.do_undo () }
 | help                      { $1 }
 ;
 
-optvarspecs:            { let ctxt = Context.ctxt_of !Istate.current in
-			  let xs = 
-			    List.fold_right
-			      (fun a -> Term.Var.Set.union (Atom.vars_of a))
-			      ctxt Term.Var.Set.empty 
-			  in
-			    Term.Var.Set.fold 
-			      (fun x acc -> (x, None) :: acc) 
-			      xs [] }
-| varspecs              { $1 }
-  
-varspecs: 
-  varspec                   { [$1] }
-| varspecs COMMA varspec    { $3 :: $1 }
-;
-
-varspec: 
-  var               { $1, None }
-| var PLUS          { $1, Some(La.Max) }
-| var MINUS         { $1, Some(La.Min) }
-;
+optvarspecs:               { [] }
 
 varname : IDENT            { Istate.Parameters.of_string $1 }
 
@@ -446,6 +438,7 @@ help:
 | HELP INF                  { Istate.do_help (Istate.Command("inf")) }
 | HELP ASSIGN               { Istate.do_help (Istate.Command("set")) }
 | HELP LESS IDENT GREATER   { Istate.do_help (Istate.Nonterminal($3)) }
+| HELP UNDO                 { Istate.do_help (Istate.Command("undo")) }
 ;
 
 optname:                    { None }

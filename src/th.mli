@@ -109,5 +109,16 @@ val inj : t -> t option
     The [None] is usually used for predicates on variables.
     See, for example, module {!Combine}. *)
 
+val is_none : t option -> bool
+
+val out : t option -> t
+  (** Returns [i] if argument is of the form [Some(i)], and raises
+    [Not_found] otherwise. *)
+
 val pp : t option Pretty.printer
   (** Pretty-printing theories. *)
+
+val mem : t -> t list -> bool
+  (** [mem i jl] tests if [i] is in [jl]. *)
+
+module Set: (Set.S with type elt = t)

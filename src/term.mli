@@ -188,7 +188,19 @@ val is_const : t -> bool
 
 val is_pure : Th.t -> t -> bool
   (** [is_pure i a] holds iff all function symbols in [a] are of 
-    theory [i] (see {Theory.t}). *)
+    theory [i] (see {!Th.t}). *)
+
+type status = 
+  | Variable
+  | Pure of Th.t
+  | Mixed of Th.t * t
+
+val status : t -> status
+  (** [status a] classifies term [a] into one of:
+    - {i variables}
+    - {i pure} terms with all function symbols drawn from a single theory [i]
+    - {i mixed} terms. In this case, a maximal pure term is retured. *)
+
 
 val pure_of : t * t -> Th.t
   (** Return theory [i] if both [a] and [b] are [i]-pure (and not
@@ -247,7 +259,7 @@ val fold : (t -> 'a -> 'a) -> t -> 'a -> 'a
   (** Fold operator [fold f a e] on terms applies 
     argument function [f] to all variables in [a]
     and accumulates the results starting with [e]. 
-    Thus, if {!Term.var_of][a] is of the form [{x1,...,xn}]
+    Thus, if {!Term.var_of}[a] is of the form [{x1,...,xn}]
     with the order of variables unspecified,
     then [fold f a e] reduces to [f x1 (f x2 ... (f xn e))]. *) 
 
@@ -256,6 +268,9 @@ val iter : (t -> unit) -> t -> unit
 
 val mapl : (t -> t) -> t list -> t list  
   (** Mapping over list of terms. Avoids unnecessary consing. *)
+
+val choose : (t -> bool) -> t -> t
+  (** [choose p a] chooses a variable of [a] which satisfies predicate [p]. *)
 
 
 (** {6 Predicates} *)

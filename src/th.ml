@@ -11,6 +11,8 @@
  * benefit corporation.
  *)
 
+(** Theory identifiers. *)
+
 type t =
   | Shostak of shostak
   | Can of can
@@ -116,8 +118,27 @@ let inj =
       | Shostak(i) -> (match i with APP -> app | LA -> la | P -> p | BV -> bv | COP -> cop | SET -> set)
       | Can(i) -> (match i with ARR -> arr | NL -> nl)
       | Uninterpreted -> u
+
+let is_none = function
+  | None -> true
+  | Some _ -> false
     
+let out = function
+  | Some(i) -> i
+  | None -> raise Not_found
 
 let pp fmt = function
   | None -> Format.fprintf fmt "v"
   | Some(i) -> Format.fprintf fmt "%s" (to_string i)
+
+let rec mem i = function
+  | [] -> false
+  | j :: jl -> i = j || mem i jl
+  
+type th = t (* nickname *)
+
+module Set = Set.Make(
+  struct
+    type t = th
+    let compare = Pervasives.compare
+  end)

@@ -42,6 +42,8 @@ val list : 'a printer -> 'a list printer
 
 val pair : 'a printer -> 'b printer -> ('a * 'b) printer
 
+val triple : 'a printer -> 'b printer -> 'c printer -> ('a * 'b * 'c) printer
+
 val infix : 'a printer -> string -> 'b printer -> ('a * 'b) printer
   (** [infix p str q (a, b)] prints [a] using printer [p], then it prints
     [str], and then [b] using printer [b]. *)

@@ -236,7 +236,7 @@ end
 
 (** Function symbols for the theory {!Th.bv} of bitvectors are
   - [Const(b)] for constructing constant bitvectors such as [0111001].
-  - [Conc(n, m)], for integers [n, m >= 0, for concatenating bitvectors of width [n] and [m],
+  - [Conc(n, m)], for integers [n, m >= 0], for concatenating bitvectors of width [n] and [m],
   - [Sub(i, j, n)], for integers [0 <= i <= j < n], for extracting bits [i] through [j] in 
   a bitvector of width [n]. *)
 type bv =
@@ -320,7 +320,7 @@ end
 (** {6 Combinatory Logic} *)
 
 (** Function symbols of the theory {!Th.app} of functions
-  - [Apply of function application, and
+  - Apply of function application, and
   - combinators [S], [K], [I] *)
 type cl = 
   | Apply

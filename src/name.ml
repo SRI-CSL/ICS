@@ -11,6 +11,8 @@
  * benefit corporation.
  *)
 
+(** Hashconsed names. *)
+
 type t = string * int
 
 module StringHash = Hashtbl.Make(
@@ -23,8 +25,10 @@ module StringHash = Hashtbl.Make(
 let current = ref 0
 let table = StringHash.create 117
 
+(* don't reset, since there are some global variables.
 let _ = Tools.add_at_reset (fun () -> current := 0)
 let _ = Tools.add_at_reset (fun () -> StringHash.clear table)
+*)
 
 let of_string str =
   try

@@ -11,6 +11,8 @@
  * benefit corporation.
  *)
 
+(** Operations on functional arrays. *)
+
 open Term
 
 let d_interp = function

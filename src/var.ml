@@ -11,6 +11,8 @@
  * benefit corporation.
  *)
 
+(** Variables. *)
+
 module Cnstrnt = struct
 
   type t =

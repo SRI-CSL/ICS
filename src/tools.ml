@@ -11,12 +11,20 @@
  * benefit corporation.
  *)
 
+(** Global variables and useful functions. *)
+
 
 (** {6 Global variables} *)
 
 let linenumber = ref 0
+   (** Current line number in input. *)
 
 let profiling = ref false
+   (** Flag for enabling/disabling profiling of functions
+     profiled with {!Tools.profile}. *)
+
+let destructive = ref false
+   (** Flag for enabling/disabling destructive updates. *)
 
 
 (** {6 Functions to run at exit} *)
