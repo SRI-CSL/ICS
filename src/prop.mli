@@ -33,7 +33,6 @@ val mk_conj : t list -> t
 val mk_disj : t list -> t
 val mk_iff : t -> t -> t
 val mk_neg : t -> t
-val mk_let : Name.t -> t -> t -> t
 
 
 (** {6 Recognizers} *)
@@ -46,7 +45,6 @@ val is_ite : t -> bool
 val is_disj : t -> bool
 val is_iff : t -> bool
 val is_neg : t -> bool
-val is_let : t -> bool
 
 (** {6 Destructors} *)
 
@@ -56,7 +54,6 @@ val d_disj : t -> t list
 val d_iff : t -> t * t
 val d_ite : t -> t * t * t
 val d_neg : t -> t
-val d_let : t -> Name.t * t * t
 
 
 (** {6 Satisfiability checker} *)

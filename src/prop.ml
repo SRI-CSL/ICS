@@ -22,7 +22,6 @@ type t =
   | Iff of t * t
   | Ite of t * t * t
   | Neg of t
-  | Let of Name.t * t * t
 
 type dt
 
@@ -43,8 +42,6 @@ let rec pp fmt = function
       Pretty.infix pp " <=> " pp fmt (p, q)
   | Neg(p) -> 
       Pretty.string fmt "~("; pp fmt p; Pretty.string fmt ")"
-  | Let(x, p, q) ->
-      Pretty.mixfix "let" Name.pp ":=" pp "in" pp "end" fmt (x, p, q)
   | Ite(p, q, r) ->
       Pretty.mixfix "if" pp "then" pp "else" pp "end" fmt (p, q, r)
 
@@ -66,7 +63,6 @@ let mk_neg p = Neg(p)
 let mk_conj = function
   | [] -> True
   | pl -> mk_neg (mk_disj (List.map mk_neg pl))
-let mk_let x p q = Let(x, p, q)
 let is_true = function True -> true | _ -> false
 let is_false = function False -> true | _ -> false
 let is_var = function Var _ -> true | _ -> false
@@ -75,7 +71,6 @@ let is_disj = function Disj _ -> true | _ -> false
 let is_iff = function Iff _ -> true | _ -> false
 let is_ite = function Ite _ -> true | _ -> false
 let is_neg = function Neg _ -> true | _ -> false
-let is_let = function Let _ -> true | _ -> false
 
 let d_var = function Var(x) -> x | _ -> invalid_arg "wrong propositional argument"
 let d_atom = function Atom(a) -> a | _ -> invalid_arg "wrong propositional argument"
@@ -83,7 +78,6 @@ let d_disj = function Disj(dl) -> dl | _ -> invalid_arg "wrong propositional arg
 let d_iff = function Iff(p, q) -> (p, q) | _ -> invalid_arg "wrong propositional argument"
 let d_ite = function Ite(p, q, r) -> (p, q, r) | _ -> invalid_arg "wrong propositional argument"
 let d_neg = function Neg(p) -> p | _ -> invalid_arg "wrong propositional argument"
-let d_let = function Let(x, p, q) -> (x, p, q) | _ -> invalid_arg "wrong propositional argument"
 
 
 (** {6 Translations to/from ICSAT propositions} *)
@@ -183,36 +177,26 @@ let var_to_id = mk_icsat_id
 
 (** Translate propositional formula to one understood by ICSAT. *)
 let to_prop p =
-  let rec translate rho p =
+  let rec translate p =
     match p with
       | True -> 
 	  icsat_mk_true()
       | False -> 
 	  icsat_mk_false()
       | Var(x) -> 
-	  (try
-	     let q = List.assoc x rho in
-	       translate rho q
-	   with
-	       Not_found -> var_to_id x)
+	  var_to_id x
       | Atom(a) -> 
 	  atom_to_id a
-      | Let(x, p, q) ->
-	  (match p with
-	     | Var _ ->
-		 raise (Invalid_argument "No variable definitions")
-	     | _ ->
-		 translate ((x, p) :: rho) q)
       | Disj(pl) ->
-	  icsat_mk_or (List.map (translate rho) pl)
+	  icsat_mk_or (List.map translate pl)
       | Iff(p, q) ->
-	  icsat_mk_iff (translate rho p) (translate rho q)
+	  icsat_mk_iff (translate p) (translate q)
       | Ite(p, q, r) ->
-	  icsat_mk_ite (translate rho p) (translate rho q) (translate rho r)
+	  icsat_mk_ite (translate p) (translate q) (translate r)
       | Neg(p) ->
-	  icsat_mk_not (translate rho p)
+	  icsat_mk_not (translate p)
   in
-    translate [] p
+    translate p
 
 let rec of_prop p =
   if icsat_is_true p then
