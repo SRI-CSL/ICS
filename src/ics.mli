@@ -51,6 +51,7 @@ val gc : unit -> unit
 
 val do_at_exit : unit -> unit
 
+
 (*s Rudimentary control on tracing. *)
      
 type trace_level = string
@@ -59,6 +60,7 @@ val trace_reset : unit -> unit
 val trace_add : trace_level -> unit
 val trace_remove : trace_level -> unit
 val trace_get : unit -> trace_level list
+
 
 (*s Channels. [inchannel] is the type of input channels. A channel
  of name [str] is opened with [in_of_string str]. This function 
@@ -289,6 +291,10 @@ val term_mk_bwand : int -> term -> term -> term
 val term_mk_bwor : int -> term -> term -> term
 val term_mk_bwnot : int -> term -> term
 
+(*s Set of terms. *)
+
+type terms
+
 
 (*s Atoms. [atom_mk_true()] is the trivially true atom,
  [atom_mk_false()] is the trivially false atom, and 
@@ -328,6 +334,26 @@ val atom_mk_gt : term -> term -> atom
 val atom_mk_ge : term -> term -> atom
 
 
+(*s Solution sets. *)
+
+type solution
+
+val solution_apply : solution -> term -> term
+
+val solution_find : solution -> term -> term
+
+val solution_inv : solution -> term -> term
+
+val solution_mem : solution -> term -> bool
+
+val solution_occurs : solution -> term -> bool
+
+val solution_use : solution -> term -> terms
+
+val solution_is_empty : solution -> bool
+
+
+
 (*s Logical context.  An element of type [state] is a logical
  context with [state_empty] the empty context. [state_eq s1 s2]
  is a constant-time predicate for testing for identity of two
@@ -344,6 +370,10 @@ val context_eq : context -> context -> bool
 val context_empty : unit -> context
 
 val context_ctxt_of : context -> atom list
+val context_u_of : context -> solution
+val context_a_of : context -> solution
+val context_t_of : context -> solution
+val context_bv_of : context -> solution
 val context_pp : context -> unit
 
 
@@ -397,7 +427,7 @@ val can : context -> atom -> context * atom
  using constraint informatin in [s] and abstraction interval interpretation.
  If no such constraint can be deduced, [None] is returned. *)
 
-val cnstrnt : context -> term -> Cnstrnt.t option
+val cnstrnt : context -> term -> cnstrnt option
 
 
 (*s An imperative state [istate] does not only include a logical 
