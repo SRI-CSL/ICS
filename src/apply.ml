@@ -15,55 +15,46 @@
  *)
 
 open Sym
-open Term
-
-let abs = Fun(Abs)
-let apply r = Fun(Apply(r))
 
 
-let mk_abs a =
-  mk_app abs [a]
+type norm = Sym.t -> Term.t list -> Term.t
 
+let mk_abs a = 
+  Term.App.mk_app Sym.Fun.abs [a]
 
-let rec mk_apply sigma r a al =
-  match a, al with
-    | App(Fun(Abs), [x]), [y] -> 
-	byValue sigma (subst sigma x y 0)
-    | _, [b] ->
-	mk_app (apply r) [a; b]
-    | _, b :: bl ->
-	mk_apply sigma r (mk_app (apply r) [a; b]) bl
-    | _, [] ->
-	assert false
+let rec mk_apply sigma r a b =
+  match a with
+    | Term.App(Fun(Abs), [x]) -> 
+	byValue sigma (subst sigma x b 0)
+    | _ ->
+	Term.App.mk_app (Sym.Fun.apply r) [a; b]
 
 
 (** evaluation, not affecting function bodies *)
-
 and eval sigma =
   Trace.func "eval" "Eval" Term.pp Term.pp
     (fun a -> 
        match a with
-	 | App(Fun(Apply(r)), [x; y]) ->
+	 | Term.App(Fun(Apply(r)), [x; y]) ->
 	     let x' = eval sigma x in
 	       (match x' with
-		  | App(Fun(Abs), [z]) ->
+		  | Term.App(Fun(Abs), [z]) ->
 		      eval sigma (subst sigma z (eval sigma y) 0)
 		  | _ -> 
 		      let y' = eval sigma y in
 			if x' == x && y' == y then a else 
-			  mk_app (apply(r)) [x'; y'])
+			  Term.App.mk_app (Sym.Fun.apply r) [x'; y'])
 	 | _ ->
 	     a)
 
 
-(*normalization using call-by-value*)
-
+(** normalization using call-by-value*)
 and byValue sigma a = 
   let rec  bodies = function
-    | App(Fun(Abs), [x]) -> 
-	mk_app abs [byValue sigma x]
-    | App(Fun(Apply(r)), xl) -> 
-	mk_app (apply(r)) (mapl bodies xl)
+    | Term.App(Fun(Abs), [x]) -> 
+	Term.App.mk_app Sym.Fun.abs [byValue sigma x]
+    | Term.App(Fun(Apply(r)), xl) -> 
+	Term.App.mk_app (Sym.Fun.apply r) (Term.mapl bodies xl)
     | a -> 
 	a
   in
@@ -74,17 +65,17 @@ and byValue sigma a =
 
 and hnf sigma a =
   match a with
-    | App(Fun(Abs), [x]) ->
+    | Term.App(Fun(Abs), [x]) ->
 	let x' = hnf sigma x in
 	  if x == x' then a else 
-	    mk_app abs [x']
-    | App(Fun(Apply(r)), [x1; x2]) ->
+	    Term.App.mk_app Sym.Fun.abs [x']
+    | Term.App(Fun(Apply(r)), [x1; x2]) ->
 	(match hnf sigma x1 with
-	   | App(Fun(Abs), [y]) ->
+	   | Term.App(Fun(Abs), [y]) ->
 	       hnf sigma (subst sigma y x2 0)
 	   | y -> 
 	       if y == x1 then a else 
-		 mk_app (apply(r)) [y; x2])
+		 Term.App.mk_app (Sym.Fun.apply r) [y; x2])
     | _ -> 
 	a
 
@@ -93,66 +84,61 @@ and hnf sigma a =
 and byName sigma a =
   let rec args a =
     match a with
-      | App(Fun(Abs), [x]) ->
+      | Term.App(Fun(Abs), [x]) ->
 	  let x' = args x in
 	    if x == x' then a else 
-	      mk_app abs [x']
-       | App(Fun(Apply(r)), x :: xl) ->
+	      Term.App.mk_app Sym.Fun.abs [x']
+       | Term.App(Fun(Apply(r)), x :: xl) ->
 	  let x' = args x 
-	  and xl' = mapl (byName sigma) xl in
+	  and xl' = Term.mapl (byName sigma) xl in
 	    if x == x' && xl == xl' then a else 
-	      mk_app (apply(r)) (x' :: xl')
+	      Term.App.mk_app (Sym.Fun.apply(r)) (x' :: xl')
       | _ -> 
 	  a
   in
     args (hnf sigma a)
 
-
 and subst sigma a s k =
   match a with
-    | Var(x) -> 
+    | Term.Var(x) -> 
 	if Var.is_free x then
           let i = Var.d_free x in
             if k < i then 
-              Var(Var.mk_free(i - 1))
+              Term.Var(Var.mk_free(i - 1))
             else if i = k then
               s
             else 
-              Var(Var.mk_free i)
+              Term.Var(Var.mk_free i)
 	else 
 	  a
-    | App(Fun(Abs), [x]) ->
+    | Term.App(Fun(Abs), [x]) ->
         mk_abs (subst sigma x (lift s 0) (k + 1))
-    | App(f, xl) ->
+    | Term.App(f, xl) ->
 	sigma f (substl sigma xl s k)
 
-
 and substl sigma al s k =
-  mapl (fun x -> subst sigma x s k) al
-
+  Term.mapl (fun x -> subst sigma x s k) al
 
 and lift a k =
   match a with
-    | Var(x) ->
+    | Term.Var(x) ->
 	if Var.is_free x then
 	  let i = Var.d_free x in
-	    if i < k then a else Var(Var.mk_free(i + 1))
+	    if i < k then a else Term.Var(Var.mk_free(i + 1))
 	else 
 	  a
-    | App(Fun(Abs), [x]) ->
+    | Term.App(Fun(Abs), [x]) ->
 	mk_abs (lift x (k + 1))
-    | App(f, xl) ->
-	mk_app f (liftl xl k)
-
+    | Term.App(f, xl) ->
+	Term.App.mk_app f (liftl xl k)
 
 and liftl al k =
-  mapl (fun a -> lift a k) al
-
+  Term.mapl (fun a -> lift a k) al
 
 let sigma op al =
   match op, al with
-    | Apply(r), x :: xl -> 
-	mk_apply mk_app r x xl   (* no simplifications *)
+    | Apply(r), [x; y] -> 
+	mk_apply Term.App.mk_app r x y   (* no simplifications *)
     | Abs, [x] -> 
 	mk_abs x
     | _ -> 
@@ -160,14 +146,17 @@ let sigma op al =
 
 let rec map f a =
   match a with
-    | App(Fun(Apply(r)), x :: xl) ->
-	let x' = map f x in
-	let xl' = mapl (map f) xl in
-	  if x == x' && xl == xl' then a else
-	    mk_apply mk_app r x' xl'
-    | App(Fun(Abs), [x]) ->
+    | Term.App(Fun(Apply(r)), [x; y]) ->
+	let x' = map f x and y' = map f y in
+	  if x == x' && y == y' then a else
+	    mk_apply Term.App.mk_app r x' y'
+    | Term.App(Fun(Abs), [x]) ->
 	let x' = map f x in
 	  if x == x' then a else 
 	    mk_abs x'
     | _ ->
 	f a
+
+(** Replacing a variable with a term. *)
+let apply (x, b) = 
+  map (fun y -> if Term.eq x y then b else y)

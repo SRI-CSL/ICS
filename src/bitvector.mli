@@ -24,12 +24,6 @@
   and logical bitwise operations. 
 *)
 
-(** {6 Function Symbols} *)
-
-val const : Bitv.t -> Sym.t
-val conc : int -> int -> Sym.t
-val sub : int -> int -> int -> Sym.t
-val bitwise : int -> Sym.t
 
 
 (** {6 Width of a bitvector} *)
@@ -40,7 +34,7 @@ val width : Term.t -> int option
 
 (** {6 Destructors} *)
 
-val d_const : Term.t -> Bitv.t option
+val d_const : Term.t -> Bitv.t
   (** Accessor for bitvector constants. *)
 
 (** {6 Constructors} *)
@@ -78,39 +72,13 @@ val mk_sub : int -> int -> int -> Term.t -> Term.t
     terms, [mk_sub] distributes over concatenation and bitwise
     operators, and successive extractions are merged. *)
 
- 
-val mk_bitwise : int -> Term.t -> Term.t -> Term.t -> Term.t
-  (** [mk_bitwise n a b c] builds bitvector BDDs of 
-    width [n]. Bitvector BDDs are a canonical form for bitwise 
-    conditionals of width [n], and they are
-    similar to a binary decision diagram (BDD) in that
-    [mk_bitwise n a b c] reduces to [c] when [is_zero a]
-    holds, it reduces to [b] when [is_one a] holds, and
-    to [b] if [b] is syntactically equal to [c].  Furthermore
-    the conditional structure is reduced in that there are
-    no identical substructures, and the conditional parts
-    are ordered from top to bottom (this ordering is
-    fixed but unspecified). Since bitwise operations
-    distribute over concatenation and extraction, all
-    terms in a bitvector BDD are either bitvector constants,
-    uninterpreted terms, or a (single) extraction from an
-    uninterpreted term. *)
-
-
-val mk_bwconj : int -> Term.t -> Term.t -> Term.t
-val mk_bwdisj : int -> Term.t -> Term.t -> Term.t
-val mk_bwneg : int -> Term.t -> Term.t
-val mk_bwimp : int -> Term.t -> Term.t -> Term.t
-val mk_bwiff : int -> Term.t -> Term.t -> Term.t
-
-
 (** {6 Recognizers} *)
 
 val is_interp : Term.t -> bool
   (** [is_interp a] holds iff the top-level function symbol of [a]
     is interpreted in the theory of bitvectors (see also module [Sym]. *)
 
-val is_const : Term.t -> bool
+val is_const : Bitv.t -> Term.t -> bool
   (** [is_const a] holds iff [a] is a bitvector constant. *)
 
 val is_zero : Term.t -> bool
@@ -151,10 +119,12 @@ val map: (Term.t -> Term.t) -> Term.t -> Term.t
     and with [a] otherwise, followed by a sigmatization
     of all interpreted parts using [mk_sigma]. *)
 
+val apply : Term.Equal.t -> Term.t -> Term.t
+
 
 (** {6 Solver} *)
 
-val solve : Fact.equal -> Fact.equal list
+val solve : Term.t * Term.t ->  (Term.t * Term.t) list
   (** [solve b] either fails, in which case [b] is unsatisfiable in the 
     given bitvector theory or it returns a list of equations 
     [[(x1,e1);...(xn,en)]] such that [xi] is a non bitvector term, 

@@ -15,11 +15,11 @@
 open Term
 
 let sigma f l =
-  Term.mk_app f l
+  Term.App.mk_app f l
 
 let lazy_sigma a f l =
-  assert(not(is_var a) && Sym.eq (sym_of a) f);
-  let m = args_of a in
+  assert(not(is_var a) && Sym.eq (Term.App.sym_of a) f);
+  let m = Term.App.args_of a in
   if try List.for_all2 eq l m with Invalid_argument _ -> false then
     a
   else 
@@ -31,13 +31,13 @@ let is_uninterp = function
  
 let d_uninterp a =
   assert(is_uninterp a);
-  let f,l = Term.destruct a in
-  (f, l)
+  let f,l = Term.App.destruct a in
+    (f, l)
 
 let map ctxt a =
   match a with
     | Var _ -> ctxt(a)
     | App(f, l) ->  
-	let l' = mapl ctxt l in
+	let l' = Term.mapl ctxt l in
 	  if l == l' then a else 
-	    mk_app f l'
+	    Term.App.mk_app f l'

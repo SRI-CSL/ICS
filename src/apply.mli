@@ -30,22 +30,14 @@
 *)
 
 
-(** {6 Signature} *)
-
-val apply : Dom.t option -> Sym.t
-  (** Family of function symbols for representing function application. *)
-
-val abs : Sym.t
-  (** Function symbol for representing functional abstraction. *)
-
+type norm = Sym.t -> Term.t list -> Term.t
 
 (** {6 Constructors} *)
 
-val mk_apply : (Sym.t -> Term.t list -> Term.t)
-                   -> Dom.t option -> Term.t -> Term.t list -> Term.t
-  (** [mk_apply sigma c a al] builds an application with range type [c] by
-    applying term [a] to a list of argument terms [al].  In addition, it performs
-    beta-reduction. The [sigma] argument is used to further simplify beta redeces. *)
+val mk_apply : norm -> Dom.t option -> Term.t -> Term.t -> Term.t
+  (** [mk_apply norm c a al] builds an application with range type [c] by
+    applying term [a] to an argument term [b].  In addition, it performs
+    beta-reduction. The [norm] argument is used to further simplify beta redeces. *)
 
 val mk_abs : Term.t -> Term.t
   (** [mk_abs a] lambda-abstracts [a]. All free occurrences in [a] of 
@@ -67,3 +59,4 @@ val map: (Term.t -> Term.t) -> Term.t -> Term.t
     subterm of [a] and rebuilds the term [a] by using the simplifying constructors
     [mk_apply] and [mk_abs]. *)
 
+val apply : Term.Equal.t -> Term.t -> Term.t

@@ -19,14 +19,12 @@
   on bitvectors of width [1].  This module provides the
   corresponding definitions. 
 *)
+
+val tt : Sym.t
+val ff : Sym.t
  
 val mk_true : Term.t
 val mk_false : Term.t
 
 val is_true : Term.t -> bool
 val is_false : Term.t -> bool
-
-val mk_conj : Term.t -> Term.t -> Term.t
-val mk_disj : Term.t -> Term.t -> Term.t
-val mk_xor : Term.t -> Term.t -> Term.t
-val mk_neg : Term.t -> Term.t

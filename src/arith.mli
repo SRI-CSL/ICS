@@ -13,11 +13,12 @@
 
 (** Equality theory of linear arithmetic.
 
-  A linear arithmetic term is built-up from rational constants,
-  linear multiplication of a rational with a variable, and n-ary
-  addition. 
+  A linear arithmetic term is built-up from 
+  - rational constants,
+  - linear multiplication of a rational with a variable, and 
+  - n-ary addition. 
 
-  Linear arithmetic terms are always normalized as a sum-of-product
+  Linear arithmetic terms are always {i canonized} as a sum-of-product
   [q0 + q1*x1+...+qn*xn] where the [qi] are rational constants and the
   [xi] are variables (or any other term not interpreted in this
   theory), which are ordered such that {!Term.cmp}[(xi, xj)] is
@@ -29,12 +30,6 @@
   @author Harald Ruess
 *)
 
-
-(** {6 Function symbols} *)
-
-val num : Mpa.Q.t -> Sym.t
-val multq : Mpa.Q.t -> Sym.t
-val add : Sym.t
 
 
 (** {6 Constructors} *)
@@ -49,10 +44,11 @@ val mk_one  : Term.t
   (** [mk_one] is [mk_num Mpa.Q.one] *)
     
 val mk_two  : Term.t
+  (** [mk_one] is [mk_num Mpa.Q.one] *)
   
 val mk_add  : Term.t -> Term.t -> Term.t
-  (** [mk_add a b] constructs the normalized linear arithmetic 
-    term for the sum of [a] and [b]. *)
+  (** [mk_add a b] constructs the normalized linear arithmetic term for the sum 
+    of [a] and [b]. *)
 
 val mk_addl : Term.t list -> Term.t
   (** [mk_addl] iterates {!Arith.mk_add} as follows:
@@ -63,6 +59,10 @@ val mk_addl : Term.t list -> Term.t
 val mk_incr : Term.t -> Term.t
   (** [mk_incr a] creates the normalized linear arithmetic term
     representing [a + 1]. *)
+
+val mk_decr : Term.t -> Term.t
+  (** [mk_decr a] creates the normalized linear arithmetic term
+    representing [a - 1]. *)
   
 val mk_sub  : Term.t -> Term.t -> Term.t
   (** [mk_sub a b] creates the normalized linear arithmetic term
@@ -80,19 +80,34 @@ val mk_multq: Mpa.Q.t -> Term.t -> Term.t
   (** [mk_multq q a] creates the normalized linear arithmetic term
     representing [q * a]. *)
 
+(** {6 Accessors} *)
+
+val poly_of : Term.t -> Mpa.Q.t * Term.t list
+val mono_of : Term.t -> Mpa.Q.t * Term.t
+
+val constant_of : Term.t -> Mpa.Q.t
+
+val monomials_of : Term.t -> Term.t list
+
 
 (** {6 Recognizers} *)
 
-val is_interp: Term.t -> bool
-  (** [is_interp a] holds iff [a] is a linear arithmetic term; that is,
+val is_pure : Term.t -> bool
+  (** [is_pure a] holds iff [a] is a linear arithmetic term; that is,
     [a] is term equal to a numeral (constructed with {!Arith.mk_num}), a linear 
     multiplication ({!Arith.mk_multq}), or an addition ({!Arith.mk_add}). 
     All non-variable terms for which [is_interp] is [false] are considered
     to be {i uninterpreted} in the theory of linear arithmetic, and are
     treated as variables by the functions and predicates in this module. *)
 
+val is_interp: Term.t -> bool
+  (** [is_interp a] holds iff the toplevel function symbol in [a] is 
+    a linear arithmetic function symbol. *)
+
 val is_num : Term.t -> bool
-  (** [is_num a] holds iff [a] is equal to a numeral [mk_num _]. *)
+
+val is_q : Mpa.Q.t -> Term.t -> bool
+  (** [is_q q a] holds iff [a] is equal to the numeral [mk_num q]. *)
 
 val is_zero : Term.t -> bool
   (** [is_zero a] holds iff [a] is equal to [mk_zero]. *)
@@ -100,33 +115,42 @@ val is_zero : Term.t -> bool
 val is_one : Term.t -> bool
   (** [is_one a] holds iff [a] is equal to [mk_one]. *)
 
-val is_q : Mpa.Q.t -> Term.t -> bool
-  (** [is_q q a] holds iff [a] is equal to the numeral [mk_num q]. *)
-
-val is_multq : Term.t -> bool
-  (** [is_multq a] holds iff [a] is equal to some [mk_multq _ _]. *)
-
 val is_diophantine : Term.t -> bool
   (** [is_diophantine a] holds iff all variables in [a] are integer. *)
 
+val is_nonneg : Term.t -> Three.t
+
+val is_pos : Term.t -> Three.t
 
 (** {6 Destructors} *)
 
-val d_num : Term.t -> Mpa.Q.t option
-  (** [d_num a] return [Some(q)] if [a] is a constant with
-    function symbol {!Sym.Num}[(q)], and [None] otherwise. *)
+val destruct : Term.t -> Mpa.Q.t * Term.t
 
-val d_add : Term.t -> Term.t list option
+val d_interp : Term.t -> Sym.arith * Term.t list
+
+val d_num : Term.t -> Mpa.Q.t
+  (** [d_num a] return [q] if [a] is a constant with
+    function symbol {!Sym.Num}[(q)], and raises [Not_found] otherwise. *)
+
+val d_add : Term.t -> Term.t list
   (** [d_add a] returns [Some(bl)] if [a] is a function application
     with symbol {!Sym.Add}. *)
 
-val d_multq : Term.t -> (Mpa.Q.t * Term.t) option
+val d_multq : Term.t -> Mpa.Q.t * Term.t
   (** [d_multq a] returns [Some(q, b)] if [a] is a function application
     of the symbol {!Sym.Multq}[(q)] to the unary list [[b]]. *)
 
 val monomials : Term.t -> Term.t list
   (** [monomials a] yields a list of monomials [ml] such that [mk_addl ml]
     equal [a]. *)
+
+val destruct : Term.t -> Mpa.Q.t * Term.t
+  (** [destruct a] returns a pair [(q, b)] such that [a = q + b]
+    and the constant monomial of [b] is [0]. *)
+  
+val coefficient_of : Term.t -> Term.t -> Mpa.Q.t
+   
+val lcm_of_denominators : Term.t -> Mpa.Z.t
 
 
 (** {6 Iterators} *)
@@ -138,13 +162,60 @@ val map: (Term.t -> Term.t) -> Term.t -> Term.t
     - [map f (mk_addl al)] equals [mk_addl (List.map f al)]
     - Otherwise, [map f x] equals [f x] *)
 
-val replace: Term.t -> Term.t -> Term.t -> Term.t
-  (** [replace a x e] replaces occurrences of [x] in [a] with [e], and normalizes. *)
+val apply1: Term.Equal.t -> Term.t -> Term.t
+  (** [apply (x, b) a occurrences of [x] in [a] with [b], and normalizes. *)
 
-val apply : Term.t -> Term.t Term.Map.t -> Term.t
+val apply: ((Term.t * Term.t) * 'a) list -> Term.t -> Term.t * 'a list
+  (** [apply [(x1, bn);...; (xn,bn) a] sequentially applies [apply (xi,bi)]
+    from left-to-right. *)
 
-val fold: (Mpa.Q.t -> Term.t -> 'a -> 'a) -> Term.t -> 'a -> 'a
-  (** Folding over the non-constant monomials of an arithmetic term. *)
+module Monomials : sig
+
+  type t = Mpa.Q.t * Term.t
+
+  val is_true : t -> bool
+  val is_pos : t -> bool
+  val is_neg : t -> bool
+  val is_var : Term.t -> t -> bool
+ 
+  val fold: (t -> bool) -> (t -> 'a -> 'a) -> Term.t -> 'a -> 'a
+    (** Folding over the non-constant monomials of an arithmetic term. *)
+    
+  val exists : (t -> bool) -> Term.t -> bool
+    
+  val for_all :  (t -> bool) -> Term.t -> bool
+    
+  val choose : (t -> bool) -> Term.t -> Mpa.Q.t * Term.t
+   
+  val partition : (t -> bool) -> Term.t -> Mpa.Q.t * Term.t * Term.t
+
+  module Pos : sig
+    val is_empty : Term.t -> bool
+    val exists : (t -> bool) -> Term.t -> bool
+    val for_all : (t -> bool) -> Term.t -> bool
+    val fold: (t -> 'a -> 'a) -> Term.t -> 'a -> 'a
+    val iter : (t -> unit) -> Term.t -> unit
+    val mem : Term.t -> Term.t -> bool
+    val choose : (t -> bool) -> Term.t -> t
+    val least : Term.t -> t
+    val coefficient_of : Term.t -> Term.t -> Mpa.Q.t
+  end 
+
+  module Neg : sig
+    val is_empty : Term.t -> bool
+    val exists : (t -> bool) -> Term.t -> bool
+    val for_all : (t -> bool) -> Term.t -> bool
+    val fold: (t -> 'a -> 'a) -> Term.t -> 'a -> 'a
+    val iter : (t -> unit) -> Term.t -> unit
+    val mem : Term.t -> Term.t -> bool
+    val choose : (t -> bool) -> Term.t -> t
+    val least : Term.t -> t
+    val coefficient_of : Term.t -> Term.t -> Mpa.Q.t
+  end
+    
+end 
+
+
 
 
 (** {6 Canonization} *)
@@ -156,12 +227,6 @@ val sigma : Sym.arith -> Term.t list -> Term.t
     [al] are normalized. If [op] is of the form [multq _], then [al] 
     is required to be unary, and for [op] of the form [num _], the 
     argument list must be [[]]. Otherwise, the outcome is unspecified. *)
-
-
-(** {6 Domain Interpretation} *)
-
-val tau : Term.t -> Dom.t
-  (** Abstract domain interpretation. *)
 
 
 (** {6 Solver} *)
@@ -184,12 +249,23 @@ val zsolve : Term.t * Term.t  -> (Term.t * Term.t) list
 
 val integer_solve : bool ref
 
-val solve : Fact.equal -> Fact.equal list
+val solve : Term.t * Term.t -> (Term.t * Term.t) list
 
-val isolate : Term.t -> (Term.t * Term.t) -> Term.t
-  (** [isolate y (x, a)] isolates [y] in a solved equality [x = a];
-    that is, if there is a [b] such that [y = b] iff [x = a], then
+val isolate : Term.t -> Term.Equal.t -> Term.Equal.t
+  (** [isolate y (a, b)] isolates [y] in an equality [a = b];
+    that is, if there is a [b] such that [y = b] iff [a = b], then
     [b] is returned. In case [y] does not occur in [a], [Not_found]
     is raised. *)
+
+    
+
+(** {6 Abstract Constraint Computation} *)
+
+
+val dom : (Term.t -> Dom.t) -> Sym.arith -> Term.t list -> Dom.t
+
+val dom_of : Term.t -> Dom.t
+
+val is_int : Term.t -> bool
 
 

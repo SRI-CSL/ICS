@@ -22,13 +22,17 @@
   @author Harald Ruess
 *)
 
+
 type t =
   | True
-  | Equal of Term.t * Term.t           (* represents [a = b]. *)
-  | Diseq of Term.t * Term.t           (* represents [a <> b]. *)  
-  | In of Term.t * Sign.t              (* represents [a in d]. *)
+  | Equal of Term.Equal.t
+  | Diseq of Term.Diseq.t
+  | Nonneg of Term.Nonneg.t
+  | Pos of Term.Pos.t
   | False
 
+
+val cmp : t -> t -> int
 val eq : t -> t -> bool
 
 
@@ -39,15 +43,25 @@ val mk_true : t
 val mk_false : t
 
 val mk_equal : Term.t * Term.t -> t
-
 val mk_diseq : Term.t * Term.t -> t
-
-val mk_in : Term.t * Sign.t -> t
-
+val mk_nonneg : Term.t -> t
+val mk_pos : Term.t -> t
 val mk_le : Term.t * Term.t -> t
 val mk_lt : Term.t * Term.t -> t
 val mk_ge : Term.t * Term.t -> t
 val mk_gt : Term.t * Term.t -> t
+
+
+
+(** {6 Recognizers} *)
+
+val is_true : t -> bool
+val is_false : t -> bool
+
+
+(** {6 Mapping over atoms} *)
+
+val apply : (Term.t * Term.t) list -> t -> t
 
 
 (** {6 Negations of atoms} *)

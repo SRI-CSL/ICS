@@ -13,6 +13,9 @@
 
 (** {6 Constants} *)
 
+let tt =  Sym.Bv(Sym.Const(Bitv.create 1 true))
+let ff =  Sym.Bv(Sym.Const(Bitv.create 1 false))
+
 let mk_true = Bitvector.mk_one 1
 let mk_false = Bitvector.mk_zero 1
 
@@ -22,18 +25,3 @@ let mk_false = Bitvector.mk_zero 1
 let is_true a = (Term.eq a (mk_true))
 let is_false a = (Term.eq a (mk_false))
 
-
-(** {6 Connectives} *)
-
-let mk_conj a b = 
-  Bitvector.mk_bitwise 1 a b (mk_false)
-
-let mk_disj a b = 
-  Bitvector.mk_bitwise 1 a (mk_true) b
-
-let mk_xor a b = 
-  Bitvector.mk_bitwise 1  a
-    (Bitvector.mk_bitwise 1 b (mk_false) (mk_true))
-    a
-let mk_neg a = 
-  Bitvector.mk_bitwise 1 a (mk_false) (mk_true)

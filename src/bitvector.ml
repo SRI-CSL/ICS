@@ -11,222 +11,142 @@
  * benefit corporation.
  *)
 
-open Sym
-open Term
-open Format
 open Mpa
 
-let const c =  Bv(Const(c))
-let conc n m = Bv(Conc(n, m))
-let sub i j n = Bv(Sub(i, j, n))
-let bitwise n = Bv(Bitwise(n))
+(** {6 Recognizers} *)
 
-
-let is_bvsym = function
-  | Bv _ -> true
-  | _ -> false
-
-let d_bvsym = function
-  | Bv(op) -> Some(op)
-  | _ -> None
+let is_pure = Term.is_pure Th.bv
 
 let is_interp = function
-  | App(Bv _, _) -> true
+  | Term.App(Sym.Bv _, _) -> true
   | _ -> false
 
+
+(** {6 Destructors} *)
+
 let d_interp = function
-  | App(Bv(op), l) -> Some(op, l)
-  | _ -> None
+  | Term.App(Sym.Bv(op), l) -> (op, l)
+  | _ -> raise Not_found
 
-(* Constant bitvectors *)
-
-let mk_const c =
-  Term.mk_const(Bv(Const(c)))
-
-let is_const a =
+let d_const a =
   match d_interp a with
-    | Some(Const _, []) -> true
-    | _ -> false
+    | Sym.Const(c), [] -> c
+    | _ -> raise Not_found
 
-let mk_eps = 
-  mk_const(Bitv.from_string "")
+let d_conc a = 
+  match d_interp a with
+    | Sym.Conc(n, m), [x; y] -> (n, m, x, y)
+    | _ -> raise Not_found
+
+let d_sub a = 
+  match d_interp a with
+    | Sym.Sub(n, i, j), [x] -> (n, i, j , x)
+    | _ -> raise Not_found
+
+let to_option f a =
+  try let b = f a in Some(b) with Not_found -> None
+
+let width a =
+  try
+    let op, _ = d_interp a in
+      Some(Sym.Bv.width op)
+  with
+      Not_found -> None
+
+
+(** {6 Constant bitvectors} *)
+
+let mk_const c = Term.App.mk_const(Sym.Bv.const c)
+
+let mk_zero n = mk_const(Bitv.create n false)
+let mk_one n = mk_const(Bitv.create n true)
+let mk_eps = mk_const(Bitv.from_string "")
+
+let is_const c a =
+  try Bitv.equal (d_const a) c with Not_found -> false
 
 let is_eps a =
-  match d_interp a with
-    | Some(Const b, []) -> Bitv.length b = 0
-    | _ -> false
-
-let mk_zero n = 
-  assert(n > 0);
-  mk_const(Bitv.create n false)
+  try Bitv.length (d_const a) = 0 with Not_found -> false
 
 let is_zero a =
-  match d_interp a with
-    | Some(Const b, []) -> Bitv.all_zeros b
-    | _ -> false
-
-let mk_one n =
-  mk_const(Bitv.create n true)
-
+  try Bitv.all_zeros (d_const a) with Not_found -> false
+ 
 let is_one a =
-  match d_interp a with
-    | Some(Const b, []) -> Bitv.all_ones b
-    | _ -> false
+  try Bitv.all_ones (d_const a) with Not_found -> false
 
 
 (** Creating fresh bitvector variables for solver. 
  The index variable are always reset to the current value
  when solver is called. *)
 
-let mk_fresh =
-  let name = Name.of_string "bv" in
-  fun n ->
-    assert (n >= 0);
-    if n = 0 then 
-      mk_eps
-    else 
-      Term.mk_fresh name None None
-
-(** Bitvector symbols *)
-
-let width a =
-  if Term.is_var a then None else
-    Sym.width (Term.sym_of a)
+let mk_fresh n =
+  assert (n >= 0);
+  if n = 0 then mk_eps else 
+    Term.Var.mk_fresh Th.bv None None
 
 
-let iter f a =
-  match d_interp a with
-    | Some(Sym.Const(_), []) -> ()
-    | Some(Sym.Sub(_,_,_), [x]) -> iter f x
-    | Some(Sym.Conc(n,m), [x;y]) -> iter f x; iter f y
-    | Some(Sym.Bitwise(n), [x;y;z]) -> iter f x; iter f y; iter f z
-    | _ -> f a
+(** {6 Iterators} *)
 
-
-(** Fold functional. *)
+let rec iter f a =
+  try
+    (match d_interp a with
+      | Sym.Const(_), [] -> ()
+      | Sym.Sub(_, _, _), [x] -> iter f x
+      | Sym.Conc(n, m), [x; y] -> iter f x; iter f y
+      | _ -> f a)
+  with
+      Not_found -> f a
 
 let rec fold f a e =
-  match d_interp a with
-    | Some(Sym.Const(_), []) -> e
-    | Some(Sym.Sub(_,_,_), [x]) -> fold f x e
-    | Some(Sym.Conc(_,_), [x;y]) -> fold f x (fold f y e)
-    | Some(Sym.Bitwise(_), [x;y;z]) -> fold f x (fold f y (fold f z e))
-    | _ -> f a e
-
-
-let is_bitwise a =
-  match d_interp a with
-    | Some(Bitwise _, [_;_;_]) -> true
-    | _ -> false
-
-let d_bitwise a =
-  match d_interp a with
-    | Some(Bitwise(n),[x;y;z]) ->
-	Some(n,x,y,z)
-    | _ -> 
-	None
-
-let d_conc a = 
-  match d_interp a with
-    | Some(Conc(n,m), [x;y]) -> Some(n,m,x,y)
-    | _ -> None
-
-let d_const a = 
-  match d_interp a with
-    | Some(Const(c), []) -> Some(c)
-    | _ -> None
-
-let d_sub a = 
-  match d_interp a with
-    | Some(Sub(n,i,j),[x]) -> Some(n,i,j,x)
-    | _ -> None
-
-
-(** Building up Bitvector BDDs *)
-
-let is_bvbdd a =
-  is_zero a || is_one a || is_bitwise a
-
-let cofactors x a =
-  match d_interp a with
-    | Some(Bitwise _, [y;pos;neg]) 
-	when Term.eq x y -> 
-	  (pos,neg)
-    | _ -> 
-	(a,a)
-   
-let topvar x s2 s3 =
-  let max x y = if (x <<< y) then y else x in
-  match d_bitwise s2, d_bitwise s3 with
-    | Some(_,y,_,_), Some(_,z,_,_) -> max x (max y z)
-    | Some(_,y,_,_), None -> max x y
-    | None, Some(_,z,_,_) -> max x z
-    | None, None -> x
-    
-module H3 = Hashtbl.Make(
-  struct
-    type t = Term.t * Term.t * Term.t
-    let equal (a1,a2,a3) (b1,b2,b3) = 
-      Term.eq a1 b1 && Term.eq a2 b2 && Term.eq a3 b3
-    let hash = Hashtbl.hash
-  end)
- 
-let ht = H3.create 17
-
-let rec build n s3 =
   try
-    H3.find ht s3
-  with Not_found ->
-    let b = build_fun n s3 in
-    H3.add ht s3 b; b 
+    (match d_interp a with
+       | Sym.Const(_), [] -> e
+       | Sym.Sub(_,_,_), [x] -> fold f x e
+       | Sym.Conc(_,_), [x; y] -> fold f x (fold f y e)
+       | _ -> assert false)
+  with
+      Not_found -> f a e
 
-and build_fun n (s1,s2,s3) =
-  if Term.eq s2 s3 then s2
-  else if is_one s2 && is_zero s3 then s1
-  else if is_one s1 then s2
-  else if is_zero s1 then s3
-  else match d_bitwise s1 with
-    | Some(_,y,_,_) ->
-	let x = topvar y s2 s3 in
-	let (pos1,neg1) = cofactors x s1 in
-	let (pos2,neg2) = cofactors x s2 in
-	let (pos3,neg3) = cofactors x s3 in
-	let pos = build n (pos1,pos2,pos3) in
-	let neg = build n (neg1,neg2,neg3) in
-	if Term.eq pos neg then pos else Term.mk_app (Bv(Bitwise(n))) [x;pos;neg]
-    | None ->
-	Term.mk_app (Bv(Bitwise(n))) [s1;s2;s3]
+let rec exists p a =
+  try
+    (match d_interp a with
+       | Sym.Sub _, [b] -> exists p b
+       | Sym.Conc(n,m), [b1; b2] -> (exists p b1) || (exists p b2)
+       | _ ->  false)
+  with 
+      Not_found -> p a
+
 
 (** Term constructors. *)
 
 let rec mk_sub n i j a =
   assert (0 <= i && j < n && n >= 0);
-  if i = 0 && j = n-1 then 
+  if i = 0 && j = n - 1 then 
     a 
   else if j < i then
     mk_eps
   else 
-    match d_interp a with
-      | Some(Const(b), []) -> 
-	  mk_const(Bitv.sub b i (j-i+1))
-      | Some(Sub(m,k,l), [x]) ->
-	  mk_sub m (k+i) (k+j) x
-      | Some(Conc(n,m), [x;y]) ->
-	  if j < n then
-	    mk_sub n i j x
-	  else if n <= i then
-	    mk_sub m (i-n) (j-n) y
-	  else 
-	    (assert(i < n && n <= j);
-            let t = mk_sub n i (n-1) x in
-	    let u = mk_sub m 0 (j-n) y in
-	    mk_conc (n-i) (j-n+1) t u)
-      | Some(Bitwise(n), [x;y;z]) ->
-	  mk_bitwise (j-i+1) (mk_sub n i j x) (mk_sub n i j y) (mk_sub n i j z) 
-      | None ->
-	  Term.mk_app (Bv(Sub(n, i, j))) [a]
-      | Some _ ->
-	  failwith "Bv.mk_sub: ill-formed expression"
+    try
+      (match d_interp a with
+	 | Sym.Const(b), [] -> 
+	     mk_const (Bitv.sub b i (j - i + 1))
+	 | Sym.Sub(m,k,l), [x] ->
+	     mk_sub m (k + i) (k + j) x
+	 | Sym.Conc(n,m), [x; y] ->
+	     if j < n then
+	       mk_sub n i j x
+	     else if n <= i then
+	       mk_sub m (i - n) (j - n) y
+	     else 
+	       (assert(i < n && n <= j);
+		let t = mk_sub n i (n - 1) x in
+		let u = mk_sub m 0 (j - n) y in
+		  mk_conc (n - i) (j - n + 1) t u)
+	 | _ ->
+	     failwith "Bv.mk_sub: ill-formed expression")
+    with
+	Not_found -> 
+	  Term.App.mk_app (Sym.Bv.sub n i j) [a]
 	
 and mk_conc n m a b =
   assert (0 <= n && 0 <= m);
@@ -235,131 +155,61 @@ and mk_conc n m a b =
     | true, false -> b
     | false, true -> a
     | false, false ->
-	(match merge n m a b with
-	   | None -> Term.mk_app (Bv(Conc(n,m))) [a;b]
-	   | Some(c) -> c)
+	(try
+	   merge n m a b
+	 with
+	     Not_found -> Term.App.mk_app (Sym.Bv.conc n m) [a; b])
 
 and merge n m a b =
-  match d_interp a, d_interp b with
-    | _, Some(Conc(m1,m2), [b1;b2]) -> 
-	Some(mk_conc (n + m1) m2 (mk_conc n m1 a b1) b2)
-    | Some(Conc(m1, m2), [b1; App(Bv(Const(c)), [])]), Some(Const(d), []) ->
-	let n = Bitv.length d in
-	Some(mk_conc m1 (m2 + n) b1 (mk_const (Bitv.append c d)))
-    | Some(Const(c),[]), Some(Const(d),[]) -> 
-	Some(mk_const (Bitv.append c d))
-    | Some(Sub(n,i,j),[x]), Some(Sub(m,j',k), [y])
+  match to_option d_interp a, to_option d_interp b with
+    | _, Some(Sym.Conc(m1,m2), [b1;b2]) -> 
+	mk_conc (n + m1) m2 (mk_conc n m1 a b1) b2
+    | Some(Sym.Const(c),[]), Some(Sym.Const(d),[]) -> 
+	mk_const (Bitv.append c d)
+    | Some(Sym.Sub(n,i,j),[x]), Some(Sym.Sub(m,j',k), [y])
 	when j' = j + 1 && Term.eq x y ->
 	assert(n = m);
-	  Some(mk_sub n i k x)
-    | Some(Bitwise(n1),[x1;y1;z1]), Some(Bitwise(n2),[x2;y2;z2]) ->
-	(match merge n1 n2 x1 x2 with
-	   | None -> None
-	   | Some(x) ->
-	       (match merge n1 n2 y1 y2 with
-		  | None -> None
-		  | Some(y) ->
-		      (match merge n1 n2 z1 z2 with
-			 | None -> None
-			 | Some(z) -> Some(mk_bitwise (n1+n2) x y z))))
+	  mk_sub n i k x
+    | Some(Sym.Conc(m1, m2), [b1; b2]), Some(Sym.Const(d), []) ->
+	let c = d_const b2 in
+	let n = Bitv.length d in
+	  mk_conc m1 (m2 + n) b1 (mk_const (Bitv.append c d))
     | _ -> 
-	None
+	raise Not_found
  
-
 and mk_conc3 n m k a b c =
   mk_conc n (m + k) a (mk_conc m k b c)
-
-and mk_bitwise n a b c =
-  assert (n >= 0);
-  if n = 0 then 
-    mk_eps
-  else 
-    match d_const a, d_const b, d_const c with
-      | Some(c1), Some(c2), Some(c3) ->
-	  mk_const (Bitv.bw_or (Bitv.bw_and c1 c2) (Bitv.bw_and (Bitv.bw_not c1) c3))
-      | _ ->
-	  (match d_conc a, d_conc b, d_conc c with
-	     | Some(n1,n2,a1,a2), _, _ ->
-		 assert(n = n1 + n2);
-		 let b1,b2 = cut n n1 b in
-		 let c1,c2 = cut n n1 c in 
-		 mk_conc n1 n2 (mk_bitwise n1 a1 b1 c1) (mk_bitwise n2 a2 b2 c2)
-	     | _, Some(n1,n2,b1,b2), _ ->
-		 assert(n = n1 + n2);
-		 let a1,a2 = cut n n1 a in
-		 let c1,c2 = cut n n1 c in 
-		 mk_conc n1 n2 (mk_bitwise n1 a1 b1 c1) (mk_bitwise n2 a2 b2 c2)
-	     | _, _, Some(n1,n2,c1,c2) ->
-		 assert(n = n1 + n2);
-		 let a1,a2 = cut n n1 a in
-		 let b1,b2 = cut n n1 b in 
-		 mk_conc n1 n2 (mk_bitwise n1 a1 b1 c1) (mk_bitwise n2 a2 b2 c2)
-	     | _ ->
-		 drop (build n (lift n a, lift n b, lift n c)))
-
-and lift n a =
-  if is_bvbdd a then 
-    a 
-  else
-    Term.mk_app (Bv(Bitwise(n))) [a;mk_one n;mk_zero n]
-
-and drop a =
- match d_bitwise a with
-   | Some(_,b1,b2,b3) when is_one b2 && is_zero b3 -> b1
-   | _ -> a
 
 and cut n i a =
   (mk_sub n 0 (i - 1) a, mk_sub n i (n - 1) a)
 
 
-(** Derived bitwise constructors. *)
-
-let mk_bwconj n a b = mk_bitwise n a b (mk_zero n)
-let mk_bwdisj n a b = mk_bitwise n a (mk_one n) b
-let mk_bwneg n a = mk_bitwise n a (mk_zero n) (mk_one n)
-let mk_bwimp n a1 a2 = mk_bitwise n a1 a2 (mk_one n)
-let mk_bwiff n a1 a2 = mk_bitwise n a1 a2 (mk_bwneg n a2)
-
 (** Mapping over bitvector terms. *)
 
 let map f =
   let rec loop a =
-    match d_interp a with
-      | Some(Sym.Const(_), []) ->
-	  a
-      | Some(Sym.Sub(n,i,j), [x]) -> 
-	  let x' = loop x in
-	    if x == x' then a else mk_sub n i j x'
-      | Some(Sym.Conc(n,m), [x;y]) -> 
-	  let x' = loop x and y' = loop y in
-	    if x == x' && y == y' then a else mk_conc n m x' y'
-      | Some(Sym.Bitwise(n), [x;y;z]) -> 
-	  let x' = loop x and y' = loop y and z' = loop z in
-	    if x == x' && y == y' && z == z' then a else
-	      mk_bitwise n x' y' z'
-      | None -> 
-	  f a
-      | Some _ -> 
-	  assert false
+    try
+      (match d_interp a with
+	 | Sym.Const(_), [] ->
+	     a
+	 | Sym.Sub(n,i,j), [x] -> 
+	     let x' = loop x in
+	       if x == x' then a else mk_sub n i j x'
+	 | Sym.Conc(n,m), [x;y] -> 
+	     let x' = loop x and y' = loop y in
+	       if x == x' && y == y' then a else mk_conc n m x' y'
+	 | _ -> 
+	     assert false)
+    with
+	Not_found -> f a
   in
   loop
 
-(** Does term [a] occur interpreted in [b]. *)
 
-let rec occurs a b =
-  let rec loop x =
-    (Term.eq x a)
-    || (match d_interp x with
-	  | Some(op,l) ->
-	      (match op, l with
-		 | Sym.Const(_), [] -> false
-		 | Sym.Sub _, [x] -> loop x
-		 | Sym.Conc(n,m), [x;y] -> (loop x) || (loop y)
-		 | Sym.Bitwise(n), [x;y;z] -> (loop x) || (loop y) || (loop z)
-		 | _ ->  failwith "Bv.map: ill-formed expression")
-	  | None -> false)
-  in
-  loop b
+let apply (x, b) = 
+  map (fun y -> if Term.eq x y then b else y)
+
+
 
 (** Sigmatizing an expression. *)
 
@@ -368,7 +218,6 @@ let sigma op l =
     | Sym.Const(c), [] -> mk_const c
     | Sym.Sub(n,i,j), [x] -> mk_sub n i j x
     | Sym.Conc(n,m), [x;y] ->  mk_conc n m x y
-    | Sym.Bitwise(n), [x;y;z] -> mk_bitwise n x y z
     | _ -> failwith "Bv.sigma: ill-formed expression"
 
  
@@ -390,7 +239,7 @@ let decompose e =
 	loop acc el
     | (a,b) :: el -> 
 	let (acc',el') = 
-	  match d_conc a, d_conc b  with   
+	  match to_option d_conc a, to_option d_conc b  with   
 	    | Some(n1,m1,x1,y1), Some(n2,m2,x2,y2) ->
 		if n1 = n2 then
 		  (acc, ((x1,x2) :: (y1,y2) :: el))
@@ -420,42 +269,6 @@ let decompose e =
   loop [] [e] 
 
 
-(** Solving is based on the equation
- [ite(x,p,n) = (p or n) and exists delta. x = (p and (n => delta))] *)
-
-and solve_bitwise n (a,b) =
-  assert(n >= 0);
-  let s = mk_bwiff n a b in
-  let rec triangular_solve s e =
-    match d_bitwise s with
-      | Some (_,x,pos,neg) ->
-	  if is_one pos && is_zero neg then          (* poslit *)
-	    (x, pos) :: e
-	  else if is_zero pos && is_one neg then     (* neglit *)
-	    (x, pos) :: e
-	  else
-	    let t' = mk_bwconj n pos (mk_bwimp n neg (mk_fresh n)) in
-	    let e' = (x,t') :: e in
-	    let s' = mk_bwdisj n pos neg in
-	    if is_zero s' then
-	      raise Exc.Inconsistent
-	    else if is_one s' then
-	      e'
-	    else if is_bitwise s' then
-	      triangular_solve s' e'
-	    else
-	      (s', mk_one n) :: e'
-      | None ->
-	  (s, mk_one n) :: e
-  in
-  if is_zero s then
-    raise Exc.Inconsistent
-  else if is_one s then
-    []
-  else
-    triangular_solve s []
-
-
 (** Adding a solved pair [a |-> b] to the list of solved forms [sl],
  and propagating this new binding to the unsolved equalities [el] and 
  the rhs of [sl]. It also makes sure that fresh variables [a] are never
@@ -470,7 +283,7 @@ let rec add a b (el, sl) =
   else 
     match is_fresh_bv_var a, is_fresh_bv_var b with 
       | false, false ->
-	  (inste el a b, (a,b) :: insts sl a b)
+	  (inste el a b, (a, b) :: insts sl a b)
       | true, true -> 
 	  (inste el a b, insts sl a b)
       | true, false -> 
@@ -500,10 +313,8 @@ and apply1 a x b =      (* substitute [x] by [b] in [a]. *)
 
 (** Toplevel solver. *)
 
-let rec solve e =
-  let (a, b, _) = Fact.d_equal e in
-  let sl = solvel ([(a, b)], []) in
-    List.map (fun (x, b) -> Fact.mk_equal x b None) sl
+let rec solve e  =
+  solvel ([e], [])
   
 and solvel (el,sl) =
   match el with
@@ -511,34 +322,32 @@ and solvel (el,sl) =
     | (a, b) :: el when Term.eq a b ->
 	solvel (el,sl)
     | (a, b) :: el ->
-	(match d_interp a, d_interp b  with   
-	   | None, Some _ when not(occurs a b) ->      (* Check if solved. *)
-	       solvel (add a b (el,sl))
-	   | Some _, None  when not(occurs b a) ->
-	       solvel (add b a (el,sl))
-	   | Some(Conc _, _), _                  (* Decomposition of conc. *)
-	   | _, Some(Conc _, _) ->
+	(match to_option d_interp a, to_option d_interp b  with   
+	   | None, Some _ when not(Term.subterm a b) ->  (* Check if solved. *)
+	       solvel (add a b (el, sl))
+	   | Some _, None  when not(Term.subterm b a) ->
+	       solvel (add b a (el, sl))
+	   | Some(Sym.Conc _, _), _                    (* Decomposition of [conc] *)
+	   | _, Some(Sym.Conc _, _) ->
 	       solvel (decompose (a,b) @ el, sl)
-	   | Some(Bitwise(n), _), _ ->            (* Solve bitwise ops. *)
-	       solvel (solve_bitwise n (a,b) @ el, sl)
-	   | (None | Some(Const _, _)), Some(Bitwise(m), _) ->
-	       solvel (solve_bitwise m (a,b) @ el, sl)
-	   | Some(Const(c), []), Some(Const(d), []) ->
+	   | Some(Sym.Const(c), []), Some(Sym.Const(d), []) ->
 	       if Pervasives.compare c d = 0 then 
 		 solvel (el,sl)
 	       else 
 		 raise Exc.Inconsistent
-	   | Some(Sub(n,i,j),[x]), Some(Sub(m,k,l),[y]) when Term.eq x y ->
+	   | Some(Sym.Sub(n,i,j),[x]), Some(Sym.Sub(m,k,l),[y]) when Term.eq x y ->
 	       assert(n = m);
-	       let (x,b) = solve_sub_sub x n i j k l in
-	       solvel (add x b (el,sl))
-	   | Some(Sub(n,i,j),[x]), _ ->
+	       let (x, b) = solve_sub_sub x n i j k l in
+		 solvel (add x b (el,sl))
+	   | Some(Sym.Sub(n,i,j),[x]), _ ->
 	       assert(n-j-1 >= 0);
 	       assert(i >= 0);
-	       let b' = mk_conc3 i (j-i+1) (n-j-1) 
-			  (mk_fresh i) b (mk_fresh (n-j-1)) in
-	       solvel (add x b' (el,sl))
-	   | _, Some(Sub(n,i,j), [x]) -> 
+	       let b' = 
+		 mk_conc3 i (j-i+1) (n-j-1) 
+		   (mk_fresh i) b (mk_fresh (n-j-1)) 
+	       in
+		 solvel (add x b' (el,sl))
+	   | _, Some(Sym.Sub(n,i,j), [x]) -> 
                assert(n-j-1 >= 0); 
 	       assert(i >= 0);
 	       let b' = mk_conc3 i (j-i+1) (n-j-1) (mk_fresh i) 
@@ -546,9 +355,10 @@ and solvel (el,sl) =
 	       solvel (add x b' (el,sl))
 	   | _ ->
 	       let a, b = Term.orient(a,b) in
-	       solvel (add a b (el,sl)))
+		 solvel (add a b (el,sl)))
 
-and solve_sub_sub x n i j k l =
+(* Solving [xn[i:j] = xn[k:l]] *)
+and solve_sub_sub x n i j k l =      
   assert (n >= 0 && i < k && j-i = l-k);
   let lhs = 
     mk_sub n i l x 
