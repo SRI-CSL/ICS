@@ -129,11 +129,6 @@ let resolve e =
 	    Some(Fact.Equal.make (x, c, tau))
 
 
-let resolve = 
-  Trace.func "la" "Resolve"  Fact.Equal.pp (Pretty.option Fact.Equal.pp)
-    resolve
-
-
 (** [apply e a], for [e] is of the form [x = b], applies the
   substition [x := b] to [a]  *)
 let apply1 = 
@@ -306,17 +301,22 @@ module Negdep = struct
     S.Dep.fold t s
       (fun e acc ->
 	 if occurs_negatively x e then
-	   let x = Fact.Equal.lhs_of e in
-	     Term.Set.add x acc
+	   let y = Fact.Equal.lhs_of e in
+	     Term.Set.add y acc
 	 else 
 	   acc)
       x Term.Set.empty
-     
+
  
   (** Choose an arbitrary value in the [negdep] index. *)
   let choose s x =
-    S.equality t s (Term.Set.choose (get s x))
-    
+    S.Dep.choose t s (occurs_negatively x)
+
+
+  (** Check if [negdep] is empty for [x]. *)
+  let is_empty s x = 
+    Term.Set.is_empty (get s x)
+
   
   (** Succedds if [f e] succeeds for all equalities [k = a] such  
     that [y] occurs negatively in [a]. *)
@@ -335,8 +335,7 @@ end
   	 
 (** [x] is {i unbounded} in [s] if [x] does not occur positively in [t], 
   that is, every coeffient of independent [x] is positive. *)
-let is_unbounded s x = 
-  Term.Set.is_empty (Negdep.get s x)
+let is_unbounded = Negdep.is_empty
 
 
 (** The gain [gain t x] is the minimum of all [|a|/(-q)]
@@ -551,12 +550,17 @@ and process_solved_restricted ((p, s) as cfg) e =
 	  let (diff, rho) = mk_diff e in                   (* [rho |- diff = 0] *)
 	    assert(Mpa.Q.is_nonpos (Arith.constant_of diff));
 	    let (k, tau) = mk_zero_slack diff rho in       (* [tau |- k = diff] *)
-	      add_to_t cfg (Fact.Equal.make (k, diff, tau)); 
+	      Trace.msg "foo" "New Zero slack" k Term.pp;
+	      add_to_t cfg (Fact.Equal.make (k, diff, tau));    
+	      Trace.msg "foo" "After add_to_t" () Pretty.unit;
+	      infer cfg; 
+	      Trace.msg "foo" "After infer" () Pretty.unit;
 	      if Fact.Equal.is_diophantine e then
 		gomory_cut cfg e;
 	      (try
 		 let (a', rho') = S.apply t s k in         (* [rho' |- k = a'] *)
 		 let e' = Fact.Equal.make (k, a', rho') in
+                  Trace.msg "foo" "Zero Slack dependent" e' Fact.Equal.pp;
 		 let cmp = Mpa.Q.compare (Arith.constant_of a') Mpa.Q.zero in
 		   if cmp < 0 then                 (* I. [|a'| < 0] *)
 		   inconsistent 
@@ -564,7 +568,10 @@ and process_solved_restricted ((p, s) as cfg) e =
 		   else if cmp = 0 then            (* II. [|a'| = 0] *)
 		     (try 
 			compose1 t cfg 
-			  (isolate (choose a') e') 
+			  (isolate (choose a') e');
+			let sigma = Justification.trans (k, diff, Arith.mk_zero) rho tau in
+			let e0 = Fact.Equal.make(k, Arith.mk_zero, sigma) in
+			  compose1 t cfg e0
 		    with 
 			Not_found -> ())  (* skip *)
 		   else                            (* III. [|a'| > 0] *)
@@ -587,9 +594,9 @@ and process_solved_restricted ((p, s) as cfg) e =
 	       with           
 		   Not_found ->  (* [k] is not a dependent variable *)
 		     let sigma = Justification.trans (k, diff, Arith.mk_zero) rho tau in
-		       compose1 t cfg 
-			 (Fact.Equal.make (k, Arith.mk_zero, sigma)));
-	      infer cfg
+		     let e0 = Fact.Equal.make (k, Arith.mk_zero, sigma) in
+                       Trace.msg "foo" "Zero Slack independent" e0 Fact.Equal.pp;
+		       compose1 t cfg e0)
 
 (* If [a'] contains negative variables, then we see 
    if there is a negative variable [y] in [a'] such that the 
@@ -1047,9 +1054,10 @@ let rec upper ((p, s) as cfg) a =
   this variable occurs in [s] *)
 and make_dependent ((_, s) as cfg) x =
  (*  assert(is_restricted_var x); *)
+  let is_true _ = true in
   try
-    let e = S.Dep.choose t s x in     (* choose [y = a] such that [x] occurs in [a], *)
-      compose1 t cfg (isolate x e)    (* and solve [y = a] for [x]. *)
+    let e = S.Dep.choose t s is_true x in (* choose [y = a] such that [x] occurs in [a], *)
+      compose1 t cfg (isolate x e)        (* and solve [y = a] for [x]. *)
   with
       Not_found -> ()
 	
