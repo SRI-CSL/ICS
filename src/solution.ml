@@ -162,7 +162,7 @@ let name i (b, s) =
 	extend i b s
 
 
-let rec norm i r a = 
+let rec nrm i r a = 
   let eqs = ref [] in
   let assoc x = function
     | [] -> x
@@ -178,6 +178,12 @@ let rec norm i r a =
   in
   let b = Th.map i (fun x -> assoc x r) a in
     (b, !eqs)
+
+and norm i r a =
+  Trace.call "foo3" "Norm" a Term.pp;
+  let (b, prfs) = nrm i r a in
+    Trace.exit "foo3" "Norm" b Term.pp;
+    (b, prfs)
 
 and assoc x = function
   | [] -> x
@@ -201,6 +207,7 @@ let rec fuse i (p, s) r =
     (fun x acc ->
        try
 	 let (b, prf) = justification s x in     (* [prf |- x = b]. *)
+	   Trace.msg "foo3" "Fuse" (x, b) (Pretty.pair Term.pp Term.pp);
 	 let (b', prfs) = norm i r b in          (* [prfs |- b = b']. *)
 	 let e' = Fact.mk_equal x b' (Fact.mk_rule "trans" (prf :: prfs)) in
 	   update i e' acc
@@ -228,7 +235,7 @@ and update i e (p, s) =
 	let y = inv s b in 
 	  if Term.eq x y then (p, s) else 
 	    let e' = Fact.mk_equal x y None in
-	    let p' = Partition.merge e' p in
+	    let (_, p') = Partition.merge e' p in
 	    let s' = 
 	      if y <<< x then 
 		restrict i x s 
@@ -244,7 +251,7 @@ and update i e (p, s) =
 		
 and vareq i e (p, s) = 
   let (x, y, prf1) = Fact.d_equal e in          (* [prf1 |- x = y]. *)
-  let p' = Partition.merge e p in
+  let (_, p') = Partition.merge e p in
   let s' = 
     try
       let (a, prf2) = justification s y in       (* [ prf2 |- y = a]. *)
@@ -270,5 +277,6 @@ let compose i (p, s) r =
   let (p'', s'') = List.fold_right (update i) r (p', s') in
     Trace.exit (Th.to_string i) "Compose" () Pretty.unit;
     (p'', s'')
+
 
 
