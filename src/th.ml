@@ -171,7 +171,7 @@ let split s =
   List.map (
     fun (x, i) -> 
       Atom.mk_in i x) 
-    (C.split (A.cnstrnts s.a))
+    (A.split s.a)
 
 
 (*s Instantiation. *)

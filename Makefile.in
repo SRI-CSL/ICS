@@ -67,32 +67,31 @@ CMO = sign.cmo three.cmo \
       var.cmo \
       term.cmo \
       trace.cmo \
-      boolean.cmo \
       arith.cmo \
       tuple.cmo \
       bitvector.cmo \
+      boolean.cmo \
       interp.cmo \
-      veq.cmo \
-      veqs.cmo \
       app.cmo \
       atom.cmo \
+      fact.cmo \
       use.cmo \
-      subst.cmo \
       d.cmo \
       v.cmo \
-      c.cmo \
+      solution.cmo \
+      partition.cmo \
+      focus.cmo \
+      sth.cmo \
       a.cmo \
       theories.cmo \
-      t.cmo \
-      bv.cmo \
-      b.cmo \
-      cc.cmo \
+      u.cmo \
       th.cmo \
       context.cmo \
       builtin.cmo \
       shostak.cmo \
       symtab.cmo istate.cmo \
       help.cmo \
+      result.cmo \
       parser.cmo lexer.cmo \
       ics.cmo
 
@@ -139,29 +138,22 @@ endif
 
 OBJS = ics_all.o ics_stub.o mlgmp.o
 
-ifneq ("@ALLEGRO@","no")
-LISPOBJS = ics.fasl
-endif
 
 ics_all.o: $(CMX)
 	$(OCAMLOPT) -output-obj -o $@ unix.cmxa $(CMX)
 
-$(LIBDIR)/libics.so: $(OBJS) # $(LISPOBJS)
+$(LIBDIR)/libics.so: $(OBJS)
 	gcc -shared -o $(LIBDIR)/libics.so $(OBJS) \
 	  $(OCAMLSTDLIB)/libunix.a \
 	  $(LIBGMPA) \
           $(OCAMLSTDLIB)/libasmrun.a
 
-$(LIBDIR)/libics.a: $(OBJS) # $(LISPOBJS)
+$(LIBDIR)/libics.a: $(OBJS)
 	cp $(OCAMLSTDLIB)/libasmrun.a $(LIBDIR)/libics.a
 	ar r $(LIBDIR)/libics.a $(OBJS)
 
 ics_stub.c ics.h ics.lisp: ics.ml ics.mli ../../chameleon/$(ARCH)/chameleon
 	../../chameleon/$(ARCH)/chameleon ics.ml
-
-ics.fasl: ics.lisp
-	@ALLEGRO@ -e '(let ((excl:*cltl1-in-package-compatibility-p* t)) \
-	(compile-file "ics.lisp") (excl:exit))'
 
 GENERATED = lexer.ml parser.mli parser.ml
 
@@ -402,7 +394,7 @@ parser.mli parser.ml: parser.mly
 
 # Dependencies
 .depend: $(SRC)
-	$(OCAMLDEP) *.mli *.ml > .depend
+	$(OCAMLDEP) *.mli *.ml main.ml > .depend
 
 
 ifeq ($(MAKELEVEL),1)

@@ -68,3 +68,7 @@ val close : V.t * D.t * t * Focus.t -> V.t * D.t * t * Focus.t
 (*s Instantiate domain variables with canonical representatives. *)
 
 val inst : V.t -> t -> t
+
+(*s Split *)
+
+val split : t -> (Term.t * Cnstrnt.t) list

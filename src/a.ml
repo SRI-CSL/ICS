@@ -406,3 +406,14 @@ and close_d ((_, _, _, focus) as acc) =
 let inst v s =
   let a' = Solution.inst v s.a in
   {s with a = a'}
+
+(*s Split. *)
+
+let split s =
+  Term.Map.fold
+    (fun x i acc ->
+       if Cnstrnt.is_finite i then
+	 (x, i) :: acc
+       else 
+	 acc)
+    s.c []
