@@ -1295,7 +1295,15 @@ bool LPSolver::check_assignment(LPFormulaId root_id) {
  	ics_interface.reset_scratch_state();
 	bool result = check_counter_example_main_loop(root_id);
 	reset_marks();
-	return result && check_clauses() && check_formula_truth_value(root_id);
+	if (!result)
+		cerr << "Invalid assignment for the formula in the SAT solver data structures.\n";
+	bool result2 = check_clauses();
+	if (!result2)
+		cerr << "Invalid assignment for the clausal constraints.\n";
+	bool result3 = check_formula_truth_value(root_id);
+	if (!result3)
+		cerr << "Invalid assignment for the original formula.\n";
+	return result && result2 && result3;
 }
 
 #define EV_T 1
