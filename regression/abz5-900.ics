@@ -1,0 +1,4004 @@
+sat 
+[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[(J0_M4_start - J0_M8_start)
+ <= (0 - 88)
+]
+ & [(J0_M8_start - J0_M6_start)
+ <= (0 - 68)
+]
+]
+ & [(J0_M6_start - J0_M5_start)
+ <= (0 - 94)
+]
+]
+ & [(J0_M5_start - J0_M1_start)
+ <= (0 - 99)
+]
+]
+ & [(J0_M1_start - J0_M2_start)
+ <= (0 - 67)
+]
+]
+ & [(J0_M2_start - J0_M9_start)
+ <= (0 - 89)
+]
+]
+ & [(J0_M9_start - J0_M7_start)
+ <= (0 - 77)
+]
+]
+ & [(J0_M7_start - J0_M0_start)
+ <= (0 - 99)
+]
+]
+ & [(J0_M0_start - J0_M3_start)
+ <= (0 - 86)
+]
+]
+ & [(J0_M3_start - Z)
+ <= (0 - 92)
+]
+]
+ & [(J1_M5_start - J1_M3_start)
+ <= (0 - 72)
+]
+]
+ & [(J1_M3_start - J1_M6_start)
+ <= (0 - 50)
+]
+]
+ & [(J1_M6_start - J1_M4_start)
+ <= (0 - 69)
+]
+]
+ & [(J1_M4_start - J1_M2_start)
+ <= (0 - 75)
+]
+]
+ & [(J1_M2_start - J1_M8_start)
+ <= (0 - 94)
+]
+]
+ & [(J1_M8_start - J1_M0_start)
+ <= (0 - 66)
+]
+]
+ & [(J1_M0_start - J1_M1_start)
+ <= (0 - 92)
+]
+]
+ & [(J1_M1_start - J1_M7_start)
+ <= (0 - 82)
+]
+]
+ & [(J1_M7_start - J1_M9_start)
+ <= (0 - 94)
+]
+]
+ & [(J1_M9_start - Z)
+ <= (0 - 63)
+]
+]
+ & [(J2_M9_start - J2_M8_start)
+ <= (0 - 83)
+]
+]
+ & [(J2_M8_start - J2_M0_start)
+ <= (0 - 61)
+]
+]
+ & [(J2_M0_start - J2_M1_start)
+ <= (0 - 83)
+]
+]
+ & [(J2_M1_start - J2_M6_start)
+ <= (0 - 65)
+]
+]
+ & [(J2_M6_start - J2_M5_start)
+ <= (0 - 64)
+]
+]
+ & [(J2_M5_start - J2_M7_start)
+ <= (0 - 85)
+]
+]
+ & [(J2_M7_start - J2_M4_start)
+ <= (0 - 78)
+]
+]
+ & [(J2_M4_start - J2_M2_start)
+ <= (0 - 85)
+]
+]
+ & [(J2_M2_start - J2_M3_start)
+ <= (0 - 55)
+]
+]
+ & [(J2_M3_start - Z)
+ <= (0 - 77)
+]
+]
+ & [(J3_M7_start - J3_M2_start)
+ <= (0 - 94)
+]
+]
+ & [(J3_M2_start - J3_M1_start)
+ <= (0 - 68)
+]
+]
+ & [(J3_M1_start - J3_M4_start)
+ <= (0 - 61)
+]
+]
+ & [(J3_M4_start - J3_M3_start)
+ <= (0 - 99)
+]
+]
+ & [(J3_M3_start - J3_M6_start)
+ <= (0 - 54)
+]
+]
+ & [(J3_M6_start - J3_M5_start)
+ <= (0 - 75)
+]
+]
+ & [(J3_M5_start - J3_M0_start)
+ <= (0 - 66)
+]
+]
+ & [(J3_M0_start - J3_M9_start)
+ <= (0 - 76)
+]
+]
+ & [(J3_M9_start - J3_M8_start)
+ <= (0 - 63)
+]
+]
+ & [(J3_M8_start - Z)
+ <= (0 - 67)
+]
+]
+ & [(J4_M3_start - J4_M4_start)
+ <= (0 - 69)
+]
+]
+ & [(J4_M4_start - J4_M9_start)
+ <= (0 - 88)
+]
+]
+ & [(J4_M9_start - J4_M8_start)
+ <= (0 - 82)
+]
+]
+ & [(J4_M8_start - J4_M0_start)
+ <= (0 - 95)
+]
+]
+ & [(J4_M0_start - J4_M2_start)
+ <= (0 - 99)
+]
+]
+ & [(J4_M2_start - J4_M6_start)
+ <= (0 - 67)
+]
+]
+ & [(J4_M6_start - J4_M5_start)
+ <= (0 - 95)
+]
+]
+ & [(J4_M5_start - J4_M7_start)
+ <= (0 - 68)
+]
+]
+ & [(J4_M7_start - J4_M1_start)
+ <= (0 - 67)
+]
+]
+ & [(J4_M1_start - Z)
+ <= (0 - 86)
+]
+]
+ & [(J5_M1_start - J5_M4_start)
+ <= (0 - 99)
+]
+]
+ & [(J5_M4_start - J5_M5_start)
+ <= (0 - 81)
+]
+]
+ & [(J5_M5_start - J5_M6_start)
+ <= (0 - 64)
+]
+]
+ & [(J5_M6_start - J5_M8_start)
+ <= (0 - 66)
+]
+]
+ & [(J5_M8_start - J5_M2_start)
+ <= (0 - 80)
+]
+]
+ & [(J5_M2_start - J5_M7_start)
+ <= (0 - 80)
+]
+]
+ & [(J5_M7_start - J5_M9_start)
+ <= (0 - 69)
+]
+]
+ & [(J5_M9_start - J5_M3_start)
+ <= (0 - 62)
+]
+]
+ & [(J5_M3_start - J5_M0_start)
+ <= (0 - 79)
+]
+]
+ & [(J5_M0_start - Z)
+ <= (0 - 88)
+]
+]
+ & [(J6_M7_start - J6_M1_start)
+ <= (0 - 50)
+]
+]
+ & [(J6_M1_start - J6_M4_start)
+ <= (0 - 86)
+]
+]
+ & [(J6_M4_start - J6_M3_start)
+ <= (0 - 97)
+]
+]
+ & [(J6_M3_start - J6_M0_start)
+ <= (0 - 96)
+]
+]
+ & [(J6_M0_start - J6_M8_start)
+ <= (0 - 95)
+]
+]
+ & [(J6_M8_start - J6_M2_start)
+ <= (0 - 97)
+]
+]
+ & [(J6_M2_start - J6_M5_start)
+ <= (0 - 66)
+]
+]
+ & [(J6_M5_start - J6_M6_start)
+ <= (0 - 99)
+]
+]
+ & [(J6_M6_start - J6_M9_start)
+ <= (0 - 52)
+]
+]
+ & [(J6_M9_start - Z)
+ <= (0 - 71)
+]
+]
+ & [(J7_M4_start - J7_M6_start)
+ <= (0 - 98)
+]
+]
+ & [(J7_M6_start - J7_M3_start)
+ <= (0 - 73)
+]
+]
+ & [(J7_M3_start - J7_M2_start)
+ <= (0 - 82)
+]
+]
+ & [(J7_M2_start - J7_M1_start)
+ <= (0 - 51)
+]
+]
+ & [(J7_M1_start - J7_M5_start)
+ <= (0 - 71)
+]
+]
+ & [(J7_M5_start - J7_M7_start)
+ <= (0 - 94)
+]
+]
+ & [(J7_M7_start - J7_M0_start)
+ <= (0 - 85)
+]
+]
+ & [(J7_M0_start - J7_M8_start)
+ <= (0 - 62)
+]
+]
+ & [(J7_M8_start - J7_M9_start)
+ <= (0 - 95)
+]
+]
+ & [(J7_M9_start - Z)
+ <= (0 - 79)
+]
+]
+ & [(J8_M0_start - J8_M6_start)
+ <= (0 - 94)
+]
+]
+ & [(J8_M6_start - J8_M3_start)
+ <= (0 - 71)
+]
+]
+ & [(J8_M3_start - J8_M7_start)
+ <= (0 - 81)
+]
+]
+ & [(J8_M7_start - J8_M1_start)
+ <= (0 - 85)
+]
+]
+ & [(J8_M1_start - J8_M2_start)
+ <= (0 - 66)
+]
+]
+ & [(J8_M2_start - J8_M4_start)
+ <= (0 - 90)
+]
+]
+ & [(J8_M4_start - J8_M5_start)
+ <= (0 - 76)
+]
+]
+ & [(J8_M5_start - J8_M8_start)
+ <= (0 - 58)
+]
+]
+ & [(J8_M8_start - J8_M9_start)
+ <= (0 - 93)
+]
+]
+ & [(J8_M9_start - Z)
+ <= (0 - 97)
+]
+]
+ & [(J9_M3_start - J9_M0_start)
+ <= (0 - 50)
+]
+]
+ & [(J9_M0_start - J9_M1_start)
+ <= (0 - 59)
+]
+]
+ & [(J9_M1_start - J9_M8_start)
+ <= (0 - 82)
+]
+]
+ & [(J9_M8_start - J9_M7_start)
+ <= (0 - 67)
+]
+]
+ & [(J9_M7_start - J9_M9_start)
+ <= (0 - 56)
+]
+]
+ & [(J9_M9_start - J9_M6_start)
+ <= (0 - 96)
+]
+]
+ & [(J9_M6_start - J9_M4_start)
+ <= (0 - 58)
+]
+]
+ & [(J9_M4_start - J9_M5_start)
+ <= (0 - 81)
+]
+]
+ & [(J9_M5_start - J9_M2_start)
+ <= (0 - 59)
+]
+]
+ & [(J9_M2_start - Z)
+ <= (0 - 96)
+]
+]
+ & [[(J0_M0_start - J1_M0_start)
+ <= (0 - 86)
+]
+ | [(J1_M0_start - J0_M0_start)
+ <= (0 - 92)
+]
+]
+]
+ & [[(J0_M0_start - J2_M0_start)
+ <= (0 - 86)
+]
+ | [(J2_M0_start - J0_M0_start)
+ <= (0 - 83)
+]
+]
+]
+ & [[(J0_M0_start - J3_M0_start)
+ <= (0 - 86)
+]
+ | [(J3_M0_start - J0_M0_start)
+ <= (0 - 76)
+]
+]
+]
+ & [[(J0_M0_start - J4_M0_start)
+ <= (0 - 86)
+]
+ | [(J4_M0_start - J0_M0_start)
+ <= (0 - 99)
+]
+]
+]
+ & [[(J0_M0_start - J5_M0_start)
+ <= (0 - 86)
+]
+ | [(J5_M0_start - J0_M0_start)
+ <= (0 - 88)
+]
+]
+]
+ & [[(J0_M0_start - J6_M0_start)
+ <= (0 - 86)
+]
+ | [(J6_M0_start - J0_M0_start)
+ <= (0 - 95)
+]
+]
+]
+ & [[(J0_M0_start - J7_M0_start)
+ <= (0 - 86)
+]
+ | [(J7_M0_start - J0_M0_start)
+ <= (0 - 62)
+]
+]
+]
+ & [[(J0_M0_start - J8_M0_start)
+ <= (0 - 86)
+]
+ | [(J8_M0_start - J0_M0_start)
+ <= (0 - 94)
+]
+]
+]
+ & [[(J0_M0_start - J9_M0_start)
+ <= (0 - 86)
+]
+ | [(J9_M0_start - J0_M0_start)
+ <= (0 - 59)
+]
+]
+]
+ & [[(J1_M0_start - J2_M0_start)
+ <= (0 - 92)
+]
+ | [(J2_M0_start - J1_M0_start)
+ <= (0 - 83)
+]
+]
+]
+ & [[(J1_M0_start - J3_M0_start)
+ <= (0 - 92)
+]
+ | [(J3_M0_start - J1_M0_start)
+ <= (0 - 76)
+]
+]
+]
+ & [[(J1_M0_start - J4_M0_start)
+ <= (0 - 92)
+]
+ | [(J4_M0_start - J1_M0_start)
+ <= (0 - 99)
+]
+]
+]
+ & [[(J1_M0_start - J5_M0_start)
+ <= (0 - 92)
+]
+ | [(J5_M0_start - J1_M0_start)
+ <= (0 - 88)
+]
+]
+]
+ & [[(J1_M0_start - J6_M0_start)
+ <= (0 - 92)
+]
+ | [(J6_M0_start - J1_M0_start)
+ <= (0 - 95)
+]
+]
+]
+ & [[(J1_M0_start - J7_M0_start)
+ <= (0 - 92)
+]
+ | [(J7_M0_start - J1_M0_start)
+ <= (0 - 62)
+]
+]
+]
+ & [[(J1_M0_start - J8_M0_start)
+ <= (0 - 92)
+]
+ | [(J8_M0_start - J1_M0_start)
+ <= (0 - 94)
+]
+]
+]
+ & [[(J1_M0_start - J9_M0_start)
+ <= (0 - 92)
+]
+ | [(J9_M0_start - J1_M0_start)
+ <= (0 - 59)
+]
+]
+]
+ & [[(J2_M0_start - J3_M0_start)
+ <= (0 - 83)
+]
+ | [(J3_M0_start - J2_M0_start)
+ <= (0 - 76)
+]
+]
+]
+ & [[(J2_M0_start - J4_M0_start)
+ <= (0 - 83)
+]
+ | [(J4_M0_start - J2_M0_start)
+ <= (0 - 99)
+]
+]
+]
+ & [[(J2_M0_start - J5_M0_start)
+ <= (0 - 83)
+]
+ | [(J5_M0_start - J2_M0_start)
+ <= (0 - 88)
+]
+]
+]
+ & [[(J2_M0_start - J6_M0_start)
+ <= (0 - 83)
+]
+ | [(J6_M0_start - J2_M0_start)
+ <= (0 - 95)
+]
+]
+]
+ & [[(J2_M0_start - J7_M0_start)
+ <= (0 - 83)
+]
+ | [(J7_M0_start - J2_M0_start)
+ <= (0 - 62)
+]
+]
+]
+ & [[(J2_M0_start - J8_M0_start)
+ <= (0 - 83)
+]
+ | [(J8_M0_start - J2_M0_start)
+ <= (0 - 94)
+]
+]
+]
+ & [[(J2_M0_start - J9_M0_start)
+ <= (0 - 83)
+]
+ | [(J9_M0_start - J2_M0_start)
+ <= (0 - 59)
+]
+]
+]
+ & [[(J3_M0_start - J4_M0_start)
+ <= (0 - 76)
+]
+ | [(J4_M0_start - J3_M0_start)
+ <= (0 - 99)
+]
+]
+]
+ & [[(J3_M0_start - J5_M0_start)
+ <= (0 - 76)
+]
+ | [(J5_M0_start - J3_M0_start)
+ <= (0 - 88)
+]
+]
+]
+ & [[(J3_M0_start - J6_M0_start)
+ <= (0 - 76)
+]
+ | [(J6_M0_start - J3_M0_start)
+ <= (0 - 95)
+]
+]
+]
+ & [[(J3_M0_start - J7_M0_start)
+ <= (0 - 76)
+]
+ | [(J7_M0_start - J3_M0_start)
+ <= (0 - 62)
+]
+]
+]
+ & [[(J3_M0_start - J8_M0_start)
+ <= (0 - 76)
+]
+ | [(J8_M0_start - J3_M0_start)
+ <= (0 - 94)
+]
+]
+]
+ & [[(J3_M0_start - J9_M0_start)
+ <= (0 - 76)
+]
+ | [(J9_M0_start - J3_M0_start)
+ <= (0 - 59)
+]
+]
+]
+ & [[(J4_M0_start - J5_M0_start)
+ <= (0 - 99)
+]
+ | [(J5_M0_start - J4_M0_start)
+ <= (0 - 88)
+]
+]
+]
+ & [[(J4_M0_start - J6_M0_start)
+ <= (0 - 99)
+]
+ | [(J6_M0_start - J4_M0_start)
+ <= (0 - 95)
+]
+]
+]
+ & [[(J4_M0_start - J7_M0_start)
+ <= (0 - 99)
+]
+ | [(J7_M0_start - J4_M0_start)
+ <= (0 - 62)
+]
+]
+]
+ & [[(J4_M0_start - J8_M0_start)
+ <= (0 - 99)
+]
+ | [(J8_M0_start - J4_M0_start)
+ <= (0 - 94)
+]
+]
+]
+ & [[(J4_M0_start - J9_M0_start)
+ <= (0 - 99)
+]
+ | [(J9_M0_start - J4_M0_start)
+ <= (0 - 59)
+]
+]
+]
+ & [[(J5_M0_start - J6_M0_start)
+ <= (0 - 88)
+]
+ | [(J6_M0_start - J5_M0_start)
+ <= (0 - 95)
+]
+]
+]
+ & [[(J5_M0_start - J7_M0_start)
+ <= (0 - 88)
+]
+ | [(J7_M0_start - J5_M0_start)
+ <= (0 - 62)
+]
+]
+]
+ & [[(J5_M0_start - J8_M0_start)
+ <= (0 - 88)
+]
+ | [(J8_M0_start - J5_M0_start)
+ <= (0 - 94)
+]
+]
+]
+ & [[(J5_M0_start - J9_M0_start)
+ <= (0 - 88)
+]
+ | [(J9_M0_start - J5_M0_start)
+ <= (0 - 59)
+]
+]
+]
+ & [[(J6_M0_start - J7_M0_start)
+ <= (0 - 95)
+]
+ | [(J7_M0_start - J6_M0_start)
+ <= (0 - 62)
+]
+]
+]
+ & [[(J6_M0_start - J8_M0_start)
+ <= (0 - 95)
+]
+ | [(J8_M0_start - J6_M0_start)
+ <= (0 - 94)
+]
+]
+]
+ & [[(J6_M0_start - J9_M0_start)
+ <= (0 - 95)
+]
+ | [(J9_M0_start - J6_M0_start)
+ <= (0 - 59)
+]
+]
+]
+ & [[(J7_M0_start - J8_M0_start)
+ <= (0 - 62)
+]
+ | [(J8_M0_start - J7_M0_start)
+ <= (0 - 94)
+]
+]
+]
+ & [[(J7_M0_start - J9_M0_start)
+ <= (0 - 62)
+]
+ | [(J9_M0_start - J7_M0_start)
+ <= (0 - 59)
+]
+]
+]
+ & [[(J8_M0_start - J9_M0_start)
+ <= (0 - 94)
+]
+ | [(J9_M0_start - J8_M0_start)
+ <= (0 - 59)
+]
+]
+]
+ & [[(J0_M1_start - J1_M1_start)
+ <= (0 - 67)
+]
+ | [(J1_M1_start - J0_M1_start)
+ <= (0 - 82)
+]
+]
+]
+ & [[(J0_M1_start - J2_M1_start)
+ <= (0 - 67)
+]
+ | [(J2_M1_start - J0_M1_start)
+ <= (0 - 65)
+]
+]
+]
+ & [[(J0_M1_start - J3_M1_start)
+ <= (0 - 67)
+]
+ | [(J3_M1_start - J0_M1_start)
+ <= (0 - 61)
+]
+]
+]
+ & [[(J0_M1_start - J4_M1_start)
+ <= (0 - 67)
+]
+ | [(J4_M1_start - J0_M1_start)
+ <= (0 - 86)
+]
+]
+]
+ & [[(J0_M1_start - J5_M1_start)
+ <= (0 - 67)
+]
+ | [(J5_M1_start - J0_M1_start)
+ <= (0 - 99)
+]
+]
+]
+ & [[(J0_M1_start - J6_M1_start)
+ <= (0 - 67)
+]
+ | [(J6_M1_start - J0_M1_start)
+ <= (0 - 86)
+]
+]
+]
+ & [[(J0_M1_start - J7_M1_start)
+ <= (0 - 67)
+]
+ | [(J7_M1_start - J0_M1_start)
+ <= (0 - 71)
+]
+]
+]
+ & [[(J0_M1_start - J8_M1_start)
+ <= (0 - 67)
+]
+ | [(J8_M1_start - J0_M1_start)
+ <= (0 - 66)
+]
+]
+]
+ & [[(J0_M1_start - J9_M1_start)
+ <= (0 - 67)
+]
+ | [(J9_M1_start - J0_M1_start)
+ <= (0 - 82)
+]
+]
+]
+ & [[(J1_M1_start - J2_M1_start)
+ <= (0 - 82)
+]
+ | [(J2_M1_start - J1_M1_start)
+ <= (0 - 65)
+]
+]
+]
+ & [[(J1_M1_start - J3_M1_start)
+ <= (0 - 82)
+]
+ | [(J3_M1_start - J1_M1_start)
+ <= (0 - 61)
+]
+]
+]
+ & [[(J1_M1_start - J4_M1_start)
+ <= (0 - 82)
+]
+ | [(J4_M1_start - J1_M1_start)
+ <= (0 - 86)
+]
+]
+]
+ & [[(J1_M1_start - J5_M1_start)
+ <= (0 - 82)
+]
+ | [(J5_M1_start - J1_M1_start)
+ <= (0 - 99)
+]
+]
+]
+ & [[(J1_M1_start - J6_M1_start)
+ <= (0 - 82)
+]
+ | [(J6_M1_start - J1_M1_start)
+ <= (0 - 86)
+]
+]
+]
+ & [[(J1_M1_start - J7_M1_start)
+ <= (0 - 82)
+]
+ | [(J7_M1_start - J1_M1_start)
+ <= (0 - 71)
+]
+]
+]
+ & [[(J1_M1_start - J8_M1_start)
+ <= (0 - 82)
+]
+ | [(J8_M1_start - J1_M1_start)
+ <= (0 - 66)
+]
+]
+]
+ & [[(J1_M1_start - J9_M1_start)
+ <= (0 - 82)
+]
+ | [(J9_M1_start - J1_M1_start)
+ <= (0 - 82)
+]
+]
+]
+ & [[(J2_M1_start - J3_M1_start)
+ <= (0 - 65)
+]
+ | [(J3_M1_start - J2_M1_start)
+ <= (0 - 61)
+]
+]
+]
+ & [[(J2_M1_start - J4_M1_start)
+ <= (0 - 65)
+]
+ | [(J4_M1_start - J2_M1_start)
+ <= (0 - 86)
+]
+]
+]
+ & [[(J2_M1_start - J5_M1_start)
+ <= (0 - 65)
+]
+ | [(J5_M1_start - J2_M1_start)
+ <= (0 - 99)
+]
+]
+]
+ & [[(J2_M1_start - J6_M1_start)
+ <= (0 - 65)
+]
+ | [(J6_M1_start - J2_M1_start)
+ <= (0 - 86)
+]
+]
+]
+ & [[(J2_M1_start - J7_M1_start)
+ <= (0 - 65)
+]
+ | [(J7_M1_start - J2_M1_start)
+ <= (0 - 71)
+]
+]
+]
+ & [[(J2_M1_start - J8_M1_start)
+ <= (0 - 65)
+]
+ | [(J8_M1_start - J2_M1_start)
+ <= (0 - 66)
+]
+]
+]
+ & [[(J2_M1_start - J9_M1_start)
+ <= (0 - 65)
+]
+ | [(J9_M1_start - J2_M1_start)
+ <= (0 - 82)
+]
+]
+]
+ & [[(J3_M1_start - J4_M1_start)
+ <= (0 - 61)
+]
+ | [(J4_M1_start - J3_M1_start)
+ <= (0 - 86)
+]
+]
+]
+ & [[(J3_M1_start - J5_M1_start)
+ <= (0 - 61)
+]
+ | [(J5_M1_start - J3_M1_start)
+ <= (0 - 99)
+]
+]
+]
+ & [[(J3_M1_start - J6_M1_start)
+ <= (0 - 61)
+]
+ | [(J6_M1_start - J3_M1_start)
+ <= (0 - 86)
+]
+]
+]
+ & [[(J3_M1_start - J7_M1_start)
+ <= (0 - 61)
+]
+ | [(J7_M1_start - J3_M1_start)
+ <= (0 - 71)
+]
+]
+]
+ & [[(J3_M1_start - J8_M1_start)
+ <= (0 - 61)
+]
+ | [(J8_M1_start - J3_M1_start)
+ <= (0 - 66)
+]
+]
+]
+ & [[(J3_M1_start - J9_M1_start)
+ <= (0 - 61)
+]
+ | [(J9_M1_start - J3_M1_start)
+ <= (0 - 82)
+]
+]
+]
+ & [[(J4_M1_start - J5_M1_start)
+ <= (0 - 86)
+]
+ | [(J5_M1_start - J4_M1_start)
+ <= (0 - 99)
+]
+]
+]
+ & [[(J4_M1_start - J6_M1_start)
+ <= (0 - 86)
+]
+ | [(J6_M1_start - J4_M1_start)
+ <= (0 - 86)
+]
+]
+]
+ & [[(J4_M1_start - J7_M1_start)
+ <= (0 - 86)
+]
+ | [(J7_M1_start - J4_M1_start)
+ <= (0 - 71)
+]
+]
+]
+ & [[(J4_M1_start - J8_M1_start)
+ <= (0 - 86)
+]
+ | [(J8_M1_start - J4_M1_start)
+ <= (0 - 66)
+]
+]
+]
+ & [[(J4_M1_start - J9_M1_start)
+ <= (0 - 86)
+]
+ | [(J9_M1_start - J4_M1_start)
+ <= (0 - 82)
+]
+]
+]
+ & [[(J5_M1_start - J6_M1_start)
+ <= (0 - 99)
+]
+ | [(J6_M1_start - J5_M1_start)
+ <= (0 - 86)
+]
+]
+]
+ & [[(J5_M1_start - J7_M1_start)
+ <= (0 - 99)
+]
+ | [(J7_M1_start - J5_M1_start)
+ <= (0 - 71)
+]
+]
+]
+ & [[(J5_M1_start - J8_M1_start)
+ <= (0 - 99)
+]
+ | [(J8_M1_start - J5_M1_start)
+ <= (0 - 66)
+]
+]
+]
+ & [[(J5_M1_start - J9_M1_start)
+ <= (0 - 99)
+]
+ | [(J9_M1_start - J5_M1_start)
+ <= (0 - 82)
+]
+]
+]
+ & [[(J6_M1_start - J7_M1_start)
+ <= (0 - 86)
+]
+ | [(J7_M1_start - J6_M1_start)
+ <= (0 - 71)
+]
+]
+]
+ & [[(J6_M1_start - J8_M1_start)
+ <= (0 - 86)
+]
+ | [(J8_M1_start - J6_M1_start)
+ <= (0 - 66)
+]
+]
+]
+ & [[(J6_M1_start - J9_M1_start)
+ <= (0 - 86)
+]
+ | [(J9_M1_start - J6_M1_start)
+ <= (0 - 82)
+]
+]
+]
+ & [[(J7_M1_start - J8_M1_start)
+ <= (0 - 71)
+]
+ | [(J8_M1_start - J7_M1_start)
+ <= (0 - 66)
+]
+]
+]
+ & [[(J7_M1_start - J9_M1_start)
+ <= (0 - 71)
+]
+ | [(J9_M1_start - J7_M1_start)
+ <= (0 - 82)
+]
+]
+]
+ & [[(J8_M1_start - J9_M1_start)
+ <= (0 - 66)
+]
+ | [(J9_M1_start - J8_M1_start)
+ <= (0 - 82)
+]
+]
+]
+ & [[(J0_M2_start - J1_M2_start)
+ <= (0 - 89)
+]
+ | [(J1_M2_start - J0_M2_start)
+ <= (0 - 94)
+]
+]
+]
+ & [[(J0_M2_start - J2_M2_start)
+ <= (0 - 89)
+]
+ | [(J2_M2_start - J0_M2_start)
+ <= (0 - 55)
+]
+]
+]
+ & [[(J0_M2_start - J3_M2_start)
+ <= (0 - 89)
+]
+ | [(J3_M2_start - J0_M2_start)
+ <= (0 - 68)
+]
+]
+]
+ & [[(J0_M2_start - J4_M2_start)
+ <= (0 - 89)
+]
+ | [(J4_M2_start - J0_M2_start)
+ <= (0 - 67)
+]
+]
+]
+ & [[(J0_M2_start - J5_M2_start)
+ <= (0 - 89)
+]
+ | [(J5_M2_start - J0_M2_start)
+ <= (0 - 80)
+]
+]
+]
+ & [[(J0_M2_start - J6_M2_start)
+ <= (0 - 89)
+]
+ | [(J6_M2_start - J0_M2_start)
+ <= (0 - 66)
+]
+]
+]
+ & [[(J0_M2_start - J7_M2_start)
+ <= (0 - 89)
+]
+ | [(J7_M2_start - J0_M2_start)
+ <= (0 - 51)
+]
+]
+]
+ & [[(J0_M2_start - J8_M2_start)
+ <= (0 - 89)
+]
+ | [(J8_M2_start - J0_M2_start)
+ <= (0 - 90)
+]
+]
+]
+ & [[(J0_M2_start - J9_M2_start)
+ <= (0 - 89)
+]
+ | [(J9_M2_start - J0_M2_start)
+ <= (0 - 96)
+]
+]
+]
+ & [[(J1_M2_start - J2_M2_start)
+ <= (0 - 94)
+]
+ | [(J2_M2_start - J1_M2_start)
+ <= (0 - 55)
+]
+]
+]
+ & [[(J1_M2_start - J3_M2_start)
+ <= (0 - 94)
+]
+ | [(J3_M2_start - J1_M2_start)
+ <= (0 - 68)
+]
+]
+]
+ & [[(J1_M2_start - J4_M2_start)
+ <= (0 - 94)
+]
+ | [(J4_M2_start - J1_M2_start)
+ <= (0 - 67)
+]
+]
+]
+ & [[(J1_M2_start - J5_M2_start)
+ <= (0 - 94)
+]
+ | [(J5_M2_start - J1_M2_start)
+ <= (0 - 80)
+]
+]
+]
+ & [[(J1_M2_start - J6_M2_start)
+ <= (0 - 94)
+]
+ | [(J6_M2_start - J1_M2_start)
+ <= (0 - 66)
+]
+]
+]
+ & [[(J1_M2_start - J7_M2_start)
+ <= (0 - 94)
+]
+ | [(J7_M2_start - J1_M2_start)
+ <= (0 - 51)
+]
+]
+]
+ & [[(J1_M2_start - J8_M2_start)
+ <= (0 - 94)
+]
+ | [(J8_M2_start - J1_M2_start)
+ <= (0 - 90)
+]
+]
+]
+ & [[(J1_M2_start - J9_M2_start)
+ <= (0 - 94)
+]
+ | [(J9_M2_start - J1_M2_start)
+ <= (0 - 96)
+]
+]
+]
+ & [[(J2_M2_start - J3_M2_start)
+ <= (0 - 55)
+]
+ | [(J3_M2_start - J2_M2_start)
+ <= (0 - 68)
+]
+]
+]
+ & [[(J2_M2_start - J4_M2_start)
+ <= (0 - 55)
+]
+ | [(J4_M2_start - J2_M2_start)
+ <= (0 - 67)
+]
+]
+]
+ & [[(J2_M2_start - J5_M2_start)
+ <= (0 - 55)
+]
+ | [(J5_M2_start - J2_M2_start)
+ <= (0 - 80)
+]
+]
+]
+ & [[(J2_M2_start - J6_M2_start)
+ <= (0 - 55)
+]
+ | [(J6_M2_start - J2_M2_start)
+ <= (0 - 66)
+]
+]
+]
+ & [[(J2_M2_start - J7_M2_start)
+ <= (0 - 55)
+]
+ | [(J7_M2_start - J2_M2_start)
+ <= (0 - 51)
+]
+]
+]
+ & [[(J2_M2_start - J8_M2_start)
+ <= (0 - 55)
+]
+ | [(J8_M2_start - J2_M2_start)
+ <= (0 - 90)
+]
+]
+]
+ & [[(J2_M2_start - J9_M2_start)
+ <= (0 - 55)
+]
+ | [(J9_M2_start - J2_M2_start)
+ <= (0 - 96)
+]
+]
+]
+ & [[(J3_M2_start - J4_M2_start)
+ <= (0 - 68)
+]
+ | [(J4_M2_start - J3_M2_start)
+ <= (0 - 67)
+]
+]
+]
+ & [[(J3_M2_start - J5_M2_start)
+ <= (0 - 68)
+]
+ | [(J5_M2_start - J3_M2_start)
+ <= (0 - 80)
+]
+]
+]
+ & [[(J3_M2_start - J6_M2_start)
+ <= (0 - 68)
+]
+ | [(J6_M2_start - J3_M2_start)
+ <= (0 - 66)
+]
+]
+]
+ & [[(J3_M2_start - J7_M2_start)
+ <= (0 - 68)
+]
+ | [(J7_M2_start - J3_M2_start)
+ <= (0 - 51)
+]
+]
+]
+ & [[(J3_M2_start - J8_M2_start)
+ <= (0 - 68)
+]
+ | [(J8_M2_start - J3_M2_start)
+ <= (0 - 90)
+]
+]
+]
+ & [[(J3_M2_start - J9_M2_start)
+ <= (0 - 68)
+]
+ | [(J9_M2_start - J3_M2_start)
+ <= (0 - 96)
+]
+]
+]
+ & [[(J4_M2_start - J5_M2_start)
+ <= (0 - 67)
+]
+ | [(J5_M2_start - J4_M2_start)
+ <= (0 - 80)
+]
+]
+]
+ & [[(J4_M2_start - J6_M2_start)
+ <= (0 - 67)
+]
+ | [(J6_M2_start - J4_M2_start)
+ <= (0 - 66)
+]
+]
+]
+ & [[(J4_M2_start - J7_M2_start)
+ <= (0 - 67)
+]
+ | [(J7_M2_start - J4_M2_start)
+ <= (0 - 51)
+]
+]
+]
+ & [[(J4_M2_start - J8_M2_start)
+ <= (0 - 67)
+]
+ | [(J8_M2_start - J4_M2_start)
+ <= (0 - 90)
+]
+]
+]
+ & [[(J4_M2_start - J9_M2_start)
+ <= (0 - 67)
+]
+ | [(J9_M2_start - J4_M2_start)
+ <= (0 - 96)
+]
+]
+]
+ & [[(J5_M2_start - J6_M2_start)
+ <= (0 - 80)
+]
+ | [(J6_M2_start - J5_M2_start)
+ <= (0 - 66)
+]
+]
+]
+ & [[(J5_M2_start - J7_M2_start)
+ <= (0 - 80)
+]
+ | [(J7_M2_start - J5_M2_start)
+ <= (0 - 51)
+]
+]
+]
+ & [[(J5_M2_start - J8_M2_start)
+ <= (0 - 80)
+]
+ | [(J8_M2_start - J5_M2_start)
+ <= (0 - 90)
+]
+]
+]
+ & [[(J5_M2_start - J9_M2_start)
+ <= (0 - 80)
+]
+ | [(J9_M2_start - J5_M2_start)
+ <= (0 - 96)
+]
+]
+]
+ & [[(J6_M2_start - J7_M2_start)
+ <= (0 - 66)
+]
+ | [(J7_M2_start - J6_M2_start)
+ <= (0 - 51)
+]
+]
+]
+ & [[(J6_M2_start - J8_M2_start)
+ <= (0 - 66)
+]
+ | [(J8_M2_start - J6_M2_start)
+ <= (0 - 90)
+]
+]
+]
+ & [[(J6_M2_start - J9_M2_start)
+ <= (0 - 66)
+]
+ | [(J9_M2_start - J6_M2_start)
+ <= (0 - 96)
+]
+]
+]
+ & [[(J7_M2_start - J8_M2_start)
+ <= (0 - 51)
+]
+ | [(J8_M2_start - J7_M2_start)
+ <= (0 - 90)
+]
+]
+]
+ & [[(J7_M2_start - J9_M2_start)
+ <= (0 - 51)
+]
+ | [(J9_M2_start - J7_M2_start)
+ <= (0 - 96)
+]
+]
+]
+ & [[(J8_M2_start - J9_M2_start)
+ <= (0 - 90)
+]
+ | [(J9_M2_start - J8_M2_start)
+ <= (0 - 96)
+]
+]
+]
+ & [[(J0_M3_start - J1_M3_start)
+ <= (0 - 92)
+]
+ | [(J1_M3_start - J0_M3_start)
+ <= (0 - 50)
+]
+]
+]
+ & [[(J0_M3_start - J2_M3_start)
+ <= (0 - 92)
+]
+ | [(J2_M3_start - J0_M3_start)
+ <= (0 - 77)
+]
+]
+]
+ & [[(J0_M3_start - J3_M3_start)
+ <= (0 - 92)
+]
+ | [(J3_M3_start - J0_M3_start)
+ <= (0 - 54)
+]
+]
+]
+ & [[(J0_M3_start - J4_M3_start)
+ <= (0 - 92)
+]
+ | [(J4_M3_start - J0_M3_start)
+ <= (0 - 69)
+]
+]
+]
+ & [[(J0_M3_start - J5_M3_start)
+ <= (0 - 92)
+]
+ | [(J5_M3_start - J0_M3_start)
+ <= (0 - 79)
+]
+]
+]
+ & [[(J0_M3_start - J6_M3_start)
+ <= (0 - 92)
+]
+ | [(J6_M3_start - J0_M3_start)
+ <= (0 - 96)
+]
+]
+]
+ & [[(J0_M3_start - J7_M3_start)
+ <= (0 - 92)
+]
+ | [(J7_M3_start - J0_M3_start)
+ <= (0 - 82)
+]
+]
+]
+ & [[(J0_M3_start - J8_M3_start)
+ <= (0 - 92)
+]
+ | [(J8_M3_start - J0_M3_start)
+ <= (0 - 81)
+]
+]
+]
+ & [[(J0_M3_start - J9_M3_start)
+ <= (0 - 92)
+]
+ | [(J9_M3_start - J0_M3_start)
+ <= (0 - 50)
+]
+]
+]
+ & [[(J1_M3_start - J2_M3_start)
+ <= (0 - 50)
+]
+ | [(J2_M3_start - J1_M3_start)
+ <= (0 - 77)
+]
+]
+]
+ & [[(J1_M3_start - J3_M3_start)
+ <= (0 - 50)
+]
+ | [(J3_M3_start - J1_M3_start)
+ <= (0 - 54)
+]
+]
+]
+ & [[(J1_M3_start - J4_M3_start)
+ <= (0 - 50)
+]
+ | [(J4_M3_start - J1_M3_start)
+ <= (0 - 69)
+]
+]
+]
+ & [[(J1_M3_start - J5_M3_start)
+ <= (0 - 50)
+]
+ | [(J5_M3_start - J1_M3_start)
+ <= (0 - 79)
+]
+]
+]
+ & [[(J1_M3_start - J6_M3_start)
+ <= (0 - 50)
+]
+ | [(J6_M3_start - J1_M3_start)
+ <= (0 - 96)
+]
+]
+]
+ & [[(J1_M3_start - J7_M3_start)
+ <= (0 - 50)
+]
+ | [(J7_M3_start - J1_M3_start)
+ <= (0 - 82)
+]
+]
+]
+ & [[(J1_M3_start - J8_M3_start)
+ <= (0 - 50)
+]
+ | [(J8_M3_start - J1_M3_start)
+ <= (0 - 81)
+]
+]
+]
+ & [[(J1_M3_start - J9_M3_start)
+ <= (0 - 50)
+]
+ | [(J9_M3_start - J1_M3_start)
+ <= (0 - 50)
+]
+]
+]
+ & [[(J2_M3_start - J3_M3_start)
+ <= (0 - 77)
+]
+ | [(J3_M3_start - J2_M3_start)
+ <= (0 - 54)
+]
+]
+]
+ & [[(J2_M3_start - J4_M3_start)
+ <= (0 - 77)
+]
+ | [(J4_M3_start - J2_M3_start)
+ <= (0 - 69)
+]
+]
+]
+ & [[(J2_M3_start - J5_M3_start)
+ <= (0 - 77)
+]
+ | [(J5_M3_start - J2_M3_start)
+ <= (0 - 79)
+]
+]
+]
+ & [[(J2_M3_start - J6_M3_start)
+ <= (0 - 77)
+]
+ | [(J6_M3_start - J2_M3_start)
+ <= (0 - 96)
+]
+]
+]
+ & [[(J2_M3_start - J7_M3_start)
+ <= (0 - 77)
+]
+ | [(J7_M3_start - J2_M3_start)
+ <= (0 - 82)
+]
+]
+]
+ & [[(J2_M3_start - J8_M3_start)
+ <= (0 - 77)
+]
+ | [(J8_M3_start - J2_M3_start)
+ <= (0 - 81)
+]
+]
+]
+ & [[(J2_M3_start - J9_M3_start)
+ <= (0 - 77)
+]
+ | [(J9_M3_start - J2_M3_start)
+ <= (0 - 50)
+]
+]
+]
+ & [[(J3_M3_start - J4_M3_start)
+ <= (0 - 54)
+]
+ | [(J4_M3_start - J3_M3_start)
+ <= (0 - 69)
+]
+]
+]
+ & [[(J3_M3_start - J5_M3_start)
+ <= (0 - 54)
+]
+ | [(J5_M3_start - J3_M3_start)
+ <= (0 - 79)
+]
+]
+]
+ & [[(J3_M3_start - J6_M3_start)
+ <= (0 - 54)
+]
+ | [(J6_M3_start - J3_M3_start)
+ <= (0 - 96)
+]
+]
+]
+ & [[(J3_M3_start - J7_M3_start)
+ <= (0 - 54)
+]
+ | [(J7_M3_start - J3_M3_start)
+ <= (0 - 82)
+]
+]
+]
+ & [[(J3_M3_start - J8_M3_start)
+ <= (0 - 54)
+]
+ | [(J8_M3_start - J3_M3_start)
+ <= (0 - 81)
+]
+]
+]
+ & [[(J3_M3_start - J9_M3_start)
+ <= (0 - 54)
+]
+ | [(J9_M3_start - J3_M3_start)
+ <= (0 - 50)
+]
+]
+]
+ & [[(J4_M3_start - J5_M3_start)
+ <= (0 - 69)
+]
+ | [(J5_M3_start - J4_M3_start)
+ <= (0 - 79)
+]
+]
+]
+ & [[(J4_M3_start - J6_M3_start)
+ <= (0 - 69)
+]
+ | [(J6_M3_start - J4_M3_start)
+ <= (0 - 96)
+]
+]
+]
+ & [[(J4_M3_start - J7_M3_start)
+ <= (0 - 69)
+]
+ | [(J7_M3_start - J4_M3_start)
+ <= (0 - 82)
+]
+]
+]
+ & [[(J4_M3_start - J8_M3_start)
+ <= (0 - 69)
+]
+ | [(J8_M3_start - J4_M3_start)
+ <= (0 - 81)
+]
+]
+]
+ & [[(J4_M3_start - J9_M3_start)
+ <= (0 - 69)
+]
+ | [(J9_M3_start - J4_M3_start)
+ <= (0 - 50)
+]
+]
+]
+ & [[(J5_M3_start - J6_M3_start)
+ <= (0 - 79)
+]
+ | [(J6_M3_start - J5_M3_start)
+ <= (0 - 96)
+]
+]
+]
+ & [[(J5_M3_start - J7_M3_start)
+ <= (0 - 79)
+]
+ | [(J7_M3_start - J5_M3_start)
+ <= (0 - 82)
+]
+]
+]
+ & [[(J5_M3_start - J8_M3_start)
+ <= (0 - 79)
+]
+ | [(J8_M3_start - J5_M3_start)
+ <= (0 - 81)
+]
+]
+]
+ & [[(J5_M3_start - J9_M3_start)
+ <= (0 - 79)
+]
+ | [(J9_M3_start - J5_M3_start)
+ <= (0 - 50)
+]
+]
+]
+ & [[(J6_M3_start - J7_M3_start)
+ <= (0 - 96)
+]
+ | [(J7_M3_start - J6_M3_start)
+ <= (0 - 82)
+]
+]
+]
+ & [[(J6_M3_start - J8_M3_start)
+ <= (0 - 96)
+]
+ | [(J8_M3_start - J6_M3_start)
+ <= (0 - 81)
+]
+]
+]
+ & [[(J6_M3_start - J9_M3_start)
+ <= (0 - 96)
+]
+ | [(J9_M3_start - J6_M3_start)
+ <= (0 - 50)
+]
+]
+]
+ & [[(J7_M3_start - J8_M3_start)
+ <= (0 - 82)
+]
+ | [(J8_M3_start - J7_M3_start)
+ <= (0 - 81)
+]
+]
+]
+ & [[(J7_M3_start - J9_M3_start)
+ <= (0 - 82)
+]
+ | [(J9_M3_start - J7_M3_start)
+ <= (0 - 50)
+]
+]
+]
+ & [[(J8_M3_start - J9_M3_start)
+ <= (0 - 81)
+]
+ | [(J9_M3_start - J8_M3_start)
+ <= (0 - 50)
+]
+]
+]
+ & [[(J0_M4_start - J1_M4_start)
+ <= (0 - 88)
+]
+ | [(J1_M4_start - J0_M4_start)
+ <= (0 - 75)
+]
+]
+]
+ & [[(J0_M4_start - J2_M4_start)
+ <= (0 - 88)
+]
+ | [(J2_M4_start - J0_M4_start)
+ <= (0 - 85)
+]
+]
+]
+ & [[(J0_M4_start - J3_M4_start)
+ <= (0 - 88)
+]
+ | [(J3_M4_start - J0_M4_start)
+ <= (0 - 99)
+]
+]
+]
+ & [[(J0_M4_start - J4_M4_start)
+ <= (0 - 88)
+]
+ | [(J4_M4_start - J0_M4_start)
+ <= (0 - 88)
+]
+]
+]
+ & [[(J0_M4_start - J5_M4_start)
+ <= (0 - 88)
+]
+ | [(J5_M4_start - J0_M4_start)
+ <= (0 - 81)
+]
+]
+]
+ & [[(J0_M4_start - J6_M4_start)
+ <= (0 - 88)
+]
+ | [(J6_M4_start - J0_M4_start)
+ <= (0 - 97)
+]
+]
+]
+ & [[(J0_M4_start - J7_M4_start)
+ <= (0 - 88)
+]
+ | [(J7_M4_start - J0_M4_start)
+ <= (0 - 98)
+]
+]
+]
+ & [[(J0_M4_start - J8_M4_start)
+ <= (0 - 88)
+]
+ | [(J8_M4_start - J0_M4_start)
+ <= (0 - 76)
+]
+]
+]
+ & [[(J0_M4_start - J9_M4_start)
+ <= (0 - 88)
+]
+ | [(J9_M4_start - J0_M4_start)
+ <= (0 - 81)
+]
+]
+]
+ & [[(J1_M4_start - J2_M4_start)
+ <= (0 - 75)
+]
+ | [(J2_M4_start - J1_M4_start)
+ <= (0 - 85)
+]
+]
+]
+ & [[(J1_M4_start - J3_M4_start)
+ <= (0 - 75)
+]
+ | [(J3_M4_start - J1_M4_start)
+ <= (0 - 99)
+]
+]
+]
+ & [[(J1_M4_start - J4_M4_start)
+ <= (0 - 75)
+]
+ | [(J4_M4_start - J1_M4_start)
+ <= (0 - 88)
+]
+]
+]
+ & [[(J1_M4_start - J5_M4_start)
+ <= (0 - 75)
+]
+ | [(J5_M4_start - J1_M4_start)
+ <= (0 - 81)
+]
+]
+]
+ & [[(J1_M4_start - J6_M4_start)
+ <= (0 - 75)
+]
+ | [(J6_M4_start - J1_M4_start)
+ <= (0 - 97)
+]
+]
+]
+ & [[(J1_M4_start - J7_M4_start)
+ <= (0 - 75)
+]
+ | [(J7_M4_start - J1_M4_start)
+ <= (0 - 98)
+]
+]
+]
+ & [[(J1_M4_start - J8_M4_start)
+ <= (0 - 75)
+]
+ | [(J8_M4_start - J1_M4_start)
+ <= (0 - 76)
+]
+]
+]
+ & [[(J1_M4_start - J9_M4_start)
+ <= (0 - 75)
+]
+ | [(J9_M4_start - J1_M4_start)
+ <= (0 - 81)
+]
+]
+]
+ & [[(J2_M4_start - J3_M4_start)
+ <= (0 - 85)
+]
+ | [(J3_M4_start - J2_M4_start)
+ <= (0 - 99)
+]
+]
+]
+ & [[(J2_M4_start - J4_M4_start)
+ <= (0 - 85)
+]
+ | [(J4_M4_start - J2_M4_start)
+ <= (0 - 88)
+]
+]
+]
+ & [[(J2_M4_start - J5_M4_start)
+ <= (0 - 85)
+]
+ | [(J5_M4_start - J2_M4_start)
+ <= (0 - 81)
+]
+]
+]
+ & [[(J2_M4_start - J6_M4_start)
+ <= (0 - 85)
+]
+ | [(J6_M4_start - J2_M4_start)
+ <= (0 - 97)
+]
+]
+]
+ & [[(J2_M4_start - J7_M4_start)
+ <= (0 - 85)
+]
+ | [(J7_M4_start - J2_M4_start)
+ <= (0 - 98)
+]
+]
+]
+ & [[(J2_M4_start - J8_M4_start)
+ <= (0 - 85)
+]
+ | [(J8_M4_start - J2_M4_start)
+ <= (0 - 76)
+]
+]
+]
+ & [[(J2_M4_start - J9_M4_start)
+ <= (0 - 85)
+]
+ | [(J9_M4_start - J2_M4_start)
+ <= (0 - 81)
+]
+]
+]
+ & [[(J3_M4_start - J4_M4_start)
+ <= (0 - 99)
+]
+ | [(J4_M4_start - J3_M4_start)
+ <= (0 - 88)
+]
+]
+]
+ & [[(J3_M4_start - J5_M4_start)
+ <= (0 - 99)
+]
+ | [(J5_M4_start - J3_M4_start)
+ <= (0 - 81)
+]
+]
+]
+ & [[(J3_M4_start - J6_M4_start)
+ <= (0 - 99)
+]
+ | [(J6_M4_start - J3_M4_start)
+ <= (0 - 97)
+]
+]
+]
+ & [[(J3_M4_start - J7_M4_start)
+ <= (0 - 99)
+]
+ | [(J7_M4_start - J3_M4_start)
+ <= (0 - 98)
+]
+]
+]
+ & [[(J3_M4_start - J8_M4_start)
+ <= (0 - 99)
+]
+ | [(J8_M4_start - J3_M4_start)
+ <= (0 - 76)
+]
+]
+]
+ & [[(J3_M4_start - J9_M4_start)
+ <= (0 - 99)
+]
+ | [(J9_M4_start - J3_M4_start)
+ <= (0 - 81)
+]
+]
+]
+ & [[(J4_M4_start - J5_M4_start)
+ <= (0 - 88)
+]
+ | [(J5_M4_start - J4_M4_start)
+ <= (0 - 81)
+]
+]
+]
+ & [[(J4_M4_start - J6_M4_start)
+ <= (0 - 88)
+]
+ | [(J6_M4_start - J4_M4_start)
+ <= (0 - 97)
+]
+]
+]
+ & [[(J4_M4_start - J7_M4_start)
+ <= (0 - 88)
+]
+ | [(J7_M4_start - J4_M4_start)
+ <= (0 - 98)
+]
+]
+]
+ & [[(J4_M4_start - J8_M4_start)
+ <= (0 - 88)
+]
+ | [(J8_M4_start - J4_M4_start)
+ <= (0 - 76)
+]
+]
+]
+ & [[(J4_M4_start - J9_M4_start)
+ <= (0 - 88)
+]
+ | [(J9_M4_start - J4_M4_start)
+ <= (0 - 81)
+]
+]
+]
+ & [[(J5_M4_start - J6_M4_start)
+ <= (0 - 81)
+]
+ | [(J6_M4_start - J5_M4_start)
+ <= (0 - 97)
+]
+]
+]
+ & [[(J5_M4_start - J7_M4_start)
+ <= (0 - 81)
+]
+ | [(J7_M4_start - J5_M4_start)
+ <= (0 - 98)
+]
+]
+]
+ & [[(J5_M4_start - J8_M4_start)
+ <= (0 - 81)
+]
+ | [(J8_M4_start - J5_M4_start)
+ <= (0 - 76)
+]
+]
+]
+ & [[(J5_M4_start - J9_M4_start)
+ <= (0 - 81)
+]
+ | [(J9_M4_start - J5_M4_start)
+ <= (0 - 81)
+]
+]
+]
+ & [[(J6_M4_start - J7_M4_start)
+ <= (0 - 97)
+]
+ | [(J7_M4_start - J6_M4_start)
+ <= (0 - 98)
+]
+]
+]
+ & [[(J6_M4_start - J8_M4_start)
+ <= (0 - 97)
+]
+ | [(J8_M4_start - J6_M4_start)
+ <= (0 - 76)
+]
+]
+]
+ & [[(J6_M4_start - J9_M4_start)
+ <= (0 - 97)
+]
+ | [(J9_M4_start - J6_M4_start)
+ <= (0 - 81)
+]
+]
+]
+ & [[(J7_M4_start - J8_M4_start)
+ <= (0 - 98)
+]
+ | [(J8_M4_start - J7_M4_start)
+ <= (0 - 76)
+]
+]
+]
+ & [[(J7_M4_start - J9_M4_start)
+ <= (0 - 98)
+]
+ | [(J9_M4_start - J7_M4_start)
+ <= (0 - 81)
+]
+]
+]
+ & [[(J8_M4_start - J9_M4_start)
+ <= (0 - 76)
+]
+ | [(J9_M4_start - J8_M4_start)
+ <= (0 - 81)
+]
+]
+]
+ & [[(J0_M5_start - J1_M5_start)
+ <= (0 - 99)
+]
+ | [(J1_M5_start - J0_M5_start)
+ <= (0 - 72)
+]
+]
+]
+ & [[(J0_M5_start - J2_M5_start)
+ <= (0 - 99)
+]
+ | [(J2_M5_start - J0_M5_start)
+ <= (0 - 85)
+]
+]
+]
+ & [[(J0_M5_start - J3_M5_start)
+ <= (0 - 99)
+]
+ | [(J3_M5_start - J0_M5_start)
+ <= (0 - 66)
+]
+]
+]
+ & [[(J0_M5_start - J4_M5_start)
+ <= (0 - 99)
+]
+ | [(J4_M5_start - J0_M5_start)
+ <= (0 - 68)
+]
+]
+]
+ & [[(J0_M5_start - J5_M5_start)
+ <= (0 - 99)
+]
+ | [(J5_M5_start - J0_M5_start)
+ <= (0 - 64)
+]
+]
+]
+ & [[(J0_M5_start - J6_M5_start)
+ <= (0 - 99)
+]
+ | [(J6_M5_start - J0_M5_start)
+ <= (0 - 99)
+]
+]
+]
+ & [[(J0_M5_start - J7_M5_start)
+ <= (0 - 99)
+]
+ | [(J7_M5_start - J0_M5_start)
+ <= (0 - 94)
+]
+]
+]
+ & [[(J0_M5_start - J8_M5_start)
+ <= (0 - 99)
+]
+ | [(J8_M5_start - J0_M5_start)
+ <= (0 - 58)
+]
+]
+]
+ & [[(J0_M5_start - J9_M5_start)
+ <= (0 - 99)
+]
+ | [(J9_M5_start - J0_M5_start)
+ <= (0 - 59)
+]
+]
+]
+ & [[(J1_M5_start - J2_M5_start)
+ <= (0 - 72)
+]
+ | [(J2_M5_start - J1_M5_start)
+ <= (0 - 85)
+]
+]
+]
+ & [[(J1_M5_start - J3_M5_start)
+ <= (0 - 72)
+]
+ | [(J3_M5_start - J1_M5_start)
+ <= (0 - 66)
+]
+]
+]
+ & [[(J1_M5_start - J4_M5_start)
+ <= (0 - 72)
+]
+ | [(J4_M5_start - J1_M5_start)
+ <= (0 - 68)
+]
+]
+]
+ & [[(J1_M5_start - J5_M5_start)
+ <= (0 - 72)
+]
+ | [(J5_M5_start - J1_M5_start)
+ <= (0 - 64)
+]
+]
+]
+ & [[(J1_M5_start - J6_M5_start)
+ <= (0 - 72)
+]
+ | [(J6_M5_start - J1_M5_start)
+ <= (0 - 99)
+]
+]
+]
+ & [[(J1_M5_start - J7_M5_start)
+ <= (0 - 72)
+]
+ | [(J7_M5_start - J1_M5_start)
+ <= (0 - 94)
+]
+]
+]
+ & [[(J1_M5_start - J8_M5_start)
+ <= (0 - 72)
+]
+ | [(J8_M5_start - J1_M5_start)
+ <= (0 - 58)
+]
+]
+]
+ & [[(J1_M5_start - J9_M5_start)
+ <= (0 - 72)
+]
+ | [(J9_M5_start - J1_M5_start)
+ <= (0 - 59)
+]
+]
+]
+ & [[(J2_M5_start - J3_M5_start)
+ <= (0 - 85)
+]
+ | [(J3_M5_start - J2_M5_start)
+ <= (0 - 66)
+]
+]
+]
+ & [[(J2_M5_start - J4_M5_start)
+ <= (0 - 85)
+]
+ | [(J4_M5_start - J2_M5_start)
+ <= (0 - 68)
+]
+]
+]
+ & [[(J2_M5_start - J5_M5_start)
+ <= (0 - 85)
+]
+ | [(J5_M5_start - J2_M5_start)
+ <= (0 - 64)
+]
+]
+]
+ & [[(J2_M5_start - J6_M5_start)
+ <= (0 - 85)
+]
+ | [(J6_M5_start - J2_M5_start)
+ <= (0 - 99)
+]
+]
+]
+ & [[(J2_M5_start - J7_M5_start)
+ <= (0 - 85)
+]
+ | [(J7_M5_start - J2_M5_start)
+ <= (0 - 94)
+]
+]
+]
+ & [[(J2_M5_start - J8_M5_start)
+ <= (0 - 85)
+]
+ | [(J8_M5_start - J2_M5_start)
+ <= (0 - 58)
+]
+]
+]
+ & [[(J2_M5_start - J9_M5_start)
+ <= (0 - 85)
+]
+ | [(J9_M5_start - J2_M5_start)
+ <= (0 - 59)
+]
+]
+]
+ & [[(J3_M5_start - J4_M5_start)
+ <= (0 - 66)
+]
+ | [(J4_M5_start - J3_M5_start)
+ <= (0 - 68)
+]
+]
+]
+ & [[(J3_M5_start - J5_M5_start)
+ <= (0 - 66)
+]
+ | [(J5_M5_start - J3_M5_start)
+ <= (0 - 64)
+]
+]
+]
+ & [[(J3_M5_start - J6_M5_start)
+ <= (0 - 66)
+]
+ | [(J6_M5_start - J3_M5_start)
+ <= (0 - 99)
+]
+]
+]
+ & [[(J3_M5_start - J7_M5_start)
+ <= (0 - 66)
+]
+ | [(J7_M5_start - J3_M5_start)
+ <= (0 - 94)
+]
+]
+]
+ & [[(J3_M5_start - J8_M5_start)
+ <= (0 - 66)
+]
+ | [(J8_M5_start - J3_M5_start)
+ <= (0 - 58)
+]
+]
+]
+ & [[(J3_M5_start - J9_M5_start)
+ <= (0 - 66)
+]
+ | [(J9_M5_start - J3_M5_start)
+ <= (0 - 59)
+]
+]
+]
+ & [[(J4_M5_start - J5_M5_start)
+ <= (0 - 68)
+]
+ | [(J5_M5_start - J4_M5_start)
+ <= (0 - 64)
+]
+]
+]
+ & [[(J4_M5_start - J6_M5_start)
+ <= (0 - 68)
+]
+ | [(J6_M5_start - J4_M5_start)
+ <= (0 - 99)
+]
+]
+]
+ & [[(J4_M5_start - J7_M5_start)
+ <= (0 - 68)
+]
+ | [(J7_M5_start - J4_M5_start)
+ <= (0 - 94)
+]
+]
+]
+ & [[(J4_M5_start - J8_M5_start)
+ <= (0 - 68)
+]
+ | [(J8_M5_start - J4_M5_start)
+ <= (0 - 58)
+]
+]
+]
+ & [[(J4_M5_start - J9_M5_start)
+ <= (0 - 68)
+]
+ | [(J9_M5_start - J4_M5_start)
+ <= (0 - 59)
+]
+]
+]
+ & [[(J5_M5_start - J6_M5_start)
+ <= (0 - 64)
+]
+ | [(J6_M5_start - J5_M5_start)
+ <= (0 - 99)
+]
+]
+]
+ & [[(J5_M5_start - J7_M5_start)
+ <= (0 - 64)
+]
+ | [(J7_M5_start - J5_M5_start)
+ <= (0 - 94)
+]
+]
+]
+ & [[(J5_M5_start - J8_M5_start)
+ <= (0 - 64)
+]
+ | [(J8_M5_start - J5_M5_start)
+ <= (0 - 58)
+]
+]
+]
+ & [[(J5_M5_start - J9_M5_start)
+ <= (0 - 64)
+]
+ | [(J9_M5_start - J5_M5_start)
+ <= (0 - 59)
+]
+]
+]
+ & [[(J6_M5_start - J7_M5_start)
+ <= (0 - 99)
+]
+ | [(J7_M5_start - J6_M5_start)
+ <= (0 - 94)
+]
+]
+]
+ & [[(J6_M5_start - J8_M5_start)
+ <= (0 - 99)
+]
+ | [(J8_M5_start - J6_M5_start)
+ <= (0 - 58)
+]
+]
+]
+ & [[(J6_M5_start - J9_M5_start)
+ <= (0 - 99)
+]
+ | [(J9_M5_start - J6_M5_start)
+ <= (0 - 59)
+]
+]
+]
+ & [[(J7_M5_start - J8_M5_start)
+ <= (0 - 94)
+]
+ | [(J8_M5_start - J7_M5_start)
+ <= (0 - 58)
+]
+]
+]
+ & [[(J7_M5_start - J9_M5_start)
+ <= (0 - 94)
+]
+ | [(J9_M5_start - J7_M5_start)
+ <= (0 - 59)
+]
+]
+]
+ & [[(J8_M5_start - J9_M5_start)
+ <= (0 - 58)
+]
+ | [(J9_M5_start - J8_M5_start)
+ <= (0 - 59)
+]
+]
+]
+ & [[(J0_M6_start - J1_M6_start)
+ <= (0 - 94)
+]
+ | [(J1_M6_start - J0_M6_start)
+ <= (0 - 69)
+]
+]
+]
+ & [[(J0_M6_start - J2_M6_start)
+ <= (0 - 94)
+]
+ | [(J2_M6_start - J0_M6_start)
+ <= (0 - 64)
+]
+]
+]
+ & [[(J0_M6_start - J3_M6_start)
+ <= (0 - 94)
+]
+ | [(J3_M6_start - J0_M6_start)
+ <= (0 - 75)
+]
+]
+]
+ & [[(J0_M6_start - J4_M6_start)
+ <= (0 - 94)
+]
+ | [(J4_M6_start - J0_M6_start)
+ <= (0 - 95)
+]
+]
+]
+ & [[(J0_M6_start - J5_M6_start)
+ <= (0 - 94)
+]
+ | [(J5_M6_start - J0_M6_start)
+ <= (0 - 66)
+]
+]
+]
+ & [[(J0_M6_start - J6_M6_start)
+ <= (0 - 94)
+]
+ | [(J6_M6_start - J0_M6_start)
+ <= (0 - 52)
+]
+]
+]
+ & [[(J0_M6_start - J7_M6_start)
+ <= (0 - 94)
+]
+ | [(J7_M6_start - J0_M6_start)
+ <= (0 - 73)
+]
+]
+]
+ & [[(J0_M6_start - J8_M6_start)
+ <= (0 - 94)
+]
+ | [(J8_M6_start - J0_M6_start)
+ <= (0 - 71)
+]
+]
+]
+ & [[(J0_M6_start - J9_M6_start)
+ <= (0 - 94)
+]
+ | [(J9_M6_start - J0_M6_start)
+ <= (0 - 58)
+]
+]
+]
+ & [[(J1_M6_start - J2_M6_start)
+ <= (0 - 69)
+]
+ | [(J2_M6_start - J1_M6_start)
+ <= (0 - 64)
+]
+]
+]
+ & [[(J1_M6_start - J3_M6_start)
+ <= (0 - 69)
+]
+ | [(J3_M6_start - J1_M6_start)
+ <= (0 - 75)
+]
+]
+]
+ & [[(J1_M6_start - J4_M6_start)
+ <= (0 - 69)
+]
+ | [(J4_M6_start - J1_M6_start)
+ <= (0 - 95)
+]
+]
+]
+ & [[(J1_M6_start - J5_M6_start)
+ <= (0 - 69)
+]
+ | [(J5_M6_start - J1_M6_start)
+ <= (0 - 66)
+]
+]
+]
+ & [[(J1_M6_start - J6_M6_start)
+ <= (0 - 69)
+]
+ | [(J6_M6_start - J1_M6_start)
+ <= (0 - 52)
+]
+]
+]
+ & [[(J1_M6_start - J7_M6_start)
+ <= (0 - 69)
+]
+ | [(J7_M6_start - J1_M6_start)
+ <= (0 - 73)
+]
+]
+]
+ & [[(J1_M6_start - J8_M6_start)
+ <= (0 - 69)
+]
+ | [(J8_M6_start - J1_M6_start)
+ <= (0 - 71)
+]
+]
+]
+ & [[(J1_M6_start - J9_M6_start)
+ <= (0 - 69)
+]
+ | [(J9_M6_start - J1_M6_start)
+ <= (0 - 58)
+]
+]
+]
+ & [[(J2_M6_start - J3_M6_start)
+ <= (0 - 64)
+]
+ | [(J3_M6_start - J2_M6_start)
+ <= (0 - 75)
+]
+]
+]
+ & [[(J2_M6_start - J4_M6_start)
+ <= (0 - 64)
+]
+ | [(J4_M6_start - J2_M6_start)
+ <= (0 - 95)
+]
+]
+]
+ & [[(J2_M6_start - J5_M6_start)
+ <= (0 - 64)
+]
+ | [(J5_M6_start - J2_M6_start)
+ <= (0 - 66)
+]
+]
+]
+ & [[(J2_M6_start - J6_M6_start)
+ <= (0 - 64)
+]
+ | [(J6_M6_start - J2_M6_start)
+ <= (0 - 52)
+]
+]
+]
+ & [[(J2_M6_start - J7_M6_start)
+ <= (0 - 64)
+]
+ | [(J7_M6_start - J2_M6_start)
+ <= (0 - 73)
+]
+]
+]
+ & [[(J2_M6_start - J8_M6_start)
+ <= (0 - 64)
+]
+ | [(J8_M6_start - J2_M6_start)
+ <= (0 - 71)
+]
+]
+]
+ & [[(J2_M6_start - J9_M6_start)
+ <= (0 - 64)
+]
+ | [(J9_M6_start - J2_M6_start)
+ <= (0 - 58)
+]
+]
+]
+ & [[(J3_M6_start - J4_M6_start)
+ <= (0 - 75)
+]
+ | [(J4_M6_start - J3_M6_start)
+ <= (0 - 95)
+]
+]
+]
+ & [[(J3_M6_start - J5_M6_start)
+ <= (0 - 75)
+]
+ | [(J5_M6_start - J3_M6_start)
+ <= (0 - 66)
+]
+]
+]
+ & [[(J3_M6_start - J6_M6_start)
+ <= (0 - 75)
+]
+ | [(J6_M6_start - J3_M6_start)
+ <= (0 - 52)
+]
+]
+]
+ & [[(J3_M6_start - J7_M6_start)
+ <= (0 - 75)
+]
+ | [(J7_M6_start - J3_M6_start)
+ <= (0 - 73)
+]
+]
+]
+ & [[(J3_M6_start - J8_M6_start)
+ <= (0 - 75)
+]
+ | [(J8_M6_start - J3_M6_start)
+ <= (0 - 71)
+]
+]
+]
+ & [[(J3_M6_start - J9_M6_start)
+ <= (0 - 75)
+]
+ | [(J9_M6_start - J3_M6_start)
+ <= (0 - 58)
+]
+]
+]
+ & [[(J4_M6_start - J5_M6_start)
+ <= (0 - 95)
+]
+ | [(J5_M6_start - J4_M6_start)
+ <= (0 - 66)
+]
+]
+]
+ & [[(J4_M6_start - J6_M6_start)
+ <= (0 - 95)
+]
+ | [(J6_M6_start - J4_M6_start)
+ <= (0 - 52)
+]
+]
+]
+ & [[(J4_M6_start - J7_M6_start)
+ <= (0 - 95)
+]
+ | [(J7_M6_start - J4_M6_start)
+ <= (0 - 73)
+]
+]
+]
+ & [[(J4_M6_start - J8_M6_start)
+ <= (0 - 95)
+]
+ | [(J8_M6_start - J4_M6_start)
+ <= (0 - 71)
+]
+]
+]
+ & [[(J4_M6_start - J9_M6_start)
+ <= (0 - 95)
+]
+ | [(J9_M6_start - J4_M6_start)
+ <= (0 - 58)
+]
+]
+]
+ & [[(J5_M6_start - J6_M6_start)
+ <= (0 - 66)
+]
+ | [(J6_M6_start - J5_M6_start)
+ <= (0 - 52)
+]
+]
+]
+ & [[(J5_M6_start - J7_M6_start)
+ <= (0 - 66)
+]
+ | [(J7_M6_start - J5_M6_start)
+ <= (0 - 73)
+]
+]
+]
+ & [[(J5_M6_start - J8_M6_start)
+ <= (0 - 66)
+]
+ | [(J8_M6_start - J5_M6_start)
+ <= (0 - 71)
+]
+]
+]
+ & [[(J5_M6_start - J9_M6_start)
+ <= (0 - 66)
+]
+ | [(J9_M6_start - J5_M6_start)
+ <= (0 - 58)
+]
+]
+]
+ & [[(J6_M6_start - J7_M6_start)
+ <= (0 - 52)
+]
+ | [(J7_M6_start - J6_M6_start)
+ <= (0 - 73)
+]
+]
+]
+ & [[(J6_M6_start - J8_M6_start)
+ <= (0 - 52)
+]
+ | [(J8_M6_start - J6_M6_start)
+ <= (0 - 71)
+]
+]
+]
+ & [[(J6_M6_start - J9_M6_start)
+ <= (0 - 52)
+]
+ | [(J9_M6_start - J6_M6_start)
+ <= (0 - 58)
+]
+]
+]
+ & [[(J7_M6_start - J8_M6_start)
+ <= (0 - 73)
+]
+ | [(J8_M6_start - J7_M6_start)
+ <= (0 - 71)
+]
+]
+]
+ & [[(J7_M6_start - J9_M6_start)
+ <= (0 - 73)
+]
+ | [(J9_M6_start - J7_M6_start)
+ <= (0 - 58)
+]
+]
+]
+ & [[(J8_M6_start - J9_M6_start)
+ <= (0 - 71)
+]
+ | [(J9_M6_start - J8_M6_start)
+ <= (0 - 58)
+]
+]
+]
+ & [[(J0_M7_start - J1_M7_start)
+ <= (0 - 99)
+]
+ | [(J1_M7_start - J0_M7_start)
+ <= (0 - 94)
+]
+]
+]
+ & [[(J0_M7_start - J2_M7_start)
+ <= (0 - 99)
+]
+ | [(J2_M7_start - J0_M7_start)
+ <= (0 - 78)
+]
+]
+]
+ & [[(J0_M7_start - J3_M7_start)
+ <= (0 - 99)
+]
+ | [(J3_M7_start - J0_M7_start)
+ <= (0 - 94)
+]
+]
+]
+ & [[(J0_M7_start - J4_M7_start)
+ <= (0 - 99)
+]
+ | [(J4_M7_start - J0_M7_start)
+ <= (0 - 67)
+]
+]
+]
+ & [[(J0_M7_start - J5_M7_start)
+ <= (0 - 99)
+]
+ | [(J5_M7_start - J0_M7_start)
+ <= (0 - 69)
+]
+]
+]
+ & [[(J0_M7_start - J6_M7_start)
+ <= (0 - 99)
+]
+ | [(J6_M7_start - J0_M7_start)
+ <= (0 - 50)
+]
+]
+]
+ & [[(J0_M7_start - J7_M7_start)
+ <= (0 - 99)
+]
+ | [(J7_M7_start - J0_M7_start)
+ <= (0 - 85)
+]
+]
+]
+ & [[(J0_M7_start - J8_M7_start)
+ <= (0 - 99)
+]
+ | [(J8_M7_start - J0_M7_start)
+ <= (0 - 85)
+]
+]
+]
+ & [[(J0_M7_start - J9_M7_start)
+ <= (0 - 99)
+]
+ | [(J9_M7_start - J0_M7_start)
+ <= (0 - 56)
+]
+]
+]
+ & [[(J1_M7_start - J2_M7_start)
+ <= (0 - 94)
+]
+ | [(J2_M7_start - J1_M7_start)
+ <= (0 - 78)
+]
+]
+]
+ & [[(J1_M7_start - J3_M7_start)
+ <= (0 - 94)
+]
+ | [(J3_M7_start - J1_M7_start)
+ <= (0 - 94)
+]
+]
+]
+ & [[(J1_M7_start - J4_M7_start)
+ <= (0 - 94)
+]
+ | [(J4_M7_start - J1_M7_start)
+ <= (0 - 67)
+]
+]
+]
+ & [[(J1_M7_start - J5_M7_start)
+ <= (0 - 94)
+]
+ | [(J5_M7_start - J1_M7_start)
+ <= (0 - 69)
+]
+]
+]
+ & [[(J1_M7_start - J6_M7_start)
+ <= (0 - 94)
+]
+ | [(J6_M7_start - J1_M7_start)
+ <= (0 - 50)
+]
+]
+]
+ & [[(J1_M7_start - J7_M7_start)
+ <= (0 - 94)
+]
+ | [(J7_M7_start - J1_M7_start)
+ <= (0 - 85)
+]
+]
+]
+ & [[(J1_M7_start - J8_M7_start)
+ <= (0 - 94)
+]
+ | [(J8_M7_start - J1_M7_start)
+ <= (0 - 85)
+]
+]
+]
+ & [[(J1_M7_start - J9_M7_start)
+ <= (0 - 94)
+]
+ | [(J9_M7_start - J1_M7_start)
+ <= (0 - 56)
+]
+]
+]
+ & [[(J2_M7_start - J3_M7_start)
+ <= (0 - 78)
+]
+ | [(J3_M7_start - J2_M7_start)
+ <= (0 - 94)
+]
+]
+]
+ & [[(J2_M7_start - J4_M7_start)
+ <= (0 - 78)
+]
+ | [(J4_M7_start - J2_M7_start)
+ <= (0 - 67)
+]
+]
+]
+ & [[(J2_M7_start - J5_M7_start)
+ <= (0 - 78)
+]
+ | [(J5_M7_start - J2_M7_start)
+ <= (0 - 69)
+]
+]
+]
+ & [[(J2_M7_start - J6_M7_start)
+ <= (0 - 78)
+]
+ | [(J6_M7_start - J2_M7_start)
+ <= (0 - 50)
+]
+]
+]
+ & [[(J2_M7_start - J7_M7_start)
+ <= (0 - 78)
+]
+ | [(J7_M7_start - J2_M7_start)
+ <= (0 - 85)
+]
+]
+]
+ & [[(J2_M7_start - J8_M7_start)
+ <= (0 - 78)
+]
+ | [(J8_M7_start - J2_M7_start)
+ <= (0 - 85)
+]
+]
+]
+ & [[(J2_M7_start - J9_M7_start)
+ <= (0 - 78)
+]
+ | [(J9_M7_start - J2_M7_start)
+ <= (0 - 56)
+]
+]
+]
+ & [[(J3_M7_start - J4_M7_start)
+ <= (0 - 94)
+]
+ | [(J4_M7_start - J3_M7_start)
+ <= (0 - 67)
+]
+]
+]
+ & [[(J3_M7_start - J5_M7_start)
+ <= (0 - 94)
+]
+ | [(J5_M7_start - J3_M7_start)
+ <= (0 - 69)
+]
+]
+]
+ & [[(J3_M7_start - J6_M7_start)
+ <= (0 - 94)
+]
+ | [(J6_M7_start - J3_M7_start)
+ <= (0 - 50)
+]
+]
+]
+ & [[(J3_M7_start - J7_M7_start)
+ <= (0 - 94)
+]
+ | [(J7_M7_start - J3_M7_start)
+ <= (0 - 85)
+]
+]
+]
+ & [[(J3_M7_start - J8_M7_start)
+ <= (0 - 94)
+]
+ | [(J8_M7_start - J3_M7_start)
+ <= (0 - 85)
+]
+]
+]
+ & [[(J3_M7_start - J9_M7_start)
+ <= (0 - 94)
+]
+ | [(J9_M7_start - J3_M7_start)
+ <= (0 - 56)
+]
+]
+]
+ & [[(J4_M7_start - J5_M7_start)
+ <= (0 - 67)
+]
+ | [(J5_M7_start - J4_M7_start)
+ <= (0 - 69)
+]
+]
+]
+ & [[(J4_M7_start - J6_M7_start)
+ <= (0 - 67)
+]
+ | [(J6_M7_start - J4_M7_start)
+ <= (0 - 50)
+]
+]
+]
+ & [[(J4_M7_start - J7_M7_start)
+ <= (0 - 67)
+]
+ | [(J7_M7_start - J4_M7_start)
+ <= (0 - 85)
+]
+]
+]
+ & [[(J4_M7_start - J8_M7_start)
+ <= (0 - 67)
+]
+ | [(J8_M7_start - J4_M7_start)
+ <= (0 - 85)
+]
+]
+]
+ & [[(J4_M7_start - J9_M7_start)
+ <= (0 - 67)
+]
+ | [(J9_M7_start - J4_M7_start)
+ <= (0 - 56)
+]
+]
+]
+ & [[(J5_M7_start - J6_M7_start)
+ <= (0 - 69)
+]
+ | [(J6_M7_start - J5_M7_start)
+ <= (0 - 50)
+]
+]
+]
+ & [[(J5_M7_start - J7_M7_start)
+ <= (0 - 69)
+]
+ | [(J7_M7_start - J5_M7_start)
+ <= (0 - 85)
+]
+]
+]
+ & [[(J5_M7_start - J8_M7_start)
+ <= (0 - 69)
+]
+ | [(J8_M7_start - J5_M7_start)
+ <= (0 - 85)
+]
+]
+]
+ & [[(J5_M7_start - J9_M7_start)
+ <= (0 - 69)
+]
+ | [(J9_M7_start - J5_M7_start)
+ <= (0 - 56)
+]
+]
+]
+ & [[(J6_M7_start - J7_M7_start)
+ <= (0 - 50)
+]
+ | [(J7_M7_start - J6_M7_start)
+ <= (0 - 85)
+]
+]
+]
+ & [[(J6_M7_start - J8_M7_start)
+ <= (0 - 50)
+]
+ | [(J8_M7_start - J6_M7_start)
+ <= (0 - 85)
+]
+]
+]
+ & [[(J6_M7_start - J9_M7_start)
+ <= (0 - 50)
+]
+ | [(J9_M7_start - J6_M7_start)
+ <= (0 - 56)
+]
+]
+]
+ & [[(J7_M7_start - J8_M7_start)
+ <= (0 - 85)
+]
+ | [(J8_M7_start - J7_M7_start)
+ <= (0 - 85)
+]
+]
+]
+ & [[(J7_M7_start - J9_M7_start)
+ <= (0 - 85)
+]
+ | [(J9_M7_start - J7_M7_start)
+ <= (0 - 56)
+]
+]
+]
+ & [[(J8_M7_start - J9_M7_start)
+ <= (0 - 85)
+]
+ | [(J9_M7_start - J8_M7_start)
+ <= (0 - 56)
+]
+]
+]
+ & [[(J0_M8_start - J1_M8_start)
+ <= (0 - 68)
+]
+ | [(J1_M8_start - J0_M8_start)
+ <= (0 - 66)
+]
+]
+]
+ & [[(J0_M8_start - J2_M8_start)
+ <= (0 - 68)
+]
+ | [(J2_M8_start - J0_M8_start)
+ <= (0 - 61)
+]
+]
+]
+ & [[(J0_M8_start - J3_M8_start)
+ <= (0 - 68)
+]
+ | [(J3_M8_start - J0_M8_start)
+ <= (0 - 67)
+]
+]
+]
+ & [[(J0_M8_start - J4_M8_start)
+ <= (0 - 68)
+]
+ | [(J4_M8_start - J0_M8_start)
+ <= (0 - 95)
+]
+]
+]
+ & [[(J0_M8_start - J5_M8_start)
+ <= (0 - 68)
+]
+ | [(J5_M8_start - J0_M8_start)
+ <= (0 - 80)
+]
+]
+]
+ & [[(J0_M8_start - J6_M8_start)
+ <= (0 - 68)
+]
+ | [(J6_M8_start - J0_M8_start)
+ <= (0 - 97)
+]
+]
+]
+ & [[(J0_M8_start - J7_M8_start)
+ <= (0 - 68)
+]
+ | [(J7_M8_start - J0_M8_start)
+ <= (0 - 95)
+]
+]
+]
+ & [[(J0_M8_start - J8_M8_start)
+ <= (0 - 68)
+]
+ | [(J8_M8_start - J0_M8_start)
+ <= (0 - 93)
+]
+]
+]
+ & [[(J0_M8_start - J9_M8_start)
+ <= (0 - 68)
+]
+ | [(J9_M8_start - J0_M8_start)
+ <= (0 - 67)
+]
+]
+]
+ & [[(J1_M8_start - J2_M8_start)
+ <= (0 - 66)
+]
+ | [(J2_M8_start - J1_M8_start)
+ <= (0 - 61)
+]
+]
+]
+ & [[(J1_M8_start - J3_M8_start)
+ <= (0 - 66)
+]
+ | [(J3_M8_start - J1_M8_start)
+ <= (0 - 67)
+]
+]
+]
+ & [[(J1_M8_start - J4_M8_start)
+ <= (0 - 66)
+]
+ | [(J4_M8_start - J1_M8_start)
+ <= (0 - 95)
+]
+]
+]
+ & [[(J1_M8_start - J5_M8_start)
+ <= (0 - 66)
+]
+ | [(J5_M8_start - J1_M8_start)
+ <= (0 - 80)
+]
+]
+]
+ & [[(J1_M8_start - J6_M8_start)
+ <= (0 - 66)
+]
+ | [(J6_M8_start - J1_M8_start)
+ <= (0 - 97)
+]
+]
+]
+ & [[(J1_M8_start - J7_M8_start)
+ <= (0 - 66)
+]
+ | [(J7_M8_start - J1_M8_start)
+ <= (0 - 95)
+]
+]
+]
+ & [[(J1_M8_start - J8_M8_start)
+ <= (0 - 66)
+]
+ | [(J8_M8_start - J1_M8_start)
+ <= (0 - 93)
+]
+]
+]
+ & [[(J1_M8_start - J9_M8_start)
+ <= (0 - 66)
+]
+ | [(J9_M8_start - J1_M8_start)
+ <= (0 - 67)
+]
+]
+]
+ & [[(J2_M8_start - J3_M8_start)
+ <= (0 - 61)
+]
+ | [(J3_M8_start - J2_M8_start)
+ <= (0 - 67)
+]
+]
+]
+ & [[(J2_M8_start - J4_M8_start)
+ <= (0 - 61)
+]
+ | [(J4_M8_start - J2_M8_start)
+ <= (0 - 95)
+]
+]
+]
+ & [[(J2_M8_start - J5_M8_start)
+ <= (0 - 61)
+]
+ | [(J5_M8_start - J2_M8_start)
+ <= (0 - 80)
+]
+]
+]
+ & [[(J2_M8_start - J6_M8_start)
+ <= (0 - 61)
+]
+ | [(J6_M8_start - J2_M8_start)
+ <= (0 - 97)
+]
+]
+]
+ & [[(J2_M8_start - J7_M8_start)
+ <= (0 - 61)
+]
+ | [(J7_M8_start - J2_M8_start)
+ <= (0 - 95)
+]
+]
+]
+ & [[(J2_M8_start - J8_M8_start)
+ <= (0 - 61)
+]
+ | [(J8_M8_start - J2_M8_start)
+ <= (0 - 93)
+]
+]
+]
+ & [[(J2_M8_start - J9_M8_start)
+ <= (0 - 61)
+]
+ | [(J9_M8_start - J2_M8_start)
+ <= (0 - 67)
+]
+]
+]
+ & [[(J3_M8_start - J4_M8_start)
+ <= (0 - 67)
+]
+ | [(J4_M8_start - J3_M8_start)
+ <= (0 - 95)
+]
+]
+]
+ & [[(J3_M8_start - J5_M8_start)
+ <= (0 - 67)
+]
+ | [(J5_M8_start - J3_M8_start)
+ <= (0 - 80)
+]
+]
+]
+ & [[(J3_M8_start - J6_M8_start)
+ <= (0 - 67)
+]
+ | [(J6_M8_start - J3_M8_start)
+ <= (0 - 97)
+]
+]
+]
+ & [[(J3_M8_start - J7_M8_start)
+ <= (0 - 67)
+]
+ | [(J7_M8_start - J3_M8_start)
+ <= (0 - 95)
+]
+]
+]
+ & [[(J3_M8_start - J8_M8_start)
+ <= (0 - 67)
+]
+ | [(J8_M8_start - J3_M8_start)
+ <= (0 - 93)
+]
+]
+]
+ & [[(J3_M8_start - J9_M8_start)
+ <= (0 - 67)
+]
+ | [(J9_M8_start - J3_M8_start)
+ <= (0 - 67)
+]
+]
+]
+ & [[(J4_M8_start - J5_M8_start)
+ <= (0 - 95)
+]
+ | [(J5_M8_start - J4_M8_start)
+ <= (0 - 80)
+]
+]
+]
+ & [[(J4_M8_start - J6_M8_start)
+ <= (0 - 95)
+]
+ | [(J6_M8_start - J4_M8_start)
+ <= (0 - 97)
+]
+]
+]
+ & [[(J4_M8_start - J7_M8_start)
+ <= (0 - 95)
+]
+ | [(J7_M8_start - J4_M8_start)
+ <= (0 - 95)
+]
+]
+]
+ & [[(J4_M8_start - J8_M8_start)
+ <= (0 - 95)
+]
+ | [(J8_M8_start - J4_M8_start)
+ <= (0 - 93)
+]
+]
+]
+ & [[(J4_M8_start - J9_M8_start)
+ <= (0 - 95)
+]
+ | [(J9_M8_start - J4_M8_start)
+ <= (0 - 67)
+]
+]
+]
+ & [[(J5_M8_start - J6_M8_start)
+ <= (0 - 80)
+]
+ | [(J6_M8_start - J5_M8_start)
+ <= (0 - 97)
+]
+]
+]
+ & [[(J5_M8_start - J7_M8_start)
+ <= (0 - 80)
+]
+ | [(J7_M8_start - J5_M8_start)
+ <= (0 - 95)
+]
+]
+]
+ & [[(J5_M8_start - J8_M8_start)
+ <= (0 - 80)
+]
+ | [(J8_M8_start - J5_M8_start)
+ <= (0 - 93)
+]
+]
+]
+ & [[(J5_M8_start - J9_M8_start)
+ <= (0 - 80)
+]
+ | [(J9_M8_start - J5_M8_start)
+ <= (0 - 67)
+]
+]
+]
+ & [[(J6_M8_start - J7_M8_start)
+ <= (0 - 97)
+]
+ | [(J7_M8_start - J6_M8_start)
+ <= (0 - 95)
+]
+]
+]
+ & [[(J6_M8_start - J8_M8_start)
+ <= (0 - 97)
+]
+ | [(J8_M8_start - J6_M8_start)
+ <= (0 - 93)
+]
+]
+]
+ & [[(J6_M8_start - J9_M8_start)
+ <= (0 - 97)
+]
+ | [(J9_M8_start - J6_M8_start)
+ <= (0 - 67)
+]
+]
+]
+ & [[(J7_M8_start - J8_M8_start)
+ <= (0 - 95)
+]
+ | [(J8_M8_start - J7_M8_start)
+ <= (0 - 93)
+]
+]
+]
+ & [[(J7_M8_start - J9_M8_start)
+ <= (0 - 95)
+]
+ | [(J9_M8_start - J7_M8_start)
+ <= (0 - 67)
+]
+]
+]
+ & [[(J8_M8_start - J9_M8_start)
+ <= (0 - 93)
+]
+ | [(J9_M8_start - J8_M8_start)
+ <= (0 - 67)
+]
+]
+]
+ & [[(J0_M9_start - J1_M9_start)
+ <= (0 - 77)
+]
+ | [(J1_M9_start - J0_M9_start)
+ <= (0 - 63)
+]
+]
+]
+ & [[(J0_M9_start - J2_M9_start)
+ <= (0 - 77)
+]
+ | [(J2_M9_start - J0_M9_start)
+ <= (0 - 83)
+]
+]
+]
+ & [[(J0_M9_start - J3_M9_start)
+ <= (0 - 77)
+]
+ | [(J3_M9_start - J0_M9_start)
+ <= (0 - 63)
+]
+]
+]
+ & [[(J0_M9_start - J4_M9_start)
+ <= (0 - 77)
+]
+ | [(J4_M9_start - J0_M9_start)
+ <= (0 - 82)
+]
+]
+]
+ & [[(J0_M9_start - J5_M9_start)
+ <= (0 - 77)
+]
+ | [(J5_M9_start - J0_M9_start)
+ <= (0 - 62)
+]
+]
+]
+ & [[(J0_M9_start - J6_M9_start)
+ <= (0 - 77)
+]
+ | [(J6_M9_start - J0_M9_start)
+ <= (0 - 71)
+]
+]
+]
+ & [[(J0_M9_start - J7_M9_start)
+ <= (0 - 77)
+]
+ | [(J7_M9_start - J0_M9_start)
+ <= (0 - 79)
+]
+]
+]
+ & [[(J0_M9_start - J8_M9_start)
+ <= (0 - 77)
+]
+ | [(J8_M9_start - J0_M9_start)
+ <= (0 - 97)
+]
+]
+]
+ & [[(J0_M9_start - J9_M9_start)
+ <= (0 - 77)
+]
+ | [(J9_M9_start - J0_M9_start)
+ <= (0 - 96)
+]
+]
+]
+ & [[(J1_M9_start - J2_M9_start)
+ <= (0 - 63)
+]
+ | [(J2_M9_start - J1_M9_start)
+ <= (0 - 83)
+]
+]
+]
+ & [[(J1_M9_start - J3_M9_start)
+ <= (0 - 63)
+]
+ | [(J3_M9_start - J1_M9_start)
+ <= (0 - 63)
+]
+]
+]
+ & [[(J1_M9_start - J4_M9_start)
+ <= (0 - 63)
+]
+ | [(J4_M9_start - J1_M9_start)
+ <= (0 - 82)
+]
+]
+]
+ & [[(J1_M9_start - J5_M9_start)
+ <= (0 - 63)
+]
+ | [(J5_M9_start - J1_M9_start)
+ <= (0 - 62)
+]
+]
+]
+ & [[(J1_M9_start - J6_M9_start)
+ <= (0 - 63)
+]
+ | [(J6_M9_start - J1_M9_start)
+ <= (0 - 71)
+]
+]
+]
+ & [[(J1_M9_start - J7_M9_start)
+ <= (0 - 63)
+]
+ | [(J7_M9_start - J1_M9_start)
+ <= (0 - 79)
+]
+]
+]
+ & [[(J1_M9_start - J8_M9_start)
+ <= (0 - 63)
+]
+ | [(J8_M9_start - J1_M9_start)
+ <= (0 - 97)
+]
+]
+]
+ & [[(J1_M9_start - J9_M9_start)
+ <= (0 - 63)
+]
+ | [(J9_M9_start - J1_M9_start)
+ <= (0 - 96)
+]
+]
+]
+ & [[(J2_M9_start - J3_M9_start)
+ <= (0 - 83)
+]
+ | [(J3_M9_start - J2_M9_start)
+ <= (0 - 63)
+]
+]
+]
+ & [[(J2_M9_start - J4_M9_start)
+ <= (0 - 83)
+]
+ | [(J4_M9_start - J2_M9_start)
+ <= (0 - 82)
+]
+]
+]
+ & [[(J2_M9_start - J5_M9_start)
+ <= (0 - 83)
+]
+ | [(J5_M9_start - J2_M9_start)
+ <= (0 - 62)
+]
+]
+]
+ & [[(J2_M9_start - J6_M9_start)
+ <= (0 - 83)
+]
+ | [(J6_M9_start - J2_M9_start)
+ <= (0 - 71)
+]
+]
+]
+ & [[(J2_M9_start - J7_M9_start)
+ <= (0 - 83)
+]
+ | [(J7_M9_start - J2_M9_start)
+ <= (0 - 79)
+]
+]
+]
+ & [[(J2_M9_start - J8_M9_start)
+ <= (0 - 83)
+]
+ | [(J8_M9_start - J2_M9_start)
+ <= (0 - 97)
+]
+]
+]
+ & [[(J2_M9_start - J9_M9_start)
+ <= (0 - 83)
+]
+ | [(J9_M9_start - J2_M9_start)
+ <= (0 - 96)
+]
+]
+]
+ & [[(J3_M9_start - J4_M9_start)
+ <= (0 - 63)
+]
+ | [(J4_M9_start - J3_M9_start)
+ <= (0 - 82)
+]
+]
+]
+ & [[(J3_M9_start - J5_M9_start)
+ <= (0 - 63)
+]
+ | [(J5_M9_start - J3_M9_start)
+ <= (0 - 62)
+]
+]
+]
+ & [[(J3_M9_start - J6_M9_start)
+ <= (0 - 63)
+]
+ | [(J6_M9_start - J3_M9_start)
+ <= (0 - 71)
+]
+]
+]
+ & [[(J3_M9_start - J7_M9_start)
+ <= (0 - 63)
+]
+ | [(J7_M9_start - J3_M9_start)
+ <= (0 - 79)
+]
+]
+]
+ & [[(J3_M9_start - J8_M9_start)
+ <= (0 - 63)
+]
+ | [(J8_M9_start - J3_M9_start)
+ <= (0 - 97)
+]
+]
+]
+ & [[(J3_M9_start - J9_M9_start)
+ <= (0 - 63)
+]
+ | [(J9_M9_start - J3_M9_start)
+ <= (0 - 96)
+]
+]
+]
+ & [[(J4_M9_start - J5_M9_start)
+ <= (0 - 82)
+]
+ | [(J5_M9_start - J4_M9_start)
+ <= (0 - 62)
+]
+]
+]
+ & [[(J4_M9_start - J6_M9_start)
+ <= (0 - 82)
+]
+ | [(J6_M9_start - J4_M9_start)
+ <= (0 - 71)
+]
+]
+]
+ & [[(J4_M9_start - J7_M9_start)
+ <= (0 - 82)
+]
+ | [(J7_M9_start - J4_M9_start)
+ <= (0 - 79)
+]
+]
+]
+ & [[(J4_M9_start - J8_M9_start)
+ <= (0 - 82)
+]
+ | [(J8_M9_start - J4_M9_start)
+ <= (0 - 97)
+]
+]
+]
+ & [[(J4_M9_start - J9_M9_start)
+ <= (0 - 82)
+]
+ | [(J9_M9_start - J4_M9_start)
+ <= (0 - 96)
+]
+]
+]
+ & [[(J5_M9_start - J6_M9_start)
+ <= (0 - 62)
+]
+ | [(J6_M9_start - J5_M9_start)
+ <= (0 - 71)
+]
+]
+]
+ & [[(J5_M9_start - J7_M9_start)
+ <= (0 - 62)
+]
+ | [(J7_M9_start - J5_M9_start)
+ <= (0 - 79)
+]
+]
+]
+ & [[(J5_M9_start - J8_M9_start)
+ <= (0 - 62)
+]
+ | [(J8_M9_start - J5_M9_start)
+ <= (0 - 97)
+]
+]
+]
+ & [[(J5_M9_start - J9_M9_start)
+ <= (0 - 62)
+]
+ | [(J9_M9_start - J5_M9_start)
+ <= (0 - 96)
+]
+]
+]
+ & [[(J6_M9_start - J7_M9_start)
+ <= (0 - 71)
+]
+ | [(J7_M9_start - J6_M9_start)
+ <= (0 - 79)
+]
+]
+]
+ & [[(J6_M9_start - J8_M9_start)
+ <= (0 - 71)
+]
+ | [(J8_M9_start - J6_M9_start)
+ <= (0 - 97)
+]
+]
+]
+ & [[(J6_M9_start - J9_M9_start)
+ <= (0 - 71)
+]
+ | [(J9_M9_start - J6_M9_start)
+ <= (0 - 96)
+]
+]
+]
+ & [[(J7_M9_start - J8_M9_start)
+ <= (0 - 79)
+]
+ | [(J8_M9_start - J7_M9_start)
+ <= (0 - 97)
+]
+]
+]
+ & [[(J7_M9_start - J9_M9_start)
+ <= (0 - 79)
+]
+ | [(J9_M9_start - J7_M9_start)
+ <= (0 - 96)
+]
+]
+]
+ & [[(J8_M9_start - J9_M9_start)
+ <= (0 - 97)
+]
+ | [(J9_M9_start - J8_M9_start)
+ <= (0 - 96)
+]
+]
+]
+ & [(Z - zero)
+ <= 900]
+]
+ .

@@ -1,0 +1,489 @@
+sat 
+[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[~ b__cnfvar1] | [c1 < c2]
+]
+ & [[~ b__cnfvar1] | [c2 < c1]
+]
+]
+ & [[b__cnfvar1 | [~ [c1 < c2]
+]]
+ | [~ [c2 < c1]
+]]
+]
+ & [[~ b__cnfvar2] | [c1 < V_c_ArbVal_1]
+]
+]
+ & [[~ b__cnfvar2] | [V_c_ArbVal_1 < c1]
+]
+]
+ & [[b__cnfvar2 | [~ [c1 < V_c_ArbVal_1]
+]]
+ | [~ [V_c_ArbVal_1 < c1]
+]]
+]
+ & [[~ b__cnfvar3] | [ics__en_cache_state <= ((ics__en_cache_state + 1)
+ + 1)
+]
+]
+]
+ & [[~ b__cnfvar3] | [ics__en_cache_state >= ((ics__en_cache_state + 1)
+ + 1)
+]
+]
+]
+ & [[b__cnfvar3 | [~ [ics__en_cache_state <= ((ics__en_cache_state + 1)
+ + 1)
+]
+]]
+ | [~ [ics__en_cache_state >= ((ics__en_cache_state + 1)
+ + 1)
+]
+]]
+]
+ & [[~ b__cnfvar4] | b__cnfvar2]
+]
+ & [[~ b__cnfvar4] | b__cnfvar3]
+]
+ & [[b__cnfvar4 | [~ b__cnfvar2]]
+ | [~ b__cnfvar3]]
+]
+ & [[~ b__cnfvar5] | [c1 <= V_c_ArbVal_1]
+]
+]
+ & [[~ b__cnfvar5] | [c1 >= V_c_ArbVal_1]
+]
+]
+ & [[b__cnfvar5 | [~ [c1 <= V_c_ArbVal_1]
+]]
+ | [~ [c1 >= V_c_ArbVal_1]
+]]
+]
+ & [[~ b__cnfvar6] | [ics__en_message <= (((ics__en_message + 1)
+ + 1)
+ + 1)
+]
+]
+]
+ & [[~ b__cnfvar6] | [ics__en_message >= (((ics__en_message + 1)
+ + 1)
+ + 1)
+]
+]
+]
+ & [[b__cnfvar6 | [~ [ics__en_message <= (((ics__en_message + 1)
+ + 1)
+ + 1)
+]
+]]
+ | [~ [ics__en_message >= (((ics__en_message + 1)
+ + 1)
+ + 1)
+]
+]]
+]
+ & [[~ b__cnfvar3] | [ics__en_cache_state <= ((ics__en_cache_state + 1)
+ + 1)
+]
+]
+]
+ & [[~ b__cnfvar3] | [ics__en_cache_state >= ((ics__en_cache_state + 1)
+ + 1)
+]
+]
+]
+ & [[b__cnfvar3 | [~ [ics__en_cache_state <= ((ics__en_cache_state + 1)
+ + 1)
+]
+]]
+ | [~ [ics__en_cache_state >= ((ics__en_cache_state + 1)
+ + 1)
+]
+]]
+]
+ & [[~ b__cnfvar7] | b__cnfvar6]
+]
+ & [[~ b__cnfvar7] | b__cnfvar3]
+]
+ & [[b__cnfvar7 | [~ b__cnfvar6]]
+ | [~ b__cnfvar3]]
+]
+ & [[~ b__cnfvar8] | [ics__en_message < (((ics__en_message + 1)
+ + 1)
+ + 1)
+]
+]
+]
+ & [[~ b__cnfvar8] | [(((ics__en_message + 1)
+ + 1)
+ + 1)
+ < ics__en_message]
+]
+]
+ & [[b__cnfvar8 | [~ [ics__en_message < (((ics__en_message + 1)
+ + 1)
+ + 1)
+]
+]]
+ | [~ [(((ics__en_message + 1)
+ + 1)
+ + 1)
+ < ics__en_message]
+]]
+]
+ & [[~ b__cnfvar9] | [ics__en_message <= (((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+]
+]
+ & [[~ b__cnfvar9] | [ics__en_message >= (((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+]
+]
+ & [[b__cnfvar9 | [~ [ics__en_message <= (((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+]]
+ | [~ [ics__en_message >= (((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+]]
+]
+ & [[~ b__cnfvar10] | [(ics__en_cache_state + 1)
+ <= ((ics__en_cache_state + 1)
+ + 1)
+]
+]
+]
+ & [[~ b__cnfvar10] | [(ics__en_cache_state + 1)
+ >= ((ics__en_cache_state + 1)
+ + 1)
+]
+]
+]
+ & [[b__cnfvar10 | [~ [(ics__en_cache_state + 1)
+ <= ((ics__en_cache_state + 1)
+ + 1)
+]
+]]
+ | [~ [(ics__en_cache_state + 1)
+ >= ((ics__en_cache_state + 1)
+ + 1)
+]
+]]
+]
+ & [[~ b__cnfvar11] | b__cnfvar9]
+]
+ & [[~ b__cnfvar11] | b__cnfvar10]
+]
+ & [[b__cnfvar11 | [~ b__cnfvar9]]
+ | [~ b__cnfvar10]]
+]
+ & [[~ b__cnfvar12] | [ics__en_message < (((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+]
+]
+ & [[~ b__cnfvar12] | [(((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+ < ics__en_message]
+]
+]
+ & [[b__cnfvar12 | [~ [ics__en_message < (((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+]]
+ | [~ [(((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+ < ics__en_message]
+]]
+]
+ & [[~ b__cnfvar13] | [ics__en_message <= ((((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+]
+]
+ & [[~ b__cnfvar13] | [ics__en_message >= ((((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+]
+]
+ & [[b__cnfvar13 | [~ [ics__en_message <= ((((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+]]
+ | [~ [ics__en_message >= ((((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+]]
+]
+ & [[~ b__cnfvar3] | [ics__en_cache_state <= ((ics__en_cache_state + 1)
+ + 1)
+]
+]
+]
+ & [[~ b__cnfvar3] | [ics__en_cache_state >= ((ics__en_cache_state + 1)
+ + 1)
+]
+]
+]
+ & [[b__cnfvar3 | [~ [ics__en_cache_state <= ((ics__en_cache_state + 1)
+ + 1)
+]
+]]
+ | [~ [ics__en_cache_state >= ((ics__en_cache_state + 1)
+ + 1)
+]
+]]
+]
+ & [b__cnfvar14 | [~ b__cnfvar13]]
+]
+ & [b__cnfvar14 | [~ b__cnfvar3]]
+]
+ & [[[~ b__cnfvar14] | b__cnfvar13]
+ | b__cnfvar3]
+]
+ & [[~ b__cnfvar15] | b__cnfvar12]
+]
+ & [[~ b__cnfvar15] | b__cnfvar14]
+]
+ & [[b__cnfvar15 | [~ b__cnfvar12]]
+ | [~ b__cnfvar14]]
+]
+ & [b__cnfvar16 | [~ b__cnfvar11]]
+]
+ & [b__cnfvar16 | [~ b__cnfvar15]]
+]
+ & [[[~ b__cnfvar16] | b__cnfvar11]
+ | b__cnfvar15]
+]
+ & [[~ b__cnfvar17] | b__cnfvar8]
+]
+ & [[~ b__cnfvar17] | b__cnfvar16]
+]
+ & [[b__cnfvar17 | [~ b__cnfvar8]]
+ | [~ b__cnfvar16]]
+]
+ & [b__cnfvar18 | [~ b__cnfvar7]]
+]
+ & [b__cnfvar18 | [~ b__cnfvar17]]
+]
+ & [[[~ b__cnfvar18] | b__cnfvar7]
+ | b__cnfvar17]
+]
+ & [[~ b__cnfvar19] | b__cnfvar5]
+]
+ & [[~ b__cnfvar19] | b__cnfvar18]
+]
+ & [[b__cnfvar19 | [~ b__cnfvar5]]
+ | [~ b__cnfvar18]]
+]
+ & [b__cnfvar20 | [~ b__cnfvar4]]
+]
+ & [b__cnfvar20 | [~ b__cnfvar19]]
+]
+ & [[[~ b__cnfvar20] | b__cnfvar4]
+ | b__cnfvar19]
+]
+ & [[~ b__cnfvar21] | b__cnfvar1]
+]
+ & [[~ b__cnfvar21] | b__cnfvar20]
+]
+ & [[b__cnfvar21 | [~ b__cnfvar1]]
+ | [~ b__cnfvar20]]
+]
+ & [[~ b__cnfvar22] | [c2 <= V_c_ArbVal_1]
+]
+]
+ & [[~ b__cnfvar22] | [c2 >= V_c_ArbVal_1]
+]
+]
+ & [[b__cnfvar22 | [~ [c2 <= V_c_ArbVal_1]
+]]
+ | [~ [c2 >= V_c_ArbVal_1]
+]]
+]
+ & [[~ b__cnfvar8] | [ics__en_message < (((ics__en_message + 1)
+ + 1)
+ + 1)
+]
+]
+]
+ & [[~ b__cnfvar8] | [(((ics__en_message + 1)
+ + 1)
+ + 1)
+ < ics__en_message]
+]
+]
+ & [[b__cnfvar8 | [~ [ics__en_message < (((ics__en_message + 1)
+ + 1)
+ + 1)
+]
+]]
+ | [~ [(((ics__en_message + 1)
+ + 1)
+ + 1)
+ < ics__en_message]
+]]
+]
+ & [[~ b__cnfvar9] | [ics__en_message <= (((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+]
+]
+ & [[~ b__cnfvar9] | [ics__en_message >= (((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+]
+]
+ & [[b__cnfvar9 | [~ [ics__en_message <= (((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+]]
+ | [~ [ics__en_message >= (((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+]]
+]
+ & [[~ b__cnfvar13] | [ics__en_message <= ((((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+]
+]
+ & [[~ b__cnfvar13] | [ics__en_message >= ((((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+]
+]
+ & [[b__cnfvar13 | [~ [ics__en_message <= ((((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+]]
+ | [~ [ics__en_message >= ((((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+]]
+]
+ & [[~ b__cnfvar23] | [ics__en_cache_state < ((ics__en_cache_state + 1)
+ + 1)
+]
+]
+]
+ & [[~ b__cnfvar23] | [((ics__en_cache_state + 1)
+ + 1)
+ < ics__en_cache_state]
+]
+]
+ & [[b__cnfvar23 | [~ [ics__en_cache_state < ((ics__en_cache_state + 1)
+ + 1)
+]
+]]
+ | [~ [((ics__en_cache_state + 1)
+ + 1)
+ < ics__en_cache_state]
+]]
+]
+ & [[~ b__cnfvar24] | b__cnfvar13]
+]
+ & [[~ b__cnfvar24] | b__cnfvar23]
+]
+ & [[b__cnfvar24 | [~ b__cnfvar13]]
+ | [~ b__cnfvar23]]
+]
+ & [b__cnfvar25 | [~ b__cnfvar9]]
+]
+ & [b__cnfvar25 | [~ b__cnfvar24]]
+]
+ & [[[~ b__cnfvar25] | b__cnfvar9]
+ | b__cnfvar24]
+]
+ & [[~ b__cnfvar26] | b__cnfvar8]
+]
+ & [[~ b__cnfvar26] | b__cnfvar25]
+]
+ & [[b__cnfvar26 | [~ b__cnfvar8]]
+ | [~ b__cnfvar25]]
+]
+ & [[~ b__cnfvar27] | b__cnfvar22]
+]
+ & [[~ b__cnfvar27] | b__cnfvar26]
+]
+ & [[b__cnfvar27 | [~ b__cnfvar22]]
+ | [~ b__cnfvar26]]
+]
+ & [[~ b__cnfvar28] | b__cnfvar21]
+]
+ & [[~ b__cnfvar28] | b__cnfvar27]
+]
+ & [[b__cnfvar28 | [~ b__cnfvar21]]
+ | [~ b__cnfvar27]]
+]
+ & b__cnfvar28]
+ .

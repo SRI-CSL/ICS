@@ -1,0 +1,309 @@
+sat 
+[~ [[~ [[~ [c1 = c2]
+] & [icsaux0 = ((ics__en_cache_state + 1)
+ + 1)
+]
+]
+] | [icsaux1 = ics__en_cache_state]
+]
+] & [if [~ [c2 = V_c_ArbVal_1]
+] then [icsaux1 = icsaux2]
+ else [icsaux1 = icsaux3]
+ end] & [if [~ [c1 = V_c_ArbVal_1]
+] then [icsaux0 = icsaux4]
+ else [icsaux0 = icsaux5]
+ end] & [if [[icsaux6 = (((ics__en_message + 1)
+ + 1)
+ + 1)
+]
+ & [icsaux7 = ics__en_message]
+]
+ then [icsaux5 = ics__en_cache_state]
+ else [icsaux5 = icsaux8]
+ end] & [if [~ [c1 = icsaux9]
+] then [icsaux4 = ics__en_cache_state]
+ else [icsaux4 = icsaux10]
+ end] & [if [[icsaux11 = (((ics__en_message + 1)
+ + 1)
+ + 1)
+]
+ & [icsaux12 = ics__en_message]
+]
+ then [icsaux3 = ics__en_cache_state]
+ else [icsaux3 = icsaux13]
+ end] & [if [~ [c2 = icsaux14]
+] then [icsaux2 = ics__en_cache_state]
+ else [icsaux2 = icsaux15]
+ end] & [if [ics__en_message = (((ics__en_message + 1)
+ + 1)
+ + 1)
+]
+ then [icsaux15 = ics__en_cache_state]
+ else [icsaux15 = icsaux16]
+ end] & [if [c_c0 = V_c_newCl_1]
+ then [icsaux14 = V_c_ArbVal_1]
+ else [icsaux14 = V_c_ArbVal_2]
+ end] & [if [icsaux17 = (((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+ then [icsaux13 = (ics__en_cache_state + 1)
+]
+ else [icsaux13 = icsaux18]
+ end] & [if [~ [V_c_ArbVal_1 = icsaux19]
+] then [icsaux12 = ics__en_message]
+ else [icsaux12 = icsaux20]
+ end] & [if [[V_c_ArbVal_1 = c_cl0]
+ & [ics__en_message = ((ics__en_message + 1)
+ + 1)
+]
+]
+ then [icsaux11 = ((((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+ else [icsaux11 = ics__en_message]
+ end] & [if [ics__en_message = (((ics__en_message + 1)
+ + 1)
+ + 1)
+]
+ then [icsaux10 = ics__en_cache_state]
+ else [icsaux10 = icsaux21]
+ end] & [if [c_c0 = V_c_newCl_1]
+ then [icsaux9 = V_c_ArbVal_1]
+ else [icsaux9 = V_c_ArbVal_2]
+ end] & [if [icsaux22 = (((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+ then [icsaux8 = (ics__en_cache_state + 1)
+]
+ else [icsaux8 = icsaux23]
+ end] & [if [~ [V_c_ArbVal_1 = icsaux24]
+] then [icsaux7 = ics__en_message]
+ else [icsaux7 = icsaux25]
+ end] & [if [[V_c_ArbVal_1 = c_cl0]
+ & [ics__en_message = ((ics__en_message + 1)
+ + 1)
+]
+]
+ then [icsaux6 = ((((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+ else [icsaux6 = ics__en_message]
+ end] & [if [ics__en_message = (((ics__en_message + 1)
+ + 1)
+ + 1)
+]
+ then [icsaux25 = ((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+ else [icsaux25 = ics__en_message]
+ end] & [if [c_c0 = V_c_newCl_1]
+ then [icsaux24 = V_c_ArbVal_1]
+ else [icsaux24 = V_c_ArbVal_2]
+ end] & [if [icsaux26 = ((((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+ then [icsaux23 = ((ics__en_cache_state + 1)
+ + 1)
+]
+ else [icsaux23 = icsaux27]
+ end] & [if [[V_c_ArbVal_1 = c_cl0]
+ & [ics__en_message = ((ics__en_message + 1)
+ + 1)
+]
+]
+ then [icsaux22 = ((((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+ else [icsaux22 = ics__en_message]
+ end] & [if [ics__en_message = (((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+ then [icsaux21 = (ics__en_cache_state + 1)
+]
+ else [icsaux21 = icsaux28]
+ end] & [if [ics__en_message = (((ics__en_message + 1)
+ + 1)
+ + 1)
+]
+ then [icsaux20 = ((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+ else [icsaux20 = ics__en_message]
+ end] & [if [c_c0 = V_c_newCl_1]
+ then [icsaux19 = V_c_ArbVal_1]
+ else [icsaux19 = V_c_ArbVal_2]
+ end] & [if [icsaux29 = ((((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+ then [icsaux18 = ((ics__en_cache_state + 1)
+ + 1)
+]
+ else [icsaux18 = icsaux30]
+ end] & [if [[V_c_ArbVal_1 = c_cl0]
+ & [ics__en_message = ((ics__en_message + 1)
+ + 1)
+]
+]
+ then [icsaux17 = ((((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+ else [icsaux17 = ics__en_message]
+ end] & [if [ics__en_message = (((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+ then [icsaux16 = (ics__en_cache_state + 1)
+]
+ else [icsaux16 = icsaux31]
+ end] & [if [ics__en_message = ((((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+ then [icsaux31 = ((ics__en_cache_state + 1)
+ + 1)
+]
+ else [icsaux31 = ics__en_cache_state]
+ end] & [if [~ [c2 = icsaux32]
+] then [icsaux30 = ics__en_cache_state]
+ else [icsaux30 = icsaux33]
+ end] & [if [[V_c_ArbVal_1 = c_cl0]
+ & [ics__en_message = ((ics__en_message + 1)
+ + 1)
+]
+]
+ then [icsaux29 = ((((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+ else [icsaux29 = ics__en_message]
+ end] & [if [ics__en_message = ((((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+ then [icsaux28 = ((ics__en_cache_state + 1)
+ + 1)
+]
+ else [icsaux28 = ics__en_cache_state]
+ end] & [if [~ [c1 = icsaux34]
+] then [icsaux27 = ics__en_cache_state]
+ else [icsaux27 = icsaux35]
+ end] & [if [[V_c_ArbVal_1 = c_cl0]
+ & [ics__en_message = ((ics__en_message + 1)
+ + 1)
+]
+]
+ then [icsaux26 = ((((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+ else [icsaux26 = ics__en_message]
+ end] & [if [ics__en_message = (((ics__en_message + 1)
+ + 1)
+ + 1)
+]
+ then [icsaux35 = ics__en_cache_state]
+ else [icsaux35 = icsaux36]
+ end] & [if [c_c0 = V_c_newCl_1]
+ then [icsaux34 = V_c_ArbVal_1]
+ else [icsaux34 = V_c_ArbVal_2]
+ end] & [if [ics__en_message = (((ics__en_message + 1)
+ + 1)
+ + 1)
+]
+ then [icsaux33 = ics__en_cache_state]
+ else [icsaux33 = icsaux37]
+ end] & [if [c_c0 = V_c_newCl_1]
+ then [icsaux32 = V_c_ArbVal_1]
+ else [icsaux32 = V_c_ArbVal_2]
+ end] & [if [ics__en_message = (((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+ then [icsaux37 = (ics__en_cache_state + 1)
+]
+ else [icsaux37 = icsaux38]
+ end] & [if [ics__en_message = (((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+ then [icsaux36 = (ics__en_cache_state + 1)
+]
+ else [icsaux36 = icsaux39]
+ end] & [if [ics__en_message = ((((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+ then [icsaux39 = ((ics__en_cache_state + 1)
+ + 1)
+]
+ else [icsaux39 = ics__en_cache_state]
+ end] & [if [ics__en_message = ((((((ics__en_message + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+ then [icsaux38 = ((ics__en_cache_state + 1)
+ + 1)
+]
+ else [icsaux38 = ics__en_cache_state]
+ end] .

@@ -1,0 +1,158 @@
+sat 
+[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[~ b__cnfvar1] | [r_x < (((((ZERO + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+]
+ & [[~ b__cnfvar1] | [(((((ZERO + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+ < r_x]
+]
+]
+ & [[b__cnfvar1 | [~ [r_x < (((((ZERO + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+]]
+ | [~ [(((((ZERO + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+ < r_x]
+]]
+]
+ & [[~ b__cnfvar2] | [~ [r_x < (((((ZERO + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+]]
+]
+ & [[~ b__cnfvar2] | b__cnfvar1]
+]
+ & [[b__cnfvar2 | [r_x < (((((ZERO + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+]
+]
+ | [~ b__cnfvar1]]
+]
+ & [b__cnfvar3 | [~ b__cnfvar2]]
+]
+ & [b__cnfvar3 | [~ b_r_b1]]
+]
+ & [[[~ b__cnfvar3] | b__cnfvar2]
+ | b_r_b1]
+]
+ & [[~ b__cnfvar4] | b_r_b1]
+]
+ & [[~ b__cnfvar4] | [~ b_r_b2]]
+]
+ & [[b__cnfvar4 | [~ b_r_b1]]
+ | b_r_b2]
+]
+ & [[~ b__cnfvar5] | b_r_b2]
+]
+ & [[~ b__cnfvar5] | [~ b_r_b1]]
+]
+ & [[b__cnfvar5 | [~ b_r_b2]]
+ | b_r_b1]
+]
+ & [b__cnfvar6 | [~ b__cnfvar4]]
+]
+ & [b__cnfvar6 | [~ b__cnfvar5]]
+]
+ & [[[~ b__cnfvar6] | b__cnfvar4]
+ | b__cnfvar5]
+]
+ & [b__cnfvar7 | [r_y < ((ZERO + 1)
+ + 1)
+]
+]
+]
+ & [b__cnfvar7 | [~ b__cnfvar6]]
+]
+ & [[[~ b__cnfvar7] | [~ [r_y < ((ZERO + 1)
+ + 1)
+]
+]]
+ | b__cnfvar6]
+]
+ & [[~ b__cnfvar8] | [(ZERO + 1)
+ <= r_y]
+]
+]
+ & [[~ b__cnfvar8] | [(ZERO + 1)
+ >= r_y]
+]
+]
+ & [[b__cnfvar8 | [~ [(ZERO + 1)
+ <= r_y]
+]]
+ | [~ [(ZERO + 1)
+ >= r_y]
+]]
+]
+ & [b__cnfvar9 | [~ [(ZERO + 1)
+ < r_y]
+]]
+]
+ & [b__cnfvar9 | [~ b__cnfvar8]]
+]
+ & [[[~ b__cnfvar9] | [(ZERO + 1)
+ < r_y]
+]
+ | b__cnfvar8]
+]
+ & [b__cnfvar10 | [~ b__cnfvar7]]
+]
+ & [b__cnfvar10 | [~ b__cnfvar9]]
+]
+ & [[[~ b__cnfvar10] | b__cnfvar7]
+ | b__cnfvar9]
+]
+ & [b__cnfvar11 | [~ b__cnfvar3]]
+]
+ & [b__cnfvar11 | [~ b__cnfvar10]]
+]
+ & [[[~ b__cnfvar11] | b__cnfvar3]
+ | b__cnfvar10]
+]
+ & [b__cnfvar12 | [~ b_r_a1]]
+]
+ & [b__cnfvar12 | [~ b__cnfvar11]]
+]
+ & [[[~ b__cnfvar12] | b_r_a1]
+ | b__cnfvar11]
+]
+ & [[~ b__cnfvar13] | b__cnfvar12]
+]
+ & [[~ b__cnfvar13] | [(((((ZERO + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+ < r_z]
+]
+]
+ & [[b__cnfvar13 | [~ b__cnfvar12]]
+ | [~ [(((((ZERO + 1)
+ + 1)
+ + 1)
+ + 1)
+ + 1)
+ < r_z]
+]]
+]
+ .

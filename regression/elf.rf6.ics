@@ -1,0 +1,134 @@
+def BB_36_tmp_10 := Bpc0.
+def BB_36_tmp_11 := BPredecode(BB_36_tmp_10).
+def BB_36_tmp_12 := BI_RR.
+prop BB_36_tmp_13 := [BB_36_tmp_11 = BB_36_tmp_12].
+def BB_36_tmp_14 := BB__en_ICLASS.
+def BB_36_tmp_15 := (1 + BB_36_tmp_12).
+prop BB_36_tmp_16 := [BB_36_tmp_11 = BB_36_tmp_15].
+def BB_36_tmp_17 := (1 + BB_36_tmp_14).
+def BB_36_tmp_18 := (1 + BB_36_tmp_17).
+def BB_36_tmp_19 := Bicsaux0.
+def BB_36_tmp_20 := Bicsaux1.
+prop BB_36_tmp_21 := [BB_36_tmp_20 = BB_36_tmp_14].
+prop BB_36_tmp_22 := [BB_36_tmp_20 = BB_36_tmp_17].
+prop BB_36_tmp_23 := [BB_36_tmp_21 | BB_36_tmp_22].
+def BB_36_tmp_24 := BAB_46_ctr0.
+def BB_36_tmp_25 := BAB_46_C(BB_36_tmp_24).
+def BB_36_tmp_26 := BAB_46_C(BB_36_tmp_25).
+def BB_36_tmp_27 := BAB_46_Arb(BB_36_tmp_26).
+prop BB_36_tmp_28 := [(Bla0B_46_L1tlbMiss(BB_36_tmp_27)) = true].
+def BB_36_tmp_29 := BAB_46_Arb(BB_36_tmp_25).
+prop BB_36_tmp_30 := [(Bla0B_46_MMUBusy(BB_36_tmp_29)) = true].
+prop BB_36_tmp_31 := [BB_36_tmp_28 | BB_36_tmp_30].
+prop BB_36_tmp_32 := [BB_36_tmp_23 & BB_36_tmp_31].
+prop BB_36_tmp_33 := [~ BB_36_tmp_32].
+prop BB_36_tmp_34 := [BB_36_tmp_23 & BB_36_tmp_30].
+prop BB_36_tmp_35 := [BB_36_tmp_23 & BB_36_tmp_28].
+prop BB_36_tmp_36 := [BB_36_tmp_34 | BB_36_tmp_35].
+prop BB_36_tmp_37 := [~ BB_36_tmp_36].
+prop BB_36_tmp_38 := [BB_36_tmp_37 & BB_36_tmp_21].
+def BB_36_tmp_39 := Bla0B_46_LDQ0.
+def BB_36_tmp_40 := (1 + BB_36_tmp_39).
+def BB_36_tmp_41 := (1 + BB_36_tmp_40).
+def BB_36_tmp_42 := (1 + BB_36_tmp_41).
+def BB_36_tmp_43 := (1 + BB_36_tmp_42).
+prop BB_36_tmp_44 := [BB_36_tmp_39 = BB_36_tmp_43].
+prop BB_36_tmp_45 := [BB_36_tmp_38 & BB_36_tmp_44].
+prop BB_36_tmp_46 := [(Bla0B_46_D10(BB_36_tmp_27)) = true].
+prop BB_36_tmp_47 := [BB_36_tmp_45 & BB_36_tmp_46].
+prop BB_36_tmp_48 := [BB_36_tmp_36 | BB_36_tmp_47].
+prop BB_36_tmp_49 := [~ BB_36_tmp_48].
+prop BB_36_tmp_50 := [BB_36_tmp_33 & BB_36_tmp_49].
+prop BB_36_tmp_51 := [(Bla0B_46_D8(BB_36_tmp_27)) = true].
+prop BB_36_tmp_52 := [BB_36_tmp_46 | BB_36_tmp_51].
+prop BB_36_tmp_53 := [BB_36_tmp_21 & BB_36_tmp_52].
+prop BB_36_tmp_54 := [~ BB_36_tmp_53].
+prop BB_36_tmp_55 := [BB_36_tmp_50 & BB_36_tmp_54].
+def BB_36_tmp_56 := Bd0.
+def BB_36_tmp_57 := BAdd(BB_36_tmp_56, BB_36_tmp_56).
+def BB_36_tmp_58 := BVirtual2Real(BB_36_tmp_57).
+prop BB_36_tmp_59 := [(BMisal(BB_36_tmp_58)) = true].
+prop BB_36_tmp_60 := [~ BB_36_tmp_59].
+prop BB_36_tmp_61 := [BB_36_tmp_55 & BB_36_tmp_60].
+def BB_36_tmp_62 := BDest(BB_36_tmp_10).
+def BB_36_tmp_63 := Ba.
+prop BB_36_tmp_64 := [BB_36_tmp_62 = BB_36_tmp_63].
+prop BB_36_tmp_65 := [BB_36_tmp_21 & BB_36_tmp_64].
+prop BB_36_tmp_66 := [BB_36_tmp_65 & BB_36_tmp_60].
+def BB_36_tmp_67 := BBmask(BB_36_tmp_10).
+def BB_36_tmp_68 := BAccess(BB_36_tmp_56, BB_36_tmp_67).
+prop BB_36_tmp_69 := [BB_36_tmp_65 & BB_36_tmp_59].
+def BB_36_tmp_70 := BAlign(BB_36_tmp_56, BB_36_tmp_56, BB_36_tmp_67).
+def BB_36_tmp_71 := Bicsaux2.
+def BB_36_tmp_72 := Bicsaux3.
+def BB_36_tmp_73 := Bicsaux4.
+def BB_36_tmp_74 := BcccB_46_hd0.
+prop BB_36_tmp_75 := BB_p4.
+prop BB_36_tmp_76 := [~ BB_36_tmp_75].
+prop BB_36_tmp_77 := BB_p2.
+prop BB_36_tmp_78 := [~ BB_36_tmp_77].
+prop BB_36_tmp_79 := BB_p0.
+prop BB_36_tmp_80 := [~ BB_36_tmp_79].
+def BB_36_tmp_81 := (1 + BB_36_tmp_74).
+def BB_36_tmp_82 := (1 + BB_36_tmp_81).
+def BB_36_tmp_83 := Bicsaux5.
+def BB_36_tmp_84 := (1 + BB_36_tmp_83).
+def BB_36_tmp_85 := Bicsaux6.
+def BB_36_tmp_86 := (1 + BB_36_tmp_85).
+def BB_36_tmp_87 := Bicsaux7.
+prop BB_36_tmp_88 := [BB_36_tmp_74 = BB_36_tmp_87].
+prop BB_36_tmp_89 := BB_p6.
+prop BB_36_tmp_90 := [~ BB_36_tmp_89].
+prop BB_36_tmp_91 := [BB_36_tmp_88 & BB_36_tmp_90].
+def BB_36_tmp_92 := BnextPC(BB_36_tmp_10).
+def BB_36_tmp_93 := BnextPC(BB_36_tmp_92).
+def BB_36_tmp_94 := Bicsaux8.
+def BB_36_tmp_95 := BnextPC(BB_36_tmp_94).
+def BB_36_tmp_96 := Bicsaux9.
+def BB_36_tmp_97 := BnextPC(BB_36_tmp_96).
+def BB_36_tmp_98 := Bicsaux10.
+def BB_36_tmp_99 := BDest(BB_36_tmp_98).
+prop BB_36_tmp_100 := [BB_36_tmp_74 = BB_36_tmp_85].
+prop BB_36_tmp_101 := [BB_36_tmp_100 & BB_36_tmp_76].
+def BB_36_tmp_102 := BDest(BB_36_tmp_96).
+prop BB_36_tmp_103 := [BB_36_tmp_74 = BB_36_tmp_83].
+prop BB_36_tmp_104 := [BB_36_tmp_103 & BB_36_tmp_78].
+def BB_36_tmp_105 := BDest(BB_36_tmp_94).
+def BB_36_tmp_106 := Bicsaux11.
+def BB_36_tmp_107 := Bicsaux12.
+def BB_36_tmp_108 := Bicsaux13.
+prop BB_36_tmp_109 := [BB_36_tmp_63 = BB_36_tmp_108].
+def BB_36_tmp_110 := BPredecode(BB_36_tmp_98).
+prop BB_36_tmp_111 := [BB_36_tmp_110 = BB_36_tmp_12].
+prop BB_36_tmp_112 := [BB_36_tmp_110 = BB_36_tmp_15].
+def BB_36_tmp_113 := Bicsaux14.
+def BB_36_tmp_114 := Bicsaux15.
+def BB_36_tmp_115 := BPredecode(BB_36_tmp_96).
+prop BB_36_tmp_116 := [BB_36_tmp_115 = BB_36_tmp_12].
+prop BB_36_tmp_117 := [BB_36_tmp_115 = BB_36_tmp_15].
+def BB_36_tmp_118 := Bicsaux16.
+def BB_36_tmp_119 := Bicsaux17.
+def BB_36_tmp_120 := BPredecode(BB_36_tmp_94).
+prop BB_36_tmp_121 := [BB_36_tmp_120 = BB_36_tmp_12].
+prop BB_36_tmp_122 := [BB_36_tmp_120 = BB_36_tmp_15].
+def BB_36_tmp_123 := Bicsaux18.
+def BB_36_tmp_124 := Bicsaux19.
+def BB_36_tmp_125 := Bicsaux20.
+def BB_36_tmp_126 := Bicsaux21.
+def BB_36_tmp_127 := Bicsaux22.
+prop BB_36_tmp_128 := [BB_36_tmp_127 = BB_36_tmp_14].
+prop BB_36_tmp_129 := [BB_36_tmp_61 & BB_36_tmp_128].
+prop BB_36_tmp_130 := [BB_36_tmp_109 & BB_36_tmp_129].
+prop BB_36_tmp_131 := [~ BB_36_tmp_28].
+prop BB_36_tmp_132 := [BB_36_tmp_21 & BB_36_tmp_131].
+prop BB_36_tmp_133 := [~ BB_36_tmp_30].
+prop BB_36_tmp_134 := [BB_36_tmp_132 & BB_36_tmp_133].
+prop BB_36_tmp_135 := [~ BB_36_tmp_52].
+prop BB_36_tmp_136 := [BB_36_tmp_134 & BB_36_tmp_135].
+prop BB_36_tmp_137 := [BB_36_tmp_136 & BB_36_tmp_60].
+def BB_36_tmp_138 := Bicsaux23.
+def BB_36_tmp_139 := Bicsaux24.
+prop BB_36_tmp_140 := [BB_36_tmp_73 = BB_36_tmp_139].
+sat ~[
+BB_36_tmp_140]
+ & [if BB_36_tmp_130 then [Bicsaux24 = BB_36_tmp_138] else [Bicsaux24 = BB_36_tmp_56] end] & [if BB_36_tmp_137 then [Bicsaux23 = BB_36_tmp_68] else [Bicsaux23 = BB_36_tmp_56] end] & [if BB_36_tmp_91 then [Bicsaux22 = BB_36_tmp_114] else [Bicsaux22 = BB_36_tmp_126] end] & [if BB_36_tmp_101 then [Bicsaux21 = BB_36_tmp_119] else [Bicsaux21 = BB_36_tmp_125] end] & [if BB_36_tmp_104 then [Bicsaux20 = BB_36_tmp_124] else [Bicsaux20 = BB_36_tmp_20] end] & [if BB_36_tmp_121 then [Bicsaux19 = BB_36_tmp_14] else [Bicsaux19 = BB_36_tmp_123] end] & [if BB_36_tmp_122 then [Bicsaux18 = BB_36_tmp_17] else [Bicsaux18 = BB_36_tmp_18] end] & [if BB_36_tmp_116 then [Bicsaux17 = BB_36_tmp_14] else [Bicsaux17 = BB_36_tmp_118] end] & [if BB_36_tmp_117 then [Bicsaux16 = BB_36_tmp_17] else [Bicsaux16 = BB_36_tmp_18] end] & [if BB_36_tmp_111 then [Bicsaux15 = BB_36_tmp_14] else [Bicsaux15 = BB_36_tmp_113] end] & [if BB_36_tmp_112 then [Bicsaux14 = BB_36_tmp_17] else [Bicsaux14 = BB_36_tmp_18] end] & [if BB_36_tmp_91 then [Bicsaux13 = BB_36_tmp_99] else [Bicsaux13 = BB_36_tmp_107] end] & [if BB_36_tmp_101 then [Bicsaux12 = BB_36_tmp_102] else [Bicsaux12 = BB_36_tmp_106] end] & [if BB_36_tmp_104 then [Bicsaux11 = BB_36_tmp_105] else [Bicsaux11 = BB_36_tmp_62] end] & [if BB_36_tmp_76 then [Bicsaux10 = BB_36_tmp_97] else [Bicsaux10 = BB_36_tmp_96] end] & [if BB_36_tmp_78 then [Bicsaux9 = BB_36_tmp_95] else [Bicsaux9 = BB_36_tmp_94] end] & [if BB_36_tmp_80 then [Bicsaux8 = BB_36_tmp_93] else [Bicsaux8 = BB_36_tmp_92] end] & [if BB_36_tmp_76 then [Bicsaux7 = BB_36_tmp_86] else [Bicsaux7 = BB_36_tmp_85] end] & [if BB_36_tmp_78 then [Bicsaux6 = BB_36_tmp_84] else [Bicsaux6 = BB_36_tmp_83] end] & [if BB_36_tmp_80 then [Bicsaux5 = BB_36_tmp_82] else [Bicsaux5 = BB_36_tmp_81] end] & [if BB_36_tmp_61 then [Bicsaux4 = BB_36_tmp_72] else [Bicsaux4 = BB_36_tmp_56] end] & [if BB_36_tmp_66 then [Bicsaux3 = BB_36_tmp_68] else [Bicsaux3 = BB_36_tmp_71] end] & [if BB_36_tmp_69 then [Bicsaux2 = BB_36_tmp_70] else [Bicsaux2 = BB_36_tmp_56] end] & [if BB_36_tmp_13 then [Bicsaux1 = BB_36_tmp_14] else [Bicsaux1 = BB_36_tmp_19] end] & [if BB_36_tmp_16 then [Bicsaux0 = BB_36_tmp_17] else [Bicsaux0 = BB_36_tmp_18] end].

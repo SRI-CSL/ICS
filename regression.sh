@@ -35,10 +35,10 @@ for name in `ls regression/*.ics`; do
         fi
     fi
 		TIME=`get-time.sh /tmp/time.ics`
-		echo "$1 $RES $TIME"
+		echo "$1 $RES $TIME" >> $RESULT_FILE
   else
 		TIME=`get-time.sh /tmp/time.ics`
-		echo "$1 KILLED $TIME"
+		echo "$1 KILLED $TIME" >> $RESULT_FILE
   fi
 done
 
