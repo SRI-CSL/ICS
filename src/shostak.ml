@@ -22,7 +22,7 @@ open Mpa
 open Three
 (*i*)
 
-let nonlinear = ref false
+let nonlinear = ref true
 
 (*s Only interpreted find. *)
 
@@ -109,7 +109,7 @@ let rec can_t s a =
     | App(f, al) ->
 	match f, al with
 	  | Arith(Multq(q)), [x] ->
-	      canmultq s q x
+	      canmultq s q (can_t s x)
 	  | Arith(op), _ -> 
 	      let al' = canl s A al in
 	      let a' = if al == al' then a else Arith.sigma op al' in 
@@ -242,7 +242,7 @@ and canfloor s a =
     lookup s (Arith.mk_addl (fl :: ints))
 
 and canmultq s q a =
-  let a' = find U s a in
+  let a' = find A s a in
   match a' with
     | App(Uninterp(div), [App(Arith(Num(p)), []); x])
 	when Name.eq Name.div div ->
