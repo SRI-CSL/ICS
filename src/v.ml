@@ -24,7 +24,10 @@ type t = {
 let eq s t =
   s.find == t.find
 
+let apply s x = Term.Map.find x s.find
+
 (*s Canonical representative of equivalence class containing [x] *)
+
 
 let rec find s x =
   try 
@@ -33,14 +36,21 @@ let rec find s x =
   with 
       Not_found -> x
 
+(*s Inverse Map. *)
+
+let inv s x = 
+  Term.Map.find x s.inv
+
 
 (*s Union of equivalence classes. *)
 
-let union x y s =
+let union x y s = 
+  Trace.msg "v" "Union" x Term.pp;
   let find' = Term.Map.add x y s.find in
   let invy = Term.Set.add x (try Term.Map.find y s.inv with Not_found -> Term.Set.empty) in
   let inv' = Term.Map.add y invy s.inv in
-  let changed' = Term.Set.add x s.changed in
+  let changed' = 
+    Term.Set.add x s.changed in
   let removable' = 
     if Term.is_fresh_var x then
       Term.Set.add x s.removable
@@ -51,6 +61,28 @@ let union x y s =
    inv = inv'; 
    changed = changed'; 
    removable = removable'}
+
+
+let restrict x s =
+  Trace.msg "v" "Restrict" x Term.pp;
+  try
+    let y = apply s x in
+    {find = Term.Map.remove x s.find;
+     inv = 
+       (let inv' = Term.Map.remove x s.inv in
+        try 
+	  let invy = inv s y in
+	  let invy' = Term.Set.remove x invy in
+	  if Term.Set.is_empty invy' then
+	    Term.Map.remove y inv'
+	  else 
+	    Term.Map.add y invy' inv'
+	with 
+	    Not_found -> inv');
+     changed = Term.Set.remove x s.changed;
+     removable = Term.Set.remove x s.removable}
+  with
+      Not_found -> s
 
 
 (*s Canonical representative with dynamic path compression. *)
@@ -93,18 +125,9 @@ let is_empty s =
 
 let removable s = s.removable
 
-(*
-let normalize s =
-  let find' = Set.fold Term.Map.remove s.removable s.find in
-  let invy = Term.Set.remove x (try Term.Map.find y s.inv with Not_found -> Term.Set.empty) in
-  let inv' = Term.Map.add y invy s.inv in
-  let changed' = Term.Set.diff s.changed s.removable in
-  let removable' = Term.Set.empty in
-  {find = find'; 
-   inv = inv'; 
-   changed = changed'; 
-   removable = removable'}
- *)
+let remove s =
+  Term.Set.fold restrict (removable s) s
+
 
 (*s Starting from the canonical representative [x' = find s x], the
   function [f] is applied to each [y] in [inv s x'] and the results are
@@ -185,14 +208,22 @@ let reset s = {s with changed = Term.Set.empty}
 
 (*s Choose an element satisfying some property. *)
 
-exception Found of Term.t
+exception Found
 
 let choose s p x =
+  let result = ref (Obj.magic 1) in
   try
-    iter s (fun y -> if p y then raise(Found y)) x;
+    iter s 
+      (fun y ->
+	 match p y with
+	   | Some(z) -> 
+	       result := z;
+	       raise Found
+	   | None -> ())
+      x;
     raise Not_found
   with
-      Found(y) -> y
+      Found -> !result
  
 
 (*s Set of canonical representatives with non-trivial equivalence classes.
@@ -230,19 +261,3 @@ let pp fmt s =
     let l = Term.Map.fold (fun x ys acc -> (x, Term.Set.elements ys) :: acc) m [] in
     Pretty.string fmt "\nv:";
     Pretty.map Term.pp (Pretty.set Term.pp) fmt l
-
-
-(*s Only external variables. *)
-
-let external_of s =
-  Term.Map.fold 
-    (fun x y acc ->
-       if Term.is_fresh_var x && not(Term.is_fresh_var (find s y)) then
-	 acc
-       else if Term.is_fresh_var x && not(Term.eq y (find s y)) then
-	 acc
-       else 
-	 union x y acc)
-    s.find
-    empty
-

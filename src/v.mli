@@ -14,14 +14,14 @@
  * Author: Harald Ruess, N. Shankar
 i*)
 
-(*s Module [V]: Equivalence classes for variables. *)
+(*s Module [V]: Representation of equivalence classes of variables. *)
 
 type t
 
 (*s [partition s] returns a partitioning of the set of variables
  in the form of a map with a domain consisting of canonical
  representatives and the corresponding equivalence class in
- the codomain. *)
+ the codomain. It does only list non-singleton equivalence classes. *)
 
 val partition : t -> Term.Set.t Term.Map.t
 
@@ -44,9 +44,11 @@ val reset : t -> t
 
 val eq : t -> t -> bool
 
-(*s Variable equality modulo [s]. *)
+(*s [is_equal s x y] holds if and only if [x] and [y] are
+ in the same equivalence class modulo [s]. *)
 
 val is_equal : t -> Term.t -> Term.t -> bool
+
 
 (*s The empty context. *)
 
@@ -57,13 +59,24 @@ val empty : t
 
 val merge : Fact.equal -> t -> t
 
+
+(*s [restrict x s] removes occurrences of [x] from [s].
+ Should only be called for [x] in [removable s]. *)
+
+val restrict : Term.t -> t -> t
+
+val removable : t -> Term.Set.t
+
+
 (*s Pretty-printing. *)
 
 val pp : t Pretty.printer
 
+
 (*s Folding over the members of a specific equivalence class. *)
 
 val fold : t -> (Term.t -> 'a -> 'a) -> Term.t -> 'a -> 'a
+
 
 (*s Iterate over the extension of an equivalence class. *)
 
@@ -72,10 +85,12 @@ val iter : t -> (Term.t -> unit) -> Term.t -> unit
 (*s [exists s p x] holds if [p y] holds for some [y] congruent
  to [x] modulo [s]. *)
 
+
 val exists : t -> (Term.t -> bool) -> Term.t -> bool
 
 (*s [for_all s p x] holds if [p y] holds for all [y] congruent
  to [x] modulo [s]. *)
+
 
 val for_all : t -> (Term.t -> bool) -> Term.t -> bool
 
@@ -83,9 +98,4 @@ val for_all : t -> (Term.t -> bool) -> Term.t -> bool
   which satisfies [p]. If there is no such [y], the exception [Not_found]
   is raised. *)
 
-val choose : t -> (Term.t -> bool) -> Term.t -> Term.t
-
-
-(*s Remove all internal variables. *)
-
-val external_of : t -> t
+val choose : t -> (Term.t -> 'a option) -> Term.t -> 'a
