@@ -39,6 +39,10 @@ type t = {
   labels : Term.Set.t
 }
 
+val v_of : t -> V.t
+val d_of : t -> D.t
+val c_of : t -> C.t
+
 val empty : t
 
 (*s Pretty-printing the context of a state. *)
@@ -70,6 +74,29 @@ val deq : t -> Term.t -> Term.Set.t
 
 val partition: t -> V.t * D.t
 
+(*s [update i s e] *)
+
+val update : Sym.theories -> t -> Solution.t -> t
+
+(*s [install i s (p, e)] *)
+
+
+val install : Sym.theories -> t -> Partition.t * Solution.t -> t
+
+
+(*s [extend s p] adds the partition [p] to [s]. *)
+
+val update_p : t -> Partition.t -> t
+
+val update_v : t -> V.t -> t
+val update_d : t -> D.t -> t
+val update_c : t -> C.t -> t
+
+
+(*s [lookup s a] returns, if possible, a canonical variable equal to [a]. *)
+
+val lookup : t -> Term.t -> Term.t
+
 
 (*s [choose s p x] returns [z] if for some [y] in the equivalence class of [x] 
  [p y] yields [Some(z)]. If there is not such [y], [Not_found] is raised. *)
@@ -83,6 +110,7 @@ val solutions : Sym.theories -> t -> Solution.t
 
 (*s Parameterized operators *)
 
+val apply : Sym.theories -> t -> Term.t -> Term.t
 val find : Sym.theories -> t -> Term.t -> Term.t
 val inv : Sym.theories -> t -> Term.t -> Term.t
 val use : Sym.theories -> t -> Term.t -> Term.Set.t
@@ -91,42 +119,22 @@ val use : Sym.theories -> t -> Term.t -> Term.Set.t
 
 val sigma : t -> Sym.t -> Term.t list -> Term.t
 
+(*s [solve i s (a, b)] applies solver for theory [i] on equality [a = b]. *)
 
-(*s Merge variable equality. *)
+val solve : Sym.theories -> t -> Term.t * Term.t -> (Term.t * Term.t) list
 
-val merge : Fact.equal -> t -> t
+(*s [propagate i (x, y) s]. *)
 
-(*s Add a constraint. *)
+val propagate : Sym.theories -> Fact.equal -> t -> t
 
-val add : Fact.cnstrnt -> t -> t
+(*s [fuse i (x, y) s]. *)
 
-(*s Add a disequality. *)
+val fuse : Sym.theories -> Fact.equal -> t -> t
 
-val diseq : Fact.diseq -> t -> t
+(*s [compose i (a, b) s]. *)
 
-(*s Close. *)
-
-val close : t  -> t
-
-val maxclose : int ref
-
-
-(*s Extension. *)
-
-val extend : t -> Term.t -> Term.t * t
-
+val compose : Sym.theories -> Fact.equal -> t -> t
 
 (*s List all constraints with finite extension. *)
 
 val split : t -> Atom.Set.t
-
-
-(*s Compressing the state. *)
-
-val compress : t -> t
-
-(*s Switch for compactification. *)
-
-val compactify : bool ref
-
-
