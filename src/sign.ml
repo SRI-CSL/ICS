@@ -81,7 +81,7 @@ let sub s t =
     | _, F -> false
     | _, T -> true
     | T, _ -> false
-    | Zero, Zero -> true
+    | Zero, (Zero | Nonpos | Nonneg) -> true
     | Zero, _ -> false
     | Neg, (Neg | Nonpos) -> true
     | Neg, _ -> false

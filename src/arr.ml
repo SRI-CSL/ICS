@@ -14,12 +14,16 @@
 open Sym
 open Term
 
+let create = Arrays(Create)
 let update = Arrays(Update)
 let select = Arrays(Select)
 
+let mk_create a =
+  mk_app create [a]
 
 (** Reducing patterns of the form [select(update(a,i,x), j)]
   according to the equations
+     [select(create(a), j) = a]
      [i = j => select(update(a,i,x), j) = x]
      [i <> j => select(update(a,i,x),j) = select(a,j)] 
  *)
@@ -28,6 +32,8 @@ let mk_select =
   let select = mk_app (Arrays(Select)) in
     fun b j ->
       match b with
+	| App(Arrays(Create), [a]) ->
+	    a
 	| App(Arrays(Update), [a; i; x]) ->
 	    (match Term.is_equal i j with
 	       | Three.Yes ->
@@ -50,6 +56,8 @@ let mk_update =
 
 let sigma op l =
   match op, l with
+    | Create, [a] ->
+	mk_create a
     | Update, [a; i; x] ->
 	mk_update a i x
     | Select, [a; j] ->
@@ -57,15 +65,19 @@ let sigma op l =
     | _ -> 
 	assert false
 
-let rec map f a =
-  match a with
+let rec map f b =
+  match b with
+    | App(Arrays(Create), [a]) -> 
+	let a' = map f a in
+	  if a == a' then b else
+	    mk_create a'
     | App(Arrays(Update), [a; i; x]) ->
 	let a' = map f a and i' = map f i and x' = map f x in
-	  if a == a' && i == i' && x == x' then a else
+	  if a == a' && i == i' && x == x' then b else
 	    mk_update a' i' x'
     | App(Arrays(Select), [a; j]) ->
 	let a' = map f a and j' = map f j in
-	  if a == a' && j == j' then a else
+	  if a == a' && j == j' then b else
 	    mk_select a' j'
     | _ -> 
-	f a
+	f b

@@ -48,7 +48,8 @@ let keyword =
       "hd", HEAD; "tl", TAIL;
       "unsigned", UNSIGNED; "apply", APPLY;
       "lambda", LAMBDA;
-      "if", IF; "then", THEN; "else", ELSE; "end", END
+      "if", IF; "then", THEN; "else", ELSE; "end", END;
+      "create", CREATE
     ];
   fun s ->
     try Hashtbl.find kw_table s with Not_found -> IDENT s

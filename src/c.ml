@@ -89,7 +89,8 @@ let restrict a s =
 
 (** Asserting an inequality *)
 
-let rec add c s =
+let rec add c s =  
+  Trace.msg "c1" "Add" c Fact.pp_cnstrnt;
   changed := Term.Set.empty;
   let s' = update c s in
     (!changed, s')
@@ -108,13 +109,12 @@ and merge1 e s =
       let (i, _) = apply s x in
 	(try
 	   let (j, _) = apply s y in
-	   let ij = Sign.inter i j in
-	   let c1 = Fact.mk_cnstrnt y ij None in
+	   let c1 = Fact.mk_cnstrnt y (Sign.inter i j) None in
 	     update c1 (restrict x s)
 	 with
 	     Not_found -> 
 	       let c1 = Fact.mk_cnstrnt y i None in
-		 update c1 s)
+		 update c1 (restrict x s))
     with
 	Not_found -> s
 

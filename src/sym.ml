@@ -41,6 +41,7 @@ type apply =
   | Abs
 
 type arrays = 
+  | Create
   | Select 
   | Update
 
@@ -123,6 +124,7 @@ and eq_arith f g =
 
 and eq_arrays f g =
   match f, g with
+    | Create, Create -> true
     | Select, Select -> true
     | Update, Update -> true
     | _ -> false
@@ -174,6 +176,7 @@ let pp fmt s =
 
   and array op =
     match op with
+      | Create -> Format.fprintf fmt "create"
       | Select -> Format.fprintf fmt "select"  
       | Update -> Format.fprintf fmt "update"
 

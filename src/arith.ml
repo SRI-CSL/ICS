@@ -242,53 +242,19 @@ let rec tau = function
   | a -> if is_intvar a then Dom.Int else Dom.Real
 
 
-(** [pre + q * x + post = 0] implies [x = 1/q * (-pre - post)] *)
 let rec qsolve (a, b) =
-  let rec destructure pre post =     (* [pre + post = 0]. *)
-    match post with
-      | [m] ->
-	  let (q, x) = mono_of m in
-	  (pre, q, x, [])
-      | m :: post' ->
-	  let (q, x) = mono_of m in
-	    if is_rename x then
-	      destructure (m :: pre) post'
-	    else 
-	      (pre, q, x, post')
-      | [] ->
-	  assert false
-  in
   let p, ml = poly_of (mk_sub a b) in
-    if ml = [] then
-      if Q.is_zero p then None else raise Exc.Inconsistent
-    else 
-      let (pre, q, x, post) = destructure [] ml in
-      let c = mk_addq (Q.minus (Q.div p q))
-		(mk_multq (Q.minus (Q.inv q)) 
-		   (mk_addl (pre @ post))) 
-      in
-	Some(x, c)
+    match ml with
+      | [] -> 
+	  if Q.is_zero p then None else raise Exc.Inconsistent
+      | m :: ml -> 
+	  let (q, x) = mono_of m in         (* [p + q * x + ml = 0] *)
+	  let b = mk_addq (Q.minus (Q.div p q))
+		    (mk_multq (Q.minus (Q.inv q))
+		       (mk_addl ml))
+	  in
+	    Some(x, b)
 
-
-(** Largest monomial and rest. *)
-let destructure a = 
-  match a with
-    | App(Arith(Num(_)), []) ->
-	raise Not_found
-    | App(Arith(Multq(q)), [x]) ->
-	(q, x, mk_zero)
-    | App(Arith(Add), xl) ->
-	(match xl with
-	   | (App(Arith(Num _), []) as p) :: m :: ml ->
-	       let (q, x) = mono_of m in
-		 (q, x, mk_app add (p :: ml))
-	   | m :: ml ->
-	       let (q, x) = mono_of m in
-		 (q, x, mk_app add ml)
-	   | _ ->
-	       raise Not_found)
-    | _ ->
-	raise Not_found
 	
 
 (** {6 Integer solver} *)
@@ -314,21 +280,21 @@ module Euclid = Euclid.Make(
   end)
 
 
-let rec zsolve (a, b) = 
-  if is_var a && is_var b then
-    if Term.eq a b then [] else
-      [(a, b)]
-  else 
-    let (q, ml) = poly_of (mk_sub a b) in   (* [q + ml = 0] *)
-      if ml = [] then
-	if Q.is_zero q then [] else raise(Exc.Inconsistent)
-      else
-	let (cl, xl) = vectorize ml in     (* [cl * xl = ml] in vector notation *)
-	  match Euclid.solve cl (Q.minus q) with
-	    | None -> raise Exc.Inconsistent
-	    | Some(d, pl) -> 
-		let (kl, gl) = general cl (d, pl) in
-		  List.combine xl gl
+let rec zsolve (a, b) =    
+  if Term.eq a b then [] else
+    if is_var a && is_var b then
+      [Term.orient(a, b)]
+    else 
+      let (q, ml) = poly_of (mk_sub a b) in   (* [q + ml = 0] *)
+	if ml = [] then
+	  if Q.is_zero q then [] else raise(Exc.Inconsistent)
+	else
+	  let (cl, xl) = vectorize ml in     (* [cl * xl = ml] in vector notation *)
+	    match Euclid.solve cl (Q.minus q) with
+	      | None -> raise Exc.Inconsistent
+	      | Some(d, pl) -> 
+		  let (kl, gl) = general cl (d, pl) in
+		    List.combine xl gl
 	     
 and vectorize ml =
   let rec loop (ql, xl) = function

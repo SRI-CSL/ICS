@@ -42,6 +42,11 @@ let bvarith = 8
 
 let to_string = List.nth names
 
+let all = [u; la; p; bv; cop; pprod; app; arr; bvarith]
+
+let interp = [la; p; bv; cop]
+
+
 exception Found of t
 
 let of_string str =

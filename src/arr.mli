@@ -27,11 +27,14 @@
 
 (** {6 Function Symbols} *)
 
+val create : Sym.t
 val select : Sym.t
 val update : Sym.t
 
 
 (** {6 Constructors} *)
+
+val mk_create : Term.t -> Term.t
 
 val mk_select : Term.t -> Term.t -> Term.t
   (** [mk_select a j] constructs a canonical term equivalent

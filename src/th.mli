@@ -43,6 +43,10 @@ val arr : t        (** Array theory. *)
 
 val bvarith : t    (** Theory of bitvector interpretation(s). *)
 
+val all : t list   (** List of all theories *)
+
+val interp : t list (** List of interpreted theories. *)
+
 val to_int : t -> int
   (** [to_int th] returns a unique nonnegative integer for theories [th]. *)
 

@@ -74,6 +74,7 @@ type apply =
 	- [Abs] of function abstraction *)
 
 type arrays = 
+  | Create
   | Select 
   | Update
       (** Function symbols of the theory of arrays

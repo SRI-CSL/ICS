@@ -60,7 +60,7 @@ let union x y prf s =
   in
     {find = Map.add x (y, prf) s.find;
      inv = Map.add y invy s.inv;
-     removable = if is_internal x then Set.add x s.removable else s.removable}
+     removable = if is_rename x then Set.add x s.removable else s.removable}
 
 
 let restrict x s =

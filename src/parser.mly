@@ -86,6 +86,7 @@ let name_of_strict_slack = Name.of_string "l"
 %token PROPVAR DISJ XOR IMPL BIIMPL CONJ NEG
 %token IF THEN ELSE END
 %token PROJ
+%token CREATE
 
 %right DISJ XOR IMPL
 %left BIIMPL CONJ
@@ -249,7 +250,8 @@ coproduct:
 
 
 array:
-  term LBRA term ASSIGN term RBRA { Arr.mk_update $1 $3 $5 }
+  CREATE LPAR term RPAR      { Arr.mk_create $3 }
+| term LBRA term ASSIGN term RBRA { Arr.mk_update $1 $3 $5 }
 | term LBRA term RBRA        { Arr.mk_select $1 $3 }
 ;
 

@@ -64,7 +64,6 @@ val complement : t -> t
     {!Dom.Real} and [Int - D(c)] if [dom c] is {!Dom.Int}. Otherwise [Invalid_argument]
     is raised. *)
 
-
 (** {6 Abstract sign interpretation} *)
 
 val num : Mpa.Q.t -> t
