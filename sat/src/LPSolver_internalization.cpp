@@ -102,9 +102,12 @@ void LPSolver::internalize_formula_as_clauses(int f_id)
 	if (formula->is_or() && f_id < 0) {
 		// formula is an AND!
 		unsigned int n = formula->get_num_arguments();
+		unsigned int num_non_atoms = 0;
 		for (unsigned int i = 0; i < n; i++) {
 			int child_id = -formula->get_argument(i); // I must invert the child, since the AND is represented as -(OR -child_1 ... - child_n)
 			const LPFormula * child = formula_manager->get_formula(absolute(child_id));
+			if (!child->is_atomic())
+				num_non_atoms++;
 			if (child->is_or()) {
 				assert(child_id > 0); // by construction of the LPFormula
 				unsigned child_size = child->get_num_arguments();
@@ -121,9 +124,13 @@ void LPSolver::internalize_formula_as_clauses(int f_id)
 			else
 				queue_push(to_internalize, absolute(child_id));
 		}
+		// cout << "num_non_atoms: " << num_non_atoms << endl;
+		npc_threshold = npc_min_threshold + (num_non_atoms / 100);
 	}
-	else 
+	else { 
+		npc_threshold = npc_min_threshold;
 		queue_push(to_internalize, absolute(f_id));
+	}
 
 	while (!to_internalize.is_empty()) {
 		int curr_id = to_internalize.pop();

@@ -367,12 +367,12 @@ void LPSolver::explain_ics_inconsistency(unsigned int f_idx)
 		  int * atom_array = explanation.first;
 		  int array_len = explanation.second;
 			new_conflict_point.reset();
-//			cout << "ICS explanation: \n";
+			//			cout << "ICS explanation: \n";
 		  for(int i = 0; i < array_len; i++) {
 				int formula_id = ics_interface.get_formula_id_of_atom_id(atom_array[i]);
-//  				cout << "assert "; cout.flush();
-//  				icsat_atom_pp(atom_array[i]);
-//  				cout << ".\n";
+				//  				cout << "assert "; cout.flush();
+				// icsat_atom_pp(atom_array[i]);
+  			//	cout << ".\n";
 //  				cout.flush();
 //  				cout << "id = " << formula_id << "\n";
 //  				cout << "pos-atom : "; cout.flush();
@@ -386,7 +386,7 @@ void LPSolver::explain_ics_inconsistency(unsigned int f_idx)
 
 				new_conflict_point.push(- formula_id);
 		  }
-//			cout << "---------------------\n";
+			//			cout << "---------------------\n";
 			return;
 	  }
 	  else {

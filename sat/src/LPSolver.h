@@ -272,6 +272,7 @@ private:
 	LPSolverBranchingMode branching_mode;
 	LPSolverConflictResolutionMode conflict_resolution_mode;
 	unsigned int npc_threshold;
+	unsigned int npc_min_threshold;
 	unsigned int num_new_non_propositional_assignments;
 	bool polarity_optimization;
 	bool implication_graph_optimization;
@@ -677,6 +678,7 @@ public:
 			deallocate_activation_mode_arrays();
 	}
 	void set_npc_threshold(unsigned int n) { npc_threshold = n; }
+	void set_npc_min_threshold(unsigned int n) { npc_min_threshold = n; }
 	void set_clause_relevance(unsigned int r) { clause_relevance = r; }
 	void set_cleanup_period(unsigned int p) { cleanup_period = p; }
 	void set_conflict_resolution_mode (LPSolverConflictResolutionMode new_mode) { conflict_resolution_mode = new_mode; }

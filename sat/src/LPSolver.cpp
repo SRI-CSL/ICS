@@ -81,7 +81,8 @@ LPSolver::LPSolver(LPFormulaManager * f_manager, bool use_proof_objects,
 	implication_graph_optimization = false;
 	lookahead_optimization = false;
 	lookahead_relevance = DEFAULT_LOOKAHEAD_RELEVANCE;
-	npc_threshold = DEFAULT_NPC_THRESHOLD;
+	// npc_threshold = DEFAULT_NPC_THRESHOLD;
+	npc_min_threshold = DEFAULT_MIN_NPC_THRESHOLD;
 }
 
 LPSolver::~LPSolver()
