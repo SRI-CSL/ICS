@@ -35,9 +35,9 @@ let empty = {
 
 (*s Updates. *)
 
-let update_v s v = if V.eq v s.v then s else {s with v = v}
-let update_d s d = if D.eq d s.d then s else {s with d = d}
-let update_c s c = if C.eq c s.c then s else {s with c = c}
+let update_v s v = if v == s.v then s else {s with v = v}
+let update_d s d = if d == s.d then s else {s with d = d}
+let update_c s c = if c == s.c then s else {s with c = c}
 
 
 (*s Canonical variables module [s]. *)
