@@ -32,11 +32,11 @@ let eq a b =
   match a, b with
     | True, True -> true  
     | False, False -> true
-    | Equal(x1,y1), Equal(x2,y2) ->  (* equalities are ordered. *)
+    | Equal(x1,y1), Equal(x2, y2) ->  (* equalities are ordered. *)
 	Term.eq x1 x2 && Term.eq y1 y2
-    | Diseq(x1,y1), Diseq(x2,y2) ->
+    | Diseq(x1, y1), Diseq(x2, y2) ->
 	Term.eq x1 x2 && Term.eq y1 y2
-    | In(c1,x1), In(c2,x2) -> 
+    | In(c1, x1), In(c2, x2) -> 
 	Term.eq x1 x2 && Cnstrnt.eq c1 c2
     | _ -> 
 	false
@@ -53,7 +53,7 @@ let mk_equal a b =
   else if Term.is_interp_const a && Term.is_interp_const b then
     mk_false()
   else
-    let a',b' = Term.orient(a,b) in
+    let a',b' = Term.orient (a, b) in
     Equal(a',b')       (* Larger Term on rhs *)
 
 let mk_in c a =
@@ -86,7 +86,7 @@ let rec mk_diseq a b =
       | _, Some(p) -> 
 	  mk_in (Cnstrnt.mk_diseq p) a
       | None, None -> 
-	  let a',b' = Term.orient(a,b) in
+	  let a',b' = Term.orient(a, b) in
 	  Diseq(a',b')
 
 (*s Transforming terms in an atom *)
@@ -122,15 +122,6 @@ and lower (f,less,greater) (a,b) =
 	mk_in c (Arith.mk_add x a)
 
 
-(*s Comparison  of atoms. *)
-
-let (<<<) a b =
-  match a, b with
-    | Equal _, (Diseq _| In _) -> false
-    | (Diseq _| In _), Equal _ -> true
-    | In(c,_), In(d,_) -> not(Cnstrnt.sub c d)
-    | _ -> Pervasives.compare a b <= 0
-
 
 (*s Pretty-printing. *)
 
@@ -151,20 +142,4 @@ module Set = Set.Make(
     let compare a b =
       if eq a b then 0 else Pervasives.compare a b
   end)
-
-
-(*s [trace str hyps concl] traces generation of facts. 
-    [str] is the name of the rule, [hyps] is the set of
-     hypothesis and [concl] is the set of conclusions. *)
-
-let footprint str hyps concls =
-  Trace.msg "footprint"
-    (str ^ " :")
-    (hyps, concls)
-    (fun fmt (hyps, concls) ->
-       Format.fprintf fmt "@[";
-       Pretty.list pp fmt hyps;
-       Pretty.string fmt " ==> ";
-       Pretty.list pp fmt concls;
-       Format.fprintf fmt "@]\n")
 

@@ -55,17 +55,7 @@ val pp : t Pretty.printer
 val mk_lt : Term.t -> Term.t -> t
 val mk_le : Term.t -> Term.t -> t
 
-(*s Comparison on atoms. *)
-
-val (<<<) : t -> t -> bool
 
 (*s Set of atoms. *)
 
 module Set : (Set.S with type elt = t)
-
-
-(*s [footprint str hyps concl] traces generation of facts. 
-    [str] is the name of the rule, [hyps] is the set of
-     hypothesis and [concl] is the set of conclusions. *)
-
-val footprint : string -> t list -> t list -> unit
