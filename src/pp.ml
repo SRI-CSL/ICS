@@ -185,12 +185,22 @@ let rec map f a =
 	f a
 
 
-(** Normalize a power product to a list. *)
+(** {6 Normal forms.} *)
 
+
+(** Normalize a power product to a list. *)
 let to_list a =
   match a with
     | App(Pp(Mult), xl) -> xl
     | _ -> [a]
+
+
+let of_list pl =
+  List.fold_right
+    (fun (y, n) ->
+       mk_mult (mk_expt n y))
+    pl
+    mk_one
 
     
 (** {6 Ordering relation.} *)

@@ -317,6 +317,23 @@ module Map = Map.Make(
     let compare = cmp
   end)
 
+(** Apply a term map by instantiating [x] with [b] in [a] 
+  if [m] contains the binding [x |-> b]. *)
+
+let apply m =
+  let rec app a =
+    try
+      Map.find a m
+    with
+	Not_found -> 
+	  (match a with
+	     | Var _ -> a
+	     | App(f, al) ->
+		 let al' = mapl app al in
+		   if al == al' then a else App(f, al'))
+  in
+    app
+
 
 (** Set of variables. *)
 let rec vars_of a = 

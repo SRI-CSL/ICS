@@ -141,6 +141,8 @@ val map: (Term.t -> Term.t) -> Term.t -> Term.t
 val replace: Term.t -> Term.t -> Term.t -> Term.t
   (** [replace a x e] replaces occurrences of [x] in [a] with [e], and normalizes. *)
 
+val apply : Term.t -> Term.t Term.Map.t -> Term.t
+
 val fold: (Mpa.Q.t -> Term.t -> 'a -> 'a) -> Term.t -> 'a -> 'a
   (** Folding over the non-constant monomials of an arithmetic term. *)
 

@@ -36,7 +36,7 @@ let keyword =
       "valid", VALID; "unsat", UNSAT;
       "save", SAVE; "restore", RESTORE; "remove", REMOVE; "forget", FORGET;
       "reset", RESET; "sig", SIG; "type", TYPE; "def", DEF; "prop", PROP;
-      "sigma", SIGMA; "solve", SOLVE; "help", HELP;
+      "sigma", SIGMA; "solve", SOLVE; "help", HELP; "model", MODEL;
       "set", SET; "toggle", TOGGLE; "trace", TRACE;  "untrace", UNTRACE; 
       "find", FIND; "inv", INV; "use", USE; "solution", SOLUTION; "partition", PARTITION;
       "syntax", SYNTAX; "commands", COMMANDS; "ctxt", CTXT; "diseq", DISEQ; "echo", ECHO;

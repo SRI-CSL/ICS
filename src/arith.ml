@@ -232,6 +232,10 @@ let rec map f a =
 let replace a x e =
   map (fun y -> if Term.eq x y then e else y) a
 
+(** Application of a substitution. *)
+let apply a m =
+  map (fun y -> try Map.find y m with Not_found -> y) a
+
 
 (** Interface for sigmatizing arithmetic terms. *)
 let rec sigma op l =

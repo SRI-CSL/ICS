@@ -79,6 +79,10 @@ val mk_inv : Term.t -> Term.t
   (** [mk_inv pp] returns an inverse power product [qq] such that
     {!mk_mult}[(pp, qq)] is {!mk_one}. *)
 
+(** {6 Normal form} *)
+
+val of_list : (Term.t * int) list -> Term.t
+
 
 (** {6 Canonizer} *)
 

@@ -134,6 +134,8 @@ let inv i s = Solution.inv (eqs_of s i)
 
 let is_empty i s = Solution.is_empty (eqs_of s i)
 
+let interp i s = apply i s  (* for now *)
+
 
 (** Array selection *)
 
@@ -728,7 +730,7 @@ and deduce i e s =
     else if Th.eq i Th.bvarith then
       deduce_bvarith e s
     else if Th.eq i Th.pprod then
-      deduce_nonlin e s
+      deduce_nonlin e (deduce_nonlin2 e s)
     else 
       s
 
@@ -756,6 +758,39 @@ and deduce_nonlin e s =
 	     add (Fact.mk_cnstrnt x' j None) s)
   with
       Not_found -> s
+
+and deduce_nonlin2 e s =
+  let partition a = 
+    let (bl, dl) = 
+      Pp.fold
+	(fun y n (bl, dl) ->
+	   try
+	     let _ = c s y in
+	       (bl, (y, n) :: dl)
+	   with
+	       Not_found -> ((y, n):: bl, dl))
+	a ([], [])
+    in
+      (Pp.of_list bl, Pp.of_list dl)
+  in
+  let (x, a, _) = Fact.d_equal e in
+  let x' = v s x in
+  let (b, d) = partition a in   (* [b] is unconstrained, [d] is constrained. *)
+    Trace.msg "foo" "Partition" (b, d) (Pretty.pair Term.pp Term.pp);
+    try
+      (match c s x', c s d with
+	 | Sign.Pos, Sign.Pos ->
+	     add (Fact.mk_cnstrnt b Sign.Pos None) s
+	 | Sign.Nonneg, Sign.Nonneg -> 
+	     add (Fact.mk_cnstrnt b Sign.Nonneg None) s
+	 | _ -> s)
+    with
+	Not_found -> 
+	  if not(Term.eq b Pp.mk_one) then s else
+	    try
+	      add (Fact.mk_cnstrnt x' (c s d) None) s
+	    with
+		Not_found -> s  (* should not happen *)
 
 
 (** If [k = R[k''], [k' = R'[k'']] in [A], then
@@ -1318,3 +1353,51 @@ and split_arrays s =
 	 | _ -> acc1)
     (eqs_of s arr)
     Atom.Set.empty
+
+(** {6 Model construction} *)
+
+let model s xs =
+  let rec mod_star rho = function
+    | [] -> rho
+    | x :: xs -> mod_star (mod1 x rho) xs
+
+  and (|||) m1 m2 x rho =
+    try m1 x rho with Not_found -> m2 x rho
+
+  and mod1 x rho =
+    if Term.Map.mem x rho then rho else
+      (mod_la ||| mod_u) x rho
+
+  and mod_la x rho =
+    try 
+      let a = interp Th.la s x in
+      let rho' = Set.fold mod_la (Term.vars_of a) rho in
+	Term.Map.add x (Arith.apply a rho') rho'
+    with
+	Not_found ->
+	  let a = 
+	    (try
+	       match c s x with
+		 | Sign.Pos -> Arith.mk_one
+		 | Sign.Neg -> Arith.mk_num (Q.negone)
+		 | _ -> Arith.mk_zero
+	       with
+		   Not_found -> Arith.mk_zero)
+	  in
+	    Term.Map.add x a rho
+	  
+  and mod_u x rho =
+    let u = interp Th.u s x in
+    let rho' = Set.fold mod_u (Term.vars_of u) rho in
+      Term.Map.add x (Term.apply rho' u) rho'
+
+  in
+  let restrict xs m =
+    Term.Map.fold
+      (fun x a m ->
+	 if List.exists (Term.eq x) xs then m 
+	 else Term.Map.remove x m)
+      m m
+  in
+  let m = mod_star Term.Map.empty xs in
+    restrict xs m

@@ -134,3 +134,5 @@ val compactify : bool ref
 
 val split : t -> Atom.Set.t
   (** List all constraints with finite extension. *)
+
+val model : t -> Term.t list -> Term.t Term.Map.t

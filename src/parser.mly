@@ -46,7 +46,7 @@ let name_of_strict_slack = Name.of_string "l"
 
 %token DROP CAN ASSERT EXIT SAVE RESTORE REMOVE FORGET RESET SYMTAB SIG VALID UNSAT
 %token TYPE SIGMA
-%token SOLVE HELP DEF PROP TOGGLE SET TRACE UNTRACE CMP FIND USE INV SOLUTION PARTITION
+%token SOLVE HELP DEF PROP TOGGLE SET TRACE UNTRACE CMP FIND USE INV SOLUTION PARTITION MODEL
 %token SHOW SIGN DOM SYNTAX COMMANDS SPLIT SAT ECHO
 %token DISEQ CTXT 
 %token IN TT FF DEF
@@ -209,6 +209,10 @@ var:
 | FREE   { Term.Var(Var.mk_free $1) }
 ;
 
+varlist : var        { [$1] }
+| varlist COMMA var  { $3 :: $1 }
+
+
 optdom:   { None }
 | LCUR dom RCUR { Some($2) }
 
@@ -366,6 +370,7 @@ command:
 | TRACE identlist           { Result.Unit(List.iter Trace.add $2) }
 | UNTRACE                   { Result.Unit(Trace.reset ()) }
 | SAT prop                  { Result.Sat(Istate.sat $2) }
+| MODEL optname varlist     { Result.Solution(Istate.model $2 $3) }
 | ECHO STRING               { Result.Unit(Format.eprintf "%s@." $2) }
 | help                      { Result.Unit($1) }
 ;

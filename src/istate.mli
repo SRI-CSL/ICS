@@ -163,6 +163,9 @@ val valid : Name.t option -> Atom.t -> bool
 val unsat : Name.t option -> Atom.t -> bool
   (** Checking for unsatisfiablity. *)
 
+val model : Name.t option -> Term.t list -> (Term.t * Term.t) list
+  (** Model construction. *)
+
 
 (** {6 Context Manipulations} *)
 

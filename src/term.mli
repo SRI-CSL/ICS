@@ -208,10 +208,10 @@ module Set : (Set.S with type elt = trm)
 
 module Map : (Map.S with type key = trm)
 
+val apply : t Map.t -> t -> t
 
 val vars_of : t -> Set.t
   (** Return set of variables. *)
-
 
 
 

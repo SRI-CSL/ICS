@@ -207,6 +207,10 @@ let unsat n a =
     | Context.Status.Inconsistent -> true
     | _ -> false
 
+let model n xs =
+  let m = Context.model (get_context n) xs in
+    Term.Map.fold (fun x a acc -> (x, a) :: acc) m []
+
 (** Accessors. *)
 
 let diseq n a =
