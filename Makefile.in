@@ -21,9 +21,7 @@ OCAMLDEP = @OCAMLDEP@
 OCAMLMKLIB = @OCAMLMKLIB@
 OCAMLDOC = @OCAMLDOC@
 
-OCAMLWEBSTY = $$HOME/tex/ocamlweb.sty
-
-WEBHOME = /homes/web/www.icansolve.com
+DEBUG = @DEBUG@
 
 prefix = @prefix@
 exec_prefix = @exec_prefix@
@@ -32,6 +30,7 @@ libdir = @libdir@
 includedir = @includedir@
 
 ### end of configuration part ################################################
+
 
 ifeq ($(MAKELEVEL),0)
 	ARCH := $(shell ./config.guess)
@@ -60,17 +59,24 @@ endif
 INCLUDE =
 CFLAGS = 
 BFLAGS = -g $(INCLUDE)
-OFLAGS = $(INCLUDE) -compact -inline 3 -noassert -unsafe
 LIBS = $(LIBGMPA)
+
+ifeq ($(DEBUG),0)
+  OFLAGS = $(INCLUDE) -compact -inline 3 -noassert -unsafe
+else
+  OFLAGS = $(INCLUDE)	
+endif
 
 # Object files
 
 COBJS = mlgmp41.o ocaml-signals.o icsat.o
 
+
 CMO = three.cmo \
       dynarray.cmo \
       ptset.cmo ptmap.cmo rbset.cmo \
       gmp41.cmo mpa.cmo \
+      version.cmo \
       tools.cmo \
       pretty.cmo \
       exc.cmo\
@@ -82,6 +88,8 @@ CMO = three.cmo \
       sym.cmo \
       var.cmo \
       term.cmo \
+      atom.cmo \
+      jst.cmo \
       euclid.cmo \
       arith.cmo \
       product.cmo \
@@ -89,18 +97,23 @@ CMO = three.cmo \
       bitvector.cmo \
       propset.cmo \
       boolean.cmo \
-      pprod.cmo \
       funarr.cmo \
-      nonlin.cmo \
+      acsym.cmo \
+      pprod.cmo \
       apply.cmo \
       app.cmo \
-      atom.cmo \
-      jst.cmo \
       fact.cmo \
+      clause.cmo \
+      g.cmo \
       d.cmo \
       v.cmo \
       partition.cmo \
-      eqs.cmo \
+      solution.cmo \
+      infsys.cmo \
+      shostak.cmo \
+      can.cmo \
+      u.cmo \
+      ac.cmo \
       arr.cmo \
       la.cmo \
       nl.cmo \
@@ -108,7 +121,6 @@ CMO = three.cmo \
       p.cmo \
       pset.cmo \
       l.cmo \
-      u.cmo \
       cop.cmo \
       combine.cmo \
       context.cmo \
@@ -116,7 +128,6 @@ CMO = three.cmo \
       symtab.cmo istate.cmo \
       parser.cmo lexer.cmo \
       ics.cmo
-
 
 CMI = $(CMO:.cmo=.cmi)
 
@@ -128,13 +139,14 @@ SRCMLI = $(addprefix $(SRCDIR)/,$(CMO:.cmo=.mli))
 ### ICSAT Library ###
 ICSAT= $(SATDIR)/lib/$(ARCH)/icsat.a
 
+TARGETS=$(BINDIR)/ics $(LIBDIR)/libics.a $(BINDIR)/ics.byte $(LIBDIR)/ics.cmxa
 
-.PHONY : all all-chdir ocaml-lib
+.PHONY : all all-chdir
 all: $(OBJDIR) $(LIBDIR) $(BINDIR) $(ICSAT)
 	$(MAKE) -C chameleon all
 	$(MAKE) -C $(OBJDIR) -f ../../Makefile all-chdir
 
-all-chdir: $(BINDIR)/ics $(LIBDIR)/libics.so $(LIBDIR)/libics.a $(BINDIR)/ics.byte
+all-chdir:$(TARGETS)
 	@echo 
 	@echo ICS Build complete
 	@echo 
@@ -165,31 +177,41 @@ endif
 
 OBJS = ics_all.o ics_stub.o ocaml-signals.o mlgmp41.o icsat.o
 
-
 ics_all.o: $(CMX)
 	$(OCAMLOPT) -output-obj -o $@ unix.cmxa $(CMX)
 
-$(LIBDIR)/libics.so: $(OBJS)
-	$(CC) -shared -o $(LIBDIR)/libics.so $(OBJS) \
-	  $(OCAMLSTDLIB)/libunix.a \
-	  $(LIBGMPA) \
-          $(OCAMLSTDLIB)/libasmrun.a
 
-$(LIBDIR)/libics.a: $(OBJS)
-	$(LD) -r -o $@ $(OBJS) $(ICSAT) \
-        $(LIBCPP) \
+$(LIBDIR)/libics.a: $(OBJS) $(SATDIR)/obj/$(ARCH)/*.o
+	$(OCAMLMKLIB) -oc ics -linkall $(OBJS) $(OBJDIR)/$(CMX) $(SATDIR)/obj/$(ARCH)/*.o
+	mv libics.* $(LIBDIR)
+
+$(LIBDIR)/ics.cmxa: $(OBJS) $(SATDIR)/obj/$(ARCH)/*.o
+	(cd $(OBJDIR); \
+	 $(OCAMLMKLIB) -custom -linkall -o ics unix.cma $(OBJS) $(OBJDIR)/$(CMX) $(SATDIR)/obj/$(ARCH)/*.o \
+	               -cclib $(LIBGMPA) -cclib -licsat -cclib $(LIBCPP))
+
+
+#$(LIBDIR)/libics.so: $(OBJS)
+#	echo "Target for $(POSIXOS) = $(TARGETS)"
+#	$(CC) -shared -o $(LIBDIR)/libics.so $(OBJS) \
+#	  $(OCAMLSTDLIB)/libunix.a \
+#	  $(LIBGMPA) \
+#          $(OCAMLSTDLIB)/libasmrun.a
+
+$(LIBDIR)/libics.so: $(OBJS)       # For use with Lisp everything has to be included
+	$(LD) -r -o $@ $(OBJS) \
+	$(SATDIR)/obj/$(ARCH)/*.o \
 	$(OCAMLSTDLIB)/libunix.a \
-	--whole-archive $(LIBGMPA) $(LIBGCCA) --no-whole-archive \
 	$(OCAMLSTDLIB)/libasmrun.a
 
 ics_stub.c ics.h ics.lisp: ics.ml ics.mli ../../chameleon/$(ARCH)/chameleon
 	../../chameleon/$(ARCH)/chameleon ics.ml
 
-ocaml-lib:
-	(cd $(OBJDIR);\
-	 $(OCAMLMKLIB) -custom -o ics unix.cma $(CMO) $(CMX) $(COBJS) \
-		-cclib $(LIBGMPA) -cclib -licsat -cclib $(LIBCPP)) #; \
-         # cp ics.cma ics.cmxa ics.cmi libics.a ics.a $(LIBDIR))
+#ocaml-lib:
+#	(cd $(OBJDIR);\
+#	 $(OCAMLMKLIB) -custom -o ics unix.cma $(CMO) $(CMX) $(COBJS) \
+#		-cclib $(LIBGMPA) -cclib -licsat -cclib $(LIBCPP)) #; \
+#         # cp ics.cma ics.cmxa ics.cmi libics.a ics.a $(LIBDIR))
 
 GENERATED = lexer.ml parser.mli parser.ml
 
@@ -240,27 +262,9 @@ $(OBJDIR)/ocaml-signals.c: $(SRCDIR)/ocaml-signals.c
 $(OBJDIR)/icsat.c: $(SRCDIR)/icsat.c
 	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
 
+# Distribution
 
-### Tar file and release to WEB
-
-.PHONY : web
-
-LICENSE = fm-license.pdf
-
-web:: ics.tar.gz $(BINDIR)/ics $(BINDIR)/ics.byte $(LIBDIR)/libics.so $(LIBDIR)/libics.a $(OBJDIR)/ics_stub.c $(LICENSE)
-	cp $(DOCDIR)/doc.ps.gz $(DOCDIR)/doc.pdf $(WEBHOME)
-	cp $(BINDIR)/ics $(WEBHOME)/download/$(ARCH)/ics  # Save these files before cleaning
-	cp $(BINDIR)/ics.byte $(WEBHOME)/download/$(ARCH)/ics.byte
-	cp $(LIBDIR)/libics.so $(WEBHOME)/download/$(ARCH)/libics.so
-	cp $(LIBDIR)/libics.a $(WEBHOME)/download/$(ARCH)/libics.a
-	cp $(OBJDIR)/ics_stub.c $(WEBHOME)/download/$(ARCH)/ics_stub.c
-	cp ics.tar.gz $(WEBHOME)/download
-	cp -rf $(WEBDIR) $(WEBHOME)
-
-
-ICSDIR = $(shell basename $(PWD))
-
-ics.tar.gz:
+ics-2-0.tar.gz:
 	(tar -cvz --file=./ics.tar.gz \
                   --mode="u+rw" \
                   ./README ./Makefile.in ./configure ./configure.in \
@@ -281,10 +285,12 @@ ics.tar.gz:
                   ./sat/src/Makefile.in \
                   ./sat/lib/ \
                   ./src/*.c \
-                  ./src/parser.mly ./src/lexer.mll \
-                  ./src/lexer.mli \
+                  ./src/parser.mly \
+                  ./src/lexer.mll \
                   ./src/main.ml \
-                  ./$(SRC)  ./$(SRCMLI))
+                  ./$(SRC) \
+	          ./$(SRCMLI))
+
 
 ### Documention
 
@@ -315,9 +321,15 @@ $(DOCDIR)/dep.gif: $(DOCDIR)/dep.ps
 
 ### Literate Programming
 
+DOCSOURCES = $(CMO:.cmo=.mli) $(CMO:.cmo=.ml) parser.mly lexer.mll
+
 html:
 	(cd $(OBJDIR); \
-	$(OCAMLDOC) -html -all-params -colorize-code -d /homes/ruess/ics/doc/html $(CMO:.cmo=.ml) parser.mly lexer.mll)
+	$(OCAMLDOC) -html -all-params -keep-code -sort -colorize-code -d /homes/ruess/ics/doc/html $(DOCSOURCES))
+
+man:
+	(cd $(OBJDIR); \
+	$(OCAMLDOC) -man -all-params -keep-code -sort -colorize-code -d /homes/ruess/ics/man $(DOCSOURCES))
 
 
 
@@ -405,16 +417,14 @@ install:
 	mkdir -p $(libdir)
 	mkdir -p $(includedir)
 	cp $(BINDIR)/ics $(bindir)
-	cp $(LIBDIR)/libics.so $(libdir)
-	cp $(LIBDIR)/libics.a $(libdir)
+	cp $(LIBDIR)/* $(libdir)
 	cp $(OBJDIR)/ics.h $(includedir)
         # mkdir -p $(OCAMLSTDLIB)/ics
         # cp $(ICSAT) $(OCAMLSTDLIB)/ics/libicsat.a
 
 uninstall:
 	rm -f $(bindir)/ics
-	rm -f $(libdir)/libics.so
-	rm -f $(libdir)/libics.a
+	rm -f $(libdir)/libics.*
 	rm -f $(includedir)/ics.h
 
 # Static dependencies for the generated files.

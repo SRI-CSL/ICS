@@ -35,6 +35,15 @@ fi
 AC_MSG_RESULT($ICSPATH)
 AC_SUBST(ICSPATH)
 
+AC_ARG_WITH(debug, [ --with-debug=0|1|2|...])
+  DEBUG=0
+AC_MSG_RESULT($DEBUG)
+AC_SUBST(DEBUG)
+
+ICSVERSION=`date`
+AC_MSG_RESULT($ICSVERSION)
+AC_SUBST(ICSVERSION)
+
 dnl Check for programs
 
 AC_PROG_CC
@@ -93,6 +102,11 @@ if test "$OCAMLDOC" = true ; then
 	AC_MSG_WARN(Cannot find ocamldoc -- but not mandatory, since only used for generating documentation.)
 fi
 
+AC_CHECK_PROG(OCAMLMKLIB,ocamlmklib,ocamlmklib,no)
+if test "$OCAMLMKLIB" = no ; then
+	AC_MSG_ERROR(Cannot find ocamlmklib.)
+fi
+
 AC_SUBST(SHELL)
 AC_CHECK_PROG(SHELL,[bash --version],bash,no)
 if test "$SHELL" = no; then
@@ -104,8 +118,6 @@ AC_CHECK_PROG(SED,[sed --version],sed,no)
 if test "$SED" = no; then
 	 AC_MSG_ERROR([Cannot find the program `sed'.])
 fi
-
-
 
 dnl Check for library
 
@@ -170,9 +182,6 @@ fi
 dnl Finally create all the generated files
 AC_SUBST(GMPPATH)
 dnl AC_OUTPUT(Makefile chameleon/Makefile ics)
-AC_OUTPUT(Makefile chameleon/Makefile ics sat/Makefile sat/src/Makefile)
+AC_OUTPUT(Makefile chameleon/Makefile ics sat/Makefile sat/src/Makefile src/version.ml)
 
 chmod a+x ics
-
-
-
