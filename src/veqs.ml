@@ -14,35 +14,35 @@
  * Author: Harald Ruess
  i*)
 
-(*i*)
-open Term
-open Hashcons
-(*i*)
 
-let mk_uninterp x l =
-  let f = Sym.mk_uninterp x in
-  match f, l with
-    | _, [a] when  Sym.eq f Sym.mk_unsigned -> (* Some builtin simplifications *)
-	Builtin.mk_unsigned a                  (* for unsigned interpretation. *)
-    | _ ->
-	Term.mk_app (Sym.mk_uninterp(x)) l
-	  
-let is_uninterp a =
-  Sym.is_uninterp (Term.sym_of a)
+(*s Set of variable equalities encoded as a list. *)
 
-let d_uninterp a =
-  assert(is_uninterp a);
-  let f,l = Term.destruct a in
-  (Sym.d_uninterp f, l)
+type t = Veq.t list
 
-let sigma x l = 
-  mk_uninterp x l
+let empty = []
 
+let is_empty el = (el = [])
 
-let rec map f a =
-  match Sym.destruct (Term.sym_of a) with 
-    | Sym.Uninterp(g) -> 
-	Term.mk_app (Sym.mk_uninterp(g)) (mapl (map f) (Term.args_of a))
-    | _ ->
-	(f a)
+let destruct = function
+  | e :: el -> (e,el)
+  | _ -> assert false
 
+let singleton e = [e]
+
+let add x y el = 
+  assert(Term.is_var x && Term.is_var y);
+  Veq.make x y :: el
+
+let union = (@)
+
+let fold f = 
+  List.fold_right
+    (fun e ->
+       let (x,y) = Veq.destruct e in
+       f x y)
+
+let to_list =
+  List.map Veq.destruct
+
+let pp fmt =
+  Pretty.list Veq.pp fmt

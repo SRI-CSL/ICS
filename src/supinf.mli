@@ -14,37 +14,23 @@
  * Author: Harald Ruess
  i*)
 
-(*s Set of pending subgoals realized as a stack. *)
+(*s Module [Supinf]: conjunctive constraints including lower 
+ and upper bounds. *)
 
-type 'a t = { mutable st : Atom.t list }
 
-let pending = { st = [] }
+type t = {
+  sup : Term.Set.t;
+  inf : Term.Set.t;
+  diseqs : Term.Set.t;
+  cnstrnt : Cnstrnt.t
+}
 
-let clear () =
-  pending.st <- [] 
+val of_cnstrnt : Cnstrnt.t -> t
 
-let push str a =
-  Trace.msg 1 ("Push(" ^ str ^ ")") a Pretty.atom;
-  pending.st <- a :: pending.st
+val is_empty : t -> bool
 
-let is_nonempty () = (pending.st <> [])
+val inter : t -> t -> t
 
-exception Empty
+val inst : Term.t -> Term.t -> t -> t
 
-let pop () =
-  match pending.st with
-    | a :: al ->  
-	Trace.msg 1 "Pop" a Pretty.atom;
-	pending.st <- al;
-	a
-    | [] -> 
-	raise Empty
-
-let top () =
-  match pending.st with
-    | a :: al -> a
-    | [] -> raise Empty
-
-let length () = List.length pending.st
-
-let iter f = List.iter f pending.st
+val pp : t Pretty.printer
