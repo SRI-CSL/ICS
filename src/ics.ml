@@ -20,11 +20,20 @@ open Sym
 open Term
 (*i*)
 
+(*
+let _ = 
+ set_signal sigint (Signal_handle(fun _ -> raise Break))
+*)
+
 let init (n, pp, eot, inch, outch) =
   Istate.initialize pp eot inch outch;
   if n = 0 then
     Sys.catch_break true                 (*s raise [Sys.Break] exception upon *)
                                          (*s user interrupt. *)
+
+let set_maxloops n =
+  Context.maxclose := n
+let _ = Callback.register "set_maxloops" set_maxloops
 
 let do_at_exit () = Tools.do_at_exit ()
 let _ = Callback.register "do_at_exit" do_at_exit
@@ -179,7 +188,7 @@ let _ = Callback.register "term_mk_var" term_mk_var
 (*s Uninterpred function application and function update. *)
          
 let term_mk_uninterp x l =
-  let f = Sym.mk_uninterp (Name.of_string x) in
+  let f = Sym.Uninterp(Name.of_string x) in
   App.sigma f l
 let _ = Callback.register "term_mk_uninterp" term_mk_uninterp
 
@@ -317,40 +326,37 @@ let _ = Callback.register "term_is_false" term_is_false
 (*s Nonlinear terms. *)
 
 
-let term_mk_mult = Arith.mk_mult
+let term_mk_mult a b = Nonlin.mk_mult (a, b)
 let _ = Callback.register "term_mk_mult" term_mk_mult
 
-let term_mk_multl = Arith.mk_multl 
-let _ = Callback.register "term_mk_multl" term_mk_multl
-
-let term_mk_expt = Arith.mk_expt
+let term_mk_expt q a = Simplify.mk_expt Context.empty q a
 let _ = Callback.register "term_mk_expt" term_mk_expt
 
 
 (*s Builtin applications. *)
 
-let term_mk_unsigned = Builtin.mk_unsigned
+let term_mk_unsigned = Simplify.mk_unsigned Context.empty
 let _ = Callback.register "term_mk_unsigned" term_mk_unsigned
 
-let term_mk_update s (a,b,c) = Builtin.mk_update s a b c
+let term_mk_update a b c = Simplify.mk_update Context.empty (a, b, c)
 let _ = Callback.register "term_mk_update" term_mk_update
 
-let term_mk_select s (a,b) = Builtin.mk_select s a b
+let term_mk_select a b = Simplify.mk_select Context.empty (a, b)
 let _ = Callback.register "term_mk_select" term_mk_select
 
-let term_mk_div = Builtin.mk_div
+let term_mk_div a b = Nonlin.mk_div (a, b)
 let _ = Callback.register "term_mk_div" term_mk_div
 
-let term_mk_floor = Builtin.mk_floor
+let term_mk_floor = Nonlin.mk_floor (fun _ -> false)
 let _ = Callback.register "term_mk_floor" term_mk_floor
 
-let term_mk_ceiling = Builtin.mk_ceiling
+let term_mk_ceiling = Nonlin.mk_ceiling (fun _ -> false)
 let _ = Callback.register "term_mk_ceiling" term_mk_ceiling
 
-let term_mk_sin = Builtin.mk_sin
+let term_mk_sin = Nonlin.mk_sin
 let _ = Callback.register "term_mk_sin" term_mk_sin
 
-let term_mk_cos = Builtin.mk_cos
+let term_mk_cos = Nonlin.mk_cos
 let _ = Callback.register "term_mk_cos" term_mk_cos
 
 
