@@ -43,20 +43,17 @@ let d_interp = function
   | Term.App(Sym.Arith(op), al) -> (op, al)
   | _ -> raise Not_found
 
-let d_num a =
-  match d_interp a with
-    | Sym.Num(q), [] -> q
-    | _ -> raise Not_found
+let d_num = function
+  | Term.App(Sym.Arith(Sym.Num(q)), []) -> q
+  | _ -> raise Not_found
 
-let d_multq a =
- match d_interp a with
-    | Sym.Multq(q), [x] -> (q, x)
-    | _ -> raise Not_found
+let d_multq = function
+  | Term.App(Sym.Arith(Sym.Multq(q)), [a]) -> (q, a)
+  | _ -> raise Not_found
 
-let d_add a =
-  match d_interp a with
-    | Sym.Add, al -> al
-    | _ -> raise Not_found
+let d_add = function
+  | Term.App(Sym.Arith(Sym.Add), al) -> al
+  | _ -> raise Not_found
 
 let monomials a =
   try d_add a with Not_found -> [a]
@@ -369,6 +366,7 @@ and mk_addl l =
     | [] -> mk_zero
     | [x] -> x
     | [x; y] -> mk_add x y
+    | [x; y; z] -> mk_add x (mk_add y z)
     | x :: xl -> mk_add x (mk_addl xl)
  
 and mk_incr a =
