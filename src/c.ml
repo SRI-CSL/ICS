@@ -145,38 +145,28 @@ let diseq d s =
 
 let deduce (x, b) (c, d) = 
   Trace.msg "c" "Deduce" (x, b) Term.pp_equal;
-  try
-    let i = apply c x in
-    try
-      let j = cnstrnt c b in
-      match Cnstrnt.cmp i j with
-	| Binrel.Disjoint -> raise Exc.Inconsistent
-	| Binrel.Same -> c
-	| Binrel.Sub -> c
-	| Binrel.Super -> update x j c
-	| Binrel.Overlap(ij) -> update x ij c
-	| Binrel.Singleton(q) ->
-	    Set.fold 
-	      (fun y ->
-		 add (Fact.mk_cnstrnt y (Cnstrnt.mk_diseq q) None))
-	      (D.deq d x)
-	      (update x (Cnstrnt.mk_singleton q) c)
-    with
-	Not_found -> c
-  with
-      Not_found ->
-	try
-	  let j = cnstrnt c b in
-	  match Cnstrnt.status j with
-	    | Status.Empty -> 
-		raise Exc.Inconsistent
-	    | Status.Singleton(q) -> 
-		update x (Cnstrnt.mk_singleton q) c
-	    | _ ->
-		update x j c
-	with
-	    Not_found -> c
-
+  let i = find c x in             
+  match cnstrnt_split c b with
+    | Some(_, j), None ->
+	(match Cnstrnt.cmp i j with
+	   | Binrel.Disjoint -> raise Exc.Inconsistent
+	   | Binrel.Same -> c
+	   | Binrel.Sub -> c
+	   | Binrel.Super -> update x j c
+	   | Binrel.Overlap(ij) -> update x ij c
+	   | Binrel.Singleton(q) ->
+	       Set.fold 
+		 (fun y ->
+		    add (Fact.mk_cnstrnt y (Cnstrnt.mk_diseq q) None))
+		 (D.deq d x)
+		 (update x (Cnstrnt.mk_singleton q) c))
+    | Some(_, j), Some(b'') when is_var b'' ->
+	let k = Cnstrnt.subtract i j in
+	update b'' k c
+    | _ -> 
+	c
+ 
+		
 
 (*s Split. *)
 
