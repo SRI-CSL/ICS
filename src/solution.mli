@@ -121,7 +121,7 @@ val name : Theories.t -> Term.t * t -> Term.t * t
 
 (*s [fuse norm (p, s) r] propagates the equalities in [r] on 
   the right-hand side of equalities in [s]. The return value [(p', s')] consists 
-  of an extension of the partition [p] with newly generated variable equalities
+vi  of an extension of the partition [p] with newly generated variable equalities
   and a modified solution set [s'], which is obtained by transforming every
   [x = b] in [s] to [x = norm(r)(b)].  Here, [norm(r)(b)] replaces occurrences
   of [z] in [b] with [a] if [z = a] is in [r] and normalizes the result according
