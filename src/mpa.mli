@@ -1,7 +1,22 @@
 
-(*s Multi-precision arithmetic. 
-   This module abstract the necessary functions of any multi-precision
-   package (Ocaml's bignums, GNU MP, etc.) *)
+(*i
+ * ICS - Integrated Canonizer and Solver
+ * Copyright (C) 2001-2004 SRI International
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the ICS license as published at www.icansolve.com
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * ICS License for more details.
+ *)
+
+(*s Multi-precision arithmetic. The purpose of this module is to
+  abstract the necessary arithmetic functions of any multi-precision
+  package such as Ocaml's bignums, GNU MP etc in order to switch
+  easily between packages. 
+*)
 
 (*s Multi-precision integers. *)
 
@@ -20,8 +35,8 @@ module Z : sig
   val ge : t -> t -> bool
 
   val of_int : int -> t
-  val gcd : t -> t -> t
-  val lcm : t -> t -> t
+  val gcd : t -> t -> t      (*s Greatest Common Divisor. *)
+  val lcm : t -> t -> t      (*s Least Common Multiple. *)
   val pow : int -> int -> t
 
   val pp : Format.formatter -> t -> unit

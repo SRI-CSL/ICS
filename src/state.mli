@@ -25,19 +25,19 @@ val copy : t -> t
 val apply : t -> Term.t -> Term.t
     
 val find  : t -> Term.t -> Term.t
-val ext : t -> Term.t -> Term.Set.t
-val use : t -> Term.t -> Term.Set.t
-val uninterp : t -> Funsym.t -> Term.Set.t
+val ext : t -> Term.t -> Term.terms
+val use : t -> Term.t -> Term.terms
+val uninterp : t -> Funsym.t -> Term.terms
 val cnstrnt: t -> Term.t -> Cnstrnt.t
     
 val mem : t -> Term.t -> bool
 
 val ctxt_of : t -> Term.eqn list
 val find_of : t -> Subst.t
-val ext_of : t -> Term.Set.t Term.Map.t
+val ext_of : t -> Term.terms Term.Map.t
 val cnstrnt_of : t -> Cnstrnt.t Term.Map.t
-val use_of : t -> Term.Set.t Term.Map.t
-val uninterp_of : t -> Term.Set.t Funsym.Map.t
+val use_of : t -> Term.terms Term.Map.t
+val uninterp_of : t -> Term.terms Funsym.Map.t
     
 val add_ctxt : t -> Term.eqn -> unit
 val add_eqn : t -> Cnstrnt.t -> Term.eqn -> unit

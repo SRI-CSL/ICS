@@ -1,6 +1,48 @@
+(*
+ * ICS - Integrated Canonizer and Solver
+ * Copyright (C) 2001-2004 SRI International
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the ICS license as published at www.icansolve.com
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * ICS License for more details.
+ *
+ * ics.mli describes the application programming interface.
+ * Currently, we support interfaces for Ocaml, C, and Lisp.
+ * The APIs for C and Lisp are automatically generated from this file.
+ * When calling ICS from a language other than Ocaml, one first has to
+ * start the caml runtime. In the case of C, for example, one simply
+ * calls the function ics_caml_startup.
+ *
+ *      void ics_caml_startup(int full, char** argv)
+ *
+ * For an explanation of the arguments, see the documentation of
+ * the Ocaml function [caml_startup].
+ * Datastructures in the Ocaml space are all of type [value*], and
+ * can be freed using
+ *
+ *        void ics_deregister(value* r)
+ *
+ * ICS datastructures can safely be finalized (in a language with
+ * garbage collections), since the API is completely functional.
+ *
+ * When using this API from C, exceptions are being handled by calling
+ * the [ocaml_error] function. Again, details on the behavior of this
+ * function can be obtained from the Ocaml documention.
+ *)
 
-(*s The type [q] of multi-precision rational numbers. *)
 
+(*s The type [q] of multi-precision rational numbers. [num_of_int n]
+    injects an integer into this type, [num_of_ints n m], for [m <> 0],
+    constructs a normalized representation of the rational [n/m] in [q],
+    [string_of_num q] constructs a string (usually for printout) of a
+    rational number, and [num_of_string s] constructs a rational, whenever
+    [s] is of the form ["n/m"] where [n] and [m] are naturals.
+  *)
+    
 type q
 
 val num_of_int : int -> q
@@ -9,37 +51,31 @@ val string_of_num : q -> string
 val num_of_string : string -> q
 
     
-(*s Lists. *)
+(*s Terms. This is the main syntactic category of ICS. Terms are either
+    variables, uninterpreted function application, or interpreted
+    constants and operators drawn from a combination of theories.
+    Currently, ICS supports linear arithmetic, both rational and integer,
+    tuples, function (array update) update, sets, and bitvectors.
 
-val is_nil : 'a list -> bool
-val cons : 'a -> 'a list -> 'a list
-val head : 'a list -> 'a
-val tail : 'a list -> 'a list
-val list_pp : ('a -> unit) -> ('a list -> unit)
+    Terms are build using constructors, whose names are all of the form [mk_xxx].
+    For each constructor [mk_xxx] there is a corresponding recognizer [is_xxx]
+    which reduces to true if its argument term has been built
+    with the constructor [mk_xxx]. Moreover, for each constructor
+    [mk_xxx}] above there is a corresponding desctructor [d_xxx$]
+    for analyzing the components of such a constructor term.
+*)
 
-    
-(* Pairs. *)
-
-val pair : 'a -> 'b -> 'a * 'b
-val fst : 'a * 'b -> 'a
-val snd : 'a * 'b -> 'b    
-
-    
-(*s Terms.
-  The API provides an abstract notion of terms, together
-  with constructors, test functions and destructors. 
-  The type [q] of multi-precision rational numbers is abstract. *)
 
 type term
 
-    (*s Constructors. Terms are build using the following constructors.
-      Variables of name [x] are build with [mk_var(x)].
-      The constructor [mk_fresh(x)] explicitly creates a
-      fresh variable, by adding an new integer to the string
-      argument in order to create a fresh name. [is_var a] tests if
-      its argument is a variable.  For all terms for which [is_var a]
-      is true, the name of [a] can be obtained using the destructor [d_var];
-      the behavior of applying [d_var] to all other terms is undefined. *)
+  (*s  Variables of name [x] are build with [mk_var(x)].
+    The constructor [mk_fresh(x)] explicitly creates a
+    fresh variable, by adding an new integer to the string
+    argument in order to create a fresh name. [is_var a] tests if
+    its argument is a variable.  For all terms for which [is_var a]
+    is true, the name of [a] can be obtained using the destructor [d_var];
+    the behavior of applying [d_var] to all other terms is undefined.
+  *)
 
 val mk_var : string -> term   
 val mk_fresh : string -> term
@@ -54,7 +90,7 @@ val d_var : term -> string
       symbol. Function update [update~f~x~a] specifices the
       update of function [f] at position [x] with value [a].
     *)
-       
+    
 val mk_app : term -> term list -> term
 val mk_update : term -> term -> term -> term
 
@@ -64,13 +100,17 @@ val is_update : term -> bool
 val d_app : term -> term * term list
 val d_update : term -> term * term * term
 
-(*s Arithmetic terms include rational constants built from
-  [mk_num q]; it is shown below how to construct rational
-  numbers. In addition, linear arithmetic terms are built
-  using binary and $n$-ary versions for addition and
-  multiplication, a unary negation, and a binary subtraction
-  constructor.
-*)
+    (*s Arithmetic terms include rational constants built from
+      [mk_num q];  in addition, linear arithmetic terms are built
+      using binary and $n$-ary versions for addition and
+      multiplication, unary negation [mk_unary_minus], and a
+      binary subtraction constructor [mk_minus]. Internally, [mk_times]
+      and [mk_times2] build up different data structures for linear
+      multiplication, i.e.  multiplication by a constant number, and
+      nonlinear multiplication. [is_multq] is successful only if its
+      argument is indeed a linear multiplication, and [is_mult] yields
+      true only if the actual argument is indeed nonlinear.
+    *)
   
 val mk_num : q -> term
 val mk_div : term -> term -> term
@@ -81,17 +121,53 @@ val mk_unary_minus : term -> term
 val mk_times : term list -> term
 val mk_times2 : term -> term -> term
 
-(*s Tuples are built using the [mk_tuple] constructor, and
-    projection of the [i]-th component of a tuple [t] of
-    length [n] is realized using [mk_proj i n t].
-  *)
-    
-val mk_tup    : term list -> term
-val mk_proj   : int -> int -> term -> term
+val is_num : term -> bool
+val is_multq : term -> bool
+val is_add : term -> bool
+val is_mult : term -> bool
 
-(*s Terms representing the usual propositional constants and
-    connectives are built from the following constructors.
-  *)
+val d_num : term -> q
+val d_add : term -> term list
+val d_mult : term -> term list
+val d_multq : term -> q * term    
+
+    (*s Tuples are built using the [mk_tuple] constructor, and
+      projection of the [i]-th component of a tuple [t] of
+      length [n] is realized using [mk_proj i n t];
+      [is_tuple a] and [is_proj a] are the respective recognizers,
+      while [d_tuple] returns the tuple entries as a list, and
+      [d_proj] returns the triple [(i,n,a)] for a projection
+      constructed with [mk_proj i n a].
+    *)
+    
+val mk_tuple : term list -> term
+val mk_proj : int -> int -> term -> term
+    
+val is_tuple : term -> bool
+val is_proj : term -> bool
+
+val d_tuple : term -> term list
+val d_proj : term -> int * int * term
+
+    (*s Terms representing the usual propositional constants and
+      connectives are built from the following constructors.
+      Boolean terms are either built using [mk_true], [mk_false],
+      or [mk_ite]. These constructors build ordered binary decision
+      diagrams (OBDDs), where the conditional is neither a
+      propositional constant nor a conditional. The ordering
+      on these conditionals is given by [term_cmp]. In addition,
+      [mk_ite] carries out a number of simplifications.
+
+      Other constructors such as [mk_and] can be thought of
+      as being derived. For example, [mk_and a b] reduces to
+      [mk_ite a b (mk_false)]. Consequently, exactly one of the
+      recognizers [is_true], [is_false], or [is_ite] holds of
+      any boolean term. Recognizers such as [is_and] yield
+      true if the argument is a conditional with its third
+      argument being the false constant. Destructors such as
+      [d_and] are only defined on arguments satisfying the
+      corresponding recognizer [is_and].
+    *)
     
 val mk_true  : unit -> term
 val mk_false : unit -> term
@@ -103,12 +179,106 @@ val mk_xor : term -> term -> term
 val mk_imp : term -> term -> term
 val mk_iff : term -> term -> term
 
-(*s Constructors for equality and disequality predicates. *)  
-   
+val is_true : term -> bool
+val is_false : term -> bool
+val is_ite : term -> bool
+val is_not : term -> bool
+val is_and : term -> bool
+val is_or : term -> bool
+val is_xor : term -> bool
+val is_imp : term -> bool
+val is_iff : term -> bool
+
+val d_ite : term -> term * term * term
+val d_not : term -> term
+val d_and : term -> term * term
+val d_or : term -> term * term
+val d_xor : term -> term * term
+val d_imp : term -> term * term
+val d_iff : term -> term * term
+    
+
+    (*s Equality and disequality. [mk_equal a b] constructs equalites,
+        whereas [mk_diseq a b] yields a disequality of the form
+        [mk_not(mk_equal a b)].
+      *)
+      
 val mk_equal  : term -> term -> term
+val is_equal : term -> bool
+val d_equal : term -> term * term
+
 val mk_diseq  : term -> term -> term
 
-(*s Set of terms. *)
+    (*s  Constructors for unary arithmetic predicates.
+      [mk_int t] restricts the domain of interpretations of term
+      [t] to the integers. Similarly, [mk_real] restricts its
+      argument to the real numbers, [mk_pos] restricts its
+      argument to the positive real numbers, [mk_neg] restricts
+      its argument to the negative real numbers, [mk_nonneg]
+      restricts its argument to the nonnegative real numbers, and
+      [mk_nonpos] restricts its argument to the nonpositive real
+      numbers.  Membership test [mk_in a b] is equivalent
+      to [mk_app b a], [mk_notin a b] is equivalent to [mk_not(mk_in a b)],
+      and the remaining constructors such as [mk_int a] can be viewed as
+      abbreviations for [mk_in (cnstrnt_int) a], where [cnstrnt_int] represents
+      the set of integers (see below). 
+  *)
+    
+val mk_pos    : term -> term
+val mk_neg    : term -> term
+val mk_nonpos : term -> term
+val mk_nonneg : term -> term
+val mk_in : term -> term -> term
+val mk_notin: term -> term -> term
+val mk_int : term -> term
+val mk_real : term -> term
+val mk_lt : term -> term -> term
+val mk_le : term -> term -> term
+val mk_gt : term -> term -> term
+val mk_ge : term -> term -> term
+
+
+    (*s A fixed-sized bitvector constant of width [5] such as [0b01001] is
+      constructed by [mk_bv_const "01001"]. These constructor
+      can also be used to emulate the [mk_bv_eps],
+      [mk_bv_one], and [mk_bv_zero] functions for
+      constructing the empty bitvector, bitvectors with only ones, and
+      bitvectors with only zeros, respectively. A bitvector [b1] of length [n] is
+      concatenated with a bitvector [b2] of length [m] by [mk_bv_conc (n,b1) (m,b2)].
+      Furthermore, given a bitvector [b] of [n], the extraction of the bits [i]
+      through [j] is denoted by [mk_bv_extr (n,b) i j].  Hereby, the left-most
+      position of a bitvector of width [n] is addressed by [0] and the right-most bit
+      by [n-1]\@. The constructors [mk_bv_and n], [mk_bv_or n], and [mk_bv_xor n]
+      are the bitwise logical operations of bitvectors of width [n].
+    *)
+
+val mk_bv_eps : unit -> term
+val mk_bv_zero : int -> term
+val mk_bv_one : int -> term
+val mk_bv_const: string -> term
+val mk_bv_conc : int * term -> int * term -> term
+val mk_bv_extr : int * term -> int -> int -> term
+val mk_bv_neg : int -> term -> term
+val mk_bv_and : int -> term -> term -> term
+val mk_bv_or : int -> term -> term -> term
+val mk_bv_xor : int -> term -> term -> term
+
+val width_of : term -> int option
+
+val is_bv_const : term -> bool
+val is_bv_zero : term -> bool
+val is_bv_one : term -> bool
+val is_bv_conc : term -> bool
+val is_bv_extr : term -> bool
+val is_bv_ite : term -> bool
+
+val d_bv_const : term -> Bitv.t
+val d_bv_conc : term -> (int * term) list
+val d_bv_extr : term -> (int * term) * int * int
+val d_bv_ite : term -> int * term * term * term
+
+
+    (*s Set of terms. *)
 
 type terms
 
@@ -120,6 +290,66 @@ val terms_sub : terms -> terms -> bool
 val terms_is_empty : terms -> bool
 val terms_to_list : terms -> term list
 val terms_choose : terms -> term * terms
+
+    
+    (*s Constructors for the $<$, $\le$, $>$, $\ge$ constructors,
+      respectively.
+    *)
+
+type cnstrnt
+    
+val cnstrnt_lt : q -> cnstrnt
+val cnstrnt_le : q -> cnstrnt
+val cnstrnt_ge : q -> cnstrnt
+val cnstrnt_gt : q -> cnstrnt
+
+val cnstrnt_int : cnstrnt
+val cnstrnt_real : cnstrnt
+
+val cnstrnt_openopen : q -> q -> cnstrnt
+val cnstrnt_openclosed : q -> q -> cnstrnt
+val cnstrnt_closedopen : q -> q -> cnstrnt
+val cnstrnt_closedclosed : q -> q -> cnstrnt
+
+val cnstrnt_app : cnstrnt -> term -> term
+
+val cnstrnt_pp : cnstrnt -> unit
+      
+   
+    (*s Sets are build from the empty set [mk_empty] and the
+      full set [mk_full], and the usual set operators. Actually,
+      each set constructor name determines a family of
+      constructors with a tag index of type [int] for determining
+      the ``type'' of its element.
+    *)
+
+val mk_empty : int -> term
+val mk_full : int -> term
+   
+val mk_finite : terms -> term
+val mk_cnstrnt : cnstrnt -> term
+   
+val mk_setite : term -> term -> term -> term
+val mk_compl : int -> term -> term
+val mk_inter : int -> term -> term -> term
+val mk_union : int -> term -> term -> term
+val mk_diff : int -> term -> term -> term
+val mk_sym_diff : int -> term -> term -> term
+val mk_sub : int -> term -> term -> term
+val mk_seteq : int -> term -> term -> term
+
+
+val is_empty : term -> bool
+val is_full : term -> bool
+val is_setite : term -> bool
+val is_compl : term -> bool
+val is_union : term -> bool
+val is_inter : term -> bool
+
+val d_setite : term -> int * term
+val d_compl : term -> int * term
+val d_inter : term -> int * term * term
+val d_union : term -> int * term * term
 
     
 (*s Maps with terms as domain. *)
@@ -150,172 +380,10 @@ val subst_to_list : subst -> (term * term) list
 val subst_pp    : subst -> unit
 val subst_norm  : subst -> term -> term 
 
-    
-(*s Constructors for the $<$, $\le$, $>$, $\ge$ constructors,
-    respectively.
-  *)
-
-type cnstrnt
-    
-val cnstrnt_lt : q -> cnstrnt
-val cnstrnt_le : q -> cnstrnt
-val cnstrnt_ge : q -> cnstrnt
-val cnstrnt_gt : q -> cnstrnt
-
-val cnstrnt_int : cnstrnt
-val cnstrnt_real : cnstrnt
-
-val cnstrnt_openopen : q -> q -> cnstrnt
-val cnstrnt_openclosed : q -> q -> cnstrnt
-val cnstrnt_closedopen : q -> q -> cnstrnt
-val cnstrnt_closedclosed : q -> q -> cnstrnt
-
-val cnstrnt_app : cnstrnt -> term -> term
-
-val cnstrnt_pp : cnstrnt -> unit
-    
-(*s  Constructors for unary arithmetic predicates.
- [mk_int t] restricts the domain of interpretations of term
- [t] to the integers. Similarly, [mk_real] restricts its
- argument to the real numbers, [mk_pos] restricts its
- argument to the positive real numbers, [mk_neg] restricts
- its argument to the negative real numbers, [mk_nonneg]
- restricts its argument to the nonnegative real numbers, and
- [mk_nonpos] restricts its argument to the nonpositive real
- numbers.
-  *)
-    
-val mk_pos    : term -> term
-val mk_neg    : term -> term
-val mk_nonpos : term -> term
-val mk_nonneg : term -> term
-
-    
-(*s Sets are build from the empty set [mk_empty] and the
-    full set [mk_full], and the usual set operators. Actually,
-    ach set constructor name determines a family of
-     constructors with a tag index of type [int] for determining     the ``type'' of its element.
-  *)
-
-val mk_empty : int -> term
-val mk_full : int -> term
-val mk_setite : term -> term -> term -> term
-val mk_compl : int -> term -> term
-val mk_inter : int -> term -> term -> term
-val mk_union : int -> term -> term -> term
-val mk_diff : int -> term -> term -> term
-val mk_sym_diff : int -> term -> term -> term
-val mk_sub : int -> term -> term -> term
-val mk_seteq : int -> term -> term -> term
-val mk_finite : terms -> term
-val mk_cnstrnt : cnstrnt -> term
-
-    
-(*s Some derived constructors. *)
-
-val mk_in : term -> term -> term
-val mk_notin: term -> term -> term
-val mk_lt : term -> term -> term
-val mk_le : term -> term -> term
-val mk_gt : term -> term -> term
-val mk_ge : term -> term -> term
-
-(*s A fixed-sized bitvector constant of width [5] such as [0b01001] is
- constructed by [mk_bv_const "01001"]. These constructor
- can also be used to emulate the [mk_bv_eps],
- [mk_bv_one], and [mk_bv_zero] functions for
- constructing the empty bitvector, bitvectors with only ones, and
- bitvectors with only zeros, respectively. A bitvector [b1] of length [n] is
- concatenated with a bitvector [b2] of length [m] by [mk_bv_conc (n,b1) (m,b2)].
- Furthermore, given a bitvector [b] of [n], the extraction of the bits [i]
- through [j] is denoted by [mk_bv_extr (n,b) i j].  Hereby, the left-most
- position of a bitvector of width [n] is addressed by [0] and the right-most bit
- by [n-1]\@. The constructors [mk_bv_and n], [mk_bv_or n], and [mk_bv_xor n]
- are the bitwise logical operations of bitvectors of width [n].
- *)
-
-val mk_bv_eps : unit -> term
-val mk_bv_zero : int -> term
-val mk_bv_one : int -> term
-val mk_bv_const: string -> term
-val mk_bv_conc : int * term -> int * term -> term
-val mk_bv_extr : int * term -> int -> int -> term
-val mk_bv_neg : int -> term -> term
-val mk_bv_and : int -> term -> term -> term
-val mk_bv_or : int -> term -> term -> term
-val mk_bv_xor : int -> term -> term -> term
-
-val width_of : term -> int option
 
 (*s Integer tag for each term, which is unique for each session. *)
 
-val tag : term -> int
-   
-(*s Recognizers. For each constructor [mk_xxx] there is
-    a corresponding recognizer [is_xxx] which
-    reduces to true if and only if its argument term has been built
-    with the constructor [mk_xxx].
-  *)
-
-
-
-val is_equal : term -> bool
-val is_tuple : term -> bool
-val is_proj : term -> bool
-val is_num : term -> bool
-val is_multq : term -> bool
-val is_add : term -> bool
-val is_mult : term -> bool
-val is_empty : term -> bool
-val is_full : term -> bool
-val is_setite : term -> bool
-val is_compl : term -> bool
-val is_union : term -> bool
-val is_inter : term -> bool
-val is_true : term -> bool
-val is_false : term -> bool
-val is_ite : term -> bool
-val is_not : term -> bool
-val is_and : term -> bool
-val is_or : term -> bool
-val is_xor : term -> bool
-val is_imp : term -> bool
-val is_iff : term -> bool
-val is_bv_const : term -> bool
-val is_bv_zero : term -> bool
-val is_bv_one : term -> bool
-val is_bv_conc : term -> bool
-val is_bv_extr : term -> bool
-val is_bv_ite : term -> bool
-
-(*s Destructors.
-   For each constructor [mk_$\mathit{xxx}$] above there is
-   a corresponding desctructor [d_$\mathit{xxx}$]
-   for analyzing the components of such a constructor term.
-  *)
-
-val d_num : term -> q
-val d_add : term -> term list
-val d_mult : term -> term list
-val d_multq : term -> q * term
-val d_tuple : term -> term list
-val d_proj : term -> int * int * term
-val d_ite : term -> term * term * term
-val d_not : term -> term
-val d_and : term -> term * term
-val d_or : term -> term * term
-val d_xor : term -> term * term
-val d_imp : term -> term * term
-val d_iff : term -> term * term
-val d_equal : term -> term * term
-val d_setite : term -> int * term
-val d_compl : term -> int * term
-val d_inter : term -> int * term * term
-val d_union : term -> int * term * term
-val d_bv_const : term -> Bitv.t
-val d_bv_conc : term -> (int * term) list
-val d_bv_extr : term -> (int * term) * int * int
-val d_bv_ite : term -> int * term * term * term
+val tag : term -> int  
 
 
 (*s Equality and Comparison.
@@ -330,8 +398,8 @@ val d_bv_ite : term -> int * term * term * term
 
 val term_eq : term -> term -> bool
 val term_cmp : term -> term -> int
-val term_pp : term -> unit         (*s Pretty-printing terms to standard output. *)
-val eqn_pp : term * term -> unit   (*s Pretty-printing terms to standard output. *)
+val term_pp : term -> unit       
+val eqn_pp : term * term -> unit 
 
 
 (*s {\bf States.} A state or context can be thought of a function with
@@ -381,28 +449,28 @@ val d_consistent : status -> state
     
 val process : state -> term -> status
 
+    
 (*s In addition, a given state may be used to check for the validity
   or the unsatisfiability of a given proposition. *)
 
 val is_valid : state -> term -> bool
 val is_unsat : state -> term -> bool
 
+    
 (*s Simplifications.
-  \begin{itemize}
-  \item [norm] realizes encodes simplification by normalizing
-        interpreted function applications according to their interpretation,
-        and by replacing toplevel uninterpreted function symbols by their
-        representatives with respect to the argument state.
+     [norm] realizes encodes simplification by normalizing
+     interpreted function applications according to their interpretation,
+     and by replacing toplevel uninterpreted function symbols by their
+     representatives with respect to the argument state.
 
-  \item [canon] normalizes terms inside-out. A predicate [t] reduces
-        to [true] if and only if it is valid in the argument state.
+     [canon] normalizes terms inside-out. A predicate [t] reduces
+     to [true] if and only if it is valid in the argument state.
 
-  \item [simplify] is weaker than [canon] in that it does not
-        compute a canonical form, since, in contrast to  [canon], it
-        does not process conditionals in a complete way.  Consequently, it
-        is both more efficient than \texttt{canon} and the simplified term
-        is guaranteed not to contain any new constant symbols.
- \end{itemize}
+     [simplify] is weaker than [canon] in that it does not
+     compute a canonical form, since, in contrast to  [canon], it
+     does not process conditionals in a complete way.  Consequently, it
+     is both more efficient than \texttt{canon} and the simplified term
+     is guaranteed not to contain any new constant symbols.
   *)
 
 val norm : state -> term -> term
@@ -414,16 +482,14 @@ val solve : term option -> state -> term * term -> subst
 val cnstrnt : state -> term -> cnstrnt
    
 
-(*s {\bf Controls.}
-    \begin{itemize}
-    \item [reset] clears all the global tables. This
-          does not only include the current context, but also
-          internal tables used for hash-consing and memoization purposes.
-    \item [gc] triggers a full major collection of ocaml's garbage collector.
-    \item  Finally, [set_verbose] controls the amount of trace messages.
-           The default is [0], which means that nothing is printed at all.
-           The higher the value, the more numerous the messages are.
-    \end{itemize}  
+(*s Controls.
+    [reset] clears all the global tables. This
+    does not only include the current context, but also
+    internal tables used for hash-consing and memoization purposes.
+    [gc] triggers a full major collection of ocaml's garbage collector.
+    Finally, [set_verbose] controls the amount of trace messages.
+    The default is [0], which means that nothing is printed at all.
+    The higher the value, the more numerous the messages are.
   *)
 
 val reset : unit -> unit
@@ -433,13 +499,26 @@ val gc : unit -> unit
 val set_verbose : int -> unit
     
 val flush : unit -> unit
-
     
-(*s {\bf Imperative API.}  All the functions presented up to that point were
+(*s Lists. *)
+
+val is_nil : 'a list -> bool
+val cons : 'a -> 'a list -> 'a list
+val head : 'a list -> 'a
+val tail : 'a list -> 'a list
+val list_pp : ('a -> unit) -> ('a list -> unit)
+
+(* Pairs. *)
+
+val pair : 'a -> 'b -> 'a * 'b
+val fst : 'a * 'b -> 'a
+val snd : 'a * 'b -> 'b    
+
+(*s Imperative API.  All the functions presented up to that point were
   purely functional and all the data-types were persistent. In the 
   following, we also provide an imperative API,
   for use in an imperative context of type [istate].
-  There is a new data-type for states, [iinit],, which is updated in-place.
+  There is a new data-type for states, [iinit], which is updated in-place.
   The function [current] returns the value of type [state] contained
   in a given imperative state, so that all the previous functions 
   ([canon], [is_valid], etc.) can be reused on an imperative state.
@@ -459,6 +538,3 @@ val current : istate -> state
 val push : istate -> unit
 val pop : istate -> unit
 val iprocess : istate -> term -> status
-
-
-
