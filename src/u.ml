@@ -11,8 +11,6 @@
  * benefit corporation.
  *)
 
-(** Inference system for the uninterpreted theory. *)
-
 module P = Partition
 
 let is_flat = function

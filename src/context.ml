@@ -189,6 +189,12 @@ let rec add s atm =
 	 | Jst.Inconsistent(rho) -> 
 	     let tau = cone_of_influence s atm rho in
 	       Status.Inconsistent(tau))
+(*
+	 | exc ->
+	     Format.eprintf "Error in process with context: ";
+	     Pretty.list Atom.pp Format.err_formatter (atm :: s.ctxt);
+	     raise exc)
+*)
 
 and cone_of_influence s atm rho = 
   if !coi_enabled <= 0 then 
@@ -293,12 +299,14 @@ let addl atms =
     loop atms
 
 
+(*
 (* For debugging:  *)
 let add =
   let pp0 fmt s = Mode.set Mode.None (pp fmt) s in
   let ppc fmt s = Mode.set Mode.Context (pp fmt) s in
     Trace.func2 "top" "Process" ppc Atom.pp (Status.pp pp0)
       add
+*)
 
 
 let is_inconsistent =

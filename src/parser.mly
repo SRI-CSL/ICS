@@ -54,7 +54,6 @@ let name_of_rename = Name.of_string "v"
 
 %token <string> BVCONST 
 %token <string * int> FRESH
-%token <int> FREE
 
 %token CONC SUB BWITE BWAND BWOR BWXOR BWIMP BWIFF BWNOT
 %token BVCONC 
@@ -218,7 +217,8 @@ boolean:
 ;
      
 arith:
-  rat                           { Arith.mk_num $1 }
+  rat                           { Trace.msg "parser" "Rational" $1 Mpa.Q.pp;
+                                  Arith.mk_num $1 }
 | term PLUS term                { Arith.mk_add $1 $3 }
 | term MINUS term               { Arith.mk_sub $1 $3 }
 | MINUS term %prec prec_unary   { Arith.mk_neg $2 }

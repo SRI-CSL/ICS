@@ -134,15 +134,20 @@ module Q = struct
     else
       (Gmp41.Z.string_from (Q.get_num q)) ^ "/" ^ (Gmp41.Z.string_from d)
 
+  exception ZeroDivision
+
   let of_string s =
     try
       let k = String.index s '/' in
       let l = String.length s in
       let n = Gmp41.Z.from_string (String.sub s 0 k) in
       let d = Gmp41.Z.from_string (String.sub s (succ k) (l - k - 1)) in
-      Q.from_zs n d
-    with Not_found ->
-      Q.from_z (Gmp41.Z.from_string s)
+	if Z.equal d Z.zero then
+	  raise ZeroDivision;
+	Q.from_zs n d
+    with 
+	Not_found ->
+	  Q.from_z (Gmp41.Z.from_string s)
 
   let pp fmt x = Format.fprintf fmt "%s" (to_string x)
 

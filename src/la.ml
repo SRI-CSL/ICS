@@ -343,6 +343,7 @@ let upd ((x, a, rho) as e) =
 	S.update (!Infsys.p, !s) e''
   else 
 *)
+    (* Trace.msg "la'" "Update" e Fact.Equal.pp; *)
     S.update (!Infsys.p, !s) e
 
 let apply a = S.apply !s a
@@ -763,7 +764,7 @@ let compose e =
      go below [0] in this process. *)
 
 let rec process_equal e =
-  Trace.msg "la'" "Merge" e Fact.Equal.pp;  
+  (* Trace.msg "la'" "Merge" e Fact.Equal.pp; *)  
   assert(is_noncircular());
   let e = Fact.Equal.map replace e in
     assert(is_nondependent_equal e);
@@ -803,7 +804,7 @@ and compose_solved ((x, a, _) as e) sl =
 
 
 and compose_solved_restricted e = 
-  Trace.msg "la'" "Compose_solved_restricted" e Fact.Equal.pp;
+  (* Trace.msg "la'" "Compose_solved_restricted" e Fact.Equal.pp; *)
   assert(is_nondependent_equal e);
   assert(is_restricted_equality e);
   if is_lhs_unbounded e then
@@ -881,7 +882,7 @@ and eliminate_zero_slack (k, rho) =                 (* [rho |- k = 0] *)
 	  compose_and_cut e0
 	    
 and compose_and_cut ((x, a, _) as e) = 
-  Trace.msg "la'" "Compose" e Fact.Equal.pp; 
+  (* Trace.msg "la'" "Compose" e Fact.Equal.pp;  *)
   assert(Term.is_var x);
   assert(is_noncircular());
   compose e;
@@ -913,12 +914,12 @@ and gomory_cut e =
 	  let b' = Mpa.Q.minus (Mpa.Q.def b) in
 	  let ml' = Arith.Monomials.mapq Mpa.Q.frac ml in
 	  let a' = Arith.mk_addq b' ml' in
-	    Trace.msg "la'" "Gomory cut" a' Term.pp;
+	    (* Trace.msg "la'" "Gomory cut" a' Term.pp; *)
 	    process_nonneg_restricted (a', rho)
 
 
 and process_nonneg ((a, rho) as nn) =                 (* [rho |- a >= 0] *)
-  Trace.msg "la'" "process_nonneg" nn Fact.Nonneg.pp;
+  (* Trace.msg "la'" "process_nonneg" nn Fact.Nonneg.pp; *)
   match Arith.is_nonneg a with
     | Three.Yes -> ()
     | Three.No -> raise(Jst.Inconsistent(rho))
@@ -944,7 +945,7 @@ and process_nonneg ((a, rho) as nn) =                 (* [rho |- a >= 0] *)
 	
 	
 and process_nonneg_restricted (a, rho) =                 (* [rho |- a >= 0] *)
-  Trace.msg "la'" "process_nonneg_restricted" a Term.pp;
+  (* Trace.msg "la'" "process_nonneg_restricted" a Term.pp; *)
   assert(is_restricted a); 
   let (k, tau) = mk_nonneg_slack a rho in                (* [tau |- k = a] *)
   let e = Fact.Equal.make k a (Jst.dep2 rho tau) in
@@ -952,7 +953,7 @@ and process_nonneg_restricted (a, rho) =                 (* [rho |- a >= 0] *)
     process_nonneg_make_feasible e
 
 and process_nonneg_make_feasible e =
-  Trace.msg "la'" "process_nonneg_make_feasible" e Fact.Equal.pp;
+  (* Trace.msg "la'" "process_nonneg_make_feasible" e Fact.Equal.pp; *)
   assert(is_restricted_equality e);
   let (_, a, rho) = e in     (* Case I: [|a| >= 0] *)
     if Mpa.Q.is_nonneg (Arith.constant_of a) then 
@@ -976,7 +977,7 @@ and process_nonneg_make_feasible e =
 
 and add_to_t ((k, a, rho) as e) =
   assert(is_restricted_var k && is_restricted a);
-  Trace.msg "la'" "Add_to_t" e Fact.Equal.pp;
+  (* Trace.msg "la'" "Add_to_t" e Fact.Equal.pp; *)
   if Q.is_nonneg (Arith.constant_of a) then
     compose_and_cut e
   else if Arith.Monomials.Pos.is_empty a then
@@ -1028,7 +1029,8 @@ and pivot y =
   analysis are already closed.  One could make the second static
   analysis incremental. *)
 and infer () =
-  let stuck_at_zeros = analyze () in  (* 1. find all stuck at zero variables. *)    
+  let stuck_at_zeros = analyze () in  (* 1. find all stuck at zero variables. *)
+    (* Trace.msg "la'" "Analyze" (Term.Var.Set.elements stuck_at_zeros) (Pretty.set Term.pp); *)
     maximize stuck_at_zeros           (* 2. maximize all zeros which are not stuck at zero. *)
 
 and toplevel f a =
@@ -1065,11 +1067,12 @@ and maximize stuck_at_zeros =
       Not_found -> ()
       
 and maximize1 stuck_at_zeros ((k, a, rho) as e) = (* [rho |- k = a] *)
+  (* Trace.msg "la'" "Maximize1" e Fact.Equal.pp;  *) 
   let monomial_is_unbounded _ y = is_unbounded y in
-    Trace.msg "la'" "Maximize1" e Fact.Equal.pp;
-    if Arith.Monomials.Pos.is_empty a then
+    if not(Mpa.Q.is_zero (Arith.constant_of a)) then
+      stuck_at_zeros
+    else if Arith.Monomials.Pos.is_empty a then
       begin
-	assert(Mpa.Q.is_zero (Arith.constant_of a));
 	set_to_zero e;
 	stuck_at_zeros
       end 
@@ -1083,14 +1086,31 @@ and maximize1 stuck_at_zeros ((k, a, rho) as e) = (* [rho |- k = a] *)
 	let e' = (k, b, Jst.dep2 rho tau) in
 	  maximize1 stuck_at_zeros' e'
 
+and stuck_at_zeros_is_zero y = 
+  try
+    let (a, _) = apply y in
+      Mpa.Q.is_zero (Arith.constant_of a)
+  with
+      Not_found -> false
+
 and pivot_in_maximize stuck_at_zeros y =  (* pivot and update stuck at zero variables to *)
   assert(not(is_unbounded y));            (* contain only dependent variables. *)
+  (* Trace.msg "la'" "Pivot" y Term.pp; *)
   try
-    let (g, e) = gain y in
-      compose (isolate y e);
-      Term.Var.Set.add y 
-	(Term.Var.Set.remove (Fact.Equal.lhs_of e) 
-	   stuck_at_zeros)
+    let (g, e) = gain y in  
+      let e' = isolate y e in  
+	assert(Term.eq (Fact.Equal.lhs_of e') y);
+	if not(Mpa.Q.is_zero (Arith.constant_of (Fact.Equal.rhs_of e'))) then
+	  begin
+	    compose e';
+	    stuck_at_zeros
+	  end
+	else 
+	  begin
+	    compose e';
+	    Term.Var.Set.add y 
+	      (Term.Var.Set.remove (Fact.Equal.lhs_of e) stuck_at_zeros)
+	  end 
   with
       Not_found -> 
 	failwith "Fatal Error: Failed pivot step"
@@ -1099,12 +1119,12 @@ and set_to_zero (x, a, rho) =             (* [rho |- x = a] *)
   Arith.Monomials.Neg.iter
     (fun _ y ->
        let e = Fact.Equal.make y (Arith.mk_zero()) rho in
-	 Trace.msg "la'" "Set_to_zero" e Fact.Equal.pp;
+	 (* Trace.msg "la'" "Set_to_zero" e Fact.Equal.pp; *)
 	 compose e)
     a
 
 and analyze () =
-  let stuck_at_zero = analyze_initial () in
+  let stuck_at_zero = analyze_initial () in 
   let stuck_at_zero' = analyze_refine stuck_at_zero in
     stuck_at_zero'
 
@@ -1251,7 +1271,7 @@ and bounds a =
   which are maintained in the form [e <> n] where [n] is a natural 
   number. *) 
 and process_diseq d = 
-  Trace.msg "la'" "Process" d Fact.Diseq.pp;
+  (* Trace.msg "la'" "Process" d Fact.Diseq.pp; *)
   assert(Fact.Diseq.both_sides (Term.is_pure Th.la) d);
   let ((a, b, rho) as d) = Fact.Diseq.map replace d in  (* [rho |- a <> b] *)
     assert(Fact.Diseq.both_sides is_nondependent_term d);
@@ -1286,7 +1306,7 @@ and process_nondiophantine_diseq d =
   the original state and continue processing inputs. *)
 and process_diophantine_diseq d =
   assert(Fact.Diseq.both_sides Arith.is_diophantine d);
-  Trace.msg "la'" "Diophantine" d Fact.Diseq.pp;
+  (* Trace.msg "la'" "Diophantine" d Fact.Diseq.pp; *)
   let (e, n, rho) = d_diophantine d in         (* [rho |- e <> n]. *)
     assert(Arith.is_int e);
     assert(Mpa.Q.is_integer n);
@@ -1410,7 +1430,7 @@ end
 (** {6 Inference System} *)
 
 (** Inference system for linear arithmetic. *)
-module Infsys0: (Infsys.ARITH with type e = S.t) = struct
+module Infsys: (Infsys.ARITH with type e = S.t) = struct
 
   type e = S.t
   
@@ -1547,6 +1567,7 @@ module Infsys0: (Infsys.ARITH with type e = S.t) = struct
 
 end
 
+(**
 (** Tracing inference system. *)
 module Infsys: (Infsys.ARITH with type e = S.t) =
   Infsys.TraceArith(Infsys0)
@@ -1557,6 +1578,7 @@ module Infsys: (Infsys.ARITH with type e = S.t) =
        let diff = S.diff
        let pp = S.pp
      end)
+*)
 
 
 (** {6 Inequality Tests} *)

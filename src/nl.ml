@@ -52,7 +52,7 @@ module Ops = Ac.Ops(Pprod.Sig)
 (** Inference system for nonlinear multiplication as 
   an extension of the AC inference system with deduction
   of new slack equalities. *)
-module Infsys0: (Infsys.EQ with type e = S.t) = struct
+module Infsys: (Infsys.EQ with type e = S.t) = struct
 
   module Ac = Ac.Infsys(Pprod.Sig)
 
@@ -228,6 +228,7 @@ module Infsys0: (Infsys.EQ with type e = S.t) = struct
 		      
 end
 
+(*
 (** Tracing inference system. *)
 module Infsys: (Infsys.EQ with type e = S.t) =
   Infsys.Trace(Infsys0)
@@ -238,3 +239,4 @@ module Infsys: (Infsys.EQ with type e = S.t) =
        let diff = S.diff
        let pp = S.pp
      end)
+*)

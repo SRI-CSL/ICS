@@ -486,7 +486,6 @@ and mk_neg a =
 
 and mk_sub a b =
   mk_add a (mk_neg b)
- 
 
 (** Mapping a term transformer [f] over [a]. *)
 let rec map f a =

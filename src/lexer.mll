@@ -74,7 +74,7 @@ rule token = parse
                { RATCONST (Mpa.Q.of_string (Lexing.lexeme lexbuf)) }
   | '-' ['0'-'9']+ '/' ['0'-'9']+ 
                { let s = Lexing.lexeme lexbuf in
-		   RATCONST(Mpa.Q.of_string (String.sub s 1 (String.length s - 1))) }
+		   RATCONST(Mpa.Q.minus (Mpa.Q.of_string (String.sub s 1 (String.length s - 1)))) }
   | "0b" ['0'-'1']*
                { let s = Lexing.lexeme lexbuf in 
 		 BVCONST (String.sub s 2 (String.length s - 2)) }
@@ -84,10 +84,6 @@ rule token = parse
                      let x = String.sub s 0 i in
 		     let k = int_of_string (String.sub s (i + 1) (n - i - 1)) in
 		       FRESH (x, k) }
-  | '!' int    { let s = Lexing.lexeme lexbuf in
-		 let n = String.length s in
-		 let k = int_of_string (String.sub s 1 (n - 1)) in
-		   FREE k }
   | '"' [^ '"']* '"' { STRING(Lexing.lexeme lexbuf) }
   | ','        { COMMA }
   | '('        { LPAR }
