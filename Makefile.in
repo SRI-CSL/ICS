@@ -74,10 +74,10 @@ CMO = sign.cmo three.cmo \
       term.cmo \
       trace.cmo \
       arith.cmo \
+      nonlin.cmo \
       tuple.cmo \
       bitvector.cmo \
       boolean.cmo \
-      interp.cmo \
       app.cmo \
       atom.cmo \
       fact.cmo \
@@ -87,9 +87,8 @@ CMO = sign.cmo three.cmo \
       c.cmo \
       partition.cmo \
       solution.cmo \
-      theories.cmo \
       context.cmo \
-      builtin.cmo \
+      simplify.cmo \
       shostak.cmo \
       symtab.cmo istate.cmo \
       help.cmo \
@@ -407,7 +406,7 @@ distclean::
 
 # Installation
 
-install: $(BINDIR)/ics $(LIBDIR)/libics.so $(LIBDIR)/libics.a $(OBJDIR)/ics.h
+install:
 	mkdir -p $(bindir)
 	mkdir -p $(libdir)
 	mkdir -p $(includedir)
