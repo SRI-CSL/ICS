@@ -17,11 +17,17 @@
 
 (*s Module [Shostak]: Maintaining the logical context of decision procedures. *)
 
+(*s Abstraction. *)
+
+val abstract_toplevel_term : Context.t -> Term.t -> Context.t * Term.t
+
+val abstract : Context.t -> Atom.t -> Context.t * Atom.t
+
 (*s Canonization. *)
 
-val can_t : Context.t -> Term.t -> Context.t * Term.t
+val can_t : Context.t -> Term.t -> Term.t
 
-val can : Context.t -> Atom.t -> Context.t * Atom.t
+val can : Context.t -> Atom.t -> Atom.t
 
 (*s Test for equality. *)
 
