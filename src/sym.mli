@@ -32,22 +32,24 @@ type bv =
   | Sub of int * int * int
   | Bitwise of int
 
+type coproduct = InL | InR | OutL | OutR
+
+
 type builtin = 
   | Select | Update
   | Unsigned 
-  | Floor | Mult | Expt | Div | Sin | Cos 
-  | Apply of range option
-  | Lambda of Var.t
+  | Mult | Expt | Div
+  | Apply of range
+  | Lambda of int
 
-and range =
-  | Real of int * Cnstrnt.t 
-  | Boolean of int
+and range = Cnstrnt.t option
 
 type t = 
   | Uninterp of Name.t
   | Builtin of builtin (* Never construct a [Builtin(f)] symbol explicitly! *)
   | Arith of arith
-  | Tuple of tuple
+  | Tuple of tuple 
+  | Coproduct of coproduct
   | Bv of bv
 
 
@@ -72,19 +74,8 @@ val width : t -> int option
 
 (*s Classification of function symbols. *)
 
-type theories = 
-  | U
-  | T
-  | BV
-  | A
+val theory_of : t -> Theories.t
 
-val theory_of : t -> theories
-
-val name_of_theory : theories -> string
-
-val theory_of_name : string -> theories
-
-val interp_theory_of_name : string -> theories
 
 (*s Some predefined function symbols. *)
 
@@ -92,7 +83,6 @@ val add : t
 val product : t
 val car : t
 val cdr : t
-
 
 
 (*s Predefined array function symbols. Never use
@@ -106,17 +96,14 @@ val is_array : t -> bool
 
 (*s Application (for encoding higher-order terms) *)
 
-val apply : range option -> t
+val apply : range -> t
 
 
 (*s Predefined nonlinear function symbols. *)
 
-val floor : t
 val mult : t
 val expt : t
 val div : t
-val sin : t
-val cos : t
 
 val is_nonlin : t -> bool
 
