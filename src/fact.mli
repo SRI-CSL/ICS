@@ -72,6 +72,8 @@ module Equal : sig
       equalities [a' = b'] in theory [th], then [inj th f]
       is the corresponding equality constraint transformer. *)
   val equivn : (Term.t * Term.t -> (Term.t * Term.t) list) -> t -> t list
+
+  val norm : Term.map -> t list -> Jst.Eqtrans.t
 end
               
 

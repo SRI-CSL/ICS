@@ -91,6 +91,19 @@ module Equal = struct
 	  Exc.Inconsistent -> 
 	    raise(Jst.Inconsistent rho)
 
+  let norm map el =
+     let lookup x =
+       let rec loop = function
+	 | [] -> 
+	     Jst.Eqtrans.id x
+	 | e :: el -> 
+	     let (y, b, rho) = destruct e in
+	       if Term.eq x y then (b, rho) else loop el
+       in
+	 loop el
+     in
+       Jst.Eqtrans.replace map lookup
+
   let holds (e, rho) =
     match Atom.Equal.holds e with
       | Three.Yes -> Jst.Three.Yes(rho)

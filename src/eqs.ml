@@ -470,28 +470,18 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
    let rec fuse (p, s) el =
      fuse_star (p, s) el
        
-   and fuse_star (p, s) el =   
+   and fuse_star (p, s) el =  
+     let norm = Fact.Equal.norm Th.map el in
      List.iter
        (fun e ->
 	  (Dep.iter s
 	     (fun e -> 
-		let e' = Fact.Equal.map_rhs (norm el) e in
+		let e' = Fact.Equal.map_rhs norm e in
 		  update (p, s) e')
 	     (Fact.Equal.lhs_of e)))
        el
 
-   and norm el =
-     let lookup x =
-       let rec loop = function
-	 | [] -> 
-	     Jst.Eqtrans.id x
-	 | e :: el -> 
-	     let (y, b, rho) = Fact.Equal.destruct e in
-	       if Term.eq x y then (b, rho) else loop el
-       in
-	 loop el
-     in
-       Jst.Eqtrans.replace Th.map lookup
+   
 
    (** Fuse a list of solved equalities [el] on rhs 
      followed by updates of [el]. *)
@@ -694,47 +684,65 @@ struct
   end
     
   type config = Partition.t * t
-
-  (** Establish confluence across solution sets; if [x = a] in [Left]
+	  
+  let name tag (p, s) =
+    match tag with
+      | Left -> Left.name (p, s.left)
+      | Right -> Right.name (p, s.right)
+	     
+  (** Update and establish confluence across solution sets; if [x = a] in [Left]
     and [y = a] in Right, then [x = y]. *)
-  let do_at_add tag (p, s) e =
-    let (x, a, rho) = Fact.Equal.destruct e in
-      try                         
-	(match tag with
-	   | Right ->
-	       let (y, tau) = Left.inv s.left a in        (* [tau |- y = a] *)
-	       let  sigma = Jst.dep2 tau rho in
-		 publish Th.th p (Fact.Equal.make (x, y, sigma));
-		 Left.restrict (p, s.left) y              (* restrict [y = a] in [Left]. *)
-	   | Left ->
+  let update tag ((p, s) as cfg) e =
+    match tag with
+      | Left -> 
+	  Left.update (p, s.left) e;  
+	  let (x, a, rho) = Fact.Equal.destruct e in
+	    (try
 	       let (y, tau) = Right.inv s.right a in      (* [tau |- y = a] *)
 	       let  sigma = Jst.dep2 tau rho in
 		 publish Th.th p (Fact.Equal.make (x, y, sigma));
-		 Left.restrict (p, s.left) x)             (* restrict [x = a] in [Left] *)
-      with
-	  Not_found -> ()
-	    
-  (** Depending on [tag] call either the update function [f_left]
-    on the left configuration [(p, s.left)] or [f_right] on the
-    right configuration [f_right]. *)
-  let update_case_tag f_left f_right tag (p, s) =
-    match tag with 
-      | Left -> f_left (p, s.left)   
-      | Right -> f_right (p, s.right)
-	  
-  let name = update_case_tag Left.name Right.name
-	       
-  let update tag cfg e =                                
-    update_case_tag Left.update Right.update tag cfg e;
-    do_at_add tag cfg e                        (* establish confluence *)
-      
-  let restrict = update_case_tag Left.restrict Right.restrict
-		   
-  let fuse = update_case_tag Left.fuse Right.fuse
+		 Left.restrict (p, s.left) x              (* restrict [x = a] in [Left] *)
+	     with
+		 Not_found -> ())
+      | Right -> 
+	  Right.update (p, s.right) e;
+	  (try
+	     let (x, a, rho) = Fact.Equal.destruct e in
+	     let (y, tau) = Left.inv s.left a in        (* [tau |- y = a] *)
+	     let  sigma = Jst.dep2 tau rho in
+	       publish Th.th p (Fact.Equal.make (x, y, sigma));
+	       Left.restrict (p, s.left) y              (* restrict [y = a] in [Left]. *)
+	   with
+	       Not_found -> ())
 
+  let restrict tag (p, s) =
+    match tag with
+      | Left -> Left.restrict (p, s.left)
+      | Right -> Right.restrict (p, s.right)
+		   
+
+  (** Propagating a list of solved equalities on rhs. *)
+  let rec fuse tag cfg el =
+    fuse_star tag cfg el
+      
+  and fuse_star tag (p, s) el =  
+    let norm = Fact.Equal.norm Arith.map el in  (* hack *)
+      List.iter
+	(fun e ->
+	   (Dep.iter tag s
+	      (fun e -> 
+		 let e' = Fact.Equal.map_rhs norm e in
+		   update tag (p, s) e')
+	      (Fact.Equal.lhs_of e)))
+	el
+
+  (** Fuse a list of solved equalities [el] on rhs 
+    followed by updates of [el]. *)
   let compose tag cfg el =
-    update_case_tag Left.compose Right.compose tag cfg el;
-    List.iter (do_at_add tag cfg) el            (* establish confluence *)
+    fuse_star tag cfg el;
+    List.iter (update tag cfg) el
 
 end
     
+
+

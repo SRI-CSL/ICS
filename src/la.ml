@@ -897,8 +897,8 @@ and process_pos cfg c =
   let process ((_, s) as cfg) c =
     let c = Fact.Pos.map (replace s) c in 
     let (a, rho) = Fact.Pos.destruct c in           (* [rho |- a >= 0] *)
-      dismerge1 cfg (Fact.Diseq.make (a, Arith.mk_zero(), Jst.dep1 rho));
-      process_nonneg1 cfg (Fact.Nonneg.make (a, Jst.dep1 rho))
+      dismerge1 cfg (Fact.Diseq.make (a, Arith.mk_zero(), rho));
+      process_nonneg1 cfg (Fact.Nonneg.make (a, rho))
   in
     unwind_protect
       process cfg c
@@ -966,10 +966,24 @@ and dismerge cfg d =
 
 and dismerge1 ((p, s) as cfg) d =
   let d = Fact.Diseq.map (replace s) d in    (* replace dependent variables. *)
-    if !Arith.integer_solve && Fact.Diseq.is_diophantine d then
-      process_diophantine_diseq cfg d
-    else 
-      process_nondiophantine_diseq cfg d 
+    match is_inconsistent_diseq cfg d with
+      | Some(rho) -> 
+	  raise(Jst.Inconsistent(rho))
+      | None -> 
+	  if !Arith.integer_solve && Fact.Diseq.is_diophantine d then
+	    process_diophantine_diseq cfg d
+	  else 
+	    process_nondiophantine_diseq cfg d 
+
+(** A disequality [a <> b] with [a], [b] not containing any dependent
+  variables is inconsistent if [solve(a = b)] yields an inconsistency. *)
+and is_inconsistent_diseq cfg d =
+  let (a, b, rho) = Fact.Diseq.destruct d in
+    try
+      let _ = Arith.solve (a, b) in
+	None
+    with
+	Exc.Inconsistent -> Some(rho)
  
 
 (** Nondiophantine disequalities are variable-abstracted
