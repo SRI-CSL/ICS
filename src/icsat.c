@@ -346,12 +346,9 @@ value icsat_get_argument(value x1, value x2) {
 }
 
 
-
-
-
 /** following has to be filled in with ICSAT */
 
-extern int ics_sat(LPFormulaId);
+extern int ics_sat(LPFormulaId, int);
 
 value icsat_sat (value x1, value x2) {
   CAMLparam2(x1, x2);
