@@ -243,11 +243,14 @@ and merge n m a b =
   match d_interp a, d_interp b with
     | _, Some(Conc(m1,m2), [b1;b2]) -> 
 	Some(mk_conc (n + m1) m2 (mk_conc n m1 a b1) b2)
+    | Some(Conc(m1, m2), [b1; App(Bv(Const(c)), [])]), Some(Const(d), []) ->
+	let n = Bitv.length d in
+	Some(mk_conc m1 (m2 + n) b1 (mk_const (Bitv.append c d)))
     | Some(Const(c),[]), Some(Const(d),[]) -> 
 	Some(mk_const (Bitv.append c d))
     | Some(Sub(n,i,j),[x]), Some(Sub(m,j',k), [y])
 	when j' = j + 1 && Term.eq x y ->
-	  assert(n = m);
+	assert(n = m);
 	  Some(mk_sub n i k x)
     | Some(Bitwise(n1),[x1;y1;z1]), Some(Bitwise(n2),[x2;y2;z2]) ->
 	(match merge n1 n2 x1 x2 with
@@ -325,11 +328,15 @@ let map f =
       | Some(Sym.Const(_), []) ->
 	  a
       | Some(Sym.Sub(n,i,j), [x]) -> 
-	  mk_sub n i j (loop x)
+	  let x' = loop x in
+	    if x == x' then a else mk_sub n i j x'
       | Some(Sym.Conc(n,m), [x;y]) -> 
-	  mk_conc n m (loop x) (loop y)
+	  let x' = loop x and y' = loop y in
+	    if x == x' && y == y' then a else mk_conc n m x' y'
       | Some(Sym.Bitwise(n), [x;y;z]) -> 
-	  mk_bitwise n (loop x) (loop y) (loop z)
+	  let x' = loop x and y' = loop y and z' = loop z in
+	    if x == x' && y == y' && z == z' then a else
+	      mk_bitwise n x' y' z'
       | None -> 
 	  f a
       | Some _ -> 
