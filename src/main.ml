@@ -45,16 +45,18 @@ let args () =
         "Display version number";
         "-compactify",  set_true Ics.set_compactify,
 	"Disable compactification in SAT solver";
-	"-justifications", Arg.Unit (fun () -> Justification.proofmode := Justification.Mode.No),
-	"Disable justifications";
+	"-dependencies", Arg.Unit(fun()-> Justification.proofmode := Justification.Mode.Dep),
+	"Enable dependency generation";
         "-eot", Arg.String Ics.set_eot, 
 	"Print string argument after each transmission";
         "-server", Arg.Int (fun portnum -> portnum_flag := Some(portnum)), 
 	"Run in server mode";
+	"-noproofs", Arg.Unit(fun() -> Justification.proofmode := Justification.Mode.No),
+        "Disable proof generation";
 	"-verbose", set_true Ics.set_verbose,
         "Verbose flag for SAT solver";
 	"-progress", Arg.Set Istate.progress,
-        "Printf rogress in batch mode";
+        "Print progress in batch mode";
 	"-remove_subsumed_clauses", set_true Ics.set_remove_subsumed_clauses,
         "Removing subsumed clauses in SAT solver";
 	"-validate_counter_example", set_true Ics.set_validate_counter_example,
