@@ -60,14 +60,16 @@ let is_real x =
 (* slack < external < fresh < renaming < bound *)
 let rec cmp x y =
   match x, y with
-    | Slack(i, Zero), Slack(j, Zero) ->
-	Pervasives.compare j i
-    | Slack(_, Zero), Slack(j, Nonneg _) -> -1
-    | Slack(_, Nonneg _), Slack(j, Zero) -> 1
-    | Slack(i, Nonneg(d)), Slack(j, Nonneg(e)) ->
-	let c1 = Dom.cmp d e in
-	  if c1 != 0 then c1 else
-	    Pervasives.compare j i
+    | Slack(i, sl1), Slack(j, sl2) ->
+	(match sl1, sl2 with
+	   | Zero, Zero -> 
+	       Pervasives.compare j i
+	   | Zero, Nonneg _ -> -1
+	   | Nonneg _, Zero -> 1
+	   | Nonneg(d), Nonneg(e) ->
+	       let c1 = Dom.cmp d e in
+		 if c1 != 0 then c1 else
+		   Pervasives.compare j i)
     | Slack _, _ ->  -1
     | _, Slack _ -> 1
     | External(n, d), External(m, e) -> 
