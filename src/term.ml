@@ -487,7 +487,6 @@ let is_pure i =
     loop
 
 
-
 (** {6 Sets and maps of terms.} *)
 
 
@@ -516,12 +515,12 @@ module Map = Map.Make(
 let rec vars_of a = 
   match a with
     | Var _ -> 
-	Set.singleton a
+	Var.Set.singleton a
     | App(_, al, _) ->
 	List.fold_left 
 	  (fun acc b ->
-	     Set.union (vars_of b) acc)
-	  Set.empty
+	     Var.Set.union (vars_of b) acc)
+	  Var.Set.empty
 	al
 
 
