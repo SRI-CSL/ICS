@@ -93,16 +93,31 @@ TOPCMI = $(CMI) cmd.cmi parser.cmi
 
 TOPCMX = $(TOPCMO:.cmo=.cmx)
 
+ifeq ($(MAKELEVEL),1)
 ics: $(COBJS) $(TOPCMI) $(TOPCMX)
 	$(OCAMLOPT) $(OFLAGS) -o $(BINDIR)/$@ unix.cmxa $(TOPCMX) \
                     $(COBJS) $(LIBS)
+else
+.PHONY: ics
+ics: $(OBJDIR)
+	make -C $(OBJDIR) -f ../../Makefile ics
+endif
 
+ifeq ($(MAKELEVEL),1)
 ics.byte: $(COBJS) $(TOPCMI) $(TOPCMO)
 	$(OCAMLLINK) -g -custom -o $(BINDIR)/$@ unix.cma $(TOPCMO) \
                     $(COBJS) $(LIBS)
+else
+.PHONY: ics.byte
+ics.byte: $(OBJDIR)
+	make -C $(OBJDIR) -f ../../Makefile ics.byte
+endif
 
 OBJS = ics_all.o ics_stub.o ics_error.o mlgmp.o
-LISPOBJS = # ics.fasl ics-pvs.fasl
+
+ifneq ("@ALLEGRO@","no")
+LISPOBJS = ics.fasl ics-pvs.fasl
+endif
 
 ics_all.o: $(CMX)
 	$(OCAMLOPT) -output-obj -o $@ unix.cmxa $(CMX)
@@ -122,11 +137,11 @@ ics_stub.c ics.h ics.lisp: ics.ml ics.mli ../../chameleon/$(ARCH)/chameleon
 
 ics.fasl: ics.lisp
 	@ALLEGRO@ -e '(let ((excl:*cltl1-in-package-compatibility-p* t)) \
-                        (compile-file "ics.lisp") (excl:exit))'
+	(compile-file "ics.lisp") (excl:exit))'
 
 ics-pvs.fasl: ics-pvs.lisp
-	@ALLEGRO@ -e '(let ((excl:*cltl1-in-package-compatibility-p* t)) \
-                        (compile-file "ics-pvs.lisp") (excl:exit))'
+	  @ALLEGRO@ -e '(let ((excl:*cltl1-in-package-compatibility-p* t)) \
+		(compile-file "ics-pvs.lisp") (excl:exit))'
 
 GENERATED = lexer.ml parser.mli parser.ml
 
@@ -228,18 +243,19 @@ cprofile:
 
 LICENSE = ICS-License-and-NDA.doc
 
-web::
-	cp ./bin/i686-unknown-linux/ics $(WEBDIR)/download/i686-unknown-linux/ics     # Save these files before cleaning
-	cp ./bin/i686-unknown-linux/ics.byte $(WEBDIR)/download/i686-unknown-linux/ics.byte
-	cp ./lib/i686-unknown-linux/libics.so $(WEBDIR)/download/i686-unknown-linux/libics.so
-	cp ./lib/i686-unknown-linux/libics.a $(WEBDIR)/download/i686-unknown-linux/libics.a
-	cp ./obj/i686-unknown-linux/ics_stub.c $(WEBDIR)/download/i686-unknown-linux/ics_stub.c
+web::	
+	cp ./bin/$(OBJDIR)/ics $(WEBDIR)/download/$(OBJDIR)/ics     # Save these files before cleaning
+	cp ./bin/$(OBJDIR)/ics.byte $(WEBDIR)/download/$(OBJDIR)/ics.byte
+	cp ./lib/$(OBJDIR)/libics.so $(WEBDIR)/download/$(OBJDIR)/libics.so
+	cp ./lib/$(OBJDIR)/libics.a $(WEBDIR)/download/$(OBJDIR)/libics.a
+	cp ./obj/$(OBJDIR)/ics_stub.c $(WEBDIR)/download/$(OBJDIR)/ics_stub.c
+	cp ics.tar.gz $(WEBDIR)/download
 	cp -rf $(WEBDIR) $(WEBHOME)
 
-ics.tar.gz:                 # make distclean 
-	tar cf /tmp/ics.tar .
-	gzip /tmp/ics.tar
-	mv /tmp/ics.tar.gz $(WEBDIR)/download
+ICSDIR = $(shell basename $(PWD))
+
+ics.tar.gz:	distclean
+	(cd .. ; tar -cvz --file=$(ICSDIR)/ics.tar.gz --mode="u+rw" --atime-preserve --exclude=CVS --exclude=ics.tar.gz ics)
 
 
 ### Documention
@@ -342,11 +358,15 @@ tags:
 
 .PHONY: clean distclean
 
-clean::
+clean::	distclean
+	rm -f config.cache config.log confdefs.h config.status
+	rm -f configure Makefile
+
+distclean::
 	rm -f gmon.out
 	rm -rf profile.out
-	rm -rf $(SRCDIR)/parser.output
 	rm -f $(BINDIR)/ics $(BINDIR)/ics.byte 
+	rm -rf $(SRCDIR)/parser.output
 	rm -rf $(OBJDIR) $(LIBDIR)
 	rm -f $(DOCDIR)/*.aux  $(DOCDIR)/*.toc
 	rm -f $(DOCDIR)/*.bbl $(DOCDIR)/*.log $(DOCDIR)/*.haux $(DOCDIR)/*.dvi
@@ -355,10 +375,6 @@ clean::
 	rm -f $(DOCDIR)/*.ppm $(DOCDIR)/*.blg $(DOCDIR)/*.brf $(DOCDIR)/*.out 
 	rm -rf $(DOCDIR)/doc/literal/*.tex 
 	rm -f $(WEBDIR)/download/ics.tar.gz
-
-distclean:: clean
-	rm -f config.cache config.log confdefs.h config.status
-	rm -f configure Makefile
 
 # Static dependencies for the generated files.
 

@@ -63,7 +63,7 @@ AC_CHECK_LIB(gmp,mpz_cmp, , AC_MSG_WARN(Cannot find the GMP library - please set
 
 AC_CHECK_PROG(ALLEGRO,allegro6.0,allegro6.0,no)
 if test "$ALLEGRO" = no ; then
-        AC_MSG_ERROR(Cannot find allegro6.0)
+        AC_MSG_WARN(Cannot find allegro6.0 -- but not mandatory)
 fi
 
 dnl Finally create all the generated files
