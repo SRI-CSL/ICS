@@ -18,7 +18,6 @@
 
 (*i*)
 {
-open Lexing
 open Parser
 (*i*)
 
@@ -29,14 +28,13 @@ let keyword =
   List.iter 
     (fun (s,tk) -> Hashtbl.add kw_table s tk)
     [  "arith", ARITH; "tuple", TUPLE;
-      "enum", ENUM;
       "in", IN; "inf", INF;
       "bot", BOT; "int", INT; "nonint", NONINT; "real", REAL; "top", TOP;
       "bv", BV; "with", WITH;
       "proj", PROJ;
       "cons", CONS; "car", CAR; "cdr", CDR; "nil", NIL;
       "true", TRUE; "false", FALSE;
-      "if", IF; "then", THEN; "else", ELSE; "end", END;
+      "if", IF; "then", THEN; "else", ELSE; "end", END; "tt", TT; "ff", FF;
       "unsigned", UNSIGNED;
       "conc", CONC; "sub", SUB; 
       "bwite", BWITE; "bwand", BWAND; "bwor", BWOR;
@@ -46,8 +44,9 @@ let keyword =
       "reset", RESET; "sig", SIG; "type", TYPE; "def", DEF;
       "sigma", SIGMA; "solve", SOLVE; "help", HELP;
       "set", SET; "toggle", TOGGLE; "pretty", PRETTY; "verbose", VERBOSE; 
-      "use", USE; "find", FIND; "prop", PROP; "ctxt", CTXT; "diseq", DISEQ; "show", SHOW;
-      "symtab", SYMTAB; "cnstrnt", CNSTRNT; "sat", SAT
+      "find", FIND; "prop", PROP; "ctxt", CTXT; "diseq", DISEQ; "show", SHOW;
+      "symtab", SYMTAB; "cnstrnt", CNSTRNT; "sat", SAT; "check", CHECK; 
+      "compress", COMPRESS
     ];
   fun s ->
     try Hashtbl.find kw_table s with Not_found -> IDENT s
@@ -63,21 +62,18 @@ let space = [' ' '\t' '\r' '\n']
 rule token = parse
   | space+     { token lexbuf }
   | '%' [^ '\n']* {token lexbuf }
-  | ident      { keyword (lexeme lexbuf) }
+  | ident      { keyword (Lexing.lexeme lexbuf) }
   | "-inf"     { NEGINF }
-  | ['0'-'9']+ { INTCONST (int_of_string (lexeme lexbuf)) }
+  | ['0'-'9']+ { INTCONST (int_of_string (Lexing.lexeme lexbuf)) }
   | ['0'-'9']+ '/' ['0'-'9']+ 
-               { RATCONST (Mpa.Q.of_string (lexeme lexbuf)) }
+               { RATCONST (Mpa.Q.of_string (Lexing.lexeme lexbuf)) }
   | "0b" ['0'-'1']*
-               { let s = lexeme lexbuf in 
+               { let s = Lexing.lexeme lexbuf in 
 		 BVCONST (String.sub s 2 (String.length s - 2)) }
   | ','        { COMMA }
   | '('        { LPAR }
   | ')'        { RPAR }
   | '['        { LBRA }
-  | "A["       { ALBRA }
-  | "C["       { CLBRA }
-  | "AC["      { ACLBRA }
   | ']'        { RBRA }
   | '{'        { LCUR }
   | '}'        { RCUR }
@@ -96,7 +92,7 @@ rule token = parse
   | ':'        { COLON }
   | '^'        { EXPT }
   | ".."       { DDOT }
-  | "+++"        { UNION }
+  | "+++"      { UNION }
   | "++"       { BVCONCI }
   | "&&"       { BWANDI }
   | "||"       { BWORI }

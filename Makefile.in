@@ -53,21 +53,18 @@ COBJS = mlgmp.o
 
 CMO = sign.cmo binrel.cmo three.cmo \
       gmp.cmo mpa.cmo \
-      hashcons.cmo hasht.cmo \
-      ptset.cmo ptmap.cmo \
+      hashcons.cmo \
       tools.cmo status.cmo \
       trace.cmo \
       exc.cmo\
       bitv.cmo \
       extq.cmo allen.cmo dom.cmo interval.cmo intervals.cmo \
       name.cmo \
-      number.cmo type.cmo \
-      arity.cmo sym.cmo \
+      number.cmo \
+      sym.cmo \
       term.cmo \
-      cache.cmo \
       rename.cmo \
       linarith.cmo \
-      enum.cmo \
       bool.cmo \
       tuple.cmo \
       bv.cmo \
@@ -78,17 +75,13 @@ CMO = sign.cmo binrel.cmo three.cmo \
       atom.cmo \
       prop.cmo \
       pretty.cmo \
-      subst.cmo \
       pending.cmo \
+      v.cmo \
       c.cmo \
       d.cmo \
-      u.cmo \
+      cc.cmo \
       th.cmo \
-      theory.cmo \
       dp.cmo \
-      can.cmo \
-      purify.cmo \
-      process.cmo \
       check.cmo \
       symtab.cmo state.cmo \
       parser.cmo lexer.cmo \
