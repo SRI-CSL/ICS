@@ -149,6 +149,7 @@ arith:
 | term PLUS term                   { Arith.mk_add $1 $3 }
 | term MINUS term                  { Arith.mk_sub $1 $3 }
 | term TIMES term                  { Arith.mk_mult $1 $3 }
+| term DIVIDE term                 { Builtin.mk_div (Istate.current()) $1 $3 }
 | MINUS term %prec prec_unary      { Arith.mk_neg $2 }
 | term EXPT INTCONST               { Arith.mk_expt $3 $1 }
 ;
