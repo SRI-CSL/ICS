@@ -29,11 +29,12 @@ let mk_slack =
   let slackname = Name.of_string "k" in
   fun () -> 
     let k = Term.mk_fresh slackname None in
+    Trace.msg 10 "Slack" k Term.pp;
     slacks := Term.Set.add k !slacks;
     k
 
 
-(*s An external term is a non-slack variable.  *)
+(*s An external variable is a non-slack variable.  *)
 
 let is_external x = 
   not(is_slack x)
@@ -106,8 +107,8 @@ let cnstrnt s a =
   try
     Some(loop a)
   with 
-      Not_found -> None
-
+      Not_found -> 
+	if is_slack a then Some(Cnstrnt.mk_real) else None
 
 (*s Extend the domain of equality map. *)
 
@@ -119,115 +120,183 @@ let extend b s =
   (x, s')
 
 
-(*s Adding a new equality between variables and infer new facts. *)
+(*s Adding a constraint for a linear combination of internal variables
+  to the constraint part and return resulting internal equalities. Also 
+  make  sure that only slack variables are added to the constraint part
+  by creating new slack variables. *)
 
-let rec merge e s =
-  Trace.call 6 "Merge(a)" e Veq.pp;
-  let (s', es') = merge1 e s in
-  Trace.exit 6 "Merge(a)" es' Veqs.pp;
-  (s', es')
+let rec refine s (a, d) = 
+ Trace.msg 6 "Refine(a)" (a, d) pp_in;
+ if is_slack a then
+   refine_slack s (a, d)
+ else
+   let (a, d) = normalize (a, d) in
+   if is_slack a then
+     refine_slack s (a, d)
+   else 
+     refine_nonslack s (a, d)
+     
 
-and merge1 e s =
-  Trace.msg 3 "Merge1(a):" s pp;
-  let not_is_slack x = not (is_slack x) in
-  let (x,y) = Veq.destruct e in
-  if not (A.occurs s.a x) then
-    (s, Veqs.empty)
-  else 
-    let a' = A.norm s.a x and b' = A.norm s.a y in
-    try
-      match Arith.solve not_is_slack (a',b') with
-	| None -> (s, Veqs.empty)
-	| Some(x, b) ->
-	    assert(not_is_slack x);
-            Trace.msg 3 "Merge1_after_solve(a):" s pp;
-	    let (a',veqs') = A.compose s.a [(x,b)] in
-	    ({s with a = a'}, Veqs.remove e veqs')
-    with
-	Exc.Unsolved ->
-	  Trace.exit 7 "Solve(a)" "Unsolved for nonslack" Pretty.string;
-	  try
-	  match Arith.solve is_slack (a',b') with
-	    | None -> 
-		(s, Veqs.empty)
-	    | Some(k, b) ->
-		let (s',veqs') = propagate s (k, b) in
-		let s'' = remove s' k in
-		let veqs'' = Veqs.remove e veqs' in
-		(s'', veqs'')
-	  with
-	      Exc.Unsolved ->
-		Trace.exit 7 "Solve(a)" "Unsolved for slack" Pretty.string;
-		(s, Veqs.empty)
-
-and propagate s (k, b) = 
+and refine_slack s (k, c) =
   assert(is_slack k);
-  match cnstrnt s k, cnstrnt s b with
-    | Some(ck), Some(cb) ->
-	(match Cnstrnt.cmp ck cb with
+  let (sc', seqs') = C.add (k, c) s.c in
+  ({s with c = sc'}, seqs')
+
+and refine_nonslack s (a,c) =
+  match cnstrnt s a with
+    | Some(d) ->
+	(match Cnstrnt.cmp c d with
 	   | Binrel.Disjoint ->
 	       raise Exc.Inconsistent
-	   | (Binrel.Super | Binrel.Same) ->
-	       let (a', veqs') = A.propagate s.a [(k,b)] in
-	       let s' = {s with a = a'} in
-	       (s', veqs')
-	   | Binrel.Sub ->
-	       propagate_overlap s (k,b) ck
-	   | Binrel.Singleton(q) ->
-	       let (a', veqs') = A.propagate s.a [k, Arith.mk_num q] in
-	       let s' = {s with a = a'} in
-	       (s', veqs')
-	   | Binrel.Overlap(ckb) ->
-	       propagate_overlap s (k,b) ckb)
-    | None, Some(cb) ->
-	assert false
-    | Some(ck), None ->
-	assert false
-    | None, None ->
-	(s, Veqs.empty)
+	   | (Binrel.Super | Binrel.Same) ->  (* already known. *)
+	       (s, [])
+	   | _ ->
+	       let k = mk_slack () in          (* this may loop... *)
+	       ({s with c = C.extend (k, c) s.c}, [(k, a)]))
+    | None ->
+	let k = mk_slack () in
+	({s with c = C.extend (k, c) s.c}, [(k, a)])
 
-and propagate_overlap s (k,b) c  =
- let (b, c) = normalize (b, c) in
- let (c', seqs') = C.add (b, c) s.c in
- let (a', veqs') = A.propagate s.a ((k,b) :: seqs') in
- let s' = {s with a = a'; c = c'} in
- (s', veqs')
+(*s Normalize constraint such as ['2 * x + 5' in 'c'] 
+ to ['x' in '1/2 ** (c -- 5)'], where ['**'], ['--']
+ are abstract interval operations for linear multiplication and subtraction. *)
 
 and normalize (a,c) =
   match Arith.decompose a with
     | (q, None) -> 
-	(a,c)
+	(a, c)
     | (q, Some(p, a')) ->
-	let cq = Cnstrnt.mk_singleton (Mpa.Q.minus q) in
-	let c' = Cnstrnt.multq (Mpa.Q.inv p) (Cnstrnt.add c cq) in
-	(a',c')
+	let c' = Cnstrnt.multq (Mpa.Q.inv p) (Cnstrnt.addq (Mpa.Q.minus q) c) in
+	(a', c')
 
-and remove s k =
-  assert(is_slack k);
-  if A.occurs s.a k then
-    s
-  else 
-    {s with c = C.restrict k s.c}
+
+(*s Propagate an equality between two terms. First, solve for an
+ external variable if possible and compose the solution in the
+ equality part. Otherwise, solve for a slack variable and propagate
+ the solution on the rhs of the equality part. Besides external
+ variable equalities his may also generate new constraints for 
+ slack variables. *)
+
+let rec propagate s (a,b) =
+  Trace.msg 6 "Propagate(a)" (a,b) Term.pp_equal;
+  let a = find s a and b = find s b in  (* propagate on interpretations. *)
+  try
+    match Arith.solve is_external (a,b) with
+      | None -> 
+	  (s, Veqs.empty, [])
+      | Some(x, b) ->
+	  propagate_external s (x, b)
+  with
+      Exc.Unsolved ->
+	try
+	  match Arith.solve (A.occurs s.a) (a,b) with
+	    | Some(k,b) ->
+		propagate_internal s (k,b)
+	    | None ->
+		(s, Veqs.empty, [])
+	with
+	    Exc.Unsolved ->  (* Ignore, since none of the slacks occurs in equality part of [s]. *)
+	      Trace.exit 7 "Solve(a)" "Unsolved in propagation" Pretty.string;
+	      (s, Veqs.empty, [])
+
+and propagate_external s (x,b) = 
+  let (sa', veqs') = A.compose s.a [(x, b)] in
+  ({s with a = sa'}, veqs', [])
+
+and propagate_internal s (k,b) = 
+  match cnstrnt s k, cnstrnt s b with
+    | Some(ck), Some(cb) ->
+	(match Cnstrnt.cmp ck cb with
+	   | Binrel.Disjoint ->
+	       raise Exc.Inconsistent 
+	   | (Binrel.Super | Binrel.Same) ->
+	       let (sa', veqs') = A.propagate s.a [(k, b)] in
+	       let sc' = C.restrict k s.c in
+	       ({s with a = sa'; c = sc'}, veqs', [(k, cb)])
+	   | Binrel.Sub ->
+	       let (sa', veqs') = A.propagate s.a [(k, b)] in
+	       let sc' = C.restrict k s.c in
+	       Trace.msg 0 "Generate" (b,ck) Term.pp_in;
+	       ({s with a = sa'; c = sc'}, veqs', [(b, ck)])
+	   | Binrel.Singleton(q) ->
+	       let (sa', veqs') = A.propagate s.a [k, Arith.mk_num q] in
+	       let sc' = C.restrict k s.c in
+	       ({s with a = sa'; c = sc'}, veqs', [])
+	   | Binrel.Overlap(ckb) ->
+	       let (sa', veqs') = A.propagate s.a [(k, b)] in
+	       let sc' = C.restrict k s.c in
+	       ({s with a = sa'; c = sc'}, veqs', [(b, ckb)]))
+    | None, None ->
+	(s, Veqs.empty, [])
+    | _ ->
+	failwith "Unreachable"
+
+
+(*s Iterate [refine] and [propagate] until new new [seqs] equalities between slack
+ variables or constraints [cnstrnts] are generated. It returns an updated state and
+ a set of generated variable equalities. *)
+
+let rec install s (seqs, cnstrnts) veqs = 
+  match seqs, cnstrnts with
+    | [], [] -> 
+	(s, veqs)
+    | (a,b) :: seqs', _ ->
+	let (s', veqs', cnstrnts') = propagate s (a,b) in
+	install s' (seqs', cnstrnts') (Veqs.union veqs' veqs)
+    | _, (a,c) :: cnstrnts' ->
+	let (s', seqs') = refine s (a,c) in
+	install s' (seqs' @ seqs, cnstrnts') veqs
+
+let install_equality s (a, b) =
+  Trace.msg 5 "Internal(a)" (a,b) pp_equal;
+  install s ([(a,b)], []) Veqs.empty
     
+let install_cnstrnt s (a, c) =
+  Trace.msg 5 "Cnstrnt(a)" (a, c) pp_in;
+  install s ([], [(a,c)]) Veqs.empty
+
+
+(*s Adding a new equality between variables and infer new facts. *)
+
+let rec merge e s =
+  Trace.call 6 "Merge(a)" e Veq.pp;
+  let (s', veqs') = merge1 e s in
+  Trace.exit 6 "Merge(a)" veqs' Veqs.pp;
+  (s', Veqs.remove e veqs')
+
+and merge1 e s =
+  let (x,y) = Veq.destruct e in
+  if eq x y || not (A.occurs s.a x) then
+    (s, Veqs.empty)
+  else 
+    install_equality s (A.norm s.a x,  A.norm s.a y)
+   
+
 
 (*s Adding a constraint. *)
 
-let add (x,d) s =
+let rec add (x,c) s =
   assert(is_var x && is_external x);
-  Trace.msg 6 "Add(a)" (x,d) (Pretty.infix Term.pp "in" Cnstrnt.pp);
-  if A.mem s.a x then
-    let a = apply s x in
-    if is_slack a then
-      let (c', seqs') = C.add (a,d) s.c in 
-      let (a', veqs') = A.propagate s.a seqs' in
-      ({s with c = c'; a = a'}, veqs')
-    else 
-      let k = mk_slack () in
-      let c' = C.extend (k,d) s.c in    
-      merge1 (Veq.make k x) {s with c = c'}
-  else     
-    let k = mk_slack () in
-    let a' = A.union x k s.a in
-    let c' = C.extend (k,d) s.c in
-    ({a = a'; c = c'}, Veqs.empty)
-
+  Trace.msg 6 "Add(a)" (x,c) pp_in;
+  match cnstrnt s x with
+    | Some(d) ->
+	(match Cnstrnt.cmp c d with
+	   | Binrel.Disjoint ->
+	       raise Exc.Inconsistent
+	   | (Binrel.Super | Binrel.Same) ->
+	       (s, Veqs.empty)
+	   | Binrel.Sub ->
+	       install_cnstrnt s (x,c)
+	   | Binrel.Singleton(q) ->
+	       let n = Arith.mk_num q in
+	       (try
+		  let y = A.inv s.a n in
+		  install_equality s (x,y)
+		with
+		    Not_found ->
+		      let (y, sa') = A.extend n s.a in
+		      install_equality {s with a = sa'} (x,y))
+	   | Binrel.Overlap(cd) ->
+	       install_cnstrnt s (x,cd))
+    | None ->
+	install_cnstrnt s (x,c)
