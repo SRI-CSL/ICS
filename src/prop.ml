@@ -197,6 +197,9 @@ let atom_to_icsat_id a =
   with
       Not_found -> failwith "ICSAT: no such atom id"
 
+let atom_to_icsat_id =
+  Trace.func "foo" "Atom_to_icsat_id" Atom.pp Pretty.number atom_to_icsat_id
+
 let var_to_icsat_id x =
   try
     Nametbl.find vartbl x
@@ -338,7 +341,11 @@ let stackpp () =
   Stack.iter (fun (s, _) -> Context.pp Format.std_formatter s) stack
 let _ = Callback.register "prop_stackpp" stackpp
 
+let explained = ref true
 let explanation = ref []
+
+let is_explained () = !explained
+let _ = Callback.register "prop_is_explained" is_explained
 
 let explain () = !explanation
 let _ = Callback.register "prop_explain" explain
@@ -352,11 +359,20 @@ let add i =
 	  (let (s, al) = Stack.pop stack in
 	     push (s, a :: al);
 	     1)
-      | Context.Status.Inconsistent(rho) -> 
-	  let axms = Justification.axioms_of rho in
-	  let ids = Atom.Set.fold (fun a acc -> atom_to_icsat_id a :: acc) axms [] in
-	  explanation := ids;
-	    0
+      | Context.Status.Inconsistent(rho) ->
+	  (try
+	     let axms = Justification.axioms_of rho in
+	       Format.printf "\n EXPLAIN ";
+	       Pretty.set Atom.pp Format.std_formatter (Atom.Set.elements axms);
+	       let ids = Atom.Set.fold (fun a acc -> atom_to_id a :: acc) axms [] in
+		 explained := true;
+		 explanation := ids;
+		 0
+	   with
+	       Not_found -> 
+		 Format.eprintf "Warning: no explanation for ICSAT";
+		 explained := false;
+		 0)
       | Context.Status.Ok(s) -> 
 	  (let (_, al) = Stack.pop stack in
 	     push (s, a :: al);
