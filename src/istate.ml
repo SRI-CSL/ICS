@@ -1300,7 +1300,7 @@ module Parameters = struct
     set Outchannel "stdout";
     set Eot "";
     set Prompt "ics> ";
-    set IntegerSolve "true";
+    set IntegerSolve "false";
     set Index "false";
     set Pretty "true"
 
