@@ -84,6 +84,9 @@ module Q = struct
 
   let ceil x  = Gmp41.Z.cdiv_q (Q.get_num x) (Q.get_den x)
 
+  let frac x = sub x (Q.from_z (floor x))
+  let def x = sub (Q.from_z (ceil x)) x
+
   let compare = Q.cmp
   let equal = Q.equal
   let is_zero x = Q.equal zero x
@@ -96,6 +99,8 @@ module Q = struct
 
   let is_pos x = gt x zero
   let is_neg x = lt x zero
+  let is_nonneg x = ge x zero
+  let is_nonpos x = le x zero
 
   let min x y = if le x y then x else y
   let max x y = if le x y then y else x
@@ -136,5 +141,14 @@ module Q = struct
       Q.from_z (Gmp41.Z.from_string s)
 
   let pp fmt x = Format.fprintf fmt "%s" (to_string x)
+
+  type q = t
+
+  module Hash = Hashtbl.Make(
+    struct
+      type t = q
+      let equal = equal
+      let hash = hash
+    end)
 
 end

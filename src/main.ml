@@ -11,75 +11,103 @@
  * benefit corporation.
  *)
 
-open Ics
+let version = "ICS 2.0 (Experimental, July 15 2003)" 
 
 (** ICS command line interpreter. *)
 
 let _ = Sys.catch_break true
  
-(** {6 Options} *)
 
-let stat_flag = ref false
+(** {6 Arguments} *)
+
 let timing_flag = ref false
-let disable_prompt_flag = ref false
-let disable_usage_flag = ref false
-let disable_pretty_print_flag = ref false
-let end_of_transmission = ref ""
-let disable_compactify_flag = ref false
 let portnum_flag = ref None
 
+let args () =
+  let files = ref [] in
+  let set_true set = Arg.Unit (fun () -> set true)
+  and set_false set = Arg.Unit (fun () -> set false) in
+    Arg.parse
+      [ "-timings", Arg.Set timing_flag,          
+	"Print timings";
+	"-profiles", Arg.Set Tools.profiling,          
+	"Print profiles";
+	"-index", Arg.Set Eqs.pp_index,          
+	"Print indices";
+	"-prompt", Arg.String Ics.set_prompt,
+	"Set prompt";
+        "-pp", set_false Ics.set_pretty,
+	"Disable Pretty-Printing of terms";	"-nohelp", Arg.Clear Istate.help_enabled,
+	"Disable help feature";
+	"-trace", Arg.String Ics.trace_add,
+	"Enable tracing";
+        "-version", Arg.Unit (fun () -> Format.eprintf "%s@." version; exit 0),
+        "Display version number";
+        "-compactify",  set_true Ics.set_compactify,
+	"Disable compactification in SAT solver";
+        "-eot", Arg.String Ics.set_eot, 
+	"Print string argument after each transmission";
+        "-server", Arg.Int (fun portnum -> portnum_flag := Some(portnum)), 
+	"Run in server mode";
+	"-verbose", set_true Ics.set_verbose,
+        "Verbose flag for SAT solver";
+	"-progress", Arg.Set Istate.progress,
+        "Printf rogress in batch mode";
+	"-remove_subsumed_clauses", set_true Ics.set_remove_subsumed_clauses,
+        "Removing subsumed clauses in SAT solver";
+	"-validate_counter_example", set_true Ics.set_validate_counter_example,
+        "Check Boolean part of counterexample (for debugging)";
+	"-polarity_optimization", set_true Ics.set_polarity_optimization,
+        "Optimizations for SAT solver based on polarities";
+	"-clause_relevance", Arg.Int(Ics.set_clause_relevance),
+        "Deletion of conflict clauses (default 50) in SAT";
+        "-cleanup_period", Arg.Int(Ics.set_cleanup_period),
+        "Garbage collection for SAT after number of conflicts (default 2000)";
+        "-refinements", Arg.Int(Ics.set_num_refinements),
+        "Number of refinement steps in SAT solver";
+        "-statistics", set_true Ics.set_statistic,
+        "Print statistics for SAT solver";
+        "-footprint", set_true Ics.set_footprint,
+        "Traces generated facts on stderr";
+	"-integersolve", set_true Ics.set_integer_solve,
+        "Enables Solving for the integers"
+      ]
+      (fun f -> files := f :: !files)
+      "Usage: ";
+    List.rev !files
 
-(** {6 Interactive toplevel} *)
 
-let rec repl inch =
-  try
-    usage ();
-    Ics.init (1, 
-              not !disable_pretty_print_flag,
-              !end_of_transmission,
-              inch,
-              Ics.channel_stdout());
-    Tools.linenumber := 1;
-    while true do
-      prompt ();
-      Ics.cmd_rep ()
-    done
-  with
-    | Failure "drop" -> ()
+(** {6 Interactive Mode} *)
 
-and prompt () =
-  if not(!disable_prompt_flag) then 
-    Format.eprintf "\nics> @?"
+let rec repl () =
+  usage ();
+  try Ics.cmd_rep () with Failure "drop" -> ()
 
 and usage () =
-  if not(!disable_usage_flag) then
-    begin
-      Format.eprintf "ICS 1.1 (Experimental, Fri Mar 28) : Integrated Canonizer and Solver.";
-      Format.eprintf "\nCopyright (c) 2003 SRI International.";
-      Format.eprintf "\nType 'help.' for help about help, and 'Ctrl-d' to exit.@."
-    end
+  begin
+    Format.eprintf "%s: Integrated Canonizer and Solver." version;
+    Format.eprintf "\nCopyright (c) 2003 SRI International.";
+    Format.eprintf "\nType 'help help.' for help about help, and 'Ctrl-d' to exit.@."
+  end
 
 
-(** {6 Batch level processing} *)
+(** {6 Batch Mode} *)
 
-and batch l =
-  disable_prompt_flag := true;
-  List.iter 
-    (fun x -> 
-       let inch = Ics.inchannel_of_string x in
-	 Ics.init (1, 
-		   not !disable_pretty_print_flag,
-		   !end_of_transmission,
-		   inch,
-		   Ics.channel_stdout());
-	 Tools.linenumber := 1;
-	 while true do
-	   prompt ();
-	   Ics.cmd_batch ()
-	 done)
-    l;
-  Ics.flush();
+and batch names =
+  Ics.set_prompt "";
+  List.iter batch1 names
 
+and batch1 name =
+  let inch = Ics.inchannel_of_string name in
+    if !timing_flag then
+      let start = (Unix.times()).Unix.tms_utime in
+	Ics.cmd_batch (inch);
+	let time = (Unix.times()).Unix.tms_utime -. start in
+	  Format.eprintf "\n%s processed in %f seconds.@." name time
+    else 
+      Ics.cmd_batch (inch)
+
+(** {6 Server Mode} *)
 
 and server portnum = 
   let addr = Unix.inet_addr_any in
@@ -87,71 +115,25 @@ and server portnum =
   Unix.establish_server 
     (fun inch outch ->
        let formatter = Format.formatter_of_out_channel outch in
-       Ics.init (0, false, !end_of_transmission, inch, formatter);
-       while true do
-	 Ics.cmd_rep ()
-       done)
+	 Ics.set_inchannel inch;
+	 Ics.set_outchannel formatter;
+	 Ics.cmd_rep ())
     sockaddr
 
-let args () =
-  let files = ref [] in
-  Arg.parse
-      [ "-timings", Arg.Set timing_flag,          
-	"Print timings";
-	"-prompt", Arg.Set disable_prompt_flag,   
-	"Disable printing of prompt";
-        "-pp", Arg.Set disable_pretty_print_flag, 
-	"Disable Pretty-Printing of terms";
-	"-trace", Arg.String Ics.trace_add,
-	"Trace level";
-        "-usage", Arg.Set disable_usage_flag,     
-	"Disable printing of usage message";
-        "-compactify",  Arg.Unit (fun () -> Context.compactify := false),
-	"Disable compactification";
-        "-eot", Arg.String (fun str -> end_of_transmission := str), 
-	"Print string argument after each transmission";
-        "-server", Arg.Int (fun portnum -> portnum_flag := Some(portnum)), 
-	"Run in server mode";
-	"-integer_solve", Arg.Unit (fun () -> Arith.integer_solve := true),
-        "Enbable integer solver";
-	"-final_sep", Arg.Unit (fun () -> Pretty.final_sep := true),
-        "Final separator for lists";
-	"-verbose", Arg.Unit (fun () -> Prop.set_verbose true),
-        "Verbose flag for SAT solver";
-	"-remove_subsumed_clauses", Arg.Unit(fun () -> Prop.set_remove_subsumed_clauses true),
-        "Removing subsumed clauses in SAT solver";
-	"-validate_counter_example", Arg.Unit(fun () -> Prop.set_validate_counter_example true),
-        "Check Boolean part of counterexample (for debugging)";
-	"-polarity_optimization", Arg.Unit(fun () -> Prop.set_polarity_optimization true),
-        "Optimizations for SAT solver based on polarities";
-	"-clause_relevance", Arg.Int(Prop.set_clause_relevance),
-        "Deletion of conflict clauses (default 50) in SAT";
-        "-cleanup_period", Arg.Int(Prop.set_cleanup_period),
-        "Garbage collection for SAT after number of conflicts (default 2000)";
-        "-refinements", Arg.Int(Prop.set_num_refinements),
-        "Number of refinement steps in SAT solver";
-         "-statistics", Arg.Set(Prop.statistics),
-        "Print statistics for SAT solver"
-      ]
-      (fun f -> files := f :: !files)
-      "usage: ics [-h] [-timings] [-prompt] [-pp] [-usage] [-eot <string>] [-server <portnum>] [files]";
-  List.rev !files
 
 let rec main () =
   try
     let l = args () in
       (match !portnum_flag with
-	| None ->   
-	    (match l with
-	       | [] -> repl (Ics.channel_stdin ())
-	       | l -> batch l)
-	| Some(portnum) ->
-	    server portnum);
-      Ics.do_at_exit();
+	 | None ->   
+	     (match l with
+		| [] -> repl ()
+		| l -> batch l)
+	 | Some(portnum) ->
+	     server portnum);
       exit 0
   with
       exc ->
-	Ics.do_at_exit();
 	Format.eprintf "%s@." (Printexc.to_string exc);
 	exit (-1)
 	  

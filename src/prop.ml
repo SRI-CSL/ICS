@@ -342,11 +342,11 @@ let add i =
   let a = id_to_atom i in
     Trace.call "rule" "Add" a Atom.pp;
     let result = match Context.add (top()) a with
-      | Context.Status.Valid -> 
+      | Context.Status.Valid _ -> 
 	  (let (s, al) = Stack.pop stack in
 	     push (s, a :: al);
 	     1)
-      | Context.Status.Inconsistent -> 0
+      | Context.Status.Inconsistent _ -> 0
       | Context.Status.Ok(s) -> 
 	  (let (_, al) = Stack.pop stack in
 	     push (s, a :: al);
@@ -369,8 +369,8 @@ let _ = Callback.register "reset_scratch_context" reset_scratch_context
 let add_scratch_context i =
   let a = id_to_atom i in
     match Context.add !scratch a with
-      | Context.Status.Valid -> 1
-      | Context.Status.Inconsistent -> 0
+      | Context.Status.Valid _ -> 1
+      | Context.Status.Inconsistent _ -> 0
       | Context.Status.Ok(s) -> (scratch := s; 1)
 let _ = Callback.register "add_scratch_context" add_scratch_context
 

@@ -20,93 +20,45 @@
   belong to.
  *)
 
+type t =
+  | Shostak of shostak
+  | Can of can
+  | Uninterpreted
 
-type t
+and shostak =  A | P | BV | COP
 
-val eq : t -> t -> bool
+and can = NL | APP | ARR
 
-val u : t          (** Theory of uninterpreted function symbols. *)
+val a : t
+val p : t
+val bv : t
+val cop : t
 
-val la : t         (** Rational linear arithmetic. *)
+val nl : t
+val app : t
+val arr : t
 
-val p : t          (** Product theory. *)
+val u : t
 
-val bv : t         (** Bitvector theory. *)
-
-val cop : t        (** Theory of coproducts. *)
-
-val pprod : t      (** Theory of power products. *)
-
-val app : t        (** Theory of function abstraction and application. *)
-
-val arr : t        (** Array theory. *)
-
-val bvarith : t    (** Theory of bitvector interpretation(s). *)
-
-val all : t list   (** List of all theories *)
-
-val interp : t list (** List of interpreted theories. *)
-
-val to_int : t -> int
-  (** [to_int th] returns a unique nonnegative integer for theories [th]. *)
-
-val of_int : int -> t
-  (** [of_int i] returns the theory [th] if [to_int th] is [i]. 
-    The result value is undefined otherwise. *)
-
-val is_fully_uninterp : t -> bool
-  (** [is_fully_uninterp th] is equivalent to [eq th u]. *)
-
-
-val is_fully_interp : t -> bool
-  (** [la], [p], [bv], [cop] are fully interpreted. *)
-
-val to_string : t -> string
-  (** [to_string th] returns a string associated with the theory [th]. *)
-
-val of_string : string -> t
- (** [of_string s] returns [th] if [to_string th] is [s]; otherwise
-   [Invalid_argument] is raised. *)
-
-val pp : t Pretty.printer
-  (** Pretty-printing of a theory [th] using {!Th.to_string}[(th)]
-    as the print name for [th]. *)
-  
 val of_sym : Sym.t -> t
-  (** Classification of function symbols. *)
+  
+val to_string : t -> string
+val of_string : string -> t
+  
+val fold : (t -> 'a -> 'a) -> 'a -> 'a
+val iter : (t -> unit) -> unit
+  
+val for_all : (t -> bool) -> bool
+val exists : (t -> bool) -> bool
 
+val for_all_but : t -> (t -> bool) -> bool
+val exists_but : t -> (t -> bool) -> bool
 
-val map : t -> (Term.t -> Term.t) -> Term.t -> Term.t
-  (** Theory-specific map function. *)
-
-val sigma : Sym.t -> Term.t list -> Term.t
-  (** Theory-specific sigmatizer. *)
-
-val solve : t -> Fact.equal -> Fact.equal list
-  (** Theory-specific solvers *)
-
-
-(** {6 Arrays of index theory.} *)
-
-
-module Array : sig
-
-  type 'a arr
-
-  val create: 'a -> 'a arr
-
-  val copy : 'a arr -> 'a arr
-
-  val get : 'a arr -> t -> 'a
  
-  val set : 'a arr -> t -> 'a -> unit
+val is_shostak : t -> bool 
+val is_can : t -> bool 
+val is_uninterpreted : t -> bool 
 
-  val reset : 'a arr -> 'a -> unit
+val inj : t -> t option
 
-  val iter : (t -> 'a -> unit) -> 'a arr -> unit
-
-  val for_all : ('a -> bool) -> 'a arr -> bool
-
-  val for_all2 : ('a ->'b -> bool) -> 'a arr -> 'b arr -> bool
-
-end
+val pp : t option Pretty.printer

@@ -44,7 +44,6 @@ module Set : (Set.S with type elt = t)
 module Map : (Map.S with type key = t)
   (** Maps with names in the domain. *)
 
-val pp_map: 'a Pretty.printer -> 'a Map.t Pretty.printer
-  (** Given a printer [p] for elements of the codomain,
-    [pp_map p] prints a name map. *)
-  
+module Hash :  (Hashtbl.S with type key = t)
+  (** Hash table with names as keys. *)
+

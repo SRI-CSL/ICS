@@ -72,6 +72,8 @@ module Q : sig
   val is_negone : t -> bool
   val is_pos : t -> bool
   val is_neg : t -> bool
+  val is_nonneg : t -> bool
+  val is_nonpos : t -> bool
   val of_int : int -> t
   val of_ints : int -> int -> t
 
@@ -90,6 +92,9 @@ module Q : sig
 
   val floor : t -> Z.t
   val ceil  : t -> Z.t
+
+  val frac : t -> t    (* [q = floor(q) + frac(q)] *)
+  val def : t -> t     (* [q = ceil(q) - def(q)] *)
 
   val compare : t -> t -> int
   val equal : t -> t -> bool
@@ -115,6 +120,9 @@ module Q : sig
   val of_string : string -> t
 
   val pp : Format.formatter -> t -> unit
+
+  module Hash :  (Hashtbl.S with type key = t)
+
 end
 (** Multi-precision rationals. *)
 

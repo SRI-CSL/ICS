@@ -11,150 +11,191 @@
  * benefit corporation.
  *)
 
-open Term
-open Three
 
-(** Equalities and disequalities over variables and constraints on variables *)
+(** Sets of equalities and disequalities over variables.
+  See also modules {!V.t} and {!D.t}. *)
 
 type t = {
   mutable v : V.t;              (* Variable equalities. *)
-  mutable d : D.t;              (* Variables disequalities. *)
-  mutable c : C.t               (* Variable constraints. *)
+  mutable d : D.t               (* Variables disequalities. *)
 }
+
+let v_of p = p.v
+let d_of p = p.d
+
 
 (** Empty partition. *)
-let empty = {
-  v = V.empty;
-  d = D.empty;
-  c = C.empty
-}
+let empty = {v = V.empty; d = D.empty}
 
 (** Pretty-printing *)
-let pp fmt s =
-  V.pp fmt s.v;
-  D.pp fmt s.d;
-  C.pp fmt s.c
+let pp fmt p =
+  V.pp fmt p.v;
+  D.pp fmt p.d
 
 (** Test if states are unchanged. *)
-let eq s t =
-  V.eq s.v t.v &&
-  D.eq s.d t.d &&
-  C.eq s.c t.c
+let eq p q = 
+  V.eq p.v q.v && D.eq p.d q.d
 
 
-(** {6 Changed variables} *)
+(** Choose in equivalence class. *)
 
-type changed = {
-   chv: Term.Set.t;
-   chd: Term.Set.t;
-   chc: Term.Set.t
-}
+let choose p apply y = 
+  let rhs x = try Some(apply x) with Not_found -> None in
+    V.choose p.v rhs y
 
-let nochange = {
-  chv = Term.Set.empty;
-  chd = Term.Set.empty;
-  chc = Term.Set.empty
-}
+let iter_if p f y =
+  let f' x = try f x with Not_found -> () in
+    V.iter p.v f y
+  
 
-let is_unchanged ch =
-  ch.chv == Term.Set.empty &&
-  ch.chd == Term.Set.empty &&
-  ch.chc == Term.Set.empty
+(** Canonical variables module [p]. *)
+let find p = V.find p.v
 
-
-(** {6 Accessors} *)
-
-let v_of s = s.v
-let d_of s = s.d
-let c_of s = s.c
-
-(** Canonical variables module [s]. *)
-let v s = V.find s.v
 
 (** All disequalities of some variable [x]. *)
-let d s = D.d s.d
+let diseqs p x =
+  let (y, rho) = find p x in                   (* [rho |- x = y] *)
+  let ds = D.diseqs p.d y in
+    if Term.eq x y then ds else
+      D.Set.fold 
+	(fun (z, tau) ->                       (* [tau |- y <> z] *)
+	   let sigma = Justification.subst_diseq (x, z) tau [rho] in
+	     D.Set.add (z, sigma))
+	ds D.Set.empty
 
-(** Constraint of a variable. *)
-let c s = C.apply s.c
 
- 
-(** {6 Equality test} *)
+(** Abstract domain interpretation *)
+let dom p a =
+  let hyps = ref [] in
+  let rec of_term a =
+    match a with
+      | Term.Var _ -> 
+	  of_var a
+      | Term.App(f, al) ->
+	  (match f with 
+	     | Sym.Arith(op) -> Arith.dom of_term op al
+             | Sym.Pp(op) ->  Pprod.dom of_term op al
+	     | _ -> raise Not_found)
+  and of_var x =
+     let (y, rho) = find p x in
+     let d = Term.Var.dom_of y in
+       if not(x == y) then hyps := rho :: !hyps;
+       d
+  in
+  let d = of_term a in
+  let rho = Justification.dependencies !hyps in
+    (d, rho)
 
-let is_equal s x y =
-  let (x', _) = v s x in
-  let (y', _) = v s y in
-    if Term.eq x' y' then 
-      Three.Yes
-    else if D.is_diseq s.d x' y' then 
-      Three.No
-    else
-      try
-	let (i, _) = c s x' 
-	and (j, _) = c s y' in
-	  if i = Sign.Zero && j = Sign.Zero then
-	    Three.Yes
-	  else if Sign.disjoint i j then
-	    Three.No
-	  else 
-	    Three.X
-      with
-	  Not_found -> Three.X
+
+
+(** {6 Predicates} *)
+
+(** Apply the equality test on canonical variables. *)
+let is_equal p = 
+  Justification.Pred2.apply 
+    (find p) 
+    (V.is_equal p.v)
+
+
+(** Apply the equality test on canonical variables. *)
+let is_diseq p = 
+  Justification.Pred2.apply 
+    (find p) 
+    (D.is_diseq p.d)
+
+
+(** Test for equality or disequality of canonical variables. *)
+let is_equal_or_diseq p =
+  Justification.Rel2.apply
+    (find p)
+    (Justification.Rel2.of_preds
+       (V.is_equal p.v)            (* positive test *)
+       (D.is_diseq p.d))           (* negative test *)
+
+
+(** Test whether [x] is known to be in domain [d] by looking up
+  the domain of the corresponding canonical variable [x']. The
+  variable ordering ensures that [x'] is 'more constraint' than [x]. *)
+let is_in p d x = 
+  let (x', rho') = find p x in
+    try
+      let d' = Term.Var.dom_of x in
+	if Dom.sub d d' then
+	  Justification.Three.Yes(rho')
+	else if Dom.disjoint d d' then
+	  Justification.Three.No(rho')
+	else 
+	  Justification.Three.X
+    with
+	Not_found -> 
+	  Justification.Three.X
+
 
 
 (** {6 Updates} *)
 
-let update_v p v = (p.v <- v; p)
-let update_d p d = (p.d <- d; p)
-let update_c p c = (p.c <- c; p)
-
-
-(** Shallow copy for protecting against destructive updates. *)
-let copy p = {v = p.v; d = p.d; c = p.c}
+(** Shallow copy for protecting against destructive 
+  updates in [merge], [diseq], and [gc]. *)
+let copy p = {v = p.v; d = p.d}
 
 
 (** Merge a variable equality. *)
-let merge e s = 
-  Trace.msg "p" "Merge" e Fact.pp_equal;
-  let (x, y, _) = Fact.d_equal e in
-    match is_equal s x y with
-      | Three.Yes -> 
-	  (nochange, s)
-      | Three.No -> 
-	  raise Exc.Inconsistent
-      | Three.X ->
-	  let (chv', v') = V.merge e s.v
-	  and (chd', d') = D.merge e s.d
-	  and (chc', c') = C.merge e s.c in
-	  let ch' = {chv = chv'; chd  = chd'; chc = chc'} in
-	  let s' = update_c (update_v (update_d s d') v') c' in
-	    (ch', s')
+let merge p e =  
+  Trace.msg "p" "Merge(p)" e Fact.Equal.pp;
+  p.v <- V.merge e p.v;
+  p.d <- D.merge e p.d
 
-(** Adding a constraint *)
-let add c s =
-  Trace.msg "p" "Add" c Fact.pp_cnstrnt;
-  let (chc', c') = C.add c s.c in
-  let ch' = {nochange with chc = chc'} in
-  let s' = update_c s c' in
-    (ch',  s')
-  
 
-(** Add and propagate disequalities of the form [x <> y]. *)
-let rec diseq d s =  
-  Trace.msg "p" "Diseq" d Fact.pp_diseq;
-  let (x, y, _) = Fact.d_diseq d in
-    match is_equal s x y with
-      | Three.Yes -> 
-	  raise Exc.Inconsistent
-      | Three.No -> 
-	  (nochange, s)
-      | Three.X -> 
-	  let (chd', d') = D.add d s.d in
-	  let (chc', c') = C.diseq d s.c in
-	  let ch' = {nochange with chd = chd'; chc = chc'} in
-	  let s' = update_c (update_d s d') c' in
-	    (ch', s')
+(** Add a disequality of the form [x <> y]. *)
+let dismerge p d =  
+  Trace.msg "p" "Dismerge(p)" d Fact.Diseq.pp;
+  let d' = Fact.Diseq.map (find p) d in
+  let (x', y', rho') = Fact.Diseq.destruct d' in
+    if Term.eq x' y' then
+      raise(Justification.Inconsistent(rho'))
+    else 
+      p.d <- D.add d' p.d
+ 
 
-(** Garbage collection. *)
-let gc f s = 
-  let v' = V.gc f s.v in
-    update_v s v'
+
+(** {6 Garbage collection} *)
+
+(** Garbage collection of noncanonical variables satisfying [f]. Since variable
+  disequalities and constraints are always in canonical form, only variable equalities
+  need to be considered. *)
+let gc f p = 
+  let v' = V.gc f p.v in
+    p.v <- v'
+
+
+(** {6 Canonical forms} *)
+ 
+(** Sigma normal forms for individual theories. These are largely independent
+ of the current state, except for sigma-normal forms for arrays, which use
+ variable equalities and disequalities. *)
+let rec sigma p sym l = 
+  match sym with
+    | Sym.Arrays(op) ->
+	let rhos = ref [] in
+	let is_equal' = Justification.Three.to_three rhos (is_equal_or_diseq p) in
+	let b = Funarr.sigma is_equal' op l in
+	let rho = Justification.sigma ((sym, l), b) !rhos in
+	  (b, rho)
+    | _ ->
+	let b = sigma0 sym l in
+	let rho =  Justification.sigma ((sym, l), b) [] in
+	  (b, rho)
+	  
+and sigma0 f =
+  match f with
+    | Sym.Arith(op) -> Arith.sigma op
+    | Sym.Pair(op) -> Product.sigma op
+    | Sym.Bv(op) -> Bitvector.sigma op
+    | Sym.Coproduct(op) -> Coproduct.sigma op
+    | Sym.Fun(op) -> Apply.sigma op
+    | Sym.Pp(op) -> Pprod.sigma op
+    | Sym.Arrays(op) -> Funarr.sigma Term.is_equal op
+    | Sym.Uninterp _ -> Term.App.mk_app f
+
+
+

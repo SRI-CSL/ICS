@@ -52,7 +52,6 @@ type bv =
   | Const of Bitv.t
   | Conc of int * int
   | Sub of int * int * int
-  | Bitwise of int
       (** Function symbols for the theory of bitvectors are
 	- [Const(b)] for constructing constant bitvectors,
 	- [Conc(n, m)] for concatenating bitvectors of length [n] and [m],
@@ -81,10 +80,6 @@ type arrays =
 	- [Select] for array lookup
 	- [Update] for array update. *)
 
-type bvarith = 
-  | Unsigned
-      (** Function symbols of the theory of arithmetic interpretations of bv
-	- [Unsigned] for the unsigned interpretation *)
 
 type t = 
   | Uninterp of Name.t       (* Uninterpreted function symbols. *)
@@ -95,7 +90,59 @@ type t =
   | Pp of pprod              (* Power products. *)
   | Fun of apply             (* Lambda abstraction and application *)
   | Arrays of arrays         (* Theory of arrays. *)
-  | Bvarith of bvarith       (* Bitvector interpretations. *)
+
+
+module Arith : sig
+  val d_sym : t -> arith
+  val num : Mpa.Q.t -> t
+  val multq : Mpa.Q.t -> t
+  val add : t
+ end 
+
+module Pair : sig
+  val cons : t
+  val car : t
+  val cdr : t
+end
+
+
+module Coproduct : sig
+  val inl : t
+  val inr : t
+  val outl : t
+  val outr : t
+end
+
+module Pprod : sig
+  val mult : t
+  val expt : int -> t
+  val is_expt : t -> bool
+  val d_expt : t -> int
+end
+
+module Bv: sig
+  val const : Bitv.t -> t
+  val conc : int -> int -> t
+  val sub : int -> int -> int -> t
+  val width : bv -> int
+end
+
+module Array : sig
+  val create : t
+  val select : t
+  val update : t
+end
+
+module Fun : sig
+
+  val apply : Dom.t option -> t
+    (** Family of function symbols for representing function application. *)
+
+  val abs : t
+    (** Function symbol for representing functional abstraction. *)
+end
+
+
 
 
 val eq : t -> t -> bool
@@ -109,10 +156,12 @@ val hash : t -> int
   (** nonnegative hash value *)
 
 
-val pp : Format.formatter -> t -> unit
-  (** Pretty printing *)
+val to_string : t -> string
+  (** Pretty printing to string *)
+
+val pp : 'a Pretty.printer -> (t * 'a list) Pretty.printer
+  (** Pretty-printing applications of symbols to an argument list. *)
 
 
-val width : t -> int option
-  (** Width of a bitvector symbol. *)
-
+module Hash :  (Hashtbl.S with type key = t)
+  (** Hash table with symbols as keys. *)

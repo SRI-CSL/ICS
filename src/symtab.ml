@@ -56,16 +56,21 @@ let arity = filter (fun _ e -> match e with Arity  _ -> true | _ -> false)
 let typ   = filter (fun _ e -> match e with Type  _ -> true | _ -> false)
 
 let rec pp fmt s =
-  Name.pp_map pp_entry fmt s
- 
+  let ml = Name.Map.fold (fun n e acc -> (n, e) :: acc) s [] in
+    Pretty.map Name.pp pp_entry fmt ml 
+
 and pp_entry fmt e =
-  let pr = Format.fprintf fmt in
-  match e with
-    | Def(Term(x)) -> pr "@[def("; Term.pp fmt x; pr ")@]"
-    | Def(Prop(x)) -> pr "@[def("; Prop.pp fmt x; pr ")@]"
-    | Arity(a) -> pr "@[sig("; Format.fprintf fmt "%d" a; pr ")@]"
-    | Type(c) -> pr "@[type("; Dom.pp fmt c; pr ")@]"
-    | State(s) -> 
-	pr "@[state(";
-	Pretty.set Atom.pp fmt (Atom.Set.elements (Context.ctxt_of s));
-	pr ")@]"
+  let pr a = 
+    if !pretty then () else Format.fprintf fmt a
+  in
+    match e with
+      | Def(Term(x)) -> pr "@[def("; Term.pp fmt x; pr ")@]"
+      | Def(Prop(x)) -> pr "@[def("; Prop.pp fmt x; pr ")@]"
+      | Arity(a) -> pr "@[sig("; Format.fprintf fmt "%d" a; pr ")@]"
+      | Type(c) -> pr "@[type("; Dom.pp fmt c; pr ")@]"
+      | State(s) -> 
+	  pr "@[state(";
+	  Pretty.set Atom.pp fmt (Atom.Set.elements (Context.ctxt_of s));
+	  pr ")@]"
+
+and pretty = ref true

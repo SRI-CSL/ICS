@@ -28,6 +28,8 @@ val option : 'a printer -> 'a option printer
 
 val bool : bool printer
 
+val three : Three.t printer
+
 val list : 'a printer -> 'a list printer
 
 val list' : 'a printer -> 'a list printer

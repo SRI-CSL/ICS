@@ -24,34 +24,104 @@
 type t =
   | Var of Var.t
   | App of Sym.t * t list
+
+
+(** {6 Variables} *)
  
+module Var : sig
 
-(** {6 Constructors} *)
+  (** {7 Constructors} *)
+    
+  val mk_var : Name.t -> Dom.t option -> t
 
-val mk_var : Name.t -> Dom.t option -> t
-  (** Constructing a variable. *)
+  val k : int ref
+    (** [k] is a global variable which is incremented by the {!Var.mk_rename} 
+      variable constructor below.  In addition, calls to {!Tools.do_at_reset} 
+      are resetting this variable to its default value [0]. *)
+    
+  val mk_rename : Name.t -> int option -> Dom.t option -> t
+    (** [mk_rename n None] constructs a fresh variable, where
+      'fresh' means that the index part of this fresh variable
+      (see Module {!Term.Var}) is larger than {!Term.Var.k}; as a side-effect,
+      {!Term.Var.k} is incremented. [mk_fresh_var n Some(k)] simply constructs
+      a variable of name [n] and index [k]. *)
 
-val mk_const : Sym.t -> t
-  (** [mk_const c] constructs a function application 
-    of symbol [c] to the empty argument list. *)
+  val mk_slack : int option -> Dom.t -> Var.slack -> t
 
-val mk_num : Mpa.Q.t -> t
-  (** [mk_num q] constructs a constant for representing the rational [q]. *)
+  val mk_fresh : Th.t -> int option -> Dom.t option -> t
 
-val mk_app : Sym.t -> t list -> t
-  (* [mk_app f l] constructs a function application of symbol [f]
-     to a list [l]. *)
+  val mk_free : int -> t
 
-val mk_rename : Name.t -> int option -> Dom.t option -> t
-  (** [mk_rename n None] constructs a fresh variable, where
-    'fresh' means that the index part of this fresh variable
-    (see Module {!Var}) is larger than {!Var.k}; as a side-effect,
-    {!Var.k} is incremented. [mk_fresh_var n Some(k)] simply constructs
-    a variable of name [n] and index [k]. *)
 
-val mk_fresh : Name.t -> int option -> Dom.t option -> t
+  (** {7 Recognizers} *)
 
-val mk_slack : int option -> bool -> Dom.t option -> t
+  val is_rename : t -> bool
+    (** [is_rename a] holds if [a] is a variable and if it is
+      of category 'fresh' (see module {!Var}). *)
+
+  val is_external : t -> bool
+
+  val is_fresh : Th.t -> t -> bool
+
+  val is_free : t -> bool
+
+  val is_slack : t -> bool
+  val is_zero_slack : t -> bool
+  val is_nonneg_slack : t -> bool
+
+
+  val is_internal : t -> bool
+  val is_dom : Dom.t -> t -> bool
+
+  val is_int : t -> bool
+  val is_real : t -> bool
+
+
+  (** {7 Accessors} *)
+
+  val name_of : t -> Name.t
+    (** [name_of a] returns the name [n] if [a] is a variable of the
+      form [Var(n)]; otherwise the result is undefined. *)
+
+  val dom_of : t -> Dom.t
+
+
+end 
+
+(** {6 Applications} *)
+
+module App : sig
+
+  (** {7 Constructors} *)
+
+  val mk_const : Sym.t -> t
+    (** [mk_const c] constructs a function application 
+      of symbol [c] to the empty argument list. *)
+
+  val mk_app : Sym.t -> t list -> t
+    (* [mk_app f l] constructs a function application of symbol [f] to a list [l]. *)
+
+  
+  (** {7 Destructors} *)
+
+  val destruct : t -> Sym.t * t list
+    (** [destruct a] destructure an application [a] of the form
+      [App(f, l)] into [(f, l)]. *)
+
+  val sym_of : t -> Sym.t
+    (** [sym_of a] returns the function symbol [f] of an application
+      [a] of the form [App(f,_)]. *)
+
+  val theory_of : t -> Th.t
+    (** [theory_of a] returns the theory associated with the top-level
+      function symbol of [a], and raises [Not_found] otherwise. *)
+
+  val args_of : t -> t list
+    (** [sym_of a] returns the argument list [l] of an application
+      [a] of the form [App(_,l)]. *)
+
+
+end
 
 
 (** {6 Recognizers} *)
@@ -59,64 +129,15 @@ val mk_slack : int option -> bool -> Dom.t option -> t
 val is_var : t -> bool
   (** [is_var a] holds iff [a] is of the form [Var _]. *)
 
-val is_intvar : t -> bool
-  (** [is_intvar a] holds iff [a] is a variable with associated domain {!Dom.Int} *)
-
-val is_realvar : t -> bool
-  (** [is_realvar a] holds iff [a] is a variable with associated domain {!Dom.Real} *)
-
-
 val is_app : t -> bool
   (** [is_app a] holds iff [a] is of the form [App _]. *)
 
 val is_const : t -> bool
   (** [is_const a] holds iff [a] is of the form [App(_,[])]. *)
 
-val is_interp_const : t -> bool
-  (** [is_interp_const a] holds if [a] is a constant of the
-    form [App(c,[])] and [c] is an interpreted function symbol 
-    (see module {!Sym}). *)
-
-val is_rename : t -> bool
-  (** [is_rename a] holds if [a] is a variable and if it is
-    of category 'fresh' (see module {!Var}). *)
-
-val is_fresh : t -> bool
-
-val is_slack : t -> bool
-
-val is_internal : t -> bool
-
-(** {6 Destructors} *)
-
-val name_of : t -> Name.t
-  (** [name_of a] returns the name [n] if [a] is a variable of the
-    form [Var(n)]; otherwise the result is undefined. *)
-
-val destruct : t -> Sym.t * t list
-  (** [destruct a] destructure an application [a] of the form
-    [App(f, l)] into [(f, l)]. *)
-
-val sym_of : t -> Sym.t
-  (** [sym_of a] returns the function symbol [f] of an application
-    [a] of the form [App(f,_)]. *)
-
-val args_of : t -> t list
-  (** [sym_of a] returns the argument list [l] of an application
-    [a] of the form [App(_,l)]. *)
-
-val poly_of : t -> Mpa.Q.t * t list
-  (** [poly_of a] yields (q, ml) such that [q + mk_addl ml] equals [a]
-    and [ml] does not contain numeral addition anymore (if [a] is in
-    the normal form of linear arithmetic terms as described in module {!Arith}). *)
-
-val to_var : t -> Var.t
-  (** [to_var a] returns [x] if [a] is of the form [Var(x)]. *)
-
-
-(** {6 Hash value} *)
-
-val hash : t -> int
+val is_pure : Th.t -> t -> bool
+  (** [is_pure i a] holds iff all function symbols in [a] are of 
+    theory [i]. *)
 
 
 (** {6 Comparisons} *)
@@ -154,9 +175,6 @@ val orient : t * t -> t * t
   (** [orient (a, b)] is [(b, a)] if [b] is greater than [a],
     and [(a, b)] otherwise. *)
 
-val max : t -> t -> t
-
-val min : t -> t -> t
 
 val is_equal : t -> t -> Three.t
 
@@ -196,22 +214,91 @@ val pp : Format.formatter -> t -> unit
 
 val to_string : t -> string
 
-val pp_equal : (t * t) Pretty.printer
-val pp_diseq : (t * t) Pretty.printer
-
 
 (** {6 Sets and maps of terms} *)
 
 type trm = t
 
+module Set2 : (Set.S with type elt = trm * trm)
+
 module Set : (Set.S with type elt = trm)
 
 module Map : (Map.S with type key = trm)
-
-val apply : t Map.t -> t -> t
 
 val vars_of : t -> Set.t
   (** Return set of variables. *)
 
 
+
+module Equal : sig
+  type t = trm * trm
+  val lhs : t -> trm
+  val rhs : t -> trm
+  val make : trm * trm -> t
+  val destruct : t -> trm * trm
+  val pp : t Pretty.printer
+  val compare : t -> t -> int
+  val is_var : t -> bool
+  val is_pure : Th.t -> t -> bool
+end
+
+module Diseq : sig
+  type t = trm * trm
+  val lhs : t -> trm
+  val rhs : t -> trm
+  val make : trm * trm -> t
+  val destruct : t -> trm * trm
+  val pp : t Pretty.printer
+  val eq : t -> t -> bool
+  val compare : t -> t -> int
+end
+
+module Nonneg : sig
+  type t = trm
+  val make : trm -> t
+  val term_of : t -> trm
+  val pp : t Pretty.printer
+  val compare : t -> t -> int
+end 
+
+module Pos : sig
+  type t = trm
+  val make : trm -> t
+  val term_of : t -> trm
+  val pp : t Pretty.printer
+  val compare : t -> t -> int
+end
+
+
+(** {6 Term Substitution} *)
+
+type apply = t * t -> t -> t
+type map = (t -> t) -> (t -> t)
+
+module Subst : sig
+
+  type t = (trm * trm) list
+
+  val pp : t Pretty.printer
+
+  val empty : t
+
+  val fuse : apply -> trm * trm -> t -> t
+  val compose : apply -> trm * trm -> t -> t
+
+  val lookup : t -> trm -> trm
+
+  val invlookup : t -> (trm -> bool) -> trm
+
+  val apply : map -> ((trm * trm) * 'a) list -> trm -> trm * 'a list
+
+  val fold : (trm * trm -> 'a -> 'a) -> t -> 'a -> 'a
+
+end
+
+
+
+(** {6 Hashing} *)
+
+val hash : t -> int
 

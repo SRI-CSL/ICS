@@ -11,49 +11,47 @@
  * benefit corporation.
  *)
 
-type t = string
+(** Tableau
+
+  @author Harald Ruess
+  @author N. Shankar
+*)
+
+type t
+
+val eq : t -> t -> bool
+
+(** {6 Accessors} *)
+
+val apply : t -> Term.t -> Term.t * Justification.t
+
+val find : t -> Term.t -> Term.t * Justification.t
+
+val inv : t -> Term.t -> Term.t * Justification.t
+
+val dep : t -> Term.t -> Term.Set.t
+
+val is_dependent : t -> Term.t -> bool
+val is_independent : t -> Term.t -> bool
 
 
-let of_string =
-  let ht = Hashtbl.create 107 in
-    fun s ->
-      try
-	Hashtbl.find ht s
-      with
-	  Not_found ->
-            Hashtbl.add ht s s; s
+(** {6 Updates} *)
 
-let eq = (==)
+val empty : t
+  (** Empty equality set *)
 
-let to_string s = s
+val is_empty : t -> bool
 
-let eq = (=)
+val copy : t -> t
 
-let cmp n m =
-  Pervasives.compare n m
+val name : Partition.t * t -> Justification.Eqtrans.t
 
-let pp fmt s =
-  Format.fprintf fmt "%s" s
+val merge : Partition.t * t -> Fact.Equal.t -> unit
 
-let hash = Hashtbl.hash
+val propagate : Partition.t * La.t * t -> Fact.Equal.t -> unit
 
-type name = t  (* avoid type-check error below *)
 
-module Set = Set.Make(
-  struct
-    type t = name
-    let compare = Pervasives.compare
-  end)
+(** {6 Pretty-printing} *)
 
-module Map = Map.Make(
-  struct
-    type t = name
-    let compare = Pervasives.compare
-  end)
+val pp : t Pretty.printer
 
-module Hash = Hashtbl.Make(
-  struct
-    type t = name
-    let equal = eq
-    let hash = hash
-  end)

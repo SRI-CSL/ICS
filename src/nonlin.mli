@@ -11,49 +11,29 @@
  * benefit corporation.
  *)
 
-type t = string
+
+(* Builtin simplifications
+
+   @author Harald ruess
+*)
+
+val mk_mult : Term.t -> Term.t -> Term.t
+
+val mk_multl : Term.t list -> Term.t
+
+val mk_expt : int -> Term.t -> Term.t
+
+val mk_div : Term.t -> Term.t -> Term.t
+
+val mk_inv : Term.t -> Term.t
+
+val map : Term.map
+
+val apply : Term.Equal.t -> Term.t -> Term.t
+
+(** {6 Cross multiplication} *)
+
+val crossmultiply : Term.Equal.t -> Term.Equal.t
 
 
-let of_string =
-  let ht = Hashtbl.create 107 in
-    fun s ->
-      try
-	Hashtbl.find ht s
-      with
-	  Not_found ->
-            Hashtbl.add ht s s; s
 
-let eq = (==)
-
-let to_string s = s
-
-let eq = (=)
-
-let cmp n m =
-  Pervasives.compare n m
-
-let pp fmt s =
-  Format.fprintf fmt "%s" s
-
-let hash = Hashtbl.hash
-
-type name = t  (* avoid type-check error below *)
-
-module Set = Set.Make(
-  struct
-    type t = name
-    let compare = Pervasives.compare
-  end)
-
-module Map = Map.Make(
-  struct
-    type t = name
-    let compare = Pervasives.compare
-  end)
-
-module Hash = Hashtbl.Make(
-  struct
-    type t = name
-    let equal = eq
-    let hash = hash
-  end)

@@ -26,19 +26,19 @@ let keyword =
   List.iter 
     (fun (s,tk) -> Hashtbl.add kw_table s tk)
     [ "arith", ARITH; "tuple", TUPLE;
-      "in", IN; "inf", INF;
-      "bot", BOT; "int", INT; "real", REAL; "top", TOP;
+      "in", IN; "notin", NOTIN;
+      "int", INT; "real", REAL;
       "bitvector", BV; "with", WITH;
       "proj", PROJ;
       "cons", CONS; "car", CAR; "cdr", CDR;
       "conc", CONC; "sub", SUB; "ite", BWITE;
-      "drop", DROP; "can", CAN; "assert", ASSERT; "exit", EXIT; 
+      "drop", DROP; "simplify", SIMPLIFY; "can", CAN; "assert", ASSERT; "exit", EXIT; 
       "valid", VALID; "unsat", UNSAT;
       "save", SAVE; "restore", RESTORE; "remove", REMOVE; "forget", FORGET;
       "reset", RESET; "sig", SIG; "type", TYPE; "def", DEF; "prop", PROP;
       "sigma", SIGMA; "solve", SOLVE; "help", HELP; "model", MODEL;
-      "set", SET; "toggle", TOGGLE; "trace", TRACE;  "untrace", UNTRACE; 
-      "find", FIND; "inv", INV; "use", USE; "solution", SOLUTION; "partition", PARTITION;
+      "set", SET; "toggle", TOGGLE; "get", GET; "trace", TRACE;  "untrace", UNTRACE; 
+      "find", FIND; "inv", INV; "dep", USE; "solution", SOLUTION; "partition", PARTITION;
       "syntax", SYNTAX; "commands", COMMANDS; "ctxt", CTXT; "diseq", DISEQ; "echo", ECHO;
       "show", SHOW; "symtab", SYMTAB; "sign", SIGN; "dom", DOM; "split", SPLIT; "sat", SAT;
       "true", TRUE; "false", FALSE;
@@ -49,7 +49,9 @@ let keyword =
       "unsigned", UNSIGNED; "apply", APPLY;
       "lambda", LAMBDA;
       "if", IF; "then", THEN; "else", ELSE; "end", END;
-      "create", CREATE
+      "create", CREATE;
+      "sup", SUP;
+      "inf", INF
     ];
   fun s ->
     try Hashtbl.find kw_table s with Not_found -> IDENT s
@@ -66,7 +68,6 @@ rule token = parse
   	         token lexbuf }
   | '%' [^ '\n']* {token lexbuf }
   | ident      { keyword (Lexing.lexeme lexbuf) }
-  | "-inf"     { NEGINF }
   | ['0'-'9']+ { INTCONST (int_of_string (Lexing.lexeme lexbuf)) }
   | ['0'-'9']+ '/' ['0'-'9']+ 
                { RATCONST (Mpa.Q.of_string (Lexing.lexeme lexbuf)) }
@@ -88,8 +89,8 @@ rule token = parse
 		   FREE k }
   | '"' [^ '"']* '"' { STRING(Lexing.lexeme lexbuf) }
   | ','        { COMMA }
-  | '('        { if !Tools.mode = Tools.Prop then PROPLPAR else LPAR }
-  | ')'        { if !Tools.mode = Tools.Prop then PROPRPAR else RPAR }
+  | '('        { LPAR }
+  | ')'        { RPAR }
   | '['        { LBRA }
   | ']'        { RBRA }
   | '{'        { LCUR }
@@ -111,9 +112,6 @@ rule token = parse
   | '^'        { EXPT }
   | ".."       { DDOT }
   | "++"       { BVCONC }
-  | "&&"       { BWAND }
-  | "||"       { BWOR }
-  | "##"       { BWXOR }
   | '&'        { CONJ }
   | '|'        { DISJ }
   | '#'        { XOR }
@@ -126,6 +124,7 @@ rule token = parse
   | "[]"       { NIL }
   | '.'        { DOT }
   | '$'        { APPLY }
-  | '@'        { KLAMMERAFFE } 
+  | '@'        { KLAMMERAFFE }
+  | "'"        { QUOTE }
   | eof        { EOF }
   | _          { raise Parsing.Parse_error }

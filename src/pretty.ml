@@ -30,6 +30,11 @@ let bool fmt = function
   | false ->
       Format.fprintf fmt "false"
 
+let three fmt = function
+  | Three.Yes -> Format.fprintf fmt "yes"
+  | Three.No -> Format.fprintf fmt "no"
+  | Three.X -> Format.fprintf fmt "x"
+
 let option pp fmt = function
   | None -> 
       Format.fprintf fmt "None"
@@ -45,7 +50,7 @@ let list (pre,sep,post) pp fmt l =
   let rec iter = function
     | [] -> ()
     | [x] -> pp fmt x
-    | x :: l -> pp fmt x; string fmt sep; Format.fprintf fmt " "; iter l
+    | x :: l -> pp fmt x; string fmt sep; Format.fprintf fmt "@, "; iter l
   in
   Format.fprintf fmt "@[%s" pre; 
   iter l; 
