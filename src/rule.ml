@@ -219,19 +219,44 @@ and fme u a s =                    (* [u = a]. *)
   Trace.msg "rule" "Fme" (u, a) Term.pp_equal;
   try
     let i = c s u in               (* [u in i] *)
+    let (q, x, a') = Arith.destructure a  in (* [q * x + a' = a]. *)
       folduse Th.la (Arith.leading a)
 	(fun (v, b) s ->           (* [v = b] *)
 	   if Term.eq u v then s else
 	     try
 	       let j = c s v in    (* [v in j]. *)
-	       let q = Arith.multiple (a, b) in     (* [q * a = b]. *)
-	       let i' = Cnstrnt.multq (Q.inv q) j in
-	       let j' = Cnstrnt.multq q i in
-		 infer u i'        (* thus [u in 1/q * j] *)
-		   (infer v j' s)  (* and  [v in q * i] *)
+		 (try
+		    let q = Arith.multiple (a, b) in     (* [q * a = b]. *)
+		    let i' = Cnstrnt.multq (Q.inv q) j in
+		    let j' = Cnstrnt.multq q i in
+		      infer u i'        (* thus [u in 1/q * j] *)
+			(infer v j' s)  (* and  [v in q * i] *)
+		  with
+		      Not_found ->      (* [q * y + b' = b] *) 
+			let (p, y, b') = Arith.destructure b in
+			  if not (Term.eq x y) then s else 
+			    let c =     (* [c = p * a' - q * b'] *)
+			      Can.term s
+				(Arith.mk_sub 
+				   (Arith.mk_multq p a') 
+				   (Arith.mk_multq q b'))
+			    and k =     (* [k = p * i - q * j] *)
+			      Cnstrnt.subtract
+				(Cnstrnt.multq p i)
+				(Cnstrnt.multq q j)
+			    in
+			    let (c, k) = Atom.normalize (c, k) in
+			      (match c with
+				| Var _ -> 
+				    infer c k s
+				| App(Arith(Num(q)), []) ->
+				    if Cnstrnt.mem q k then s else raise Exc.Inconsistent
+				| _ ->
+				    let (s', x') = name Th.la (s, c) in
+				      infer x' k s'))	
 	     with
 		 Not_found -> s)
-	s
+         s
   with
       Not_found -> s
 
