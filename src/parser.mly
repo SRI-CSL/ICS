@@ -40,7 +40,7 @@ let equal_width_of a b =
 
 %}
 
-%token DROP CAN ABSTRACT ASSERT EXIT SAVE RESTORE REMOVE FORGET RESET SYMTAB SIG VALID UNSAT
+%token DROP CAN ASSERT EXIT SAVE RESTORE REMOVE FORGET RESET SYMTAB SIG VALID UNSAT
 %token TYPE SIGMA
 %token SOLVE HELP DEF TOGGLE SET TRACE UNTRACE CMP FIND USE INV SOLUTION PARTITION
 %token SHOW CNSTRNT SYNTAX COMMANDS SPLIT
@@ -82,7 +82,7 @@ let equal_width_of a b =
 %right DISJ XOR IMPL
 %left BIIMPL CONJ
 %nonassoc EQUAL DISEQ LESS GREATER LESSOREQUAL GREATEROREQUAL
-%left APPLY
+%right APPLY
 %left UNION
 %left MINUS PLUS 
 %left DIVIDE
@@ -103,11 +103,14 @@ let equal_width_of a b =
 %type <Cnstrnt.t> cnstrnteof
 %type <Result.t> commands
 %type <Result.t> commandseof
+%type <Result.t> commandsequence
+
 
 %start termeof
 %start atomeof
 %start cnstrnteof
 %start commands
+%start commandsequence
 %start commandseof
 
 %%
@@ -119,6 +122,12 @@ commandseof : command EOF    { $1 }
 
 commands : command DOT       { $1 }
 | EOF                        { raise End_of_file }
+
+commandsequence : command DOT    { $1 }
+| command DOT commandsequence    { $3 }
+| EOF                            { raise End_of_file }
+
+                         
 
 rat:
   INTCONST  { Q.of_int $1 }
@@ -196,7 +205,9 @@ list:
 | NIL                           { Coproduct.mk_inj 0 (Tuple.mk_tuple []) }
 
 apply: 
-  term APPLY term               { Apply.mk_apply None $1 [$3] }
+  term APPLY term               { Apply.mk_apply
+				    (Context.sigma (Context.empty))
+                                     None $1 [$3] }
 
      
 arith:
@@ -324,8 +335,6 @@ signature:
 command: 
   CAN atom                  { Result.Atom(Istate.can $2) }
 | CAN term                  { Result.Term(Istate.cant $2) }
-| ABSTRACT term             { Result.Term(Istate.abstract_term $2) }
-| ABSTRACT atom             { Result.Atom(Istate.abstract_atom $2) }
 | ASSERT optname atom       { Result.Process(Istate.process $2 $3) }
 | DEF name ASSIGN term      { Result.Unit(Istate.def $2 $4) }
 | SIG name COLON signature  { Result.Unit(Istate.sgn $2 $4) }
