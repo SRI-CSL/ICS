@@ -401,19 +401,26 @@ let rec sigma op l =
     | _ ->  assert false
 
 
+(*s Abstract interpretation in the domain of constraints. *)
+
+let rec cnstrnt ctxt a =
+  match d_interp a with
+    | Some(Sym.Num(q), []) -> 
+	Cnstrnt.mk_singleton q
+    | Some(Sym.Mult, l) -> 
+	Cnstrnt.multl (List.map (cnstrnt ctxt) l)
+    | Some(Sym.Add, l) -> 
+	Cnstrnt.addl (List.map (cnstrnt ctxt) l)
+    | Some(Sym.Expt(n), [x]) -> 
+	Cnstrnt.expt n (cnstrnt ctxt x)
+    | _ ->
+	ctxt a
+
+
 (*s Solving of an equality [a = b] in the rationals and the integers. 
-  Solve for largest term. *)
+  Solve for maximal monomial which satisfies predicate [pred]. *)
 
-let rec solve p e =
-  Trace.call 7 "Solve(a)" e (Pretty.eqn Term.pp);
-  let sl = solve1 p e in
-  Trace.exit 7 "Solve(a)" sl pp_solved;
-  sl
-
-and solve1 p (a,b) =
-  let pred x = p x                     (* solve for maximal monomial. *)
-                                      (* which is linear and satisfies [p] *)
-  in   
+let rec solve_for pred (a,b) =
   let orient x b =
   if is_interp b then
     (x, b)
@@ -430,14 +437,45 @@ and solve1 p (a,b) =
       let ((p,x), ml) = destructure pred l in
       assert(not(Q.is_zero p));             (*s case [q + p * x + ml = 0] *)
       let b = mk_multq (Q.minus (Q.inv p)) (of_poly q ml) in
-      if Term.eq x b then None else Some(orient x b)
+      if Term.eq x b then 
+	None
+      else 
+	Some(orient x b)
     with
-	Not_found -> raise Exc.Unsolved
+	Not_found -> 
+	  raise Exc.Unsolved
 
-and pp_solved fmt sl =
-  match sl with
-    | None -> Pretty.solution Term.pp fmt []
-    | Some(x,a) -> Pretty.solution Term.pp fmt [(x,a)]
+and solve ctxt (a, b) =
+  match solve_for is_var (a, b) with
+    | None -> None
+    | Some(x, a) -> Some(deduce ctxt (x, a))
+  
+and deduce ctxt (x, b) =
+  try
+    let c = cnstrnt ctxt x and d = cnstrnt ctxt b  in
+    match Cnstrnt.cmp c d with
+      | Binrel.Disjoint ->
+	  raise Exc.Inconsistent
+      | Binrel.Sub | Binrel.Same ->
+	  ([(x, b)], [])
+      | Binrel.Super ->
+	  ([(x, b)], [(x, d)])
+      | Binrel.Overlap(cd) ->
+	  ([(x, b)], [(x, cd)])
+      | Binrel.Singleton(q) ->
+	  let num = mk_num q in
+	  try
+	    match solve ctxt (b, num) with
+	      | None -> ([(x, num)], [])
+	      | Some(sl2, cl2) -> ((x, num) :: sl2, cl2)
+	  with
+	      Exc.Unsolved ->
+		([(x, b)], [(x, Cnstrnt.mk_singleton q)])
+  with
+      Not_found ->
+	([(x, b)], [])
+
+
 
 
 (*s Destructuring a polynomial into the monomial which satisfies predicate [f]
@@ -456,4 +494,3 @@ and destructure pred l =
 	   raise Not_found
    in
    loop [] l
-
