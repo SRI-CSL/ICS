@@ -31,7 +31,17 @@ let empty = Map.empty
 
 let deq_of s = s
 
-let pp = Pretty.map Pretty.tset 
+let pp fmt s = 
+  let l = 
+    Term.Map.fold 
+      (fun x y acc -> (x,Term.Set.elements y) :: acc) 
+      s [] 
+  in
+  if l <> [] then
+    begin
+      Format.fprintf fmt "d:";
+      Pretty.map Term.pp (Pretty.set Term.pp) fmt l
+    end
 
 (*s All terms known to be disequal to [a]. *)
 
@@ -59,15 +69,14 @@ let add1 (x,y) s =
     | false, false -> Map.add x xd' (Map.add y yd' s)
 
 let add (x,y) s =
-  Trace.msg 5 "Add(d)" (x,y) Pretty.eqn;
   let s' = add1 (x,y) s in
-  Trace.exit 5 "Add(d)" [] (Pretty.list Pretty.atom);
   s'
 
 
 (*s Propagating an equality between uninterpreted terms. *)
 
-let merge1 (a, b) s =
+let merge e s =
+  let (a,b) = Veq.destruct e in
   let da = deq s a and db = deq s b in
   if Set.mem a db || Set.mem b da then
     raise Exc.Inconsistent
@@ -78,12 +87,6 @@ let merge1 (a, b) s =
     else
       let s' = Map.remove a s in
       Map.add b dab s'
-
-let merge (x,y) s =
-  Trace.msg 5 "Merge(d)" (x,y) Pretty.eqn;
-  let s' = merge1 (x,y) s in
-  Trace.exit 5 "Merge(d)" [] (Pretty.list Pretty.atom);
-  s'
 
 
 (*s Removing disequalities for [a] by recursively 

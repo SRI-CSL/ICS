@@ -15,7 +15,7 @@ i*)
 type entry = 
   | Def of Term.t
   | Arity of int
-  | Type of Number.t
+  | Type of Cnstrnt.t
   | State of Shostak.t
 
 and t = entry Name.Map.t
@@ -50,8 +50,8 @@ let rec pp fmt s =
 and pp_entry fmt e =
   let pr = Format.fprintf fmt in
   match e with
-    | Def(x) -> pr "@[def("; Pretty.term fmt x; pr ")@]"
+    | Def(x) -> pr "@[def("; Term.pp fmt x; pr ")@]"
     | Arity(a) -> pr "@[sig("; Format.fprintf fmt "%d" a; pr ")@]"
-    | Type(c) -> pr "@[type("; Number.pp fmt c; pr ")@]"
+    | Type(c) -> pr "@[type("; Cnstrnt.pp fmt c; pr ")@]"
 
     | State(s) -> pr "@[state("; Shostak.pp fmt s; pr ")@]"

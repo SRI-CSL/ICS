@@ -43,44 +43,48 @@ endif
 
 INCLUDE =
 CFLAGS = 
-BFLAGS = -g $(INCLUDE) -noassert
-OFLAGS = $(INCLUDE) -noassert
+BFLAGS = -g $(INCLUDE) # -noassert
+OFLAGS = $(INCLUDE) # -noassert
 LIBS = -cclib "-lunix $(LIBGMPA)"
 
 # Object files
 
 COBJS = mlgmp.o
 
-CMO = sign.cmo binrel.cmo three.cmo \
+CMO = sign.cmo three.cmo \
       gmp.cmo mpa.cmo \
+      binrel.cmo \
       hashcons.cmo \
       tools.cmo status.cmo \
+      pretty.cmo \
       trace.cmo \
       exc.cmo\
       bitv.cmo \
-      extq.cmo allen.cmo dom.cmo interval.cmo intervals.cmo \
+      extq.cmo dom.cmo endpoint.cmo interval.cmo cnstrnt.cmo \
       name.cmo \
-      number.cmo \
       sym.cmo \
+      var.cmo \
       term.cmo \
-      rename.cmo \
+      veq.cmo \
+      veqs.cmo \
+      boolean.cmo \
       arith.cmo \
       tuple.cmo \
-      bv.cmo \
-      nonlin.cmo \
+      bitvector.cmo \
       builtin.cmo \
       app.cmo \
-      cnstrnt.cmo \
       atom.cmo \
-      prop.cmo \
-      pretty.cmo \
-      v.cmo \
+      subst.cmo \
+      supinf.cmo \
       c.cmo \
+      a.cmo \
+      t.cmo \
+      bv.cmo \
+      b.cmo \
       d.cmo \
       cc.cmo \
       th.cmo \
       shostak.cmo \
-      check.cmo \
       symtab.cmo istate.cmo \
       parser.cmo lexer.cmo \
       ics.cmo

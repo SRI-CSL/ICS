@@ -38,7 +38,8 @@ let s = init ()
 
 (*s Context. *)
 
-let ctxt_of () = s.current.Shostak.ctxt
+let ctxt_of () = 
+  Atom.Set.elements s.current.Shostak.ctxt
 
 (*s Accessors to components of global state. *)
 
@@ -87,13 +88,9 @@ let nl () = Format.fprintf s.outchannel "\n"
 
 (*s Canonization w.r.t current state. *)
 
-let can_t p = 
-  let (t, b) = Shostak.can_t s.current p in
-  s.current <- t;
-  b
 
-let can_a p = 
-  let (t, b) = Shostak.can_a s.current p in
+let can p = 
+  let (t, b) = Shostak.can s.current p in
   s.current <- t;
   b
 
@@ -101,18 +98,9 @@ let can_a p =
 
 (*s Adding a new fact *)
 
-let process_a a =
+let process a =
   let t = current () in
-  let status = Shostak.process_a t a in
-  (match status with                     (* Update state *)
-     | Shostak.Satisfiable(t') -> 
-	 s.current <- t' 
-     | _ -> ());
-  status
-
-let process_p p =
-  let t = current () in
-  let status = Shostak.process_p t p in
+  let status = Shostak.process t a in
   (match status with                     (* Update state *)
      | Shostak.Satisfiable(t') -> 
 	 s.current <- t' 
@@ -149,20 +137,16 @@ let forget () =
 
 (*s Accessors. *)
 
-let u_of () = Cc.u_of s.current.Shostak.u
-let v_of () = Cc.v_of s.current.Shostak.u
-let a_of () = Th.la_of s.current.Shostak.i
-let t_of () = Th.t_of s.current.Shostak.i
-let bv_of () = Th.bv_of s.current.Shostak.i
-let diseq_of () = D.deq_of s.current.Shostak.d
-let cnstrnt_of () = C.cnstrnt_of s.current.Shostak.c
-let prop_of () = s.current.Shostak.p
+let diseq_of () = failwith "to do" 
 
 let diseq a =
   failwith "to do"
 
 let cnstrnt a =
   Shostak.cnstrnt s.current a
+
+let cnstrnts () =
+  Shostak.cnstrnts s.current
 
 (*s Applying maps. *)
 
@@ -176,13 +160,10 @@ let solution e = Shostak.solution e s.current
 
 (*s Variable partitioning. *)
 
-let partition () = Shostak.partition s.current
-   
-(*s Toggle variables. *)
-
-type toggle = 
-  | Printall
-
-let toggle = function
-  | Printall -> Pretty.set_print_all (not (Pretty.get_print_all()))
-
+let partition () = 
+  Term.Map.fold
+    (fun x y acc ->
+       (x,y) :: acc)
+    (Shostak.partition s.current)
+    []
+ 

@@ -19,48 +19,49 @@ open Sym
 open Term
 (*i*)
 
-let is_tuple a =
+let is_interp a =
+  Term.is_app a &&
   match Sym.destruct (Term.sym_of a) with
     | Sym.Interp(Sym.Tuple _) -> true
     | _ -> false
 
+let d_interp a =
+  if Term.is_var a then
+    None
+  else 
+    match Sym.destruct (Term.sym_of a) with
+      | Interp(Tuple(f)) -> Some(f, Term.args_of a)
+      | _ -> None
+
 let d_tuple a =
-  match destruct a with
-    | f, xl when Sym.eq f Sym.mk_tuple -> Some(xl)
-    | _ -> None
+  if Term.is_var a then None else
+    match destruct a with
+      | f, xl when Sym.eq f Sym.mk_tuple -> Some(xl)
+      | _ -> None
 
 let d_proj a =
-  let f, l = Term.destruct a in
-  match Sym.destruct f, l with
-    | Interp(Tuple(Proj(i,n))), [x] -> Some(i,n,x)
-    | _ -> None
+  if Term.is_var a then None else 
+    let f, l = Term.destruct a in
+    match Sym.destruct f, l with
+      | Interp(Tuple(Proj(i,n))), [x] -> Some(i,n,x)
+      | _ -> None
 
 
 (*s Apply [f] at uninterpreted positions. *)
 
 let rec iter f a = 
-  match Sym.destruct (Term.sym_of a) with
-    | Interp(Tuple(op)) ->
-	(match op, Term.args_of a with
-	   | Product, l -> List.iter (iter f) l
-	   | Proj _, [x] -> f x
-	   | _ -> assert false)
-    | _ ->
-	f a
+  match d_interp a with
+    | Some(Product, l) -> List.iter (iter f) l
+    | Some(Proj _, [x]) -> f x
+    | _ -> f a
 
 (*s Fold iterator  *)
 
 let rec fold f a e = 
-  match Sym.destruct (Term.sym_of a) with
-    | Interp(Tuple(op)) ->
-	(match op, Term.args_of a with
-	   | Product, l -> 
-	       List.fold_right (fold f) l e
-	   | Proj _, [x] -> 
-	       fold f x e
-	   | _ -> assert false)
-    | _ ->
-	f a e
+  match d_interp a with
+    | Some(Product, l) -> List.fold_right (fold f) l e
+    | Some(Proj _, [x]) -> fold f x e
+    | _ -> f a e
  
 (*s Smart constructors for tuples and projections. *)
 
@@ -76,18 +77,11 @@ let rec mk_proj i n a =
 
 (*s Apply term transformer [f] at uninterpreted positions. *)
 
-let norm f =
-  let rec loop x =
-    match Sym.destruct (Term.sym_of x) with
-      | Interp(Tuple(op)) ->
-	  (match op, Term.args_of x with
-	     | Product, l -> mk_tuple (Term.mapl loop l)
-	     | Proj(i,n), [y] -> mk_proj i n (loop y)
-	     | _ -> failwith "Tuple.fold: ill-formed tuple expression")
-      | _ ->
-	  f x
-  in
-  loop
+let rec map f a =
+  match d_interp a with
+    | Some(Sym.Product, l) -> mk_tuple (Term.mapl (map f) l)
+    | Some(Sym.Proj(i,n), [y]) -> mk_proj i n (map f y)
+    | _ -> f a
 
 (*s Sigmatizing. *)
 
@@ -99,19 +93,16 @@ let sigma op l =
 
 (*s Fresh variables. *)
 
-let k = ref 0
-let _ = Tools.add_at_reset (fun () -> k := 0)
+let freshvars = ref Term.Set.empty
+let _ =  Tools.add_at_reset (fun () -> freshvars := Term.Set.empty)
 
-let mk_fresh () =
-  incr(k);
-  let f = Sym.mk_internal (Sym.FreshT(!k)) in
-  Term.mk_const f
-
-let is_fresh a =
-  let f,l = Term.destruct a in
-  match Sym.destruct f, l with
-    | Sym.Uninterp(Sym.Internal(Sym.FreshT _)), [] -> true
-    | _ -> false
+let mk_fresh () = 
+  let x = Term.mk_fresh (Name.of_string "t") in
+  freshvars := Term.Set.add x !freshvars;
+  x
+  
+let is_fresh x =
+  Term.Set.mem x !freshvars
 
 (*s Solving tuples. *) 
 
@@ -147,7 +138,7 @@ and solvel el sl =
 			      else
 				raise Exc.Inconsistent
 			  | None, None ->
-			      let sl1 = add (Term.order a b) sl in
+			      let sl1 = add (Term.orient(a,b)) sl in
 			      solvel el1 sl1))
 
 and is_consistent a bl =
@@ -183,4 +174,4 @@ and add (a,b) el =
     (a,b) :: el'
 
 and subst1 a x b =      (* substitute [x] by [b] in [a]. *)
-  norm (fun y -> if Term.eq x y then b else y) a
+  map (fun y -> if Term.eq x y then b else y) a

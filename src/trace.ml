@@ -60,7 +60,7 @@ let exit trace_level op res pp =
     end
     
 let exc trace_level op res pp =
-  let str = Tools.pp_to_string (fun fmt e ->
+  let str = Pretty.to_string (fun fmt e ->
 				  Format.fprintf fmt "Exception %s for" op;
 				  pp fmt res)
 	      res

@@ -14,71 +14,52 @@
  * Authors: Ritvik Sahajpa, Harald Ruess
  i*)
 
-type t = Int | Nonint | Real
+type t = Int | Real
 
 let eq d1 d2 = (d1 = d2)
 
 (*s Union of two domains*)
 
 let union d1 d2 =
-  if d1 = d2 then d1 else Real         (*s e.g [union Int Int = Int] *)
+  match d1, d2 with
+    | Int, Int -> Int
+    | _ -> Real
 
-(*s Intersection of two domains*)
-
-exception Empty
+(*s Intersection of two domains *)
 
 let inter d1 d2 =
-  if d1 = d2 then d1 else
-    match d1, d2 with
-      | Int, Real -> Int
-      | Real, Int -> Int
-      | Nonint, Real -> Nonint
-      | Real, Nonint -> Nonint
-      | Int, Nonint -> raise Empty
-      | Nonint, Int -> raise Empty
-      | _ -> assert false
-
-(*s Complement domain. *)
-
-let compl = function
-  | Real -> Real
-  | Int -> Nonint
-  | Nonint -> Int
-   
+  match d1, d2 with
+    | Real, Real -> Real
+    | _ -> Int
 
 (*s Testing for disjointness. *)
 
-let disjoint d1 d2 =
-  match d1, d2 with
-    | Int, Nonint -> true
-    | Nonint, Int -> true
-    | _ -> false
+let disjoint d1 d2 = false
 
 (*s Testing for subdomains. *)
 
 let sub d1 d2 =
-  d1 = d2 ||
-  (match d1, d2 with
-     | Int, Real -> true
-     | Nonint, Real -> true
-     | _ -> false)
+  match d1, d2 with
+    | Real, Int -> false
+    | _ -> true
 
 let cmp d1 d2 = 
-  if d1 = d2 then Binrel.Same else
-    match d1, d2 with
-      | Real, _ -> Binrel.Super
-      | _ , Real -> Binrel.Sub
-      | Int, Nonint -> Binrel.Disjoint
-      | Nonint, Int -> Binrel.Disjoint
-      | _ -> assert false
+  match d1, d2 with
+    | Int, Int -> Binrel.Same
+    | Int, Real -> Binrel.Sub
+    | Real, Int -> Binrel.Super
+    | Real, Real -> Binrel.Same
 
 let of_q q =
-  if Mpa.Q.is_integer q then Int else Nonint
+  if Mpa.Q.is_integer q then Int else Real
+
+let mem q = function
+  | Real -> true
+  | Int -> Mpa.Q.is_integer q
 
 let pp fmt d =
   let s = match d with
     | Real -> "real"
     | Int -> "int"
-    | Nonint -> "nonint"
   in
   Format.fprintf fmt "%s" s

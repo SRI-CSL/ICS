@@ -19,55 +19,64 @@ open Mpa
 open Format
 (*i*)
 
-type t = {
-  sym : Sym.t; 
-  args : t list
-}
+(*s Terms. *)
 
-(*s Equalities *)
-
+type t =
+  | Var of Var.t
+  | App of Sym.t * t list
+ 
 let rec eq a b = 
-  (Sym.eq a.sym b.sym) &&
-  (try 
-     List.for_all2 eq a.args b.args
-   with 
-       Invalid_argument _ -> false)
+  match a, b with
+    | Var(x), Var(y) -> 
+	Var.eq x y
+    | App(f,l), App(g,m) -> 
+	Sym.eq f g &&
+	(try List.for_all2 eq l m with Invalid_argument _ -> false)
+    | _ ->
+	false
 
-(*s Sets and maps of terms. *)
+(*s Constructors. *)
 
-type trm = t  (* avoid type-check error below *)
+let mk_var x = Var(Var.mk_var x)
+let mk_fresh x = Var(Var.mk_fresh x)
+let mk_const f = App(f,[])
+let mk_app f l = App(f,l)
 
-module Set = Set.Make(
-  struct
-    type t = trm
-    let compare = Pervasives.compare
-  end)
+(*s Recognizers. *)
 
-module Map = Map.Make(
-  struct
-    type t = trm
-    let compare = Pervasives.compare
-  end)
+let is_var = function Var _ -> true | _ -> false
+let is_app = function App _ -> true | _ -> false
+
+let is_fresh = function Var(x) -> Var.is_fresh x | _ -> false
+let is_const = function App(_,[]) -> true | _ -> false
 
 
-let mk_const f = { sym = f; args = [] }
+(*s Destructors. *)
 
-let mk_var x = { sym = Sym.mk_uninterp x; args = [] }
+let destruct a =
+  assert(is_app a);
+  match a with App(f,l) -> (f,l) | _ -> assert false
 
-let mk_app f l = { sym = f; args = l }
+let sym_of a = 
+  assert(is_app a);
+  match a with App(f,_) -> f | _ -> assert false
 
-let destruct a = (a.sym, a.args)
+let args_of a = 
+  assert(is_app a);
+  match a with App(_,l) -> l | _ -> assert false
 
-let sym_of a = a.sym
-let args_of a = a.args
-	       
 	
 (*s Structural comparison. *)
 
 let rec cmp a b =
-  let c1 = Sym.cmp a.sym b.sym in
-  if c1 != 0 then c1 else cmpl a.args b.args
-
+  match a, b with
+    | Var _, App _ -> -1
+    | App _, Var _ -> 1
+    | Var(x), Var(y) -> Var.cmp x y
+    | App(f,l), App(g,m) ->
+	let c1 = Sym.cmp f g in
+	if c1 != 0 then c1 else cmpl l m
+ 
 and cmpl l m =
   let rec loop c l m =
     match l, m with
@@ -87,68 +96,34 @@ let (<<<) a b = (cmp a b <= 0)
   Otherwise, the term ordering is arbitrary and we use [Term.cmp] for
   ordering all the other cases. *)
 
-let order a b =
+let orient (a,b) =
   if a <<< b then (b,a) else (a,b)
 
 
-(*s Boolean constants. *)
-
-let ttsym = Sym.mk_uninterp (Name.of_string "true")
-let ffsym = Sym.mk_uninterp (Name.of_string "false")
-
-let mk_tt = mk_app ttsym [] 
-let mk_ff = mk_app ffsym []
-
-let is_tt a = a.args = [] && Sym.eq a.sym ttsym
-let is_ff a = a.args = [] && Sym.eq a.sym ffsym
-
 (*s Some recognizers. *)
 
-let is_const a =
-  a.args = []
-
-let is_var a =
-  a.args = [] && 
-  (Sym.is_uninterp a.sym || Sym.is_internal a.sym)
-
-
-let is_label a =
-  (a.args = []) &&
-  (match Sym.destruct a.sym with
-     | Sym.Uninterp(Sym.Internal(Sym.Label _)) -> true
-     | _ -> false)
-
-let is_slack a =
-  (a.args = []) &&
-  (match Sym.destruct a.sym with
-     | Sym.Uninterp(Sym.Internal(Sym.Slack _)) -> true
-     | _ -> false)
-
-let d_slack a = 
-  assert(a.args = []);
-  match Sym.destruct a.sym with
-    | Sym.Uninterp(Sym.Internal(Sym.Slack(_,c))) -> Some(c)
-    | _ -> None
-
-let is_interp_const a =
-  a.args = [] && Sym.is_interpreted_const a.sym
+let is_interp_const = function
+  | App(f,[]) -> Sym.is_interp f
+  | _ -> false
    
-let is_interp a =
-  Sym.is_interp a.sym
+let is_interp = function
+  | App(f, _) -> Sym.is_interp f
+  | _ -> false
 
-let is_uninterpreted a =
-  not(Sym.is_interp a.sym)
-
+let is_uninterpreted = function
+  | App(f, _) -> not(Sym.is_interp f)
+  | _ -> false
 
 (*s Test is arguments are known to be disequal. *)
 
 let is_diseq a b =
-  match destruct a, destruct b with
-    | (f, []), (g, []) ->
+  match a, b with
+    | App(f,[]), App(g,[]) ->
 	not(Sym.eq f g) &&
-	Sym.is_interpreted_const f && Sym.is_interpreted_const g
-    | _ ->
-	false
+	Sym.is_interpreted_const f && 
+	Sym.is_interpreted_const g
+     | _ ->
+	 false
 
 
 (*s Mapping over list of terms. Avoids unnecessary consing. *)
@@ -167,40 +142,53 @@ let rec assq a = function
   | [] -> raise Not_found
   | (x,y) :: xl -> if eq a x then y else assq a xl
 
-(*s Is [a] a subterm of [b]. *)
-
-let is_subterm a b =
-  let rec occ b =
-    eq a b || List.exists occ b.args
-  in 
-  occ b
-
 (*s Iteration over terms. *)
 
 let rec fold f a acc =
-  f a (List.fold_right (fold f) a.args acc)
+  if is_var a then
+    f a acc
+  else 
+    f a (List.fold_right (fold f) (args_of a) acc)
 
 let rec iter f a  =
-  f a; List.iter (iter f) a.args
+  f a; 
+  if is_app a then
+    List.iter (iter f) (args_of a)
 
 let rec for_all p a  =
-  p a && List.for_all (for_all p) (args_of a)
+  p a && (is_var a || List.for_all (for_all p) (args_of a))
 
 
 (*s Printer. *)
 
 let rec pp fmt a =
-  let f,l = destruct a in
-  Format.fprintf fmt "@["; 
-  Sym.pp false fmt f; 
-  Tools.ppl ("(", ", ", ")") pp fmt l; 
-  Format.fprintf fmt "@]"
+  match a with
+    | Var(x) -> 
+	Var.pp fmt x
+    | App(f,[]) ->
+	Sym.pp fmt f
+    | App(f,l) ->
+	Format.fprintf fmt "@["; 
+	Sym.pp fmt f; 
+	Tools.ppl ("(", ", ", ")") pp fmt l; 
+	Format.fprintf fmt "@]"
 
-let ppeqn fmt (a,b) =
-  Format.fprintf fmt "@[("; 
-  pp fmt a;
-  Format.fprintf fmt " = ";
-  pp fmt b;
-  Format.fprintf fmt ")@]"
+let to_string = 
+  Pretty.to_string pp
 
 
+(*s Sets and maps of terms. *)
+
+type trm = t  (* avoid type-check error below *)
+
+module Set = Set.Make(
+  struct
+    type t = trm
+    let compare = Pervasives.compare
+  end)
+
+module Map = Map.Make(
+  struct
+    type t = trm
+    let compare = Pervasives.compare
+  end)

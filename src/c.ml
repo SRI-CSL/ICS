@@ -14,149 +14,135 @@
  * Author: Harald Ruess
 i*)
 
-
 (*i*)
 open Term
-open Binrel
 (*i*)
 
-type t = Number.t Map.t
+type t = Supinf.t Term.Map.t
+
+
+(*s Pretty-printing. *)
 
 let pp fmt s = 
-  Pretty.map Number.pp fmt s
- 
-let cnstrnt_of s = s
+  let bndngs = Term.Map.fold (fun x c acc -> (x,c) :: acc) s [] in
+  Pretty.map Term.pp Supinf.pp fmt bndngs
 
-let empty = Map.empty              
-       
-let apply s a = Map.find a s
+let ppin =
+  Pretty.infix Term.pp " in " Cnstrnt.pp 
 
-let mem s a = Map.mem a s
 
-let rec merge (a,b) s = 
-  Trace.call 5 "Merge(c)" (a,b) Pretty.eqn;
-  let (s',al') = merge1 (a,b) s in
-  Trace.exit 5 "Merge(c)" al' (Pretty.list Pretty.atom);
-  (s', al')
+(*s Check if [x] is in the domain. *)
 
-and merge1 (a,b) s =
-  let (a,b) = V.orient (a,b) in
+let mem x s = Term.Map.mem x s
+
+
+(*s Constraints as a list. *)
+
+let cnstrnts s =
+  Term.Map.fold (fun x c acc -> (x,c) :: acc) s []
+  
+
+(*s Accessors. *)
+
+let sup_of x s = 
+  try 
+    (Term.Map.find x s).Supinf.sup 
+  with 
+      Not_found -> Term.Set.empty
+
+let inf_of x s = 
+  try 
+    (Term.Map.find x s).Supinf.inf 
+  with 
+      Not_found -> Term.Set.empty
+
+let diseqs_of x s =
+  try 
+    (Term.Map.find x s).Supinf.diseqs 
+  with 
+      Not_found -> Term.Set.empty
+
+let cnstrnt_of x s =
+  try 
+    Some((Term.Map.find x s).Supinf.cnstrnt) 
+  with 
+      Not_found -> None
+
+
+(*s The empty constraint map. *)
+
+let empty = Term.Map.empty
+
+(*s Test for emptyness. *)
+
+let is_empty s = (s == Term.Map.empty)
+
+(*s Adding a constraint. *)
+
+let rec add (a,c) s =
+  Trace.call 6 "Add(c)" (a,c) ppin;
+  if Term.is_var a then
+    addvar (a,c) s
+  else 
+    failwith "C.add: to do"
+
+and addvar (x,c) s =
+  assert(Term.is_var x);
   try
-    let ca = match Cnstrnt.of_term a with
-      | Some(c) -> Number.inter (Map.find a s) c
-      | None -> (Map.find a s)
-    in
+    let rho = Term.Map.find x s in
+    let d = rho.Supinf.cnstrnt in
+    match Cnstrnt.cmp c d with
+      | Binrel.Disjoint ->
+	  raise Exc.Inconsistent
+      | (Binrel.Super | Binrel.Same) ->
+	  (Veqs.empty, s)
+      | Binrel.Sub ->
+	  (Veqs.empty, failwith "C.addvar: to do")
+      | Binrel.Singleton(q) ->
+	  (Veqs.empty, failwith "C.addvar: to do")
+      | Binrel.Overlap ->
+	  (Veqs.empty, failwith "C.addvar: to do")
+  with
+      Not_found -> 
+	(Veqs.empty, Term.Map.add x (Supinf.of_cnstrnt c) s)
+  
+
+(*s Merging in an equality between variables. *)
+
+let rec merge1 (x,y) s =
+  try
+    let c = Term.Map.find x s in
     try
-      let cb = match Cnstrnt.of_term b with
-	| Some(c) -> Number.inter (Map.find b s) c
-	| None -> (Map.find b s)
-      in
-      match Number.cmp ca cb with
-	| (Same | Super) ->
-	    (Map.remove a s, [])
-	| Sub -> 
-	    (Map.add b ca s, [])
-	| Disjoint ->
-	    raise Exc.Inconsistent
-	| Overlap ->
-	    let cab = Number.inter ca cb in
-	    match Number.d_singleton cab with
-	      | Some(u) ->
-		  let e' = Atom.mk_equal b (Arith.mk_num u) in
-		  let s' = Map.remove a s in
-		  (s', [e'])
-	      | None ->
-		  let s' = Map.add b cab (Map.remove a s) in
-		  (s', [])
+      let d = Term.Map.find y s in
+      let cd = Supinf.inter c d in
+      if Supinf.is_empty cd then
+	raise Exc.Inconsistent
+      else 
+	(Veqs.empty, Term.Map.add y cd (Term.Map.remove x s))
     with
 	Not_found ->
-	  (match Cnstrnt.of_term b with
-	     | Some(cb) ->
-		 (match Number.cmp ca cb with
-		    | (Same | Super) ->
-			(Map.remove a s, [])
-		    | Sub -> 
-			(Map.add b ca s, [])
-		    | Disjoint ->
-			raise Exc.Inconsistent
-		    | Overlap ->
-			let cab = Number.inter ca cb in
-			match Number.d_singleton cab with
-			  | Some(u) ->
-			      let e' = Atom.mk_equal b (Arith.mk_num u) in
-			      let s' = Map.remove a s in
-			      (s', [e'])
-			  | None -> 
-			      let s' = Map.add b ca (Map.remove a s) in
-			      (s', []))
-	     | None -> 
-		 (Map.add b ca (Map.remove a s), []))
+	  let c' = Supinf.inst x y c in
+	  (Veqs.empty, Term.Map.add y c' (Term.Map.remove x s))
   with
       Not_found ->
-	(match Cnstrnt.of_term a, Cnstrnt.of_term b with
-	   | Some(ca), Some(cb) ->
-	       (match Number.cmp ca cb with
-		  | (Same | Super) ->
-		      (s, [])
-		  | Sub ->
-		      (Map.add b ca s, [])
-		  | Disjoint ->
-		      raise Exc.Inconsistent
-		  | Overlap ->
-		      let cab = Number.inter ca cb in
-		      match Number.d_singleton cab with
-			| Some(u) ->
-			    (s, [Atom.mk_equal b (Arith.mk_num u)])
-			| None ->
-			    (Map.add b cab s, []))
-	   | None, Some _ ->
-	       (s, [])
-	   | Some(ca), None ->
-	       (Map.add b ca s, [])
-	   | None, None ->
-	       (s, []))
-
-(*s Adding a positive constraint [x in c] *)
-
-let add1 c a s =
-  try
-    let d = Map.find a s in
-    match Number.cmp c d with 
-      | (Same | Super) -> 
-	  (s, [])
-      | Sub ->
-	  (Map.add a c s, [])
-      | Disjoint ->
-	  raise Exc.Inconsistent
-      | Overlap ->
-	  let cd = Number.inter c d in
-	  (match Number.d_singleton cd with
-	     | Some(u) ->                 (* do not remove constraint. *)
-		 let e' = Atom.mk_equal a (Arith.mk_num u) in
-		 let s' = Map.add a cd s in
-		 (s', [e'])
-	     | _ -> 
-		 (Map.add a cd s, []))
-  with
-      Not_found ->
-	(Map.add a c s, [])
-
-let add c a s =
-  Trace.call 5 "Add(c)" (a,c) Pretty.inn;
-  let (s',al') = add1 c a s in
-  Trace.exit 5 "Add(c)" al' (Pretty.list Pretty.atom);
-  (s', al')
+	(Veqs.empty, s)
 
 
-(*s Instantiation. *)
+(*s Iterating [merge1] on a set of variables equalities. *)
 
-let inst f s =
-  Map.fold
-    (fun x c acc ->
-       let x' = f x in
-       if Term.eq x' x then
-	 acc
-       else 
-	 Map.add x' c acc)
-    s
-    s
+and merge el s =
+  List.fold_right
+    (fun e (es,s) ->
+       let (es',s') = merge1 e s in
+       (Veqs.union es es', s'))
+    el
+    (Veqs.empty, s)
+
+
+(*s Extend domain. *)
+
+let extend (x,c) s =
+  assert(not(mem x s));
+  Trace.call 6 "Extend(c)" (x,c) ppin;
+  Term.Map.add x (Supinf.of_cnstrnt c) s
+

@@ -21,7 +21,7 @@ open Sym
 open Term
 (*i*)
 
-let init (n) =
+let init n =
   Trace.set_verbose n;
   Sys.catch_break true                 (*s raise [Sys.Break] exception upon *)
                                        (*s user interrupt. *)
@@ -29,9 +29,7 @@ let init (n) =
 let do_at_exit () = Tools.do_at_exit ()
 let _ = Callback.register "do_at_exit" do_at_exit
 
-
 let _ = Callback.register "init" init
-
 
 (*s Channels. *)
 
@@ -71,7 +69,7 @@ let _ = Callback.register "name_eq" name_eq
 
 (*s Constrains. *)
 
-type cnstrnt = Number.t
+type cnstrnt = Cnstrnt.t
 
 let cnstrnt_of_string s = 
   let lb = Lexing.from_string s in 
@@ -83,62 +81,57 @@ let cnstrnt_input ch =
   Parser.cnstrnteof Lexer.token lb
 let _ = Callback.register "cnstrnt_input" cnstrnt_input
 
-let cnstrnt_output = Pretty.number
+let cnstrnt_output = Cnstrnt.pp
 let _ = Callback.register "cnstrnt_output" cnstrnt_output
 
-let cnstrnt_pp = Pretty.number Format.std_formatter
+let cnstrnt_pp = Cnstrnt.pp Format.std_formatter
 let _ = Callback.register "cnstrnt_pp" cnstrnt_pp
 
 
-let cnstrnt_mk_int () = Number.mk_int
+let cnstrnt_mk_int () = Cnstrnt.mk_int
 let _ = Callback.register "cnstrnt_mk_int" cnstrnt_mk_int
 
-let cnstrnt_mk_nat () = Number.mk_nat
+let cnstrnt_mk_nat () = Cnstrnt.mk_nat
 let _ = Callback.register "cnstrnt_mk_nat" cnstrnt_mk_nat
 
-let cnstrnt_mk_singleton = Number.mk_singleton
+let cnstrnt_mk_singleton = Cnstrnt.mk_singleton
 let _ = Callback.register "cnstrnt_mk_singleton" cnstrnt_mk_singleton
 
-let cnstrnt_mk_diseq = Number.mk_diseq
+let cnstrnt_mk_diseq = Cnstrnt.mk_diseq
 let _ = Callback.register "cnstrnt_mk_diseq" cnstrnt_mk_diseq
 
-let cnstrnt_mk_oo = Number.mk_oo Dom.Real
+let cnstrnt_mk_oo = Cnstrnt.mk_oo Dom.Real
 let _ = Callback.register "cnstrnt_mk_oo" cnstrnt_mk_oo
 
-let cnstrnt_mk_oc = Number.mk_oc Dom.Real
+let cnstrnt_mk_oc = Cnstrnt.mk_oc Dom.Real
 let _ = Callback.register "cnstrnt_mk_oc" cnstrnt_mk_oc
 
-let cnstrnt_mk_co = Number.mk_co Dom.Real
+let cnstrnt_mk_co = Cnstrnt.mk_co Dom.Real
 let _ = Callback.register "cnstrnt_mk_co" cnstrnt_mk_co
 
-let cnstrnt_mk_cc = Number.mk_cc Dom.Real
+let cnstrnt_mk_cc = Cnstrnt.mk_cc Dom.Real
 let _ = Callback.register "cnstrnt_mk_cc" cnstrnt_mk_cc
 
-let cnstrnt_mk_lt = Number.mk_lt Dom.Real
+let cnstrnt_mk_lt = Cnstrnt.mk_lt Dom.Real
 let _ = Callback.register "cnstrnt_mk_lt" cnstrnt_mk_lt
 
-let cnstrnt_mk_le = Number.mk_le Dom.Real
+let cnstrnt_mk_le = Cnstrnt.mk_le Dom.Real
 let _ = Callback.register "cnstrnt_mk_le" cnstrnt_mk_le
 
-let cnstrnt_union = Number.union
-let _ = Callback.register "cnstrnt_union" cnstrnt_union
 
-let cnstrnt_inter = Number.inter
+let cnstrnt_inter = Cnstrnt.inter
 let _ = Callback.register "cnstrnt_inter" cnstrnt_inter
 
-let cnstrnt_compl = Number.compl
-let _ = Callback.register "cnstrnt_compl" cnstrnt_compl
-
-let cnstrnt_add = Number.add
+let cnstrnt_add = Cnstrnt.add
 let _ = Callback.register "cnstrnt_add" cnstrnt_add
 
-let cnstrnt_multq = Number.multq
+let cnstrnt_multq = Cnstrnt.multq
 let _ = Callback.register "cnstrnt_multq" cnstrnt_multq
 
-let cnstrnt_mult = Number.mult
+let cnstrnt_mult = Cnstrnt.mult
 let _ = Callback.register "cnstrnt_mult" cnstrnt_mult
 
-let cnstrnt_div = Number.div
+let cnstrnt_div = Cnstrnt.div
 let _ = Callback.register "cnstrnt_div" cnstrnt_div
 
 
@@ -158,10 +151,10 @@ let term_input ch =
   Parser.termeof Lexer.token lb
 let _ = Callback.register "term_input" term_input
 
-let term_output = Pretty.term
+let term_output = Term.pp
 let _ = Callback.register "term_output" term_output
 
-let term_pp a = Pretty.term Format.std_formatter a; Format.print_flush ()
+let term_pp a = Term.pp Format.std_formatter a; Format.print_flush ()
 let _ = Callback.register "term_pp" term_pp
 
 
@@ -218,47 +211,44 @@ let _ = Callback.register "term_mk_proj" term_mk_proj
 
 (*s Bitvector terms. *)
 
-let term_mk_bvconst s = Bv.mk_const (Bitv.from_string s)
+let term_mk_bvconst s = Bitvector.mk_const (Bitv.from_string s)
 let _ = Callback.register "term_mk_bvconst" term_mk_bvconst
 
-let term_mk_bvsub (n,i,j) = Bv.mk_sub n i j
+let term_mk_bvsub (n,i,j) = Bitvector.mk_sub n i j
 let _ = Callback.register "term_mk_bvsub" term_mk_bvsub
 
-let term_mk_bvconc (n,m) = Bv.mk_conc n m
+let term_mk_bvconc (n,m) = Bitvector.mk_conc n m
 let _ = Callback.register "term_mk_bvconc" term_mk_bvconc
 
-let term_mk_bwite n (a,b,c) = Bv.mk_bitwise n a b c
+let term_mk_bwite n (a,b,c) = Bitvector.mk_bitwise n a b c
 let _ = Callback.register "term_mk_bwite" term_mk_bwite
 
 let term_mk_bwand n a b =
-  Bv.mk_bitwise n a b (Bv.mk_zero n)
+  Bitvector.mk_bitwise n a b (Bitvector.mk_zero n)
 let _ = Callback.register "term_mk_bwand" term_mk_bwand
 
 let term_mk_bwor n a b =
-  Bv.mk_bitwise n a (Bv.mk_one n) b
+  Bitvector.mk_bitwise n a (Bitvector.mk_one n) b
 let _ = Callback.register "term_mk_bwor" term_mk_bwor
 
-let term_mk_bwxor n a b = failwith "mk_bwxor: to do"
-let _ = Callback.register "term_mk_bwxor" term_mk_bwxor
-
 let term_mk_bwnot n a =
-  Bv.mk_bitwise n a (Bv.mk_zero n) (Bv.mk_one n)
+  Bitvector.mk_bitwise n a (Bitvector.mk_zero n) (Bitvector.mk_one n)
 let _ = Callback.register "term_mk_bwnot" term_mk_bwnot
 
 	  
 (*s Boolean terms. *)
 
-let term_mk_true () = Term.mk_tt
+let term_mk_true () = Boolean.mk_true
 let _ = Callback.register "term_mk_true" term_mk_true
 
-let term_mk_false () = Term.mk_ff
+let term_mk_false () = Boolean.mk_false
 let _ = Callback.register "term_mk_false" term_mk_false
 
 type atom = Atom.t
 type atoms = Atom.Set.t
 
 let atom_pp a = 
-  Pretty.atom Format.std_formatter a;
+  Atom.pp Format.std_formatter a;
   Format.print_flush ()
 let _ = Callback.register "atom_pp" atom_pp
 
@@ -278,10 +268,10 @@ let _ = Callback.register "atom_mk_true" atom_mk_true
 let atom_mk_false () = Atom.mk_false
 let _ = Callback.register "atom_mk_false" atom_mk_false
 
-let atom_mk_real = Atom.mk_in Number.mk_real
+let atom_mk_real = Atom.mk_in Cnstrnt.mk_real
 let _ = Callback.register "atom_mk_real" atom_mk_real
 
-let atom_mk_int = Atom.mk_in Number.mk_int
+let atom_mk_int = Atom.mk_in Cnstrnt.mk_int
 let _ = Callback.register "atom_mk_int" atom_mk_int
 
 let atom_mk_lt = Atom.mk_lt
@@ -296,64 +286,24 @@ let _ = Callback.register "atom_mk_gt" atom_mk_gt
 let atom_mk_ge a b = Atom.mk_le b a
 let _ = Callback.register "atom_mk_ge" atom_mk_ge
 
-let atom_neg = Atom.mk_neg
-let _ = Callback.register "atom_neg" atom_neg
-
-let term_is_true = Term.is_tt
+let term_is_true = Boolean.is_true
 let _ = Callback.register "term_is_true" term_is_true
 
-let term_is_false = Term.is_ff
+let term_is_false = Boolean.is_false
 let _ = Callback.register "term_is_false" term_is_false
 
-
-(*s Propositions. *)
-
-type prop = Prop.t
-
-let prop_mk_true = Prop.mk_tt
-let _ = Callback.register "prop_mk_true" prop_mk_true
-
-let prop_mk_false = Prop.mk_ff
-let _ = Callback.register "prop_mk_false" prop_mk_false
-
-let prop_mk_poslit = Prop.mk_poslit
-let _ = Callback.register "prop_mk_poslit" prop_mk_poslit
-
-let prop_mk_neglit = Prop.mk_neglit
-let _ = Callback.register "prop_mk_neglit" prop_mk_neglit
- 
-let prop_mk_ite = Prop.mk_ite
-let _ = Callback.register "prop_mk_ite" prop_mk_ite
-
-let prop_mk_neg = Prop.mk_neg
-let _ = Callback.register "prop_mk_neg" prop_mk_neg
-
-let prop_mk_conj = Prop.mk_conj
-let _ = Callback.register "prop_mk_conj" prop_mk_conj
-
-let prop_mk_disj = Prop.mk_disj
-let _ = Callback.register "prop_mk_disj" prop_mk_disj
-
-let prop_mk_xor = Prop.mk_xor
-let _ = Callback.register "prop_mk_xor" prop_mk_xor
-
-let prop_mk_imp = Prop.mk_imp
-let _ = Callback.register "prop_mk_imp" prop_mk_imp
-
-let prop_mk_iff = Prop.mk_iff
-let _ = Callback.register "prop_mk_iff" prop_mk_iff
 
 
 (*s Nonlinear terms. *)
 
 
-let term_mk_mult a b = Nonlin.mk_mult (a,b)
+let term_mk_mult = Arith.mk_mult
 let _ = Callback.register "term_mk_mult" term_mk_mult
 
-let term_mk_multl = Nonlin.mk_multl 
+let term_mk_multl = Arith.mk_multl 
 let _ = Callback.register "term_mk_multl" term_mk_multl
 
-let term_mk_expt = Nonlin.mk_expt
+let term_mk_expt = Arith.mk_expt
 let _ = Callback.register "term_mk_expt" term_mk_expt
 
 
@@ -411,7 +361,7 @@ let _ = Callback.register "state_ctxt_of" state_ctxt_of
 let state_diseqs_of s = D.deq_of s.Shostak.d
 let _ = Callback.register "state_diseqs_of" state_diseqs_of
 
-let state_cnstrnts_of s = C.cnstrnt_of s.Shostak.c
+let state_cnstrnts_of s = failwith "to do"
 let _ = Callback.register "state_cnstrnts_of" state_cnstrnts_of
 
 let state_pp s = Shostak.pp Format.std_formatter s; Format.print_flush()
@@ -438,14 +388,14 @@ let d_consistent = function
 	
 let _ = Callback.register "d_consistent" d_consistent  
 
-let process s a = Shostak.process_a s a
+let process = Shostak.process 
 let _ = Callback.register "process" process   
 
 
 
 (*s Normalization functions *)
 
-let can = Shostak.can_a
+let can = Shostak.can
 let _ = Callback.register "can" can
 
 (*s Command interface. *)
@@ -479,14 +429,11 @@ let _ = Callback.register "istate_flush" istate_flush
 let istate_nl = Istate.nl
 let _ = Callback.register "istate_nl" istate_nl
 
-let istate_can  = Istate.can_t
+let istate_can  = Istate.can
 let _ = Callback.register "istate_can" istate_can
 
-let istate_process = Istate.process_p
+let istate_process = Istate.process
 let _ = Callback.register "istate_process" istate_process
-
-let istate_check ns a = failwith "istate_check: to do"
-(* let _ = Callback.register "istate_check" istate_check *)
 
 let istate_reset = Istate.reset
 let _ = Callback.register "istate_reset" istate_reset

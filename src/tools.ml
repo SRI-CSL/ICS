@@ -61,12 +61,6 @@ let profile str f =
     calls := !calls + 1;
     y
 
-(*s Print to a string *)
-
-let pp_to_string pp x =
-  pp Format.str_formatter x;
-  Format.flush_str_formatter ()
-
 
 (*s Type for comparison. *)
 

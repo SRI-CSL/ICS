@@ -14,148 +14,61 @@
  * Author: Harald Ruess
  i*)
 
-(*i*)
-open Format
-open Term
-open Hashcons
-(*i*)
-
 type 'a printer = Format.formatter -> 'a -> unit
 
-let print_all = ref false
-let _ =  Tools.add_at_reset (fun () -> print_all := false)
+let string fmt str =
+  Format.fprintf fmt "%s" str
 
-let get_print_all () = !print_all
-let set_print_all b = (print_all := b)
+let number fmt i =
+  Format.fprintf fmt "%d" i
 
-let pr fmt str =
-  Format.fprintf fmt str
-
-let number fmt c =
-  Number.pp fmt c
-
-let sym fmt f =
-  Sym.pp !print_all fmt f
-
-let list pre sep post pp fmt l =
+let list (pre,sep,post) pp fmt l =
   let rec iter = function
     | [] -> ()
     | [x] -> pp fmt x
-    | x :: l -> pp fmt x; pr fmt "%s" sep; iter l
+    | x :: l -> pp fmt x; string fmt sep; iter l
   in
-  pr fmt "@[%s" pre; iter l; pr fmt "%s@]" post
+  Format.fprintf fmt "@[%s" pre; 
+  iter l; 
+  Format.fprintf fmt "%s@]" post
 
-let rec term fmt a =
-  let f,l = Term.destruct a in
-  if l = [] then
-    constant fmt f
-  else if !print_all then
-    prefix fmt (f,l)
-  else 
-    match Sym.destruct f, l with
-      | Sym.Interp(Sym.Arith(Sym.Multq(q))), [x] -> 
-	  (Mpa.Q.pp fmt q; pr fmt "*"; term fmt x)
-      | Sym.Interp(Sym.Bv(Sym.Sub(n,i,j))), [x] -> 
-	  (term fmt x; Format.fprintf fmt "[%d:%d]" i j)
-      | Sym.Interp(Sym.Bv(Sym.Conc(n,m))), [x;y] -> 
-	  (term fmt x; pr fmt " ++ "; term fmt y)
-      | _ when Sym.eq f Sym.mk_add ->
-	  infixl "+" fmt l
-      | _ when Sym.eq f Sym.mk_tuple ->
-	  list "(" "," ")" term fmt l
-      | _ ->
-	  prefix fmt (f,l)
+let pair pp1 pp2 fmt (a,b) =
+  Format.fprintf fmt "@[(";
+  pp1 fmt a;
+  string fmt ",";
+  pp2 fmt b;
+  Format.fprintf fmt ")@]"
 
-
-and constant fmt f = 
-  pr fmt "@["; sym fmt f; pr fmt "@]"
-
-and prefix fmt (f,l) = 
-  pr fmt "@["; 
-  sym fmt f; 
-  list "(" ", " ")" term fmt l; 
-  pr fmt "@]"
-
-and infix fmt x opstr y =
-  pr fmt "@["; 
-  term fmt x; pr fmt "%s" opstr; term fmt y;
-  pr fmt "@]"
-
-and infixl opstr fmt l =
-  pr fmt "@["; 
-  list "" opstr "" term fmt l; 
-  pr fmt "@]"
-
-let eqn fmt (a,b) =
-  pr fmt "@["; 
-  term fmt a; pr fmt " = "; term fmt b; 
-  pr fmt "@]"
-
-let diseq fmt (a,b) =
-  pr fmt "@["; 
-  term fmt a; pr fmt " <> "; term fmt b; 
-  pr fmt "@]"
-
-let inn fmt (a,c) =
-  pr fmt "@["; 
-  term fmt a; pr fmt " in "; Number.pp fmt c; 
-  pr fmt "@]"
-    
-let set fmt s = 
-  list "{" ", " "}" term fmt (Term.Set.elements s)
-
-let tset = set
-   
-let map p fmt m =
-  let elems =
-    Term.Map.fold (fun a b acc -> (a,b) :: acc) m [] 
-  in 
-  let assign fmt (x,a) =
-    pr fmt "@["; term fmt x; pr fmt " |-> "; p fmt a;   pr  fmt"@]";
-  in 
-  list "[" ", " "]" assign fmt elems
-    
-let tmap = map term
-
-let tlist = 
-  list "[" ", " "]" term
-
-let list p fmt = list "[" ", " "]" p fmt
-
-let atom fmt p =
-  pr fmt "@[";
-  (match p with
-     | Atom.True -> Format.fprintf fmt "true"
-     | Atom.False -> Format.fprintf fmt "false"
-     | Atom.Equal(x,y) -> infix fmt x " = " y
-     | Atom.Diseq(x,y) -> infix fmt x " <> " y
-     | Atom.In(c,x) -> term fmt x; pr fmt " in "; Number.pp fmt c);
-  pr fmt "@]"
-
-let atoms fmt ps =
-  let l = Atom.Set.elements ps in
-  list atom fmt l
-
-let rec prop fmt b = 
-  match Prop.destruct b with
-    | Prop.True -> 
-	Format.fprintf fmt "tt"
-    | Prop.False -> 
-	Format.fprintf fmt "ff"
-    | Prop.Ite(x,p,n) -> 
-	Format.fprintf fmt "@[if ";
-	atom fmt x;
-        Format.fprintf fmt " then@ ";
-	prop fmt p;
-	Format.fprintf fmt " else@ ";
-	prop fmt n;
-	Format.fprintf fmt " end@]"
-
-let infer fmt (xl,al) = 
-  Format.fprintf fmt "@[eqs: ";
-  list eqn fmt xl;  
-  Format.fprintf fmt " atoms: ";
-  list atom fmt al;
+let infix pp1 op pp2 fmt (a,b) =
+  Format.fprintf fmt "@["; 
+  pp1 fmt a; 
+  Format.fprintf fmt "%s" op; 
+  pp2 fmt b;
   Format.fprintf fmt "@]"
 
-let solution = list eqn
+let eqn pp = infix pp "=" pp
+
+let infixl pp op =
+  list ("", op, "") pp
+
+let set pp fmt = list ("{", ", ", "}") pp fmt
+
+let assign pp1 pp2 fmt (x,a) =
+  pp1 fmt x; 
+  string fmt " |-> "; 
+  pp2 fmt a
+
+let map pp1 pp2 fmt =
+  list ("[", "; ", "]") (assign pp1 pp2) fmt
+
+let list pp = list ("[", "; ", "]") pp
+
+(*s Redirecting output. *)
+
+let to_stdout pp = pp Format.std_formatter
+
+let to_stderr pp = pp Format.err_formatter
+
+let to_string pp x = 
+  pp Format.str_formatter x;
+  Format.flush_str_formatter ()
