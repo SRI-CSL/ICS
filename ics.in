@@ -1,0 +1,15 @@
+#!/bin/sh
+#
+# Script for starting ICS 
+#
+
+ICSPATH=@ICSPATH@
+ARCH=`$ICSPATH/bin/config.guess`
+
+if [ "$1" = "-trace" ]; then
+  shift
+  cd $ICSPATH/obj/$ARCH
+  exec $ICSPATH/bin/$ARCH/ics.byte $@
+else
+  exec $ICSPATH/bin/$ARCH/ics $@
+fi

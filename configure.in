@@ -5,11 +5,23 @@ AC_INIT(src/ics.mli)
 
 AC_PREFIX_DEFAULT(/usr)
 
-#AC_CONFIG_AUX_DIR(./config)
+dnl optionally give path, otherwise use cwd
+AC_MSG_CHECKING(icspath)
+AC_ARG_WITH(icspath, [ --with-icspath=/path/to/ics ])
+if test "x$with_icspath" = "x"; then
+  ICSPATH=`pwd`
+else
+  ICSPATH=$with_icspath
+fi
+if ! test -f $ICSPATH/ics.in; then
+  AC_MSG_ERROR(Invalid ICS path)
+fi
+AC_MSG_RESULT($ICSPATH)
+AC_SUBST(ICSPATH)
 
 dnl Check for programs
 
-# Check for OCaml programs
+dnl Check for OCaml programs
 AC_CHECK_PROG(OCAMLC,ocamlc,ocamlc,no)
 if test "$OCAMLC" = no ; then
 	AC_MSG_ERROR(Cannot find ocamlc.)
@@ -35,7 +47,7 @@ if test "$OCAMLYACC" = no ; then
 	AC_MSG_ERROR(Cannot find ocamlyacc.)
 fi
 
-# Check for other programs
+dnl Check for other programs
 AC_CHECK_PROG(HEVEA,hevea,hevea,true)
 if test "$HEVEA" = true ; then
 	AC_MSG_WARN(Cannot find hevea -- but not mandatory)
@@ -46,7 +58,7 @@ if test "$OCAMLWEB" = true ; then
 	AC_MSG_WARN(Cannot find ocamlweb -- but not mandatory)
 fi
 
-# Check for library
+dnl Check for library
 AC_CHECK_LIB(gmp,mpz_cmp, , AC_MSG_WARN(Cannot find the GMP library - please set manually in the Makefile.))
 
 AC_CHECK_PROG(ALLEGRO,allegro6.0,allegro6.0,no)
@@ -54,5 +66,7 @@ if test "$ALLEGRO" = no ; then
         AC_MSG_ERROR(Cannot find allegro6.0)
 fi
 
-# Finally create all the generated files
-AC_OUTPUT(Makefile chameleon/Makefile)
+dnl Finally create all the generated files
+AC_OUTPUT(Makefile chameleon/Makefile ics)
+
+chmod a+x ics
