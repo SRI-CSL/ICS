@@ -240,6 +240,7 @@ let output_c_indirect_stub f typ mltyp =
 
 (*s Constructors. *)
 
+
 let constructors () =
   hprintf "\nvalue %s_direct_void();" !base;
   hprintf "\nvalue* %s_void();\n" !base;
@@ -252,16 +253,17 @@ let constructors () =
 
   cprintf "\nvalue %s_direct_void()  { return Val_int(0); }" !base;
   cprintf 
-    "\nvalue* %s_void()  { static value r = Val_int(0); return &r; }\n" !base;
+    "\nvalue* %s_void()  { value* r = malloc(sizeof(value)); register_global_root(r); *r = Val_int(0); return r; }\n" !base;
   cprintf "\nvalue %s_direct_false() { return Val_int(0); }" !base;
   cprintf 
-    "\nvalue* %s_false() { static value r = Val_int(0); return &r; }\n" !base;
+    "\nvalue* %s_false() { value* r = malloc(sizeof(value)); register_global_root(r); *r = Val_int(0); return r; }\n" !base;
   cprintf "\nvalue %s_direct_true()  { return Val_int(1); }" !base;
   cprintf 
-    "\nvalue* %s_true()  { static value r = Val_int(1); return &r; }\n" !base;
+    "\nvalue* %s_true()  { value* r = malloc(sizeof(value)); register_global_root(r); *r = Val_int(1); return r; }\n" !base;
   cprintf "\nvalue %s_direct_nil()   { return Val_int(0); }" !base;
   cprintf 
-    "\nvalue* %s_nil()   { static value r = Val_int(0); return &r; }\n" !base;
+    "\nvalue* %s_nil()   { 
+        value* r = malloc(sizeof(value)); register_global_root(r); *r = Val_int(0); return r; }\n" !base;
 
   cprintf "\nvoid %s_deregister(value* r) {\n" !base;
   cprintf "  if (((*r) & 1) == 0) { remove_global_root(r); }\n}\n";
@@ -294,6 +296,7 @@ let constructors () =
   lprintf "\n(ff:def-foreign-call %s_nil   ())\n" !base;
   lprintf "\n(ff:def-foreign-call %s_deregister (v) :returning :void)\n" !base;
   lprintf "\n(ff:def-foreign-call %s_registered_value_p (v))\n" !base
+
 
 (*s Outout the Lisp stub code. *)
 
