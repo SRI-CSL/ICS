@@ -39,7 +39,7 @@ protected:
 	bool main_clause; // main clause, cannot be deleted
 	bool deleted;
 	friend ostream & operator << ( ostream & target, LPClause & c);
-	friend LPSolver;
+	friend class LPSolver;
 public:
 	LPClause() { /* do nothing */ }
 	bool check_invariant() const;
