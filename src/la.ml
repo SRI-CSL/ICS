@@ -498,10 +498,14 @@ let protect (p, s) f a =
 
 
 (** Return a variable for a term [a], possibly extending [R]
-  with a fresh variable. First, canonize to ensure that all
-  dependent variables are removed. *)
-let name cfg =                             (* ??? *)
-  (S.name r cfg)
+  with a fresh variable if [a] is not already a rhs of [T]. 
+  First, canonize to ensure that all dependent variables are 
+  removed (???) *)
+let name ((p, s) as cfg) a =
+  try
+    S.inv t s a
+  with
+      Not_found -> S.name r cfg a
 
 (** Fusing a list of solved equalities into solution set for mode [m]. *)
 let fuse1 tag cfg e =
