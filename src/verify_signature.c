@@ -67,7 +67,10 @@ file you should have received in email after registering at
 
   // Try and open it
   if ((fp = fopen(datafile, "r"))==NULL) {
-    fprintf(stderr, "Error opening %s:\n  %s\n", datafile, strerror(errno));
+    fprintf(stderr, "There was a problem opening the file pointed to by the\n\
+%s environment variable:\n  %s: %s\nThis environment variable must be \
+set to a file you should have\nreceived in email after registering at \
+%s.csl.sri.com\n", envstr, datafile, strerror(errno), syslowercase);
     exit(1);
   }
 
