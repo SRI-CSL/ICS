@@ -14,7 +14,7 @@
  * (enclosed in the file LGPL).
  i*)
 
-(* $Id: bitv.ml,v 1.1 2002/04/03 01:13:04 ruess Exp $ *)
+(* $Id: bitv.ml,v 1.2 2003/02/23 23:52:38 ruess Exp $ *)
 
 (*s Bit vectors. The interface and part of the code are borrowed from the 
     [Array] module of the ocaml standard library (but things are simplified
@@ -30,6 +30,19 @@ type t = {
   bits   : int array }
 
 let length v = v.length
+
+exception Notequal
+
+let equal a b =
+  a.length = b.length &&
+   try
+      for i = 0 to a.length - 1 do
+        if Array.unsafe_get a.bits i <> Array.unsafe_get b.bits i then
+          raise Notequal
+      done;
+      true
+   with
+     Notequal -> false
 
 (*s Each element of the array is an integer containing [bpi] bits, where
     [bpi] is determined according to the machine word size. Since we do not

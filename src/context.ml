@@ -24,8 +24,8 @@ type t = {
   mutable ctxt : Atom.Set.t;      (* Current context. *)
   mutable p : Partition.t;        (* Variable partitioning. *)
   eqs : Solution.t Th.Array.arr;  (* Theory-specific solution sets. *)
-  mutable sl : Sl.t;              (* Slack equalities. *)
   mutable upper : int;            (* Upper bound on fresh variable index. *)
+  mutable diseqs : (int * Term.Set.t) Term.Map.t  (* Index for bitvector diseqs. *)
 }
 
 
@@ -33,8 +33,8 @@ let empty = {
   ctxt = Atom.Set.empty;
   p = Partition.empty;
   eqs = Array.create Solution.empty;
-  sl = Sl.empty;
-  upper = 0
+  upper = 0;
+  diseqs = Term.Map.empty
 } 
 
 
@@ -46,7 +46,6 @@ let v_of s = Partition.v_of s.p
 let d_of s = Partition.d_of s.p
 let c_of s = Partition.c_of s.p
 let eqs_of s = Array.get s.eqs
-let sl_of s = s.sl
 let upper_of s = s.upper
 
 
@@ -56,8 +55,7 @@ let eq s t =
   (Array.for_all2 
     (fun eqs1 eqs2 -> 
        Solution.eq eqs1 eqs2) 
-    s.eqs t.eqs) &&
-  Sl.eq s.sl t.sl
+    s.eqs t.eqs)
 
 
 (** Destructive updates. *)
@@ -70,8 +68,8 @@ let copy s = {
   ctxt = s.ctxt;
   p = Partition.copy s.p;
   eqs = Array.copy s.eqs;
-  sl = s.sl;
-  upper = s.upper
+  upper = s.upper;
+  diseqs = s.diseqs
 }
 
 (** Canonical variables module [s]. *)
@@ -115,8 +113,6 @@ let c s a =
   in
     term a
 
-let sl s = Sl.find s.sl
-  
 let fold s f x = 
   let y = v s x in
     V.fold (v_of s) f y
@@ -138,6 +134,20 @@ let inv i s = Solution.inv (eqs_of s i)
 
 let is_empty i s = Solution.is_empty (eqs_of s i)
 
+
+(** Array selection *)
+
+let d_select s (p1, p2) v = 
+  match apply Th.arr s v with
+    | App(Arrays(Select), [a; i]) when p1 a && p2 i -> (a, i)
+    | _ -> raise Not_found
+
+let d_update s (p1, p2, p3) v =
+  match apply Th.arr s v with
+    | App(Arrays(Update), [a; i; x]) when p1 a && p2 i && p3 x -> (a, i, x)
+    | _ -> raise Not_found
+
+let tt _ = true
 
 (** Constraint of [a] in [s]. *)
 
@@ -210,9 +220,7 @@ let pp fmt s =
       Solution.pp i fmt sl
   in
     Partition.pp fmt s.p;
-    Array.iter (fun i eqs -> pps i eqs) s.eqs;
-    if not(Sl.is_empty s.sl) then
-      Sl.pp fmt s.sl
+    Array.iter (fun i eqs -> pps i eqs) s.eqs
 
 let equation i s = Solution.equality (eqs_of s i)
 
@@ -220,9 +228,13 @@ let equation i s = Solution.equality (eqs_of s i)
 (** Variable partitioning. *)
 
 let is_equal s x y =
-  match  Term.is_equal x y with
+  match Term.is_equal x y with
     | Three.X -> Partition.is_equal s.p x y
     | res -> res
+
+let is_eq s x y = (is_equal s x y = Three.Yes)
+let is_diseq s x y = (is_equal s x y = Three.No)
+ 
 
 (** Constraint of a term. *)
 
@@ -232,6 +244,15 @@ let rec cnstrnt s a =
   with
       Not_found ->
 	c s (apply Th.la s a)
+
+(** Sigma normal forms. *)
+
+let sigma s op =
+  match op with
+    | Arrays(op) ->
+	Arr.sigma (is_equal s) op
+    | _ ->
+	Th.sigma op
 
 
 (* Lookup terms on rhs of solution sets. *)
@@ -340,7 +361,7 @@ module Can = struct
 	  let th = Th.of_sym f in
 	  let interp x = fnd th s (can s x) in
 	  let al' = mapl interp al in
-	  let a' = if al == al' then a else Th.sigma f al' in
+	  let a' = if al == al' then a else sigma s f al' in
 	    lookup s a'
 
   and pprod s op al =   
@@ -383,14 +404,17 @@ module Can = struct
 
 (** {6 Canonization and normalization of atoms} *)
 
-  let rec atom s = 
-    Trace.func "canon" "Atom" Atom.pp Atom.pp
-      (function 
-	 | Atom.True -> Atom.True
-	 | Atom.Equal(a, b) -> equal s (a, b)
-	 | Atom.Diseq(a, b) -> diseq s (a, b)
-	 | Atom.In(a, d) -> sign s (a, d)
-	 | Atom.False -> Atom.False)
+  let rec atom s a =
+    Trace.call "rule" "Can" a Atom.pp;
+    let b = match a with
+      | Atom.True -> Atom.True
+      | Atom.Equal(a, b) -> equal s (a, b)
+      | Atom.Diseq(a, b) -> diseq s (a, b)
+      | Atom.In(a, d) -> sign s (a, d)
+      | Atom.False -> Atom.False
+    in
+      Trace.exit "rule" "Can" b Atom.pp;
+      b
       
   and equal s (a, b) = 
     let x' = can s a and y' = can s b in
@@ -452,44 +476,54 @@ let can = Can.term
 
 module Abstract = struct
 
-  let rec equal (s, e) =
-    let (a, b, _) = Fact.d_equal e in
-      match a, b with
-	| Var _, Var _ -> (s, e)
-	| Var _, App(f, _) ->
-	    let i = Th.of_sym f in
-	    let (s', y') = term i (s, b) in
-	    let e' = Fact.mk_equal a y' None in
-	      (s', e')
-	| App(f, _), Var _ ->
-	    let i = Th.of_sym f in
-	    let (s', x') = term i (s, a) in
-	    let e' = Fact.mk_equal b x' None in
-	      (s', e')
-	| App(f, _), App(g, _) -> 
-	    let i = Th.of_sym f and j = Th.of_sym g in
-	    let (i', j') = 
-	      if Th.eq i j then (i, i) 
-	      else if Th.is_fully_interp i && not(Th.is_fully_interp j) then (i, u)
-	      else if not(Th.is_fully_interp i) && Th.is_fully_interp j then (u, j)
-	      else (u, u)
-	    in
-	    let (s', x') = term i' (s, a) in
-	    let (s'', y') = term j' (s', b) in
-	    let e' = Fact.mk_equal x' y' None in
-	      (s'', e')
+  let rec atom (s, a) =
+    Trace.call "rule" "Abst" a Atom.pp;
+    let (s', a') = match a with
+      | Atom.True -> (s, Atom.True)  
+      | Atom.False -> (s, Atom.False)
+      | Atom.Equal(x, y) -> equal s (x, y)
+      | Atom.Diseq(x, y) -> diseq s (x, y)
+      | Atom.In(x, d) -> cnstrnt s (x, d)
+    in
+      Trace.exit "rule" "Abst" a' Atom.pp;
+      (s', a')
 
-  and diseq (s, d) =
-    let (a, b, _) = Fact.d_diseq d in
+  and equal s (a, b) =
+    match a, b with
+      | Var _, Var _ -> 
+	  (s, Atom.mk_equal (a, b))
+      | Var _, App(f, _) ->
+	  let i = Th.of_sym f in
+	  let (s', y') = term i (s, b) in
+	    let e' = Atom.mk_equal (a, y') in
+	      (s', e')
+      | App(f, _), Var _ ->
+	  let i = Th.of_sym f in
+	  let (s', x') = term i (s, a) in
+	  let e' = Atom.mk_equal (b, x') in
+	    (s', e')
+      | App(f, _), App(g, _) -> 
+	  let i = Th.of_sym f and j = Th.of_sym g in
+	  let (i', j') = 
+	    if Th.eq i j then (i, i) 
+	    else if Th.is_fully_interp i && not(Th.is_fully_interp j) then (i, u)
+	    else if not(Th.is_fully_interp i) && Th.is_fully_interp j then (u, j)
+	    else (u, u)
+	  in
+	  let (s', x') = term i' (s, a) in
+	  let (s'', y') = term j' (s', b) in
+	  let e' = Atom.mk_equal (x', y') in
+	    (s'', e')
+
+  and diseq s (a, b) =
     let (s', x') = term Th.u (s, a) in
     let (s'', y') = term Th.u (s', b) in
-    let d' = Fact.mk_diseq x' y' None in
+    let d' = Atom.mk_diseq (x', y') in
       (s'', d')
 
-  and cnstrnt (s, i) =
-    let (a, i, _) = Fact.d_cnstrnt i in
+  and cnstrnt s (a, i) =
     let (s', x') = term Th.la (s, a) in
-    let l' = Fact.mk_cnstrnt  x' i None in
+    let l' = Atom.mk_in  (x', i) in
       (s', l')
 
   and term i (s, a) =
@@ -499,7 +533,7 @@ module Abstract = struct
       | App(f, al) ->
 	  let j = Th.of_sym f in
 	  let (s', al') = args j (s, al) in
-	  let a' = if Term.eql al al' then a else Th.sigma f al' in
+	  let a' = if Term.eql al al' then a else sigma s f al' in
 	    if not(Th.is_fully_interp i) || i <> j then
 	      try
 		let x' = inv j s' a' in
@@ -539,7 +573,7 @@ let rec equality e s =
 	      merge_i i e s
 	| App(f, _), App(g, _) ->
 	    let i = Th.of_sym f and j = Th.of_sym g in
-	      if Th.eq i j then
+	      if Th.eq i j && Th.is_fully_interp i then
 		merge_i i e s
 	      else 
 		let (s', x') = name i (s, a) in
@@ -574,12 +608,20 @@ and merge_i i e s =
     if Term.eq a b then s else
       let e' = Fact.mk_equal a b None in
 	Trace.msg "rule" "Merge(i)" e' Fact.pp_equal;
-	compose i s (Th.solve i e')
+	try
+	  compose i s (Th.solve i e')
+	with 
+	    Exc.Incomplete ->
+	      let (a, b, _) = Fact.d_equal e in
+	      let (s, x) = name i (s, a) in
+	      let (s, y) = name i (s, b) in
+	      let e' = Fact.mk_equal x y None in
+		merge_v e' s
 
 and nonlin_equal e s =
   let rec linearize occs s =
-    Set.fold 
-      (fun x s -> 
+    Set.fold
+      (fun x s ->
 	 try 
 	   let a = apply Th.pprod s x in
 	   let b = Sig.map (find Th.la s) a in
@@ -601,26 +643,11 @@ and fuse i e s =
     let s' = Fact.Equalset.fold merge_v es' s in
       close_i i ch' s'
 
-
 and compose i s r =
-  let s = if Th.eq i Th.la then List.fold_right slack r s else s in
   let (ch', es', eqs') = Solution.compose i (eqs_of s i) r in
     Array.set s.eqs i eqs';
     let s' =  Fact.Equalset.fold merge_v es' s in
       close_i i ch' s'
-
-and slack e s =
-  let (k, a, _) = Fact.d_equal e in
-    if is_slack k then
-      let sl' = Sl.update e s.sl in
-	s.sl <- sl';
-	try      (* Keep [cnstrnt s k] stronger than [cnstrnt s (sl s a)] *)
-	  let i = c s a in
-	  refine (Fact.mk_cnstrnt k i None) s
-	with
-	    Not_found -> s
-    else 
-      s
 
 and refine c s = 
   Trace.msg "rule" "Refine" c Fact.pp_cnstrnt;
@@ -629,17 +656,81 @@ and refine c s =
     s.p <- p';
     close_p ch' s
 
+(** Infer new disequalities from equalities. *)
+and infer i e s =
+  let (a, b, _) = Fact.d_equal e in
+    if Term.eq a b then 
+      s
+    else if Th.eq i Th.la then
+      infer_la e s
+    else if Th.eq i Th.bv then
+      infer_bv e s
+    else if Th.eq i Th.cop then
+      infer_cop e s
+    else 
+      s
+
+(** If [x = q] and [y = p] with [q], [p] numerical constraints,
+  then deduce [x <> y]. *)
+and infer_la e s =
+  let (x, a, _) = Fact.d_equal e in
+    match Arith.d_num a with  
+      | Some(q) ->
+          Solution.fold
+            (fun y (b, _) s ->
+               match Arith.d_num b with
+                 | Some(p) when not(Q.equal q p) ->
+	             let d = Fact.mk_diseq (v s x) (v s y) None in
+                        diseq d s
+	         | _ -> s)               
+            (eqs_of s Th.la) s
+      | None ->
+	 s 
+
+and infer_bv e s =
+  let (x, a, _) = Fact.d_equal e in
+    match Bitvector.d_const a with  
+      | Some(c) ->
+          Solution.fold
+            (fun y (b, _) s ->
+               match Bitvector.d_const b with
+                 | Some(d) when not(Bitv.equal c d) ->
+	             let d = Fact.mk_diseq (v s x) (v s y) None in
+                        diseq d s
+	         | _ -> s)               
+            (eqs_of s Th.bv) s
+      | None ->
+	 s 
+
+(** If [x = a], [y = b] are in the coproduct solution set, 
+  and if [a] and [b] are diseq in this theory, then deduce [x <> y]. *)
+and infer_cop e s =
+  let (x, a, _) = Fact.d_equal e in
+    match a with
+     | App(Coproduct(InL | InR), [_]) ->
+         Solution.fold
+           (fun y (b, _) s ->
+              if Coproduct.is_diseq a b then
+                let d = Fact.mk_diseq (v s x) (v s y) None in 
+                  diseq d s              
+              else
+                 s)
+           (eqs_of s Th.cop) s
+     | _ -> s
 
 (** Deduce new constraints from an equality *)
 and deduce i e s =
-  if Th.eq i Th.la then
-    deduce_la e s
-  else if Th.eq i Th.bvarith then
-    deduce_bvarith e s
-  else if Th.eq i Th.pprod then
-    deduce_nonlin e s
-  else 
-    s
+  let (a, b, _) = Fact.d_equal e in
+    if Term.eq a b then 
+      s
+    else if Th.eq i Th.la then
+      deduce_la e s
+    else if Th.eq i Th.bvarith then
+      deduce_bvarith e s
+    else if Th.eq i Th.pprod then
+      deduce_nonlin e s
+    else 
+      s
 
 and deduce_bvarith e s = 
   let (x, b, _) = Fact.d_equal e in
@@ -651,6 +742,7 @@ and deduce_bvarith e s =
 	  s
 
 and deduce_nonlin e s =
+  Trace.msg "rule" "Deduce(nl)" e Fact.pp_equal;
   let (x, a, _) = Fact.d_equal e in
   let x' = v s x in
   try
@@ -658,20 +750,50 @@ and deduce_nonlin e s =
       (try
 	 let i = c s x' in
 	   if Sign.sub j i then s else 
-	     refine (Fact.mk_cnstrnt x' j None) s
+	     add (Fact.mk_cnstrnt x' j None) s
        with
 	   Not_found -> 
-	     refine (Fact.mk_cnstrnt x' j None) s)
+	     add (Fact.mk_cnstrnt x' j None) s)
   with
       Not_found -> s
 
 
+(** If [k = R[k''], [k' = R'[k'']] in [A], then
+    isolate [k''] in [k' = R'[k'']] to obtain [k'' = R'']
+    and plug this solution into [R] to obtain [R'''] as [sigma(R[k'':= R''])].
+    deduce new constraints from [k = R'''].  Notice that equality [k' = R'] has
+    only to be considered once. *)
+
+and deduce_la e s =
+  let s' = deduce_la1 e s in
+  let (k, r, _) = Fact.d_equal e in
+  let k = v s k in
+    if not(is_slack k) then s else
+      let visited = ref Term.Set.empty in
+	Arith.fold
+	  (fun _ k'' s ->
+	     Set.fold
+	       (fun k' s ->
+		  if Term.Set.mem k' !visited then s else 
+		    try
+		      let r' = apply Th.la s k' in
+		      let r'' = Arith.isolate k'' (k', r') in
+		      let e' = Fact.mk_equal k (Arith.replace r k'' r'') None in
+			visited := Term.Set.add k' !visited;
+			deduce_la1 e' s
+		    with
+			Not_found -> s)
+	       (use Th.la s k'') 
+	       s)
+	  r s'
+     
+    
 (* If C(k) = 0, then we can assert that S(k) = 0.
-   Inequality Propagation: If Sl(k) = R+[k'] - R-[k''],
+   Inequality Propagation: If S(k) = R+[k'] - R-[k''],
    then if either C(k) or C[R-[k'']] goes from >= to >,
    then we can assert R+[k']>0. *) 
 
-and deduce_la e s =
+and deduce_la1 e s =
   let inconsistent (x, a) =
     try
       (dom s x = Dom.Int) &&
@@ -716,7 +838,7 @@ and deduce_la e s =
 	    if c_k = Sign.Zero then
 	      equality (Fact.mk_equal k Arith.mk_zero None) s
 	    else 
-	      let (r_plus, r_minus) = partition s (sl s k) in
+	      let (r_plus, r_minus) = partition s (find Th.la s k) in
 		if c_k = Sign.Pos || c s r_minus = Sign.Pos then
 		  if c s r_plus = Sign.Pos then s else 
 		    add (Fact.mk_cnstrnt r_plus Sign.Pos None) s 
@@ -743,7 +865,7 @@ and add c s =
       | Sign.Nonpos -> (Arith.mk_neg a, Sign.Nonneg)
       | _ -> (a, i)
     in
-      (can s a', i')       (* ??? *)
+      (lookup s a', i')   
   in
   let (a, i, prf) = Fact.d_cnstrnt c in
     match i with
@@ -775,7 +897,9 @@ and close_i i =
        try
 	 let e' = equation i s x in
 	 let s' =  if Th.eq i Th.la then nonlin_equal e' s else s in
-	   deduce i e' s'
+	 let s'' =  deduce i e' s' in
+         let s''' = infer i e' s'' in
+           s'''
        with
 	   Not_found -> s)
 
@@ -791,19 +915,20 @@ and close_v chv =
        let y = v s x in
 	 if Term.eq x y then s else 
 	   let e = Fact.mk_equal x y None in
-	   let s' =  List.fold_right
-		      (fun i s ->
-			 let a = find i s x 
-			 and b = find i s y in
-			   if Term.eq a b || (is_var a && is_var b) then 
-			     s 
-			   else
-			     merge_i i e s)
-		      Th.interp s
-	   in
-	   let s'' = arrays_equal e s' in
-	   let s''' = bvarith_equal e s'' in
-	     s''')
+	     Trace.msg "rule" "Close(v)" e Fact.pp_equal;
+	     let s' =  List.fold_right
+			 (fun i s ->
+			    let a = find i s x 
+			    and b = find i s y in
+			      if Term.eq a b || (is_var a && is_var b) then 
+				s 
+			      else
+				merge_i i e s)
+			 Th.interp s
+	     in
+	     let s'' = arrays_equal e s' in
+	     let s''' = bvarith_equal e s'' in
+	       s''')
     chv 
 
 and close_c chc = 
@@ -822,68 +947,231 @@ and close_c chc =
 	       Not_found -> s)
     chc
 
-and close_d chd s = s
+and close_d chd =
+  Set.fold
+    (fun x s ->
+       let yl = d s x in
+	 List.fold_right
+	   (fun y s ->
+	      let d = Fact.mk_diseq x y None in
+		arrays_diseq d 
+                   (bv_diseq d s))
+	   yl s)
+    chd 
 
-(** Propagating a disequalities.
-  From the disequality [i <> j] and the facts
-  [z1 = select(upd, j')], [z2 = update(a,i',x)],
-  [i = i'], [j = j'], [upd = z2], it follows that
-  [z1 = z3], where [z3 = select(a,j)]. *)
+(** {6 Bitvector propagation} *)
+
+and bv_diseq d' s =
+  let add x c =
+    try
+      let (k, cs) = Term.Map.find x s.diseqs in
+	failwith "to do"
+    with
+	Not_found -> 
+	  Term.Map.add x (1, Term.Set.singleton c)
+  in
+  let (x, _, _) = Fact.d_diseq d' in
+    try
+      let a = apply Th.bv s x in
+	if not(Bitvector.is_const a) then s else
+	  s
+    with
+	Not_found -> s
+  
+(** {6 Array propagation} *)
+
+(** Forward chaining on the array properties
+  - [a[i:=x][i] = x]
+  - [i <> j] implies [a[i:=x][j] = a[x]]
+  - [i <> j] and [i <> k] implies [a[j:=x][i] = a[k:=y][i]]
+  - [a[j:=x] = b[k:=y]], [i <> j], [i <> k] implies [a[i] = b[i]].
+  - [a[i:=x] = b[i := y]] implies [x = y]. *)
+
 and arrays_diseq d s =
-  let diseq (i, j, prf) s =
+  if is_empty Th.arr s then s else 
+    arrays_diseq1 d
+      (arrays_diseq2 d
+	 (arrays_diseq3 d s))
+
+(** [i <> j] implies [a[i:=x][j] = a[j]].
+  Thus, look for [v = u[j]] and [u' = a[i := x]] with [u = u'] in [s]
+  using the use lists. Now, when [w = a[j]], then infer [v = w]. *)
+and arrays_diseq1 d s =
+  let (i, j, prf) = Fact.d_diseq d in
+  let diseq  (i, j) s =
     Set.fold
-      (fun z1 s1 -> 
-	 match apply Th.arr s1 z1 with
-	   | App(Arrays(Select), [upd; j']) 
-	       when is_equal s1 j j' = Three.Yes ->
-	       fold s 
-		 (fun z2 s2 ->
-		    match apply Th.arr s2 z2 with
-		      | App(Arrays(Update), [a; i'; _])
-			  when is_equal s2 i i' = Three.Yes ->
-			  let (s', z3) = name Th.arr (s2, Arr.mk_select a j) in
-			  let e' = Fact.mk_equal (v s2 z1) (v s2 z3) None in
-			    merge_v e' s'
-		      | _ -> s2)
-		 upd s1
-	   | _ -> s)    
-      (use Th.arr s j)
-      s
+      (fun v s -> 
+	 try
+	   let (u, j) = d_select s (tt, tt) v in     (* [v = u[j]] *)
+	     fold s
+	       (fun u' s ->                         (* [u = u'] *)
+		  try                               (* [u' = a[i:=x]] *)
+		    let (a, i, x) = d_update s (tt, tt, tt) u' in
+		    let (s, w) = name Th.arr (s, Arr.mk_select Term.is_equal a j) in
+		    let e' = Fact.mk_equal v w None in
+		      merge_v e' s
+		  with
+		      Not_found -> s)
+	       u s
+	 with
+	     Not_found -> s)
+      (use Th.arr s j) s
   in
-  let (x, y, prf) = Fact.d_diseq d in
-    diseq (x, y, prf)
-      (diseq (y, x, prf) s)
+    diseq (i, j)
+      (diseq (j, i) s)
+
+(** [i <> j] and [i <> k] implies [a[j:=x][i] = a[k:=y][i]].
+  Thus, for [i <> j], select [v = u[i]] and [u' = a[j:=x]] with
+  [u = u'] in [s]. Now, for all [u'' = a[k:=y]] with [k <> i],
+  add [a[j:=x][i] = a[k:=y][i]]. *)
+and arrays_diseq2 d s =
+  let (i, j, _) = Fact.d_diseq d in
+  let diseq (i, j) s =
+    Set.fold 
+      (fun v s ->
+	 (try
+	    let (u, _) = d_select s (tt, is_eq s i) v in
+	      fold s
+		(fun u' s ->
+		   if not(is_eq s u u') then s else
+		     try
+		       let (a, _, x) = d_update s (tt, is_eq s j, tt) u' in
+			 Set.fold
+			   (fun u'' s ->
+			      try
+				let (_, k, y) = d_update s (is_eq s a, is_diseq s i, tt) u'' in
+				let (s, u1) = name Th.arr (s, Arr.mk_update Term.is_equal a j x) in
+				let (s, v1) = name Th.arr (s, Arr.mk_select Term.is_equal u1 i) in
+				let (s, u2) = name Th.arr (s, Arr.mk_update Term.is_equal a k y) in
+				let (s, v2) = name Th.arr (s, Arr.mk_select Term.is_equal u2 i) in
+				let e' = Fact.mk_equal v1 v2 None in
+				  merge_v e' s
+			      with
+				  Not_found -> s)
+			   (use Th.arr s a) s
+		     with
+			 Not_found -> s)
+		u s
+	  with 
+	      Not_found -> s))
+      (use Th.arr s i) s
+  in
+    diseq (i, j)
+      (diseq (i, j) s)
+
+(** [a[j:=x] = b[k:=y]], [i <> j], [i <> k] implies [a[i] = b[i]].
+  We are propagating disequalities [i <> j]. 
+  If [u = a[j := x]], then look for all [k] disequal from [i] for [v = b[k:=y]].
+  Now, assert [a[i] = b[i]]. *)
+and arrays_diseq3 d' s = 
+  let (i, j, _) = Fact.d_diseq d' in
+  let diseq (i, j) s =
+    Set.fold
+      (fun u s ->
+	 try
+	   let (a, j, _) = d_update s (tt, tt, tt) u in
+	     List.fold_right
+	       (fun k s ->
+		  Set.fold
+		    (fun v s ->
+		       try
+			 let (b, _, _) = d_update s (tt, is_eq s k, tt) v in
+			 let (s, w1) = name Th.arr (s, Arr.mk_select Term.is_equal a i) in
+			 let (s, w2) = name Th.arr (s, Arr.mk_select Term.is_equal b i) in
+			 let e' = Fact.mk_equal w1 w2 None in
+			   merge_v e' s
+		       with
+			   Not_found -> s)
+		    (use Th.arr s k) s)
+	       (d s i) s
+	 with
+	     Not_found -> s)
+      (use Th.arr s j) s
+  in
+    diseq (i, j)
+      (diseq (j, i) s)
 
 
-(** From the equality [x = y] and the facts
-  [z1 = select(upd1,j1)], [z2 = update(a2,i2,k2)] in [s]
-  and [upd1 == z2 mod s], [x == i2 mod s], [y == j1 mod s] deduce
-  that [z1 = k2]. *)
 and arrays_equal e s =
-  let equal (x, y, prf) s =
+  if is_empty Th.arr s then s else 
+    arrays_equal1 e
+      (arrays_equal2 e
+	 (arrays_equal3 e s))
+     
+(** [i = j] implies [a[i:= x][j] = x].
+  Since [i] and [j] are already merged on rhs, it suffices
+  to look for [v1 = v2'[i]] and [v2 = a[i := x]] with [v2] equal [v2'] in [s].
+  Now, [v1 = x].  *)
+and arrays_equal1 e s =
+  let (i, j, _) = Fact.d_equal e in
     Set.fold
-      (fun z1 s1 -> 
-	 match apply Th.arr s1 z1 with 
-	   | App(Arrays(Select), [upd1; j1])
-	       when is_equal s1 y j1 = Three.Yes ->
-	       fold s1
-		 (fun z2 s2  -> 
-		    match apply Th.arr s2 z2 with 
-		      | App(Arrays(Update), [a2; i2; k2])
-			  when is_equal s2 x i2 = Three.Yes -> 
-			  let e' = Fact.mk_equal (v s2 z1) (v s2 k2) None in
-			    merge_v e' s2
-		      | _ -> s2)
-		 upd1 s1
-	   | _ -> s1)
-      (use Th.arr s x)
+      (fun v1 s ->
+	 try
+	   let (v2', _) = d_select s (tt, is_eq s i) v1 in
+	     Set.fold
+	       (fun v2 s -> 
+		  if not(is_eq s v2 v2') then s else 
+		    try
+		      let (a, _, x) = d_update s (tt, is_eq s i, tt) v2 in
+		      let e' = Fact.mk_equal (v s v1) x None in
+			merge_v e' s
+		    with
+			Not_found -> s)
+	       (use Th.arr s (v s j))
+	       s
+	  with
+	      Not_found ->  s)
+      (use Th.arr s (v s j))
       s
-  in
-    if is_empty Th.arr s then s else 
-      let (x, y, prf) = Fact.d_equal e in
-	equal (x, y, prf)
-	  (equal (y, x, prf) s)
 
+(** [a[i:=x] = b[i := y]] implies [x = y].
+  Thus, if [v = u] has been merged, then look for
+  [v = a[i:=x]] and [v' = b[i := y]] with [v = v'] in [s], now merge [x = y]. *)
+and arrays_equal2 e s = 
+  let (v, _, _) = Fact.d_equal e in   (* [find] of [v] has changed. *)
+    try
+      let (_, i, x) = d_update s (tt, tt, tt) v in
+	fold s
+	  (fun v' s ->
+	     if Term.eq v v' then s else
+	       try
+		 let (_, _, y) = d_update s (tt, is_eq s i, tt) v' in
+		 let e' = Fact.mk_equal x y None in
+		   merge_v e' s
+	       with
+		   Not_found -> s)
+	  v s
+    with
+	Not_found -> s
+
+(** [a[j:=x] = b[k:=y]], [i <> j], [i <> k] implies [a[i] = b[i]].
+  Thus, for a merged [v = u], look for [v = a[j:= x]] and [v' = b[k := y]] 
+  with [v = v'] in [s]. For all [i] such that [i <> j] and [i <> k] add
+  [w1 = w2] for [w1 = a[i]] and [w2 = b[i]], possibly extending the solution set. *)
+and arrays_equal3 e s = 
+  let (v, _, _) = Fact.d_equal e in   (* [find] of [v] has changed. *)
+    try
+      let (a, j, _) = d_update s (tt, tt, tt) v in
+	fold s
+	  (fun v' s ->
+	     if Term.eq v v' then s else
+	       try
+		 let (b, k, _) = d_update s (tt, tt, tt) v' in
+		   List.fold_right
+		     (fun i s ->
+			if not(is_diseq s i k) then s else
+			  let (s, w1) = name Th.arr (s, Arr.mk_select Term.is_equal a i) in
+			  let (s, w2) = name Th.arr (s, Arr.mk_select Term.is_equal b i) in
+			  let e' = Fact.mk_equal w1 w2 None in
+			    merge_v e' s)
+		     (d s j) s
+	       with
+		   Not_found -> s)
+	  v s
+    with
+	Not_found -> s
+   
+	  
 and bvarith_equal e s =
   if is_empty Th.bvarith s then s else 
     let (x, bv, prf) = Fact.d_equal e in
@@ -946,52 +1234,41 @@ end
 module Process = struct
 
   let rec atom s =
-    Trace.func "shostak" "Process" Atom.pp (Status.pp pp)
-      (fun atom ->
+    Trace.func "process" "Process" Atom.pp (Status.pp pp)
+      (fun a ->
 	 try
-	   match Can.atom s atom with
-	     | Atom.True -> 
-		 Status.Valid
-	     | Atom.False ->
-		 Status.Inconsistent
-	     | Atom.Equal(a, b) ->
-		 let e = Fact.mk_equal a b Fact.mk_axiom in
-		   Status.Ok(equality_atom atom e s)
-	     | Atom.Diseq(a, b) ->
-		 let d = Fact.mk_diseq a b Fact.mk_axiom in
-		   Status.Ok(diseq_atom atom d s)
-	     | Atom.In(a, d) ->
-		 let c = Fact.mk_cnstrnt a d Fact.mk_axiom in
-		   Status.Ok(add_atom atom c s)
-	   with 
-	       Exc.Inconsistent -> 
-		 Status.Inconsistent)
-      
-  and equality_atom a e =  
-    protect
-      (fun s  ->
-	 s.ctxt <- Atom.Set.add a s.ctxt;
-	 let (s', e') = Abstract.equal (s, e) in
-	 let s'' = equality e' s' in
-	   normalize s'')
-      
-  and add_atom a c = 
-    protect
-      (fun s  -> 
-	 s.ctxt <- Atom.Set.add a s.ctxt;
-	 let (s', c') = Abstract.cnstrnt (s, c) in
-	 let s'' = add c' s' in
-	   normalize s'')
+	   (match Can.atom s a with
+	      | Atom.True -> 
+		  Status.Valid
+	      | Atom.False ->
+		  Status.Inconsistent
+	      | a ->
+		  Status.Ok(protect
+			      (fun s ->
+				 s.ctxt <- Atom.Set.add a s.ctxt;
+				 let (s, a) = Abstract.atom (s, a) in
+				   process a s)
+			      s))
+	 with 
+	     Exc.Inconsistent -> 
+	       Status.Inconsistent)
 
-  and diseq_atom a d =
-    protect
-      (fun s  ->   
-	 s.ctxt <- Atom.Set.add a s.ctxt;
-	 let (s', d') = Abstract.diseq (s, d) in
-	 let s'' = diseq d' s' in
-	   normalize s'')
-
-
+  and process a s = 
+    match a with
+      | Atom.Equal(x, y) ->
+	  let e = Fact.mk_equal x y Fact.mk_axiom in
+	    normalize (equality e s)
+      | Atom.Diseq(x, y) ->
+	  let d = Fact.mk_diseq x y Fact.mk_axiom in
+	    normalize (diseq d s)
+      | Atom.In(x, d) ->
+	  let c = Fact.mk_cnstrnt x d Fact.mk_axiom in
+	    normalize (add c s)
+      | Atom.True -> 
+	  s
+      | Atom.False ->
+	  raise Exc.Inconsistent
+	     
   and protect f s =
    let k' = !Var.k in
      try

@@ -75,6 +75,19 @@ let rec mk_out i x =
   else 
     mk_outr (mk_out (i - 1) x)
 
+(** Two chains of injections are disequal if they differ. *)
+
+let rec is_diseq a b =
+  match a, b with
+   | App(Coproduct(f), [x]), App(Coproduct(g), [y]) ->
+       (match f, g with
+         | InL, InL -> is_diseq x y
+         | InR, InR -> is_diseq x y
+         | InL, InR -> true
+         | InR, InL -> true
+         | _ -> false)
+   | _ ->
+      false
 
 (** Sigmatizing. *)
 

@@ -264,23 +264,24 @@ val sym_d_multq : sym -> q
   - tupling
   - projections of the [i]-th component in a tuple of length [n]. *)
 
-val sym_mk_tuple : unit -> sym
-  (** [sym_mk_tuple ()] constructs the symbol for tupling. *)
+val sym_mk_cons : unit -> sym
+  (** [sym_mk_cons()] constructs the symbol for tupling. *)
 
-val sym_is_tuple : sym -> bool
-  (** [sym_is_tuple f] holds iff [f] represents tupling. *)
+val sym_is_cons : sym -> bool
+  (** [sym_is_cons f] holds iff [f] represents tupling. *)
 
-val sym_is_proj : sym -> bool
-  (** [sym_is_proj f] holds iff [f] represents a projection. *)
+val sym_is_car : sym -> bool
+  (** [sym_is_car f] holds iff [f] represents a projection. *)
 
-val sym_mk_proj : int -> int -> sym
-  (** [sym_mk_proj i n] constructs the symbol for the [i]-th projection 
-    of a tuple of length [n]. *)
+val sym_mk_car : unit -> sym
+  (** [sym_mk_car()] constructs the symbol for the first projection *)
 
-val sym_d_proj : sym -> int * int
-  (** If {!Ics.sym_is_proj}[(f)] holds, [sym_d_proj f]
-    returns the parameters [(i, n)] of [f], denoting the
-    [i]-th projection of a tuple of length [n]. *)
+val sym_is_cdr : sym -> bool
+  (** [sym_is_cdr f] holds iff [f] represents a projection. *)
+
+val sym_mk_cdr : unit -> sym
+  (** [sym_mk_cdr()] constructs the symbol for the first projection *)
+
 
 
 (** Symbols of the theory of {b coproducts} are eith
@@ -606,8 +607,8 @@ val term_mk_tuple : term list -> term
     result is in tuple normal form, when all [ai] are in tuple normal
     form  *)
 
-val term_mk_proj : int -> int -> term -> term
-  (** [term_mk_proj i n a] constructs, for [0 <= i < n], a term 
+val term_mk_proj : int -> term -> term
+  (** [term_mk_proj i a] constructs, for [0 <= i < n], a term 
     for representing the [i]-th projection of an [n]-tuple. If [a]
     is in tuple normal form, then so is the result. *)
 

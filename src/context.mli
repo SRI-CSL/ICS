@@ -43,9 +43,6 @@ val eqs_of : t -> Th.t -> Solution.t
   (** [eqs_of s th] returns the solution set for equality theory [th]
     in the logical context [s]. *)
 
-val sl_of : t -> Sl.t
-  (** [sl_of s] returns the slack equalities in [s]. *)
-
 val mem : Th.t -> t -> Term.t -> bool
   (** [mem th s x] iff [x = _] is in the solution set for theory [th]
     in [s]. *)
@@ -102,6 +99,8 @@ val is_equal : t -> Term.t -> Term.t -> Three.t
 
 
 (** {6 Canonizer and Solver} *)
+
+val sigma : t -> Sym.t -> Term.t list -> Term.t
 
 val can : t -> Term.t -> Term.t
 

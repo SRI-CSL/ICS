@@ -174,11 +174,11 @@ let max a b =
 (** Some recognizers. *)
 
 let is_interp_const = function
-  | App((Arith _ | Bv _ | Product _), []) -> true
+  | App((Arith _ | Bv _ ), []) -> true
   | _ -> false
    
 let is_interp = function
-  | App((Arith _ | Bv _ | Product _), _) -> true
+  | App((Arith _ | Bv _), _) -> true
   | _ -> false
 
 let is_uninterpreted = function
@@ -189,7 +189,7 @@ let is_uninterpreted = function
 let is_equal a b =
   if eq a b then
     Three.Yes
-  else match a, b with                         (* constants from within a theory are *)
+  else match a, b with                                 (* constants from within a theory are *)
     | App((Arith _ as c), []), App((Arith _ as d), []) (* assumed to interpreted differently *)
 	when not(Sym.eq c d) -> Three.No
     | App((Bv _ as c), []), App((Bv _ as d), [])
@@ -261,16 +261,10 @@ let rec pp fmt a =
 	       infixl " + " l
 	   | Arith(Multq(q)) , [x] -> 
 	       Pretty.infix Mpa.Q.pp "*" pp fmt (q, x)  
-	   | Product(Proj(0, 2)), [App(Coproduct(OutR), [x])] ->
+	   | Pair(Car), [App(Coproduct(OutR), [x])] ->
 	       str "hd"; str "("; term x; str ")"
-	   | Product(Proj(1, 2)), [App(Coproduct(OutR), [x])] ->
+	   | Pair(Cdr), [App(Coproduct(OutR), [x])] ->
 	       str "tl"; str "("; term x; str ")"
-	   | Product(Proj(0,2)), [_] -> 
-	       str "car"; args l
-	   | Product(Proj(1,2)), [_] -> 
-	       str "cdr"; args l
-	   | Product(Tuple), [_; _] -> 
-	       str "cons"; args l
 	   | Pp(Mult), [] ->
 	       str "1"
 	   | Pp(Mult), xl ->
@@ -283,9 +277,9 @@ let rec pp fmt a =
 	       infixl " ++ " l
 	   | Bv(Sub(_,i,j)), [x] ->
 	       term x; Format.fprintf fmt "[%d:%d]" i j
-	   | Coproduct(InL), [App(Product(Tuple), [x; xl])] ->
+	   | Coproduct(InL), [App(Pair(Cons), [x; xl])] ->
 	       Pretty.infix pp "::" pp fmt (x, xl)
-	   | Coproduct(InR), [App(Product(Tuple), [])] ->
+	   | Coproduct(InR), [App(Pair(Cons), [])] ->
 	       str "[]"
 	   | Arrays(Update), [x;y;z] ->
 	       term x; str "["; term y; str " := "; term z; str "]"

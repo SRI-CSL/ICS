@@ -72,6 +72,11 @@ val mk_out : int -> Term.t -> Term.t
     - [mk_out i a = mk_outr (mk_out (i - 1) x)] if [i > 1]
     - Otherwise, the value of [mk_out] is unspecified. *)
 
+(** {6 Predicates} *)
+
+val is_diseq : Term.t -> Term.t -> bool
+   (** [is_diseq a b] holds if the prefixes of injections of [a]
+     and [b] are different. *)
 
 (** {6 Iterators} *)
 

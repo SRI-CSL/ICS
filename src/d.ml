@@ -65,6 +65,7 @@ let is_diseq s a b =
 (** Adding a disequality over variables *)
 
 let rec add d s =
+  Trace.msg "d" "Add" d Fact.pp_diseq;
   let (x,y,_) = Fact.d_diseq d in
   let xd = deq s x in
   let yd = deq s y in
@@ -88,7 +89,8 @@ let rec add d s =
 
 (** Propagating an equality between variables. *)
 
-let merge e s =
+let merge e s = 
+  Trace.msg "d" "Merge" e Fact.pp_equal;
   let (a, b, _) = Fact.d_equal e in
   let da = deq s a and db = deq s b in
   if Term.Set.mem a db || Term.Set.mem b da then

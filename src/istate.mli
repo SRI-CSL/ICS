@@ -178,7 +178,7 @@ val forget : unit -> unit
 
 (** {6 Predicates} *)
 
-val is_equal : Term.t -> Term.t -> bool
+val is_equal : Term.t -> Term.t -> Three.t
   (** Equality/disequality test. *)
 
 (** {6 Sat solver} *)

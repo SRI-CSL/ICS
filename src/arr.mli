@@ -36,24 +36,28 @@ val update : Sym.t
 
 val mk_create : Term.t -> Term.t
 
-val mk_select : Term.t -> Term.t -> Term.t
+val mk_select : (Term.t -> Term.t -> Three.t) -> Term.t -> Term.t -> Term.t
   (** [mk_select a j] constructs a canonical term equivalent
     to [App(select, [a; j])]. *)
 
-val mk_update : Term.t -> Term.t -> Term.t -> Term.t
+val mk_update : (Term.t -> Term.t -> Three.t) -> Term.t -> Term.t -> Term.t -> Term.t
   (** [mk_update a x i] constructs a canonical term equivalent
     to [App(update, [a;x;i])]. *)
 
 
 (** {6 Canonizer} *)
 
-val sigma : Sym.arrays -> Term.t list -> Term.t
+val sigma : (Term.t -> Term.t -> Three.t) -> Sym.arrays -> Term.t list -> Term.t
 
 
 (** {6 Iterators} *)
 
-val map: (Term.t -> Term.t) -> Term.t -> Term.t
+val map: (Term.t -> Term.t -> Three.t) -> (Term.t -> Term.t) -> Term.t -> Term.t
   (** Applying a term transformer at all uninterpreted positions
     - [map f (mk_select a j)] equals [mk_select (map f a) (map f j)]
     - [map f (mk_update a i x)] equals [mk_select (map f a) (map f i) (map f x)]
     - Otherwise, [map f x] equals [f x] *)
+
+
+
+

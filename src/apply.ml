@@ -29,8 +29,12 @@ let rec mk_apply sigma r a al =
   match a, al with
     | App(Fun(Abs), [x]), [y] -> 
 	byValue sigma (subst sigma x y 0)
-    | _ ->
-	mk_app (apply r) (a :: al)
+    | _, [b] ->
+	mk_app (apply r) [a; b]
+    | _, b :: bl ->
+	mk_apply sigma r (mk_app (apply r) [a; b]) bl
+    | _, [] ->
+	assert false
 
 
 (** evaluation, not affecting function bodies *)

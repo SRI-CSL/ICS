@@ -89,8 +89,8 @@ let is_equal s x y =
       Three.No
     else
       try
-	let (i, _) = c s x 
-	and (j, _) = c s y in
+	let (i, _) = c s x' 
+	and (j, _) = c s y' in
 	  if i = Sign.Zero && j = Sign.Zero then
 	    Three.Yes
 	  else if Sign.disjoint i j then

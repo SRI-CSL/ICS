@@ -155,12 +155,10 @@ funsym:
 | PLUS                                   { Sym.Arith(Sym.Add) }
 | TIMES                                  { Sym.Pp(Sym.Mult) }
 | EXPT LBRA int RBRA                     { Sym.Pp(Sym.Expt($3)) }
-| TUPLE                                  { Sym.Product(Sym.Tuple) }
+| CONS                                   { Sym.Pair(Sym.Cons) }
+| CAR                                    { Sym.Pair(Sym.Car) }
+| CDR                                    { Sym.Pair(Sym.Cdr) }
 | UNSIGNED                               { Sym.Bvarith(Sym.Unsigned) }
-| PROJ LBRA INTCONST COMMA INTCONST RBRA { Sym.Product(Sym.Proj($3, $5)) }
-| CONS                                   { Sym.Product(Sym.Tuple)  }
-| CAR                                    { Sym.Product(Sym.Proj(0, 2)) }
-| CDR                                    { Sym.Product(Sym.Proj(1, 2)) }
 | CONC LBRA INTCONST COMMA INTCONST RBRA               { Sym.Bv(Sym.Conc($3, $5)) }
 | SUB LBRA INTCONST COMMA INTCONST COMMA INTCONST RBRA { Sym.Bv(Sym.Sub($3, $5, $7)) }
 | BWITE LBRA INTCONST RBRA                             { Sym.Bv(Sym.Bitwise($3)) }
@@ -220,10 +218,10 @@ app:
 | constsym                      { Th.sigma $1 [] }
 
 list: 
-  term LISTCONS term            { Coproduct.mk_inj 1 (Tuple.mk_tuple [$1; $3]) }
-| HEAD LPAR term RPAR           { Tuple.mk_proj 0 2 (Coproduct.mk_out 1 $3) }
-| TAIL LPAR term RPAR           { Tuple.mk_proj 1 2 (Coproduct.mk_out 1 $3) }
-| NIL                           { Coproduct.mk_inj 0 (Tuple.mk_tuple []) }
+  term LISTCONS term            { Coproduct.mk_inj 1 (Pair.mk_cons $1 $3) }
+| HEAD LPAR term RPAR           { Pair.mk_car (Coproduct.mk_out 1 $3) }
+| TAIL LPAR term RPAR           { Pair.mk_cdr (Coproduct.mk_out 1 $3) }
+| NIL                           { Coproduct.mk_inj 0 (Bitvector.mk_eps) }
 
 apply: 
   term APPLY term               { Apply.mk_apply
@@ -251,8 +249,8 @@ coproduct:
 
 array:
   CREATE LPAR term RPAR      { Arr.mk_create $3 }
-| term LBRA term ASSIGN term RBRA { Arr.mk_update $1 $3 $5 }
-| term LBRA term RBRA        { Arr.mk_select $1 $3 }
+| term LBRA term ASSIGN term RBRA { Arr.mk_update Istate.is_equal $1 $3 $5 }
+| term LBRA term RBRA        { Arr.mk_select Istate.is_equal $1 $3 }
 ;
 
 

@@ -15,7 +15,7 @@
   partitioned into function symbols for the theories of
   - uninterpreted functions
   - linear arithmetic
-  - tuples
+  - pairs
   - cotuples
   - bitvectors
   - arrays
@@ -33,15 +33,15 @@ type arith =
 	- [Add] for addition,
 	- [Multq(q)] for multiplication by a rational [q]. *)
 
-type product = 
-  | Tuple
-  | Proj of int * int
-      (** Function symbols for the theory of tuples are
-	- [Tuple] for tupling
-	- [Proj(i,n)] for projecting the [i]-th component in an [n]-tuple. *)
+type pair =
+  | Cons
+  | Car
+  | Cdr
+      (** Function symbols for the theory of Pairs. *)
+
 
 type coproduct = InL | InR | OutL | OutR
-    (** Function symbols for the theory of tuples are
+    (** Function symbols for the theory of cotuples are
       - [InL] for left-injection,
       - [InR] for right-injection,
       - [OutR] for right-unpacking,
@@ -88,8 +88,8 @@ type bvarith =
 
 type t = 
   | Uninterp of Name.t       (* Uninterpreted function symbols. *)
-  | Arith of arith           (* Linear arithmetic function symbols. *) 
-  | Product of product       (* N-ary products *)
+  | Arith of arith           (* Linear arithmetic function symbols. *)
+  | Pair of pair             (* Pairs. *)
   | Coproduct of coproduct   (* 2-ary coproducts *)
   | Bv of bv                 (* Bitvector function symbols. *)
   | Pp of pprod              (* Power products. *)
@@ -116,9 +116,3 @@ val pp : Format.formatter -> t -> unit
 val width : t -> int option
   (** Width of a bitvector symbol. *)
 
-
-(** {6 Miscellaneous symbols} *)
-
-val tuple : t
-val car : t
-val cdr : t

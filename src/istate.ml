@@ -143,8 +143,7 @@ let ctxt_of = function
 let can a = 
   Context.can s.current a
 
-let sigma f l = Th.sigma f l
-
+let sigma f l = Context.sigma s.current f l
 
 
 (** Create a fresh name for a state. *)
@@ -265,7 +264,7 @@ let solve i (a, b) =
 (** Equality/disequality test. *)
 
 let is_equal a b =
-  Context.is_equal s.current a b = Three.Yes
+  Context.is_equal s.current a b
 
 
 (** Sat solver *)

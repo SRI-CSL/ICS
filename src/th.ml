@@ -72,7 +72,7 @@ let is_fully_interp i =
 let of_sym = function
   | Sym.Uninterp _ -> u
   | Sym.Arith _ -> la
-  | Sym.Product _ -> p
+  | Sym.Pair _ -> p
   | Sym.Bv _ -> bv
   | Sym.Coproduct _ -> cop
   | Sym.Arrays _ -> arr
@@ -140,12 +140,12 @@ let maps =
       (fun (i, m) -> Array.set a i m)
       [u, App.map;
        la, Arith.map;
-       p, Tuple.map;
+       p, Pair.map;
        bv, Bitvector.map;
        cop, Coproduct.map;
        pprod, Pp.map;
        app, Apply.map;
-       arr, Arr.map;
+       arr, Arr.map Term.is_equal;
        bvarith, Bvarith.map];
     a
 
@@ -157,13 +157,13 @@ let map = Array.get maps
 let sigma f =
   match f with
     | Sym.Arith(op) -> Arith.sigma op
-    | Sym.Product(op) -> Tuple.sigma op
+    | Sym.Pair(op) -> Pair.sigma op
     | Sym.Bv(op) -> Bitvector.sigma op
     | Sym.Coproduct(op) -> Coproduct.sigma op
     | Sym.Fun(op) -> Apply.sigma op
     | Sym.Pp(op) -> Pp.sigma op
-    | Sym.Arrays(op) -> Arr.sigma op
     | Sym.Bvarith(op) -> Bvarith.sigma op
+    | Sym.Arrays(op) -> Arr.sigma Term.is_equal op
     | Sym.Uninterp _ -> Term.mk_app f
 
 
@@ -175,7 +175,7 @@ let solvers =
       (fun (i, m) -> 
 	 Array.set a i m)
       [la, Arith.solve;
-       p, Tuple.solve;
+       p, Pair.solve;
        bv, Bitvector.solve;
        cop, Coproduct.solve];
     a

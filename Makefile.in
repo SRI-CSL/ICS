@@ -9,6 +9,8 @@ GMPINCLUDE = -I @GMPPATH@/include
 CC = @CC@
 CXX = @CXX@
 
+LIBGCCA = `@CC@ --print-libgcc`
+
 OCAMLC   = @OCAMLC@
 OCAMLLINK= @OCAMLMKTOP@
 OCAMLOPT = @OCAMLOPT@
@@ -82,7 +84,7 @@ CMO = three.cmo \
       euclid.cmo \
       fact.cmo \
       arith.cmo \
-      tuple.cmo \
+      pair.cmo \
       coproduct.cmo \
       bitvector.cmo \
       boolean.cmo \
@@ -168,8 +170,10 @@ $(LIBDIR)/libics.so: $(OBJS)
           $(OCAMLSTDLIB)/libasmrun.a
 
 $(LIBDIR)/libics.a: $(OBJS)
-	cp $(OCAMLSTDLIB)/libasmrun.a $(LIBDIR)/libics.a
-	ar r $(LIBDIR)/libics.a $(OBJS)
+	$(LD) -r -o $@ $(OBJS) $(ICSAT) \
+	$(OCAMLSTDLIB)/libunix.a \
+	--whole-archive $(LIBGMPA) $(LIBGCCA) --no-whole-archive \
+	$(OCAMLSTDLIB)/libasmrun.a
 
 ics_stub.c ics.h ics.lisp: ics.ml ics.mli ../../chameleon/$(ARCH)/chameleon
 	../../chameleon/$(ARCH)/chameleon ics.ml
@@ -263,7 +267,7 @@ ics.tar.gz:
                   ./sat/src/*.d \
                   ./sat/src/Makefile.in \
                   ./sat/lib/ \
-                  ./src/mlgmp41.c ./src/ocaml-signals.c \
+                  ./src/*.c \
                   ./src/parser.mly ./src/lexer.mll \
                   ./src/main.ml \
                   ./$(SRC)  ./$(SRCMLI))

@@ -62,7 +62,6 @@ val diseq : Fact.diseq -> t -> Term.Set.t * t
   (** Propagate disequalities to the constraint part. *) 
 
 
-
 (** {6 Pretty-printing} *)
 
 val pp : t Pretty.printer

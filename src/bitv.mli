@@ -14,7 +14,7 @@
  * (enclosed in the file LGPL).
  *)
 
-(* $Id: bitv.mli,v 1.1 2002/04/03 01:13:04 ruess Exp $ *)
+(* $Id: bitv.mli,v 1.2 2003/02/23 23:52:38 ruess Exp $ *)
 
 (*s {\bf Module Bitv}.
     This module implements bit vectors, as an abstract datatype [t]. 
@@ -44,6 +44,8 @@ val set : t -> int -> bool -> unit
 val get : t -> int -> bool
 
 val length : t -> int
+
+val equal : t -> t -> bool
 
 (*s [max_length] is the maximum length of a bit vector (System dependent). *)
 

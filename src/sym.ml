@@ -20,9 +20,11 @@ type arith =
   | Add
   | Multq of Mpa.Q.t
 
-type product = 
-  | Tuple
-  | Proj of int * int
+type pair = 
+  | Cons
+  | Car
+  | Cdr
+      (** Function symbols for the theory of S-expressions. *)
 
 type coproduct = InL | InR | OutL | OutR
 
@@ -52,7 +54,7 @@ type bvarith =
 type t = 
   | Uninterp of Name.t
   | Arith of arith
-  | Product of product
+  | Pair of pair
   | Coproduct of coproduct
   | Bv of bv
   | Pp of pprod
@@ -66,7 +68,7 @@ let cmp = Pervasives.compare
 let hash = function
   | Uninterp(x) -> (2 + Hashtbl.hash x) land 0x3FFFFFFF
   | Arith(f) -> (3 + Hashtbl.hash f) land 0x3FFFFFFF
-  | Product(f) -> (5 + Hashtbl.hash f) land 0x3FFFFFFF
+  | Pair(f) -> (5 + Hashtbl.hash f) land 0x3FFFFFFF
   | Coproduct(f) -> (7 + Hashtbl.hash f) land 0x3FFFFFFF
   | Bv(f) -> (11 + Hashtbl.hash f) land 0x3FFFFFFF
   | Pp(f) -> (17 + Hashtbl.hash f) land 0x3FFFFFFF
@@ -78,7 +80,7 @@ let rec eq s t =
   match s, t with  
     | Uninterp(x), Uninterp(y) -> Name.eq x y 
     | Arith(f), Arith(g) -> eq_arith f g 
-    | Product(f), Product(g) -> eq_product f g
+    | Pair(f), Pair(g) -> eq_pair f g
     | Coproduct(op1), Coproduct(op2) -> op1 = op2
     | Bv(f), Bv(g) -> eq_bv f g
     | Pp(f), Pp(g) -> eq_pp f g
@@ -103,11 +105,7 @@ and eq_bv f g =
 	n1 = n2
     | _ -> false
 
-and eq_product f g = 
-  match f, g with
-    | Tuple, Tuple -> true 
-    | Proj(i,n), Proj(j,m) -> i = j && n = m
-    | _ -> false
+and eq_pair f g = (f = g)
 
 and eq_apply f g =
   match f, g with
@@ -141,7 +139,7 @@ let pp fmt s =
     match s with 
       | Uninterp(f) -> Name.pp fmt f
       | Arith(op) -> arith op
-      | Product(op) -> product op
+      | Pair(op) -> pair op
       | Bv(op) -> bv op
       | Coproduct(op) -> coproduct op
       | Arrays(op) -> array op
@@ -155,10 +153,11 @@ let pp fmt s =
       | Add -> Format.fprintf fmt "+"
       | Multq(q) ->  Mpa.Q.pp fmt q; Format.fprintf fmt "*" 
 
-  and product op =
+  and pair op =
     match op with
-      | Tuple -> Format.fprintf fmt "tuple"
-      | Proj(i,n) -> Format.fprintf fmt "proj[%d,%d]" i n
+      | Cons -> Format.fprintf fmt "cons"
+      | Car -> Format.fprintf fmt "car"
+      | Cdr -> Format.fprintf fmt "cdr"
 
   and coproduct op =
     match op with
@@ -228,6 +227,3 @@ and width_bv b =
 (** {6 Some predefined symbols} *)
 
 let add = Arith(Add)
-let tuple = Product(Tuple)
-let car = Product(Proj(0, 2))
-let cdr = Product(Proj(1, 2))

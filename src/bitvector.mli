@@ -38,6 +38,10 @@ val width : Term.t -> int option
   (** Computes the width of a bitvector term, and returns [None] if
     the argument is not an application of a bitvector symbol *)
 
+(** {6 Destructors} *)
+
+val d_const : Term.t -> Bitv.t option
+  (** Accessor for bitvector constants. *)
 
 (** {6 Constructors} *)
 
@@ -105,6 +109,9 @@ val mk_bwiff : int -> Term.t -> Term.t -> Term.t
 val is_interp : Term.t -> bool
   (** [is_interp a] holds iff the top-level function symbol of [a]
     is interpreted in the theory of bitvectors (see also module [Sym]. *)
+
+val is_const : Term.t -> bool
+  (** [is_const a] holds iff [a] is a bitvector constant. *)
 
 val is_zero : Term.t -> bool
   (** [is_zero a] holds iff all  bits in [a] are [0]. *)

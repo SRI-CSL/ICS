@@ -117,7 +117,13 @@ let of_mono q x =
       | _ -> 
 	  mk_app (multq q) [x]
 
-
+let fold f a e =
+  let (_, ml) = poly_of a in
+    List.fold_left
+      (fun acc m ->
+	 let (q, x) = mono_of m in
+	   f q x acc)
+      e ml
 
 (** {6 Constructors} *)
 
@@ -221,6 +227,10 @@ let rec map f a =
 	       assert false)
     | _ ->
 	f a
+
+(** Replacing a variable with a term. *)
+let replace a x e =
+  map (fun y -> if Term.eq x y then e else y) a
 
 
 (** Interface for sigmatizing arithmetic terms. *)

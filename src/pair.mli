@@ -15,53 +15,42 @@
 
   @author Harald Ruess
 
-  The signature of this theory consists of the [n]-ary function symbol
-  [product] for constructing tuples and of the family of unary 
-  function symbols [proj i n)], for integers [0 <= i < n], for projecting 
-  the [i]-th component (starting with [0] and addressing in increasing 
-  order from left to right).
+  The signature of the theory of pairs consists of
+  - [cons], the constructor of arity two.
+  - [car] of arity one, projection on first component.
+  - [cdr] of arity one, projection to second component.
 
-  The theory of tuples is given in terms of the equality theory
-  - [(proj i n)(product(a0,...,an-1)) = ai]
-  - If [ai = bi] for [i=0,...,n-1], then
-         [product(a0,...,an-1) = product(b0,...,bn-1)]
+  The theory is axiomatized by
+  - [car(cons(s, t)) = s]
+  - [cdr(cons(s, t)) = t]
+  - [cons(s, t) = cons(u, v)] implies [s = u] and [t = v]
 *)
 
 (** {6 Function symbols} *)
 
-val product : Sym.t
-val proj : int -> int -> Sym.t
+val cons : Sym.t
+val car : Sym.t
+val cdr : Sym.t
 
 
 (** {6 Constructors} *)
 
+val mk_cons : Term.t -> Term.t -> Term.t
+
+val mk_car : Term.t -> Term.t
+ 
+val mk_cdr : Term.t -> Term.t
+
 val mk_tuple : Term.t list -> Term.t
-  (** If the argument list [l] is of length [1], then
-    this term is returned. Otherwise, [tuple l] constructs
-    the corresponding tuple term. *)
-   
-val mk_proj : int -> int -> Term.t -> Term.t
-  (** [mk_proj i n a] is the constructor for the family of [i]-th projections
-    from [n]-tuples, where [i] is any integer value between [0] and [n-1].
-    This constructor simplifies [proj i n (tuple [a0;...;an-1])] to [ai]. *)
+
+val mk_proj : int -> Term.t -> Term.t
+
 
 
 (** {6 Recognizers} *)
 
 val is_interp : Term.t -> bool
-  (** [is_interp a] holds iff [a] is an application of a term [b]
-    to a projection symbol [proj _ _], or [a] is an application of
-    the symbol [product] to a list of terms. Terms for 
-    which [is_interp] is [false] are considered to be {i uninterpreted}
-    in the theory of tuples, and are usually treated as they were
-    variables by the functions in this module *)
-
-
-(** {6 Iterators} *)
-
-val fold : (Term.t -> 'a -> 'a) -> Term.t -> 'a -> 'a
-  (** If [x1, ..., xn] are the variables and uninterpreted terms of [a],
-    then [fold f a e] is  [f (... (f (f e x1) x2) ...) xn]. *)
+ 
   
 
 val map: (Term.t -> Term.t) -> Term.t -> Term.t
@@ -72,7 +61,7 @@ val map: (Term.t -> Term.t) -> Term.t -> Term.t
 
 (** {6 Canonization} *)
 
-val sigma : Sym.product -> Term.t list -> Term.t
+val sigma : Sym.pair -> Term.t list -> Term.t
   (** [sigma op l] applies the function symbol [op] from the tuple theory to
     the list [l] of terms. For the function symbol [Proj(i,n)] and the list [a],
     it simply applies the constructor [proj i n a], and for [Tuple] and it 

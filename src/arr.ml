@@ -30,12 +30,12 @@ let mk_create a =
 
 let mk_select =
   let select = mk_app (Arrays(Select)) in
-    fun b j ->
+    fun is_equal b j ->
       match b with
 	| App(Arrays(Create), [a]) ->
 	    a
 	| App(Arrays(Update), [a; i; x]) ->
-	    (match Term.is_equal i j with
+	    (match is_equal i j with
 	       | Three.Yes ->
 		   x
 	       | Three.No -> 
@@ -47,37 +47,37 @@ let mk_select =
 
 let mk_update = 
   let update = mk_app (Arrays(Update)) in
-    fun a j y ->
+    fun is_equal a j y ->
       match a with
 	| App(Arrays(Update), [b; i; x]) when Term.eq i j ->
 	    update [b; i; y]
 	| _ ->
 	    update [a; j; y]
 
-let sigma op l =
+let sigma is_equal op l =
   match op, l with
     | Create, [a] ->
 	mk_create a
     | Update, [a; i; x] ->
-	mk_update a i x
+	mk_update is_equal a i x
     | Select, [a; j] ->
-	mk_select a j
+	mk_select is_equal a j
     | _ -> 
 	assert false
 
-let rec map f b =
+let rec map is_equal f b =
   match b with
     | App(Arrays(Create), [a]) -> 
-	let a' = map f a in
+	let a' = map is_equal f a in
 	  if a == a' then b else
 	    mk_create a'
     | App(Arrays(Update), [a; i; x]) ->
-	let a' = map f a and i' = map f i and x' = map f x in
+	let a' = map is_equal f a and i' = map is_equal f i and x' = map is_equal f x in
 	  if a == a' && i == i' && x == x' then b else
-	    mk_update a' i' x'
+	    mk_update is_equal a' i' x'
     | App(Arrays(Select), [a; j]) ->
-	let a' = map f a and j' = map f j in
+	let a' = map is_equal f a and j' = map is_equal f j in
 	  if a == a' && j == j' then b else
-	    mk_select a' j'
+	    mk_select is_equal a' j'
     | _ -> 
 	f b

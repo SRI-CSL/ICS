@@ -185,20 +185,23 @@ let _ = Callback.register "sym_mk_add" sym_mk_add
 let sym_is_add = function Arith(Add) -> true | _ -> false
 let _ = Callback.register "sym_is_add" sym_is_add
 
-let sym_mk_tuple () = Tuple.product
-let _ = Callback.register "sym_mk_product" sym_mk_tuple
+let sym_mk_cons () = Pair.cons
+let _ = Callback.register "sym_mk_cons" sym_mk_cons
 
-let sym_is_tuple = function Product(Tuple) -> true | _ -> false
-let _ = Callback.register "sym_is_tuple" sym_is_tuple
+let sym_is_cons = function Pair(Cons) -> true | _ -> false
+let _ = Callback.register "sym_is_cons" sym_is_cons
 
-let sym_mk_proj = Tuple.proj
-let _ = Callback.register "sym_mk_proj" sym_mk_proj
+let sym_mk_car () = Pair.car
+let _ = Callback.register "sym_mk_car" sym_mk_car
 
-let sym_is_proj = function Product(Proj _) -> true | _ -> false
-let _ = Callback.register "sym_is_proj" sym_is_proj
+let sym_is_car  = function Pair(Car) -> true | _ -> false
+let _ = Callback.register "sym_is_car" sym_is_car
 
-let sym_d_proj = function Product(Proj(i,n)) -> (i,n) | _ -> assert false
-let _ = Callback.register "sym_d_proj" sym_d_proj
+let sym_mk_cdr () = Pair.cdr
+let _ = Callback.register "sym_mk_cdr" sym_mk_cdr
+
+let sym_is_cdr = function Pair(Cdr) -> true | _ -> false
+let _ = Callback.register "sym_is_cdr" sym_is_cdr
 
 let sym_mk_inl () = Coproduct.inl
 let _ = Callback.register "sym_mk_inl" sym_mk_inl
@@ -405,10 +408,10 @@ let _ = Callback.register "iterm_s_arith" term_is_arith
 
 (** Constructing tuples and projections. *)
 
-let term_mk_tuple = Tuple.mk_tuple
+let term_mk_tuple = Pair.mk_tuple
 let _ = Callback.register "term_mk_tuple" term_mk_tuple
 
-let term_mk_proj i j = Tuple.mk_proj i j
+let term_mk_proj i = Pair.mk_proj i
 let _ = Callback.register "term_mk_proj" term_mk_proj
 
 
@@ -650,10 +653,10 @@ let _ = Callback.register "term_mk_expt" term_mk_expt
 let term_mk_unsigned = Bvarith.mk_unsigned
 let _ = Callback.register "term_mk_unsigned" term_mk_unsigned
 
-let term_mk_update  = Arr.mk_update 
+let term_mk_update  = Arr.mk_update Term.is_equal
 let _ = Callback.register "term_mk_update" term_mk_update
 
-let term_mk_select = Arr.mk_select
+let term_mk_select = Arr.mk_select Term.is_equal
 let _ = Callback.register "term_mk_select" term_mk_select
 
 let term_mk_div = Sig.mk_div

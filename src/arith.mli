@@ -125,7 +125,7 @@ val d_multq : Term.t -> (Mpa.Q.t * Term.t) option
     of the symbol {!Sym.Multq}[(q)] to the unary list [[b]]. *)
 
 val monomials : Term.t -> Term.t list
-  (** [monomials a] yiels a list of monomials [ml] such that [mk_addl ml]
+  (** [monomials a] yields a list of monomials [ml] such that [mk_addl ml]
     equal [a]. *)
 
 
@@ -137,6 +137,12 @@ val map: (Term.t -> Term.t) -> Term.t -> Term.t
     - [map f (mk_multq q x)] equals [mk_multq q (map f x)]
     - [map f (mk_addl al)] equals [mk_addl (List.map f al)]
     - Otherwise, [map f x] equals [f x] *)
+
+val replace: Term.t -> Term.t -> Term.t -> Term.t
+  (** [replace a x e] replaces occurrences of [x] in [a] with [e], and normalizes. *)
+
+val fold: (Mpa.Q.t -> Term.t -> 'a -> 'a) -> Term.t -> 'a -> 'a
+  (** Folding over the non-constant monomials of an arithmetic term. *)
 
 
 (** {6 Canonization} *)

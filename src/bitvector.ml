@@ -43,6 +43,11 @@ let d_interp = function
 let mk_const c =
   Term.mk_const(Bv(Const(c)))
 
+let is_const a =
+  match d_interp a with
+    | Some(Const _, []) -> true
+    | _ -> false
+
 let mk_eps = 
   mk_const(Bitv.from_string "")
 

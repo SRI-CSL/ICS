@@ -23,3 +23,5 @@
 exception Inconsistent
   
 exception Valid
+
+exception Incomplete
