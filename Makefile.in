@@ -12,6 +12,7 @@ OCAMLOPT = @OCAMLOPT@
 OCAMLLEX = @OCAMLLEX@
 OCAMLYACC= @OCAMLYACC@
 OCAMLDEP = @OCAMLDEP@
+OCAMLDOC = @OCAMLDOC@
 
 HEVEA = @HEVEA@
 OCAMLWEB = @OCAMLWEB@
@@ -51,20 +52,21 @@ endif
 
 INCLUDE =
 CFLAGS = 
-BFLAGS = -g $(INCLUDE) # -noassert
-OFLAGS = $(INCLUDE) # -noassert
+BFLAGS = -g $(INCLUDE)
+OFLAGS = $(INCLUDE) # -noassert -compact -inline 3 -unsafe
 LIBS = $(LIBGMPA)
 
 # Object files
 
-COBJS = mlgmp.o ocaml-signals.o
+COBJS = mlgmp.o mlgmp41.o ocaml-signals.o
 
 CMO = sign.cmo three.cmo \
-      gmp.cmo mpa.cmo \
+      gmp.cmo gmp41.cmo mpa.cmo \
       binrel.cmo \
       hashcons.cmo \
       tools.cmo status.cmo \
       pretty.cmo \
+      trace.cmo \
       exc.cmo\
       bitv.cmo \
       extq.cmo dom.cmo endpoint.cmo interval.cmo cnstrnt.cmo \
@@ -72,7 +74,6 @@ CMO = sign.cmo three.cmo \
       var.cmo \
       sym.cmo \
       term.cmo \
-      trace.cmo \
       fact.cmo \
       euclid.cmo \
       arith.cmo \
@@ -115,7 +116,7 @@ SRCMLI = $(addprefix $(SRCDIR)/,$(CMO:.cmo=.mli))
 
 .PHONY : all all-chdir
 all: $(OBJDIR) $(LIBDIR) $(BINDIR)
-	make -C chameleon all
+	$(MAKE) -C chameleon all
 	$(MAKE) -C $(OBJDIR) -f ../../Makefile all-chdir
 
 all-chdir: $(BINDIR)/ics $(LIBDIR)/libics.so $(LIBDIR)/libics.a $(BINDIR)/ics.byte
@@ -147,7 +148,7 @@ ics.byte: $(OBJDIR)
 	make -C $(OBJDIR) -f ../../Makefile ics.byte
 endif
 
-OBJS = ics_all.o ics_stub.o mlgmp.o ocaml-signals.o
+OBJS = ics_all.o ics_stub.o ocaml-signals.o mlgmp.o mlgmp41.o
 
 
 ics_all.o: $(CMX)
@@ -168,6 +169,7 @@ ics_stub.c ics.h ics.lisp: ics.ml ics.mli ../../chameleon/$(ARCH)/chameleon
 
 GENERATED = lexer.ml parser.mli parser.ml
 
+
 ### Directories
 
 $(BINDIR):	
@@ -182,10 +184,12 @@ $(LIBDIR):
 	-umask 022; if test '!' -d $(LIBDIR) ; then \
            mkdir -p $(LIBDIR); fi;
 
+
 ### Source file links
 
 .PRECIOUS : $(OBJDIR)/%.ml $(OBJDIR)/%.mli $(OBJDIR)/%.mly 
 .PRECIOUS : $(OBJDIR)/%.mll $(OBJDIR)/mlgmp.c
+.PRECIOUS : $(OBJDIR)/%.mll $(OBJDIR)/mlgmp41.c
 .PRECIOUS : $(OBJDIR)/%.mll $(OBJDIR)/ocaml-signals.c
 
 
@@ -204,56 +208,13 @@ $(OBJDIR)/%.mll: $(SRCDIR)/%.mll
 $(OBJDIR)/mlgmp.c: $(SRCDIR)/mlgmp.c
 	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
 
-$(OBJDIR)/ocaml-signals.c: $(SRCDIR)/ocaml-signals.c
+$(OBJDIR)/mlgmp41.c: $(SRCDIR)/mlgmp41.c
 	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
 
 
-### Automated tests
+$(OBJDIR)/ocaml-signals.c: $(SRCDIR)/ocaml-signals.c
+	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
 
-bench:: consistent inconsistent benchmarks
-
-check:: consistent inconsistent
-
-consistent: $(BINDIR)/ics
-	@for f in `find examples/consistent/ -maxdepth 1 -type f -print`; \
-	do \
-	echo -n $$f"..."; \
-	$(BINDIR)/ics $$f; \
-	done
-
-inconsistent: $(BINDIR)/ics
-	@for f in `find examples/inconsistent/ -maxdepth 1 -type f -print`; do \
-	echo -n $$f"..."; \
-	$(BINDIR)/ics $$f; \
-	done
-
-BENCHFILES=linsys-005 linsys-006 linsys-007 linsys-008 linsys-009 linsys-010 \
-	   linsys-011 linsys-012 linsys-013 linsys-014 linsys-015 \
-           trans-100 trans-200 trans-300 trans-400 trans-500 trans-1000 \
-           ineq-010 ineq-020 ineq-030 ineq-040 ineq-050 ineq-060 ineq-070
-
-benchmarks: $(BINDIR)/ics 
-	@for f in $(BENCHFILES); do \
-	echo -n "bench file $$f..."; \
-	time -f "user = %U system = %S" $(BINDIR)/ics tests/bench/$$f > /dev/null;\
-	done
-
-PROFFILE=./examples/ineq3.ics
-
-profile:
-	make clean
-	autoconf
-	./configure
-	make OFLAGS=-p           
-	./ics $(PROFFILE)
-	gprof $(BINDIR)/ics gmon.out > profile.out
-
-CPROFFILE = ./examples/ineq3.ics
-
-cprofile:
-	$(MAKE) BFLAGS="" OCAMLC="ocamlcp -p fmt" OCAMLLINK="ocamlcp -p fmt" clean ics.byte
-	$(BINDIR)/ics.byte $(CPROFFILE)
-	$(MAKE) process.prof
 
 ### Tar file and release to WEB
 
@@ -293,36 +254,20 @@ ics.tar.gz:	distclean
                   ./src/main.ml \
                   ./$(SRC)  ./$(SRCMLI))
 
-### Update executables in Lab
-
-.PHONE : labbinaries
-
-labbinaries::
-	cp $(BINDIR)/ics $(LABDIR)/$(BINDIR)
-	cp $(BINDIR)/ics.byte $(LABDIR)/$(BINDIR)
-	cp $(LIBDIR)/libics.a $(LABDIR)/$(LIBDIR)
-	cp $(LIBDIR)/libics.so $(LABDIR)/$(LIBDIR)
-	cp $(OBJDIR)/ics.h $(LABDIR)/include
-
-
 ### Documention
 
-LITERAL = $(addprefix $(DOCDIR)/literal/,$(CMO:.cmo=.ml.tex)) \
-          $(addprefix $(DOCDIR)/literal/,$(CMO:.cmo=.mli.tex)) \
-          $(DOCDIR)/literal/main.ml.tex \
+doc: $(DOCDIR)/doc.ps.gz $(DOCDIR)/doc.html $(DOCDIR)/doc.pdf
 
-$(DOCDIR)/literal/%.ml.tex: $(SRCDIR)/%.ml
-	$(OCAMLWEB) --no-preamble --no-index --impl $< -o $(DOCDIR)/literal/$(@F)
-
-$(DOCDIR)/literal/%.mli.tex: $(SRCDIR)/%.mli
-	$(OCAMLWEB) --no-preamble --no-index --intf $< -o $(DOCDIR)/literal/$(@F)
-
-doc: $(LITERAL) $(DOCDIR)/doc.ps.gz $(DOCDIR)/doc.html $(DOCDIR)/doc.pdf
-
-$(DOCDIR)/doc.dvi: $(LITERAL)  $(DOCDIR)/dep.ps $(DOCDIR)/doc.tex
+$(DOCDIR)/doc.dvi: $(DOCDIR)/dep.ps $(DOCDIR)/doc.tex $(DOCDIR)/api.tex
 	(cd $(DOCDIR); latex ./doc.tex  && bibtex ./doc && latex ./doc.tex && latex ./doc.tex)
 
-$(DOCDIR)/doc.pdf: $(LITERAL)  $(DOCDIR)/dep.ps $(DOCDIR)/doc.tex
+$(DOCDIR)/dep.ps: $(SRC)
+	(cd src; $(OCAMLDEP) -native *.ml *.mli | ocamldot | dot -Tps > ../doc/dep.ps)
+
+$(DOCDIR)/api.tex: $(SRCDIR)/ics.mli
+	$(OCAMLDOC) -latex -latextitle 6,subsection -noheader -notrailer -o $(DOCDIR)/api.tex $(SRCDIR)/ics.mli
+
+$(DOCDIR)/doc.pdf: $(DOCDIR)/dep.ps $(DOCDIR)/doc.tex
 	(cd $(DOCDIR); pdflatex ./doc.tex  && pdflatex ./doc.tex)
 
 $(DOCDIR)/doc.ps:  $(DOCDIR)/doc.dvi  $(DOCDIR)/dep.ps $(DOCDIR)/doc.tex
@@ -331,13 +276,10 @@ $(DOCDIR)/doc.ps:  $(DOCDIR)/doc.dvi  $(DOCDIR)/dep.ps $(DOCDIR)/doc.tex
 $(DOCDIR)/doc.ps.gz:  $(DOCDIR)/doc.ps
 	gzip -f $(DOCDIR)/doc.ps
 
-$(DOCDIR)/doc.pdf:  $(LITERAL) $(DOCDIR)/dep.ps $(DOCDIR)/doc.tex
+$(DOCDIR)/doc.pdf:  $(DOCDIR)/dep.ps $(DOCDIR)/doc.tex
 
-$(DOCDIR)/doc.html: $(DOCDIR)/doc.tex $(LITERAL) $(DOCDIR)/dep.gif $(DOCDIR)/doc.tex $(DOCDIR)/docheader.html
+$(DOCDIR)/doc.html: $(DOCDIR)/doc.tex $(DOCDIR)/dep.gif $(DOCDIR)/doc.tex $(DOCDIR)/docheader.html
 	(cd $(DOCDIR); $(HEVEA) $(OCAMLWEBSTY) ./doc.tex -o ./doc.html)
-
-$(DOCDIR)/dep.ps: $(SRC)
-	$(OCAMLDEP) -native $(SRC) | ocamldot -lr | dot -Tps > $(DOCDIR)/dep.ps
 
 $(DOCDIR)/dep.gif: $(DOCDIR)/dep.ps
 
@@ -400,13 +342,11 @@ tags:
 .ml.prof:
 	ocamlprof $< > $@
 
-.PHONY: clean distclean
+.PHONY: clean
 
-clean::	distclean
+clean::
 	rm -f config.cache config.log confdefs.h config.status
 	rm -f Makefile
-
-distclean::
 	rm -f gmon.out
 	rm -rf profile.out
 	rm -f $(BINDIR)/ics $(BINDIR)/ics.byte 
@@ -414,12 +354,8 @@ distclean::
 	rm -rf obj/*  lib/* bin/*
 	rm -f $(DOCDIR)/*.aux  $(DOCDIR)/*.toc
 	rm -f $(DOCDIR)/*.bbl $(DOCDIR)/*.log $(DOCDIR)/*.haux $(DOCDIR)/*.dvi
-	rm -f $(DOCDIR)/literal/*.tex
 	make -C chameleon clean
 	rm -f $(DOCDIR)/*.ppm $(DOCDIR)/*.blg $(DOCDIR)/*.brf $(DOCDIR)/*.out 
-	rm -rf $(DOCDIR)/doc/literal/*.tex 
-	rm -f $(WEBDIR)/download/ics.tar.gz
-
 
 # Installation
 
