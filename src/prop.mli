@@ -79,7 +79,7 @@ module Assignment : sig
 
   type t = {
     valuation : (Name.t * bool) list;
-    literals : Atom.t list
+    literals : Atom.Set.t
   }
 
   val pp : t Pretty.printer
