@@ -43,7 +43,8 @@ let equal_width_of a b =
 %token TYPE SIGMA
 %token SOLVE HELP DEF TOGGLE SET TRACE UNTRACE CMP FIND USE INV SOLUTION PARTITION
 %token SHOW CNSTRNT SYNTAX COMMANDS SPLIT SAT
-%token DISEQ CTXT
+%token DISEQ CTXT 
+%token LETIN IN DEF
 %token EOF
 
 %token ARITH TUPLE
@@ -262,14 +263,17 @@ bv:
 | term BWIFF term     { Bitvector.mk_bwiff (equal_width_of $1 $3) $1 $3 }
 ;
 
+negatable:  
+  term EQUAL term          { Atom.mk_equal($1, $3)}
+| term DISEQ term          { Atom.mk_diseq($1, $3) }
+| term LESS term           { Atom.mk_less($1, false, $3) }
+| term GREATER term        { Atom.mk_greater($1, false, $3) }
+| term LESSOREQUAL term    { Atom.mk_less($1, true, $3) }
+| term GREATEROREQUAL term { Atom.mk_greater($1, true, $3)}
+
 atom:
-  term EQUAL term         { Atom.mk_equal($1, $3)}
-| term DISEQ term         { Atom.mk_diseq($1, $3) }
-| term LESS term          { Atom.mk_less($1, false, $3) }
-| term GREATER term       { Atom.mk_greater($1, false, $3) }
-| term LESSOREQUAL term   { Atom.mk_less($1, true, $3) }
-| term GREATEROREQUAL term{ Atom.mk_greater($1, true, $3) }
-| term IN dom             { Atom.mk_in ($1, $3) }
+  negatable                { $1 }
+| term IN dom              { Atom.mk_in ($1, $3) }
 ;
 
 dom:
@@ -281,7 +285,7 @@ dom:
 prop:
   LBRA prop RBRA                  { $2 } 
 | name                            { Prop.mk_var $1 }
-| atom                            { Prop.mk_poslit $1 }
+| negatable                       { Prop.mk_poslit $1 }
 | prop CONJ prop                  { Prop.mk_conj [$1; $3] }
 | prop DISJ prop                  { Prop.mk_disj [$1; $3] }
 | prop BIIMPL prop                { Prop.mk_iff $1 $3 }
@@ -289,6 +293,7 @@ prop:
 | prop IMPL prop                  { Prop.mk_disj [Prop.mk_neg $1; $3] }
 | NEG prop %prec prec_unary       { Prop.mk_neg $2 }
 | IF prop THEN prop ELSE prop END { Prop.mk_ite $2 $4 $6 }
+| LETIN IDENT DEF prop IN prop END  { Prop.mk_let (Name.of_string $2) $4 $6 }
 ;
 
 
