@@ -145,6 +145,20 @@ commandsequence :
   command DOT commandsequence    { ()  }
 | command DOT                    { () }
 | EOF                            { raise End_of_file }
+
+
+prop:
+  LBRA prop RBRA                  { $2 }
+| name                            { try Istate.prop_of $1 with Not_found -> Prop.mk_var $1 }
+| atom                            { Prop.mk_poslit $1 }
+| prop CONJ prop                  { Prop.mk_conj [$1; $3] }
+| prop DISJ prop                  { Prop.mk_disj [$1; $3] }
+| prop BIIMPL prop                { Prop.mk_iff $1 $3 }
+| prop XOR prop                   { Prop.mk_neg (Prop.mk_iff $1 $3) }
+| prop IMPL prop                  { Prop.mk_disj [Prop.mk_neg $1; $3] }
+| NEG prop %prec prec_unary       { Prop.mk_neg $2 }
+| IF prop THEN prop ELSE prop END { Prop.mk_ite $2 $4 $6 }
+;
  
 int: INTCONST  { $1 }
 
@@ -192,7 +206,6 @@ term:
 | coproduct        { $1 }
 | list             { $1 }
 | apply            { $1 }
-| intarith         { $1 }
 ;
 
 var:
@@ -215,10 +228,6 @@ var:
 	     else 
 	       Term.Var.mk_rename n (Some(k)) None }
 | FREE    { Term.Var(Var.mk_free $1) }
-;
-
-varlist : var        { [$1] }
-| varlist COMMA var  { $3 :: $1 }
 ;
 
 varset : var         { Term.Set.singleton $1 }
@@ -295,19 +304,6 @@ bv:
 	     raise (Invalid_argument (Term.to_string $1 ^ " not a bitvector.")) }
 ;
 
-prop:
-  LPAR prop RPAR                  { $2 }
-| LBRA prop LBRA                  { $2 }
-| name                            { try Istate.prop_of $1 with Not_found -> Prop.mk_var $1 }
-| atom                            { Prop.mk_poslit $1 }
-| prop CONJ prop                  { Prop.mk_conj [$1; $3] }
-| prop DISJ prop                  { Prop.mk_disj [$1; $3] }
-| prop BIIMPL prop                { Prop.mk_iff $1 $3 }
-| prop XOR prop                   { Prop.mk_neg (Prop.mk_iff $1 $3) }
-| prop IMPL prop                  { Prop.mk_disj [Prop.mk_neg $1; $3] }
-| NEG prop %prec prec_unary       { Prop.mk_neg $2 }
-| IF prop THEN prop ELSE prop END { Prop.mk_ite $2 $4 $6 }
-;
 
 atom: 
   FF                       { Atom.mk_false }
