@@ -280,8 +280,6 @@ let constructors () =
   cprintf "{\n";
   cprintf "  struct global_root * e, * f;\n";
   cprintf "  int i;\n\n";
-  cprintf "/*   Assert (((long) r & 3) == 0);  /\* compact.c demands this (for now) *\/ */\n";
-  cprintf "/*   Assert (((long) r & 1) == 0);  /\* from ics_deregister *\/ */\n\n";
   cprintf "  /* Init \"cursor\" to list head */\n";
   cprintf "  e = (struct global_root *) &caml_global_roots;\n";
   cprintf "  /* Find value */\n";
