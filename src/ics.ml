@@ -326,37 +326,47 @@ let _ = Callback.register "term_is_false" term_is_false
 (*s Nonlinear terms. *)
 
 
-let term_mk_mult a b = Nonlin.mk_mult (a, b)
+let term_mk_mult a b = 
+  match a with
+    | App(Sym.Arith(Sym.Num(q)), []) ->
+	Arith.mk_multq q b
+    | _ ->
+	(match b with
+	   | App(Sym.Arith(Sym.Num(p)), []) ->
+	       Arith.mk_multq p a
+	   | _ ->
+	       mk_app Sym.mult [a; b])
 let _ = Callback.register "term_mk_mult" term_mk_mult
 
-let term_mk_expt q a = Simplify.mk_expt Context.empty q a
+let term_mk_expt q a = 
+  mk_app Sym.expt [Arith.mk_num q; a]
 let _ = Callback.register "term_mk_expt" term_mk_expt
 
 
 (*s Builtin applications. *)
 
-let term_mk_unsigned = Simplify.mk_unsigned Context.empty
+let term_mk_unsigned a = mk_app Sym.unsigned [a]
 let _ = Callback.register "term_mk_unsigned" term_mk_unsigned
 
-let term_mk_update a b c = Simplify.mk_update Context.empty (a, b, c)
+let term_mk_update a b c = mk_app Sym.update [a;b;c]
 let _ = Callback.register "term_mk_update" term_mk_update
 
-let term_mk_select a b = Simplify.mk_select Context.empty (a, b)
+let term_mk_select a b = mk_app Sym.select [a; b]
 let _ = Callback.register "term_mk_select" term_mk_select
 
-let term_mk_div a b = Nonlin.mk_div (a, b)
+let term_mk_div a b = mk_app Sym.div [a; b]
 let _ = Callback.register "term_mk_div" term_mk_div
 
-let term_mk_floor = Nonlin.mk_floor (fun _ -> false)
+let term_mk_floor a = mk_app Sym.floor [a]
 let _ = Callback.register "term_mk_floor" term_mk_floor
 
-let term_mk_ceiling = Nonlin.mk_ceiling (fun _ -> false)
+let term_mk_ceiling a = mk_app Sym.ceiling [a]
 let _ = Callback.register "term_mk_ceiling" term_mk_ceiling
 
-let term_mk_sin = Nonlin.mk_sin
+let term_mk_sin a = mk_app Sym.sin [a]
 let _ = Callback.register "term_mk_sin" term_mk_sin
 
-let term_mk_cos = Nonlin.mk_cos
+let term_mk_cos a = mk_app Sym.cos [a]
 let _ = Callback.register "term_mk_cos" term_mk_cos
 
 
