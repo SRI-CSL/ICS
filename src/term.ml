@@ -51,6 +51,7 @@ let is_fresh_var = function
   | Var(x) -> Var.is_fresh x
   | _ -> false
 
+
 (*s Recognizers. *)
 
 let is_var = function Var _ -> true | _ -> false
@@ -59,6 +60,10 @@ let is_const = function App(_,[]) -> true | _ -> false
 
 
 (*s Destructors. *)
+
+let to_var = function
+  | Var(x) -> x
+  | _ -> assert false
 
 let name_of a =
   assert(is_var a);
@@ -198,7 +203,11 @@ let rec pp fmt a =
 	   | Arith(Add), _ -> 
 	       infixl " + " l
 	   | Arith(Multq(q)) , [x] -> 
-	       Pretty.infix Mpa.Q.pp "*" pp fmt (q, x)
+	       Pretty.infix Mpa.Q.pp "*" pp fmt (q, x)  
+	   | Tuple(Proj(0, 2)), [App(Coproduct(OutR), [x])] ->
+	       str "hd"; str "("; term x; str ")"
+	   | Tuple(Proj(1, 2)), [App(Coproduct(OutR), [x])] ->
+	       str "tl"; str "("; term x; str ")"
 	   | Tuple(Proj(0,2)), [_] -> 
 	       str "car"; args l
 	   | Tuple(Proj(1,2)), [_] -> 
@@ -211,6 +220,10 @@ let rec pp fmt a =
 	       infixl " ++ " l
 	   | Bv(Sub(_,i,j)), [x] ->
 	       term x; Format.fprintf fmt "[%d:%d]" i j
+	   | Coproduct(InL), [App(Tuple(Product), [x; xl])] ->
+	       Pretty.infix pp "::" pp fmt (x, xl)
+	   | Coproduct(InR), [App(Tuple(Product), [])] ->
+	       str "[]"
 	   | Builtin(Update), [x;y;z] ->
 	       term x; str "["; term y; str " := "; term z; str "]"
 	   | Builtin(Select), [x; y] ->

@@ -36,19 +36,18 @@ type bv =
   | Bitwise of int
 
 
+type coproduct = InL | InR | OutL | OutR
+
 (*s Builtin Symbols *)
 
 type builtin = 
   | Select | Update
   | Unsigned 
-  | Floor | Mult | Expt | Div | Sin | Cos 
-  | Apply of range option
-  | Lambda of Var.t
+  | Mult | Expt | Div
+  | Apply of range
+  | Lambda of int
 
-and range =
-  | Real of int * Cnstrnt.t 
-  | Boolean of int
-
+and range = Cnstrnt.t option
 
 (*s Symbols. *)
 
@@ -56,7 +55,8 @@ type t =
   | Uninterp of Name.t
   | Builtin of builtin
   | Arith of arith
-  | Tuple of tuple
+  | Tuple of tuple 
+  | Coproduct of coproduct
   | Bv of bv
 
 
@@ -74,7 +74,7 @@ let rec eq s t =
     | Builtin(x), Builtin(y) ->
 	(match x, y with
 	   | Apply _, Apply _ -> true
-	   | Lambda i, Lambda j -> Var.eq i j
+	   | Lambda i, Lambda j -> i = j
 	   | _ -> x = y)
     | Arith(op1), Arith(op2) ->
 	(match op1, op2 with
@@ -87,6 +87,8 @@ let rec eq s t =
 	   | Product, Product -> true 
 	   | Proj(i,n), Proj(j,m) -> i = j && n = m
 	   | _ -> false)
+    | Coproduct(op1), Coproduct(op2) -> 
+	op1 = op2
     | Bv(op1), Bv(op2) ->
 	(match op1, op2 with
 	   | Const(b1), Const(b2) -> 
@@ -104,12 +106,8 @@ let rec eq s t =
 and applyeq u v = 
   match u, v with
     | None, None -> true
-    | Some(Real(n, c)), Some(Real(m, d)) ->
-	n = m && Cnstrnt.eq c d
-    | Some(Boolean(n)), Some(Boolean(m)) ->
-	n = m
-    | _ ->
-	false
+    | Some(c), Some(d) -> Cnstrnt.eq c d
+    | _ -> false
 
 let pp fmt s = 
   let rec sym s =
@@ -119,6 +117,7 @@ let pp fmt s =
       | Arith(op) -> arith op
       | Tuple(op) -> tuple op
       | Bv(op) -> bv op
+      | Coproduct(op) -> coproduct op
 
   and arith op =
     match op with
@@ -130,6 +129,13 @@ let pp fmt s =
     match op with
       | Product -> Format.fprintf fmt "tuple"
       | Proj(i,n) -> Format.fprintf fmt "proj[%d,%d]" i n
+
+  and coproduct op =
+    match op with
+      | InL -> Format.fprintf fmt "inl"
+      | InR ->  Format.fprintf fmt "inr"
+      | OutL -> Format.fprintf fmt "outl"
+      | OutR -> Format.fprintf fmt "outr"
 
   and bv op =
     match op with
@@ -144,17 +150,14 @@ let pp fmt s =
 	| Select -> "select" 
 	| Update -> "update"
 	| Unsigned -> "unsigned"
-	| Apply(Some(Real(n, c))) -> 
-	    "apply[" ^ string_of_int n ^ "]"
+	| Apply(Some(c)) -> 
+	    "apply[" ^ Pretty.to_string Cnstrnt.pp c ^ "]"
 	| Apply _ -> "apply"
-	| Lambda(x) -> 
-	    "lambda[" ^  (Pretty.to_string Var.pp x) ^ "]"
-	| Floor -> "floor"
+	| Lambda(i) -> 
+	    "lambda[" ^  string_of_int i ^ "]"
 	| Mult -> "*"
 	| Expt -> "^"
 	| Div -> "/"
-	| Sin -> "sin"
-	| Cos -> "cos"
     in
       Format.fprintf fmt "%s" name
   in
@@ -186,36 +189,14 @@ and width_bv b =
 (*s Classification of function symbols. *)
 
 
-type theories = 
-  | U
-  | T
-  | BV
-  | A
 
 let theory_of = function
-  | Arith _ -> A
-  | Tuple _ -> T
-  | Bv _ -> BV
-  | _ -> U
+  | Arith _ -> Theories.A
+  | Tuple _ -> Theories.T
+  | Bv _ -> Theories.BV
+  | Coproduct _ -> Theories.S
+  | _ -> Theories.U
 
-let name_of_theory = function
-  | U -> "u"
-  | A -> "a"
-  | BV -> "bv"
-  | T -> "t"
-
-let theory_of_name = function
-  | "u" -> U
-  | "a" -> A
-  | "t" -> T
-  | "bv" -> BV
-  | x -> raise (Invalid_argument x)
-
-let interp_theory_of_name = function
-  | "a" -> A
-  | "t" -> T
-  | "bv" -> BV
-  | x -> raise (Invalid_argument x)
 
 (*s Predefined symbol. *)
 
@@ -253,16 +234,13 @@ let apply =
 (*s Predefined nonlinear function symbols. *)
 
 
-let floor = Builtin(Floor)
 let mult =  Builtin(Mult)
 let expt = Builtin(Expt)
 let div = Builtin(Div)
-let sin = Builtin(Sin)
-let cos = Builtin(Cos)
 
 
 let is_nonlin = function
-  | Builtin(Floor | Mult | Expt | Div | Sin | Cos) -> true
+  | Builtin(Mult | Expt | Div) -> true
   | _ -> false
 
 

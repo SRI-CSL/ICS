@@ -17,11 +17,6 @@
 
 (*s Module [Shostak]: Maintaining the logical context of decision procedures. *)
 
-(*s Abstraction. *)
-
-val abstract_toplevel_term : Context.t -> Term.t -> Context.t * Term.t
-
-val abstract : Context.t -> Atom.t -> Context.t * Atom.t
 
 (*s Canonization. *)
 
@@ -41,5 +36,7 @@ type 'a status =
   | Valid
   | Inconsistent 
   | Satisfiable of 'a
+
+val pp_status : 'a Pretty.printer -> 'a status Pretty.printer
 
 val process: Context.t -> Atom.t -> Context.t status

@@ -88,6 +88,7 @@ val is_const : t -> bool
 val is_var : t -> bool
 val is_app : t -> bool
 
+val to_var : t -> Var.t
 
 val is_interp_const : t -> bool
  
