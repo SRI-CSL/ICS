@@ -284,9 +284,7 @@ and div s (a, b) =
     in
     let al = product_of a in
     let bl = product_of b in
-      Trace.call "foo" "Cancel" (al, bl) (Pretty.pair (Pretty.list Term.pp) (Pretty.list Term.pp));
       let (a', b') = cancel (one s, one s) (al, bl) in
-	Trace.exit "foo" "Cancel" (a', b') (Pretty.pair Term.pp Term.pp);
 	lookup s (mk_app Sym.div [a'; b'])
 	
   and cancel ((acc1, acc2) as acc) =
@@ -298,12 +296,9 @@ and div s (a, b) =
     | l1, [] -> 
 	(multl s l1, acc2)
     | ((a :: al) as l1), ((b :: bl) as l2) ->  
-        Trace.msg "foo" "Acc = " (acc1, acc2) (Pretty.pair Term.pp Term.pp);
-	Trace.msg "foo" "Focus = " (a, b) (Pretty.pair Term.pp Term.pp);
 	let (n, x) = expt_of a in
 	let (m, y) = expt_of b in
 	let compare = Term.cmp x y in
-	  Trace.msg "foo" "Compare" compare Pretty.number;
 	  if compare = 0 then
 	    let acc' = match Q.cmp n m with
 	      | Q.Equal -> acc 
@@ -321,6 +316,8 @@ and div s (a, b) =
 	    cancel (mult s (a, acc1), acc2) (al, l2)	  
   in  
     match Solution.find s.a a, Solution.find s.a b with
+      | a, App(Arith(Num(q)), []) when Q.is_one q ->
+	  a
       | a, App(Arith(Num(q)), []) when not(Q.is_zero q) ->
 	  multq s (Q.inv q) a
       | App(Builtin(Div), [a1; a2]), b ->

@@ -167,12 +167,16 @@ and denums s a =
     (Arith.monomials a)
 
 and can_c s c a =
+  let mk_in x i =
+    let (x', i') = (* normalize s *) (x, i) in
+      Atom.mk_in i' x'
+  in
   let a' = canterm s a in
   try                 
     let d = cnstrnt s a' in
     match Cnstrnt.cmp c d with
       | Binrel.Sub -> 
-	  Atom.mk_in c a'
+	  mk_in a' c
       | (Binrel.Super | Binrel.Same) ->
 	  Atom.mk_true()
       | Binrel.Disjoint ->
@@ -181,21 +185,16 @@ and can_c s c a =
 	  let n = lookup s (Arith.mk_num q) in
 	  Atom.mk_equal n a'
       | Binrel.Overlap(cd) ->
-	  let (a', cd) = (* normalize s *) (a', cd) in
-	  Atom.mk_in cd a'
+	  mk_in a' cd
   with
-      Not_found -> 
-	let (a', c) = (* normalize s *) (a', c) in
-	Atom.mk_in c a'
+      Not_found -> mk_in a' c
 
 and normalize s (a, c) =
-  Trace.msg "foo" "Norm" (a, c) Term.pp_in;
   try
-    match Cnstrnt.d_lower c with     (* [a < q] or [a <= q]. *)
-      | Some(dom, beta, q) ->
-	  Trace.msg "foo" "Lower" q Mpa.Q.pp;
+    match Cnstrnt.d_upper c with     (* [a < q] or [a <= q]. *)
+      | Some(dom, q, beta) ->
 	  let ds = denums s a in
-	  let d = cnstrnt s ds in
+          let d = cnstrnt s ds in
 	    if Cnstrnt.is_pos d then
 	      (Sig.sub s (Sig.mult s (a, ds)) (Sig.multq s q ds), 
 	       Cnstrnt.mk_lower dom (Mpa.Q.zero, beta))
@@ -203,36 +202,24 @@ and normalize s (a, c) =
 	      (Sig.sub s (Sig.mult s (a, ds)) (Sig.multq s q ds), 
 	       Cnstrnt.mk_upper dom (beta, Mpa.Q.zero))
 	    else 
-	      (a, c)
+		(a, c)
       | _ ->
-	  (match Cnstrnt.d_upper c with  (*s [a > q] or [a >= q]. *)
-	     | Some(dom, q, alpha) ->
-		 Trace.msg "foo" "Upper" q Mpa.Q.pp;
+	  (match Cnstrnt.d_lower c with  (*s [a > q] or [a >= q]. *)
+	     | Some(dom, alpha, q) ->
 		 let ds = denums s a in
 		 let d = cnstrnt s ds in
 		   if Cnstrnt.is_pos d then
-		     begin
-		       Trace.msg "foo" "Pos" d Cnstrnt.pp;
 		       (Sig.sub s (Sig.mult s (a, ds)) (Sig.multq s q ds),
 			Cnstrnt.mk_upper dom (alpha, Mpa.Q.zero))
-		     end
 		   else if Cnstrnt.is_neg d then
-		     begin
-		       Trace.msg "foo" "Neg" d Cnstrnt.pp;
 		       (Sig.sub s (Sig.mult s (a, ds)) (Sig.multq s q ds),
 			Cnstrnt.mk_lower dom (Mpa.Q.zero, alpha))
-		     end 
 		   else 
-		     begin
-		       Trace.msg "foo" "None" d Cnstrnt.pp;
 		       (a, c)
-		     end
 	     | _ ->
-		 Trace.msg "foo" "Unchanged" () (fun _ _ -> ());
 		 (a, c))
     with
 	Not_found ->
-	  Trace.msg "foo" "Cnstrntexc" () (fun _ _ -> ()); 
 	  (a, c)
 	  
 
