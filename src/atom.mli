@@ -60,6 +60,8 @@ val negate : t -> t
 
 val vars_of : t -> Term.Set.t
 
+val is_connected : t -> t -> bool
+
 
 (** {6 Pretty-printing} *)
 
