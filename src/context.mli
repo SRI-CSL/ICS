@@ -33,7 +33,6 @@ type t = {
   ctxt : Atom.Set.t;    (* Current context. *)
   u : Cc.t;             (* Congruence closure data structure. *)
   i : Th.t;             (* Interpreted theories. *)
-  d : D.t               (* Disequalities. *)
 }
 
 val empty : t
@@ -48,11 +47,9 @@ val pp : t Pretty.printer
  function symbols (see module [Sym]) and the constraint context
  [c_of s]. *)
 
-val cnstrnt : t -> Term.t -> Cnstrnt.t option
+val cnstrnt : t -> Term.t -> Cnstrnt.t
 
-val is_diseq : t -> Term.t -> Term.t -> bool
-
-val is_equal : t -> Term.t -> Term.t -> bool
+val is_equal : t -> Term.t -> Term.t -> Three.t
 
 val is_int : t -> Term.t -> bool
 
@@ -76,3 +73,15 @@ val use : Theories.t-> t -> Term.t -> Term.Set.t
 (*s [sigma] normal form. *)
 
 val sigma : t -> Sym.t -> Term.t list -> Term.t
+
+
+(*s List all constraints with finite extension. *)
+
+val split : t -> Atom.t list
+
+
+(*s Compressing the state. *)
+
+val compress : t -> t
+
+
