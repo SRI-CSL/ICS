@@ -254,6 +254,7 @@ let constructors () =
   lprintf "\n(ff:def-foreign-call %s_false ())\n" !base;
   lprintf "\n(ff:def-foreign-call %s_true  ())\n" !base;
   lprintf "\n(ff:def-foreign-call %s_nil   ())\n" !base;
+  lprintf "\n(ff:def-foreign-call %s_mk_div (x1 x2))\n" !base;
   lprintf "\n(ff:def-foreign-call %s_deregister (v) :returning :void)\n" !base
 
 (*s Outout the Lisp stub code. *)
