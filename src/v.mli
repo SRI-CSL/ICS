@@ -92,4 +92,6 @@ val choose : t -> (Term.t -> 'a option) -> Term.t -> 'a
 
 (** {6 Pretty-printing} *)
 
+val pretty : bool ref
+
 val pp : t Pretty.printer
