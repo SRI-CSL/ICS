@@ -66,10 +66,10 @@ LPFormulaManager::LPFormulaManager(unsigned int init_num_formulas,
 	hash_fcn(this),
 	formula_pool(init_pool_size, hash_fcn, equal_fcn)
 {
-	DBG_CODE(cout << "LPFormulaManager initialized.\n";
-					 cout << "init_num_formulas = " << init_num_formulas << endl;);
+// 	DBG_CODE(cout << "LPFormulaManager initialized.\n";
+// 					 cout << "init_num_formulas = " << init_num_formulas << endl;);
 	formulas = new LPFormula[init_num_formulas];
-	DBG_CODE(cout << "formulas = " << formulas << endl;);
+// 	DBG_CODE(cout << "formulas = " << formulas << endl;);
 	num_formulas = init_num_formulas;
 	// initialize "true-proposition"
 	formulas[LPTrueId].kind = LP_PROPOSITION;
@@ -83,7 +83,7 @@ LPFormulaManager::LPFormulaManager(unsigned int init_num_formulas,
 
 LPFormulaManager::~LPFormulaManager()
 {
-	DBG_CODE(cout << "Destroying LPFormulaManager\n";);
+// 	DBG_CODE(cout << "Destroying LPFormulaManager\n";);
 	// cout << ">>Destroying LPFormulaManager\n";
 	delete[] formulas;
 	delete[] arguments;
@@ -247,12 +247,14 @@ LPFormulaId LPFormulaManager::create_atom(int a, int not_a)
 
 LPFormulaId LPFormulaManager::create_or(unsigned int num_args, LPFormulaId * args)
 {	
-	DBG_CODE(cout << "   create or\n";
-					 cout << "num_args = " << num_args << endl;
-					 for (int i = 0; i < num_args; i++)
-					 cout << args[i] << " ";
-					 cout << endl;);
+// 	DBG_CODE(cout << "   create or\n";
+// 					 cout << "num_args = " << num_args << endl;
+// 					 for (int i = 0; i < num_args; i++)
+// 					 cout << args[i] << " ";
+// 					 cout << endl;);
 	static sortLPFormulaId sortFn;
+
+	create_space_for_new_arguments(num_args);
 
 	LPFormulaId * aux_args = &(arguments[next_argument_pos]);
 
@@ -316,11 +318,11 @@ LPFormulaId LPFormulaManager::create_or(unsigned int num_args, LPFormulaId * arg
 	// add formula to formula pool
 	formula_pool.insert(next_formula_id);
 
-	DBG_CODE(for (int i = 0; i < num_args; i++)
-					 cout << args[i] << " ";
-					 cout << endl;
-					 cout << "new_formula->data.boolean_op.num_arguments = " << new_formula->data.boolean_op.num_arguments << endl;
-					 cout << "next_formula_id  = " << next_formula_id  << endl;);
+// 	DBG_CODE(for (int i = 0; i < num_args; i++)
+// 					 cout << args[i] << " ";
+// 					 cout << endl;
+// 					 cout << "new_formula->data.boolean_op.num_arguments = " << new_formula->data.boolean_op.num_arguments << endl;
+// 					 cout << "next_formula_id  = " << next_formula_id  << endl;);
 	return next_formula_id++;
 }
 

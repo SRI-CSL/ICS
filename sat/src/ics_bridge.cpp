@@ -44,23 +44,23 @@ extern "C" {
 		return LPFalseId;
 	}
 	LPFormulaId sat_mk_or(unsigned int num_args, LPFormulaId * args) {
-		DBG_CODE(cout << ">>>>> mk_or\n";
-						 cout << "arguments: ";
-						 for(int i = 0; i < num_args; i++) 
-						 cout << args[i] << " ";
-						 cout << endl;);
+// 		DBG_CODE(cout << ">>>>> mk_or\n";
+// 						 cout << "arguments: ";
+// 						 for(int i = 0; i < num_args; i++) 
+// 						 cout << args[i] << " ";
+// 						 cout << endl;);
 		int r = sat_formula_manager->create_or(num_args, args);
-		DBG_CODE(cout << "<<<<< result of mk_or = " << r << endl;);
+//		DBG_CODE(cout << "<<<<< result of mk_or = " << r << endl;);
 		return r;
 	}
 	LPFormulaId sat_mk_and(unsigned int num_args, LPFormulaId * args) {
-		DBG_CODE(cout << ">>>>> mk_and\n";
-						 cout << "arguments: ";
-						 for(int i = 0; i < num_args; i++) 
-						 cout << args[i] << " ";
-						 cout << endl;);
+// 		DBG_CODE(cout << ">>>>> mk_and\n";
+// 						 cout << "arguments: ";
+// 						 for(int i = 0; i < num_args; i++) 
+// 						 cout << args[i] << " ";
+// 						 cout << endl;);
 		int r = sat_formula_manager->create_and(num_args, args);
-		DBG_CODE(cout << "<<<<< result of sat_mk_and = " << r << endl;);
+// 		DBG_CODE(cout << "<<<<< result of sat_mk_and = " << r << endl;);
 		return r;
 	}
 	LPFormulaId sat_mk_iff(LPFormulaId lhs, LPFormulaId rhs) {
@@ -73,16 +73,21 @@ extern "C" {
 		return sat_formula_manager->create_xor(lhs, rhs);
 	}
 	LPFormulaId sat_mk_not(LPFormulaId f) {
-		DBG_CODE(cout << ">>>>> mk_not\n";
-						 cout << "argument: " << f << endl;);
+// 		DBG_CODE(cout << ">>>>> mk_not\n";
+// 						 cout << "argument: " << f << endl;);
 		int r = sat_formula_manager->create_not(f);
-		DBG_CODE(cout << "<<<<< result of mk_not = " << r << endl;);
+// 		DBG_CODE(cout << "<<<<< result of mk_not = " << r << endl;);
 		return r;
 	}
 	LPFormulaId sat_mk_ite(LPFormulaId c, LPFormulaId t, LPFormulaId e) {
 		return sat_formula_manager->create_ite(c,t,e);
 	}
 	LPFormulaId sat_mk_atom(int a, int not_a) {
+		// icsat_atom_pp(a);
+		// cout.flush(); cout << endl;
+		// icsat_atom_pp(not_a);
+		// cout.flush(); cout << endl;
+		// cout<<"-----------------\n";
 		return sat_formula_manager->create_atom(a, not_a);
 	}
 	LPFormulaId sat_mk_var(char * var) {
@@ -184,20 +189,20 @@ extern "C" {
 
   int ics_sat(LPFormulaId root_id) {
 
-    DBG_CODE(cout << "working!!! root_id = " << root_id << "\n";
-						 sat_formula_manager->dump_formula(cout, root_id););
+//     DBG_CODE(cout << "working!!! root_id = " << root_id << "\n";
+// 						 sat_formula_manager->dump_formula(cout, root_id););
 		// The following code is a hack to make the connection between ICS and SAT a little bit easier
-		DBG_CODE(
-						 cout << "BEFORE NORMALIZATION:\n";
-						 sat_formula_manager->dump_formula(cout, root_id);
-						 cout << endl << endl;
-						 );
+// 		DBG_CODE(
+// 						 cout << "BEFORE NORMALIZATION:\n";
+// 						 sat_formula_manager->dump_formula(cout, root_id);
+// 						 cout << endl << endl;
+// 						 );
 		root_id = sat_formula_manager->normalize_formula(root_id);
-		DBG_CODE(
-						 cout << "AFTER NORMALIZATION:\n";
-						 sat_formula_manager->dump_formula(cout, root_id);
-						 cout << endl << endl;
-						 );
+// 		DBG_CODE(
+// 						 cout << "AFTER NORMALIZATION:\n";
+// 						 sat_formula_manager->dump_formula(cout, root_id);
+// 						 cout << endl << endl;
+// 						 );
 
 		if (sat_solver != NULL) 
 			delete sat_solver;
@@ -225,7 +230,7 @@ extern "C" {
 		SAT_total_solver_time = ((double) (end - start)) / CLOCKS_PER_SEC;		
 		// cout << "result = " << result << endl;
 		// sat_print_statistics();
-		DBG_CODE(cout << "result = " << result << endl;);
+// 		DBG_CODE(cout << "result = " << result << endl;);
 		if (result && SAT_validate_counter_example) {
 			if (SAT_verbose)
 				cout << "  validating counter example... "; 

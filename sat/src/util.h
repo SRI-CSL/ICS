@@ -126,11 +126,10 @@ inline ostream& operator<<(ostream& target, const pair<T1, T2> & p)
 	return target;
 }
 
-inline void feature_not_implemented_yet()
-{
-	cerr << "feature not implemented yet" << endl;
-	assert(false);
-	exit(-1);
+#define feature_not_implemented_yet() {																								\
+	cerr << "feature not implemented yet at ["<< __FILE__ << ", " << __LINE__ << "]\n";	\
+	assert(false);																																			\
+	exit(-1);																																						\
 }
 
 inline unsigned int absolute(int x)
