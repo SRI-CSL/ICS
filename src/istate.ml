@@ -95,10 +95,35 @@ let type_of n =
     | Symtab.Type(c) -> c
     | _ -> raise Not_found
 
-let prop_of n =
-  match Symtab.lookup n !symtab with
-    | Symtab.Def(Symtab.Prop(p)) -> p
-    | _ -> raise Not_found
+let termvar_of n = 
+  try
+    (match entry_of n with
+      | Symtab.Def([], Symtab.Term(a)) -> a
+      | Symtab.Type(c)  -> Term.Var.mk_var n c
+      | _ -> Term.Var.mk_var n Var.Cnstrnt.Unconstrained)
+  with
+      Not_found -> Term.Var.mk_var n Var.Cnstrnt.Unconstrained
+
+let termapp_of n al = 
+  try
+    (match entry_of n with
+       | Symtab.Def(xl, Symtab.Term(a)) 
+	   when List.length xl = List.length al ->
+	   Term.replace Combine.sigma a xl al
+       | _ -> 
+	   Term.App.mk_app (Sym.Uninterp.make n) al)
+  with
+      Not_found -> 
+	Term.App.mk_app (Sym.Uninterp.make n) al
+
+let propvar_of n =
+  try 
+    (match entry_of n with
+       | Symtab.Def([], Symtab.Prop(p)) -> p
+       | _ -> raise Not_found)
+  with
+      Not_found -> Prop.mk_var n
+
 
 (** Get context for name in symbol table *)
 let context_of n = 
@@ -555,8 +580,8 @@ let symtab_all () = Out.symtab !symtab
 let symtab1 n =
   try 
     (match Symtab.lookup n !symtab with
-       | Symtab.Def(Symtab.Term(a)) -> Out.term0 a
-       | Symtab.Def(Symtab.Prop(p)) -> Out.prop p
+       | Symtab.Def(args, Symtab.Term(a)) -> Out.term0 a
+       | Symtab.Def(args, Symtab.Prop(p)) -> Out.prop p
        | Symtab.Arity(n) -> Out.int n
        | Symtab.Type(c) -> Out.cnstrnt0 c
        | Symtab.State(s) -> Out.context s)
@@ -585,15 +610,16 @@ let do_symtab =
 
 let do_def =
   Command.register "def"
-    (fun (n, a) ->
-       let e = Symtab.Def(a) in
+    (fun (n, args, a) ->
+       let e = Symtab.Def(args, Symtab.Term(a)) in
 	 symtab := Symtab.add n e !symtab;
 	 Out.unit ())
-    {args = "<ident> := <term>";
+    {args = "<ident> ['(' <ident>,...,<ident> ')'] := <term>";
      short = "Extend symbol table with term definition"; 
      description = 
-        "Extend the symbol table with a definition <ident> for a term <term>.
-         In such a context, variables <ident> are macro-expanded to <term> 
+        "Extend the symbol table with a name <ident> and optional arguments
+         [<args>] for a term <term>.
+         In such a context, variables <ident> is macro-expanded to <term> 
          but different <term>s obtained from the same definition are structure-shared."; 
      examples = ["def x := y + z", ""]; 
      seealso = ""}
@@ -601,11 +627,11 @@ let do_def =
 
 let do_prop =
   Command.register "prop"
-    (fun (n, a) ->
-       let e = Symtab.Def(Symtab.Prop(a)) in
+    (fun (n, args, a) ->
+       let e = Symtab.Def(args, Symtab.Prop(a)) in
 	 symtab := Symtab.add n e !symtab;
 	 Out.unit ())
-    {args = "<ident> := <prop>";
+    {args = "<ident> ['(' <ident>,...,<ident> ')'] := <prop>";
      short = "Extend symbol table with definition for proposition"; 
      description = 
         "Extend the symbol table with a definition <ident> for a proposition <prop>.
@@ -969,10 +995,10 @@ let do_process (n, al) =
 
 let do_valid =
   Command.register "valid"
-  (fun (n, al) ->
-     if Context.is_valid (get_context n) al then Out.tt () else Out.ff ())
-  {args = "[@<ident>]  <atom>,...,<atom>";
-   short = "Test if the conjunction of <atom>s is valid in context <ident>."; 
+  (fun (n, a) ->
+     if Context.is_valid (get_context n) [a] then Out.tt () else Out.ff ())
+  {args = "[@<ident>] <atom>";
+   short = "Test if <atom> is valid in context <ident>."; 
    description = "" ; 
    examples = []; 
    seealso = "assert, unsat"}
@@ -980,13 +1006,13 @@ let do_valid =
 
 let do_unsat =
   Command.register "unsat"
-    (fun (n, al) ->
-       if Context.is_inconsistent (get_context n) al then 
+    (fun (n, a) ->
+       if Context.is_inconsistent (get_context n) [a] then 
 	 Out.tt ()
        else 
 	 Out.ff ())
-    {args = "[@<ident>]  <atom>,...,<atom>";
-     short = "Test if the conjunction of <atom>s is unsatisfiable in context <ident>."; 
+    {args = "[@<ident>]  <atom>";
+     short = "Test if <atom> conjoined with context <ident> is unsatisfiable."; 
      description = "" ; 
      examples = []; 
      seealso = "assert, valid"}
