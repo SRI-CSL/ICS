@@ -353,9 +353,9 @@ value icsat_get_argument(value x1, value x2) {
 
 extern int ics_sat(LPFormulaId);
 
-value icsat_sat (value x1) {
-  CAMLparam1(x1);
-  CAMLreturn(Val_bool(ics_sat(Int_val(x1))));
+value icsat_sat (value x1, value x2) {
+  CAMLparam2(x1, x2);
+  CAMLreturn(Val_bool(ics_sat(Int_val(x1), Bool_val(x2))));
 }
 
 
