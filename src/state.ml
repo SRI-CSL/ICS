@@ -146,7 +146,7 @@ let rec add_eqn s c (a,b) =
   let extb' = Term.Set.add a extb in
   if not(extb == extb') then
     s.inv <- Term.Map.add b (extb', c) s.inv;
-  s.find <- Subst.add a b s.find;
+  s.find <- Subst.add (a,b) s.find;
   add_use s b;
   add_funsym s a;
   add_funsyms s b        (* Add uninterpreted subterms of b which occur interpreted in b. *)

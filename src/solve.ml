@@ -73,7 +73,7 @@ let solve x s e =
 	  let c2 = State.cnstrnt s b2 in
 	  if Interval.is_disjoint c1 c2 then
 	    raise Exc.Inconsistent;
-	  let rho' = Subst.add (Bool.equal(a1,a2)) b rho in
+	  let rho' = Subst.add (Bool.equal(a1,a2), b) rho in
 	  solvel rho' el
       | Bool(Ite _) ->
 	  let a = Bool.equal(a1,a2) in
@@ -82,9 +82,9 @@ let solve x s e =
 	    let l = bool_ite_solve x in
 	    solvel rho (l @ el)
 	  else
-	    solvel (Subst.add a b rho) el
+	    solvel (Subst.add (a,b) rho) el
       | _ ->
-	  solvel (Subst.add b (Bool.equal(a1,a2)) rho) el
+	  solvel (Subst.add (b, Bool.equal(a1,a2)) rho) el
 
   and solve_diseq rho (a,b) el =                (* Solve disequalities [a <> b]. *)
     match a.node, b.node with
@@ -93,12 +93,14 @@ let solve x s e =
 	    raise Exc.Inconsistent
 	  else
 	    solvel rho el
-      | Arith(Num q1), _ -> 
-	  solvel (Subst.add (Cnstrnt.app (Interval.diseq q1) b) (Bool.tt()) rho) el
-      | _, Arith(Num q2) -> 
-	  solvel (Subst.add (Cnstrnt.app (Interval.diseq q2) a) (Bool.tt()) rho) el
+      | Arith(Num q1), _ ->
+	  State.add_cnstrnt s (Interval.diseq q1) b;
+	  solvel rho el
+      | _, Arith(Num q2) ->
+	  State.add_cnstrnt s (Interval.diseq q2) a;
+	  solvel rho el
       | _ ->
-	  solvel (Subst.add (Bool.equal(a,b)) (Bool.ff()) rho) el
+	  solvel (Subst.add (Bool.equal(a,b), Bool.ff()) rho) el
 
   and bool_solve rho (a,b) el =
     match a with
@@ -128,7 +130,7 @@ let solve x s e =
       | App({node=Set(Cnstrnt(c))}, [x]) ->
 	  cnstrnt_solve rho c x el
       | _ ->
-	  solvel (Subst.add b (Bool.tt()) rho) el
+	  solvel (Subst.add (b,Bool.tt()) rho) el
 
   and false_solve rho b el =  (*s Solve equations of the form [false = b] *)
     match b.node with
@@ -144,7 +146,7 @@ let solve x s e =
 	  let x = Bool.neg b in
 	  solvel rho (bool_ite_solve x @ el)
       | _ ->
-	  solvel (Subst.add b (Bool.ff()) rho) el 
+	  solvel (Subst.add (b,Bool.ff()) rho) el 
 	
   and cnstrnt_solve rho c x el =               (* solve equalities of the form [(x in c) = true] *)
     let d = State.cnstrnt s x in
@@ -160,13 +162,18 @@ let solve x s e =
 	    let n = Interval.value_of cd in
 	    solvel rho ((x,Arith.num n) :: el)
 	  else if Arith.is_arith x then
-	    let k = Var.create "z" in
-	    let rho' = Subst.add (Cnstrnt.app cd k) (Bool.tt()) rho in
-	    let el' = (x,k) :: el in     (*i Order [(x,k)] important. i*)
-	    solvel rho' el'
+	    let k = Var.fresh "z" (Some(x)) in
+	    State.add_cnstrnt s cd k;
+	    solvel rho ((x,k) :: el)         (*i Order [(x,k)] important. i*)
 	  else
-	    let rho' = Subst.add (Cnstrnt.app c x) (Bool.tt()) rho in
-	    solvel rho' el
+	    begin
+	      State.add_cnstrnt s c x;
+	      solvel rho el
+	    end
+
+  and cond_solve rho (x,y,z) b el =
+    let a = Bool.ite(x, Bool.equal(y,b), Bool.equal(z,b)) in
+    solvel rho ((a, Bool.tt()) :: el)
     
   and solve1 rho (a,b) el =
 	let a' = Subst.norm rho a and b' = Subst.norm rho b in
@@ -202,7 +209,7 @@ let solve x s e =
 		   if is_solvable a' &&
 		     not(Term.occurs_interpreted a' b')
 		   then
-		     solvel (Subst.add a' b' rho) el
+		     solvel (Subst.add (a',b') rho) el
 		   else (match a'.node,b'.node with
 			   | Bool x, _ ->
 			       bool_solve rho (x,b) el
@@ -214,15 +221,11 @@ let solve x s e =
 				 then
 				   solvel rho ((s,t) :: el)
 				 else
-				   solvel (Subst.add a' b' rho) el
+				   solvel (Subst.add (a',b') rho) el
 			   | Cond(x,y,z), _ ->
-			       let a'' = Bool.ite(x, Bool.equal(y,b'), Bool.equal(z,b'))
-			       in
-			       solvel rho ((a'',Bool.tt()) :: el)
+			       cond_solve rho (x,y,z) b' el
 			   | _, Cond(x,y,z) ->
-			       let a'' = Bool.ite(x, Bool.equal(y,b'), Bool.equal(z,b'))
-			       in
-			       solvel rho ((a'',Bool.tt()) :: el) 
+			       cond_solve rho (x,y,z) b' el
 			   | Arith(Num _ | Multq _ | Add _), _ ->
 			       solvel rho (arith_solve x s (a,b) @ el)
 			   | _, Arith(Num _ | Multq _ | Add _) ->

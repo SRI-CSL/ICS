@@ -22,7 +22,7 @@ type t = Term.t Term.Map.t
  
 let empty = Term.Map.empty
 
-let add x t rho =
+let add (x,t) rho =
   if x === t then
     rho
   else Term.Map.add x t rho
@@ -40,7 +40,7 @@ let find s a =
       Not_found -> a
 
 let of_list l =
-  List.fold_right (fun (x,a) -> add x a) l empty
+  List.fold_right add l empty
 
 let to_list l =
   let cons x a acc =

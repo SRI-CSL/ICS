@@ -22,6 +22,11 @@
 
     Notice that this is a solved form, since [x] on the right-hand side
     does only occur as a proper subterm of an uninterpreted term, namely
-    [x + 2]. *)
+    [x + 2].
+
+    The solver is destructive in that newly generated constraints are
+    added to the argument state.
+
+ *)
 
 val solve : Term.t option -> State.t -> Term.eqn -> Subst.t

@@ -257,7 +257,7 @@ let qsolve x e =
 
 
 let zsolve e =
-  let fresh () = Var.fresh "_k" [] in
+  let fresh () = Var.fresh "_k" None in
   match Poly.zsolve fresh (to_poly (sub e)) with
     | Poly.Valid -> ([],[])
     | Poly.Inconsistent -> raise Exc.Inconsistent
@@ -327,7 +327,7 @@ let le (x,y) =
       Cnstrnt.app c (of_poly p')
     else
       let c = Interval.ge Interval.Real q' in
-      Cnstrnt.app c  (of_poly (Poly.neg p'))
+      Cnstrnt.app c (of_poly (Poly.neg p'))
 
  (*s Computes the gcd of two ordered power products. *)
 

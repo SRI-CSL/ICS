@@ -113,8 +113,11 @@ let norm a =
   Format.printf "@["; Ics.term_pp b; Format.printf "@]@."
 
 let simp a =
-  let b = Ics.simplify !current a in
-  Format.printf "@["; Ics.term_pp b; Format.printf "@]@."
+  match Ics.simplify !current a with
+    | Some(b) -> 
+	Format.printf "@["; Ics.term_pp b; Format.printf "@]@."
+    | None ->
+	Format.printf "@[Simplified form contains fresh variables@]@."
      
 let can a =
   let b = Ics.can !current a in
