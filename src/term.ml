@@ -339,7 +339,7 @@ end
 let rec eq a b = 
   a == b  ||   (* variables and constants are hashconsed *)
   (match a, b with
-     | App(f, ((_ :: _) as l)), App(g, ((_ :: _) as m)) -> 
+     | App(f, l), App(g, m) -> 
 	 Sym.eq f g && eql l m
      | _ -> false)
 
@@ -355,6 +355,10 @@ let is_equal a b =
       | App(c, []), App(d, []) 
 	  when Th.of_sym c = Th.of_sym d -> Three.No
       | _ -> Three.X
+
+let is_equal a b =
+  Trace.func "foo" "Term.is_equal" (Pretty.pair pp pp) Pretty.three
+    (fun (a, b) -> is_equal a b) (a, b)
 
 (** Mapping over list of terms. Avoids unnecessary consing. *)
 let rec mapl f l =
