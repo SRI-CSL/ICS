@@ -189,7 +189,11 @@ let canrepr s =
  in the codomain. The following is not terribly efficient. *)
 
 let partition s =
-  Term.Set.fold (fun x -> Term.Map.add x (ext s x)) (canrepr s) Term.Map.empty
+  Term.Set.fold 
+    (fun x -> 
+       Term.Map.add x (ext s x)) 
+    (canrepr s) 
+    Term.Map.empty
     
 
 (*s Pretty-printing. *)
@@ -200,7 +204,6 @@ let pp fmt s =
     let l = Term.Map.fold (fun x ys acc -> (x, Term.Set.elements ys) :: acc) m [] in
     Pretty.string fmt "\nv:";
     Pretty.map Term.pp (Pretty.set Term.pp) fmt l
-
 
 
 (*s Only external variables. *)
