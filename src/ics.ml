@@ -239,10 +239,10 @@ let _ = Callback.register "term_mk_bwnot" term_mk_bwnot
 	  
 (*s Boolean terms. *)
 
-let term_mk_true () = Boolean.mk_true
+let term_mk_true = Boolean.mk_true
 let _ = Callback.register "term_mk_true" term_mk_true
 
-let term_mk_false () = Boolean.mk_false
+let term_mk_false = Boolean.mk_false
 let _ = Callback.register "term_mk_false" term_mk_false
 
 (*s Atoms. *)
@@ -272,10 +272,10 @@ let _ = Callback.register "atom_mk_diseq" atom_mk_diseq
 let atom_mk_in = Atom.mk_in 
 let _ = Callback.register "atom_mk_in" atom_mk_in
 
-let atom_mk_true () = Atom.mk_true
+let atom_mk_true = Atom.mk_true
 let _ = Callback.register "atom_mk_true" atom_mk_true
 
-let atom_mk_false () = Atom.mk_false
+let atom_mk_false = Atom.mk_false
 let _ = Callback.register "atom_mk_false" atom_mk_false
 
 let atom_mk_real = Atom.mk_in Cnstrnt.mk_real
@@ -407,7 +407,10 @@ let _ = Callback.register "context_pp" context_pp
 
 type status = Context.t Shostak.status
 
-let is_consistent = function Shostak.Satisfiable _ -> true | _ -> false
+let is_consistent r = 
+  (match r with
+     | Shostak.Satisfiable _ -> true
+     | _ -> false)
 let _ = Callback.register "is_consistent" is_consistent
 
 let is_redundant r = (r = Shostak.Valid)
@@ -417,13 +420,22 @@ let is_inconsistent r =
    (r = Shostak.Inconsistent)
 let _ = Callback.register "is_inconsistent" is_inconsistent  
 
-let d_consistent = function
-  | Shostak.Satisfiable s -> s
-  | _ -> failwith "Ics.d_consistent: fatal error"
+let d_consistent r =
+  match r with
+    | Shostak.Satisfiable s -> s
+    | _ -> failwith "Ics.d_consistent: fatal error"
 	
 let _ = Callback.register "d_consistent" d_consistent  
 
-let process = Shostak.process 
+let process s a =
+  match Shostak.process s a with
+    | Shostak.Satisfiable s ->
+	Shostak.Satisfiable s
+    | Shostak.Valid ->
+        Shostak.Valid
+    | Shostak.Inconsistent ->
+	Shostak.Inconsistent
+
 let _ = Callback.register "process" process   
 
 let split = Context.split 

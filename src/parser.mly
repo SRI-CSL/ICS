@@ -174,8 +174,8 @@ array:
 ;
 
 boolean:
-  TRUE      { Boolean.mk_true }
-| FALSE     { Boolean.mk_false }
+  TRUE      { Boolean.mk_true() }
+| FALSE     { Boolean.mk_false() }
 ;
 
 bv:

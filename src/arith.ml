@@ -405,16 +405,27 @@ let rec sigma op l =
 
 let rec cnstrnt ctxt a =
   match d_interp a with
-    | Some(Sym.Num(q), []) -> 
-	Cnstrnt.mk_singleton q
-    | Some(Sym.Mult, l) -> 
-	Cnstrnt.multl (List.map (cnstrnt ctxt) l)
-    | Some(Sym.Add, l) -> 
-	Cnstrnt.addl (List.map (cnstrnt ctxt) l)
-    | Some(Sym.Expt(n), [x]) -> 
-	Cnstrnt.expt n (cnstrnt ctxt x)
+    | Some(op, l) -> 
+	let c = 
+	  match op, l with
+	    | Sym.Num(q), [] -> 
+		Cnstrnt.mk_singleton q
+	    | Sym.Mult, l -> 
+		Cnstrnt.multl (List.map (cnstrnt ctxt) l)
+	    | Sym.Add, l -> 
+		Cnstrnt.addl (List.map (cnstrnt ctxt) l)
+	    | Sym.Expt(n), [x] -> 
+		Cnstrnt.expt n (cnstrnt ctxt x)
+	    | _ -> assert false
+	in
+	(try 
+	  Cnstrnt.inter (ctxt a) c
+	with
+	    Not_found -> c)
     | _ ->
 	ctxt a
+
+
 
 
 (*s Solving of an equality [a = b] in the rationals and the integers. 

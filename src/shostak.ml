@@ -101,11 +101,11 @@ and eq s a b =
 let rec can s a = 
   Trace.call "top" "Can" a Atom.pp;
   let (s',a') = match a with
-    | Atom.True -> (s, Atom.mk_true)
+    | Atom.True -> (s, Atom.mk_true())
     | Atom.Equal(x,y) -> can_e s (x,y)
     | Atom.Diseq(x,y) -> can_d s (x,y)
     | Atom.In(c,x) -> can_c s c x
-    | Atom.False -> (s, Atom.mk_false)
+    | Atom.False -> (s, Atom.mk_false())
   in
   Trace.exit "top" "Can" a' Atom.pp;
   (s',a')
@@ -114,30 +114,29 @@ and can_e s (a, b) =
   let (s', x') = can_t s a in
   let (s'', y') = can_t s' b in
   match Context.is_equal s'' x' y' with
-    | Yes -> (s'', Atom.mk_true)
-    | No -> (s'', Atom.mk_false)
+    | Yes -> (s'', Atom.mk_true())
+    | No -> (s'', Atom.mk_false())
     | _ -> (s'', Atom.mk_equal x' y')
  
-
 and can_d s (a, b) =
   let (s', x') = can_t s a in
   let (s'', y') = can_t s' b in
   match Context.is_equal s'' x' y' with
-    | Yes -> (s'', Atom.mk_false)
-    | No -> (s'', Atom.mk_true)
+    | Yes -> (s'', Atom.mk_false())
+    | No -> (s'', Atom.mk_true())
     | X -> (s'', Atom.mk_diseq x' y')
 
 and can_c s c a =
-  let (s', a') = can_term s a in
+  let (s', a') = can_term s a in  (* result not necessarily a variable. *) 
   try                 
     let d = cnstrnt s' a' in
     match Cnstrnt.cmp c d with
       | Binrel.Sub -> 
 	  (s', Atom.mk_in c a')
       | (Binrel.Super | Binrel.Same) ->
-	  (s', Atom.mk_true)
+	  (s', Atom.mk_true())
       | Binrel.Disjoint ->
-	  (s', Atom.mk_false)
+	  (s', Atom.mk_false())
       | Binrel.Singleton(q) ->
 	  can_e s' (a', Arith.mk_num q)
       | Binrel.Overlap(cd) ->

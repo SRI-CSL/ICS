@@ -199,7 +199,7 @@ let rec can s a =
   if is_var a then
     v s a
   else  
-    let f, l = Term.destruct a in            (* add array normalization. *)
+    let f, l = Term.destruct a in
     let b = mk_app f (Term.mapl (can s) l) in
     try v s (inv s b) with Not_found -> b
 

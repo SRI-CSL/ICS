@@ -35,38 +35,42 @@ module A = Subst.Make(
  in the [e] part, and constraints [x in i],  for [i] an interval 
  constraints, in the constraint context [c]. *)
 
-type t = A.t * C.t
+type t = {
+  solution : A.t;
+  cnstrnt : C.t;
+  slacks : Set.t
+}
 
 
 (*s [solution (e,_)] and [domain (_,c)] conjoined form
  the arithmetic context represented by [(e,_)]. *)
 
-let solutions (e,_) = A.solution e
+let solutions s = A.solution s.solution
 
-let domains (_,c) =  C.domains c
+let domains s =  C.domains s.cnstrnt
 
 (*s List of split predicates. *)
 
-let split (_,c) = C.split c
+let split s = C.split s.cnstrnt
 
 (*s Pretty-printing. *)
 
-let pp fmt (e, c) = 
-  if not(A.is_empty e) then
-    (Format.fprintf fmt "\na:"; A.pp fmt e);
-  if not(C.is_empty c) then
-    (Format.fprintf fmt "\nc:"; C.pp fmt c)
+let pp fmt s =
+  if not(A.is_empty s.solution) then
+    (Format.fprintf fmt "\na:"; A.pp fmt s.solution);
+  if not(C.is_empty s.cnstrnt) then
+    (Format.fprintf fmt "\nc:"; C.pp fmt s.cnstrnt)
 
 
 (*s Accessors. *)
 
-let apply (e,_) = A.apply e
-let find (e,_) = A.find e
-let inv (e,_) = A.inv e
-let mem (e,_) = A.mem e
+let apply s = A.apply s.solution
+let find s = A.find s.solution
+let inv s = A.inv s.solution
+let mem s = A.mem s.solution
 
-let use (e,_) a = 
-  if is_var a then A.use e a else Set.empty
+let use s a = 
+  if is_var a then A.use s.solution a else Set.empty
 
 (*s Canonical form modulo the solution set in [e]. 
  Returns a variable whenever possible. *)
@@ -93,18 +97,9 @@ let can e =
  an equivalent variable or by abstract interpretation of
  the arithmetic operators in the domain of constraints. *)
 
-let cnstrnt (e, c) a =
-  let a' = can e a in
-  try
-    Arith.cnstrnt (C.apply c) a'
-  with
-      Not_found -> 
-	(match Arith.d_num (A.apply e a') with
-	   | Some(q) -> Cnstrnt.mk_singleton(q)
-	   | None -> raise Not_found)
-	        (* now try to get constraint from the [find]; for
-                   example [a' |-> 2] might be in [e] and singleton
-                   constraints are not kept in [c]. *)
+let cnstrnt s a =
+  let a' = can s.solution a in
+  Arith.cnstrnt (C.apply s.cnstrnt) a'
 
 (*s [occurs (e, c) x] holds if [x] occurs in a solution in [e]
  or if it is a member of the domain of [c]. *)
@@ -114,7 +109,11 @@ let occurs (e, c) x =
 
 (*s Empty context. *)
 
-let empty = (A.empty, C.empty)
+let empty = {
+  solution = A.empty;
+  cnstrnt =  C.empty;
+  slacks = Set.empty
+}
 
 (*s [name e a] returns a variable [x] if there is
  a solution [x = a]. Otherwise, it creates a new name
@@ -135,20 +134,15 @@ let name b e =
 
 (*s Slack variables *)
 
-let slacks = ref Term.Set.empty
-let _ = Tools.add_at_reset (fun () -> slacks := Term.Set.empty)
+let mk_slack =
+  let name = Name.of_string "k" in
+  fun () -> Term.mk_fresh_var name None
 
-let is_slack x = Term.Set.mem x !slacks
+let is_slack slacks x =
+  Set.mem x slacks
 
-let mk_slack () =
-  let k = Term.mk_fresh_param "k" None in
-  slacks := Term.Set.add k !slacks;
-  k
-
-(*s constraints are associated to either variabiables or slacks. *)
-
-let is_var_or_slack x =
-  is_var x || is_slack x
+let is_var_and_not_slack slacks x = 
+  is_var x && not (is_slack slacks x)
 
 
 (*s Normalize constraint such as ['q + p * x' in 'c'] 
@@ -177,6 +171,8 @@ type state = {
   cs : (Term.t * Cnstrnt.t) list;
   e : A.t;
   c : C.t;
+  slcks : Set.t;
+  v : V.t;
   veqs : Veqs.t
 }
 
@@ -189,63 +185,90 @@ let pp_state fmt s =
   C.pp fmt s.c; sep();
   Veqs.pp fmt s.veqs;
   Format.fprintf fmt ")@]"
-  
+
+(*s Generating new equalities. *)
+
+let add_generated_eq s a b es = 
+  let a' = can s.e a and b' = can s.e b in
+  if eq a' b' then es
+  else if List.exists (fun (x, y) -> (eq a' x) && (eq b' y)) es then
+    es
+  else 
+    (a', b') :: es
+
+let rec union_generated_eq s es1 es2 =
+  match es1 with
+    | [] -> es2
+    | (x1, y1) :: es1 -> add_generated_eq s x1 y1 (union_generated_eq s es1 es2)
+
+let add_generated_cnstrnt s a i cs =
+  let a' = can s.e a in
+  if List.exists (fun (b,j) -> eq a' b && Cnstrnt.sub j i) cs then
+    cs
+  else
+    (a', i) :: cs
+
+
+(*s Toplevel processing function. *)  
 
 let rec process s =
-  Trace.msg "a" "Process" s pp_state;
+  Trace.msg "a'" "Process" s pp_state;
   match s.es, s.cs with
     | [], [] -> 
-	((s.e, s.c), s.veqs)
+	({solution = s.e; cnstrnt = s.c; slacks = s.slcks}, 
+	 s.veqs)
     | _, (a, i) :: cs' ->
 	process (add a i {s with cs = cs'})
     | (a, b) :: es', _ ->
 	process (equality a b {s with es = es'})
 
 and add a i s =
-  Trace.msg "a" "Add" (a, i) pp_in;
   match Cnstrnt.status i with
     | Status.Empty ->
 	raise Exc.Inconsistent
     | Status.Singleton(q) ->
-	{s with es = (a, Arith.mk_num q) :: s.es}
+	let num = Arith.mk_num q in
+	{s with es = add_generated_eq s a num s.es}
     | _ ->
-	let a' = can s.e a in          (* returns a variable whenever possible. *)
-	if is_var_or_slack a' then
+	let a' = can s.e a in    (* returns a variable whenever possible. *)
+	if is_var a' then
 	  addcnstrnt a' i s
 	else                
 	  match Arith.decompose a' with     
-	    | Arith.Const(q) ->                     (* Case: [q in i] *)
+	    | Arith.Const(q) ->                 (* Case: [q in i] *)
 		if Cnstrnt.mem q i then s else raise Exc.Inconsistent
-	    | Arith.One(q, p, x) ->                 (* Case: [q + p * x in i] *)
-		addcnstrnt x (normalize q p i) s    (* iff [k in 1/p * (i - q)] *)  
-	    | Arith.Many _ ->                       (* Case: new slack *)     
+	    | Arith.One(q, p, x) ->              (* Case: [q + p * x in i] *)
+		addcnstrnt x (normalize q p i) s (* iff [x in 1/p * (i - q)] *)  
+	    | Arith.Many _ ->                    (* Case: new slack *)     
 		let k' = mk_slack () in 
-		addcnstrnt k' i {s with es = (k', a') :: s.es}
+		let es' = add_generated_eq s k' a' s.es in
+		let slcks' = Set.add k' s.slcks in
+		addcnstrnt k' i {s with es = es'; slcks = slcks'}
     
 and addcnstrnt x i s =
-  assert(is_var_or_slack x);
   let (c', eq) =  C.add x i s.c in
   if consistent (s.e, c') x then 
-    (match eq with
-       | None -> {s with c = c'}
-       | Some(x', n') -> 
-	   {s with es = (x', n') :: s.es; c = c'})
+    let s' = 
+      match eq with
+	| None -> {s with c = c'}
+	| Some(x', n') -> {s with es = add_generated_eq s x' n' s.es; c = c'}
+    in
+    deduce (A.use s.e x) s' (*s deduce constraints e.g. for [z] in [z=x+y]. *) 
   else 
     raise Exc.Inconsistent
 
 and equality a b s = 
-  Trace.msg "a" "Eq" (a, b) pp_equal;
   let a' = A.norm s.e a and b' = A.norm s.e b in
   try
-    match Arith.solve_for is_var (a', b') with
+    match Arith.solve_for (is_var_and_not_slack s.slcks) (a', b') with
       | None -> s
       | Some(x',b') -> compose x' b' s
   with
       Exc.Unsolved -> 
 	(try
-	   (match Arith.solve_for is_slack (a', b') with
+	   (match Arith.solve_for (is_slack s.slcks) (a', b') with
 	     | None -> s
-	     | Some(k', b') -> propagate k' b' s)
+	     | Some(k', b') -> compose k' b' s)
 	 with
 	     Exc.Unsolved -> 
 	       abstract a' b' s)
@@ -256,29 +279,16 @@ and compose x a s =
   assert(is_var x);
   let (e', veqs, ys) = A.compose s.e [(x, a)] in
   let s' = {s with e = e'; veqs = Veqs.union veqs s.veqs} in
-  deduce1 x a 
-    (deduce ys 
-       (cmerge (x, a) veqs s'))
-
-and propagate k a s =
-  assert(is_slack k);
-  let (e', veqs, ys) = A.propagate s.e [(k, a)] in
-  let s' = {s with e = e'; veqs = Veqs.union veqs s.veqs} in
-  deduce1 k a 
-    (cmerge (k, a) veqs s')
+  deduce ys (cmerge (x, a) veqs s')
 
 and cmerge (x, a) veqs s =
-  assert(is_var_or_slack x);
-  let eqs =          (* equalities to be propagated *)
-    if is_var_or_slack a then 
-      (x, a) :: Veqs.to_list veqs
-    else
-      Veqs.to_list veqs
-  in
+  let eqs = (x, a) :: Veqs.to_list veqs in  (* equalities to be propagated *)
   let (c', es', ch') = C.merge eqs s.c in
-  if Set.for_all (consistent (s.e, c')) ch' then
-    {s with es = es' @ s.es; c = c'}
-  else 
+  if Set.for_all (consistent (s.e, c')) ch' then  
+    let focus = Set.fold (fun y -> Set.union (A.use s.e y)) ch' ch' in
+    let s' = {s with es = union_generated_eq s es' s.es; c = c'} in
+    deduce focus s' (* e.g. if [z = x + y] and constraint for [x] changes *)
+  else              (* then the constraint for [z] might change, too. *)
     raise Exc.Inconsistent
 
 
@@ -296,51 +306,40 @@ and consistent (e, c) x =
 (*s Deduce a new constraint from the equality [x = a] in [s]. *)
     
 and deduce1 x a s =
-  match Arith.d_num a with
-    | Some(q) -> deduce1_num x q s
-    | None ->
-	try  
-	  let j = Arith.cnstrnt (C.apply s.c) a in (* use only info on [rhs]. *)
-	  try
-	    let i = C.apply s.c x in
-	    match Cnstrnt.cmp i j with
-	      | Binrel.Disjoint ->
-		  raise Exc.Inconsistent
-	      | Binrel.Sub | Binrel.Same ->
-		  s
-	      | Binrel.Super ->
-		  {s with cs = (x, j) :: s.cs}
-	      | Binrel.Overlap(ij) ->
-		  {s with cs = (x, ij) :: s.cs}
-	      | Binrel.Singleton(q) ->
-		  let num = Arith.mk_num q in
-		  {s with es = (x, num) :: (a, num) :: s.es}
-	  with
-	      Not_found ->
-		(match Cnstrnt.status j with
-		   | Status.Empty ->
-		       raise Exc.Inconsistent
-		   | Status.Singleton(q) ->
-		       {s with es = (x, Arith.mk_num q) :: s.es}
-		   | _ ->
-		       {s with cs = (x, j) :: s.cs})
-	with
-	    Not_found -> s
-
-and deduce1_num x q s =
-  try
-    let i = C.apply s.c x in
-    if Cnstrnt.mem q i then
-      s
-    else 
-      raise Exc.Inconsistent
-  with
-      Not_found -> s
+    try  
+      let j = Arith.cnstrnt (C.apply s.c) a in (* ??? *)
+      try
+	let i = C.apply s.c x in
+	match Cnstrnt.cmp i j with
+	  | Binrel.Disjoint ->
+	      raise Exc.Inconsistent
+	  | Binrel.Sub | Binrel.Same ->
+	      s
+	  | Binrel.Super ->
+	      {s with cs = add_generated_cnstrnt s x j s.cs}
+	  | Binrel.Overlap(ij) ->
+	      {s with cs = add_generated_cnstrnt s x ij s.cs}
+	  | Binrel.Singleton(q) ->
+	      let num = Arith.mk_num q in
+	      {s with es = add_generated_eq s x num 
+			     (add_generated_eq s a num s.es)}
+      with
+	  Not_found ->
+	    (match Cnstrnt.status j with
+	       | Status.Empty ->
+		   raise Exc.Inconsistent
+	       | Status.Singleton(q) ->
+		   {s with es = add_generated_eq s x (Arith.mk_num q) s.es}
+	       | _ ->
+		   {s with cs = add_generated_cnstrnt s x j s.cs})
+    with
+	Not_found -> s
+	
 
 (*s [xs] is a set of variables for which the [find] in [e] has changed. *)
 
 and deduce xs =  
-  Trace.msg "a" "Deduce" (Set.elements xs) (Pretty.set Term.pp);
+  Trace.msg "a''" "Deduce" (Set.elements xs) (Pretty.set Term.pp);
   Set.fold
     (fun x s ->
        try deduce1 x (A.apply s.e x) s with Not_found -> s)
@@ -375,39 +374,43 @@ and abstract a b s =
  In the resulting context, [x] does not occur any more, and
  new equalities between variables may be infered. *)
 
-let rec merge veq (e, c) = 
+let rec merge veq ecs = 
   let (x, _) = Veq.destruct veq in
-  if not(occurs (e, c) x) then   
-    ((e, c), Veqs.empty)
+  if not(occurs (ecs.solution, ecs.cnstrnt) x) then   
+    (ecs, Veqs.empty)
   else 
     begin
       Trace.call "a" "Merge" veq Veq.pp;
-      let (s', veqs') = merge1 veq (e, c) in
+      let (ecs', veqs') = merge1 veq ecs in
       Trace.exit "a" "Merge" veqs' Veqs.pp;
-      (s', veqs')
+      (ecs', veqs')
     end
 
-and merge1 veq (e, c) = 
+and merge1 veq ecs = 
   let s = {
     es = [Veq.destruct veq]; 
     cs = []; 
-    e = e; 
-    c = c; 
+    e = ecs.solution;
+    c = ecs.cnstrnt;
+    v = V.empty;
+    slcks = ecs.slacks;
     veqs = Veqs.empty} 
   in
-  let (s', veqs') = process s in
-  (s', Veqs.remove veq veqs')           (* remove input equality [e]. *)
+  let (ecs', veqs') = process s in
+  (ecs', Veqs.remove veq veqs')         (* remove input equality [e]. *)
 
 
 (*s Adding a constraint ['x in i'] to [s]. *)
 
-let rec add (a, i) (e, c) = 
+let rec add (a, i) ecs = 
   Trace.call "a" "Add" (a, i) pp_in;
   let s = {
     es = []; 
     cs = [(a, i)]; 
-    e = e; 
-    c = c; 
+    e = ecs.solution; 
+    c = ecs.cnstrnt;
+    v = V.empty;
+    slcks = ecs.slacks;
     veqs = Veqs.empty}
   in
   let (s', veqs') = process s in
@@ -417,51 +420,42 @@ let rec add (a, i) (e, c) =
 
 (*s Extend. Rename [b] with a variable [x]. *)
 
-let extend b (e, c) =
+let extend b ecs =
+  let e = ecs.solution and c = ecs.cnstrnt in
   try
-    (A.inv e b, (e, c))
+    (A.inv e b, ecs)
   with
       Not_found ->
 	Trace.call "a" "Extend" b Term.pp;
 	let (x', e') = A.extend b e in
+	let c' = 
+	  try            (* no deduced eqs, since [x'] is fresh. *)
+	    let i = cnstrnt ecs b in
+	    let (c', _) = C.add x' i c in
+	    c'
+	  with
+	      Not_found -> c
+	in
 	Trace.exit "a" "Extend" x' Term.pp;
-	(x', (e', c))
+	(x', {ecs with solution = e'; cnstrnt = c'})
 
+(*s Interpret variable as a slack. *)
 
+let slackify b ecs =
+  Trace.call "a" "Slackify" b Term.pp;
+  let k = mk_slack () in
+  let s = {
+    es = [(k, b)];
+    cs = []; 
+    e = ecs.solution;
+    c = ecs.cnstrnt;
+    v = V.empty;
+    slcks = Set.add k ecs.slacks;
+    veqs = Veqs.empty} 
+  in
+  let (ecs', _) = process s in
+  Trace.exit "a" "Slackify" k Term.pp;
+  (k, ecs')
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+let is_slack s x =
+  Set.mem x s.slacks

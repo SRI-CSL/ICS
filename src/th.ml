@@ -56,7 +56,6 @@ let pp fmt s =
   B.pp fmt s.b;
   Bv.pp fmt s.bv
 
-
 (*s Canonizer for purely interpreted terms. *)
 
 let sigma f l = 

@@ -37,6 +37,8 @@ module Make(Th: INTERP) = struct
     inv = Map.empty;
     use = Use.empty
   }
+
+  let level = Th.name ^ "''"
     
 (*s Solution set *)
 
@@ -90,7 +92,7 @@ module Make(Th: INTERP) = struct
 
   let union =
     fun a b s ->
-      Trace.msg Th.name "Subst.Union" (a,b) pp_equal;
+      Trace.msg level "Subst.Union" (a,b) pp_equal;
       let use' = 
 	try 
 	  Use.remove Th.fold a (Map.find a s.find) s.use 
@@ -142,7 +144,7 @@ module Make(Th: INTERP) = struct
     fun x s ->
       try
 	let b = Map.find x s.find in 
-	Trace.msg Th.name "Subst.Restrict" x Term.pp;
+	Trace.msg level "Subst.Restrict" x Term.pp;
 	{find = Map.remove x s.find;
 	 inv = Map.remove b s.inv;
 	 use = Use.remove Th.fold x b s.use}
@@ -154,7 +156,7 @@ module Make(Th: INTERP) = struct
 
  let extend b s = 
    let x = Term.mk_fresh_var (Name.of_string "v") None in
-   Trace.msg Th.name "Subst.Extend" (x, b) Term.pp_equal;
+   Trace.msg level "Subst.Extend" (x, b) Term.pp_equal;
    Atom.footprint "def" [] [Atom.mk_equal x b];
    (x, union x b s)
 

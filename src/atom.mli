@@ -27,8 +27,8 @@ val eq : t -> t -> bool
 
 (*s Constructors. *)
 
-val mk_true : t
-val mk_false : t
+val mk_true : unit -> t
+val mk_false : unit -> t
 
 val mk_equal : Term.t -> Term.t -> t
 

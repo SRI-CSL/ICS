@@ -78,14 +78,14 @@ CMO = sign.cmo three.cmo \
       atom.cmo \
       use.cmo \
       subst.cmo \
+      d.cmo \
+      v.cmo \
       c.cmo \
       a.cmo \
       theories.cmo \
       t.cmo \
       bv.cmo \
       b.cmo \
-      d.cmo \
-      v.cmo \
       cc.cmo \
       th.cmo \
       context.cmo \

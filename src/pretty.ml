@@ -58,7 +58,7 @@ let assign pp1 pp2 fmt (x,a) =
   pp1 fmt x; 
   string fmt " |-> "; 
   pp2 fmt a;
-  Format.fprintf fmt "@]@;"
+  Format.fprintf fmt "@]"
 
 let map pp1 pp2 fmt =
   list ("[", "; ", "]") (assign pp1 pp2) fmt

@@ -16,18 +16,18 @@
 
 (*s Boolean constants. *)
 
-let mk_true = Term.mk_const Sym.mk_true
-let mk_false = Term.mk_const Sym.mk_false
+let mk_true () = Term.mk_const Sym.mk_true
+let mk_false () = Term.mk_const Sym.mk_false
 
-let is_true a = Term.eq a mk_true
-let is_false a = Term.eq a mk_false
+let is_true a = Term.eq a (mk_true())
+let is_false a = Term.eq a (mk_false())
 
 let is_interp a = is_true a || is_false a
 
 let sigma f l =
   match f, l with
-    | Sym.True, [] -> mk_true
-    | Sym.False, [] -> mk_false
+    | Sym.True, [] -> mk_true()
+    | Sym.False, [] -> mk_false()
     | _ -> assert false
 
 let solve (a,b) =

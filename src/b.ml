@@ -35,15 +35,15 @@ let empty = {
 let solution_of s =
   match s.valid, s.invalid with
     | None, None -> []
-    | Some(x), None -> [(x, Boolean.mk_true)]
-    | None, Some(y) -> [(y, Boolean.mk_false)]
-    | Some(x), Some(y) -> [(x, Boolean.mk_true); (y, Boolean.mk_false)]
+    | Some(x), None -> [(x, Boolean.mk_true())]
+    | None, Some(y) -> [(y, Boolean.mk_false())]
+    | Some(x), Some(y) -> [(x, Boolean.mk_true()); (y, Boolean.mk_false())]
 
 
 let apply s a =
   match s.valid, s.invalid with
-    | Some(x), _ when eq x a -> Boolean.mk_true
-    | _, Some(y) when eq y a -> Boolean.mk_false
+    | Some(x), _ when eq x a -> Boolean.mk_true()
+    | _, Some(y) when eq y a -> Boolean.mk_false()
     | _ -> raise Not_found
 
 let find s a =

@@ -43,15 +43,15 @@ let eq a b =
 
 (*s Constructors. *)
 
-let mk_true = True
+let mk_true () = True
 
-let mk_false = False
+let mk_false () = False
 
 let mk_equal a b =
   if Term.eq a b then 
-    mk_true
+    mk_true()
   else if Term.is_interp_const a && Term.is_interp_const b then
-    mk_false
+    mk_false()
   else
     let a',b' = Term.orient(a,b) in
     Equal(a',b')       (* Larger Term on rhs *)
@@ -68,17 +68,17 @@ let mk_in c a =
 
 let rec mk_diseq a b =
   if Term.eq a b then 
-    mk_false
+    mk_false()
   else if Term.is_interp_const a && Term.is_interp_const b then
-    mk_true
-  else if Term.eq a Boolean.mk_true then
-    mk_equal b Boolean.mk_false
-  else if Term.eq a Boolean.mk_false then
-    mk_equal b Boolean.mk_true
-  else if Term.eq b Boolean.mk_true then
-    mk_equal a Boolean.mk_false
-  else if Term.eq b Boolean.mk_false then
-    mk_equal a Boolean.mk_true
+    mk_true()
+  else if Term.eq a (Boolean.mk_true()) then
+    mk_equal b (Boolean.mk_false())
+  else if Term.eq a (Boolean.mk_false()) then
+    mk_equal b (Boolean.mk_true())
+  else if Term.eq b (Boolean.mk_true()) then
+    mk_equal a (Boolean.mk_false())
+  else if Term.eq b (Boolean.mk_false()) then
+    mk_equal a (Boolean.mk_true())
   else
     match Arith.d_num a, Arith.d_num b with
       | Some(q), _ -> 
@@ -111,7 +111,7 @@ and lower (f,less,greater) (a,b) =
   let (q, ml) = Arith.poly_of (Arith.mk_sub a b) in 
   match ml with
     | [] ->                                  
-	if f q Q.zero then mk_true else mk_false
+	if f q Q.zero then mk_true() else mk_false()
     | m :: ml ->                                   (*s case [p * x + ml < q'] *)
 	let (p,x) = Arith.mono_of m in          (*s case [q + p * x + ml < 0] *)
 	assert(not(Q.is_zero p));        

@@ -18,6 +18,7 @@
 open Term
 (*i*)
 
+
 type t = Cnstrnt.t Map.t
 
 let domains s =  
@@ -59,11 +60,15 @@ let rec merge eqs s =
       eqs
       (s, [], Set.empty)
   in
-  Trace.exit "c" "Merge" eqs' (Pretty.list pp_equal);
+  Trace.exit "c" "Merge" (eqs', ch')
+    (fun fmt (eqs, ch) ->
+        Pretty.list pp_equal fmt eqs;
+        Pretty.string fmt " ";
+        Pretty.set Term.pp fmt (Set.elements ch));
   (s', eqs', ch')
 
-and merge1 x y (s, ch) =
-  let (x, y) = Term.orient (x, y) in  (* eliminate [x]. *)
+and merge1 x y (s, ch) = 
+  let (x, y) = Term.orient (x, y) in
   try
     let i = apply s x in
     let (s', ch') = 
@@ -81,12 +86,16 @@ and merge1 x y (s, ch) =
 	    (s', ch', None)
 	| Binrel.Sub ->
 	    (update y i s', Set.add y ch', None)
-	| Binrel.Singleton(q) ->
-	    (restrict y s', Set.add y ch', Some(x, Arith.mk_num q))
+	| Binrel.Singleton(q) -> (* retain singleton constraints. *)
+	    (match Cnstrnt.d_singleton j with
+	       | Some _ ->
+		   (s', ch', None)
+	       | None ->                  
+		   (update y j s', Set.add y ch', Some(y, Arith.mk_num q)))
 	| Binrel.Overlap(ij) ->
 	    (update y ij s', Set.add y ch', None)
     with
-	Not_found ->
+	Not_found ->          
 	  (update y i s', Set.add y ch', None)
   with
       Not_found ->
@@ -108,8 +117,6 @@ let add x i s =
   match Cnstrnt.status i with
     | Status.Empty ->
 	raise Exc.Inconsistent
-    | Status.Singleton(q) ->
-	(restrict x s, Some(x, Arith.mk_num q))
     | _ ->
 	try
 	  let j = apply s x in
@@ -120,8 +127,10 @@ let add x i s =
 		(update x i s, None)
 	    | Binrel.Super | Binrel.Same ->
 		(s, None)
-	    | Binrel.Singleton(q) ->
-		(restrict x s, Some(x, Arith.mk_num q))
+	    | Binrel.Singleton(q) ->  (* retain singleton constraints. *)
+		(match Cnstrnt.d_singleton j with
+		   | Some _ -> (s, None)
+		   | None -> (restrict x s, Some(x, Arith.mk_num q)))
 	    | Binrel.Overlap(ij) ->
 		(update x ij s, None)
 	with
