@@ -70,20 +70,27 @@ val deq : t -> Term.t -> Term.Set.t
 
 val partition: t -> V.t * D.t
 
+
+(*s [choose s p x] returns [z] if for some [y] in the equivalence class of [x] 
+ [p y] yields [Some(z)]. If there is not such [y], [Not_found] is raised. *)
+
+val choose : t -> (Term.t -> 'a option) -> Term.t -> 'a
+
 (*s Solution sets for equality theories. *)
 
-val solutions : Theories.t -> t -> Solution.t
+val solutions : Sym.theories -> t -> Solution.t
 
 
 (*s Parameterized operators *)
 
-val find : Theories.t-> t -> Term.t -> Term.t
-val inv : Theories.t-> t -> Term.t -> Term.t
-val use : Theories.t-> t -> Term.t -> Term.Set.t
+val find : Sym.theories -> t -> Term.t -> Term.t
+val inv : Sym.theories -> t -> Term.t -> Term.t
+val use : Sym.theories -> t -> Term.t -> Term.Set.t
 
 (*s [sigma] normal form. *)
 
 val sigma : t -> Sym.t -> Term.t list -> Term.t
+
 
 (*s Merge variable equality. *)
 
@@ -101,6 +108,8 @@ val diseq : Fact.diseq -> t -> t
 
 val close : t  -> t
 
+val maxclose : int ref
+
 
 (*s Extension. *)
 
@@ -115,5 +124,9 @@ val split : t -> Atom.Set.t
 (*s Compressing the state. *)
 
 val compress : t -> t
+
+(*s Switch for compactification. *)
+
+val compactify : bool ref
 
 
