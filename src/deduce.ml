@@ -150,7 +150,7 @@ and of_add_bounds x ml s =
       | [], zl ->                              (* subcase: all monomials bound. *)
 	  propagate_zero zl s 
       | [(Var _ as y)], zl ->                  (* subcase: only one variable is unbound. *)
-	  let i = cnstrnt_of_monomials s zl in
+	  let i = Cnstrnt.multq Mpa.Q.negone (cnstrnt_of_monomials s zl) in
 	    infer y i s
       | [App(Arith(Multq(q)), [y])], zl ->     (* subcase: [q*y + zl = 0] with [y] bound, [zl] unbound *)
 	  let i = cnstrnt_of_monomials s zl in (* thus: [y in -1/q ** C(zl)] *)
