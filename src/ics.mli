@@ -174,6 +174,8 @@ val th_of_string : string -> th
 
 type sym
 
+(*
+
 val sym_theory_of : sym -> th
   (** [sym_theory_of f] returns the theory [th] associated with
     the function symbol [f]. *)
@@ -390,7 +392,7 @@ val sym_mk_update : unit -> sym
 val sym_is_update : sym -> bool
  (** [sym_is_update f] holds iff [f] represents the array update symbol. *)
 
-
+*)
 
 (** {6 Variables} *)
 

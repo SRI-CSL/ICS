@@ -27,7 +27,7 @@ type t = Atom.t * Justification.t
 
 type fct = t
 
-let compare (a1, _) (a2, _) = Atom.cmp a1 a2
+let compare (a1, _) (a2, _) = Atom.compare a1 a2
 
 let rec pp fmt (a, j) =
   if !print_justification then
@@ -112,7 +112,7 @@ module Equal = struct
     let trans f e =
       let (a, b, rho) = destruct e in
       let (a', b') = f (a, b) in
-      let rho' = Justification.dependencies [rho] in
+      let rho' = Justification.dependencies1 rho in
 	make (a', b', rho')
 
     let apply1 f (x, b, rho) a =
@@ -359,7 +359,7 @@ open Justification.Three
 let mk_equal is_equal (a, b, rho) =  
   match is_equal a b with
     | Yes(tau) -> 
-	let sigma = Justification.dependencies [rho; tau] in
+	let sigma = Justification.dependencies2 rho tau in
 	  mk_true sigma
     | No(tau) -> 
 	mk_false (Justification.contradiction rho tau)
@@ -371,7 +371,7 @@ let mk_diseq is_equal (a, b, rho) =
     | Yes(tau) -> 
 	mk_false (Justification.contradiction rho tau)
     | No(tau) ->
-	let sigma = Justification.dependencies [rho; tau] in
+	let sigma = Justification.dependencies2 rho tau in
 	  mk_true sigma
     | X -> 
 	make (Atom.Diseq(a, b), rho)
@@ -379,7 +379,7 @@ let mk_diseq is_equal (a, b, rho) =
 let mk_nonneg is_nonneg (a, rho) =
   match is_nonneg a with
     | Yes(tau) ->
-	let sigma = Justification.dependencies [rho; tau] in
+	let sigma = Justification.dependencies2 rho tau in
 	  mk_true sigma
     | No(tau) -> 
 	mk_false (Justification.contradiction rho tau)
@@ -389,7 +389,7 @@ let mk_nonneg is_nonneg (a, rho) =
 let mk_pos is_pos (a, rho) = 
   match is_pos a with
     | Yes(tau) -> 
-	let sigma = Justification.dependencies [rho; tau] in
+	let sigma = Justification.dependencies2 rho tau in
 	  mk_true sigma
     | No(tau) -> 
 	mk_false (Justification.contradiction rho tau)
@@ -407,9 +407,9 @@ let map (is_equal, is_nonneg, is_pos) f ((atm, rho) as fct) =
 	  if a == a' && b == b' then fct else
 	    (match is_equal a' b' with
 	       | Justification.Three.Yes(tau') ->  
-		   mk_true(Justification.dependencies [rho'; tau'])
+		   mk_true(Justification.dependencies2 rho' tau')
 	       | Justification.Three.No(tau') -> 
-		   mk_false(Justification.dependencies [rho'; tau'])
+		   mk_false(Justification.dependencies2 rho' tau')
 	       | Justification.Three.X -> 
 		   mk_equal is_equal (a', b', rho'))
     | Atom.Diseq(a, b) ->
@@ -417,9 +417,9 @@ let map (is_equal, is_nonneg, is_pos) f ((atm, rho) as fct) =
 	  if a == a' && b == b' then fct else 
 	    (match is_equal a' b' with
 	       | Justification.Three.Yes(tau') -> 
-		   mk_false(Justification.dependencies [rho'; tau'])
+		   mk_false(Justification.dependencies2 rho' tau')
 	       | Justification.Three.No(tau') -> 
-		   mk_true(Justification.dependencies [rho'; tau'])
+		   mk_true(Justification.dependencies2 rho' tau')
 	       | Justification.Three.X -> 
 		   mk_diseq is_equal (a', b', rho'))
     | Atom.Nonneg(a) ->
@@ -427,9 +427,9 @@ let map (is_equal, is_nonneg, is_pos) f ((atm, rho) as fct) =
 	  if a == a' then fct else
 	    (match is_nonneg a' with
 	      | Justification.Three.Yes(tau') ->  
-		  mk_true(Justification.dependencies [rho'; tau'])
+		  mk_true(Justification.dependencies2 rho' tau')
 	      | Justification.Three.No(tau') -> 
-		  mk_false(Justification.dependencies [rho'; tau'])
+		  mk_false(Justification.dependencies2 rho' tau')
 	      | Justification.Three.X -> 
 		  mk_nonneg is_nonneg (a', rho'))
     | Atom.Pos(a) ->
@@ -437,9 +437,9 @@ let map (is_equal, is_nonneg, is_pos) f ((atm, rho) as fct) =
 	  if a == a' then fct else
 	    (match is_pos a' with
 	       | Justification.Three.Yes(tau') -> 
-		   mk_true(Justification.dependencies [rho'; tau'])
+		   mk_true(Justification.dependencies2 rho' tau')
 	       | Justification.Three.No(tau') -> 
-		   mk_false(Justification.dependencies [rho'; tau'])
+		   mk_false(Justification.dependencies2 rho' tau')
 	       | Justification.Three.X -> 
 		   mk_pos is_pos (a', rho'))
 	    

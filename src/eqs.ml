@@ -278,10 +278,13 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
      let choose s p y =
        try
 	 Term.Set.iter
-	   (fun x -> 
-	      let e = equality s x in
-		if p e then 
-		  raise(Found(e)))
+	   (fun x ->
+	      try
+		let e = equality s x in
+		  if p e then 
+		    raise(Found(e))
+	      with
+		  Not_found -> ())
 	   (dep s y);
 	 raise Not_found
        with
@@ -316,7 +319,7 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
 		      s.ext <- Ext.do_at_add (p, s.ext) (x, b, rho)
 		    end)
 	 | Some(tau) -> 
-	     let sigma = Justification.dependencies [rho; tau] in
+	     let sigma = Justification.dependencies2 rho tau in
 	       raise(Justification.Inconsistent(tau))
 
 	 
@@ -464,7 +467,11 @@ module Cnstnt2Ext(Cnstnt: CNSTNT): (EXT with type t = (Term.t * Justification.t)
       if not(s == Term.Map.empty) then
 	begin
 	  Format.fprintf fmt "\ncnstnt: ";
-	  failwith "to do"
+	  let l = Term.Map.fold 
+		    (fun x (a, _) acc -> (x, a) :: acc)
+		    s []
+	  in
+	    Pretty.map Term.pp Term.pp fmt l   
 	end 
     let empty = Term.Map.empty
     let eq = (==)
@@ -474,7 +481,7 @@ module Cnstnt2Ext(Cnstnt: CNSTNT): (EXT with type t = (Term.t * Justification.t)
       Term.Map.iter                         (* [rho |- x = a] *)
 	(fun y (b, tau) ->                  (* [tau |- y = b] *)
 	   if Cnstnt.is_diseq a b then      (* [sigma |- x <> y] *)
-	     let sigma = Justification.dependencies [rho; tau] in
+	     let sigma = Justification.dependencies2 rho tau in
 	     let d = Fact.Diseq.make (x, y, sigma) in
 	       Partition.dismerge p d)
       s;

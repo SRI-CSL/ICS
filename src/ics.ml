@@ -133,13 +133,15 @@ let _ = Callback.register "th_of_string" th_of_string
 
 type sym = Sym.t
 
+(*
+
 let sym_eq = Sym.eq
 let _ = Callback.register "sym_eq" sym_eq
 
 let sym_cmp = Sym.cmp
 let _ = Callback.register "sym_cmp" sym_cmp
 
-let sym_theory_of = Th.of_sym
+let sym_theory_of = Sym.theory_of
 let _ = Callback.register "sym_theory_of" sym_theory_of
 
 let sym_is_uninterp = function Sym.Uninterp _ -> true | _ -> false
@@ -157,16 +159,16 @@ let _ = Callback.register "sym_mk_num" sym_mk_num
 let sym_is_num = function Sym.Arith(Sym.Num _) -> true | _ -> false
 let _ = Callback.register "sym_is_num" sym_is_num
 
-let sym_d_num = function Sym.Arith(Sym.Num(q)) -> q | _ -> assert false
+let sym_d_num = Sym.Arith.d_num
 let _ = Callback.register "sym_d_num" sym_d_num
 
-let sym_mk_multq = Sym.Arith.multq
+let sym_mk_multq = Sym.Arith.mult
 let _ = Callback.register "sym_mk_multq" sym_mk_multq
 
-let sym_is_multq = function Sym.Arith(Sym.Multq _) -> true | _ -> false
+let sym_is_multq f = failwith "to do"
 let _ = Callback.register "sym_is_multq" sym_is_multq
 
-let sym_d_multq = function Sym.Arith(Sym.Multq(q)) -> q | _ -> assert false
+let sym_d_multq = Sym.Arith.d_multq
 let _ = Callback.register "sym_d_multq" sym_d_multq
 
 let sym_mk_add () = Sym.Arith.add
@@ -284,7 +286,7 @@ let _ = Callback.register "sym_mk_select" sym_mk_select
 let sym_is_update = function Sym.Arrays(Sym.Update) -> true | _ -> false
 let _ = Callback.register "sym_is_update" sym_is_update
 
-
+	*)
 
 (** Variables. *)
 
@@ -350,7 +352,7 @@ let _ = Callback.register "term_mk_var" term_mk_var
 (** Uninterpred function application and function update. *)
          
 let term_mk_uninterp x l =
-  let f = Sym.Uninterp(Name.of_string x) in
+  let f = Sym.Uninterp.uninterp (Name.of_string x) in
   App.sigma f l
 let _ = Callback.register "term_mk_uninterp" term_mk_uninterp
 

@@ -23,8 +23,8 @@
 
 
 type t =
-  | Var of Var.t
-  | App of Sym.t * t list
+  | Var of Var.t * int
+  | App of Sym.t * t list * int
 
 
 (** {6 Variables} *)
@@ -251,22 +251,6 @@ module Diseq : sig
   val destruct : t -> trm * trm
   val pp : t Pretty.printer
   val eq : t -> t -> bool
-  val compare : t -> t -> int
-end
-
-module Nonneg : sig
-  type t = trm
-  val make : trm -> t
-  val term_of : t -> trm
-  val pp : t Pretty.printer
-  val compare : t -> t -> int
-end 
-
-module Pos : sig
-  type t = trm
-  val make : trm -> t
-  val term_of : t -> trm
-  val pp : t Pretty.printer
   val compare : t -> t -> int
 end
 
