@@ -46,6 +46,10 @@ val mk_one  : Term.t
     
 val mk_two  : Term.t
   (** [mk_one] is [mk_num Mpa.Q.one] *)
+
+val mk_posinf : Term.t
+val mk_neginf : Term.t
+val mk_eps : Term.t
   
 val mk_add  : Term.t -> Term.t -> Term.t
   (** [mk_add a b] constructs the normalized linear arithmetic term for the sum 
