@@ -19,10 +19,16 @@ OCAMLWEBSTY = $$HOME/tex/ocamlweb.sty
 
 WEBHOME = /homes/web/www.icansolve.com
 
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+bindir = @bindir@
+libdir = @libdir@
+includedir = @includedir@
+
 ### end of configuration part ################################################
 
 ifeq ($(MAKELEVEL),0)
-	ARCH := $(shell bin/config.guess)
+	ARCH := $(shell ./config.guess)
         export ARCH
 	OBJDIR = ./obj/$(ARCH)
 	BINDIR = ./bin/$(ARCH)
@@ -51,7 +57,7 @@ LIBS = $(LIBGMPA)
 
 # Object files
 
-COBJS = mlgmp.o
+COBJS = mlgmp.o ocaml-signals.o
 
 CMO = sign.cmo three.cmo \
       gmp.cmo mpa.cmo \
@@ -78,14 +84,10 @@ CMO = sign.cmo three.cmo \
       use.cmo \
       d.cmo \
       v.cmo \
-      solution.cmo \
+      c.cmo \
       partition.cmo \
-      focus.cmo \
-      sth.cmo \
-      a.cmo \
+      solution.cmo \
       theories.cmo \
-      u.cmo \
-      th.cmo \
       context.cmo \
       builtin.cmo \
       shostak.cmo \
@@ -136,7 +138,7 @@ ics.byte: $(OBJDIR)
 	make -C $(OBJDIR) -f ../../Makefile ics.byte
 endif
 
-OBJS = ics_all.o ics_stub.o mlgmp.o
+OBJS = ics_all.o ics_stub.o mlgmp.o ocaml-signals.o
 
 
 ics_all.o: $(CMX)
@@ -175,6 +177,7 @@ $(LIBDIR):
 
 .PRECIOUS : $(OBJDIR)/%.ml $(OBJDIR)/%.mli $(OBJDIR)/%.mly 
 .PRECIOUS : $(OBJDIR)/%.mll $(OBJDIR)/mlgmp.c
+.PRECIOUS : $(OBJDIR)/%.mll $(OBJDIR)/ocaml-signals.c
 
 
 $(OBJDIR)/%.ml: $(SRCDIR)/%.ml
@@ -190,6 +193,9 @@ $(OBJDIR)/%.mll: $(SRCDIR)/%.mll
 	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
 
 $(OBJDIR)/mlgmp.c: $(SRCDIR)/mlgmp.c
+	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
+
+$(OBJDIR)/ocaml-signals.c: $(SRCDIR)/ocaml-signals.c
 	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
 
 
@@ -258,7 +264,7 @@ web:: ics.tar.gz $(BINDIR)/ics $(BINDIR)/ics.byte $(LIBDIR)/libics.so $(LIBDIR)/
 ICSDIR = $(shell basename $(PWD))
 
 ics.tar.gz:	distclean
-	(cd .. ; tar -cvz --file=$(ICSDIR)/ics.tar.gz --mode="u+rw" --atime-preserve --exclude=CVS --exclude=ics.tar.gz ics)
+	(cd .. ; tar -cvz --file=$(ICSDIR)/ics.tar.gz --mode="u+rw" --atime-preserve --exclude=CVS --exclude=ics.tar.gz --exclude=help --exclude=old --exclude=examples --exclude=licenses ics)
 
 ### Update executables in Lab
 
@@ -378,7 +384,7 @@ distclean::
 	rm -rf profile.out
 	rm -f $(BINDIR)/ics $(BINDIR)/ics.byte 
 	rm -rf $(SRCDIR)/parser.output
-	rm -rf $(OBJDIR) $(LIBDIR)
+	rm -rf obj/*  lib/* bin/*
 	rm -f $(DOCDIR)/*.aux  $(DOCDIR)/*.toc
 	rm -f $(DOCDIR)/*.bbl $(DOCDIR)/*.log $(DOCDIR)/*.haux $(DOCDIR)/*.dvi
 	rm -f $(DOCDIR)/literal/*.tex
@@ -386,6 +392,22 @@ distclean::
 	rm -f $(DOCDIR)/*.ppm $(DOCDIR)/*.blg $(DOCDIR)/*.brf $(DOCDIR)/*.out 
 	rm -rf $(DOCDIR)/doc/literal/*.tex 
 	rm -f $(WEBDIR)/download/ics.tar.gz
+
+
+# Installation
+
+install:
+	mkdir -p $(bindir)
+	mkdir -p $(libdir)
+	mkdir -p $(includedir)
+	cp $(BINDIR)/ics $(bindir)
+	cp $(LIBDIR)/libics.so $(libdir)
+	cp $(OBJDIR)/ics.h $(includedir)
+
+uninstall:
+	rm -f $(bindir)/ics
+	rm -f $(libdir)/libics.so
+	rm -f $(includedir)/ics.h
 
 # Static dependencies for the generated files.
 
