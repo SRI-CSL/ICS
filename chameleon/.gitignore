@@ -3,3 +3,5 @@ mli_lexer.ml
 chameleon
 mli_parser.mli
 Makefile
+i686-unknown-linux
+sun4-SunOS5
