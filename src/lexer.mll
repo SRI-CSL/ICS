@@ -14,8 +14,10 @@ let keyword =
     [ "can", CAN; "sigma", SIGMA; "solve", SOLVE; "reset", RESET;
       "drop", DROP; "assert", ASSERT; "find", FIND; "universe", UNIVERSE; "use", USE;
       "check", CHECK; "verbose", VERBOSE; "norm", NORM; "compare", COMPARE;
-      "unify", UNIFY; "fol", FOL; "polarity", POLARITY;
+      "polarity", POLARITY;
       "proj", PROJ; "floor", FLOOR;
+      "int", INT; "posint", POSINT; "negint", NEGINT; "nnint", NNINT; "npint", NPINT;
+      "real", REAL; "posreal", POSREAL; "negreal", NEGREAL; "nnreal", NNREAL; "npreal", NPREAL;
       "in", IN; "notin", NOTIN; "compl", COMPL; "inter", INTER; "union", UNION;
       "diff", DIFF; "symdiff", SYMDIFF; "empty", EMPTY; "full", FULL;
       "unsigned", UNSIGNED;
@@ -57,6 +59,7 @@ rule token = parse
   | '*'        { TIMES }
   | '/'        { DIVIDE }
   | '='        { EQUAL }
+  | "::"       { CONV }
   | ":="       { ASSIGN }
   | "<>"       { DISEQ }
   | "<"        { LESS }

@@ -8,7 +8,11 @@ open Bitv
 (*s Implementation of terms and functions over terms. \label{implterms}
     The datatypes for terms have been discussed in \fullrefsec{typeterms}. *)
 
-type variable = string
+type sort = Int | Real
+  
+type cnstrnt = Pos | Neg | Nonneg | Nonpos
+
+type variable = string * sort option * cnstrnt option
 
 type tag = int
 
@@ -77,8 +81,8 @@ module HashTerm = Hashcons.Make(
     type t = term_node
     let equal t1 t2 =
       match t1, t2 with
-	| Var s1, Var s2 -> 
-	    s1 == s2
+	| Var (x1,typ1,sgn1), Var (x2,typ2,sgn2) -> 
+	    x1 == x2 && typ1 = typ2 && sgn1 = sgn2
 	| App (s1,l1), App (s2,l2) ->
 	    s1 == s2 &&
             (try List.for_all2 (==) l1 l2 with Invalid_argument _ -> false)

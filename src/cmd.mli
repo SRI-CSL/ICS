@@ -19,6 +19,4 @@ val universe : term option -> unit
 val can : term -> unit
 val norm : term -> unit
 val check : term -> unit
-val unify : term * term -> unit
-val fol : term -> unit
 val polarity : term -> unit

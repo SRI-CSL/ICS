@@ -6,6 +6,8 @@ open Term
 open Format
 (*i*)
 
+let pp_full_name = ref true
+
 (*s Printing of a list *)
 
 let rec list_sep sep f = function
@@ -96,7 +98,19 @@ let rec pp_prop prec p = match p with
       printf ".@ ";
       pp_term prec p
 
-and pp_var x = print_string x
+and pp_var = function
+  | x,None,None -> print_string x
+  | x,Some(Int),None -> printf "("; print_string x; printf ":: int)"    
+  | x,Some(Int),Some(Pos) -> printf "("; print_string x; printf ":: posint)"
+  | x,Some(Int),Some(Neg) -> printf "("; print_string x; printf ":: negint)"
+  | x,Some(Int),Some(Nonneg) -> printf "("; print_string x; printf ":: nnint)"
+  | x,Some(Int),Some(Nonpos) -> printf "("; print_string x; printf ":: npint)"
+  | x,Some(Real),None -> printf "("; print_string x; printf ":: real)"    
+  | x,Some(Real),Some(Pos) -> printf "("; print_string x; printf ":: posreal)"
+  | x,Some(Real),Some(Neg) -> printf "("; print_string x; printf ":: negreal)"
+  | x,Some(Real),Some(Nonneg) -> printf "("; print_string x; printf ":: nnreal)"
+  | x,Some(Real),Some(Nonpos) -> printf "("; print_string x; printf ":: npreal)"     
+  | _ -> assert false
     
 and pp_tuple prec t = match t with
   | Tup l -> 
@@ -148,8 +162,8 @@ and pp_fixedl prec bl =
   
 and pp_term prec t =
   match t.node with
-  | Var s -> 
-      printf "%s" s
+  | Var x -> 
+      pp_var x
   | App (f, []) ->
        pp_term prec f
   | App (f,l) ->

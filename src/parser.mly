@@ -11,7 +11,10 @@
 %}
 
 %token CAN SOLVE ASSERT FIND CHECK LIFT USE UNIVERSE SIGMA VERBOSE RESET DROP NORM COMPARE
-%token UNIFY FOL POLARITY
+%token POLARITY
+
+%token INT POSINT NEGINT NNINT NPINT;
+%token REAL POSREAL NEGREAL NNREAL NPREAL
 
 %token <string> IDENT
 %token <string> CONST
@@ -24,6 +27,7 @@
 %token TRUE FALSE AND OR XOR IMPLIES IFF NOT IF THEN ELSE FI
 %token PLUS MINUS TIMES DIVIDE FLOOR
 %token LESS GREATER LESSOREQUAL GREATEROREQUAL
+%token CONV
 %token IN NOTIN EMPTY FULL COMPL UNION INTER DIFF SYMDIFF
 %token BVEPS BVZERO BVONE BVCONC BVAND BVOR BVXOR
 %token PROJ
@@ -41,6 +45,7 @@
 %left TIMES DIVIDE
 %left LBRA
 %nonassoc prec_unary
+%nonassoc CONV
 
 %type <unit> command
 %type <Ics.term> term
@@ -54,13 +59,10 @@
 %%
 
 term:
-  ident                               { let (x,tg) = $1 in
-					match tg with
-					  | All -> var x
-					  | Int -> zvar x }
+  var                                { $1 }
 | CONST                               { num (num_of_string $1) }
-| IDENT LPAR term_comma_list RPAR     { app (var $1) $3 }
-| IF term THEN term ELSE term FI   { ite $2 $4 $6 }
+| var LPAR term_comma_list RPAR       { app $1 $3 }
+| IF term THEN term ELSE term FI      { ite $2 $4 $6 }
 | prop                                { $1 }
 | arith                               { $1 }
 | tuple                               { $1 }
@@ -70,15 +72,27 @@ term:
 | LPAR term RPAR                      { $2 }
 ;
 
-ident: IDENT   { $1, let c = String.get $1 0 in
-		       if (c >= 'A' && c <= 'Z') then Int else All }
+ident: IDENT { $1 }
 
+var:
+  ident              { var $1 }
+| IDENT CONV INT     { int_var $1 }
+| IDENT CONV POSINT  { posint_var $1 }
+| IDENT CONV NEGINT  { negint_var $1 }
+| IDENT CONV NNINT   { nnint_var $1 }
+| IDENT CONV NPINT   { npint_var $1 }
+| IDENT CONV REAL    { real_var $1 }
+| IDENT CONV POSREAL { posreal_var $1 }
+| IDENT CONV NEGREAL { negreal_var $1 }
+| IDENT CONV NNREAL  { nnreal_var $1 }
+| IDENT CONV NPREAL  { npreal_var $1 }
+;
 
 arith: 
   term PLUS   term                  { plus2 $1 $3 }
 | term MINUS  term                  { minus $1 $3 }
 | term TIMES  term                  { times [$1;$3] }
-| CONST DIVIDE CONST                  { div (num_of_string $1) (num_of_string $3) }
+| CONST DIVIDE CONST                 { div (num_of_string $1) (num_of_string $3) }
 | MINUS term %prec prec_unary        { unary_minus $2 }
 ;
 
@@ -173,23 +187,22 @@ optterm:           { None }
 ;
 
 command:
-  CAN term       DOT  { Cmd.can $2 }
-| NORM term      DOT  { Cmd.norm $2 }
+  CAN term       DOT   { Cmd.can $2 }
+| NORM term      DOT   { Cmd.norm $2 }
 | COMPARE term COMMA term DOT { Cmd.compare ($2,$4)}
-| SOLVE equation DOT { Cmd.solve $2 }
-| ASSERT terms   DOT { Cmd.processl $2 }
-| FIND optterm   DOT { Cmd.find $2 }
-| CHECK term     DOT  { Cmd.check $2 }
+| SOLVE equation DOT   { Cmd.solve $2 }
+| ASSERT terms   DOT   { Cmd.processl $2 }
+| FIND optterm   DOT   { Cmd.find $2 }
+| CHECK term     DOT   { Cmd.check $2 }
 | UNIVERSE optterm DOT { Cmd.universe $2 }
-| USE optterm    DOT { Cmd.use $2 }
-| FIND optterm   DOT { Cmd.find $2 }
-| SIGMA term     DOT  { Cmd.sigma $2 }
-| POLARITY term  DOT { Cmd.polarity $2 }
-| VERBOSE CONST  DOT { Cmd.verbose (int_of_string $2) }
-| RESET          DOT { Cmd.reset () }
-| DROP           DOT { Cmd.drop () }
-| UNIFY equation DOT { Cmd.unify $2 }
-| FOL fol        DOT { Cmd.fol $2 }   
+| USE optterm    DOT   { Cmd.use $2 }
+| FIND optterm   DOT   { Cmd.find $2 }
+| SIGMA term     DOT   { Cmd.sigma $2 }
+| POLARITY term  DOT   { Cmd.polarity $2 }
+| VERBOSE CONST  DOT   { Cmd.verbose (int_of_string $2) }
+| RESET          DOT   { Cmd.reset () }
+| DROP           DOT   { Cmd.drop () }
 ;
 
 %%
+

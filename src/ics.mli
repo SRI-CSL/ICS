@@ -2,8 +2,6 @@
     with constructors, test functions and destructors. 
     The type [q] of multi-precision rational numbers is abstract. *)
 
-type constraints = Int | All
-
 type term
 
 type q
@@ -11,7 +9,18 @@ type q
 (*s Constructors. *)
 
 val var : string -> term
-val zvar : string -> term
+
+val int_var : string -> term
+val posint_var : string -> term
+val negint_var : string -> term
+val nnint_var : string -> term
+val npint_var : string -> term
+val real_var : string -> term
+val posreal_var : string -> term
+val negreal_var : string -> term
+val nnreal_var : string -> term
+val npreal_var : string -> term
+    
 val app : term -> term list -> term
     
 val num    : q -> term
@@ -40,8 +49,8 @@ val mem    : term -> term -> term
 val ptrue  : unit -> term
 val pfalse : unit -> term
 val ite    : term -> term -> term -> term
-val forall : (string * constraints) list -> term -> term
-val exists : (string * constraints) list -> term -> term
+val forall : string list -> term -> term
+val exists : string list -> term -> term
 
 val neg    : term -> term
 val (&)    : term -> term -> term
@@ -123,10 +132,7 @@ val empty_state : unit -> state
     the current state, or we get an inconsistent state. The following type
     [result] is used to describe all these cases. *)
 
-type result =
-  | Consistent of State.t
-  | Redundant
-  | Inconsistent
+type result = Dp.result
 
 val is_consistent   : result -> bool
 val is_redundant    : result -> bool
@@ -136,7 +142,6 @@ val is_inconsistent : result -> bool
     [process] and [process_list]. *)
 
 val process : state -> term -> result
-val process_list : state -> term list -> result
 
 (*s A given state may be used to ask for the validity or the unsatisfiability
     of a given proposition. One can also ask for the mapping of a term in a

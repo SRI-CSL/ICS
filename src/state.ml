@@ -32,7 +32,8 @@ let copy s = {
   use = s.use;
 }
 
-let mem s x = Tmap.mem x s.find
+let mem s x =
+  Tmap.mem x s.find
 
 let apply s =
   let rec loop x =
@@ -197,4 +198,7 @@ let update s x y =
 let pp_find s = Pretty.tmap Pretty.term s.find
 let pp_use s = Pretty.tmap Pretty.tset s.use
 let pp_universe s = Pretty.tmap Pretty.term s.find
- 	      
+
+
+
+

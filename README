@@ -1,5 +1,4 @@
-This is ICS, a decision procedure based on a variation of Shostak's
-algorithm by Harald Rueﬂ and Natarajan Shankar.
+ICS: Integrated Canonizer and Solver
 
 Requirements:
 -------------
@@ -12,10 +11,10 @@ To compile ICS, you need to install first:
  - GNU MP version 3.0 or later
    Freely available at http://www.swox.com/gmp/
 
+
 Installation:
 -------------
 
-autoconf configure.in > configure
 ./configure
 make
 
@@ -23,6 +22,7 @@ Binaries will be in ./bin/$(ARCH)/
 Libraries in ./lib/$(ARCH)/
 
 Build directory is ./obj/$(ARCH)/
+
 
 Credits:
 --------
@@ -33,4 +33,3 @@ Lisp code is by Sam Owre, Harald Rueﬂ and Jean-Christophe Filli‚tre.
 
 GMP ocaml interface was originally written by David Monniaux, 
 and patched for ocaml 3.00 by Jean-Christophe Filli‚tre.
-

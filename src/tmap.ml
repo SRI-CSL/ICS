@@ -22,4 +22,3 @@ let choose p m =
     raise Not_found
   with
       MFound (a,b) -> (a,b)
-

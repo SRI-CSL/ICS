@@ -6,15 +6,22 @@ open Term
 (*i*)
 
 (*s Terms. *)
- 
-type constraints = Int | All
- 
-type variable = Term.variable
   
 type term = Term.term
 
-let var x = Var.var (x, None)
-let zvar x = Var.intvar (x, None)
+let var x = Var.var (x,None,None)
+
+let int_var x = Var.var (x,Some(Int),None)
+let posint_var x = Var.var (x,Some(Int),Some(Pos))
+let negint_var x = Var.var (x,Some(Int),Some(Neg))
+let nnint_var x = Var.var (x,Some(Int),Some(Nonneg))
+let npint_var x = Var.var (x,Some(Int),Some(Nonpos))
+let real_var x = Var.var (x,Some(Real),None)
+let posreal_var x = Var.var (x,Some(Real),Some(Pos))
+let negreal_var x = Var.var (x,Some(Real),Some(Neg))
+let nnreal_var x = Var.var (x,Some(Real),Some(Nonneg))
+let npreal_var x = Var.var (x,Some(Real),Some(Nonpos))
+		         
 let app = Arrays.app
 
 let _ = Callback.register "var" var
@@ -53,7 +60,7 @@ let lt x y = Atom.lt (x,y)
 let le x y = Atom.le (x,y)
 let gt a b = Atom.lt (b,a)
 let ge a b = Atom.le (b,a)
-let integer_pred = Arith.integer
+let integer_pred = Atom.int
 let mem = Sets.mem
 let unsigned t = assert false
 
@@ -148,10 +155,10 @@ let _ = Callback.register "bv_and" bv_and
 let _ = Callback.register "bv_or" bv_or
 let _ = Callback.register "bv_xor" bv_xor  
 
-let fresh l = Var.fresh "c" l None
+let fresh l = Var.fresh ("c",None,None) l
 let _ = Callback.register "fresh" fresh
 
-let new_var s = Var.create (s,None)
+let new_var s = Var.create (s,None,None)
 let _ = Callback.register "new_var" new_var
 
 let tag t = t.tag
@@ -286,43 +293,21 @@ let _ = Callback.register "universe" universe
 
 (*s Processing of new equalities. *)
 
-type result =
-  | Consistent of State.t
-  | Redundant
-  | Inconsistent
+type result = Dp.result
 
-let is_consistent = function Consistent _ -> true | _ -> false
-let is_redundant r = r = Redundant
-let is_inconsistent r = r = Inconsistent
+let is_consistent = function Dp.Consistent _ -> true | _ -> false
+let is_redundant r = r = Dp.Valid
+let is_inconsistent r = r = Dp.Inconsistent
 
 let _ = Callback.register "is_consistent" is_consistent
 let _ = Callback.register "is_redundant" is_redundant
 let _ = Callback.register "is_inconsistent" is_inconsistent
 
-let rec process st t =
-  try
-    process1 st t
-  with
-    | Exc.Inconsistent str -> Inconsistent
-    | Exc.Valid -> Redundant 
-      
-and process1 st t =
-  let t' = Can.can st t in
-  match t'.node with
-    | Atom(Equal (t1,t2)) ->
-	Consistent (Process.equality None st (t1,t2))
-    | Bool True ->
-	raise Exc.Valid
-    | Bool False ->
-	raise (Exc.Inconsistent "Can")
-    | _ ->
-	Consistent (Process.equality None st (t, Bool.tt))
-
-let process_list xl = failwith "to be done"
+let process st t = Dp.process None st t
 	
 let is_valid st p = 
   match process st p with
-    | Redundant -> true
+    | Dp.Valid -> true
     | _ -> false
 
 let is_unsat st p =
@@ -332,7 +317,6 @@ let is_unsat st p =
 let _ = Callback.register "is_valid" is_valid
 let _ = Callback.register "is_unsat" is_unsat
 let _ = Callback.register "process" process     
-let _ = Callback.register "process_list" process_list
 
 let norm = Process.norm
 let _ = Callback.register "norm" norm 
@@ -344,13 +328,14 @@ let sigma st t = t
 let solve _ = Solve.solve None
 
 let polarity st t =
-  match Arith.sign t with
-    | Arith.Nonpos -> Format.printf "Nonpos"
-    | Arith. Neg -> Format.printf "Neg"
-    | Arith.Zero -> Format.printf "Zero"
-    | Arith.Pos -> Format.printf "Pos"
-    | Arith.Nonneg -> Format.printf "Nonneg"
-    | Arith.T -> Format.printf "Unconstrained"
+  match Sign.sign t with
+    | Sign.Nonpos -> Format.printf "Nonpos"
+    | Sign. Neg -> Format.printf "Neg"
+    | Sign.Zero -> Format.printf "Zero"
+    | Sign.Pos -> Format.printf "Pos"
+    | Sign.Nonneg -> Format.printf "Nonneg"
+    | Sign.T -> Format.printf "Unconstrained"
+    | Sign.F -> Format.printf "Inconsistent"
 
 (*s Reset. *)
 
@@ -386,9 +371,9 @@ let pop s =
 
 let iprocess s t = 
   match process s.current t with
-    | Consistent s' as r -> s.current <- s'; r
-    | Redundant -> Redundant
-    | Inconsistent -> Inconsistent
+    | Dp.Consistent s' as r -> s.current <- s'; r
+    | Dp.Valid -> Dp.Valid
+    | Dp.Inconsistent -> Dp.Valid
 
 let _ = Callback.register "empty_istate" empty_istate
 let _ = Callback.register "current_state" current_state

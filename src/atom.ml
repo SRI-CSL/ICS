@@ -43,40 +43,12 @@ let destructure_deq a =
     | _ -> None
 
 
-(* Inequalities *)
-
-let le (x,y) = 
-  if x == y then
-    Bool.tt
-  else
-    let p = Arith.sub (y,x) in
-    if Arith.is_nonneg p then
-      Bool.tt
-    else if Arith.is_neg p then 
-      Bool.ff
-  else
-    Term.hc (Atom(Le(x,y)))
-
-      
-let lt (x,y) =
-  if Arith.is_integer x && Arith.is_integer y then
-    le (Arith.incr x, y)
-  else
-    let p = Arith.sub (y,x) in
-    if Arith.is_pos p then
-      Bool.tt
-    else if Arith.is_neg p then
-      Bool.ff
-    else
-      Term.hc (Atom(Lt(x,y)))
-
-
 					      
 (*s Constructor for integer constraint *)
 
 let rec is_integer t =
   match t.node with
-    | Var _ when Var.is_integer t -> true
+    | Var (_,Some(Int),_) -> true
     | Arith a ->
 	(match a with
 	   | Num q -> Q.is_integer q
@@ -92,6 +64,41 @@ let int t =
       | _ -> Bool.ff
   else
     hc (Atom(Integer(t)))
+      
+(* Inequalities *)
+
+let le (x,y) = 
+  if x == y then
+    Bool.tt
+  else
+    let p = Arith.sub (y,x) in
+    if Sign.is_nonneg p then
+      Bool.tt
+    else if Sign.is_neg p then 
+      Bool.ff
+  else
+    Term.hc (Atom(Le(x,y)))
+
+      
+let lt (x,y) =
+  if is_integer x && is_integer y then
+    le (Arith.incr x, y)
+  else
+    let p = Arith.sub (y,x) in
+    if Sign.is_pos p then
+      Bool.tt
+    else if Sign.is_neg p then
+      Bool.ff
+    else
+      Term.hc (Atom(Lt(x,y)))
+
+let pos x = lt (Arith.num Q.zero, x)
+let neg x = lt (x,Arith.num Q.zero)
+	      
+let nonneg x = le (Arith.num Q.zero, x)
+let nonpos x = le (x, Arith.num Q.zero)
+		 
+
 	
 (* Solving *)
 
@@ -100,16 +107,16 @@ let solve ((a,b) as e) =
     | Atom(Equal(x,y)), Bool(True) ->
 	[x,y]       
     | Atom(Le(x1,x2)), Bool(True) ->
-	let c = Var.create ("zzz",Some Var.Nonneg) in   (* x1 <= x2  --> x1 = x2-c, c >= 0 *)
+	let c = Var.create ("z", Some Real, Some Nonneg) in  (* x1 <= x2  --> x1 = x2-c, c >= 0 *)
 	[x1,Arith.sub (x2,c)]
     | Atom(Le(x1,x2)), Bool(False) ->          (* x1 > x2 --> x1 = x2 + c, c > 0 *)
-	let c = Var.create ("zzz",Some Var.Pos) in
+	let c = Var.create ("z", Some Real, Some Pos) in
 	[x1, Arith.add2 (x2,c)]
     | Atom(Lt(x1,x2)), Bool(True) ->           (* x1 < x2  --> x1 = x2-c, c > 0 *)
-	let c = Var.create ("zzz",Some Var.Pos) in
+	let c = Var.create ("z", Some Real, Some Pos) in
 	[x1,Arith.sub (x2,c)]
     | Atom(Lt(x1,x2)), Bool(False) ->          (* x1 >= x2 --> x1 = x2 + c, c >= 0 *)
-	let c = Var.create ("zzz",Some Var.Nonneg) in
+	let c = Var.create ("z", Some Real, Some Nonneg) in
 	[x1, Arith.add2 (x2,c)]
     | _ ->
 	[e]

@@ -6,7 +6,6 @@ open Term
 (*s Pretty-printing. *)
 
 val term : term -> unit
-val bv : bv -> unit
 val eqn : term * term -> unit
 
 val list : ('a -> unit) -> 'a list -> unit

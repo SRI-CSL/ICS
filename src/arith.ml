@@ -20,8 +20,8 @@ let mk_add = function
 (*s Constants *)
 
 let num q = hc (Arith(Num(q)))
-let zero () = num Q.zero
-let one () = num Q.one
+let zero  = num Q.zero
+let one  = num Q.one
 
 let is_one = function
   | {node=Arith (Num q)} when Q.equal q Q.one -> true
@@ -81,7 +81,7 @@ let to_poly t =
 	PolyCache.add table t p; p
 		      
 let of_mono (q,xl) =
-  if Q.is_zero q then zero ()
+  if Q.is_zero q then zero
   else match xl.node with
     | [] -> num q
     | [t] -> if Q.is_one q then t else mk_mult [num q; t]
@@ -116,7 +116,7 @@ let addl tl =
   
 let add = Tools.profile "Add" (cachel 107 addl)
 
-let incr t = add2 (t, one())
+let incr t = add2 (t, one)
   
 let sub (t1,t2) = add2 (t1,neg t2)
 
@@ -132,17 +132,6 @@ let mult = Tools.profile "Mult" (cachel 107 multl)
 
 let map f t = of_poly (Poly.map f (to_poly t))
 
-(*s Test if term is an integer arithmetic term. *)
-
-let rec is_integer t =
-  match t.node with
-    | Var _ when Var.is_integer t -> true
-    | Arith a ->
-	(match a with
-	   | Num q -> Q.is_integer q
-	   | Times l -> List.for_all is_integer l
-	   | Plus l -> List.for_all is_integer l)
-    | _ -> false
 
 (*s Checking if a term is syntactically known to be less (or equal)
     then another one
@@ -174,17 +163,6 @@ let occurs s t =
   in
   occ t
 
-(*s Constructor for integer constraint *)
-
-let integer t =
-  if is_integer t then Bool.tt
-  else if Term.is_const t then
-    match t.node with
-      | Arith (Num q) when Q.is_integer q -> Bool.tt
-      | _ -> Bool.ff
-  else
-    hc (Atom(Integer(t)))
-
 
 (*s {\bf The solver.}  *)
 
@@ -212,7 +190,7 @@ module Euclid = Euclid.Make(
   struct
     type t = term
     let num = num
-    let fresh () = Var.fresh "k" [] None    (* eigentlich Integer *)
+    let fresh () = Var.fresh ("k",Some(Int),None) []
     let ( + ) = (fun x y -> add2 (x,y))
     let ( - ) = (fun x y -> sub (x,y))
     let ( * ) = (fun x y -> mult2 (x,y))
@@ -221,6 +199,8 @@ module Euclid = Euclid.Make(
 let zsolve t =
   let rho = Poly.zsolve Euclid.solve (to_poly t) in
   List.map (fun (x,t) -> (of_pproduct x, t)) rho
+
+let is_integer t = false
 
 let is_diophantine =
   cache 1007 (fun t -> Poly.is_diophantine is_integer (to_poly t))
@@ -238,101 +218,5 @@ let solve x (s,t) =
   if is_diophantine p then zsolve p else qsolve x p
 
 
-(*s Sign interpretation of arithmetic terms.
- *)
 
-type sign = Nonpos | Neg | Zero | Pos | Nonneg | T
 
-let consistent s1 s2 =
-  s1 = s2 || (match s1,s2 with
-		| T, _ 
-		| _, T 
-		| Zero, (Nonpos | Nonneg)
-		| Pos, Nonneg
-		| Neg, Nonpos
-		| Nonneg, (Zero | Pos)
-		| Nonpos, (Zero | Neg) -> true
-		| _ -> false)
-  
-let ( ** ) s1 s2 =
-  match s1,s2 with
-    | T, _    -> T
-    | _, T    -> T
-    | Zero, _ -> Zero
-    | _, Zero -> Zero
-    | Pos, _ -> s2
-    | Nonpos, (Nonneg | Pos) -> Nonpos
-    | Nonpos, _ -> Nonneg
-    | Nonneg, (Nonneg | Pos) -> Nonneg
-    | Nonneg, _ -> Nonpos
-    | Neg, Neg -> Pos
-    | Neg, Pos -> Neg
-    | Neg, Nonneg -> Nonpos
-    | Neg, Nonpos -> Nonneg
-
-let ( ++ ) s1 s2 =
-  match s1, s2 with
-    | Zero, _ -> s2
-    | _, Zero -> s1
-    | Pos, (Pos | Nonneg) -> Pos
-    | Nonneg, Pos -> Pos
-    | Neg, (Neg | Nonpos) -> Neg
-    | Nonpos, Neg -> Neg
-    | Nonpos, Nonpos -> Nonpos
-    | Nonneg, Nonneg -> Nonneg
-    | _ -> T
-  
-let rec sign_of t =
-  match t.node with
-    | Var _ ->
-	sign_of_var t
-    | Arith a ->
-	(match a with
-	   | Num q -> sign_of_num q
-	   | Times l -> sign_of_times l
-	   | Plus l -> sign_of_plus l)
-    | _ -> T
-
-and sign_of_var t =
-  match Var.sgn t with
-    | Var.Neg -> Neg
-    | Var.Pos -> Pos
-    | Var.Nonneg -> Nonneg
-    | Var.Nonpos -> Nonpos
-
-and sign_of_num q =
-  if Q.is_zero q then Zero
-  else if Q.gt q Q.zero then Pos
-  else Neg
-
-and sign_of_times l =
-  match l with
-    | [x] -> sign_of x
-    | x :: l -> sign_of x ** sign_of_times l
-    | _ -> assert false
-
-and sign_of_plus l =
-   match l with
-    | [x] -> sign_of x
-    | x :: l -> sign_of x ++ sign_of_times l
-    | _ -> assert false
-
-let sign = cache 1007 sign_of
-
-let is_nonneg t =
-  let s = sign t in s = Zero || s = Pos || s = Nonneg
-
-let is_pos t =
-  sign t = Pos
-
-let is_nonpos t =
-  let s = sign t in s = Zero || s = Neg || s = Nonpos
-
-let is_neg t =
-  sign t = Neg
-
-let consistent t1 t2 =
-  consistent (sign t1) (sign t2)
-
-let inconsistent t1 t2 =
-  not (consistent t1 t2)

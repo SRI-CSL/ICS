@@ -7,7 +7,11 @@ open Bitv
 
 (*s Types of terms.  *)
 
-type variable = string
+type sort = Int | Real
+
+type cnstrnt = Pos | Neg | Nonneg | Nonpos
+
+type variable = string * sort option * cnstrnt option
 
 type tag = int
 
@@ -87,7 +91,3 @@ val is_uninterpreted : term -> bool
 val cache : int -> (term -> 'a) -> (term -> 'a)
 val cache2 : int -> (term*term -> 'a) -> (term*term -> 'a)    
 val cachel : int -> (term list -> 'a) -> (term list -> 'a)    
-    
- 
-
-

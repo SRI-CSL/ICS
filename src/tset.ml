@@ -57,9 +57,3 @@ let sub s1 s2 =
 let destructure s =
   let x = choose (fun _ -> true) s in
   x, remove x s
-  
-
-
-
-
-

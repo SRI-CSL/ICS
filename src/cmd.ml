@@ -20,7 +20,7 @@ let pp_mapsto_nl = with_nl pp_mapsto
 
 (*s The state of the toplevel is composed of a mapping (type [seqns]) and 
     a list of dis-equalities. *)
-
+		     
 let current = ref (empty_state())
 
 let state () = !current
@@ -55,9 +55,9 @@ let solve e =
 
 let change_state f =
   match f !current with
-    | Consistent st -> current := st
-    | Redundant -> print_string "Redundant"; endline ()
-    | Inconsistent -> raise (Exc.Inconsistent "")
+    | Dp.Consistent st -> current := st
+    | Dp.Valid -> print_string "Redundant"; endline ()
+    | Dp.Inconsistent -> raise (Exc.Inconsistent "")
   
 let process a = change_state (fun st -> process st a)
 
@@ -109,38 +109,10 @@ let norm t =
 				 
 let check t =
  (match Ics.process !current t with
-    | Redundant -> printf "T"
-    | Inconsistent ->  printf "F"
-    | Consistent _ -> printf "X");
+    | Dp.Valid -> printf "T"
+    | Dp.Inconsistent ->  printf "F"
+    | Dp.Consistent _ -> printf "X");
   endline ()
-
-let unify (s,t) = print_string "\nCurrently disabled"
-  (*
-  try
-    let phi = unify !current (s,t) Subst.empty in
-    let rec pr psi =
-      try
-	Stream.empty psi
-      with Stream.Failure ->
-	print_string "Substitution:\n";
-        Subst.pp (Stream.next psi);
-        print_string "\n";
-        pr psi
-    in
-    pr phi
-  with
-      Unify.Not_unifiable -> (print_string "Not unifiable"; endline ())
- *)
-    
-let fol t = print_string "\nCurrently disabled"
-		 (*
-  match fol !current t with
-    | Fol.Valid   -> print_string "Valid"; endline ()
-    | Fol.Unsat   -> print_string "Unsatisfiable"; endline ()
-		   *)
-
-
-
 
 
 

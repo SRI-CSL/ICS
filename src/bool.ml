@@ -51,7 +51,7 @@ module BDD = Bdd.Make(
       match p.node with
 	| Bool (Ite (a,b,c)) -> Some(a, b, c)
 	| _ -> None
-    let fresh _ = (Var.fresh "z" [] None)
+    let fresh _ = (Var.fresh ("z",None,None) [])
 		    
   end)
        
@@ -103,8 +103,4 @@ let rec infer ((a,b) as e) =
 	 e :: infer (disj y z , tt)
      | _ ->
 	 [e]
-
-
-
-
 
