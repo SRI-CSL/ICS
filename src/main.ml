@@ -42,7 +42,7 @@ let args () =
 	"Enable tracing";
 	"-show_explanations", set_true Ics.set_show_explanations,
 	"Display explanations generated for SAT solver on stderr";
-        "-version", Arg.Unit (fun () -> Format.eprintf "%s@." Version.version; exit 0),
+        "-version", Arg.Unit (fun () -> Format.printf "%s@." Version.version; exit 0),
         "Display version number";
         "-compactify",  set_true Ics.set_compactify,
 	"Disable compactification in SAT solver";
