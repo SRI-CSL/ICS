@@ -53,20 +53,15 @@ let cnstrnt_split s =
 
 (*s [update x i s] updates teh constraint map with the constraint [x in i]. *)
 
-let update x i s =
-  {c = Map.add x i s.c; 
-   changed = Set.add x s.changed;
-   singletons = 
-     match Cnstrnt.d_singleton i with 
+let update x i s =    (* sometimes constants are being observed as args. *)
+  if is_var x then
+    {c = Map.add x i s.c; 
+     changed = Set.add x s.changed;
+     singletons = match Cnstrnt.d_singleton i with 
        | Some _ -> Set.add x s.singletons
        | None -> s.singletons}
-
-(*s Extend the constraint map. *)
-
-let extend i s =
-  let k = Term.mk_fresh_var (Name.of_string "k") None in
-  Trace.msg "c" "Extend" (k,i) Term.pp_in;
-  (k, update k i s)
+  else 
+    s
 
 (*s Adding a new constraint. *)
 
