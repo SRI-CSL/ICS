@@ -137,6 +137,7 @@ let rec equality (a, b) s =
  in the solution set of [s]. *)
 		
 and compose eq s =
+  Trace.msg 6 "Compose(a)" eq pp_equal;
   let (solution', veqs') = A.compose s.solution [eq] in
   let s' = {s with solution = solution'} in
   (s', veqs')
@@ -148,6 +149,7 @@ and compose eq s =
  in the solution set. *)
 
 and propagate (k, b) s =
+  Trace.msg 6 "Prop(a)" (k, b) pp_equal;
   assert(C.is_slack k);
   let (cnstrnt', keqs') = C.propagate (k,b) s.cnstrnt in
   let (solution', veqs') = A.propagate s.solution ((k,b) :: keqs') in
@@ -159,6 +161,7 @@ and propagate (k, b) s =
  which are merged. *)
 
 and abstract (a, b) s =
+  Trace.msg 6 "Abstract(a)" (a, b) pp_equal;
   let (x, s') = extend a s in 
   let (y, s'') = extend b s' in
   (s'', Veqs.singleton (Veq.make x y))
@@ -177,7 +180,8 @@ let merge e s =
     begin
       Trace.msg 6 "Merge(a)" (x,y) pp_equal;
       let (s', veqs') = equality (x,y) s in
-      (s', Veqs.remove e veqs')
+      let e' = Veqs.remove e veqs' in  (* remove input equality [e]. *)
+      (s', e')
     end
 
 
