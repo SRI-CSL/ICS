@@ -312,10 +312,10 @@ let _ = Callback.register "term_mk_expt" term_mk_expt
 let term_mk_unsigned = Builtin.mk_unsigned
 let _ = Callback.register "term_mk_unsigned" term_mk_unsigned
 
-let term_mk_update = Builtin.mk_update
+let term_mk_update s (a,b,c) = Builtin.mk_update s a b c
 let _ = Callback.register "term_mk_update" term_mk_update
 
-let term_mk_select = Builtin.mk_select
+let term_mk_select s (a,b) = Builtin.mk_select s a b
 let _ = Callback.register "term_mk_select" term_mk_select
 
 let term_mk_div = Builtin.mk_div
