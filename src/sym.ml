@@ -35,10 +35,20 @@ type bv =
   | Sub of int * int * int
   | Bitwise of int
 
+
+(*s Builtin Symbols *)
+
+type builtin = 
+  | Select | Update
+  | Unsigned 
+  | Floor | Ceiling | Mult | Expt | Div | Sin | Cos
+
+
 (*s Symbols. *)
 
 type t = 
   | Uninterp of Name.t
+  | Builtin of builtin
   | Arith of arith
   | Tuple of tuple
   | Bv of bv
@@ -48,12 +58,15 @@ type t =
 
 let cmp = Pervasives.compare
 
+
 (*s Equality. *)
 
 let rec eq s t =
   match s, t with  
     | Uninterp(x), Uninterp(y) ->
 	Name.eq x y
+    | Builtin(x), Builtin(y) ->
+	x = y
     | Arith(op1), Arith(op2) ->
 	(match op1, op2 with
 	   | Num(q1), Num(q2) -> Q.equal q1 q2
@@ -84,6 +97,7 @@ let pp fmt s =
   let rec sym s =
     match s with 
       | Uninterp(f) -> Name.pp fmt f
+      | Builtin(f) -> builtin f
       | Arith(op) -> arith op
       | Tuple(op) -> tuple op
       | Bv(op) -> bv op
@@ -104,7 +118,23 @@ let pp fmt s =
       | Const(b) -> Format.fprintf fmt "0b%s" (Bitv.to_string b)
       | Conc(n,m) -> Format.fprintf fmt "conc[%d,%d]" n m
       | Sub(n,i,j) -> Format.fprintf fmt "sub[%d,%d,%d]" n i j
-      | Bitwise(n) -> Format.fprintf fmt "bitwise[%d]" n
+      | Bitwise(n) -> Format.fprintf fmt "ite[%d]" n
+
+  and builtin op = 
+    let name = 
+      match op with
+	| Select -> "select" 
+	| Update -> "update"
+	| Unsigned -> "unsigned"
+	| Floor -> "floor"
+	| Ceiling -> "ceiling"
+	| Mult -> "*"
+	| Expt -> "^"
+	| Div -> "/"
+	| Sin -> "sin"
+	| Cos -> "cos"
+    in
+      Format.fprintf fmt "%s" name
   in
   sym s
 
@@ -144,7 +174,7 @@ let theory_of = function
   | Arith _ -> A
   | Tuple _ -> T
   | Bv _ -> BV
-  | Uninterp _ -> U
+  | _ -> U
 
 let name_of_theory = function
   | U -> "u"
@@ -165,18 +195,51 @@ let interp_theory_of_name = function
   | "bv" -> BV
   | x -> raise (Invalid_argument x)
 
+(*s Predefined symbol. *)
 
-(*s Some predefined function symbols. *)
+let add = Arith(Add)
+
+(*s Function symbols for tuple theory. *)
+
+let product = Tuple(Product)
+let car = Tuple(Proj(0, 2))
+let cdr = Tuple(Proj(1, 2))
 
 
-let select = Uninterp(Name.select)
-let update = Uninterp(Name.update)
-let unsigned = Uninterp(Name.unsigned)
-let floor = Uninterp(Name.floor)
-let ceiling = Uninterp(Name.ceiling)
-let mult = Uninterp(Name.mult)
-let expt = Uninterp(Name.expt)
-let div = Uninterp(Name.div)
-let sin = Uninterp(Name.sin)
-let cos = Uninterp(Name.cos)
+(*s Predefined function symbols for arrays *)
+
+let select = Builtin(Select)
+let update = Builtin(Update)
+
+let is_array f =
+  f == select || f == update
+
+(*s Unsigned interpretation. *)
+
+let unsigned = Builtin(Unsigned)
+
+let is_unsigned f = (f == unsigned)
+
+
+(*s Predefined nonlinear function symbols. *)
+
+
+let floor = Builtin(Floor)
+let ceiling = Builtin(Ceiling)
+let mult =  Builtin(Mult)
+let expt = Builtin(Expt)
+let div = Builtin(Div)
+let sin = Builtin(Sin)
+let cos = Builtin(Cos)
+
+
+let is_nonlin = function
+  | Builtin(Floor | Ceiling | Mult | Expt | Div | Sin | Cos) -> true
+  | _ -> false
+
+
+(*s Test if argument is a builtin function symbol. *)
+
+let is_builtin f =
+  is_array f || is_nonlin f
 
