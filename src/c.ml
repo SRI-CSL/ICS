@@ -261,23 +261,26 @@ let normalize q p c =
  parameter [k] and a combination [a] of slacks. *)
 
 let rec propagate (k, a) s =
-  try
-    let c = (apply s k).Cod.cnstrnt in
-    match Arith.decompose a with     
-      | Arith.Const(q) ->              (* Case: [k = q] *)
-	  if Cnstrnt.mem q c then 
-	    (s, []) 
-	  else 
-	    raise Exc.Inconsistent
-      | Arith.One(q, p, x) ->               (* Case: [q + p * x in c] *)
-	  add k (normalize q p c) (s, [])   (* iff [x in 1/p * (c - q)] *)  
-      | Arith.Many(q, p, x, y) ->      (* Case: [q + p * x + y in c] *)
-	  let c' = normalize q p c in  (* iff [x in ((1/p*(c-q)) - C(1/p*y)] *)
-	  let y' = Arith.mk_multq (Q.inv p) y in  
-	  diff x (c', y') (s, [])
-  with
-      Not_found ->
-	(s, [])
+  if is_slack a then
+    merge k a (s, [])
+  else 
+    try
+      let c = (apply s k).Cod.cnstrnt in
+      match Arith.decompose a with     
+	| Arith.Const(q) ->              (* Case: [k = q] *)
+	    if Cnstrnt.mem q c then 
+	      (s, []) 
+	    else 
+	      raise Exc.Inconsistent
+	| Arith.One(q, p, x) ->               (* Case: [q + p * x in c] *)
+	    add k (normalize q p c) (s, [])   (* iff [x in 1/p * (c - q)] *)  
+	| Arith.Many(q, p, x, y) ->      (* Case: [q + p * x + y in c] *)
+	    let c' = normalize q p c in  (* iff [x in ((1/p*(c-q)) - C(1/p*y)] *)
+	    let y' = Arith.mk_multq (Q.inv p) y in  
+	    diff x (c', y') (s, [])
+    with
+	Not_found ->
+	  (s, [])
 
 (*s Propagate an equality [k = q], where [q] is a rational number. *)
 
@@ -317,6 +320,35 @@ and diff k (c,y) (s, eqs) =
   Trace.msg 0 "Diff(c)" "to do" Pretty.string;
   (s, eqs)
 
+and merge k l (s, eqs) =
+  let (k,l) = Term.orient (k,l) in
+  try
+    let (c, dk ) = Cod.destruct (apply s k) in
+    try
+      let (d, dl) = Cod.destruct (apply s l) in
+      match Cnstrnt.cmp c d with
+       | Binrel.Disjoint ->
+	   raise Exc.Inconsistent
+       | (Binrel.Super | Binrel.Same) ->
+	   restrict (k,l) (s, eqs)
+       | Binrel.Sub ->
+	   let (s', eqs') = restrict (k,l) (s, eqs) in
+	   update l c (s', eqs')
+       | Binrel.Singleton(q) ->
+	   let (s', eqs') = restrict (k,l) (s, eqs) in
+	   const l q (s', eqs') 
+       | Binrel.Overlap(cd) ->
+	   let (s', eqs') = restrict (k,l) (s, eqs) in
+	   update l cd (s', eqs') 
+    with
+	Not_found ->
+	  let (s', eqs') = restrict (k,l) (s, eqs) in
+	  update l c (s', eqs')
+  with
+      Not_found ->
+	(s, eqs)
+  
+  
  
 (*s Remove [x] from domain of cnstrnt assignments and replace every [x]
  with [b] in the symbolic constraints in which [x] occurs. *)

@@ -65,7 +65,6 @@ CMO = sign.cmo three.cmo \
       sym.cmo \
       var.cmo \
       term.cmo \
-      interp.cmo theories.cmo \
       veq.cmo \
       veqs.cmo \
       boolean.cmo \
@@ -76,13 +75,14 @@ CMO = sign.cmo three.cmo \
       atom.cmo \
       use.cmo \
       subst.cmo \
-      symbolic.cmo c.cmo \
+      c.cmo \
       a.cmo \
       t.cmo \
       bv.cmo \
       b.cmo \
       d.cmo \
       cc.cmo \
+      interp.cmo theories.cmo \
       th.cmo \
       context.cmo \
       builtin.cmo \
@@ -160,7 +160,7 @@ ics.fasl: ics.lisp
 	@ALLEGRO@ -e '(let ((excl:*cltl1-in-package-compatibility-p* t)) \
 	(compile-file "ics.lisp") (excl:exit))'
 
-GENERATED = lexer.ml lexer.mli parser.mli parser.ml
+GENERATED = lexer.ml parser.mli parser.ml
 
 ### Chameleon
 
