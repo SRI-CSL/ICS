@@ -20,6 +20,7 @@ bool SAT_polarity_optimization = false;
 bool SAT_implication_graph_optimization = false;
 int  SAT_clause_relevance = DEFAULT_CLAUSE_RELEVANCE;
 int  SAT_cleanup_period = DEFAULT_CLEANUP_PERIOD;
+extern int ICS_EXPLAIN_NUM_REFINEMENTS;
 
 extern "C" {
 	void sat_initialize() {
@@ -201,6 +202,7 @@ extern "C" {
 		clock_t end = clock();
 		SAT_total_solver_time = ((double) (end - start)) / CLOCKS_PER_SEC;		
 		cout << "result = " << result << endl;
+		sat_print_statistics();
 		DBG_CODE(cout << "result = " << result << endl;);
 		return result;
   }
@@ -226,5 +228,7 @@ extern "C" {
 	void sat_set_cleanup_period(int p) {
 		SAT_cleanup_period = p;
 	}
-
+	void sat_set_num_refinements(int n) {
+		ICS_EXPLAIN_NUM_REFINEMENTS = n;
+	}
 }
