@@ -7,7 +7,6 @@
    HISTORY
      demoura - Mar 18, 2002: Created.
 ***/
-
 #include<assert.h>
 #include"LPFormula.h"
 #include"queue.h"
@@ -92,6 +91,8 @@ LPFormulaManager::~LPFormulaManager()
 	// cout << "<<Destroying LPFormulaManager\n";
 }
 
+extern "C" { void icsat_atom_pp(int x); }
+
 void LPFormulaManager::dump_formula(ostream & target, const LPFormula * f, bool negated) const
 {
 	if (negated)
@@ -101,7 +102,10 @@ void LPFormulaManager::dump_formula(ostream & target, const LPFormula * f, bool 
 		target << f->get_propositional_variable_name(); 
 		break;
 	case LP_EQ:
-		target << "(ATOM " << f->get_atom() << ")";
+		target << "(ATOM " << f->get_atom() << ", ";
+		target.flush();
+		icsat_atom_pp(f->get_atom());
+		target << ")";
 		break;
 	case LP_OR:
 	case LP_IFF:
@@ -114,8 +118,8 @@ void LPFormulaManager::dump_formula(ostream & target, const LPFormula * f, bool 
 			assert(false);
 		}
 		for (unsigned int i = 0; i < f->get_num_arguments(); i++) {
-			target << " ";
-			dump_formula(target, f->get_argument(i));
+			target << " " << f->get_argument(i);
+			// dump_formula(target, f->get_argument(i));
 		}
 		target << ")";
 		break;
@@ -258,12 +262,26 @@ LPFormulaId LPFormulaManager::create_atom(int a, int not_a)
 }
 
 LPFormulaId LPFormulaManager::create_or(unsigned int num_args, LPFormulaId * args)
+{
+// 	cout << "   create or\n";
+// 	cout << "num_args = " << num_args << endl;
+// 	for (int i = 0; i < num_args; i++)
+// 		cout << args[i] << " ";
+// 	cout << endl;
+
+	LPFormulaId res = create_or_aux(num_args, args);
+	
+// 	unsigned res_idx = absolute(res);
+// 	bool sign = res < 0;
+// 	const LPFormula * f = get_formula(res_idx);
+// 	dump_formula(cout, f, sign);
+// 	cout << "\n--------------------------\n";
+	
+	return res;
+}
+
+LPFormulaId LPFormulaManager::create_or_aux(unsigned int num_args, LPFormulaId * args)
 {	
-// 	DBG_CODE(cout << "   create or\n";
-// 					 cout << "num_args = " << num_args << endl;
-// 					 for (int i = 0; i < num_args; i++)
-// 					 cout << args[i] << " ";
-// 					 cout << endl;);
 	static sortLPFormulaId sortFn;
 
 	create_space_for_new_arguments(num_args);
@@ -285,6 +303,7 @@ LPFormulaId LPFormulaManager::create_or(unsigned int num_args, LPFormulaId * arg
 			return LPTrueId; // trivially true
 		if (args[j] != LPFalseId)
 			break;
+		// cout << "removing false...\n";
 	}
 	if (j == num_args)
 		return LPFalseId; // empty OR
@@ -295,9 +314,11 @@ LPFormulaId LPFormulaManager::create_or(unsigned int num_args, LPFormulaId * arg
 	for (; i < num_args; i++) {
 		assert(args[i] != LPTrueId && args[i] != LPFalseId);
 		if (args[j] == args[i]) {
+			// cout << "removing irrelevant...\n";
 			continue;
 		}
 		if (args[j] == -args[i]) {
+			// cout << "trivially true...\n";
 			// the formula is trivially true...
 			return LPTrueId;
 		}
@@ -367,9 +388,9 @@ void LPFormulaManager::dump_mem_info()
 
 LPFormulaId LPFormulaManager::normalize_formula(LPFormulaId f_id)
 {
-	unsigned int * cache;
-	cache = new unsigned int[num_formulas];
-	memset(cache, 0, sizeof(unsigned int) * num_formulas);
+	int * cache;
+	cache = new int[num_formulas];
+	memset(cache, 0, sizeof(int) * num_formulas);
 
 	LPFormulaId new_f_id = normalize_formula_aux(f_id, cache);
 
@@ -378,7 +399,7 @@ LPFormulaId LPFormulaManager::normalize_formula(LPFormulaId f_id)
 	return new_f_id;
 }
 
-LPFormulaId LPFormulaManager::normalize_formula_aux(LPFormulaId f_id, unsigned int * cache)
+LPFormulaId LPFormulaManager::normalize_formula_aux(LPFormulaId f_id, int * cache)
 {
 	if (f_id == LPTrueId || f_id == LPFalseId)
 		return f_id;
@@ -401,16 +422,14 @@ LPFormulaId LPFormulaManager::normalize_formula_aux(LPFormulaId f_id, unsigned i
 		LPFormulaId n_t = normalize_formula_aux(f->get_then(), cache);
 		LPFormulaId n_e = normalize_formula_aux(f->get_else(), cache);
 		LPFormulaId new_ite = create_ite(n_c, n_t, n_e);
-		assert(new_ite > 0);
-		cache[f_idx] = absolute(new_ite);
+		cache[f_idx] = new_ite;
 		return sign ? -new_ite : new_ite;
 	}
 	else if (f->is_iff()) {
 		LPFormulaId n_l = normalize_formula_aux(f->get_iff_lhs(), cache);
 		LPFormulaId n_r = normalize_formula_aux(f->get_iff_rhs(), cache);
 		LPFormulaId new_iff = create_iff(n_l, n_r);
-		assert(new_iff > 0);
-		cache[f_idx] = absolute(new_iff);
+		cache[f_idx] = new_iff;
 		return sign ? -new_iff : new_iff;
 	}
 	else {
@@ -441,8 +460,7 @@ LPFormulaId LPFormulaManager::normalize_formula_aux(LPFormulaId f_id, unsigned i
 			n_args.set(i, normalize_formula_aux(n_args.get(i), cache));
 		// create a new OR
 		LPFormulaId new_or = create_or(n_args.get_size(), n_args.get_contents());
-		assert(new_or > 0);
-		cache[f_idx] = absolute(new_or);
+		cache[f_idx] = new_or;
 		return sign ? -new_or : new_or;
 	}
 }
