@@ -153,12 +153,12 @@ module Pairtbl = Hashtbl.Make(
   end)
 
 let occurs =
-  let ht = Pairtbl.create 17 in
+  (* let ht = Pairtbl.create 17 in *)    (* hashing slows down the program. *)
     fun ((x, a) as p) ->
-      try
+  (*    try
 	Pairtbl.find ht p
       with
-	  Not_found ->
+	  Not_found -> *)
 	    let rec term_occurs = function
 	      | Var(y) -> Var.eq x y
 	      | App(_, sl) -> List.exists term_occurs sl
@@ -170,7 +170,7 @@ let occurs =
 	      | Diseq(s, t) -> term_occurs s || term_occurs t
 	      | In(s, _) -> term_occurs s
 	    in
-	      Pairtbl.add ht p result;
+	     (* Pairtbl.add ht p result; *)
 	      result
 
 let is_connected a b =
