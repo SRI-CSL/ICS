@@ -16,6 +16,8 @@
 
 (*i*)
 open Term
+open Sym
+open Mpa
 (*i*)
 
 type t = {
@@ -53,22 +55,22 @@ let cnstrnt_split s =
 
 (*s [update x i s] updates teh constraint map with the constraint [x in i]. *)
 
-let update x i s =    (* sometimes constants are being observed as args. *)
-  if is_var x then
+let update x i s = 
+  Trace.msg "c" "Update" (x, i) Term.pp_in;
+  if not(is_var x) then s else 
     {c = Map.add x i s.c; 
      changed = Set.add x s.changed;
      singletons = match Cnstrnt.d_singleton i with 
        | Some _ -> Set.add x s.singletons
        | None -> s.singletons}
-  else 
-    s
 
 (*s Adding a new constraint. *)
 
 let add c s =
+  Trace.msg "c" "Add" c Fact.pp_cnstrnt;
   let (x, i, _) = Fact.d_cnstrnt c in
    try
-     let j = find s x in
+     let j = apply s x in
      match Cnstrnt.cmp i j with
        | Binrel.Disjoint -> raise Exc.Inconsistent
        | (Binrel.Same | Binrel.Super) -> s
@@ -82,10 +84,16 @@ let add c s =
 (*s Restrict the map. *)
 
 let restrict x s =
-  {s with 
-     c = Map.remove x s.c;
-     changed = Set.remove x s.changed;
-     singletons = Set.remove x s.singletons}
+  if mem x s then 
+    begin
+      Trace.msg "c" "Restrict" x Term.pp;
+      {s with 
+	 c = Map.remove x s.c;
+	 changed = Set.remove x s.changed;
+	 singletons = Set.remove x s.singletons}
+    end 
+  else 
+    s
 
 
 (*s Merge a variable equality [x = y] in the constraint map by
@@ -100,7 +108,6 @@ let restrict x s =
 
 let merge e s = 
   let (x, y, _) = Fact.d_equal e in
-  Trace.msg "c" "Merge" (x, y) Term.pp_equal;
   try
     let i = find s x in
     let s' = restrict x s in
@@ -124,7 +131,6 @@ let merge e s =
 
 let diseq d s =
   let (x, y, _) = Fact.d_diseq d in
-  Trace.msg "c" "Diseq" (x, y) Term.pp_diseq;
   try
     let i = find s x in
     let j = find s y in
@@ -144,80 +150,7 @@ let diseq d s =
 	  s
   with
       Not_found -> s
-
-
-
-(*s Deduce new constraints from newly derived arithmetic facts. *)
-
-let rec deduce (x, b) c = 
-  Trace.msg "c" "Deduce" (x, b) Term.pp_equal;
-  equal (x, b) c
-
-and equal (x, b) c = 
-  try
-    let i = apply c x in                                  
-    match cnstrnt_split c b with
-      | Some(_, j), None ->
-	  (match Cnstrnt.cmp i j with
-	     | Binrel.Disjoint -> raise Exc.Inconsistent
-	     | Binrel.Same -> 
-		 c
-	     | Binrel.Sub -> 
-		 propagate b i c
-	     | Binrel.Super -> 
-		 update x j (propagate b j c)
-	     | Binrel.Overlap(ij) -> 
-		 update x ij (propagate b ij c)
-	     | Binrel.Singleton(q) ->
-		 let k = Cnstrnt.mk_singleton q in
-		 update x k (propagate b k c))
-      | Some(_, j), Some(b'')  ->
-	  if is_var b'' then
-	    let k = Cnstrnt.subtract i j in
-	    update b'' k c
-	  else 
-	    c
-      | _ -> 
-	  c
-  with
-      Not_found ->
-	refine (x, b) c
-
-(*s Propagate constraints for [b in i] for each variable [x] in [b].
-  Suppose [b] is of the form [pre + q * x + post'], then
-  [x in 1/q * (i - (j + k))] is derived, where [pre in j] and
-  [post' in k]. Following should be optimized. *)
-
-
-and propagate b i c =
-  let rec loop j post c = 
-    match post with
-      | [] -> c
-      | m :: post' ->
-	  try
-	    let (q, x) = Arith.mono_of m in
-	    let k = cnstrnt c (Arith.mk_addl post') in
-	    let j' = Cnstrnt.add (Cnstrnt.multq q (cnstrnt c x)) j in
-            let i' = Cnstrnt.multq (Mpa.Q.inv q) (Cnstrnt.subtract i (Cnstrnt.add j k)) in
-	    let c' = add (Fact.mk_cnstrnt x i' None) c in
-	    loop j' post' c'
-	  with
-	      Not_found -> c  (* should not happen. *)
-  in
-  loop Cnstrnt.mk_zero (Arith.monomials b) c
-  
-and refine (x, b) c =
-  try
-    let j = cnstrnt c b in
-    match Cnstrnt.status j with
-      | Status.Empty -> 
-	  raise Exc.Inconsistent
-      | _ ->
-	  update x j c
-  with
-      Not_found -> c
-
-		
+	
 (*s Split. *)
 
 let split s =
@@ -233,7 +166,9 @@ let split s =
 
 let changed s = s.changed
 
-let reset s = {s with changed = Set.empty}
+let reset s = 
+  if Set.is_empty(s.changed) then s else 
+    {s with changed = Set.empty}
 
 (*s Pretty-printing. *)
 
@@ -244,3 +179,52 @@ let pp fmt s =
       Format.fprintf fmt "\nc:";
       Pretty.map Term.pp Cnstrnt.pp fmt l
     end
+
+
+(*s Computing constraints for terms. *)
+
+
+let rec of_term (v, s) a = 
+  match a with  
+    | Var _ -> 
+	apply s (V.find v a)
+    | App(Arith(op), xl) ->
+	of_arith (v, s) op xl
+    | App(Builtin(op), xl) ->
+	of_builtin (v, s) op xl
+    | _ ->
+	raise Not_found
+
+and of_arith vs op al = 
+  match op, al with
+    | Num(q), [] -> 
+	Cnstrnt.mk_singleton q
+    | Multq(q), [x] -> 
+	Cnstrnt.multq q (of_term vs x)
+    | Add, [x; y] ->
+	Cnstrnt.add (of_term vs x) (of_term vs y)
+    | Add, _ -> 
+	Cnstrnt.addl (List.map (of_term vs) al)
+    | _ -> 
+	raise Not_found
+
+and of_builtin vs op al =
+  match op, al with
+    | Mult, _ ->  
+	Cnstrnt.multl (List.map (of_term vs) al)
+    | Floor, [x] -> 
+	Cnstrnt.mk_int
+    | Ceiling, [x] -> 
+	Cnstrnt.mk_int
+    | Sin, [_] 
+    | Cos, [_] ->
+	Cnstrnt.mk_cc Dom.Real (Q.of_int (-1)) (Q.of_int 1)
+    | Unsigned, [_] ->
+	Cnstrnt.mk_nat
+    | Expt, [x; _] when Arith.is_q Q.two x ->
+	Cnstrnt.mk_ge Dom.Real Q.zero
+    | Div, [x; y] ->
+	Cnstrnt.div (of_term vs x) (of_term vs y)
+    | _ ->
+	raise Not_found
+	
