@@ -30,7 +30,7 @@ let mk_abs a =
 let rec mk_apply sigma r a al =
   match a, al with
     | App(Fun(Abs), [x]), [y] -> 
-	byValue sigma (subst sigma x y 0)
+	subst sigma x y 0
     | _ ->
 	mk_app (apply r) (a :: al)
 
@@ -153,7 +153,8 @@ let sigma op al =
 	mk_apply mk_app r x xl   (* no simplifications *)
     | Abs, [x] -> 
 	mk_abs x
-    | _ -> assert false
+    | _ -> 
+	assert false
 
 let tau ctxt op l =
   match op, l with
