@@ -32,7 +32,7 @@ module Mode = struct
 
 open Mode
 
-let proofmode = ref Dep
+let proofmode = ref No
 
 
 (** {6 Proof Rules} *)
