@@ -18,7 +18,8 @@ type t
    
 val pp : t Pretty.printer
 
-val axioms_of : t -> Atom.Set.t
+val axioms_of
+ : t -> Atom.Set.t
 
 val is_none : t -> bool
 

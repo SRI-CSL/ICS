@@ -353,8 +353,10 @@ let add i =
 	     push (s, a :: al);
 	     1)
       | Context.Status.Inconsistent(rho) -> 
-	  explanation := Atom.Set.elements (Justification.axioms_of rho);
-	  0
+	  let axms = Justification.axioms_of rho in
+	  let ids = Atom.Set.fold (fun a acc -> atom_to_icsat_id a :: acc) axms [] in
+	  explanation := ids;
+	    0
       | Context.Status.Ok(s) -> 
 	  (let (_, al) = Stack.pop stack in
 	     push (s, a :: al);
