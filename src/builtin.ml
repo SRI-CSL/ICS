@@ -34,7 +34,7 @@ let rec mk_unsigned a =
 	   | Sym.Const(b), [] -> mk_unsigned_const b
 	   | Sym.Sub(n,i,j), [x] -> mk_unsigned_sub n i j x
 	   | Sym.Conc(n,m), [x;y] -> mk_unsigned_conc n m x y
-	   | _ -> failwith "Bv.mk_unsigned: ill-formed expression")
+	   | _ -> failwith "Bitvector.mk_unsigned: ill-formed expression")
     | _ ->
 	Term.mk_app sym_unsigned [a]
 
@@ -46,7 +46,7 @@ and mk_unsigned_const b =
   Arith.mk_num (Q.of_int n)
 
 and mk_unsigned_sub n i j x =
-  Term.mk_app sym_unsigned [Bv.mk_sub n i j x]
+  Term.mk_app sym_unsigned [Bitvector.mk_sub n i j x]
 
 and mk_unsigned_conc n m x y =
   let ux = mk_unsigned x in
@@ -73,8 +73,8 @@ let mk_select a x =
 let rec mk_sin a =
   match Arith.d_add a with
     | Some([x;y]) ->
-	Arith.mk_add (Nonlin.mk_mult (mk_sin x, mk_cos y))
-	             (Nonlin.mk_mult (mk_cos x, mk_sin y))
+	Arith.mk_add (Arith.mk_mult (mk_sin x) (mk_cos y))
+	             (Arith.mk_mult (mk_cos x) (mk_sin y))
     | _ ->
 	Term.mk_app Sym.mk_sin [a]
 

@@ -22,8 +22,9 @@
 (*s [is_tuple a] holds iff [a] is a projection or a tuple term.
   Terms for which [is_tuple] is false are considered to be uninterpreted. *)
 
-val is_tuple : Term.t -> bool
+val is_interp : Term.t -> bool
 
+val d_interp : Term.t -> (Sym.tuple * Term.t list) option
 
 (*s [iter f a] applies [f] to all top-level uninterpreted subterms of [a]. *)
 
@@ -35,10 +36,10 @@ val iter: (Term.t -> unit) -> Term.t -> unit
 
 val fold : (Term.t -> 'a -> 'a) -> Term.t -> 'a -> 'a
 
-(*s [norm f a] applies [f] to all top-level uninterpreted subterms of [a],
+(*s [map f a] applies [f] to all top-level uninterpreted subterms of [a],
  and rebuilds the interpreted parts in order. *)
 
-val norm: (Term.t -> Term.t) -> Term.t -> Term.t
+val map: (Term.t -> Term.t) -> Term.t -> Term.t
 
 
 (*s If the argument list [l] is of length [1], then

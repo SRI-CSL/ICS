@@ -26,7 +26,7 @@ type t =
   | True
   | Equal of Term.t * Term.t
   | Diseq of Term.t * Term.t
-  | In of Number.t * Term.t
+  | In of Cnstrnt.t * Term.t
   | False
 
 let eq a b =
@@ -38,7 +38,7 @@ let eq a b =
     | Diseq(x1,y1), Diseq(x2,y2) ->
 	Term.eq x1 x2 && Term.eq y1 y2
     | In(c1,x1), In(c2,x2) -> 
-	Term.eq x1 x2 && Number.eq c1 c2
+	Term.eq x1 x2 && Cnstrnt.eq c1 c2
     | _ -> 
 	false
 
@@ -54,14 +54,14 @@ let mk_equal a b =
   else if Term.is_interp_const a && Term.is_interp_const b then
     mk_false
   else
-    let a',b' = Term.order a b in
+    let a',b' = Term.orient(a,b) in
     Equal(a',b')       (* Larger Term on rhs *)
 
 let mk_in c a =
-  if Number.is_bot c then
+  if Cnstrnt.is_empty c then
     False
   else 
-    match Number.d_singleton c with
+    match Cnstrnt.d_singleton c with
     | Some(q) ->
 	mk_equal a (Arith.mk_num q)
     | None -> 
@@ -72,22 +72,22 @@ let rec mk_diseq a b =
     mk_false
   else if Term.is_interp_const a && Term.is_interp_const b then
     mk_true
-  else if Term.eq a Term.mk_tt then
-    mk_equal b Term.mk_ff
-  else if Term.eq a Term.mk_ff then
-    mk_equal b Term.mk_tt
-  else if Term.eq b Term.mk_tt then
-    mk_equal a Term.mk_ff
-  else if Term.eq b Term.mk_ff then
-    mk_equal a Term.mk_tt
+  else if Term.eq a Boolean.mk_true then
+    mk_equal b Boolean.mk_false
+  else if Term.eq a Boolean.mk_false then
+    mk_equal b Boolean.mk_true
+  else if Term.eq b Boolean.mk_true then
+    mk_equal a Boolean.mk_false
+  else if Term.eq b Boolean.mk_false then
+    mk_equal a Boolean.mk_true
   else
     match Arith.d_num a, Arith.d_num b with
       | Some(q), _ -> 
-	  mk_in (Number.mk_diseq q) b
+	  mk_in (Cnstrnt.mk_diseq q) b
       | _, Some(p) -> 
-	  mk_in (Number.mk_diseq p) a
+	  mk_in (Cnstrnt.mk_diseq p) a
       | None, None -> 
-	  let a',b' = Term.order a b in
+	  let a',b' = Term.orient(a,b) in
 	  Diseq(a',b')
 
 (*s Transforming terms in an atom *)
@@ -103,10 +103,10 @@ let map f a =
 (*s Constructing inequalities. *)
 
 let rec mk_lt a b =
-  lower (Q.lt, Number.mk_lt Dom.Real, Number.mk_gt Dom.Real) (a,b)
+  lower (Q.lt, Cnstrnt.mk_lt Dom.Real, Cnstrnt.mk_gt Dom.Real) (a,b)
 	
 and mk_le a b =
-  lower (Q.le, Number.mk_le Dom.Real, Number.mk_ge Dom.Real) (a,b)
+  lower (Q.le, Cnstrnt.mk_le Dom.Real, Cnstrnt.mk_ge Dom.Real) (a,b)
 
 and lower (f,less,greater) (a,b) =
   let (q, ml) = Arith.poly_of (Arith.mk_sub a b) in 
@@ -129,19 +129,18 @@ let (<<<) a b =
   match a, b with
     | Equal _, (Diseq _| In _) -> false
     | (Diseq _| In _), Equal _ -> true
-    | In(c,_), In(d,_) -> not(Number.sub c d)
+    | In(c,_), In(d,_) -> not(Cnstrnt.sub c d)
     | _ -> Pervasives.compare a b <= 0
 
 
-(*s Make negation. *)
+(*s Pretty-printing. *)
 
-let mk_neg a =
-  match a with
-    | True -> False
-    | False -> True
-    | Equal(a,b) -> mk_diseq a b
-    | Diseq(a,b) -> mk_equal a b
-    | In(c,x) -> mk_in (Number.compl c) x
+let pp fmt = function
+  | True -> Pretty.string fmt "True"
+  | False -> Pretty.string fmt "False"
+  | Equal(x,y) -> Pretty.infix Term.pp "=" Term.pp fmt (x,y)
+  | Diseq(x,y) -> Pretty.infix Term.pp "=" Term.pp fmt (x,y)
+  | In(c,x) -> Pretty.infix Term.pp "=" Cnstrnt.pp fmt (x,c)
 
 (*s Set of atoms. *)
 
@@ -153,4 +152,3 @@ module Set = Set.Make(
     let compare a b =
       if eq a b then 0 else Pervasives.compare a b
   end)
-

@@ -21,15 +21,16 @@
 (*s The interpreted theories are linear arithmetic [LA], tuples [T],
  bitvectors [BV], and nonlinear arithmetic [NLA]. *)
 
-type i = A | T | BV
+type i = A | T | B | BV
 
 val name_of : i -> string
+val of_name : string -> i
 
 
 (*s For an interpreted function symbol [op], [index op] returns the 
  corresponding name of the interpreted theory. *)
 
-val index : Sym.interp -> i
+val index : Sym.t -> i option
 
 
 (*s [sigma op l] is the combined sigmatizer for the interpreted theories. *)
@@ -44,12 +45,6 @@ val solve : i -> Term.t * Term.t -> (Term.t * Term.t) list
 
 
 type t
-
-(*s Accessors. *)
-
-val la_of : t -> Term.t Term.Map.t
-val t_of : t -> Term.t Term.Map.t
-val bv_of : t -> Term.t Term.Map.t
 
 (*s Empty state. *)
 
@@ -91,24 +86,15 @@ val extend : i -> Term.t -> t -> Term.t * t
   corresponding binding is removed and returned as a newly infered equality between 
   uninterpreted terms. *)
 
-type cnstrnt = Term.t -> Number.t option
+val merge : Veq.t -> t -> (t * Veqs.t)
 
-val merge : i -> cnstrnt -> (Term.t * Term.t) -> t 
-               -> (t * V.eqs * Atom.t list)
+(*s Add a constraint. *)
 
-val merge_all : cnstrnt -> (Term.t * Term.t) -> t 
-                   -> (t * V.eqs * Atom.t list)
-
-(*s Generate new constraints. *)
-
-val propagate : cnstrnt -> (Term.t * Number.t) -> t -> Atom.t list
-
-(*s Build new context by replacing all variables with "canonical" 
- variables. *)
-
-val inst : (Term.t -> Term.t) -> t -> t
+val add : Term.t * Cnstrnt.t -> t -> t * Veqs.t
 
 
+(*s Constraint. *)
 
+val cnstrnts : t -> (Term.t * Supinf.t) list
 
-
+val cnstrnt : t -> Term.t -> Cnstrnt.t option

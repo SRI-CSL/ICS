@@ -48,12 +48,6 @@ val utime : ('a -> 'b) -> 'a -> 'b * float
 val profile : string -> ('a -> 'b) -> ('a -> 'b)
 
 
-(*s Given a pretty printing function [f] for type ['a],
-  [pp_to_string f a] redirects the output of [f(a)] to a string. *)
-
-val pp_to_string : (Format.formatter -> 'a -> unit) -> 'a -> string
-
-
 (*s Type for comparison. More readable than the convential [-1], [0], and [1]
   results of comparisons. *)
 
