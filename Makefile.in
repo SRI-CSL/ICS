@@ -61,7 +61,7 @@ CMI = $(CMO:.cmo=.cmi)
 
 CMX = $(CMO:.cmo=.cmx)
 
-SRC = $(addprefix ./src/,$(CMO:.cmo=.ml))
+SRC = $(addprefix $(SRCDIR)/,$(CMO:.cmo=.ml))
 
 .PHONY : all all-chdir
 all: $(OBJDIR) $(LIBDIR) $(BINDIR)
@@ -87,22 +87,31 @@ ics.byte: $(COBJS) $(TOPCMI) $(TOPCMO)
                     $(COBJS) $(LIBS)
 
 OBJS = ics_all.o ics_stub.o ics_error.o mlgmp.o
+LISPOBJS = ics.fasl ics-pvs.fasl
 
 ics_all.o: $(CMX)
 	$(OCAMLOPT) -output-obj -o $@ unix.cmxa $(CMX)
 
-$(LIBDIR)/libics.so: $(OBJS) 
+$(LIBDIR)/libics.so: $(OBJS)  $(LISPOBJS)
 	gcc -shared -o $(LIBDIR)/libics.so $(OBJS) \
 	  $(OCAMLSTDLIB)/libunix.a \
 	  $(LIBGMPA) \
           $(OCAMLSTDLIB)/libasmrun.a
 
-$(LIBDIR)/libics.a: $(OBJS)
+$(LIBDIR)/libics.a: $(OBJS) $(LISPOBJS)
 	cp $(OCAMLSTDLIB)/libasmrun.a $(LIBDIR)/libics.a
 	ar r $(LIBDIR)/libics.a $(OBJS)
 
 ics_stub.c ics.h ics.lisp: ics.ml ics.mli ../../chameleon/$(ARCH)/chameleon
 	../../chameleon/$(ARCH)/chameleon ics.ml
+
+ics.fasl: ics.lisp
+	@ALLEGRO@ -e '(let ((excl:*cltl1-in-package-compatibility-p* t)) \
+                        (compile-file "ics.lisp") (excl:exit))'
+
+ics-pvs.fasl: ics-pvs.lisp
+	@ALLEGRO@ -e '(let ((excl:*cltl1-in-package-compatibility-p* t)) \
+                        (compile-file "ics-pvs.lisp") (excl:exit))'
 
 GENERATED = lexer.ml parser.mli parser.ml
 
@@ -297,10 +306,17 @@ distclean:: clean
 	rm -f config.cache config.log confdefs.h config.status
 	rm -f configure Makefile
 
-# Static dependencies for the generated files.   There are no
-# strange dependencies in the  manually generated files, so don't 
-# bother with depend.
+# Static dependencies for the generated files.
 
 lexer.ml:  lexer.mll
 parser.mli parser.ml: parser.mly
+
+# Dependencies
+.depend: $(SRC)
+	$(OCAMLDEP) *.mli *.ml > .depend
+
+
+ifeq ($(MAKELEVEL),1)
+include .depend
+endif
 

@@ -49,5 +49,10 @@ fi
 # Check for library
 AC_CHECK_LIB(gmp,mpz_cmp, , AC_MSG_WARN(Cannot find the GMP library - please set manually in the Makefile.))
 
+AC_CHECK_PROG(ALLEGRO,allegro6.0,allegro6.0,no)
+if test "$ALLEGRO" = no ; then
+        AC_MSG_ERROR(Cannot find allegro6.0)
+fi
+
 # Finally create all the generated files
 AC_OUTPUT(Makefile chameleon/Makefile)
