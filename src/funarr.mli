@@ -15,14 +15,18 @@
 
   @author Harald Ruess
 
-  Terms in the theory of arrays are selection [a[j]] of element
-  at position [j] in the array [a], and updating [a[i := x]]
-  array [a] at position [i] with value [x].
+  Terms in the theory of arrays are 
+  - creation [create(a)] of a constant array
+  - selection [a[j]] of element at position [j] in the array [a], and 
+  - updating [a[i := x]] array [a] at position [i] with value [x].
 
-  The theory of arrays is specified by
-  - [a[i:=x][j] = x] when {!Term.is_equal}[(i, j)] is [Yes]
-  - [a[i:=x][j] = a[j]] when {!Term.is_equal}[(i, j)] is [No]
+  Given an equality relation [=E] and a disequality relation [<>D], the
+  {i theory of arrays} is specified by
+  - [create(a)[j] = a]
+  - [a[i:=x][j] = x] when [i =E j]
+  - [a[i:=x][j] = a[j]] when [i <>D j]
   - [a[i:=x][i:=y] = a[i:=y]]
+  - [a[j:=y][i:=x] = a[i:=x][j:=y]] if [i <>D j] and {!Term.(<<<)}[i j]. 
 *)
 
 val d_interp : Term.t -> Sym.arrays * Term.t list
@@ -62,10 +66,7 @@ val map: equalRel -> (Term.t -> Term.t) -> Term.t -> Term.t
     - [map f (mk_select a j)] equals [mk_select (map f a) (map f j)]
     - [map f (mk_update a i x)] equals [mk_select (map f a) (map f i) (map f x)]
     - Otherwise, [map f x] equals [f x] *)
-  
-val apply : equalRel -> Term.Equal.t -> Term.t -> Term.t
-  
-val disapply  : equalRel -> Term.Diseq.t -> Term.t -> Term.t
 
-
-
+val splits: Term.t -> Term.Set2.t
+  (** [splits a] accumulates all pairs [(i, j)] such that [b[i:=x][j]]
+    is a subterm of [a]. *)

@@ -66,8 +66,6 @@ let name (p, s) =
     (Partition.find p)
     (A.name (p, s))
 
-
-
 type config = Partition.t * t
     (** A {i configuration} consists of 
       - variable equalities [v]
@@ -79,7 +77,8 @@ type config = Partition.t * t
 
 
 (** Return interpreted term for a dependent variable.
-  The result is always canonical w.r.t. to the configuration [(p, s)]. *)
+  The result is always canonical w.r.t. to the 
+  configuration [(p, s)]. *)
 let interp (p, s) a =
   if Term.is_var a then
     try
@@ -377,22 +376,10 @@ and update_index_iter (p, s) i f =
 
 (** {6 Splitting} *)
 
-let splits ((p, s) as cfg) =
-  failwith "to do"
-(*
+let splits ((_, s) as cfg) =
   A.fold
-    (fun v (b, rho) acc ->
-       try
-	 let (u, j) = Funarr.d_select b in
-	 let acc' = ref acc in
-	   Iter.update cfg u 
-	     (fun (u, (a, i, x), _) ->
-		let (i, j) = Term.orient (i, j) in
-		  acc' := Term.Set2.add (i, j) !acc');
-	   !acc'
-       with
-	   Not_found -> acc)
+    (fun _ (b, _) acc ->
+       Term.Set2.union (Funarr.splits b) acc)
     s
     Term.Set2.empty
-*)
        

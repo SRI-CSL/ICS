@@ -431,7 +431,7 @@ and abstract_term ((p, s) as cfg) a =
 	    else 
 	      sigma cfg f bl 
 	  in
-	    if i = Th.u || i = Th.arr || i <> j then
+	    if i = Th.u || i <> j then
 	      let (x, tau) = name cfg j c in  (* [tau |- x = c] *)
 	      let sigma = Jst.dep3 tau rho rhos in
 		(x, sigma)                    (* [sigma |- x = a] *)

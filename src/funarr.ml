@@ -109,18 +109,23 @@ let rec map is_equal f b =
   with
       Not_found -> f b
 
-
-(** Replacing a variable with a term. *)
-let apply is_equal (x, b) a = 
-  map is_equal (fun y -> if Term.eq x y then b else y) a
-
-
-let disapply is_equal d b =
+let rec splits a =
   try
-    let (a, i, x, j) = d_select_update b in
-      if Term.Diseq.eq (Term.Diseq.make (i, j)) d then
-	mk_select is_equal a j
-      else 
-	b
+    (match d_interp a with
+      | Sym.Create, [b] -> splits a
+      | Sym.Update, [a; i; x] -> 
+	  Term.Set2.union 
+	    (splits a) 
+	    (Term.Set2.union (splits i) (splits x))
+      | Sym.Select, [a; j] -> 
+	  let splts = Term.Set2.union (splits a) (splits j) in
+	    (try
+	      let (_, i, _) = d_update a in
+	      let (i, j) = Term.orient (i, j) in
+		Term.Set2.add (i, j) splts
+	    with
+		Not_found -> splts)
+      | _ ->
+	  Term.Set2.empty)
   with
-      Not_found -> b
+      Not_found -> Term.Set2.empty
