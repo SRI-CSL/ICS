@@ -166,11 +166,27 @@ and pp_term prec t =
       printf " := ";
       pp_term prec v;
       printf "]@]"
-  | Equal (t1,t2) ->
+  | Atom(Equal (t1,t2)) ->
       printf "@[<hv 1>";
       lpar prec 2;
       pp_term 2 t1;
       printf " = ";
+      pp_term 2 t2;
+      rpar prec 2;
+      printf "@]"
+  | Atom(Le (t1,t2)) ->
+      printf "@[<hv 1>";
+      lpar prec 2;
+      pp_term 2 t1;
+      printf " <= ";
+      pp_term 2 t2;
+      rpar prec 2;
+      printf "@]"
+  | Atom(Lt (t1,t2)) ->
+      printf "@[<hv 1>";
+      lpar prec 2;
+      pp_term 2 t1;
+      printf " < ";
       pp_term 2 t2;
       rpar prec 2;
       printf "@]"
@@ -184,15 +200,7 @@ and pp_term prec t =
       pp_prop prec p
   | Bv b ->
       pp_bv prec b
-  | Mem(t1,t2) ->
-      printf "@[<hv 1>";
-      lpar prec 2;
-      pp_term 2 t1;
-      printf " in ";
-      pp_term 2 t2;
-      rpar prec 2;
-      printf "@]"
-  | Integer(t) ->
+  | Atom(Integer(t)) ->
       printf "@[<hv 1>intp(";
       pp_term prec t;
       printf ")@]"
