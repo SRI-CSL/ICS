@@ -14,20 +14,10 @@
 
 type t = string
 
-let ht = Hashtbl.create 17            (*s Hashconsing of strings. *)
-let _ = Tools.add_at_reset (fun () -> Hashtbl.clear ht)
-
-let of_string (s: string) = 
- (* assert(String.get s 0 <> '_'); *)     (* reserved for 'fresh' variables *)
-  try
-    Hashtbl.find ht s
-  with
-      Not_found ->
-	Hashtbl.add ht s s; s
-
+let of_string s = s
 let to_string s = s
 
-let eq = (==)
+let eq = (=)
 
 let cmp n m =
   Pervasives.compare n m
