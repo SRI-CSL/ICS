@@ -124,8 +124,10 @@ AC_ARG_WITH(debug, [  --with-debug=0|1|2|...])
 AC_MSG_RESULT($DEBUG)
 AC_SUBST(DEBUG)
 
-ICSVERSION=`date`
-AC_MSG_RESULT($ICSVERSION)
+ICSBUILD=`date`
+AC_MSG_RESULT($ICSBUILD)
+AC_SUBST(ICSBUILD)
+ICSVERSION="2.0"
 AC_SUBST(ICSVERSION)
 
 AC_ARG_WITH(cxx, [  --with-cxx=g++          Specify a C++ compiler to be used],
@@ -295,6 +297,6 @@ gxx_major=`$CXX --version | sed -e '2,$d' | sed -e 's/[[^0-9\.]]//g' | sed -e 's
 if test $gxx_major -ge 3; then CXXFLAGS="-Wno-deprecated $CXXFLAGS"; fi
 
 dnl Finally create all the generated files
-AC_OUTPUT(Makefile chameleon/Makefile ics sat/Makefile sat/src/Makefile src/version.ml)
+AC_OUTPUT(Makefile chameleon/Makefile ics sat/Makefile sat/src/Makefile src/version.ml install.sh BIN-INSTALL)
 
 chmod a+x ics

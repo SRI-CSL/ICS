@@ -11,6 +11,6 @@
  * benefit corporation.
  *)
 
-let date = "@ICSVERSION@"
-let version = Format.sprintf "ICS 2.0 (%s)" date
+let date = "@ICSBUILD@"
+let version = "ICS @ICSVERSION@ (@ICSBUILD@)"
 let debug = @DEBUG@

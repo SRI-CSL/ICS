@@ -325,7 +325,9 @@ ics-2-0.tar.gz:
 
 ### Documention
 
-doc: $(DOCDIR)/doc.ps.gz $(DOCDIR)/doc.pdf $(DOCDIR)/api.tex $(DOCDIR)/dep.ps 
+DOCUMENTATION= $(DOCDIR)/doc.ps.gz $(DOCDIR)/doc.pdf $(DOCDIR)/api.tex $(DOCDIR)/dep.ps 
+
+doc: $(DOCUMENTATION)
 
 $(DOCDIR)/doc.dvi: $(DOCDIR)/dep.ps $(DOCDIR)/doc.tex $(DOCDIR)/api.tex
 	(cd $(DOCDIR); \
@@ -488,3 +490,32 @@ parser.mli parser.ml: parser.mly
 ifeq ($(MAKELEVEL),1)
 include .depend
 endif
+
+ICS_DIST_DIR="ics-@ICSVERSION@"
+ICS_DIST_TAR="ics-@ICSVERSION@-bin-$(ARCH).tar.gz"
+
+binary-distribution: 
+	@ echo "Building ICS binary distribution..."
+	@ rm -r -f $(ICS_DIST_DIR)
+	@ mkdir $(ICS_DIST_DIR)
+	@ mkdir $(ICS_DIST_DIR)/bin
+	@ mkdir $(ICS_DIST_DIR)/lib
+	@ mkdir $(ICS_DIST_DIR)/include
+	@ mkdir $(ICS_DIST_DIR)/doc
+	@ mkdir $(ICS_DIST_DIR)/examples
+	@ cp install.sh $(ICS_DIST_DIR)/
+	@ chmod +x $(ICS_DIST_DIR)/install.sh
+	@ cp ics.template $(ICS_DIST_DIR)/bin
+	@ cp bin/$(ARCH)/ics $(ICS_DIST_DIR)/bin/ics.exec
+	@ cp bin/$(ARCH)/ics.byte $(ICS_DIST_DIR)/bin
+	@ cp lib/$(ARCH)/* $(ICS_DIST_DIR)/lib
+	@ cp include/* $(ICS_DIST_DIR)/include
+	@ if cp doc/*.ps.gz $(ICS_DIST_DIR)/doc; then echo "PS copied with success"; else echo "******* DOCUMENTATION IS MISSING ********"; fi
+	@ if cp doc/*.pdf $(ICS_DIST_DIR)/doc; then echo "PDF copied with success"; else echo "******* DOCUMENTATION IS MISSING ********"; fi
+	@ cp BIN-INSTALL $(ICS_DIST_DIR)/INSTALL
+	@ cp BIN-README $(ICS_DIST_DIR)/README
+	@ if test -d examples; then cp examples/demo.ics $(ICS_DIST_DIR)/examples; else echo "*************** EXAMPLES ARE MISSING ***************"; fi
+	@ rm -f $(ICS_DIST_TAR)
+	@ echo "Building TAR ball..."
+	@ tar -cvzf $(ICS_DIST_TAR) $(ICS_DIST_DIR)
+
