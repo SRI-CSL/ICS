@@ -1,5 +1,4 @@
 
-
 (*i
  * ICS - Integrated Canonizer and Solver
  * Copyright (C) 2001-2004 SRI International
@@ -11,6 +10,8 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * ICS License for more details.
+ *
+ * Author: Harald Ruess
  i*)
 
 (*i*)
@@ -20,9 +21,25 @@ open Format
 (*i*)
 
   
-(*s Current state. *)
+(*s Stack of states *)
   
-let current = ref (init())
+let states = ref(Stack.create())
+
+let init () = Stack.push(Ics.state_init()) !states
+
+let _ = init()
+
+let current () = Stack.top !states
+
+let push s = Stack.push s !states
+
+let pop () = 
+  if Stack.length !states <= 1 then () else
+    let _ = Stack.pop !states in ()
+
+let clear () =
+  Stack.clear !states;
+  init()
 
 		
 (*s Setting the level of trace output. The larger the natural [n], the more
@@ -31,115 +48,170 @@ let current = ref (init())
 let verbose n =
   Ics.set_verbose n
 
-    (*s The command [process] introduces a new fact. The state
-      is left unchanged is an inconsistency is discovered.
-    *)
+(*s The command [process] introduces a new fact. The state
+  is left unchanged is an inconsistency is discovered. *)
   
 let process a =
-  match Ics.process !current a with
-    | Ics.Consistent st ->
-	current := st; Format.printf "Ok.@."
+  let s = current () in
+  match Ics.process s a with
+    | Ics.Consistent(s') ->
+	push s';
+	Format.printf "Ok.@."
     | Ics.Valid ->
 	Format.printf "Redundant.@."
     | Ics.Inconsistent ->
 	Format.printf "Inconsistent.@."
 
 let check t =
- (match Ics.process !current t with
-    | Ics.Valid ->
-	Format.printf "Valid.@."
-    | Ics.Inconsistent ->
-	Format.printf "Inconsistent.@."
-    | Ics.Consistent _ ->
-	Format.printf "No inconsistency detected.@.")
+  let s = current() in
+  let status = Ics.check s t in
+  if Ics.is_check_valid status then
+    Format.printf "Valid!@."
+  else if Ics.is_check_inconsistent status then
+    Format.printf "Inconsistent!@."
+  else 
+    Format.printf "Satisfiable!@."
 
-  (*s Print current state on standard output. *)
+
+(*s Print states state on standard output. *)
 
 let curr () =
-  Ics.state_pp !current
+  let s = current() in
+  Ics.state_pp s
   
   
     (*s Querying the state. *)
     
-let find = function
-  | Some(a) ->
-      let b = Ics.find !current a in
+let find th ma =
+  let s = current() in
+  match ma with
+    | Some(a) -> 
+      let b = Ics.state_find th s a in
       Format.printf "@["; Ics.term_pp b; Format.printf "@]@."
-  | None ->
-      Ics.subst_pp (Ics.find_of !current)
+  | None -> 
+      Ics.subst_pp (Ics.state_find_of th s)
 
+let show () =
+  let s = current() in
+  Ics.state_pp s
 
-let use = function
-  | Some(a) ->
-      Ics.list_pp Ics.term_pp (Ics.use !current a)
-  | None ->
-      Ics.map_pp Ics.terms_pp (Ics.use_of !current)
+let inconsistent () =
+  let s = current() in
+  if Ics.state_inconsistent s then
+    Format.printf "@[Yes.@]"
+  else
+    Format.printf "@[No.@]"
 
 let ctxt () =
-  Ics.list_pp Ics.eqn_pp (Ics.ctxt_of !current)
+  let s = current() in
+  Ics.list_pp Ics.term_pp (Ics.state_ctxt_of s)
 
 
-let cnstrnt = function
-  | None ->
-      Ics.map_pp Ics.cnstrnt_pp (Ics.cnstrnt_of !current)
-  | Some(a) ->
-      Ics.cnstrnt_pp(Ics.cnstrnt !current a)
- 
-   
-let ext = function
-  | None ->
-      Ics.map_pp Ics.terms_pp (Ics.ext_of !current)
-  | Some(a) ->
-      let b = Ics.find !current a in 
-      if Ics.term_eq a b then
-	Ics.list_pp Ics.term_pp (Ics.ext !current b)
-      else
-	Format.printf "Undefined.@."
-
-let uninterp = function
-  | None ->
-      Format.printf "to do@."
-  | Some(a) ->
-      Ics.list_pp Ics.term_pp (Ics.uninterp !current a)
-
+let cnstrnt a = 
+  let s = current() in
+  let c = Ics.cnstrnt s a in
+  Ics.cnstrnt_pp c
 	
 	(*s Simplifiers *)
 
 let sigma a =
   Format.printf "@["; Ics.term_pp a; Format.printf "@]@."
 			 
-let norm a =
-  let b = Ics.norm !current a in
+     
+let can a = 
+  let s = current() in
+  let b = Ics.can s a in
   Format.printf "@["; Ics.term_pp b; Format.printf "@]@."
 
-     
-let can a =
-  let b = Ics.can !current a in
-  Format.printf "@["; Ics.term_pp b; Format.printf "@]@."
+let norm a =  
+  let string_of_domain = function
+    | Term.IntDom -> "int"
+    | Term.BoolDom -> "bool"
+    | Term.RatDom -> "real"
+  in 
+  let s = current() in
+  let (xs,b) = Ics.norm s a in
+  Format.printf "@["; Ics.term_pp b; Format.printf "@]@.";
+  if not(Ics.terms_is_empty xs) then
+    begin
+      Format.printf "\nwith fresh vars: ";
+      Ics.list_pp 
+	(fun x ->
+	   (assert (Ics.is_fresh x));
+	   let (id,dom) = d_fresh x in
+	   Format.printf "(%s,%s)" id (string_of_domain dom))
+	(Ics.terms_to_list xs)
+    end
 
     
     (*s Solver command [solve]. *)
     
-let solve x (a,b) =
-  let st = !current in
-  let e' = (Ics.can st a, Ics.can st b) in
-  try
-    Ics.subst_pp (Ics.solve x st e')
-  with
-      Exc.Inconsistent -> printf "Inconsistent.@."
+let solve th (a,b) =
+  let s = current() in
+  let e' = (Ics.can s a, Ics.can s b) in
+  match Ics.solve th s e' with
+    | Some(rho) -> 
+	Ics.list_pp Ics.eqn_pp rho
+    | None -> 
+	printf "Inconsistent.@."
+
+
+   (*s Display use lists. *)
+
+let use th ma =
+  let s = current() in
+  match ma with
+    | Some(a) ->
+	let ts = Ics.state_use th s a in
+	Ics.terms_pp ts
+    | None ->
+	Ics.map_pp Ics.terms_pp (Ics.state_use_of th s)
+
+   (*s Display set of equivalent terms *)
+
+let ext a =
+  let s = current() in
+  let bs = Ics.state_ext s a in
+  Ics.terms_pp bs
+
+   (*s Display disequality lists. *)
+
+let diseqs ma =
+  let s = current() in
+  match ma with
+    | Some(a) ->
+	let ts = Ics.state_diseqs s a in
+	Ics.terms_pp ts
+    | None ->
+	Ics.map_pp Ics.terms_pp (Ics.state_diseqs_of s)
+
+   (*s Groebner basis completion. *)
+
+let groebner () = 
+  let s = current() in
+  match Ics.groebner s with
+    | None -> 
+	Format.printf "Inconsistent.@."
+    | Some(s') ->
+	push s';
+	Format.printf "Ok.@."
+	
+
 
    (*s Get solution for a term. *)
 
-let solution a =
-  let st = !current in
-  if Ics.is_solvable a then
-    match Ics.solution st a with
-      | Some(b) ->
-	  Format.printf "@["; Ics.term_pp b; Format.printf "@]@."
-      | None ->
-	  Format.printf "@[No solution@]@."
-  else
-    Format.printf "@[Not a solvable.@]@."
+let solution al =
+  let s = current() in
+  let rhos = Ics.state_solutions s (Ics.terms_of_list al) in
+  List.iter Ics.subst_pp rhos
+
+
+(*s Get witnesses for a term. *)
+
+let witness al =
+  let s = current() in
+  let rhos = Ics.state_solutions s (Ics.terms_of_list al) in
+  List.iter Ics.subst_pp rhos
       
     
     (*s Order of terms. *)
@@ -149,11 +221,21 @@ let less (t1,t2) =
     (if Ics.term_cmp t1 t2 < 0 then "Yes" else "No")
 
     
-    (*s Reset and dropping into byte-code interpreter *)
+    (*s Reset, undoing, and dropping into byte-code interpreter *)
 			 
 let reset () =
   Ics.reset ();
-  current := init()
+  clear()
+ 
+let undo n =
+  match n with
+    | None -> 
+	pop ()
+    | Some(n) ->
+	assert(n >= 1);
+	  for i = 0 to n - 1 do
+	    pop()
+	  done
 
 let drop () =
   failwith "drop"
@@ -180,19 +262,10 @@ let help_commands () =
   Format.printf "                        only. In particular, no context information is used.@.";
   Format.printf "can <term>.             Computes canonical representative of <term> using.@.";
   Format.printf "                        context information.@.";
-  Format.printf "simp <term>.            Computes a normal form of <term>. 'simp' is like 'can',@.";
-  Format.printf "                         but without recursive processing in conditionals.@.";
-  Format.printf "norm <term>.            Simplifies all interpreted terms, and replaces @.";
-  Format.printf "                        uninterpreted terms with their finds.@.";
   Format.printf "solve <term> = <term>.  Solves equation on terms.@.";
   Format.printf "find [<term>].          Canonical representative of the equivalence class@.";
   Format.printf "                        of <term> as stored in the context.@.";
   Format.printf "                        If <term> is omitted, all finds are displayed.@.";
-  Format.printf "ext [<term>].           Prints equivalence class of <term> (without <term>).@.";
-  Format.printf "                        If <term> is omitted, all extensions are displayed.@.";
-  Format.printf "use [<term>].           Displays the canonical representatives in which@.";
-  Format.printf "                        <term> occurs interpreted.@.";
-  Format.printf "                        If <term> is omitted, all uses are shown.@.";
   Format.printf "cnstrnt [<term>].       Type interpretation of <term> wrt. current context.@.";
   Format.printf "                        If <term> is omitted, then all constraints are shown.@.";
   Format.printf "<term> << <term>.       Check term ordering.@.";
@@ -203,37 +276,19 @@ let help_commands () =
 let help_syntax () =
   Format.printf
 "<term> ::= ident                                            
-         | <term> '(' <term> ',' ... ',' <term> ')'              Function application
-         | <term> '[' <term> ':=' <term> ']'                     Function update
-         | <prop> | <arith> | <tuple> | <array> | <set> | <bv>   Interpreted terms 
+         | <term> '(' <term> ',' ... ',' <term> ')'      Function application
+         | <term> '[' <term> ':=' <term> ']'             Function update
+         | <prop> | <arith> | <tuple> | <array> |        Interpreted terms 
          | '(' <term> ')'                             
 
-<arith> ::= <term> '+' <term>
-          | <term> '-' <term>              
-          | <term> '*' <term>
-          | const ['/' const]               
-          | '-' <term>                     
+<arith> ::= <term> '+' <term>                            Addition
+          | <term> '-' <term>                            Subtraction   
+          | <term> '*' <term>                            Multiplication
+          | const ['/' const]                            Rational constant    
+          | '-' <term>                                   Unary minus              
 
 <tuple> ::= '(' <term> ',' ... ',' <term> ')'              Tuple  
-          | proj '[' int ',' int ']' '(' <term> ')'         Projection
-
-<set> ::= empty
-        | full                         
-        | <term> union <term> 
-        | <term> diff <term>           
-        | <term> symdiff <term>
-        | <term> inter <term>          
-        | compl <term> 
-
-<bv> ::= constbv                                   
-       | <fixed> ++ <fixed>                  Concatenation
-       | <fixed> && <fixed>                  Bitwise conjunction
-       | <fixed> || <fixed>                  Bitwise disjunction   
-       | <fixed> ## <fixed>                  Bitwise xor
-       | <fixed> '[' int ':' int ']'          Extraction
-
-<fixed> ::= <term> 
-          | <term> '[' int ']'
+          | proj '[' int ',' int ']' '(' <term> ')'        Projection
     
 <prop> ::= true             
          | false            
@@ -247,8 +302,8 @@ let help_syntax () =
 <atom> ::= <unary> '(' <term> ')'
          | <term> <binary> <term>    
 
-<binary> ::= '=' | '<>' | '<' | '>' | '<=' | '>' | '>=' | in | notin
+<binary> ::= '=' | '<>' | '<' | '>' | '<=' | '>' | '>='
 
-<unary> ::= int | real | pos | neg | nonpos | nonneg   @."
+<unary> ::= integer | real @."
 
 

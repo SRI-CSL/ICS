@@ -1,13 +1,167 @@
-(in-package 'pvs)
+(in-package :pvs)
 
-;; Wrapping and unwrapping ICS values
+;; Wrapping and unwrapping ICS values in order to finalize 
+;; objects of these types.
 
-(defmacro wrap (value)
-  `(list ,value))
+(defstruct (wrap
+	    (:predicate wrap?)
+	    (:constructor make-wrap (address))
+	    (:print-function
+	     (lambda (p s k)
+	       (declare (ignore k))
+               (format t "<#wrap: ~a>" (wrap-address p)))))
+  address)
 
-(defmacro unwrap (wrapper)
-  `(car ,wrapper))
+(defun wrap (value)
+  (assert (integerp value))
+  (make-wrap value))
 
+(defun unwrap (w)
+  (assert (wrap? w))
+  (wrap-address w))
+
+(defun wrap= (w1 w2)
+  (assert (wrap? w1))
+  (assert (wrap? w2))
+  (= (wrap-address w1) (wrap-address w2)))
+
+(defun wrap-finalize! (w)
+  (assert (wrap? w))
+  (excl:schedule-finalization w 'ics-deregister-pointer))
+
+(defun wrap-free! (w)
+  (assert (wrap? w))
+  (ics_deregister (unwrap w)))
+
+(defun value-free! (v)
+  (assert (integerp v))
+  (ics_deregister v))
+
+(defstruct (term-wrap
+	    (:include wrap)
+	    (:predicate term-wrap?)
+	    (:constructor make-term-wrap (address))
+	    (:print-function
+	     (lambda (p s k)
+	       (declare (ignore k))
+	       (format s "<#term: ~a>" (wrap-address p))))))
+
+(defun term-wrap (value)
+   (assert (integerp value))
+   (make-term-wrap value))
+
+(defun term-unwrap (w)
+  (assert (term-wrap? w))
+  (wrap-address w))
+
+(defstruct (state-wrap
+	    (:include wrap)
+	    (:predicate state-wrap?)
+	    (:constructor make-state-wrap (address))
+	    (:print-function
+	     (lambda (p s k)
+	       (declare (ignore k))
+	       (format s "<#state: ~a>" (wrap-address p))))))
+
+(defun state-wrap (value)
+   (assert (integerp value))
+   (make-state-wrap value))
+
+(defun state-unwrap (w)
+  (assert (state-wrap? w))
+  (wrap-address w))
+
+
+;; check if ICS predicate holds
+
+(defmacro holds (arg)
+  `(plusp ,arg))
+
+;; Macros for destructering ICS values
+
+(defmacro with-ics-pair ((arg1 arg2) ics-pair &body body)
+  (let ((resultsym (gensym)))
+    `(let* ((,resultsym ,ics-pair)
+	    (,arg1 (ics_fst ,resultsym))
+	    (,arg2 (ics_snd ,resultsym)))
+       (progn ,@body))))
+
+(defmacro with-ics-triple ((arg1 arg2 arg3) ics-triple &body body)
+  (let ((resultsym (gensym)))
+    `(let* ((,resultsym ,ics-triple)
+	    (,arg1 (ics_fst_of_triple ,resultsym))
+	    (,arg2 (ics_snd_of_triple ,resultsym))
+	    (,arg3 (ics_third_of_triple ,resultsym)))
+       (progn ,@body))))
+
+(defmacro with-ics-list ((head tail) ics-list &body body)
+  (let ((resultsym (gensym)))
+    `(let* ((,resultsym ,ics-list)
+	    (,head (ics_head ,resultsym))
+	    (,tail (ics_tail ,resultsym)))
+       (progn ,@body))))
+
+(defmacro with-ics-option (value ics-option &body body)
+  (let ((resultsym (gensym)))
+    `(let* ((,resultsym ,ics-option)
+	    (,option (when (ics_is_some ,resultsym)
+		       (ics_value_of ,resultsym))))
+       (progn ,@body))))
+
+(defmacro with-ics-interval ((domain lowkind lowval highval highkind) ics-interval &body body)
+  (let ((resultsym (gensym))
+	(domainsym (gensym))
+	(lowvalsym (gensym))
+	(highvalsym (gensym)))
+    `(let* ((,resultsym ,ics-interval))
+       (with-ics-triple (,domainsym ,lowvalsym ,highvalsym) ,ics-interval
+	  (let ((,domain (cond ((holds (ics_interval_domain_is_int ,domainsym)) :integer)
+			       ((holds (ics_interval_is_domain_is_real ,domainsym)) :real)
+			       ((holds (ics_interval_is_domain_is_nonint ,domainsym)) :nonintreal))))
+	    (multiple-value-bind (,lowkind ,lowval)
+		(cond ((holds (ics_low_bound_is_neginf ,lowvalsym))
+		       (values :open :neginf))
+		      ((holds (ics_low_bound_is_open ,lowvalsym))
+		       (values :open (ics_low_bound_value ,lowvalsym)))
+		      ((holds (ics_low_bound_is_closed ,lowvalsym))
+		       (values :closed (ics_low_bound_value ,lowvalsym))))
+	      (multiple-value-bind (,highval ,highkind)
+		  (cond ((holds (ics_high_bound_is_posinf ,highvalsym))
+			 (values :posinf :open))
+			((holds (ics_high_bound_is_open ,highvalsym))
+			 (values (ics_high_bound_value ,highvalsym) :open))
+			((holds (ics_high_bound_is_closed ,highvalsym))
+			 (values (ics_high_bound_value ,highvalsym) :closed)))
+		(progn ,@body))))))))
+
+(defmacro ics_cons2 (trm1 trm2)
+  `(ics_cons ,trm1 (ics_cons ,trm2 (ics_nil))))
+
+
+;; Some PVS recognizers
+
+(defun satisfies-predicate? (expr id modinst)
+  (assert (typep expr 'expr))
+  (flet ((predicate? (type)
+	   (and (typep type 'subtype)
+	        (predicate type)
+	        (is? (predicate type) id modinst))))
+    (or (predicate? (type expr))
+	(some #'predicate? (judgement-types+ expr)))))
+
+(defun associative? (expr)
+  (satisfies-predicate? expr 'associative? 'operator_defs))
+
+(defun commutative? (expr)
+  (satisfies-predicate? expr 'commutative? 'operator_defs))
+
+(defun attributes (expr)
+  (let ((a (associative? expr))
+	(c (commutative? expr)))
+    (cond ((and a c) :ac)
+	  (a :a)
+	  (c :c))))
+		
 
 ;; ICS-PVS error handling
 
@@ -20,120 +174,82 @@
 
 ;; PVS decision procedure interface
 
-(defun ics-init (&optional full verbose)
+(defun ics-init (&optional full (verbose 0))
   (ics_caml_startup (if full 1 0) #(0))
   (register_lisp_error_function
    (nth-value 1 (ff:register-function `ocaml_error)))
-  (ics_set_verbose (if verbose 1 0)))
+  (ics_init verbose))
 
 (defun ics-empty-state ()
-  (let ((empty-state (wrap (ics_init))))
-    (excl:schedule-finalization empty-state
-				'ics-deregister-pointer)
-    empty-state))
+  (let ((empty (state-wrap (ics_state_init))))
+    (wrap-finalize! empty)
+    empty))
+
+(defun ics-d-consistent (value)
+  (let ((state (state-wrap (ics_d_consistent value))))
+    (wrap-finalize! state)
+    state))
+
+(defun ics-deregister-pointer (wrapper)
+  (wrap-free! wrapper))
+
+(defun ics-process (state term)
+  (assert (state-wrap? state))
+  (assert (term-wrap? term))
+  (ics_process (state-unwrap state) (term-unwrap term)))
+
+
+;; Additional ICS functionality
+
+(defun ics-sigma (expr)
+  (let ((term (term-unwrap (translate-to-ics expr))))
+    (prog1
+	(translate-from-ics term)
+      (value-free! term))))
 
 (defun ics-canon (state expr)
-  (let ((term (ics_can (unwrap state) (unwrap (translate-to-ics expr)))))
-    (prog1 (translate-from-ics term)
-      (ics_deregister term))))
-
-(defun ics-normalize (state expr)
-  (declare (ignore state))
-  (let ((term (unwrap (translate-to-ics expr))))
+  (with-ics-pair (freshvars term)
+             (ics_norm (state-unwrap state) 
+		       (term-unwrap (translate-to-ics expr)))
     (prog1
-	(let ((*translate-fresh-vars* nil))
-	  (declare (special *translate-fresh-vars))
-	  (or (translate-from-ics term)
-	      expr))           ;; result contained fresh variables (should not happen) 
-      (ics_deregister term))))
+	(values (translate-from-ics term) freshvars)
+      (value-free! term))))
 
-(defun ics-d-consistent (ics_value)
-  (let ((new-state (wrap (ics_d_consistent ics_value))))
-    (excl:schedule-finalization new-state 'ics-deregister-pointer)
-    new-state))
-
-(defun ics-deregister-pointer (pointer)
-  (ics_deregister (unwrap pointer)))
-
-(defvar *verbose* nil)
-
-(defmethod ics-process :around (state term)
-  (declare (special *verbose*))
-  (cond (*verbose*
-	 (format t "~%Process" (ics_term_pp (unwrap term)))
-	 (let ((status (call-next-method)))
-	   (cond ((ics_is_consistent status)
-		  (format t "~% --> Ok!"))
-		 ((ics_is_inconsistent status)
-		  (format t "~% --> Inconsistent!"))
-		 ((ics_is_redundant status)
-		  (format t "~% --> Redundant!")))
-	   status))
-	(t
-	 (call-next-method))))
-
-(defmethod ics-process (state term)
-  (ics_process (unwrap state) (unwrap term)))
-
-(defun ics-display-state (state)
-  (ics_state_pp (unwrap state)))
-
-(defun ics-solution (state expr)
-  (assert (typep expr 'name-expr))
-  (let* ((term (translate-to-ics expr))
-	 (solution (ics_solution (unwrap state) (unwrap term))))
-    (when (ics_is_some solution)
-      (prog1
-	  (let ((*translate-fresh-vars* nil))
-	    (declare (special *translate-fresh-vars))
-	    (or (translate-from-ics term)
-		expr)          ;; result contained fresh variables  
-	    (ics_deregister ics-term))))))
-
-(defun ics-context (state)
-  (let ((eqns (ics_ctxt_of (unwrap state))))
-    (flet ((translate-eqns (lst)
-			   (if (holds (ics_is_nil lst)) nil
-			     (let* ((hd (ics_head lst))
-				    (lhs (ics_fst hd))
-				    (rhs (ics_snd hd)))
-			       (acons (translate-from-ics lhs)
-				      (translate-from-ics rhs)
-				      (translate-eqns (ics_tail lst)))))))
-      (translate-eqns eqns))))
-
-(defun ics-constraint (state expr)
-  (let* ((term (translate-to-ics expr))
-	 (cnstrnt (ics_cnstrnt (unwrap expr) (unwrap term))))
-    (prog1
-	(translate-cnstrnt-app-from-ics cnstrnt cnstrnt (unwrap term))
-      (ics_deregister term))))
-    
-	
-    
 ;; Translating from PVS expressions to ICS terms
 
-(defvar *pvs-to-ics-hash* (make-hash-table :hash-function 'pvs-sxhash :test 'tc-eq))
-(defvar *ics-to-pvs-hash* (make-hash-table :test 'eql))
+(defvar *pvs-to-ics-hash* 
+  (make-hash-table :hash-function 'pvs-sxhash :test 'tc-eq))
+
+(defvar *ics-to-pvs-hash* 
+  (make-hash-table :test 'eql))
+
+(defvar *translate-type-predicates* nil)
 
 (defun translate-to-ics (expr)
   (translate-to-ics* expr))
 
-(defmethod translate-to-ics* :around (expr)
+(defmethod translate-to-ics* :around ((expr expr))
   (let ((hv (gethash expr *pvs-to-ics-hash*)))
     (or hv
-	(let ((ics-pointer (wrap (call-next-method))))
-	  (unless (numberp expr)
-	    (excl:schedule-finalization ics-pointer 'ics-deregister-pointer)
-	 ;   (unless (listp expr)
-	 ;     (setf (gethash (ics_tag (unwrap ics-pointer)) *ics-to-pvs-hash*)
-	 ;          expr))
-	    )
-	  (setf (gethash expr *pvs-to-ics-hash*) ics-pointer)))))
-
+	(let ((trm (call-next-method)))
+	  (assert (integerp trm))
+	  (let ((wrapper (term-wrap trm)))
+	    (unless (numberp expr)
+	      (wrap-finalize! wrapper))
+	    (when (holds (ics_is_var trm))      ;; only hash names for back translation
+	      (setf (gethash (ics_term_tag trm) *ics-to-pvs-hash*) expr))
+	    (setf (gethash expr *pvs-to-ics-hash*) wrapper))))))
 
 (defmethod translate-to-ics* ((expr expr))
-  (ics_mk_fresh "c"))
+  (let ((name (unique-name expr)))
+    (cond ((integer? expr)
+	   (ics_mk_intvar name))
+	  ((real? expr)
+	   (ics_mk_ratvar name))
+	  ((tc-eq (type expr) *boolean*)
+	   (ics_mk_boolvar name))
+	  (t
+	   (ics_mk_var name)))))
 
 (defmethod translate-to-ics* ((expr name-expr))
   (declare (special *true*))
@@ -142,231 +258,143 @@
 	 (ics_mk_true))
 	((tc-eq expr *false*)
 	 (ics_mk_false))
-	((empty-set? expr)
-	 (ics_mk_empty (tag-of-set-expr expr)))
-	((full-set? expr)
-	 (ics_mk_full (tag-of-set-expr expr)))
-	((zero-bv? expr)
-	 (ics_mk_bv_zero (width-of-fixed-bv expr)))
-	((one-bv? expr)
-	 (ics_mk_bv_one (width-of-fixed-bv expr)))
 	(t
-	 (ics_mk_var (unique-name expr)))))
+	 (call-next-method))))
 
-(defun unique-name (expr)
-  (string (id expr)))           ;; not quite right
+(defmethod unique-name ((expr name-expr))    ;; not quite right
+  ; (symbol-name (intern (gensym (string (id expr))))))
+  (symbol-name (id expr)))
 
+(defmethod unique-name ((expr t))
+  (symbol-name (intern (gensym))))
 
 (defmethod translate-to-ics* ((expr number-expr))
-  (ics_mk_num (ics_num_of_string (format nil "~d" (number expr)))))
+  (let ((q (ics_num_of_string (format nil "~d" (number expr)))))
+    (ics_mk_num q)))
 
 (defmethod translate-to-ics* ((num fixnum))
   num)
 
+(defun translate-unary-to-ics (ics-constructor expr)
+  (assert (typep expr 'expr))
+  (funcall ics-constructor (term-unwrap (translate-to-ics* expr))))
+
+(defun translate-binary-to-ics (ics-constructor expr1 expr2)
+  (assert (typep expr1 'expr))
+  (assert (typep expr2 'expr))
+  (funcall ics-constructor
+	   (term-unwrap (translate-to-ics* expr1))
+	   (term-unwrap (translate-to-ics* expr2))))
+
+(defun translate-ternary-to-ics (ics-constructor expr1 expr2 expr3)
+  (funcall ics-constructor
+	   (term-unwrap (translate-to-ics* expr1))
+	   (term-unwrap (translate-to-ics* expr2))
+	   (term-unwrap (translate-to-ics* expr3))))
+
 (defmethod translate-to-ics* ((expr equation))
-  (ics_mk_equal (unwrap (translate-to-ics* (args1 expr)))
-		(unwrap (translate-to-ics* (args2 expr)))))
+  (translate-binary-to-ics #'ics_mk_equal (args1 expr) (args2 expr)))
 
 (defmethod translate-to-ics* ((expr disequation))
-  (ics_mk_diseq (unwrap (translate-to-ics* (args1 expr)))
-		(unwrap (translate-to-ics* (args2 expr)))))
+  (translate-binary-to-ics #'ics_mk_diseq (args1 expr) (args2 expr)))
 
 (defmethod translate-to-ics* ((expr branch))
-  (ics_mk_cond (unwrap (translate-to-ics* (condition expr)))
-	       (unwrap (translate-to-ics* (then-part expr)))
-	       (unwrap (translate-to-ics* (else-part expr)))))
+  (translate-ternary-to-ics #'ics_mk_ite
+			    (condition expr)
+			    (then-part expr)
+			    (else-part expr)))
 
 (defmethod translate-to-ics* ((expr negation))
-  (cond ((equation? (args1 expr))
-	 (ics_mk_diseq (unwrap (translate-to-ics* (args1 (args1 expr))))
-		    (unwrap (translate-to-ics* (args2 (args1 expr))))))
-	((disequation? (args1 expr))
-	 (ics_mk_equal (unwrap (translate-to-ics* (args1 (args1 expr))))
-		    (unwrap (translate-to-ics* (args2 (args1 expr))))))
-	(t
-	 (ics_mk_not (unwrap (translate-to-ics* (args1 expr)))))))
+  (let ((arg (args1 expr)))
+    (cond ((equation? arg)
+	   (translate-binary-to-ics #'ics_mk_diseq (args1 arg) (args2 arg)))
+	  ((disequation? arg)
+	   (translate-binary-to-ics #'ics_mk_equal (args1 arg) (args2 arg)))
+	  (t
+	   (translate-unary-to-ics #'ics_mk_neg arg)))))
 
 (defmethod translate-ics* ((expr iff-or-boolean-equation))
-  (let ((lhs (unwrap (translate-to-ics* (args1 expr))))
-	(rhs (unwrap (translate-to-ics* (args2 expr)))))
-    (ics_mk_iff lhs rhs)))
+  (translate-binary-to-ics #'ics_mk_iff (args1 expr) (args2 expr)))
 
 (defmethod translate-to-ics* ((expr implication))
-  (ics_mk_imp (unwrap (translate-to-ics* (args1 expr)))
-	      (unwrap (translate-to-ics* (args2 expr)))))
+  (translate-binary-to-ics #'ics_mk_imp (args1 expr) (args2 expr)))
 
 (defmethod translate-to-ics* ((expr conjunction))
-  (ics_mk_and (unwrap (translate-to-ics* (args1 expr)))
-	      (unwrap (translate-to-ics* (args2 expr)))))
+  (translate-binary-to-ics #'ics_mk_conj (args1 expr) (args2 expr)))
 
 (defmethod translate-to-ics* ((expr disjunction))
-  (ics_mk_or (unwrap (translate-to-ics* (args1 expr)))
-	     (unwrap (translate-to-ics* (args2 expr)))))
+  (translate-binary-to-ics #'ics_mk_disj (args1 expr) (args2 expr)))
 
-(defmethod translate-to-ics* ((ex application))
-  (let ((op (operator ex)))
+(defmethod translate-to-ics* ((expr application))
+  (declare (special *translate-type-predicates*))
+  (let ((op (operator expr)))
     (cond ((update-expr? op)
-	   (translate-to-ics*
-	    (make!-reduced-application
-	     (translate-update-to-if op)
-	     (args ex))))
+	   (term-unwrap (translate-to-ics* (translate-update-to-if expr))))
 	  ((tc-eq op (plus-operator))
-	   (ics_mk_plus (ics_cons (unwrap (translate-to-ics* (args1 ex)))
-				  (ics_cons (unwrap (translate-to-ics* (args2 ex)))
-					    (ics_nil)))))
+	   (translate-binary-to-ics #'ics_mk_add2 (args1 expr) (args2 expr)))
 	  ((tc-eq op (difference-operator))
-	   (ics_mk_minus (unwrap (translate-to-ics* (args1 ex)))
-			 (unwrap (translate-to-ics* (args2 ex)))))
+	   (translate-binary-to-ics #'ics_mk_sub (args1 expr) (args2 expr)))
 	  ((tc-eq op (unary-minus-operator))
-	   (ics_mk_unary_minus (unwrap (translate-to-ics* (args1 ex)))))
+	   (translate-unary-to-ics #'ics_mk_unary_minus (args1 expr)))
 	  ((tc-eq op (times-operator))
-	   (ics_mk_times (ics_cons (unwrap (translate-to-ics* (args1 ex)))
-				   (ics_cons (unwrap (translate-to-ics* (args2 ex)))
-					     (ics_nil)))))
+	   (translate-binary-to-ics #'ics_mk_mult2 (args1 expr) (args2 expr)))
 	  ((tc-eq op (divides-operator))
-	   (ics_mk_div (unwrap (translate-to-ics* (args1 ex)))
-		       (unwrap (translate-to-ics* (args2 ex)))))
+	   (translate-binary-to-ics #'ics_mk_div (args1 expr) (args2 expr)))
 	  ((tc-eq op (greatereq-operator))
-	   (ics_mk_ge (unwrap (translate-to-ics* (args1 ex)))
-		      (unwrap (translate-to-ics* (args2 ex)))))
+	   (translate-binary-to-ics #'ics_mk_ge (args1 expr) (args2 expr)))
 	  ((tc-eq op (greater-operator))
-	   (ics_mk_gt (unwrap (translate-to-ics* (args1 ex)))
-		      (unwrap (translate-to-ics* (args2 ex)))))
+	   (translate-binary-to-ics #'ics_mk_gt (args1 expr) (args2 expr)))
 	  ((tc-eq op (less-operator))
-	   (ics_mk_lt (unwrap (translate-to-ics* (args1 ex)))
-		      (unwrap (translate-to-ics* (args2 ex)))))
+	   (translate-binary-to-ics #'ics_mk_lt (args1 expr) (args2 expr)))
 	  ((tc-eq op (lesseq-operator))
-	   (ics_mk_le (unwrap (translate-to-ics* (args1 ex)))
-		      (unwrap (translate-to-ics* (args2 ex)))))
+	   (translate-binary-to-ics #'ics_mk_le (args1 expr) (args2 expr)))
 	  ((tc-eq op (integer_pred))
-	   (ics_mk_int (unwrap (translate-to-ics* (args1 ex)))))
-	  ((or (tc-eq op (real_pred))
+	   (if *translate-type-predicates*
+	       (translate-unary-to-ics #'ics_mk_int (args1 expr))
+	     (ics_mk_true)))
+	  ((or (tc-eq op (real_pred)) ; ICS does not distinguish between rationals and reals
                (tc-eq op (rational_pred)))
-	   (ics_mk_real (unwrap (translate-to-ics* (args1 ex)))))
-	  ((union-set? op)
-	   (ics_mk_union (tag-of-set-expr ex)
-			 (unwrap (translate-to-ics* (args1 ex)))
-			 (unwrap (translate-to-ics* (args2 ex)))))
-	  ((intersection-set? op)
-	   (ics_mk_inter (tag-of-set-expr ex)
-			 (unwrap (translate-to-ics* (args1 ex)))
-			 (unwrap (translate-to-ics* (args2 ex)))))
-	  ((complement-set? op)
-	   (ics_mk_compl (tag-of-set-expr ex)
-			 (unwrap (translate-to-ics* (args1 ex)))))
-	  ((symmetric-difference-set? op)
-	   (ics_mk_sym_diff (tag-of-set-expr ex)
-			    (unwrap (translate-to-ics* (args1 ex)))
-			    (unwrap (translate-to-ics* (args2 ex)))))
-	  ((difference-set? op)
-	   (ics_mk_diff (tag-of-set-expr ex)
-			(unwrap (translate-to-ics* (args1 ex)))
-			(unwrap (translate-to-ics* (args2 ex)))))
-	  ((and (conc-bv? op) (fixed-bv? ex))
-	   (let ((n (width-of-fixed-bv (args1 ex)))
-		 (m (width-of-fixed-bv (args2 ex))))
-	     (ics_mk_bv_conc
-	      (ics_pair (unwrap (translate-to-ics* n))
-			(unwrap (translate-to-ics* (args1 ex))))
-	      (ics_pair (unwrap (translate-to-ics* m))
-			(unwrap (translate-to-ics* (args2 ex)))))))
-	  ((and (extr-bv? op) (fixed-bv? ex))
-	   (let ((n (width-of-fixed-bv (args1 ex)))
-		 (i (args1 (args2 ex)))
-		 (j (args2 (args2 ex))))
-	     (ics_mk_bv_extr
-	      (ics_pair (unwrap (translate-to-ics* n))
-			(unwrap (translate-to-ics* (args1 ex))))
-	      (unwrap (translate-to-ics* i))
-	      (unwrap (translate-to-ics* j)))))
-	  ((and (bitwise-and-bv? op) (fixed-bv? ex))
-	   (let ((n (width-of-fixed-bv ex)))
-	     (ics_mk_bv_and (unwrap (translate-to-ics* n))
-			    (unwrap (translate-to-ics* (args1 ex)))
-			    (unwrap (translate-to-ics* (args2 ex))))))
-	  ((and (bitwise-or-bv? op) (fixed-bv? ex))
-	   (let ((n (width-of-fixed-bv ex)))
-	     (ics_mk_bv_or (unwrap (translate-to-ics* n))
-			   (unwrap (translate-to-ics* (args1 ex)))
-			   (unwrap (translate-to-ics* (args2 ex))))))
-	  ((and (bitwise-xor-bv? op) (fixed-bv? ex))
-	   (let ((n (width-of-fixed-bv ex)))
-	     (ics_mk_bv_xor (unwrap (translate-to-ics* n))
-			    (unwrap (translate-to-ics* (args1 ex)))
-			    (unwrap (translate-to-ics* (args2 ex))))))
+	   (if *translate-type-predicates*
+	       (translate-unary-to-ics #'ics_mk_real (args1 expr))
+	     (ics_mk_true)))
 	  (t
-	   (ics_mk_app
-	    (unwrap (translate-to-ics* op))
-	    (unwrap (translate-to-ics* (arguments ex))))))))
+	   (translate-uninterp-to-ics* op (arguments expr))))))
 
-(defun op? (op modulename name)
-  (and (typep op 'name-expr)
-       (eq (id (module-instance op)) modulename)
-       (eq (id op) name)))
+(defun translate-uninterp-to-ics* (expr exprs)
+  (let ((trm (term-unwrap (translate-to-ics* expr)))
+	(trms (translate-list-to-ics* exprs)))
+    (assert (not (null trm)))
+    (let ((attrs (attributes expr)))
+      (cond ((eql attrs :ac)
+	     (ics_mk_uninterp_ac trm trms))
+	    ((eql attrs :a)
+	     (ics_mk_uninterp_a trm trms))
+	    ((eql attrs :c)
+	     (ics_mk_uninterp_c trm trms))
+	    (t
+	     (ics_mk_uninterp trm trms))))))
 
-(defun empty-set? (op) (op? op '|sets| '|emptyset|))
-(defun full-set? (op) (op? op '|sets| '|fullset|))
-(defun union-set? (op) (op? op '|sets| '|union|))
-(defun intersection-set? (op) (op? op '|sets| '|intersection|))
-(defun complement-set? (op) (op? op '|sets| '|complement|))
-(defun difference-set? (op) (op? op '|sets| '|difference|))
-(defun symmetric-difference-set? (op) (op? op '|sets| '|symmetric_difference|))
+(defun translate-update-to-ics (op args)
+  (translate-to-ics*
+   (make!-reduced-application
+    (translate-update-to-if op)
+    args)))
 
-(defun zero-bv? (op) (op? op '|bv| '|bvec0|))
-(defun one-bv? (op)  (op? op '|bv| '|bvec1|))
-(defun conc-bv? (op) (op? op '|bv_concat| '|o|))
-(defun extr-bv? (op) (op? op '|bv_caret| '|^|))
-(defun bitwise-and-bv? (op) (op? op '|bv_bitwise| '|AND|))
-(defun bitwise-or-bv? (op) (op? op '|bv_bitwise| '|OR|))
-(defun bitwise-xor-bv? (op) (op? op '|bv_bitwise| '|XOR|))
-(defun bitwise-not-bv? (op) (op? op '|bv_bitwise| '|NOT|))
+(defmethod translate-to-ics* ((expr cases-expr))
+  (translate-to-ics* (translate-cases-to-if expr)))
 
-(defun fixed-bv? (ex)
-  (let* ((type (find-supertype (type ex)))
-	 (ptype (print-type type)))
-    (and ptype
-	 (eq (id ptype) '|bvec|)
-	 (eq (id (module-instance ptype)) '|bv|)
-	 (let ((actual (car (actuals (module-instance ptype)))))
-	   (number-expr? (expr actual))))))
-  
-(defun width-of-fixed-bv (ex)
-  (let* ((type (find-supertype (type ex)))
-	 (ptype (print-type type)))
-    (and ptype
-	 (eq (id ptype) '|bvec|)
-	 (eq (id (module-instance ptype)) '|bv|)
-	 (let ((actual (car (actuals (module-instance ptype)))))
-	   (and (number-expr? (expr actual))
-	        (number (expr actual)))))))
-
-(defvar *ics-types-to-tags-hash* (make-hash-table :hash-function 'pvs-sxhash
-						  :test 'tc-eq))
-(defvar *ics-tags-to-types-hash* (make-hash-table :test 'eql))
-(defvar *ics-tags-to-types-counter* 0)
-
-(defun tag-of-set-expr (ex)
-  (let* ((type (find-supertype (type ex)))
-	 (set-type (domain type)))
-    (or (gethash set-type *ics-types-to-tags-hash*)
-	(let ((tag (incf *ics-tags-to-types-counter*)))
-	  (setf (gethash set-type *ics-types-to-tags-hash*) tag)
-	  (setf (gethash tag *ics-tags-to-types-hash*) set-type)
-	  tag))))
-
-(defmethod translate-to-ics* ((ex cases-expr))
-  (translate-to-ics* (translate-cases-to-if ex)))
-
-(defmethod translate-to-ics* ((ex let-expr))
-  (with-slots (operator argument) ex
-    (let ((reduced-ex (substit (expression operator)
+(defmethod translate-to-ics* ((expr let-expr))
+  (with-slots (operator argument) expr
+    (let ((reduced-expr (substit (expression operator)
 			  (pairlis-args (bindings operator)
-					(argument* ex)))))
-      (translate-to-ics* reduced-ex))))
+					(argument* expr)))))
+      (translate-to-ics* reduced-expr))))
 
 (defmethod translate-to-ics* ((expr record-expr))
-  (let ((exprs (mapcar #'expression (sort-assignments (assignments expr)))))
-    (ics_mk_tuple (unwrap (translate-to-ics* exprs)))))
+  (let* ((exprs (mapcar #'expression
+			(sort-assignments (assignments expr))))
+	 (trms (translate-list-to-ics* exprs)))
+    (ics_mk_tuple trms)))
 
 (defun sort-assignments (assignments)
   (sort (copy-list assignments)
@@ -374,37 +402,36 @@
 	:key #'(lambda (assignment)
 		 (id (caar (arguments assignment))))))
 
-(defmethod translate-to-ics* ((ex tuple-expr))
-  (ics_mk_tuple (unwrap (translate-to-ics* (exprs ex)))))
+(defmethod translate-to-ics* ((expr tuple-expr))
+  (let ((trms (translate-list-to-ics* (exprs exprs))))
+    (ics_mk_tuple trms)))
 	
-(defmethod translate-to-ics* ((ex coercion))
-  (with-slots (operator argument) ex
-    (let ((reduced-ex (substit (expression operator)
+(defmethod translate-to-ics* ((expr coercion))
+  (with-slots (operator argument) expr
+    (let ((reduced-expr (substit (expression operator)
 			  (pairlis-args (bindings operator)
-					(argument* ex)))))
-      (translate-to-ics* reduced-ex))))
+					(argument* expr)))))
+      (translate-to-ics* reduced-expr))))
 
-(defmethod translate-to-ics* ((l null))
-  (ics_nil))
+(defun translate-list-to-ics* (exprs)
+  (if (null exprs)
+      (ics_nil)
+    (let ((trm (translate-to-ics* (car exprs))))
+      (ics_cons (term-unwrap trm) (translate-list-to-ics* (cdr exprs))))))
 
-(defmethod translate-to-ics* ((l cons))
-  (ics_cons (unwrap (translate-to-ics* (car l)))
-	    (unwrap (translate-to-ics* (cdr l)))))
+(defmethod translate-to-ics* ((expr projection-application))
+  (let* ((arg (argument expr))
+	 (width (width-of (type arg)))
+	 (index (1- (index expr))))
+    (translate-ternary-to-ics #'ics_mk_proj index width arg)))
 
-(defmethod translate-to-ics* ((ex projection-application))
-  (ics_mk_proj (unwrap (translate-to-ics* (1- (index ex))))
-	       (unwrap (translate-to-ics* (width-of (type (argument ex)))))
-	       (unwrap (translate-to-ics* (argument ex)))))
-
-(defmethod translate-to-ics* ((ex field-application))
-  (with-slots (id argument type) ex
+(defmethod translate-to-ics* ((expr field-application))
+  (with-slots (id argument type) expr
     (let* ((fields (fields (find-supertype (type argument))))
-	   (sfields (sort-fields fields))
-	   (pos (position id sfields
-			  :test #'(lambda (x y) (eq x (id y))))))
-      (ics_mk_proj (unwrap (translate-to-ics* pos))
-		   (unwrap (translate-to-ics* (length fields)))
-		   (unwrap (translate-to-ics* argument))))))
+	   (pos (position id (sort-fields fields)
+			  :test #'(lambda (x y) (eq x (id y)))))
+	   (trm (unwrap (translate-to-ics* argument))))
+      (ics_mk_proj pos (length fields) trm))))
 
 (defmethod width-of ((type tupletype))
   (length (types type)))
@@ -414,112 +441,115 @@
 ;; If *translate-fresh-vars* is set to [nil], this function
 ;; returns [nil] whenever the corresponding ics term contains fresh variables
 
-(defvar *translate-fresh-vars* nil)
 
-(defmacro holds (arg)
-  `(plusp ,arg))
+(defun translate-from-ics (arg)
+  (let ((trm (if (term-wrap? arg) (term-unwrap arg) arg)))
+    (let ((*bndngs* nil))
+      (declare (special *bndngs*))
+      (let ((expr (translate-from-ics* trm)))
+	(assert (not (null expr)))
+	(values expr *bndngs*)))))
 
-(defun translate-from-ics (ptr)
-  (let ((trm (if (consp ptr) (unwrap ptr) ptr)))
-    (or
-  ;   (gethash (ics_tag trm) *ics-to-pvs-hash*)   ;; cached translations (in particular contains all names)
-     (cond 
-      ((holds (ics_is_app trm))                  ;; uninterpreted function symbols
-       (translate-app-from-ics trm))
-      ((holds (ics_is_update trm))              ;; function updates
-       (translate-update-from-ics trm))
-;      ((holds (ics_is_cond trm))
-;       (translate-cond-from-ics trm))
-      ((holds (ics_is_arith trm))               ;; arithmetic
-       (translate-arith-from-ics trm))
-      ((holds (ics_is_tuple trm))               ;; tuples
-       (translate-tuple-from-ics trm))
-      ((holds (ics_is_proj trm))
-       (translate-proj-from-ics trm))
-      ((holds (ics_is_bool trm))                 ;; boolean
-       (translate-bool-from-ics trm))
-      ((holds (ics_is_set trm))                  ;; sets
-       (translate-empty-from-ics trm))
-      ((holds (ics_is_bv trm))                   ;; bit vectors
-       (translate-bv-from-ics trm))
-      ((holds (ics_is_fresh trm))
-       (when *translate-fresh-vars*
-	 (translate-fresh-from-ics trm)))
-      (t
-       (error "ICS to PVS translation: shouldn't happen"))))))
+(defun translate-from-ics* (trm)
+  (assert (integerp trm))
+  (or
+   (gethash (ics_term_tag trm) *ics-to-pvs-hash*)   ;; cached translations (contains all known names)
+   (cond 
+    ((holds (ics_is_uninterp trm))                  ;; uninterpreted function symbols
+     (translate-app-from-ics* trm))
+    ((holds (ics_is_update trm))               ;; function updates
+     (translate-update-from-ics* trm))
+    ((holds (ics_is_arith trm))                ;; arithmetic
+     (translate-arith-from-ics* trm))
+    ((holds (ics_is_tuple trm))                ;; tuples
+     (translate-tuple-from-ics* trm))
+    ((holds (ics_is_proj trm))
+     (translate-proj-from-ics* trm))
+    ((holds (ics_is_bool trm))                 ;; boolean
+     (translate-bool-from-ics* trm))
+    ((holds (ics_is_diseq trm))
+     (translate-diseq-from-ics* trm))
+    ((holds (ics_is_equal trm))
+     (translate-equal-from-ics* trm))
+    ((holds (ics_is_cnstrnt trm))
+     (with-ics-pair (cnstrnt arg)
+	  (ics_d_cnstrnt trm)
+       (translate-cnstrnt-from-ics* cnstrnt arg)))
+    ((holds (ics_is_fresh trm))
+     (translate-fresh-from-ics* trm))
+    ((holds (ics_is_rename_var trm))
+     (with-ics-pair (name trm1)
+	  (ics_d_rename_var trm)
+       (translate-from-ics* trm1))) 
+    (t
+     (error "ICS to PVS translation: shouldn't happen"))))))
 
-
-(defun translate-list-from-ics (icslist)
-  (if (holds (ics_is_nil icslist))
-      nil 
-      (cons (translate-from-ics (ics_head icslist))
-	    (translate-list-from-ics (ics_tail icslist)))))
-
+(defun translate-list-from-ics* (icslist)
+  (if (holds (ics_is_nil icslist)) nil
+    (with-ics-list (head tail) icslist
+      (cons (translate-from-ics* head)
+	    (translate-list-from-ics* tail)))))
 
 ;; Arithmetic expressions
 
-(defun translate-arith-from-ics (trm)
+(defun translate-arith-from-ics* (trm)
   (assert (ics_is_arith trm))
   (cond ((holds (ics_is_num trm))                  ;; arith terms
-	 (translate-num-from-ics trm))
-	((holds (ics_is_plus trm))
-	 (translate-plus-from-ics trm))
-	((holds (ics_is_minus trm))
-	 (translate-minus-from-ics trm))
+	 (translate-num-from-ics* trm))
+	((holds (ics_is_add trm))
+	 (translate-plus-from-ics* (ics_d_add trm)))
 	((holds (ics_is_multq trm))
-	 (translate-multq-from-ics trm))
+	 (translate-multq-from-ics* trm))
 	((holds (ics_is_mult trm))
-	 (translate-mult-from-ics trm))
-	((holds (ics_is_divide trm))
-	 (translate-div-from-ics trm))))
+	 (translate-mult-from-ics* (ics_d_mult trm)))
+	((holds (ics_is_div trm))
+	 (translate-div-from-ics* trm))
+	(t
+	 (error "Unknown arithmetic term"))))
 
-(defun translate-q-from-ics (q)
-  (let ((str (ics_string_of_num q)))
-    (make!-number-expr
-     (parse-integer (excl:native-to-string str)))))
+(defun translate-q-from-ics* (q)
+  (let* ((str (ics_string_of_num q))
+	 (val (parse-integer (excl:native-to-string str))))
+    (make!-number-expr val)))
  
-(defun translate-num-from-ics (trm)
+(defun translate-num-from-ics* (trm)
   (assert (ics_is_num trm))
-  (translate-q-from-ics (ics_d_num trm)))
+  (translate-q-from-ics* (ics_d_num trm)))
 	 
-(defun translate-plus-from-ics (trm)
-  (assert (holds (ics_is_plus trm)))
-  (let ((lst (ics_d_plus trm)))
-    (if (holds (ics_is_nil (ics_tail lst)))
-	(translate-from-ics (ics_head lst))
-	(make!-plus (translate-from-ics (ics_head lst))
-		    (translate-plus-from-ics (ics_tail lst))))))
+(defun translate-plus-from-ics* (lst)
+  (if (holds (ics_is_nil (ics_tail lst)))
+      (translate-from-ics* (ics_head lst))
+    (make!-plus (translate-from-ics* (ics_head lst))
+		(translate-plus-from-ics* (ics_tail lst)))))
 
-(defun translate-minus-from-ics (trm)
-  (assert (holds (ics_is_minus trm)))
-  (let ((trm2 (ics_d_minus trm)))
-    (make!-difference (translate-from-ics (ics_fst trm2))
-		      (translate-from-ics (ics_snd trm2)))))
+(defun translate-minus-from-ics* (trm)
+  (assert (holds (ics_is_sub trm)))
+  (with-ics-pair (arg1 arg2) (ics_d_sub trm)
+     (make!-difference (translate-from-ics* arg1)
+		       (translate-from-ics* arg2))))
 
-(defun translate-mult-from-ics (trm)
-  (assert (holds (ics_is_mult trm)))
-  (let ((lst (ics_d_mult trm)))
-    (if (holds (ics_is_nil (ics_tail lst)))
-	(translate-from-ics (ics_head lst))
-	(make!-times (translate-from-ics (ics_head lst))
-		     (translate-mult-from-ics (ics_tail lst))))))
+(defun translate-mult-from-ics* (lst)
+  (if (holds (ics_is_nil (ics_tail lst)))
+      (translate-from-ics* (ics_head lst))
+    (make!-times (translate-from-ics* (ics_head lst))
+		 (translate-mult-from-ics* (ics_tail lst)))))
 
-(defun translate-multq-from-ics (trm)
+(defun translate-multq-from-ics* (trm)
   (assert (holds (ics_is_multq trm)))
-  (let ((q_trm (ics_d_multq trm)))
-    (make!-times (translate-q-from-ics (ics_fst q_trm))
-		 (translate-from-ics (ics_snd q_trm)))))
+  (with-ics-pair (q arg) (ics_d_multq trm)
+    (make!-times (translate-q-from-ics* q)
+		 (translate-from-ics* arg))))
 
-(defun translate-div-from-ics (trm)
+(defun translate-div-from-ics* (trm)
   (assert (holds (ics_is_div trm)))
-  (let ((trm2 (ics_d_div trm)))
-    (make!-divides (translate-q-from-ics (ics_fst trm2))
-		   (translate-from-ics (ics_snd trm2)))))
+  (with-ics-pair (arg1 arg2) (ics_d_div trm)
+    (make!-divides (translate-q-from-ics* arg1)
+		   (translate-from-ics* arg2))))
 
 
 ;; Translating Boolean terms
 
-(defun translate-bool-from-ics (trm)
+(defun translate-bool-from-ics* (trm)
   (declare (special *true*))
   (declare (special *false*))
   (assert (ics_is_bool trm))
@@ -527,306 +557,193 @@
 	 *true*)      
 	((holds (ics_is_false trm))
 	 *false*)
-;	((holds (ics_is_diseq trm))
-;	 (translate-equal-from-ics trm))
-	((holds (ics_is_equal trm))
-	 (translate-equal-from-ics trm))
 	((holds (ics_is_ite trm))
-	 (translate-boolean-connective-from-ics trm))))
+	 (translate-boolean-connective-from-ics* trm))))
 
-(defun translate-boolean-connective-from-ics (trm)
+(defun translate-boolean-connective-from-ics* (trm)
   (assert (holds (ics_is_ite trm)))
-  (cond ((ics_is_not trm)
+  (cond ((holds (ics_is_neg trm))
 	 (make!-negation
-	  (translate-from-ics (ics_d_not trm))))
-	((ics_is_disj trm)
-	 (let ((trm2 (ics_d_disj trm)))
+	  (translate-from-ics* (ics_d_neg trm))))
+	((holds (ics_is_disj trm))
+	 (with-ics-pair (arg1 arg2) (ics_d_disj trm)
 	   (make!-disjunction
-	    (translate-from-ics (ics_fst trm2))
-	    (translate-from-ics (ics_snd trm2)))))
-	((ics_is_conj trm)
-	 (let ((trm2 (ics_d_conj trm)))
+	    (translate-from-ics* arg1)
+	    (translate-from-ics* arg2))))
+	((holds (ics_is_conj trm))
+	 (with-ics-pair (arg1 arg2) (ics_d_conj trm)
 	   (make!-conjunction
-	    (translate-from-ics (ics_fst trm2))
-	    (translate-from-ics (ics_snd trm2)))))
-	((ics_is_imp trm)
-	 (let ((trm2 (ics_d_imp trm)))
+	    (translate-from-ics* arg1)
+	    (translate-from-ics* arg2))))
+	((holds (ics_is_imp trm))
+	 (with-ics-pair (arg1 arg2) (ics_d_imp trm)
 	   (make!-implication
-	    (translate-from-ics (ics_fst trm2))
-	    (translate-from-ics (ics_snd trm2)))))
-	((ics_is_iff trm)
-	 (let ((trm2 (ics_d_iff trm)))
-	   (make!-iff
-	    (translate-from-ics (ics_fst trm2))
-	    (translate-from-ics (ics_snd trm2)))))
-	(t
-	 (let ((trm3 (ics_d_ite trm)))
+	    (translate-from-ics* arg1)
+	    (translate-from-ics* arg2))))
+	((holds (ics_is_iff trm))
+	 (with-ics-pair (arg1 arg2) (ics_d_iff trm)
+	    (make!-iff
+	     (translate-from-ics* arg1)
+	     (translate-from-ics* arg2))))
+	((holds (ics_is_ite trm))
+	 (with-ics-triple (arg1 arg2 arg3) (ics_d_ite trm)
 	   (make!-if-expr
-	    (translate-from-ics (ics_fst_of_triple trm3))
-	    (translate-from-ics (ics_snd_of_triple trm3))
-	    (translate-from-ics	(ics_third_of_triple trm3)))))))
+	    (translate-from-ics* arg1)
+	    (translate-from-ics* arg2)
+	    (translate-from-ics* arg3))))
+	(t
+	 (error "ICS to PVS translation: unreachable"))))
 
-(defun translate-equal-from-ics (trm)
+(defun translate-equal-from-ics* (trm)
   (assert (holds (ics_is_equal trm)))
-  (let ((trm2 (ics_d_equal trm)))
-    (make!-equation (translate-from-ics (ics_fst trm1))
-		    (translate-from-ics (ics_snd trm2)))))
+  (with-ics-pair (lhs rhs) (ics_d_equal trm)
+    (make!-equation (translate-from-ics* lhs)
+		    (translate-from-ics* rhs))))
 
-(defun translate-diseq-from-ics (trm)
+(defun translate-diseq-from-ics* (trm)
   (assert (holds (ics_is_diseq trm)))
-  (let ((trm2 (ics_d_diseq trm)))
-    (make!-disequation (translate-from-ics (ics_fst trm1))
-		       (translate-from-ics (ics_snd trm2)))))
+  (with-ics-pair (lhs rhs) (ics_d_diseq trm)
+    (make!-disequation (translate-from-ics* lhs)
+		       (translate-from-ics* rhs))))
 
 
 ;; Translating function application and function update
 
 
-(defun translate-app-from-ics (trm)
-  (assert (holds (ics_is_app trm)))
-  (let* ((trm2 (ics_d_app trm))
-	 (op (ics_fst trm2))
-	 (args (ics_snd trm2)))
-    (if (and (holds (ics_is_cnstrnt op))
-	     (not (holds (ics_is_nil args)))
-	     (holds (ics_is_nil (ics_tail args))))
-	(let ((arg (ics_head args)))
-	  (translate-cnstrnt-app-from-ics op args))
-	(make!-application (translate-from-ics op)
-			   (translate-list-from-ics args)))))
-
-(defun translate-cnstrnt-app-from-ics (cnstrnt trm)
-  (assert (holds (ics_is_cnstrnt cnstrnt)))
-  (let ((lst (ics_cnstrnt_to_list cnstrnt)))
-    (make!-disjunction*
-     (mapcar #'(lambda (interval)
-		 (translate-interval-app-from-ics interval trm))
-       lst))))
-
-(defun translate-interval-app-from-ics (interval trm)
-  (declare (special *true*))
-  (let ((dinterval (ics_d_interval interval))
-	(dom (ics_fst_of_triple dinterval))
-	(low (ics_snd_of_triple dinterval))
-	(high (ics_third_of_triple dinterval)))
-    (cond ((and (holds (low_bound_is_neginf low))
-		(holds (low_bound_is_posinf high)))
-	   (translate-dom-from-ics trm))
-	  ((holds (low_bound_is_neginf low))
-	   (let ((num (translate-numberal-from-ics
-		       (ics_high_bound_value high))))
-	     (if (ics_high_bound_is_strict high)
-		 (make-less (translate-from-ics trm) num)
-		 (make-lesseq (translate-from-ics trm) num))))
-	  ((holds (high_bound_is_posinf high))
-	   (let ((num (translate-numberal-from-ics
-		       (ics_low_bound_value low))))
-	     (if (ics_low_bound_is_strict low)
-		 (make-greater (translate-from-ics trm) num)
-		 (make-greatereq (translate-from-ics trm) num))))
-	  (t
-	   (let* ((num1 (translate-numberal-from-ics
-			 (ics_low_bound_value low)))
-		  (num2 (translate-numberal-from-ics
-			 (ics_high_bound_value high)))
-		  (expr (translate-from-ics trm))
-		  (ineq1 (if (ics_low_bound_is_strict low)
-			     (make-less num1 expr)
-			     (make-lesseq num1 expr)))
-		  (ineq2 (if (ics_high_bound_is_strict high)
-			     (make-greater num1 expr)
-			     (make-greatereq num1 expr)))
-		  (ineq (make!-conjunction ineq1 ineq2))
-		  (pred (translate-dom-from-ics dom)))
-	     (if (tc-eq pred *true*)
-		 ineq
-		 (make!-conjunction ineq pred)))))))
-
-(defun translate-dom-from-ics (dom)
-  (declare (special *true*))
-  (cond ((holds (ics_interval_domain_is_int dom))
-	 (make-integer_pred (translate-from-ics trm)))
-	((holds (ics_interval_domain_is_nonintreal dom))
-	 (make!-negation
-	  (make-integer_pred (translate-from-ics trm))))
-	(t
-	 *true*))) 
+(defun translate-app-from-ics* (trm)
+  (assert (holds (ics_is_uninterp trm)))
+  (with-ics-pair (op args) (ics_d_uninterp trm)
+      (make!-application
+       (translate-from-ics* op)
+       (translate-list-from-ics* args))))
 
 
 ;; Translating updates
 
-(defun translate-update-from-ics (trm)
+(defun translate-update-from-ics* (trm)
   (assert (holds (ics_is_update trm))) 
-  (let ((trm3 (ics_d_update trm)))
+  (with-ics-triple (arg1 arg2 arg3) (ics_d_update trm)
     (make!-update-expr
-     (translate-from-ics (ics_fst_of_triple trm3))
+     (translate-from-ics* arg1)
      (mk-assignment 'uni 
-       (list (list (translate-from-ics (ics_snd_of_triple trm3))))
-       (translate-from-ics (ics_third_of_triple trm3))))))
-
-
-;; Translating non-boolean conditionals
-
-(defun translate-cond-from-ics (trm)
-  (assert (holds (ics_is_cond trm))) 
-  (let ((trm3 (ics_d_cond trm)))
-    (make!-if-expr
-     (translate-from-ics (ics_fst_of_triple trm))
-     (translate-from-ics (ics_snd_of_triple trm))
-     (translate-from-ics (ics_third_of_triple trm)))))
-
+       (list (list (translate-from-ics* arg2)))
+       (translate-from-ics* arg3)))))
 
 ;; Translating tuple expressions
 
-(defun translate-tuple-from-ics (trm)
+(defun translate-tuple-from-ics* (trm)
   (assert (holds (ics_is_tuple trm)))
   (make!-tuple-expr
-   (translate-list-from-ics (ics_d_tuple trm))))
+   (translate-list-from-ics* (ics_d_tuple trm))))
 
-(defun translate-proj-from-ics (trm)
+(defun translate-proj-from-ics* (trm)
   (assert (holds (ics_is_proj trm)))
-  (let* ((index_length_trm (ics_d_proj trm))
-	 (index (ics_fst_of_triple index_length_trm))
-	 (arg (ics_third_of_triple index_length_trm)))
-    (make!-projection-application index (translate-from-ics arg))))
-
-
-;; Translating sets
-
-(defun translate-set-from-ics (trm)
-  (assert (holds (ics_is_set trm)))
-  (cond ((holds (ics_is_empty trm))
-	 (translate-empty-from-ics trm))
-	((holds (ics_is_full trm))
-	 (translate-full-from-ics trm))
-	((holds (ics_is_finite trm))
-	 (translate-finite-from-ics trm))
-	((holds (ics_is_cnstrnt trm))
-         (translate-cnstrnt-from-ics trm))
-	(t ; (holds (ics_is_setite trm))
-	 (translate-setite-from-ics trm))))
-
-
-(defun set-operation-from-ics (op tag)
-  (let* ((type (gethash tag *ics-tags-to-types-hash*))
-	 (ops (format nil "sets[~a].~a" type op))
-	 (tops (pc-typecheck (pc-parse ops 'expr))))
-    (setf (mod-id tops) nil)
-    tops))
-
-(defun translate-empty-from-ics (trm)
-  (assert (holds (ics_is_empty trm)))
-  (set-operation-from-ics "emptyset" (ics_d_empty trm)))
-
-(defun translate-full-from-ics (trm)
-  (assert (holds (ics_is_full_set trm)))
-  (set-operation-from-ics "fullset" (ics_d_full trm)))
-
-(defun translate-union-from-ics (trm)
-  (assert (holds (ics_is_union trm)))
-  (let* ((tag_trm_trm (ics_d_union trm))
-	 (tag (ics_fst_of_triple tag_trm_trm))
-	 (trm1 (ics_snd_of_triple tag_trm_trm))
-	 (trm2 (ics_third_of_triple tag_trm_trm)))
-    (make!-application (set-operation-from-ics "union" tag)     
-		       (translate-from-ics trm1)
-		       (translate-from-ics trm2))))
-
-(defun translate-intersection-from-ics (trm)
-  (assert (holds (ics_is_inter trm)))
-  (let* ((tag_trm_trm (ics_d_inter trm))
-	 (tag (ics_fst_of_triple tag_trm_trm))
-	 (arg1 (ics_snd_of_triple tag_trm_trm))
-	 (arg2 (ics_third_of_triple tag_trm_trm)))
-    (make!-application (set-operation-from-ics "intersection" tag)     
-		       (translate-from-ics arg1)
-		       (translate-from-ics arg2))))
-
-(defun translate-compl-from-ics (trm)
-  (assert (holds (ics_is_compl trm)))
-  (let* ((tag_trm (ics_d_inter trm))
-	 (tag (ics_fst tag_trm))
-	 (arg (ics_snd_of_triple tag_trm)))
-    (make!-application (set-operation-from-ics "complement" tag)     
-		       (translate-from-ics arg))))
-
-(defun translate-setite-from-ics (trm)
-  (assert (holds (ics_is_setite trm)))
-  (let* ((tag_trm3 (ics_d_inter trm))
-	 (tag (ics_fst_of_quadruple tag_trm3))
-	 (union (set-operation-from-ics "union" tag))
-	 (compl (set-operation-from-ics "complement" tag))
-	 (inter (set-operation-from-ics "inter" tag))
-	 (arg1 (translate-from-ics (ics_snd_of_quadruple tag_trm3)))
-	 (arg2 (translate-from-ics (ics_third_of_quadruple tag_trm3)))
-	 (arg3 (translate-from-ics (ics_fourth_of_quadruple tag_trm3))))
-    (make!-application union
-		       (make!-application inter arg1 arg2)
-		       (make!-application inter
-					  (make!-application compl arg1)
-					  arg3))))
-
-(defun translate-cnstrnt-from-ics (trm)
-  (assert (holds (ics_is_cnstrnt trm)))
-  (let* ((cnstrnt (ics_d_cnstrnt trm))
-	 (lst (ics_cnstrnt_to_list cnstrnt)))
-    (break)))
-    
-
-(defun translate-finite-from-ics (trm)
-  (assert (holds (ics_is_finite trm)))
-  (break))
-
-;; Translating bitvector terms
-
-(defun translate-bv-from-ics (trm)
-  (cond ((holds (ics_is_bv_const trm))        ;; bit vectors
-	 (translate-bitvector-const-from-ics trm))
-	((holds (ics_is_bv_conc trm))
-	 (translate-bitvector-conc-from-ics trm))
-	((holds (ics_is_bv_extr trm))
-	 (translate-bitvector-extr-from-ics trm))
-	(; (holds (ics_is_bv_ite trm))
-	 (translate-bitvector-ite-from-ics trm))))
-
-(defun translate-bitvector-const-from-ics (trm)
-  (assert (holds (ics_is_bv_const trm)))
-  (let* ((args (ics_d_bv_const trm))
-	 (size (ics_fst args))
-	 (const (ics_snd args))
-	 (ops (format nil "bv[~d].~a" size const)))
-    (pc-typecheck (pc-parse ops 'expr))))
-
-(defun translate-bitvector-conc-from-ics (trm)
-  (assert (holds (ics_is_bv_conc trm)))
-  (break))
-
-(defun translate-bitvector-extr-from-ics (trm)
-  (assert (holds (ics_is_bv_extr trm)))
-  (break))
-
-(defun translate-bitvector-bvite-from-ics (trm)
-  (assert (holds (ics_is_bv_ite trm)))
-  (break))
+  (with-ics-triple (index length arg) (ics_d_proj trm)
+    (make!-projection-application index (translate-from-ics* arg))))
 
 ;; Translating fresh variables
 
-(defun translate-fresh-from-ics (trm)
+(defun translate-fresh-from-ics* (trm)
   (assert (holds (ics_is_fresh trm)))
-  (let* ((str (ics_d_var trm))
-	 (id (intern str))
-	 (type (type-of-fresh trm))
-	 (const (mk-new-const id type))
-	 (ptr (wrap trm)))
-    (excl:schedule-finalization ptr 'ics-deregister-pointer)
-    (setf (gethash (ics_tag (unwrap ptr)) *ics-to-pvs-hash*) const)
-    (setf (gethash const *pvs-to-ics-hash*) ptr)
-    const))
+  (with-ics-pair (str dom) (ics_d_fresh trm)
+    (let* ((id (intern str))
+	   (type (type-from-domain dom))
+	   (bndng (mk-bind-decl id type type))
+	   (expr (mk-name-expr id nil nil
+			       (make-resolution bd nil type)))
+	   (ptr (term-wrap trm)))
+      (wrap-finalize! ptr)
+      (setf (gethash (ics_term_tag trm) *ics-to-pvs-hash*) expr)
+      (setf (gethash expr *pvs-to-ics-hash*) ptr)
+      expr)))
 
-(defun type-of-fresh (trm)   ;; for now...
-  *integer*)
+(defun type-from-domain (dom)
+  (cond ((holds (ics_is_intdom dom))
+	 *integer*)
+	((holds (ics_is_booldom dom))
+	 *bool*)
+	((holds (ics_is_ratdom dom))  ; ICS does not distinguish between rationals and reals
+	 *real*)))
 
-(defun mk-new-const (id type)
-  "Generating a fresh constant and adding it to the current context"
-  (let ((fresh-id (new-sko-symbol id *current-context*)))
-    (makeskoconst fresh-id type *current-context*)))
+
+;; Translating constraints
+
+(defun translate-cnstrnt-from-ics* (cnstrnt trm)
+  (let ((expr (translate-from-ics* trm)))
+    (assert (typep expr 'expr))
+    (cond ((holds (ics_cnstrnt_is_bot cnstrnt))
+	   *false*)
+	  ((holds (ics_cnstrnt_is_top cnstrnt))
+	   *true*)
+	  ((holds (ics_cnstrnt_is_singleton cnstrnt))
+	   (let ((q (ics_cnstrnt_d_singleton cnstrnt)))
+	     (make!-equation expr (translate-q-from-ics* q))))
+	  ((holds (ics_cnstrnt_is_boolean cnstrnt))
+	   (if (subtype? (type expr) *boolean*) *true* *false*))
+	  ((holds (ics_cnstrnt_is_tuple cnstrnt))
+	   (break))
+	  ((holds (ics_cnstrnt_is_arith cnstrnt))
+	   (let ((intervals (lisp-list-of-ics-list (ics_cnstrnt_d_arith cnstrnt))))
+	     (make!-disjunction*
+	      (mapcar #'(lambda (interval)
+			  (translate-interval-from-ics interval trm))
+		      intervals)))))))
+
+(defun lisp-list-of-ics-list (l)
+  (if (ics_is_nil l) nil
+    (cons (ics_hd l) (lisp-list-of-ics-list (ics_tl l)))))
+
+(defun translate-interval-from-ics (interval trm)
+  (declare (special *true*))
+  (let ((expr (translate-from-ics* trm)))
+    (with-ics-interval (domain lowkind lowval highval highkind) interval
+       (let ((pred (make-domain-cnstrnt expr))
+	     (ineq (cond ((and (eql lowval :neginf)
+			       (eql highval :posinf))
+			  *true*)
+			 ((eql lowval :neginf)
+			  (make-less-ineq expr highval highkind))
+			 ((eql highval :posinf)
+			  (make-greater-ineq expr lowval lowkind))
+			 (t
+			  (make!-conjunction
+			     (make-less-ineq expr highval highkind)
+			     (make-greater-ineq expr lowval lowkind))))))
+	 (cond ((tc-eq pred *true*)
+		ineq)
+	       ((tc-eq pred *false*)
+		*false*)
+	       ((tc-eq ineq *true*)
+		pred)
+	       (t
+		(make!-conjunction pred ineq)))))))
+
+(defun make-less-ineq (expr highval kind)
+  (let ((bound (translate-q-from-ics highval)))
+    (cond ((eql highkind :closed)
+	   (make-lesseq expr bound))
+	  ((eql highkind :open)
+	   (make-less expr bound)))))
+
+(defun make-greater-ineq (expr lowval kind)
+  (let ((bound (translate-q-from-ics lowval)))
+    (cond ((eql lowkind :closed)
+	   (make-greatereq expr bound))
+	  ((eql lowkind :open)
+	   (make-greater expr bound)))))
+
+(defun make-domain-cnstrnt (dom expr)
+  (declare (special *true*))
+  (cond ((eql dom :integer)
+	 (if (integer? expr) *true*
+	   (make-integer_pred expr)))
+	((eql dom :nonintreal)
+	 (make!-conjunction
+	  (make-real_pred expr)     
+	  (make!-negation
+	   (make-integer_pred expr))))
+	((eql dom :real)
+	 (if (real? expr) *true*
+	   (make-real_pred expr)))))
+
+

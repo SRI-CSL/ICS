@@ -23,12 +23,15 @@ val sigma : Ics.term -> unit
 
    (*s Solves equation on terms. *)
     
-val solve : Ics.term option -> Ics.term * Ics.term -> unit
+val solve : Ics.theories -> Ics.term * Ics.term -> unit
 
-    (*s Get solution for an uninterpreted term. *)
+    (*s Get solution for uninterpreted terms. *)
 
-val solution : Ics.term -> unit
-    
+val solution : Ics.term list -> unit
+
+ (*s Get witnesses for an uninterpreted terms. *)
+
+val witness : Ics.term list -> unit
 
    (*s Asserts argument term to the current context.
      There are three different outcomes. In case, <term> is found to be implied
@@ -37,11 +40,23 @@ val solution : Ics.term -> unit
      the current context. *)
     
 val process : Ics.term -> unit
+
+    (*s Display state. *)
+
+val show : unit -> unit
+
+    (*s Checks if the current state is known to be inconsistent. *)
+
+val inconsistent : unit -> unit
     
     (*s Reset to empty context, flashed various hash tables and reinitializes counters
       used by ICS. *)
     
 val reset : unit -> unit
+
+    (*s Undo previous changes. *)
+    
+val undo : int option -> unit
     
     (*s Drop into Caml if run on bytecode (back with Main.repl ();;) *)
     
@@ -62,18 +77,7 @@ val curr : unit -> unit
     (*s Canonical representative of the equivalence class of argument term as stored in the context.
         If argument term is omitted, the complete find structure is displayed *)
     
-val find : Ics.term option -> unit
-
-    (*s Displays the canonical representatives in which
-      <term> occurs interpreted. If <term> is omitted, the complete use structure
-      is displayed. *)
-    
-val use : Ics.term option -> unit
-
-   (*s Prints equivalence class of <term> without <term> itself.
-     If <term> is omitted, extensions of all canonical forms are displayed. *)
-    
-val ext : Ics.term option -> unit
+val find : Ics.theories -> Ics.term option -> unit
 
     (*s Display the logical context; not necessarily in canonized form. *)
     
@@ -83,17 +87,32 @@ val ctxt : unit -> unit
        If <term> is omitted, then the constraints for all canonical representatives
        are displayed. *)
     
-val cnstrnt: Ics.term option -> unit
-val uninterp : Ics.term option -> unit
+val cnstrnt: Ics.term -> unit
 
     (*s Computes canonical representative of argument using context information. *)
     
 val can : Ics.term -> unit
 
+    (*s Normalize a term. *)
 
-    (*s Simplifies all interpreted terms, and replaces uninterpreted terms with
-      their finds. *)
 val norm : Ics.term -> unit
+
+    (*s Display use list. *)
+
+val use: Ics.theories -> Ics.term option -> unit
+
+    (*s Display set of equivalent terms. *)
+
+val ext: Ics.term -> unit
+
+    (*s Display disequality sets. *)
+
+val diseqs: Ics.term option -> unit
+
+    (*s Completion based on Groebner basis computation. *)
+
+val groebner: unit -> unit
+
 
     (*s Check if argument term holds or is unsatisfiable in current context.
         Prints 'Valid.' if argument is redundant, 'Inconsistent.' if it is inconsistent,
