@@ -881,7 +881,7 @@ val prop_mk_neg : prop -> prop
 
 type assignment
 
-val sat : context -> prop -> assignment option
+val prop_sat : context -> prop -> assignment option
 
 (*
 val prop_is_true : prop -> bool

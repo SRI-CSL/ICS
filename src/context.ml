@@ -500,7 +500,7 @@ module Abstract = struct
 	  let j = Th.of_sym f in
 	  let (s', al') = args j (s, al) in
 	  let a' = if Term.eql al al' then a else Th.sigma f al' in
-	    if i = u || i = arr || i <> j then
+	    if not(Th.is_fully_interp i) || i <> j then
 	      try
 		let x' = inv j s' a' in
 		  (s', v s' x')
@@ -584,7 +584,7 @@ and nonlin_equal e s =
 	   let a = apply Th.pprod s x in
 	   let b = Sig.map (find Th.la s) a in
 	     if Term.eq a b then s else 
-	       let (s', b') = Abstract.term u (s, b) in
+	       let (s', b') = Abstract.term Th.u (s, b) in
 	       let e' = Fact.mk_equal (v s' x) b' None in
 		 merge_v e' s'
 	 with
@@ -743,7 +743,7 @@ and add c s =
       | Sign.Nonpos -> (Arith.mk_neg a, Sign.Nonneg)
       | _ -> (a, i)
     in
-      (lookup s a', i')       (* ??? *)
+      (can s a', i')       (* ??? *)
   in
   let (a, i, prf) = Fact.d_cnstrnt c in
     match i with

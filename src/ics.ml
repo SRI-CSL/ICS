@@ -621,11 +621,11 @@ let _ = Callback.register "prop_d_neg" prop_d_neg
 
 type assignment = Prop.Assignment.t
 
-let sat s p =
+let prop_sat s p =
   match Prop.sat s p with
     | None -> None
     | Some(rho, _) -> Some(rho)
-let _ = Callback.register "sat" sat
+let _ = Callback.register "prop_sat" prop_sat
 
 
 (** Nonlinear terms. *)
