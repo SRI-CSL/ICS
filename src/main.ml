@@ -28,7 +28,8 @@ let end_of_transmission = ref ""
 let disable_compactify_flag = ref false
 let maxloops_flag = ref !Context.maxclose
 let portnum_flag = ref None
-     
+
+
 (** {6 Interactive toplevel} *)
 
 let rec repl inch =
@@ -117,6 +118,18 @@ let args () =
 	"Upper bound on loops";
         "-server", Arg.Int (fun portnum -> portnum_flag := Some(portnum)), 
 	"Run in server mode";
+	"-verbose", Arg.Unit (fun () -> Prop.set_verbose true),
+        "Verbose flag for SAT solver";
+	"-remove_subsumed_clauses", Arg.Unit(fun () -> Prop.set_remove_subsumed_clauses true),
+        "Removing subsumed clauses in SAT solver";
+	"-validate_counter_example", Arg.Unit(fun () -> Prop.set_validate_counter_example true),
+        "Check Boolean part of counterexample (for debugging)";
+	"-polarity_optimization", Arg.Unit(fun () -> Prop.set_polarity_optimization true),
+        "Optimizations for SAT solver based on polarities";
+	"-clause_relevance", Arg.Int(Prop.set_clause_relevance),
+        "Deletion of conflict clauses (default 50) in SAT";
+        "-cleanup_period", Arg.Int(Prop.set_cleanup_period),
+        "Garbage collection for SAT after number of conflicts (default 2000)"
       ]
       (fun f -> files := f :: !files)
       "usage: ics [-h] [-timings] [-prompt] [-pp] [-usage] [-eot <string>] [-server <portnum>] [files]";
