@@ -250,6 +250,7 @@ ics_stub.c ics.h ics.lisp: ics.ml ics.mli ../../chameleon/$(ARCH)/chameleon
 $(OBJDIR)/icsversion.o: $(OBJDIR)/icsversion.c
 	$(CC) -c -DBUILDDATE='"$(shell date)"' \
                -DVERSION='"$(VERSION)"' \
+               -DARCHITECTURE='"$(ARCH)"' \
                -DDEBUG=$(DEBUG) \
                -DCOMPILATION_FLAGS='"$(OFLAGS)"'  \
                $(CPPFLAGS) -I $(OCAMLSTDLIB) -o $@  $<
