@@ -17,7 +17,6 @@
 (*i*)
 open Sym
 open Term
-open Hashcons
 open Format
 open Mpa
 (*i*)
@@ -25,27 +24,35 @@ open Mpa
 let width a =
   Sym.width (Term.sym_of a)
 
-let is_interp a =
-  match a.node with
-    | App({node=Interp(Bv(_))},_) -> true
+let is_bvsym f =
+  match Sym.destruct f with
+    | Sym.Interp(Sym.Bv _) -> true
     | _ -> false
 
-let d_interp a =
-  match a.node with
-    | App({node=Interp(Bv(op))},l) -> Some(op,l)
+let d_bvsym f =
+  match Sym.destruct f with
+    | Sym.Interp(Sym.Bv(op)) -> Some(op)
     | _ -> None
 
 
+let is_interp a =
+  is_bvsym (Term.sym_of a)
+
+let d_interp a =
+  match d_bvsym (Term.sym_of a) with
+    | Some(op) -> Some(op, Term.args_of a)
+    | _ -> None
+
 let iter f a =
-  match a.node with
-    | App({node=Interp(Bv(op))},l) ->
+  match d_interp a with
+    | Some(op,l) ->
 	(match op, l with
 	   | Sym.Const(_), [] -> ()
 	   | Sym.Sub(_,_,_), [x] -> iter f x
 	   | Sym.Conc(n,m), [x;y] -> iter f x; iter f y
 	   | Sym.Bitwise(n), [x;y;z] -> iter f x; iter f y; iter f z
 	   | _ -> failwith "Bv.iter: ill-formed expression")
-    | _ -> f a
+    | None -> f a
 
 (* Term constructors *)
 
@@ -57,8 +64,8 @@ let mk_eps =
   mk_const(Bitv.from_string "")
 
 let is_eps a =
-  match a.node with
-    | App({node=Interp(Bv(Const b))},_) -> Bitv.length b = 0
+  match d_interp a with
+    | Some(Const b, []) -> Bitv.length b = 0
     | _ -> false
 
 let mk_zero n = 
@@ -66,43 +73,43 @@ let mk_zero n =
   mk_const(Bitv.create n false)
 
 let is_zero a =
-  match a.node with
-    | App({node=Interp(Bv(Const b))},_) -> Bitv.all_zeros b
+  match d_interp a with
+    | Some(Const b, []) -> Bitv.all_zeros b
     | _ -> false
 
 let mk_one n =
   mk_const(Bitv.create n true)
 
 let is_one a =
-  match a.node with
-    | App({node=Interp(Bv(Const b))},_) -> Bitv.all_ones b
+  match d_interp a with
+    | Some(Const b, []) -> Bitv.all_ones b
     | _ -> false
 
 let is_bitwise a =
-  match a.node with
-    | App({node=Interp(Bv(Bitwise _))},[_;_;_]) -> true
+  match d_interp a with
+    | Some(Bitwise _, [_;_;_]) -> true
     | _ -> false
 
 let d_bitwise a =
-  match a.node with
-    | App({node=Interp(Bv(Bitwise(n)))},[x;y;z]) ->
+  match d_interp a with
+    | Some(Bitwise(n),[x;y;z]) ->
 	Some(n,x,y,z)
     | _ -> 
 	None
 
 let d_conc a = 
-  match a.node with
-    | App({node=Interp(Bv(Conc(n,m)))},[x;y]) -> Some(n,m,x,y)
+  match d_interp a with
+    | Some(Conc(n,m), [x;y]) -> Some(n,m,x,y)
     | _ -> None
 
 let d_const a = 
-  match a.node with
-    | App({node=Interp(Bv(Const(c)))},[]) -> Some(c)
+  match d_interp a with
+    | Some(Const(c), []) -> Some(c)
     | _ -> None
 
 let d_sub a = 
-  match a.node with
-    | App({node=Interp(Bv(Sub(n,i,j)))},[x]) -> Some(n,i,j,x)
+  match d_interp a with
+    | Some(Sub(n,i,j),[x]) -> Some(n,i,j,x)
     | _ -> None
 
 
@@ -112,9 +119,12 @@ let is_bvbdd a =
   is_zero a || is_one a || is_bitwise a
 
 let cofactors x a =
-  match a.node with
-    | App({node=Interp(Bv(Bitwise _))},[y;pos;neg]) when x === y -> (pos,neg)
-    | _ -> (a,a)
+  match d_interp a with
+    | Some(Bitwise _, [y;pos;neg]) 
+	when Term.eq x y -> 
+	  (pos,neg)
+    | _ -> 
+	(a,a)
    
 let topvar x s2 s3 =
   let max x y = if (x <<< y) then y else x in
@@ -127,8 +137,10 @@ let topvar x s2 s3 =
 module H3 = Hasht.Make(
   struct
     type t = Term.t * Term.t * Term.t
-    let equal (a1,a2,a3) (b1,b2,b3) = a1 === b1 && a2 === b2 && a3 === b3
-    let hash (b1,b2,b3) = b1.tag + b2.tag + b3.tag
+    let equal (a1,a2,a3) (b1,b2,b3) = 
+      Term.eq a1 b1 && Term.eq a2 b2 && Term.eq a3 b3
+    let hash (b1,b2,b3) = 
+      b1.Hashcons.tag + b2.Hashcons.tag + b3.Hashcons.tag
   end)
  
 let ht = H3.create 17
@@ -141,7 +153,7 @@ let rec build n s3 =
     H3.add ht s3 b; b 
 
 and build_fun n (s1,s2,s3) =
-  if s2 === s3 then s2
+  if Term.eq s2 s3 then s2
   else if is_one s2 && is_zero s3 then s1
   else if is_one s1 then s2
   else if is_zero s1 then s3
@@ -153,14 +165,14 @@ and build_fun n (s1,s2,s3) =
 	let (pos3,neg3) = cofactors x s3 in
 	let pos = build n (pos1,pos2,pos3) in
 	let neg = build n (neg1,neg2,neg3) in
-	if pos === neg then pos else Term.make(Sym.mk_bv_bitwise n, [x;pos;neg])
+	if Term.eq pos neg then pos else Term.make(Sym.mk_bv_bitwise n, [x;pos;neg])
     | None ->
-	assert false
+	Term.make(Sym.mk_bv_bitwise n, [s1;s2;s3])
 
 (*s Term constructors. *)
 
 let rec mk_sub n i j a =
-  assert (0 <= i && j < n);
+  assert (0 <= i && j < n && n >= 0);
   if i = 0 && j = n-1 then 
     a 
   else if j < i then
@@ -176,10 +188,11 @@ let rec mk_sub n i j a =
 	    mk_sub n i j x
 	  else if n <= i then
 	    mk_sub m (i-n) (j-n) y
-	  else (* i < n && n <= j *)
+	  else 
+	    (assert(i < n && n <= j);
             let t = mk_sub n i (n-1) x in
 	    let u = mk_sub m 0 (j-n) y in
-	    mk_conc (n-i) (j-n+1) t u
+	    mk_conc (n-i) (j-n+1) t u)
       | Some(Sym.Bitwise(n), [x;y;z]) ->
 	  mk_bitwise (j-i+1) (mk_sub n i j x) (mk_sub n i j y) (mk_sub n i j z) 
       | None ->
@@ -205,7 +218,7 @@ and merge n m a b =
     | Some(Const(c),[]), Some(Const(d),[]) -> 
 	Some(mk_const (Bitv.append c d))
     | Some(Sub(n,i,j),[x]), Some(Sub(m,j',k), [y])
-	when j' = j + 1 && x === y ->
+	when j' = j + 1 && Term.eq x y ->
 	  assert(n = m);
 	  Some(mk_sub n i k x)
     | Some(Bitwise(n1),[x1;y1;z1]), Some(Bitwise(n2),[x2;y2;z2]) ->
@@ -217,7 +230,7 @@ and merge n m a b =
 		  | Some(y) ->
 		      (match merge n1 n2 z1 z2 with
 			 | None -> None
-			 | Some(z) -> Some(mk_bitwise (n1 + n2) x y z))))
+			 | Some(z) -> Some(mk_bitwise (n1+n2) x y z))))
     | _ -> 
 	None
  
@@ -301,16 +314,16 @@ let norm f =
 
 let rec occurs a b =
   let rec loop x =
-    (x === a)
-    || (match x.node with
-	  | App({node=Interp(Bv(op))},l) ->
+    (Term.eq x a)
+    || (match d_interp x with
+	  | Some(op,l) ->
 	      (match op, l with
 		 | Sym.Const(_), [] -> false
 		 | Sym.Sub _, [x] -> loop x
 		 | Sym.Conc(n,m), [x;y] -> (loop x) || (loop y)
 		 | Sym.Bitwise(n), [x;y;z] -> (loop x) || (loop y) || (loop z)
 		 | _ ->  failwith "Bv.map: ill-formed expression")
-	  | _ -> false)
+	  | None -> false)
   in
   loop b
 
@@ -327,8 +340,10 @@ let sigma op l =
  
 (* n-ary concatenation of some concatenation normal form *)
 
-let rec mk_iterate n b k = 
-  if k = 0 then mk_eps else mk_conc n (n * (k-1)) b (mk_iterate n b (k-1))
+let rec mk_iterate n b = function
+  | 0 -> mk_eps 
+  | 1 -> b
+  | k -> mk_conc n (n * (k-1)) b (mk_iterate n b (k-1))
 
 (*s Creating fresh bitvector variables. *)
 
@@ -336,11 +351,15 @@ let fresh = ref Ptset.empty
 let _ = Tools.add_at_reset (fun () -> fresh := Ptset.empty)
 
 let mk_fresh n =
-  let sgn = Arity.mk_constant (Type.mk_bitvector (Some(n))) in 
-  let f = Sym.mk_fresh ("b",sgn) in
-  let a = Term.make(f,[]) in
-  fresh := Ptset.add a !fresh;
-  a
+  assert (n >= 0);
+  if n = 0 then 
+    mk_eps 
+  else 
+    let sgn = Type.mk_bitvector n in 
+    let f = Sym.mk_fresh ("b",sgn) in
+    let a = Term.make(f,[]) in
+    fresh := Ptset.add a !fresh;
+    a
 
 let is_fresh a =
   Ptset.mem a !fresh
@@ -351,7 +370,7 @@ let is_fresh a =
 let decompose e =
   let rec loop acc = function
     | [] -> acc
-    | (a,b) :: el when a === b ->
+    | (a,b) :: el when Term.eq a b ->
 	loop acc el
     | (a,b) :: el -> 
 	let (acc',el') = 
@@ -389,6 +408,7 @@ let decompose e =
  [ite(x,p,n) = (p or n) and exists delta. x = (p and (n => delta))] *)
 
 and solve_bitwise n (a,b) =
+  assert(n >= 0);
   let s = mk_bwiff n a b in
   let rec triangular_solve s e =
     match d_bitwise s with
@@ -427,7 +447,7 @@ and solve_bitwise n (a,b) =
 
 let rec add a b (el,sl) =
   assert(not(is_interp a));
-  if a === b then 
+  if Term.eq a b then 
     (el,sl)
   else if inconsistent a b then
     raise Exc.Inconsistent
@@ -457,7 +477,7 @@ and inconsistent a b =
     | _ -> false
 
 and apply1 a x b =      (* substitute [x] by [b] in [a]. *)
-  norm (fun y -> if x === y then b else y) a
+  norm (fun y -> if Term.eq x y then b else y) a
 
 
 (*s Toplevel solver. *)
@@ -468,7 +488,7 @@ let rec solve e =
 and solvel (el,sl) =
   match el with
     | [] -> sl
-    | (a,b) :: el when a === b ->
+    | (a,b) :: el when Term.eq a b ->
 	solvel (el,sl)
     | (a,b) :: el ->
 	(match d_interp a, d_interp b  with   
@@ -488,14 +508,19 @@ and solvel (el,sl) =
 		 solvel (el,sl)
 	       else 
 		 raise Exc.Inconsistent
-	   | Some(Sub(n,i,j),[x]), Some(Sub(m,k,l),[y]) when x === y ->
+	   | Some(Sub(n,i,j),[x]), Some(Sub(m,k,l),[y]) when Term.eq x y ->
+	       assert(n = m);
 	       let (x,b) = solve_sub_sub x n i j k l in
 	       solvel (add x b (el,sl))
 	   | Some(Sub(n,i,j),[x]), _ ->
+	       assert(n-j-1 >= 0);
+	       assert(i >= 0);
 	       let b' = mk_conc3 i (j-i+1) (n-j-1) 
 			  (mk_fresh i) b (mk_fresh (n-j-1)) in
 	       solvel (add x b' (el,sl))
-	   | _, Some(Sub(n,i,j), [x]) ->
+	   | _, Some(Sub(n,i,j), [x]) -> 
+               assert(n-j-1 >= 0); 
+	       assert(i >= 0);
 	       let b' = mk_conc3 i (j-i+1) (n-j-1) (mk_fresh i) 
 			  b (mk_fresh (n-j-1)) in
 	       solvel (add x b' (el,sl))
@@ -504,7 +529,7 @@ and solvel (el,sl) =
 	       solvel (add a b (el,sl)))
 
 and solve_sub_sub x n i j k l =
-  assert (i < k && j-i = l-k);
+  assert (n >= 0 && i < k && j-i = l-k);
   let lhs = 
     mk_sub n i l x 
   in
@@ -513,12 +538,12 @@ and solve_sub_sub x n i j k l =
       let a = mk_fresh (k-i) in
       mk_iterate (k-i) a ((l-i+1)/(k-i))
     else
-      let na = (l-i+1) mod (k-i) in
-      let nb = (i-l-1) mod (k-i) in
-      let a = mk_fresh na in
-      let b = mk_fresh nb in
-      let nc = (l-i+1) / (k-i) in
-      let c = mk_iterate (na + nb) (mk_conc nb na b a) nc in
-      mk_conc na (nc * (nb + na)) a c
+      let h = (l-i+1) mod (k-i) in
+      let h' = k-i-h in
+      let a = mk_fresh h in
+      let b = mk_fresh h' in
+      let nc = (l-i-h+1)/(k-i) in
+      let c = mk_iterate (h + h') (mk_conc h' h b a) nc in
+      mk_conc h (nc * (h' + h)) a c
   in
   (lhs, rhs)
