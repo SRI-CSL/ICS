@@ -19,47 +19,44 @@
  a numerical constraint. *)
   
 type t
-  
 
-(*s [empty] is the empty logical context. *)
-  
+(*s [mem x s] tests if there are conditions associated with variable [x]. *)
+
+val mem : Term.t -> t -> bool
+
+(*s Constraint context as a list. *)
+
+val to_list : t -> (Term.t * Cnstrnt.t) list
+
+(*s Accessors. *)
+
+val cnstrnt : Term.t -> t -> Cnstrnt.t option
+
+(*s Pretty-printing. *)
+
+val pp : t Pretty.printer
+
+
+(*s Empty constraint map. *)
+
 val empty : t
 
-(*s Pretty-print. *)
 
-val pp : Format.formatter -> t -> unit
+(*s Test for emptyness. *)
 
-
-(*s [cnstrnt_of s] returns a finite map of bindings [x |-> c]
- from the representation [s]. *)
-
-val cnstrnt_of : t -> Number.t Term.Map.t
+val is_empty : t -> bool
 
 
-(*s [apply s a] returns [c] if there is a binding [a |-> c];
- otherwise [apply s a] raises [Not_found]. *)
+(*s Extend domain of constraint table. *)
 
-val apply : t -> Term.t -> Number.t
-
-
-(*s Propagating variable equalities [a = b] to the constraint
- database. Constraints for [a] are deleted in favor of
- those for [b].  As a side effect, newly generated 
- equalities may be pushed on the pending stack of goals,
- and the exception [Exc.Inconsistent] is raised if the
- interpretation domain of [b] becomes empty. *)
-
-val merge : Term.t * Term.t -> t -> (t * Atom.t list)
+val extend : Term.t * Cnstrnt.t -> t -> t
 
 
-(*s Merging a new constraint [a in c] into the constraint
- database. Raises [Exc.Inconsistent] if the interpretation
- domain of [a] becomes empty, and newly generated equalities
- are pushed on the pending stack of goals. *)
+(*s Restricting domain of constraint table. *)
 
-val add : Number.t -> Term.t -> t -> (t * Atom.t list)
+val restrict : Term.t -> t -> t
 
 
-(*s Replace all [x |-> c] with [y |-> c] where [y] is [find x]. *)
+(*s [add (a,c) s] adds a constraint [a in c] to [s]. *)
 
-val inst : (Term.t -> Term.t) -> t -> t
+val add : Term.t * Cnstrnt.t -> t -> t * (Term.t * Term.t) list

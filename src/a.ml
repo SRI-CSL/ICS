@@ -28,7 +28,7 @@ let is_slack x = Term.Set.mem x !slacks
 let mk_slack = 
   let slackname = Name.of_string "k" in
   fun () -> 
-    let k = Term.mk_fresh slackname in
+    let k = Term.mk_fresh slackname None in
     slacks := Term.Set.add k !slacks;
     k
 
@@ -69,22 +69,21 @@ let pp fmt s =
     begin
       Pretty.string fmt "a:";
       A.pp fmt s.a;
-      Pretty.string fmt "\n";
-    end;
-  if not(C.is_empty s.c) then
-    begin
-      Pretty.string fmt "c:"; 
-      C.pp fmt s.c;
-      Pretty.string fmt "\n"
+      if not(C.is_empty s.c) then
+	begin
+	  Pretty.string fmt " with "; 
+	  C.pp fmt s.c;
+	  Pretty.string fmt "\n"
+	end 
+      else 
+	Pretty.string fmt "\n"
     end
-  
 
 
 
 (*s Accessors. *)
 
 let solution_of s = A.solution s.a
-let cnstrnt_of s = C.cnstrnts s.c
 
 let apply s = A.apply s.a
 let find s = A.find s.a
@@ -100,70 +99,133 @@ let cnstrnt s a =
     | Some(Sym.Add, l) -> Cnstrnt.addl (List.map loop l)
     | Some(Sym.Expt(n), [x]) -> Cnstrnt.expt n (loop x)
     | _ ->
-	(match C.cnstrnt_of a s.c with
+	(match C.cnstrnt a s.c with
 	   | Some(c) -> c
-	   | None -> loop (apply s a))      (* might raise [Not_found] *)
+	   | None -> loop (A.apply s.a a))      (* might raise [Not_found] *)
   in
   try
-    Some(loop a) 
+    Some(loop a)
   with 
       Not_found -> None
 
 
+(*s Extend the domain of equality map. *)
+
+let extend b s = 
+  Trace.call 6 "Extend(a)" b Term.pp;
+  let (x,a') = A.extend b s.a in 
+  Trace.exit 6 "Extend(a)" x Term.pp;
+  let s' = {s with a = a'} in
+  (x, s')
+
+
 (*s Adding a new equality between variables and infer new facts. *)
 
-let merge1 e s =
-  let (x,y) = Veq.destruct e in
-  if A.occurs s.a x then
-    let sl = Arith.solve (A.norm s.a x, A.norm s.a y) in
-    let (a', es', is') = A.compose s.a sl in
-    let (es'', c'') = C.merge is' s.c in
-    ({s with a = a'; c = c''}, Veqs.union es' es'')
-  else
-    (s, Veqs.empty)
-
-let rec mergel es s acc =
-  if Veqs.is_empty es then
-    (s, acc)
-  else 
-    let (e,es') = Veqs.destruct es in
-    let (s',new') = merge1 e s in
-    let acc' = Veqs.union acc new' in
-    mergel es' s' acc'
-
-let merge e s =
+let rec merge e s =
   Trace.call 6 "Merge(a)" e Veq.pp;
   let (s', es') = merge1 e s in
   Trace.exit 6 "Merge(a)" es' Veqs.pp;
   (s', es')
 
+and merge1 e s =
+  let not_is_slack x = not (is_slack x) in
+  let (x,y) = Veq.destruct e in
+  if not (A.occurs s.a x) then
+    (s, Veqs.empty)
+  else 
+    let a = A.norm s.a x and b = A.norm s.a y in
+    try
+      match Arith.solve not_is_slack (a,b) with
+	| None -> (s, Veqs.empty)
+	| Some(x, b) ->
+	    assert(not_is_slack x);
+	    let (a',veqs') = A.compose s.a [(x,b)] in
+	    ({s with a = a'}, Veqs.remove e veqs')
+    with
+	Exc.Unsolved ->
+	  Trace.exit 7 "Solve(a)" "Unsolved for nonslack" Pretty.string;
+	  try
+	  match Arith.solve is_slack (a,b) with
+	    | None -> 
+		(s, Veqs.empty)
+	    | Some(k, b) ->
+		let (s',veqs') = propagate s (k, b) in
+		let s'' = remove s' k in
+		let veqs'' = Veqs.remove e veqs' in
+		(s'', veqs'')
+	  with
+	      Exc.Unsolved ->
+		Trace.exit 7 "Solve(a)" "Unsolved for slack" Pretty.string;
+		(s, Veqs.empty)
 
-(*s Extend the domain of equality map. *)
+and propagate s (k, b) = 
+  assert(is_slack k);
+  match cnstrnt s k, cnstrnt s b with
+    | Some(ck), Some(cb) ->
+	(match Cnstrnt.cmp ck cb with
+	   | Binrel.Disjoint ->
+	       raise Exc.Inconsistent
+	   | (Binrel.Super | Binrel.Same) ->
+	       let (a', veqs') = A.propagate s.a [(k,b)] in
+	       let s' = {s with a = a'} in
+	       (s', veqs')
+	   | Binrel.Sub ->
+	       propagate_overlap s (k,b) ck
+	   | Binrel.Singleton(q) ->
+	       let (a', veqs') = A.propagate s.a [k, Arith.mk_num q] in
+	       let s' = {s with a = a'} in
+	       (s', veqs')
+	   | Binrel.Overlap(ckb) ->
+	       propagate_overlap s (k,b) ckb)
+    | None, Some(cb) ->
+	assert false
+    | Some(ck), None ->
+	assert false
+    | None, None ->
+	(s, Veqs.empty)
 
-let extend b s =
-  Trace.msg 6 "Extend(a)" b Term.pp;
-  let (x,a') = A.extend b s.a in
-  (x, {s with a = a'})
+and propagate_overlap s (k,b) c  =
+ let (b, c) = normalize (b, c) in
+ let (c', seqs') = C.add (b, c) s.c in
+ let (a', veqs') = A.propagate s.a ((k,b) :: seqs') in
+ let s' = {s with a = a'; c = c'} in
+ (s', veqs')
 
+and normalize (a,c) =
+  match Arith.decompose a with
+    | (q, None) -> 
+	(a,c)
+    | (q, Some(p, a')) ->
+	let cq = Cnstrnt.mk_singleton (Mpa.Q.minus q) in
+	let c' = Cnstrnt.multq (Mpa.Q.inv p) (Cnstrnt.add c cq) in
+	(a',c')
+
+and remove s k =
+  assert(is_slack k);
+  if A.occurs s.a k then
+    s
+  else 
+    {s with c = C.restrict k s.c}
+    
 
 (*s Adding a constraint. *)
 
 let add (x,d) s =
-  assert(is_external x);
-  Trace.msg 6 "Add(a)" (x,d) (Pretty.infix Term.pp " in " Cnstrnt.pp);
+  assert(is_var x && is_external x);
+  Trace.msg 6 "Add(a)" (x,d) (Pretty.infix Term.pp "in" Cnstrnt.pp);
   if A.mem s.a x then
     let a = apply s x in
     if is_slack a then
-      let (veqs',c') = C.add (a, d) s.c in
-      mergel veqs' {s with c = c'} veqs'
+      let (c', seqs') = C.add (a,d) s.c in 
+      let (a', veqs') = A.propagate s.a seqs' in
+      ({s with c = c'; a = a'}, veqs')
     else 
-      failwith "add: to do"
+      let k = mk_slack () in
+      let c' = C.extend (k,d) s.c in    
+      merge1 (Veq.make k x) {s with c = c'}
   else     
     let k = mk_slack () in
-    let s' = {s with a = A.union x k s.a ;c = C.extend (k,d) s.c} in
-    (s', Veqs.empty)
-
-
-
-
+    let a' = A.union x k s.a in
+    let c' = C.extend (k,d) s.c in
+    ({a = a'; c = c'}, Veqs.empty)
 

@@ -44,7 +44,7 @@ val empty : t
 (*s [merge f (a,b) s] merges an equality [a = b] over uninterpreted 
   terms [a], [b] and calls [f] on each derived equality. *)
 
-val merge : Term.t * Term.t -> t -> t
+val merge : Veq.t -> t -> t
 
 (*s [add (a,b) s] disequality [a <> b] to the disequality context [s]. *)
 

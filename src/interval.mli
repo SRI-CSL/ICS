@@ -14,17 +14,9 @@
  * Author: Harald Ruess
 i*)
 
-(*s Module [Interval]: Real intervals with rational
- endpoints (including infinity). *)
+(*s Module [Interval]: Real intervals with rational endpoints (including infinity). *)
 
 type t
-
-type endpoint = Extq.t * bool
-
-val posinf : endpoint
-val neginf : endpoint
-val strict : Mpa.Q.t -> endpoint
-val nonstrict : Mpa.Q.t -> endpoint
 
 (* [make d (a,alpha) (b,beta)] constructs a general, interval 
    with rational endpoints [a] and [b] (including negative and positive
@@ -37,32 +29,37 @@ val nonstrict : Mpa.Q.t -> endpoint
    and [D(make d (a,false) (b,false))] denotes the open interval [{x in d | a < x < b}]. 
 *)
 
-val make : Dom.t -> endpoint -> endpoint -> t
+val make : Dom.t * Endpoint.t * Endpoint.t -> t
 
 (*s The accessor [destructure i] returns the endpoint information [(d,lo,hi)]
   for an interval [i] with denotation [D(make d lo hi)]. [lo i] returns
   the lower bound in the form [(a,alpha)] and [hi i] the upper bound in the form
   [(b, beta)]. *)
 
-val destructure : t -> endpoint * endpoint
+val destructure : t -> Dom.t * Endpoint.t * Endpoint.t
 
-val lo : t -> endpoint
-val hi : t -> endpoint
+val dom : t -> Dom.t
+val lo : t -> Endpoint.t
+val hi : t -> Endpoint.t
 
 (*s Derived constructors. *)
 
-
-val zero : t
-val empty : t 
-val full : t 
-val singleton : Mpa.Q.t -> t
+val mk_zero : t
+val mk_empty : t 
+val mk_real : t 
+val mk_int : t
+val mk_singleton : Mpa.Q.t -> t
 
 (*s [is_singleton i] returns the single value for an interval whose 
     denotation is a singleton set over the reals. *)
 
-val is_singleton : t -> Mpa.Q.t option
+val d_singleton : t -> Mpa.Q.t option
 val is_empty : t -> bool
 val is_full : t -> bool
+
+(*s [rational_endpoints i] returns the pair of rational endpoints. *)
+
+val rational_endpoints : t -> (Mpa.Q.t * Mpa.Q.t) option
 
 (*s [mem q i] tests if the rational [q] is a member of the interval [i]. *)
 
@@ -78,16 +75,10 @@ val eq: t -> t -> bool
   the denotation of [union i j] (resp. [inter i j]) is the union 
   (resp. intersection) of the denotations of [i] and [j]. *)
 
-val union : Dom.t -> t -> t -> t
+val union : t -> t -> t
 
-val inter : Dom.t -> t -> t -> t
+val inter : t -> t -> t
 
-type one_or_two =
-  | Empty
-  | One of t
-  | Two of t * t
-
-val compl : Dom.t -> t -> one_or_two
 
 (*s Interval arithmetic. Let [i], [j] be two intervals
     with denotations [D(i)] and [D(j)].  Then, 
@@ -97,12 +88,19 @@ val compl : Dom.t -> t -> one_or_two
     and [D(div i j)] consists of the set of rationals 
     $\{ z | \exists x \in D(i), y \in D(j) \mbox{~such that~} y /= 0,\,z = x / y\}$\@. *)
   
-val add : Dom.t -> t -> t -> t
-val multq :  Dom.t -> Mpa.Q.t -> t -> t
-val mult :  Dom.t -> t -> t -> t
-val div :   Dom.t -> t -> t -> t
+val add : t -> t -> t
+val multq :  Mpa.Q.t -> t -> t
+val mult :  t -> t -> t
+val expt : int -> t -> t
+val div :   t -> t -> t
 
-val cmp : t -> t -> Allen.t
+(*s Comparisons. *)
+
+val cmp : t -> t -> t Binrel.t
+
+val sub : t -> t -> bool
+
+val disjoint : t -> t -> bool
 
 (*s Printing an interval. *)
 

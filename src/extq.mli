@@ -39,6 +39,10 @@ val destruct : t -> extq
 val is_q: t -> bool
 val to_q : t -> Mpa.Q.t option
 
+val is_z: t -> bool
+val to_z : t -> Mpa.Z.t option
+
+
 (*s Test if argument is an integer. *)
 
 val is_int : t -> bool

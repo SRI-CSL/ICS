@@ -18,53 +18,34 @@ i*)
 open Term
 (*i*)
 
-type t = Supinf.t Term.Map.t
-
-
-(*s Pretty-printing. *)
-
-let pp fmt s = 
-  let bndngs = Term.Map.fold (fun x c acc -> (x,c) :: acc) s [] in
-  Pretty.map Term.pp Supinf.pp fmt bndngs
-
-let ppin =
-  Pretty.infix Term.pp " in " Cnstrnt.pp 
+type t = Cnstrnt.t Term.Map.t
 
 
 (*s Check if [x] is in the domain. *)
 
-let mem x s = Term.Map.mem x s
+let mem = Term.Map.mem
 
 
 (*s Constraints as a list. *)
 
-let cnstrnts s =
+let to_list s =
   Term.Map.fold (fun x c acc -> (x,c) :: acc) s []
-  
+
+
+(*s Pretty-printing. *)
+
+let rec pp fmt s = 
+  Pretty.list pp_in fmt (to_list s)
+
+and pp_in fmt =
+  Pretty.infix Term.pp "in" Cnstrnt.pp fmt
+
 
 (*s Accessors. *)
 
-let sup_of x s = 
+let cnstrnt x s =
   try 
-    (Term.Map.find x s).Supinf.sup 
-  with 
-      Not_found -> Term.Set.empty
-
-let inf_of x s = 
-  try 
-    (Term.Map.find x s).Supinf.inf 
-  with 
-      Not_found -> Term.Set.empty
-
-let diseqs_of x s =
-  try 
-    (Term.Map.find x s).Supinf.diseqs 
-  with 
-      Not_found -> Term.Set.empty
-
-let cnstrnt_of x s =
-  try 
-    Some((Term.Map.find x s).Supinf.cnstrnt) 
+    Some(Term.Map.find x s)
   with 
       Not_found -> None
 
@@ -73,76 +54,53 @@ let cnstrnt_of x s =
 
 let empty = Term.Map.empty
 
+
 (*s Test for emptyness. *)
 
-let is_empty s = (s == Term.Map.empty)
-
-(*s Adding a constraint. *)
-
-let rec add (a,c) s =
-  Trace.call 6 "Add(c)" (a,c) ppin;
-  if Term.is_var a then
-    addvar (a,c) s
-  else 
-    failwith "C.add: to do"
-
-and addvar (x,c) s =
-  assert(Term.is_var x);
-  try
-    let rho = Term.Map.find x s in
-    let d = rho.Supinf.cnstrnt in
-    match Cnstrnt.cmp c d with
-      | Binrel.Disjoint ->
-	  raise Exc.Inconsistent
-      | (Binrel.Super | Binrel.Same) ->
-	  (Veqs.empty, s)
-      | Binrel.Sub ->
-	  (Veqs.empty, failwith "C.addvar: to do")
-      | Binrel.Singleton(q) ->
-	  (Veqs.empty, failwith "C.addvar: to do")
-      | Binrel.Overlap ->
-	  (Veqs.empty, failwith "C.addvar: to do")
-  with
-      Not_found -> 
-	(Veqs.empty, Term.Map.add x (Supinf.of_cnstrnt c) s)
-  
-
-(*s Merging in an equality between variables. *)
-
-let rec merge1 (x,y) s =
-  try
-    let c = Term.Map.find x s in
-    try
-      let d = Term.Map.find y s in
-      let cd = Supinf.inter c d in
-      if Supinf.is_empty cd then
-	raise Exc.Inconsistent
-      else 
-	(Veqs.empty, Term.Map.add y cd (Term.Map.remove x s))
-    with
-	Not_found ->
-	  let c' = Supinf.inst x y c in
-	  (Veqs.empty, Term.Map.add y c' (Term.Map.remove x s))
-  with
-      Not_found ->
-	(Veqs.empty, s)
-
-
-(*s Iterating [merge1] on a set of variables equalities. *)
-
-and merge el s =
-  List.fold_right
-    (fun e (es,s) ->
-       let (es',s') = merge1 e s in
-       (Veqs.union es es', s'))
-    el
-    (Veqs.empty, s)
+let is_empty s = (s == empty)
 
 
 (*s Extend domain. *)
 
 let extend (x,c) s =
   assert(not(mem x s));
-  Trace.call 6 "Extend(c)" (x,c) ppin;
-  Term.Map.add x (Supinf.of_cnstrnt c) s
+  Trace.msg 6 "Extend(c)" (x,c) pp_in;
+  if Cnstrnt.is_empty c then
+    raise Exc.Inconsistent
+  else
+    Term.Map.add x c s
 
+
+(*s Restrict domain. *)
+
+let restrict x s =
+  Trace.msg 6 "Restrict(c)" x Term.pp;
+  Term.Map.remove x s
+
+
+(*s Adding a constraint. *)
+    
+let rec add (x,c) s =
+  Trace.msg 6 "Add(c)" (x,c) pp_in;
+  try
+    let d = Term.Map.find x s in
+    match Cnstrnt.cmp c d with
+      | Binrel.Disjoint ->
+	  raise Exc.Inconsistent
+      | (Binrel.Super | Binrel.Same) ->
+	  (s, [])
+      | Binrel.Sub ->
+	  (Term.Map.add x c s, [])
+      | Binrel.Singleton(q) ->
+	  (Term.Map.remove x s, [(x, Arith.mk_num q)])
+      | Binrel.Overlap(cd) ->
+	  (Term.Map.add x cd s, [])
+  with
+      Not_found -> 
+	if Cnstrnt.is_empty c then
+	  raise Exc.Inconsistent
+	else match Cnstrnt.d_singleton c with
+	  | Some(q) ->
+	      (Term.Map.remove x s, [(x, Arith.mk_num q)])
+	  | None ->
+	      (Term.Map.add x c s, [])

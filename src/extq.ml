@@ -55,6 +55,18 @@ let to_q x =
     | Inject q -> Some q
     | _ -> None
 
+let is_z x =
+  match x with
+    | Inject(q) when Mpa.Q.is_integer q -> true
+    | _ -> false
+
+let to_z x =
+  assert(is_z x);
+  match x with
+    | Inject(q) -> Some(Mpa.Q.to_z q)
+    | _ -> None
+
+
 let of_q = inject
 
 let pp fmt x =

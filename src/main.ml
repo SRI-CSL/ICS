@@ -29,13 +29,13 @@ let disable_prompt_flag = ref false
 let rec repl inch =
   usage ();
   let outch = Ics.stdout () in
-  Ics.istate_set_in_channel inch;
-  Ics.istate_set_out_channel outch;
+  Ics.cmd_set_in_channel inch;
+  Ics.cmd_set_out_channel outch;
   try
     while true do
       prompt outch;
-      Ics.istate_eval ();
-      Ics.istate_flush ();
+      Ics.cmd_eval ();
+      Ics.cmd_flush ();
     done
   with 
     | End_of_file -> exiting 0
@@ -53,7 +53,7 @@ and usage () =
 and exiting n = (*s Exiting the system (on Ctrl-C or Ctrl-D) *)
   if !stat_flag then 
     Ics.do_at_exit ();
-  Ics.istate_flush ();
+  Ics.cmd_flush ();
   exit n
 
 let args () =

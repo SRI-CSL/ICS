@@ -136,6 +136,16 @@ let d_singleton i =
 
 let is_zero i = (eq i mk_zero)
 
+(*s Return rational endpoints. *)
+
+let rational_endpoints i =
+  let (a,_) = Endpoint.destruct i.lo 
+  and (b,_) = Endpoint.destruct i.hi
+  in
+  match Extq.to_q a, Extq.to_q b with
+    | Some(q), Some(p) -> Some(q,p)
+    | _ -> None
+
 (*s Test if [q] is in the interval [i]. *)
 
 let mem q i =
@@ -425,7 +435,7 @@ let rec cmp i j =
     match Extq.cmp b c with
       | Q.Less -> Binrel.Disjoint
       | Q.Equal when beta && gamma -> Binrel.Singleton (to_q b)
-      | Q.Equal ->Binrel.Disjoint
+      | Q.Equal -> Binrel.Disjoint
       | Q.Greater ->
 	  let (d,delta) = Endpoint.destruct j.hi
 	  and (a,alpha) = Endpoint.destruct i.lo in
@@ -433,7 +443,7 @@ let rec cmp i j =
 	     | Q.Less -> Binrel.Disjoint
 	     | Q.Equal when delta && alpha -> Binrel.Singleton (to_q a)
 	     | Q.Equal -> Binrel.Disjoint
-	     | Q.Greater -> Binrel.Overlap)
+	     | Q.Greater -> Binrel.Overlap (inter i j))
 
 and to_q x = 
   assert(Extq.is_q x);
