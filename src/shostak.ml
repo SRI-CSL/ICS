@@ -138,6 +138,8 @@ let rec can_t s a =
 	      cansin s (can_t s x)
 	  | Uninterp(op), [x] when Name.eq Name.cos op ->
 	      cancos s (can_t s x)
+	  | Uninterp(op), [x] when Name.eq Name.unsigned op ->
+	      canunsigned s (can_t s x)
 	  | Uninterp(op), _ -> 
 	      let al' = canl s U al in
 	      let a' = if al == al' then a else mk_app f al' in
@@ -145,6 +147,38 @@ let rec can_t s a =
 
 and canl s i = 
   mapl (fun a -> find i s (can_t s a))
+
+
+(*s Unsigned interpretation. *)
+
+and canunsigned s a =
+  let unsigned_const b =
+    let n = Bitv.fold_right 
+	      (fun x acc -> if x then 2 * acc + 1 else 2 * acc) 
+	      b 0
+    in
+      lookup s (Arith.mk_num (Q.of_int n))
+  in
+  let unsigned_sub n i j x =
+    let y = lookup s (Bitvector.mk_sub n i j x) in
+    lookup s (Term.mk_app Sym.unsigned [y])
+  in
+  let unsigned_conc s n m x y =
+    let ux = canunsigned s x in
+    let uy = canunsigned s y in
+    let two_expt_m = Q.of_z (Z.expt (Z.of_int 2) m) in
+      lookup s (Arith.mk_add (Arith.mk_multq two_expt_m ux) uy)
+  in
+  let a' = Solution.find s.bv a in  (* look for bitvector interpretation. *)
+    match a' with 
+      | App(Bv(Const(b)), []) -> 
+	  unsigned_const b
+      | App(Bv(Sub(n,i,j)), [x]) -> 
+	  unsigned_sub n i j x
+      | App(Bv(Conc(n,m)), [x;y]) -> 
+	  unsigned_conc s n m x y
+      | _ ->
+	  lookup s (Term.mk_app Sym.unsigned [a])
 
 
 (*s Sigmatization. [sigma s f l] encodes the following 
