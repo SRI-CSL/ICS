@@ -29,19 +29,19 @@ val var : Term.variable -> Term.t
 val is_var : Term.t -> bool
 val d_var : Term.t -> Term.variable
 
-    (*s [create x] creates a fresh constants. These are 0-ary uninterpreted
+    (*s [fresh x] creates a fresh constants. These are 0-ary uninterpreted
       symbols. They are given named like \_c123 in order to prevent clashes
       with the user's symbols. Create uses global counters for creating fresh
-      names; these are reinitialized using the [reset] command of ICS. 
+      names; these are reinitialized using the [reset] command of ICS. *)
 
-      Similarly, [fresh x l] creates an application of
-      a fresh function symbol to a list or arguments [l]. *)
-
-val create : Term.variable -> Term.t
-
-val fresh : Term.variable  -> Term.t list -> Term.t
+val fresh : Term.variable -> Term.t option -> Term.t
 
 val is_fresh : Term.t -> bool
+
+    (* Return, if possible a term equivalent to the argument, which is supposed
+       to be a fresh variable. The result does not contain this argument variable. *)
+
+val equiv : Term.t -> Term.t option
 
     (*s Set of fresh variables occuring in a term. *)
     
