@@ -1,19 +1,26 @@
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN"
-            "http://www.w3.org/TR/REC-html40/loose.dtd">
-<HTML>
-<HEAD><TITLE>ICS Manual (Version 0.001)</TITLE>
-<META http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
-<META name="GENERATOR" content="hevea 1.05">
-</HEAD>
-<BODY >
-<!--HEVEA command line is: hevea /homes/ruess/tex/ocamlweb.sty ./doc.tex -o ./doc.html -->
-<!--HTMLHEAD-->
-<!--ENDHTML-->
-<!--CUT DEF section 1 -->
-<BR>
-<BR>
-
-<H1 ALIGN=center>ICS Manual (Version 0.001)</H1>
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+<html>
+<head>
+   <meta name="author" content="Harald Rue&szlig;">
+   <meta name="description" content="ICS: Integrated Canonizer and Solver">
+   <meta name="keywords" content="decision procedure,
+                                  logic,
+                                  uninterpreted function symbols,
+                                  datatypes,
+				  linear arithmetic,
+				  sets,
+				  bitvectors,
+				  arrays,
+				  formal methods,
+				  software verification,
+				  hardware verification">
+   <meta name="GENERATOR" content="Mozilla/4.7 [en] (X11; U; Linux 2.2.16-3 i686) [Netscape]">
+   <title>ICS Manual</title>
+</head>
+<body bgcolor="#FFFFFF" link="#00008B" vlink="#8B0000">
+<img src="icslogo.gif">
+<h1>Manual</h1>
+<hr noshade>
 
 <H3 ALIGN=center>The ICS group<BR>Computer Science Laboratory, SRI International<BR>333 Ravenswood Avenue, Menlo Park, CA 94025, USA<BR><TT>ruess@csl.sri.com</TT></H3>
 <!--TOC section Introduction-->
@@ -48,11 +55,11 @@ of datatypes occur naturally in system specifications and the use of
 uninterpreted function symbols has proven to be essential
 for many real-world verifications.<BR>
 <BR>
-The core of ICS is a congruence closure procedure&nbsp;[<A HREF="#RuessShankar2001"><CITE>RS01</CITE></A>]
+The core of ICS is a congruence closure procedure&nbsp;[<A HREF="#RuessShankar2001"><CITE>RuessShankar2001</CITE></A>]
 for the theory of equality and disequality with both uninterpreted and
 interpreted function symbols. The concepts of canonization and solving
 have been extended to include inequalities over linear arithmetic
-terms and propositional logic&nbsp;[<A HREF="#FORS2001"><CITE>FOR</CITE><SUP><CITE><FONT SIZE=2>+</FONT></CITE></SUP><CITE>01</CITE></A>].
+terms and propositional logic&nbsp;[<A HREF="#FORS2001"><CITE>FORS2001</CITE></A>].
 The theory currently includes:
  <UL>
 <LI>
@@ -87,7 +94,7 @@ The theory currently includes:
  This latter constraint encodes the fact that the sum of the unsigned
  interpretations of <I>b</I><SUB><FONT SIZE=2>1</FONT></SUB> and <I>b</I><SUB><FONT SIZE=2>2</FONT></SUB> equals the unsigned
  interpretation of <I>b</I>. Fixed-sized bitvectors are
- decided using the techniques described in&nbsp;[<A HREF="#Moeller98:FMCAD"><CITE>MR98</CITE></A>].
+ decided using the techniques described in&nbsp;[<A HREF="#Moeller98:FMCAD"><CITE>Moeller98:FMCAD</CITE></A>].
  </UL>
 ICS is capable of deciding formulas such as
  <UL>
@@ -123,12 +130,12 @@ that is, operations on data structures do not alter the
 previous values of data and <EM>undo</EM> operations
 are therefore basically for free.<BR>
 <BR>
-ICS is implemented in <FONT COLOR=purple>Ocaml</FONT>&nbsp;[<A HREF="#ObjectiveCaml"><CITE>Oca</CITE></A>],
+ICS is implemented in <FONT COLOR=purple>Ocaml</FONT>&nbsp;[<A HREF="#ObjectiveCaml"><CITE>ObjectiveCaml</CITE></A>],
 which offers satisfactory run-time performance,
 efficient garbage collection, and interfaces well with other
 languages like C. The implementation of ICS is based on optimization
-techniques such as hash-consing&nbsp;[<A HREF="#JCF2000"><CITE>Fil00</CITE></A>]
-and efficient data structures like Patricia trees&nbsp;[<A HREF="#OkasakiGill98"><CITE>OG98</CITE></A>]
+techniques such as hash-consing&nbsp;[<A HREF="#JCF2000"><CITE>JCF2000</CITE></A>]
+and efficient data structures like Patricia trees&nbsp;[<A HREF="#OkasakiGill98"><CITE>OkasakiGill98</CITE></A>]
 for representing sets and maps efficiently.<BR>
 <BR>
 There is a well-defined API for manipulating ICS terms, asserting
@@ -136,7 +143,7 @@ formulas to the current database, switching between databases,
 and functions for canonizing terms.
 This API is packaged as a C library, an <FONT COLOR=purple>Ocaml</FONT> module,
 and a CommonLisp interface. The C library API, for example, has been
-used to connect ICS with PVS&nbsp;[<A HREF="#PVS"><CITE>ORS92</CITE></A>], and both an interaction and
+used to connect ICS with PVS&nbsp;[<A HREF="#PVS"><CITE>PVS</CITE></A>], and both an interaction and
 a batch processing capability have been built using this API.<BR>
 <BR>
 Using ICS as the underlying decision procedure of PVS, we
@@ -164,6 +171,84 @@ available at
  <A HREF="www.icansolve.com"><TT>www.icansolve.com</TT></A>
  </DIV>
 There one can also find the ICS license.<BR>
+<BR>
+<!--TOC subsection Organization-->
+
+<H3>1.2&nbsp;&nbsp; Organization</H3><!--SEC END -->
+This document describes the interfaces and implementation
+aspects of the ICS decision procedures. It is organized as
+follows.
+<DIV ALIGN=center>
+ <TABLE CELLSPACING=2 CELLPADDING=0>
+<TR><TD VALIGN=top ALIGN=left>Chapter</TD>
+<TD VALIGN=top ALIGN=right NOWRAP>section</TD>
+<TD VALIGN=top ALIGN=right NOWRAP>page</TD>
+</TR>
+<TR><TD BGCOLOR=black COLSPAN=3><TABLE BORDER=0 WIDTH="100%" CELLSPACING=0 CELLPADING=1><TR><TD></TD></TR></TABLE></TD>
+</TR>
+<TR><TD VALIGN=top ALIGN=left>&nbsp;</TD>
+</TR>
+<TR><TD VALIGN=top ALIGN=left>Installation</TD>
+<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:installation"><B>2</B></A></TD>
+<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:installation">??</A></TD>
+</TR>
+<TR><TD VALIGN=top ALIGN=left>Interactor</TD>
+<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:interactor"><B>3</B></A></TD>
+<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:interactor">??</A></TD>
+</TR>
+<TR><TD VALIGN=top ALIGN=left>API</TD>
+<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:api"><B>4</B></A></TD>
+<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:api">??</A></TD>
+</TR>
+<TR><TD VALIGN=top ALIGN=left>Terms</TD>
+<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:terms"><B>5</B></A></TD>
+<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:terms">??</A></TD>
+</TR>
+<TR><TD VALIGN=top ALIGN=left>Constraints</TD>
+<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:cnstrnts"><B>6</B></A></TD>
+<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:cnstrnts">??</A></TD>
+</TR>
+<TR><TD VALIGN=top ALIGN=left>Substitution</TD>
+<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:subst"><B>9</B></A></TD>
+<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:subst">??</A></TD>
+</TR>
+<TR><TD VALIGN=top ALIGN=left>Canonization</TD>
+<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:can"><B>10</B></A></TD>
+<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:can">??</A></TD>
+</TR>
+<TR><TD VALIGN=top ALIGN=left>Solving</TD>
+<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:solve"><B>11</B></A></TD>
+<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:solve">??</A></TD>
+</TR>
+<TR><TD VALIGN=top ALIGN=left>Processing</TD>
+<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:process"><B>12</B></A></TD>
+<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:process">??</A></TD>
+</TR>
+<TR><TD VALIGN=top ALIGN=left>Basic Data Structures</TD>
+<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:data.structures"><B>13</B></A></TD>
+<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:data.structures">??</A></TD>
+</TR>
+<TR><TD VALIGN=top ALIGN=left>Interpreted Theories</TD>
+<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:theories"><B>7</B></A></TD>
+<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:theories">??</A></TD>
+</TR>
+<TR><TD VALIGN=top ALIGN=left>Binary Decision Diagrams</TD>
+<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:bdd"><B>8</B></A></TD>
+<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:bdd">??</A></TD>
+</TR>
+<TR><TD VALIGN=top ALIGN=left>Tools and Support</TD>
+<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:misc"><B>14</B></A></TD>
+<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:misc">??</A></TD>
+</TR>
+<TR><TD VALIGN=top ALIGN=left>&nbsp;</TD>
+</TR></TABLE>
+</DIV><BR>
+The various modules of the implementation are not presented in
+topological order with respect to their inter-dependencies, but
+rather in a more logical order. However, it may help to have in mind
+the graph of dependencies, which is the following:<BR>
+<BR>
+<IMG SRC="./dep.gif"><BR>
 <BR>
 <!--TOC section Installation-->
 
@@ -254,7 +339,8 @@ machines and operating systems.<BR>
 A configuration <TT>./configure</TT> is generated from
 <TT>./configure.in</TT> in the ICS home directory using
  <PRE>
-  &gt; autoconf ./configure.in
+  &gt; autoconf ./configure.in &gt; ./configure
+  &gt; chmod +x ./configure
   </PRE>The configuration script generates a <TT>Makefile</TT> from the
 <TT>Makefile.in</TT>. 
  <PRE>
@@ -267,89 +353,6 @@ the libraries in <TT>./lib/$(ARCH)/</TT>, where <TT>ARCH</TT>
 is the architecture guessed by the configuration script.
 The build directory is <TT>./obj/$(ARCH)/</TT>, and the generated
 binary and byte code are put in <TT>./bin/$(ARCH)/</TT>.<BR>
-<BR>
-<!--TOC subsection Organization-->
-
-<H3>2.1&nbsp;&nbsp; Organization</H3><!--SEC END -->
-This document describes the interfaces and implementation
-aspects of the ICS decision procedures. It is organized as
-follows.
-<DIV ALIGN=center>
- <TABLE CELLSPACING=2 CELLPADDING=0>
-<TR><TD VALIGN=top ALIGN=left>Chapter</TD>
-<TD VALIGN=top ALIGN=right NOWRAP>section</TD>
-<TD VALIGN=top ALIGN=right NOWRAP>page</TD>
-</TR>
-<TR><TD BGCOLOR=black COLSPAN=3><TABLE BORDER=0 WIDTH="100%" CELLSPACING=0 CELLPADING=1><TR><TD></TD></TR></TABLE></TD>
-</TR>
-<TR><TD VALIGN=top ALIGN=left>&nbsp;</TD>
-</TR>
-<TR><TD VALIGN=top ALIGN=left>Installation</TD>
-<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:installation"><B>2</B></A></TD>
-<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:installation">??</A></TD>
-</TR>
-<TR><TD VALIGN=top ALIGN=left>Interactor</TD>
-<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:interactor"><B>3</B></A></TD>
-<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:interactor">??</A></TD>
-</TR>
-<TR><TD VALIGN=top ALIGN=left>API</TD>
-<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:api"><B>4</B></A></TD>
-<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:api">??</A></TD>
-</TR>
-<TR><TD VALIGN=top ALIGN=left>Terms</TD>
-<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:terms"><B>5</B></A></TD>
-<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:terms">??</A></TD>
-</TR>
-<TR><TD VALIGN=top ALIGN=left>Constraints</TD>
-<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:cnstrnts"><B>6</B></A></TD>
-<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:cnstrnts">??</A></TD>
-</TR>
-<TR><TD VALIGN=top ALIGN=left>Substitution</TD>
-<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:subst"><B>9</B></A></TD>
-<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:subst">??</A></TD>
-</TR>
-<TR><TD VALIGN=top ALIGN=left>Canonization</TD>
-<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:can"><B>??</B></A></TD>
-<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:can">??</A></TD>
-</TR>
-<TR><TD VALIGN=top ALIGN=left>Solving</TD>
-<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:solve"><B>??</B></A></TD>
-<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:solve">??</A></TD>
-</TR>
-<TR><TD VALIGN=top ALIGN=left>Processing</TD>
-<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:process"><B>11</B></A></TD>
-<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:process">??</A></TD>
-</TR>
-<TR><TD VALIGN=top ALIGN=left>Basic Data Structures</TD>
-<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:data.structures"><B>12</B></A></TD>
-<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:data.structures">??</A></TD>
-</TR>
-<TR><TD VALIGN=top ALIGN=left>Interpreted Theories</TD>
-<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:theories"><B>7</B></A></TD>
-<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:theories">??</A></TD>
-</TR>
-<TR><TD VALIGN=top ALIGN=left>Binary Decision Diagrams</TD>
-<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:bdd"><B>8</B></A></TD>
-<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:bdd">??</A></TD>
-</TR>
-<TR><TD VALIGN=top ALIGN=left>Tools and Support</TD>
-<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#sec:misc"><B>??</B></A></TD>
-<TD VALIGN=top ALIGN=right NOWRAP><A HREF="#misc">??</A></TD>
-</TR>
-<TR><TD VALIGN=top ALIGN=left>&nbsp;</TD>
-</TR></TABLE>
-</DIV><BR>
-The various modules of the implementation are not presented in
-topological order with respect to their inter-dependencies, but
-rather in a more logical order. However, it may help to have in mind
-the graph of dependencies, which is the following:<BR>
-<BR>
-
-=15cm
-<DIV ALIGN=center>
-./dep.ps
-</DIV>
-<IMG SRC="./dep.gif"><BR>
 <BR>
 <!--TOC section The ICS interactor-->
 
@@ -10596,56 +10599,8 @@ from the source code using the literate programming tool <FONT COLOR=purple>ocam
 <BR>
 
 
-
-<!--TOC section References-->
-
-<H2>References</H2><!--SEC END -->
-<DL COMPACT=compact>
-<DT><A NAME="JCF2000"><FONT COLOR=purple>[Fil00]</FONT></A><DD>
-Jean-Christophe Filliâtre.
-Hash-consing in an ML framework.
-2000.<BR>
 <BR>
-
-<DT><A NAME="FORS2001"><FONT COLOR=purple>[FOR</FONT><SUP><FONT COLOR=purple><FONT SIZE=2>+</FONT></FONT></SUP><FONT COLOR=purple>01]</FONT></A><DD>
-Jean-Christophe Filliâtre, Sam Owre, Harald Rueß, , and N.&nbsp;Shankar.
-An integrated decision procedure for equality and inequality.
-Unpublished, 2001.<BR>
 <BR>
-
-<DT><A NAME="Moeller98:FMCAD"><FONT COLOR=purple>[MR98]</FONT></A><DD>
-O.&nbsp;Möller and H.&nbsp;Rueß.
-Solving bit-vector equations.
-In G.&nbsp;Gopalakrishnan and Ph. Windley, editors, <EM>Formal Methods in
- Computer-Aided Design (FMCAD '98)</EM>, volume 1522 of <EM>Lecture Notes in
- Computer Science</EM>, pages 36--48, Palo Alto, CA, November 1998.
- Springer-Verlag.<BR>
-<BR>
-
-<DT><A NAME="ObjectiveCaml"><FONT COLOR=purple>[Oca]</FONT></A><DD>
-The Objective Caml language.
-<A HREF="http://caml.inria.fr/"><TT>http://caml.inria.fr/</TT></A>.<BR>
-<BR>
-
-<DT><A NAME="OkasakiGill98"><FONT COLOR=purple>[OG98]</FONT></A><DD>
-Chris Okasaki and Andrew Gill.
-Fast mergeable integer maps.
-In <EM>Workshop on ML</EM>, pages 77--86, September 1998.<BR>
-<BR>
-
-<DT><A NAME="PVS"><FONT COLOR=purple>[ORS92]</FONT></A><DD>
-S.&nbsp;Owre, J.&nbsp;M. Rushby, and N.&nbsp;Shankar.
-PVS: A prototype verification system.
-In Deepak Kapur, editor, <EM>11th International Conference on
- Automated Deduction (CADE)</EM>, volume 607 of <EM>Lecture Notes in Artificial
- Intelligence</EM>, pages 748--752, Saratoga, NY, June 1992. Springer-Verlag.<BR>
-<BR>
-
-<DT><A NAME="RuessShankar2001"><FONT COLOR=purple>[RS01]</FONT></A><DD>
-Harald Rueß and N.&nbsp;Shankar.
-Deconstructing Shostak.
-Accepted for publication at LICS, 2001, available from
- <A HREF="http://www.csl.sri.com/~ruess/papers/LICS2001/index.html"><TT>http://www.csl.sri.com/~ruess/papers/LICS2001/index.html</TT></A>, 2001.</DL>
 <!--BEGIN NOTES document-->
 <HR WIDTH="50%" SIZE=1><DL>
 <DT><A NAME="note1" HREF="#text1"><FONT SIZE=5>1</FONT></A><DD> <FONT COLOR=purple>Objective Caml</FONT> and
