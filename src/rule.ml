@@ -23,17 +23,6 @@ type rule = Context.t -> Context.t
 type 'a transform = Context.t * 'a -> Context.t * 'a
 
 
-(** Extend with fresh variable equality. *)
-let extend =  
-  let v = Name.of_string "v" in
-    (fun (s, a) ->
-       assert(not(is_var a));
-       let x = Var(Var.mk_fresh v None) in
-       let i = Th.of_sym (sym_of a) in
-       let e = Fact.mk_equal x a None in
-	 (union i e s, x))
-
-
 (** Variable abstract facts *)
 let rec abstract_equal (s, e) =
   Trace.msg "rule" "Abstract" e Fact.pp_equal;
@@ -74,7 +63,7 @@ and abstract_term i (s, a) =
 	      let x' = inv j s' a' in
 	      (s', v s' x')
 	    with 
-		Not_found -> extend (s', a')
+		Not_found -> name j (s', a')
 	  else 
 	    (s', a')
 	    
@@ -161,20 +150,21 @@ let rec propagate_star ch =
   foldv ch propagate
 
 and propagate e =           
-  (compose Th.la e &&&
-   compose Th.p e &&&
-   compose Th.bv e &&&
-   compose Th.cop e &&&
-   fuse Th.u e &&&
-   fuse Th.pprod e &&&
-   fuse Th.app e &&&
-   fuse Th.arr e &&&
-   fuse Th.bvarith e)
+  (Context.propagate Th.la e &&&
+   Context.propagate Th.p e &&&
+   Context.propagate Th.bv e &&&
+   Context.propagate Th.cop e &&&
+   Context.fuse Th.u e &&&
+   Context.fuse Th.pprod e &&&
+   Context.fuse Th.app e &&&
+   Context.fuse Th.arr e &&&
+   Context.fuse Th.bvarith e)
 
 
 (** Deduce new constraints from changes in the linear arithmetic part. *)
 let rec arith_star (chla, chc) =
-  fold Th.la chla arith_fme &&&
+  fold Th.la chla arith_local &&&
+  fold Th.la chla arith_cut &&&
   foldc chc arith_cnstrnt
 
 and arith_cnstrnt c s =
@@ -182,53 +172,123 @@ and arith_cnstrnt c s =
   let (x, i, _) = Fact.d_cnstrnt c in
     match Cnstrnt.d_singleton i with
       | Some(q) ->
-	  let e = Fact.mk_equal x (Arith.mk_num q) None in
-	    compose Th.la e s
+	  let n = Arith.mk_num q in
+	  let e = Fact.mk_equal x n None in
+	    Context.propagate Th.la e s
       | None ->
-	  folduse Th.la x
-	    (fun (y, b) s ->
-	       match b with
-		 | App(Arith(op), xl) ->
-		     (try
-			let i = Arith.tau (Context.c s) op xl in
-			  infer y i s
-		      with
-			  Not_found -> s)
-		 | _ ->
-		     s)
-	    s
- 
-and arith_fme e s = 
-  Trace.msg "rule" "Arith_fme" e Fact.pp_equal;
+	  (try
+	     let b = apply Th.la s x in
+	     let e = Fact.mk_equal x b None in
+	       arith_propagate e s
+	   with
+	       Not_found ->
+		 (folduse Th.la x
+		    (fun (y, b) s ->
+		       let e = Fact.mk_equal y b None in
+			 arith_propagate e s)
+		    s))
+
+(** Local propagation of constraints in an arithmetic equality. *)
+and arith_local e s = 
+  Trace.msg "rule" "Arith_local" e Fact.pp_equal;
   let (x, b, _) = Fact.d_equal e in
     match b with
       | App(Arith(Num(q)), []) -> 
 	  infer x (Cnstrnt.mk_singleton q) s
       | App(Arith(Multq(q)), [y]) -> 
-	  (try infer x (Cnstrnt.multq q (c s y)) s with Not_found -> s)
+	  assert(not(Q.is_zero q));
+	  let i = try c s x with Not_found -> Cnstrnt.mk_real in
+	  let j = try c s y with Not_found -> Cnstrnt.mk_real in
+	    infer x (Cnstrnt.multq q j)
+	      (infer y (Cnstrnt.multq (Q.inv q) i) s)
       | App(Arith(Add), ml) ->
 	  let i = Arith.cnstrnt (c s) b in
-	    ints x ml 
-	      (fme x b
-		 (infer x i s))
+	    arith_ints x ml (infer x i s)
       | _ ->
 	  s 
 
-(** FME:
-     - From [u = a], [v = b] in [Th.la], [u in i], [v in j] in [c],
-       and [q * a = b] one may conclude 
-       [u in 1/q * j] and [v in [q * i]
-     - From [u = q * x + a'], [v = p * x + b'] in [Th.la]
-       and [u in i], [v in j] in [c] one can conclude
-       [p * a' - q * b' in p * i - q * j]
+and arith_cut e s =           
+  Trace.msg "rule" "Arith_cut" e Fact.pp_equal;
+  let (x, a, _) = Fact.d_equal e in             (* [x = a]. *)
+    try
+      let i = c s x in                          (* [x in i]. *)
+	if Cnstrnt.is_unbounded i then s else 
+	  let (q, z, a') = Arith.destructure a  in  (* [q * z + a' = a]. *)
+	    folduse Th.la z
+	      (fun (y, b) s ->                      (* [y = b] *)
+		 if Term.eq x y then s else
+		   try
+		     Trace.msg "cut" "Candidate" (e, (y, b)) (Pretty.pair Fact.pp_equal Term.pp_equal);
+		     let j = c s y in            (* [y in j]. *)
+		       if Cnstrnt.is_unbounded j then s else 
+			 let (p, z', b') = Arith.destructure b in
+			   if not(Term.eq z z') then s else (* [p * z + b' = b]. *)
+			     cut z (x, q, a', i) (y, p, b', j) s 
+		   with
+		       Not_found -> s)
+	      s   
+    with 
+	Not_found -> s
+
+(** Global propagation of constraints in pairs of arithmetic equalities.
+  From 
+  - [x = a], [y = b] in [la] with [a == q * z + a'], [b == p * z + b'], and 
+  - [x in i], [y in j] in [c] 
+  
+  one concludes
+  - [x in q/p ** (j -- cb') ++ ca'], where [ca'] is the constraint assoc. with [a']
+  - [x in p/q ** (i -- ca') ++ cb']
+  - [z in 1/(p*q) ** (k /\ l)] with [k == p**(i - ca')], [l == q**(j - cb')]
+*)
+and cut z (x, q, a', i) (y, p, b', j) s =
+  Trace.msg "foo" "Cut" 
+    (Arith.mk_add (Arith.mk_multq q z) a',
+     Arith.mk_add (Arith.mk_multq p z) b')
+    (Pretty.pair Term.pp Term.pp);
+  Trace.msg "foo" "with" ((x, i), (y, j)) 
+    (Pretty.pair Term.pp_in Term.pp_in);
+  let pq = Q.mult p q
+  and ca' = Arith.cnstrnt (c s) a'
+  and cb' = Arith.cnstrnt (c s) b' in
+  let cx' = 
+    Cnstrnt.add (Cnstrnt.multq (Q.div q p) (Cnstrnt.subtract j cb')) ca'
+  and cy' =
+    Cnstrnt.add (Cnstrnt.multq (Q.div p q) (Cnstrnt.subtract i ca')) cb'
+  and cz' = 	  
+    let k = Cnstrnt.linear (p, i) (Q.minus p, ca') 
+    and l = Cnstrnt.linear (q, j) (Q.minus q, cb') in
+      match Cnstrnt.cmp k l with
+	| Binrel.Disjoint ->
+	    raise Exc.Inconsistent
+	| (Binrel.Sub | Binrel.Same) ->
+	    Cnstrnt.multq (Q.inv pq) k
+	| Binrel.Super ->
+	    Cnstrnt.multq (Q.inv pq) l
+	| Binrel.Singleton(r) ->
+	    Cnstrnt.mk_singleton (Q.div r pq)
+	| Binrel.Overlap(kl) ->
+	    Cnstrnt.multq (Q.inv pq) kl
+  in
+    infer x cx'
+      (infer y cy'
+	 (infer z cz' s))
+
+
+(** Fourier-Motzkin elimination:
+  - From [u = a], [v = b] in [Th.la], [u in i], [v in j] in [c],
+  and [q * a = b] one may conclude 
+  [u in 1/q * j] and [v in [q * i]
+  - From [u = q * x + a'], [v = p * x + b'] in [Th.la]
+  and [u in i], [v in j] in [c] one can conclude
+  [p * a' - q * b' in p * i - q * j]
 *)
 
-and fme u a s =                    (* [u = a]. *)
-  Trace.msg "rule" "Fme" (u, a) Term.pp_equal;
+and arith_fme u a s =                   (* [u = a]. *)
+  Trace.msg "rule" "Arith_fme" (u, a) Term.pp_equal;
   try
     let i = c s u in               (* [u in i] *)
     let (q, x, a') = Arith.destructure a  in (* [q * x + a' = a]. *)
-      folduse Th.la (Arith.leading a)
+      folduse Th.la x
 	(fun (v, b) s ->           (* [v = b] *)
 	   if Term.eq u v then s else
 	     try
@@ -242,34 +302,57 @@ and fme u a s =                    (* [u = a]. *)
 		  with
 		      Not_found ->      (* [q * y + b' = b] *) 
 			let (p, y, b') = Arith.destructure b in
-			  if not (Term.eq x y) then s else 
+			  if not (Term.eq x y) ||
+			    not (complementary (q, x, i) (p, y, j))
+			  then s 
+			  else 
 			    let c =     (* [c = p * a' - q * b'] *)
-			      Can.term s
-				(Arith.mk_sub 
-				   (Arith.mk_multq p a') 
-				   (Arith.mk_multq q b'))
+			      Can.term s (Arith.mk_linear (p, a') (Q.minus q, b'))
 			    and k =     (* [k = p * i - q * j] *)
 			      Cnstrnt.subtract
 				(Cnstrnt.multq p i)
 				(Cnstrnt.multq q j)
 			    in
-			    let (c, k) = Atom.normalize (c, k) in
-			      (match c with
-				| Var _ -> 
-				    infer c k s
-				| App(Arith(Num(q)), []) ->
-				    if Cnstrnt.mem q k then s else raise Exc.Inconsistent
-				| _ ->
-				    let (s', x') = name Th.la (s, c) in
-				      infer x' k s'))	
+			    let (c, k) = Arith.normalize (c, k) in
+			      if Cnstrnt.eq k Cnstrnt.mk_real then s else 
+				begin
+				  Trace.msg "fme" "Generate" (c, k) Term.pp_in;
+				  (match c with
+				     | Var _ -> 
+					 infer c k s
+				     | App(Arith(Num(q)), []) ->
+					 if Cnstrnt.mem q k then s else raise Exc.Inconsistent
+				     | _ ->
+					 if !fme then
+					   let (s', x') = name Th.la (s, c) in
+					     infer x' k s'
+					 else
+					   s)
+				end)
 	     with
 		 Not_found -> s)
          s
   with
       Not_found -> s
 
+and fme = ref true
 
-and ints x ml s = 
+(** Quick test for complementary constraints for which a Fourier-Motzkin
+  cut might produce a new result. *)
+and complementary (q, x, i) (p, x, j) =
+  assert(not(Q.is_zero q) && not(Q.is_zero p));
+  let eqsign = 
+    (Q.gt q Q.zero && Q.gt p Q.zero) ||  
+    (Q.lt q Q.zero && Q.lt p Q.zero)
+  in
+  match Cnstrnt.bounds i, Cnstrnt.bounds j with
+    | Cnstrnt.Unbounded _, _ -> false
+    | _, Cnstrnt.Unbounded _ -> false
+    | Cnstrnt.Lower _, Cnstrnt.Lower _ when eqsign -> false
+    | Cnstrnt.Upper _, Cnstrnt.Upper _ when eqsign -> false
+    | _ -> true
+
+and arith_ints x ml s = 
   Trace.msg "rule" "Arith_ints" (x, ml) (Pretty.pair Term.pp (Pretty.list Term.pp)); 
   let not_is_int m =
     not (Arith.is_int (c s) m)
@@ -293,6 +376,68 @@ and ints x ml s =
 		                  (* do not introduce new names for now. *)
 
 
+and arith_propagate e s =
+  Trace.msg "rule" "Arith_propagate" e Fact.pp_equal;
+  let (x, b, _) = Fact.d_equal e in
+  let ml = Arith.mk_neg x :: Arith.monomials b  in
+  let extend (yl, zl) s =                      (* [yl + zl = 0]. *)
+    let a = Can.term s (Arith.mk_addl yl) in   (* generate: [k = yl] and [k in -C(zl)] *)
+      if Arith.is_num a || Arith.is_multq a then 
+	s 
+      else
+	let i' = Cnstrnt.multq Q.negone (Arith.cnstrnt_of_addl (c s) zl) in
+	  if is_var a then
+	    infer a i' s
+	  else
+	    if !fme then
+	      let (s', x') = name Th.la (s, a) in
+		infer x' i' s'
+	    else 
+	      s
+
+  (* Propagate constraints for [ml = 0] for each variable [x] in [b].
+     Suppose [b] is of the form [pre + q * x + post'], then
+     [x in -1/q * (j + k)] is derived, where [pre in j] and
+     [post' in k]. Following should be optimized. *)
+  and propagate ml = 
+  let rec loop j post s = 
+    match post with
+      | [] -> s
+      | m :: post' ->
+	  let (q, x) = Arith.mono_of m in
+	  let qinv = Q.inv q in
+	  let k =  Arith.cnstrnt_of_addl (c s) post' in
+          let j' = 
+	    try Cnstrnt.add (Cnstrnt.multq qinv (c s x)) j 
+	    with Not_found -> Cnstrnt.mk_real in
+          let i' = Cnstrnt.multq (Q.minus qinv) (Cnstrnt.add j k) in
+	  let s' = infer x i' s in
+	    loop j' post' s'
+  in
+    loop Cnstrnt.mk_zero ml
+  and is_unbound = function
+    | App(Arith(Num _), []) ->
+	false
+    | App(Arith(Multq(_)), [x]) ->
+	(try Cnstrnt.is_unbounded (c s x) with Not_found -> true)
+    | x ->
+	(try Cnstrnt.is_unbounded (c s x) with Not_found -> true)
+  in
+    match List.partition is_unbound ml with
+      | yl, [] ->                               (* subcase: all monomials unbound. *)
+	  s
+      | [], zl ->                               (* subcase: all monomials bound. *)
+	  propagate zl s 
+      | [(Var _ as y)], zl ->                   (* subcase: only one variable is unbound. *)
+	  let i = Cnstrnt.multq Q.negone (Arith.cnstrnt_of_addl (c s) zl) in
+	    infer y i s
+      | [App(Arith(Multq(q)), [y])], zl ->      (* subcase: [q*y + zl = 0] with [y] bound, [zl] unbound *)
+	  let i = Arith.cnstrnt_of_addl (c s) zl in  (* thus: [y in -1/q ** C(zl)] *)
+	  let i' = Cnstrnt.multq (Q.minus (Q.inv q)) i in
+	    infer y i' s
+      | yl, zl ->   
+          extend (yl, zl) s
+
 
 (** Propagating into power products. *)
 let rec nonlin_star (che, chc, cha) =
@@ -307,6 +452,14 @@ and nonlin_deduce e s =
     match b with
       | App(Pp(op), yl) -> 
 	  let j = Pp.tau (c s) op yl in
+	  let s = 
+	    match op, yl with
+	      | Expt(2), [y]              (* [x = x^2]. *)
+		  when Term.eq (v s x) (v s y) ->
+		  infer (v s y) (Cnstrnt.mk_cc Dom.Int Q.zero Q.one) s
+	      | _ ->
+		  s
+	  in
 	    (try
 	       let i = c s x in
 		 (match Cnstrnt.cmp i j with
@@ -347,7 +500,6 @@ and nonlin_linearize e s =
 		   | None -> s
 		   | Some(q) -> 
 		       let e' = Fact.mk_equal (v s y) (Arith.mk_num (Q.expt q n)) None in
-			 Trace.msg "foo6" "Lin" e' Fact.pp_equal;
 			 Context.compose Th.la e' s)		
 	    | App(Pp(Mult), [b1; b2]) ->    (* [y = z1^n1 * z2^n2]. *)
 		let (z1, n1) = Pp.destruct b1 
@@ -530,7 +682,7 @@ let normalize s =
 (** [close s] applies the rules above until the resulting state is unchanged. *)
 	
 
-let maxclose = ref (-1)
+let maxclose = ref 10
 
 exception Maxclose
 
@@ -553,7 +705,7 @@ let rec close s =
 	  !s
 
 and close1 ch =
-  Trace.msg "close" "Close" ch Changed.pp;
+  Trace.msg "rule" "Close" ch Changed.pp;
   let chv = Changed.in_v ch in
   let chd = Changed.in_d ch in
   let chc = Changed.in_c ch in 
