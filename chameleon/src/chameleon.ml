@@ -102,7 +102,7 @@ let output_proto ch indirect f typ mltyp =
   end;
   fprintf ch ")"
 
-(*s Output a fake return at the end of the stub code (after [ocaml_error]) *)
+(*s Output a fake return at the end of the stub code (after [ics_error]) *)
 
 let output_fake_return ch indirect mltyp =
   fprintf ch "  return (";
@@ -189,7 +189,7 @@ let output_c_stub f typ mltyp =
     cprintf "CAMLreturn0";
   cprintf "; };\n";
   cprintf 
-    "  ocaml_error(\"%s_%s\",format_caml_exception(Extract_exception(r)));\n"
+    "  ics_error(\"%s_%s\",format_caml_exception(Extract_exception(r)));\n"
     !base f;
   output_fake_return !cout false mltyp;
   cprintf "}\n"
@@ -221,7 +221,7 @@ let output_c_indirect_stub f typ mltyp =
   end;
   cprintf "};\n";
   cprintf 
-    "  ocaml_error(\"%s_%s\",format_caml_exception(Extract_exception(*r)));\n"
+    "  ics_error(\"%s_%s\",format_caml_exception(Extract_exception(*r)));\n"
     !base f;
   output_fake_return !cout true mltyp;
   cprintf "}\n"
