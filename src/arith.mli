@@ -163,12 +163,9 @@ val map: (Term.t -> Term.t) -> Term.t -> Term.t
     - [map f (mk_addl al)] equals [mk_addl (List.map f al)]
     - Otherwise, [map f x] equals [f x] *)
 
-val apply1: Term.Equal.t -> Term.t -> Term.t
+val apply: Term.Equal.t -> Term.t -> Term.t
   (** [apply (x, b) a occurrences of [x] in [a] with [b], and normalizes. *)
 
-val apply: ((Term.t * Term.t) * 'a) list -> Term.t -> Term.t * 'a list
-  (** [apply [(x1, bn);...; (xn,bn) a] sequentially applies [apply (xi,bi)]
-    from left-to-right. *)
 
 module Monomials : sig
 
