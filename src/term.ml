@@ -26,6 +26,7 @@ type t =
 type trm = t  
     (** Synonym for avoiding name clashes *)
 
+
 (** {6 Term comparison} *)
 
 let rec cmp a b =
@@ -43,8 +44,11 @@ and cmpl l m =
       | [], [] -> c
       | [], _  -> -1
       | _,  [] -> 1
-      | x:: xl, y:: yl -> 
-	  if c != 0 then loop c xl yl else loop (cmp x y) xl yl
+      | x :: xl, y :: yl -> 
+	  if c != 0 then 
+	    loop c xl yl 
+	  else 
+	    loop (cmp x y) xl yl
   in
   loop 0 l m
 
@@ -62,7 +66,8 @@ let rec hash = function
   | Var(x) -> 
       Var.hash x
   | App(f, l) -> 
-      ((Sym.hash f) + (List.fold_left (fun h a -> h + hash a) 1 l)) land 0x3FFFFFFF
+      ((Sym.hash f) + 
+       (List.fold_left (fun h a -> h + hash a) 1 l)) land 0x3FFFFFFF
 
 
 (** {6 Recognizers} *)
@@ -340,16 +345,6 @@ let rec eq a b =
 
 and eql al bl =
   try List.for_all2 eq al bl with Invalid_argument _ -> false
-
-let eq a b =
-  Trace.func "foo11" "eq" (Pretty.pair pp pp) Pretty.bool
-    (fun (a, b) -> eq a b) (a, b)
-
-
-let cmp a b =
-  Trace.func "foo11" "cmp" (Pretty.pair pp pp) Pretty.number
-    (fun (a, b) -> cmp a b) (a, b)
-
 
 
 (** Some recognizers. *)
