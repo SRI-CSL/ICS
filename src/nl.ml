@@ -35,6 +35,52 @@ let find = Eqs.find
 let inv = Eqs.inv
 let dep = Eqs.dep
 
+  
+(** Search for largest match on rhs. For example, if [a] is
+ of the form [x * y] and there is an equality [u = x^2 * y],
+ then [inv s a] returns [u * x] if there is no larger
+ rhs which matches [a]. *)
+let rec inv s a =
+  let rec inv_plus (b, rho) =         (* [rho |- a = b] *)
+    try 
+      let (c, sigma) = inv1 s b in    (* [sigma |- y = z] *)
+	assert(not(Term.eq b c));
+	let tau = Justification.trans (a, b, c) rho sigma in
+	  inv_plus (c, tau)
+    with 
+	Not_found -> (b, rho)
+  in
+    inv_plus (inv1 s a)
+
+and inv1 s a =
+  let lookup = ref None in
+    Pprod.iter
+      (fun x _ ->
+	 let (b, rho) =  find s x in
+	   match !lookup with
+	     | None ->          (* [lcm = p * a = q * b = q * x] *)
+		 let (p, q, lcm) = Pprod.lcm (a, b) in
+		   if Pprod.is_one p then 
+		     lookup := Some(q, x, b, rho)
+	     | Some(_, _, b', _) when Pprod.cmp b b' <= 0 ->
+		 ()
+	     | _ ->
+		 let (p, q, lcm) = Pprod.lcm (a, b) in
+		   if Pprod.is_one p then
+		     lookup := Some(q, x, b, rho))
+      a;
+      match !lookup with
+      | Some(q, x, _, rho) -> 
+	  let a' = Pprod.mk_mult q x in
+	    if Term.eq a a' then 
+	      raise Not_found
+	    else 
+	      let rho' = Justification.groebner (a', a) rho in
+		(a', rho')
+      | None ->
+	  raise Not_found
+
+
 let is_dependent = Eqs.is_dependent
 let is_independent = Eqs.is_independent
 
