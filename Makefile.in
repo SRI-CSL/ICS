@@ -51,7 +51,7 @@ CMO = cmp.cmo hashcons.cmo hasht.cmo ptset.cmo \
       ptmap.cmo tools.cmo seqs.cmo \
       gmp.cmo mpa.cmo bitv.cmo exc.cmo term.cmo var.cmo \
       tset.cmo tmap.cmo pretty.cmo bdd.cmo \
-      euclid.cmo poly.cmo bool.cmo arith.cmo \
+      euclid.cmo poly.cmo arith.cmo bool.cmo \
       atom.cmo prop.cmo state.cmo \
       tuple.cmo arrays.cmo conc.cmo bv.cmo \
       sets.cmo morphisms.cmo solve.cmo \
