@@ -1,12 +1,12 @@
 ### configuration part (done by ./configure) ###############################
 
-OCAMLSTDLIB = `ocamlc -v | tail -1 | cut -f 4 -d " "`
+OCAMLSTDLIB = $(shell ocamlc -v | tail -1 | cut -f 4 -d " ")
 
 CC = @CC@
 CXX = @CXX@
 
-LIBGCCA = `@CC@ --print-libgcc`
-LIBCPP = `@CC@ --print-file-name=libstdc++.a`
+LIBGCCA = $(shell @CC@ --print-libgcc)
+LIBCPP = $(shell @CC@ --print-file-name=libstdc++.a)
 
 OCAMLC   = @OCAMLC@
 OCAMLLINK= @OCAMLMKTOP@
@@ -139,7 +139,7 @@ else
 ifeq ($(posixos),cygwin)
   TARGETS=$(MINTARGETS)
 else
-  TARGETS=$(MINTARGETS) $(LIBDIR)/libicsall.so   
+  TARGETS=$(MINTARGETS) $(LIBDIR)/libicsall.so $(LIBDIR)/libicslisp.so
 endif
 endif
 
@@ -291,7 +291,16 @@ $(LIBDIR)/libicsall.so: $(OBJS) $(ICSAT)
 	  $(MINUS_L_LIBS) \
           $(ICSAT) \
           $(LIBCPP) \
-#          $(OBJDIR)/ics_lisp_error.o \
+          $(OCAMLSTDLIB)/libasmrun.a
+
+$(LIBDIR)/libicslisp.so: $(OBJS) $(ICSAT) $(OBJDIR)/ics_lisp_error.o
+	$(CC) -shared -o $(LIBDIR)/libicslisp.so $(OBJS) \
+          $(OCAMLLIBS) \
+	  $(LIBS) \
+	  $(MINUS_L_LIBS) \
+          $(ICSAT) \
+          $(LIBCPP) \
+          $(OBJDIR)/ics_lisp_error.o \
           $(OCAMLSTDLIB)/libasmrun.a
 
 ics_stub.c ics.h ics.lisp: ics.ml ics.mli ../../chameleon/$(ARCH)/chameleon
