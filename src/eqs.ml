@@ -12,10 +12,10 @@
  *)
 
 
+let pp_index = ref false
+
 
 (** {6 Dependency Index} *)
-
-let pp_index = ref false
 
 module Use = struct
   
@@ -807,6 +807,7 @@ struct
   (** Combined effects *)
   let effects tag (p, s) = 
     let do_at_update tag ((x, a, rho) as e) =
+
       Effects2.do_at_update tag (p, s.left, s.right) e;
       (try                           (* establish confluence *)
 	 (match tag with
