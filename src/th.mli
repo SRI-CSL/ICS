@@ -11,32 +11,49 @@
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
  * 
- * Author: Harald Ruess
+ * Author: Harald Ruess, N. Shankar
  i*)
 
 (*s Module [Th]: Datatype for manipulating logical contexts 
  of interpreted theories. *)
 
 
-module type S = sig
+(*s The interpreted theories are linear arithmetic [LA], tuples [T],
+ bitvectors [BV], and nonlinear arithmetic [NLA]. *)
 
-  type t
+type i = LA | T | BV | NLA
 
-(*s [subst_of s] returns a substitution with bindings of the form [x |-> a],
-  where [x] is a power product (but not a fresh variable), and [a] is a
-  tupleterm or a fresh variable.  Substitution represents an
-  tuple context by interpreting bindings as equalities [x = a]. *)
 
-  val subst_of : t -> Term.t Term.map
+(*s For an interpreted function symbol [op], [index op] returns the 
+ corresponding name of the interpreted theory. *)
 
-(* [use_of s a] returns the set of right-hand side terms of s, in which
-   [a] occurs as a subterm. *)
+val index : Sym.interp -> i
 
-  val use_of : t -> Term.set Term.map
 
-(*s The empty context. *)
+(*s [sigma op l] is the combined sigmatizer for the interpreted theories. *)
 
-  val empty: t
+val sigma : Sym.interp -> Term.t list -> Term.t
+
+(*s Component solvers. *)
+
+val solve : i -> Term.t * Term.t -> (Term.t * Term.t) list
+
+(*s Type of the context for the interpreted theories. *)
+
+
+type t
+
+(*s Accessors. *)
+
+val la_of : t -> Term.t Term.Map.t
+val t_of : t -> Term.t Term.Map.t
+val bv_of : t -> Term.t Term.Map.t
+val nla_of : t -> Term.t Term.Map.t
+
+(*s Empty state. *)
+
+val empty : t
+
 
 (*s [apply s a] returns [b] if there is a binding [a |-> b] in [s], and raises
   [Not_found] otherwise. [find s a] is like [apply] but returns [a] if there
@@ -44,17 +61,17 @@ module type S = sig
   [a |-> b], and [b] otherwise. [use s a] returns the set of rhs in [s] which
   contain [a] as a subterm. *)
 
-  val apply: t -> Term.t -> Term.t        (* may throw [Not_found] *)
-  val find: t -> Term.t -> Term.t
-  val inv : t -> Term.t -> Term.t         (* may throw [Not_found] *)
-  val use : t -> Term.t -> Term.set
+val find : i -> t -> Term.t -> Term.t
 
+val inv : i -> t -> Term.t -> Term.t
+
+val use : i -> t -> Term.t -> Term.Set.t
 
 (*s [extend s (a,b)] installs a new binding [a |-> b] into [s]. 
   It assumes that [a] is not yet in the domain of [s]. 
   Also, [a],[b] must be valid lhs and rhs, respectively. *)
 
-  val extend : Term.t * Term.t -> t -> t
+val extend : i -> Term.t -> t -> Term.t * t
 
 (*s [process solve f (a,b) s] installs an equality [a = b], where at least one of [a],[b] is
   a tuple term, into the tuple context [s]. Abstractly, the manipulations on [s] can be 
@@ -66,14 +83,19 @@ module type S = sig
   corresponding binding is removed and returned as a newly infered equality between 
   uninterpreted terms. *)
 
-  val process : Term.t * Term.t -> t -> t
+type cnstrnt = Term.t -> Number.t option
 
-  val propagate: Term.t * Term.t -> t -> t
+val merge : i -> cnstrnt -> eq:(Term.t * Term.t) -> state: t 
+               -> (t * V.eqs * Atom.t list)
 
-end
+val merge_all : cnstrnt -> eq:(Term.t * Term.t) -> state: t 
+                   -> (t * V.eqs * Atom.t list)
 
+(*s Generate new constraints. *)
 
-module A : S       (* Linear arithmetic. *)
-module T : S       (* Tuple theory. *)
-module BV : S      (* Bitvectors. *)
-module NLA : S     (* Nonlinear arithmetic. *)
+val propagate : cnstrnt -> (Term.t * Number.t) -> state: t -> Atom.t list
+
+(*s Build new context by replacing all variables with "canonical" 
+ variables. *)
+
+val inst : can:(Term.t -> Term.t) -> t -> t

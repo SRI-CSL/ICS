@@ -62,8 +62,17 @@ let destruct a = a.node
 
 let mk_tt = make(True)
 let mk_ff = make(False)
-let mk_poslit a = make(Ite(a,mk_tt,mk_ff))
-let mk_neglit a = make(Ite(a,mk_ff,mk_tt))
+let mk_poslit a = 
+  match a with
+    | Atom.True -> mk_tt
+    | Atom.False -> mk_ff
+    | _ -> make(Ite(a,mk_tt,mk_ff))
+
+let mk_neglit a = 
+  match a with
+    | Atom.True -> mk_ff
+    | Atom.False -> mk_tt
+    | _ -> make(Ite(a,mk_ff,mk_tt))
 
 
 (*s Recognizers. *)
@@ -73,13 +82,12 @@ let is_ff a = (a === mk_ff)
 
 type p = t  (* avoid name clash *)
 
-module P3 = Hasht.Make(
+module P3 = Hashtbl.Make(
   struct
     type t = p * p * p
     let equal (a1,a2,a3) (b1,b2,b3) =
       a1 === b1 && a2 === b2 && a3 === b3
-    let hash (a1,a2,a3) =
-      (a1.tag + a2.tag + a3.tag) land 0x3FFFFFFF
+    let hash = Hashtbl.hash
   end)
 
 let applyhash = P3.create 17
@@ -126,7 +134,13 @@ and maxvar x y =
 
 (*s Derived constructors. *)
 
-let mk_ite x p n = mk_apply (mk_poslit x, p, n)
+let mk_ite x p n = 
+  if eq p n then p else
+    match x with
+      | Atom.True -> p
+      | Atom.False -> n
+      | _ -> mk_apply (mk_poslit x, p, n)
+
 let mk_neg a = mk_apply (a, mk_ff, mk_tt)
 let mk_conj a1 a2 = mk_apply (a1, a2, mk_ff)
 let mk_disj a1 a2 = mk_apply (a1, mk_tt, a2)

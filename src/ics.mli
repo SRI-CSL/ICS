@@ -116,26 +116,7 @@ type 'a namemap
 
 type cnstrnt
 
-(*s Attributes. *)
 
-type attribute
-
-val attribute_mk_a : attribute
-val attribute_mk_c : attribute
-val attribute_mk_ac : attribute 
-val attribute_mk_top : attribute
-
-
-(*s Arities. *)
-
-type arity
-
-val arity_of_string : string -> arity
-val arity_input : inchannel -> arity
-val arity_output : outchannel -> arity -> unit
-
-val arity_mk_constant : cnstrnt -> arity
-val arity_mk_functorial : cnstrnt list -> cnstrnt -> arity
 
    
 (*s Terms. This is the main syntactic category of ICS. Terms are either
@@ -149,8 +130,7 @@ val arity_mk_functorial : cnstrnt list -> cnstrnt -> arity
     which reduces to true if its argument term has been built
     with the constructor [mk_xxx]. Moreover, for each constructor
     [mk_xxx}] above there is a corresponding desctructor [d_xxx$]
-    for analyzing the components of such a constructor term.
-*)
+    for analyzing the components of such a constructor term. *)
 
 
 type term
@@ -166,7 +146,7 @@ val term_output : outchannel -> term -> unit
       update of function [f] at position [x] with value [a].
     *)
 
-val mk_uninterp : string -> arity -> term list -> term
+val mk_uninterp : string -> term list -> term
 
 
      (*s Arithmetic terms include rational constants built from
@@ -224,10 +204,6 @@ val mk_bwor : int -> term -> term -> term
 val mk_bwxor : int -> term -> term -> term
 val mk_bwnot : int -> term -> term
 
-    (*s Enumerations. *)
-
-val mk_enum : names -> string -> term
-
     (*s Equality and disequality. [mk_equal a b] constructs equalites,
         whereas [mk_diseq a b] yields a disequality of the form
         [mk_not(mk_equal a b)]. *)
@@ -261,53 +237,17 @@ val mk_le : term -> term -> atom
 val mk_gt : term -> term -> atom
 val mk_ge : term -> term -> atom
 
-(*s Set of terms. *)
+(*s Sets of terms. *)
 
 type terms
 
-val terms_empty : unit -> terms
-val terms_add : term -> terms -> terms
-val terms_pp : outchannel -> terms -> unit
-val terms_mem : term -> terms -> bool
-val terms_sub : terms -> terms -> bool
-val terms_is_empty : terms -> bool
-val terms_to_list : terms -> term list
-val terms_of_list : term list -> terms
-val terms_choose : terms -> term * terms
-    
-(*s Maps with terms as domain. *)
+(*s Term maps. *)
 
 type 'a map
-
-val map_empty : unit -> 'a map
-val map_add : term -> 'a -> 'a map -> 'a map
-val map_is_empty : 'a map -> bool
-val map_find : term -> 'a map -> 'a
-val map_remove : term -> 'a map -> 'a map
-val map_mem :  term -> 'a map -> bool
-val map_to_list : 'a map -> (term * 'a) list
-val map_pp : (outchannel -> 'a -> unit) -> outchannel -> 'a map -> unit
 
 (*s Propositions. *)
 
 type prop 
-    
-(*s Substititon. *)
-    
-type subst
-
-val subst_empty : unit -> subst
-val subst_add   : term -> term -> subst -> subst
-val subst_mem   : subst -> term -> bool
-val subst_find  : subst -> term -> term
-val subst_apply : subst -> term -> term
-val subst_of_list : (term * term) list -> subst
-val subst_to_list : subst -> (term * term) list
-val subst_pp    : outchannel -> subst -> unit
-
-(*s Integer tag for each term, which is unique for each session. *)
-
-val term_tag : term -> int  
 
 
 (*s Equality and Comparison.
@@ -322,7 +262,6 @@ val term_tag : term -> int
 
 val term_eq : term -> term -> bool
 val term_cmp : term -> term -> int
-val term_fast_cmp : term -> term -> int
 
 
 (*s A [state] or context can be thought of a function with
@@ -369,23 +308,11 @@ val process : state -> atom -> status
 (*s [can] normalizes terms inside-out. The resulting term may contain *)
 (*s fresh variables as introduced by solvers but no rename variables. *)
 
-val can : state -> term -> term
+val can : state -> atom -> state * atom
 
 (*s Computing a best constraint in a given state. *)
 
-val cnstrnt : state -> term -> cnstrnt
-
-(*s Theories. *)
-
-type theory
-
-val theory_a : theory
-val theory_t : theory
-val theory_b : theory
-val theory_e : theory
-val theory_bv : theory
-val theory_nla : theory
-val theory_of_term : term -> theory
+val cnstrnt : state -> term -> Number.t option
 
 
 (*s Command interface for manipulating global state. *)
@@ -395,8 +322,8 @@ type istate
 val istate_current : unit -> state
 
 val istate_def : name -> term -> unit
-val istate_sig : name -> arity -> unit
-val istate_type : name -> cnstrnt -> unit
+val istate_sig : name -> int -> unit
+val istate_type : name -> Number.t -> unit
 val istate_set_in_channel : inchannel -> unit
 val istate_set_out_channel : outchannel -> unit
 val istate_flush : unit -> unit
@@ -404,18 +331,11 @@ val istate_nl : unit -> unit
 val istate_can : term -> term
 val istate_process : prop -> status
 (* val istate_check : names -> term -> (term * cnstrnt) map status *)
-val istate_ext : term -> terms
 val istate_reset : unit -> unit
 val istate_save : name -> unit
 val istate_restore : name -> unit
 val istate_remove : name -> unit
 val istate_forget : unit -> unit
-val istate_sub : name -> name -> three
-val istate_use_of : theory -> terms map
-val istate_use : theory -> term -> terms
-val istate_find_of : theory -> term map
-val istate_find : theory -> term -> term
-
 
 (*s Execute a command. *)
 

@@ -16,7 +16,6 @@
 
 (*i*)
 open Mpa
-open Hashcons
 open Sign
 (*i*)
 

@@ -36,6 +36,9 @@ val mk_int : t
 val mk_nat : t
 
 val mk_singleton : Q.t -> t
+val mk_zero : t
+val mk_one : t
+
 val mk_diseq : Q.t -> t
 
 (*s Recognizers and Accessors. *)
@@ -52,10 +55,6 @@ val d_singleton : t -> Q.t option
 val cmp : t -> t -> Binrel.t
 
 val sub : t -> t -> bool
-
-(*s Analyze. *)
-
-val analyze : t -> Q.t Status.t
 
 (*s Check if two constraints are disjoint. *)
 

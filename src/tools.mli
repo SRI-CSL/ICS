@@ -34,16 +34,6 @@ val add_at_reset : (unit -> unit) -> unit
 val do_at_reset : unit -> unit
 
 
-(*s Various ICS function output, on standard output, a trace of their input
-  and output behavior depending on the current [verbose] value; generally speaking,
-  the highter this value, the more information is output. The verbose
-  value is set with [set_verbose], and can be obtained with [get_verbose].
-  [verbose n f x] calls a procedure [f] on argument [x] only if the current
-  verbose level is greater or equal to [n]. *)
-
-val set_verbose : int -> unit
-val get_verbose : unit -> int
-val verbose : int -> ('a -> unit) -> 'a -> unit
 
 
 (*s [utime f a] returns not only the result of applying [f] to [a]

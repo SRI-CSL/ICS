@@ -16,6 +16,6 @@
 
 (*s Module [Rename]: creation of rename variables for purification. *)
 
-val make : Type.t -> Term.t
+val mk_fresh : unit -> Term.t
  
-val is: Term.t -> bool
+val is_fresh : Term.t -> bool

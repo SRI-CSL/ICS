@@ -19,29 +19,30 @@ open Term
 open Hashcons
 (*i*)
 
-let mk_uninterp (x,sgn) l =
-  let f = Sym.mk_uninterp (x,sgn) in
+let mk_uninterp x l =
+  let f = Sym.mk_uninterp x in
   match f, l with
-    | _, [a] when  f === Sym.mk_unsigned ->       (* Some builtin simplifications *)
-	Builtin.mk_unsigned a                     (* for unsigned interpretation. *)
+    | _, [a] when  Sym.eq f Sym.mk_unsigned -> (* Some builtin simplifications *)
+	Builtin.mk_unsigned a                  (* for unsigned interpretation. *)
     | _ ->
-	Term.make(Sym.mk_uninterp(x,sgn), l)
+	Term.mk_app (Sym.mk_uninterp(x)) l
 	  
 let is_uninterp a =
   Sym.is_uninterp (Term.sym_of a)
 
 let d_uninterp a =
   assert(is_uninterp a);
-  match a.node with
-    | App(f,l) -> (Sym.d_uninterp f, l)
+  let f,l = Term.destruct a in
+  (Sym.d_uninterp f, l)
 
-let sigma (x,sgn) l = mk_uninterp (x,sgn) l
+let sigma x l = 
+  mk_uninterp x l
 
 
 let rec map f a =
-  match a.node with 
-    | App({node=Sym.Uninterp(g,sgn)}, l) -> 
-	Term.make(Sym.mk_uninterp(g,sgn), mapl (map f) l)
+  match Sym.destruct (Term.sym_of a) with 
+    | Sym.Uninterp(g) -> 
+	Term.mk_app (Sym.mk_uninterp(g)) (mapl (map f) (Term.args_of a))
     | _ ->
 	(f a)
 

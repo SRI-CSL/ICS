@@ -23,15 +23,16 @@ open Mpa
 (*s Unsigned interpretation. *)
 
 let rec mk_unsigned a =
-  match a.node with
-    | App({node=Sym.Interp(Sym.Bv(op))},l) ->
+  let f,l = Term.destruct a in
+  match Sym.destruct f, l with
+    | Sym.Interp(Sym.Bv(op)), l ->
 	(match op, l with
 	   | Sym.Const(b), [] -> mk_unsigned_const b
 	   | Sym.Sub(n,i,j), [x] -> mk_unsigned_sub n i j x
 	   | Sym.Conc(n,m), [x;y] -> mk_unsigned_conc n m x y
 	   | _ -> failwith "Bv.mk_unsigned: ill-formed expression")
     | _ ->
-	Term.make(Sym.mk_unsigned,[a])
+	Term.mk_app Sym.mk_unsigned [a]
 
 and mk_unsigned_const b =
   let n = Bitv.fold_right 
@@ -41,7 +42,7 @@ and mk_unsigned_const b =
   Linarith.mk_num (Q.of_int n)
 
 and mk_unsigned_sub n i j x =
-  Term.make(Sym.mk_unsigned,[Bv.mk_sub n i j x])
+  Term.mk_app Sym.mk_unsigned [Bv.mk_sub n i j x]
 
 and mk_unsigned_conc n m x y =
   let ux = mk_unsigned x in

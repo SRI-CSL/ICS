@@ -15,6 +15,12 @@
 (*s The purpose of module [Trace] is to provide some rudimentary
   abstractions for a tracer. *)
 
+(*s The verbose value is set with [set_verbose], and can be obtained with [get_verbose]. *)
+
+val set_verbose : int -> unit
+val get_verbose : unit -> int
+
+
     (*s Before using this module, the trace must be initialized. *)
 val init : unit -> unit
 

@@ -44,19 +44,14 @@ open Mpa
  on these sets are described below in the submodule [Set]. *)
 
 
-type term = 
-  | App of Sym.t * t list
-
-and t = term hashed
-
-and set = term Ptset.t
-
-and 'a map = (term,'a) Ptmap.t
-
+type t
 
 (*s Constructing and destructing terms *)
 
-val make : Sym.t * t list -> t
+val mk_var : Name.t -> t
+val mk_const : Sym.t -> t
+val mk_app : Sym.t -> t list -> t
+
 
 val destruct : t -> Sym.t * t list
 
@@ -66,12 +61,6 @@ val args_of : t -> t list
 (*s Equality of terms. *)
 
 val eq : t -> t -> bool
-
-(*s Fast comparison is done in constant time, but is session-dependent,
-  since it uses physical addresses. In constrast, [cmp] 
-  is session-independent but requires linear time. *)
-
-val fast_cmp : t -> t -> int
 
 val cmp : t -> t -> int
 
@@ -83,6 +72,12 @@ val order : t -> t -> t * t
 (*s Test if term is a constant. *)
 
 val is_const : t -> bool
+
+val is_label : t -> bool
+
+val is_slack : t -> bool
+
+val d_slack : t -> Number.t option
 
 val is_interp_const : t -> bool
  
@@ -112,27 +107,24 @@ val for_all : (t -> bool) -> t -> bool
 
 val mapl : (t -> t) -> t list -> t list
 
-(*s Homomorphism [hom a op f (b1,b2,...)] on terms. 
- [f] is applied to arguments [bi], if [bi] equals [f(bi)] 
- for all [i], then the original term [a] is returned, otherwise 
- a new term is constructed using [op]. *)
-
-val hom1 : t -> (t -> t) -> (t -> t) -> t -> t
-val hom2 : t -> (t * t -> t) -> (t -> t) -> t * t -> t
-val hom3 : t -> (t * t * t -> t) -> (t -> t) -> t * t * t -> t
-val homl : t -> (t list -> t) -> (t -> t) -> t list -> t
-
 
 (*s Association lists for terms. *)
 
 val assq : t -> (t * 'a) list -> 'a
 
-(*s Get theory of top-level function symbol. *)
-
-val theory_of : t -> Sym.classify
 
 (*s Printer. *)
 
 val pp : Format.formatter -> t -> unit
 
 val ppeqn : Format.formatter -> t * t -> unit
+
+
+
+(*s Sets and maps of terms. *)
+
+type trm = t
+
+module Set : (Set.S with type elt = trm)
+
+module Map : (Map.S with type key = trm)

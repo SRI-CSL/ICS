@@ -16,15 +16,15 @@
 
 (*s Construction of renaming variables for purification. *)
 
-let renames = ref Ptset.empty 
-let _ =  Tools.add_at_reset (fun () -> renames := Ptset.empty)
+let k = ref 0
+let _ = Tools.add_at_reset (fun () -> k := 0)
 
-let make c =
-  let sgn = Arity.mk_constant c in  
-  let x = Sym.mk_fresh ("c",sgn) in
-  let a = Term.make(x,[]) in
-  renames := Ptset.add a !renames;
-  a
+let mk_fresh () =
+  let f = Sym.make(Sym.Internal(Sym.Label(!k))) in
+  incr(k);
+  Term.mk_const f
 
-let is a =
-  Ptset.mem a !renames
+let is_fresh a =
+  match Sym.destruct (Term.sym_of a) with
+    | Sym.Internal(Sym.Label _) -> true
+    | _ -> false

@@ -28,15 +28,14 @@ val get_print_all : unit -> bool
 val set_print_all : bool -> unit
 
 val sym : Sym.t printer
-val arity : Arity.t printer 
-val cnstrnt : Type.t printer
+val number : Number.t printer
 val term : Term.t printer
 val eqn : (Term.t * Term.t) printer
 val diseq : (Term.t * Term.t) printer
 val inn : (Term.t * Number.t) printer
-val tset : Term.set printer
-val map: 'a printer -> 'a Term.map printer
-val tmap : Term.t Term.map printer
+val tset : Term.Set.t printer
+val map: 'a printer -> 'a Term.Map.t printer
+val tmap : Term.t Term.Map.t printer
 val tlist : Term.t list printer
 val list : 'a printer -> 'a list printer
 val atom : Atom.t printer

@@ -15,13 +15,11 @@
  i*)
 
 (*i*)
-open Term
 open Hashcons
 open Mpa
 open Status
 open Binrel
 open Sym
-open Term
 (*i*)
 
 type t =
@@ -36,11 +34,11 @@ let eq a b =
     | True, True -> true  
     | False, False -> true
     | Equal(x1,y1), Equal(x2,y2) ->  (* equalities are ordered. *)
-	x1 === x2 && y1 === y2
+	Term.eq x1 x2 && Term.eq y1 y2
     | Diseq(x1,y1), Diseq(x2,y2) ->
-	x1 === x2 && y1 === y2
+	Term.eq x1 x2 && Term.eq y1 y2
     | In(c1,x1), In(c2,x2) -> 
-	x1 === x2 && Number.eq c1 c2
+	Term.eq x1 x2 && Number.eq c1 c2
     | _ -> 
 	false
 
@@ -51,37 +49,36 @@ let mk_true = True
 let mk_false = False
 
 let mk_equal a b =
-  if a === b then 
+  if Term.eq a b then 
     mk_true
-  else if is_interp_const a && is_interp_const b then
+  else if Term.is_interp_const a && Term.is_interp_const b then
     mk_false
   else
-    let a',b' = order a b in
+    let a',b' = Term.order a b in
     Equal(a',b')       (* Larger Term on rhs *)
 
 let mk_in c a =
-  match Number.analyze c with
-    | Status.Singleton(u) ->
-	mk_equal a (Linarith.mk_num u)
-    | Status.Empty ->
-	False
-    | Status.Full ->
-	True
-    | Status.Other ->
+  if Number.is_bot c then
+    False
+  else 
+    match Number.d_singleton c with
+    | Some(q) ->
+	mk_equal a (Linarith.mk_num q)
+    | None -> 
 	In(c, a)
 
 let rec mk_diseq a b =
-  if a === b then 
+  if Term.eq a b then 
     mk_false
-  else if is_interp_const a && is_interp_const b then
+  else if Term.is_interp_const a && Term.is_interp_const b then
     mk_true
-  else if a === Bool.mk_tt then
+  else if Term.eq a Bool.mk_tt then
     mk_equal b Bool.mk_ff
-  else if a === Bool.mk_ff then
+  else if Term.eq a Bool.mk_ff then
     mk_equal b Bool.mk_tt
-  else if b === Bool.mk_tt then
+  else if Term.eq b Bool.mk_tt then
     mk_equal a Bool.mk_ff
-  else if b === Bool.mk_ff then
+  else if Term.eq b Bool.mk_ff then
     mk_equal a Bool.mk_tt
   else
     match Linarith.d_num a, Linarith.d_num b with
@@ -90,7 +87,7 @@ let rec mk_diseq a b =
       | _, Some(p) -> 
 	  mk_in (Number.mk_diseq p) a
       | None, None -> 
-	  let a',b' = order a b in
+	  let a',b' = Term.order a b in
 	  Diseq(a',b')
 
 (*s Transforming terms in an atom *)

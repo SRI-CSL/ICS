@@ -15,7 +15,6 @@
 i*)
 
 (*i*)
-open Hashcons
 open Mpa
 open Sign
 open Allen
@@ -29,7 +28,7 @@ open Allen
   [(a,b,false,true)] denotes the left-open interval [{x in R | u < x <= v}],
   and [(a,b,false,false)] denotes the open interval [{x in R | u < x < v}]. *)
 
-type t = tnode hashed
+type t = tnode
 
 and tnode = {
   lo : endpoint;
@@ -51,44 +50,29 @@ let nonstrict u = (Extq.of_q u, true)
 
 (*s Accessors. *)
 
-let lo i = i.node.lo
-let hi i = i.node.hi
+let lo i = i.lo
+let hi i = i.hi
 
-let destructure {node={lo=l;hi=h}} = (l,h)
+let destructure {lo=l;hi=h} = (l,h)
 
 (*s Two intervals have the same denotation iff they are physically equal. *)
 
-let eq = (===)
-
-(*s Hashconsing *)
-
-module HashInt = Hashcons.Make( 
-  struct 
-    type t = tnode
-
-    let equal {lo=li;hi=hi} {lo=lj;hi=hj} =
-      let endpoint_eq (a,alpha) (b,beta) =
-	match Extq.destruct a, Extq.destruct b with
-	  | Extq.Inject u, Extq.Inject v -> alpha = beta && Q.equal u v
-	  | Extq.Posinf, Extq.Posinf -> true
-	  | Extq.Neginf, Extq.Neginf -> true
-	  | _ -> false
-      in
-      endpoint_eq li lj && endpoint_eq hi hj
-
-    let hash = Hashtbl.hash
-  end)
-
-let ht = HashInt.create 17
-
-let _ = Tools.add_at_reset (fun () -> HashInt.clear ht)
+let eq {lo=li;hi=hi} {lo=lj;hi=hj} =
+  let endpoint_eq (a,alpha) (b,beta) =
+    match Extq.destruct a, Extq.destruct b with
+      | Extq.Inject u, Extq.Inject v -> alpha = beta && Q.equal u v
+      | Extq.Posinf, Extq.Posinf -> true
+      | Extq.Neginf, Extq.Neginf -> true
+      | _ -> false 
+  in
+  endpoint_eq li lj && endpoint_eq hi hj
 
 
 (*s Hashconsed constructor. *)
 
 let empty =
   let z = (Extq.zero, false) in
-  HashInt.hashcons ht {lo = z; hi = z}
+  {lo = z; hi = z}
 
 let rec make d =
   match d with
@@ -111,7 +95,7 @@ and makereal ((a,l) as lo) ((b,k) as hi) =
   if is_empty then
     empty 
   else
-    HashInt.hashcons ht {lo = lo; hi = hi}
+    {lo = lo; hi = hi}
 
 and makenonint ((a,l) as lo) ((b,k) as hi) =
   let lo' = if l && Extq.is_int a then (a,false) else lo in
@@ -135,7 +119,7 @@ and makeint ((a,l) as lo) ((b,k) as hi) =
   if Extq.lt b' a' then
     empty
   else
-    HashInt.hashcons ht {lo = lo'; hi = hi'}
+    {lo = lo'; hi = hi'}
 
 
 (*s Derived constructors. *)
@@ -150,9 +134,9 @@ let zero = singleton Q.zero
 
 (* Tests for special intervals. *)
 
-let is_empty i = (i === empty)
+let is_empty i = (eq i empty)
 
-let is_full i = (i === full)
+let is_full i = (eq i full)
 
 let is_singleton i =
   let (a,l) = lo i in
@@ -162,11 +146,11 @@ let is_singleton i =
   else 
     None
 
-let is_zero i = (i === zero)
+let is_zero i = (eq i zero)
 
 (*s Test if [q] is in the interval [i]. *)
 
-let mem q {node={lo=(a,alpha); hi=(b,beta)}} =
+let mem q {lo=(a,alpha); hi=(b,beta)} =
   match Extq.destruct a with
     | Extq.Inject u ->
 	(match Extq.destruct b with
@@ -197,7 +181,7 @@ let mem q {node={lo=(a,alpha); hi=(b,beta)}} =
 
 (*s Printing an interval. *)
 
-let pp fmt {node={lo=(a,alpha); hi=(b,beta)}} =
+let pp fmt {lo=(a,alpha); hi=(b,beta)} =
   Format.fprintf fmt "@[";
   Format.fprintf fmt "%s" (if alpha && Extq.is_q a then "[" else "(");
   Extq.pp fmt a;
@@ -220,13 +204,13 @@ let nu a c alpha gamma =
     | Q.Equal -> alpha || gamma
     | Q.Greater -> gamma
 
-let inter dom {node={lo=(a,alpha); hi=(b,beta)}}  
-           {node={lo=(c,gamma); hi=(d,delta)}} =
+let inter dom {lo=(a,alpha); hi=(b,beta)}  
+           {lo=(c,gamma); hi=(d,delta)} =
   make dom (Extq.max a c, mu a c gamma alpha)
          (Extq.min b d, mu b d beta delta)
      
-let union dom {node={lo=(a,alpha); hi=(b,beta)}}  
-              {node={lo=(c,gamma); hi=(d,delta)}} =
+let union dom {lo=(a,alpha); hi=(b,beta)} 
+              {lo=(c,gamma); hi=(d,delta)} =
   make dom (Extq.min a c, mu a c alpha gamma)
            (Extq.max b d, mu b d delta beta)
 
@@ -236,7 +220,7 @@ type one_or_two =
   | One of t
   | Two of t * t
 
-let compl d {node={lo=(a,alpha); hi=(b,beta)}} =
+let compl d {lo=(a,alpha); hi=(b,beta)} =
   match Extq.eq a Extq.neginf, Extq.eq b Extq.posinf with
     | true, true -> Empty
     | true, false -> One(make d (b, not beta) posinf)
@@ -251,8 +235,8 @@ let compl d {node={lo=(a,alpha); hi=(b,beta)}} =
 
 (*s Addition and Subtraction. *)
 
-let add dom {node={lo=(a,alpha); hi=(b,beta)}}
-            {node={lo=(c,gamma); hi=(d,delta)}} =
+let add dom {lo=(a,alpha); hi=(b,beta)}
+            {lo=(c,gamma); hi=(d,delta)} =
   make dom
     (Extq.add a c, alpha && gamma)
     (Extq.add b d, beta && delta) 
@@ -269,7 +253,7 @@ type classification =
   | N1                (*s [(a,b)] in [N1] iff [a <= b < 0]. *)
 
 
-let classify {node={lo=(a,alpha); hi=(b,beta)}} =
+let classify {lo=(a,alpha); hi=(b,beta)} =
   match Extq.sign a with
     | Zero ->
 	(match Extq.sign b with
@@ -287,8 +271,8 @@ let classify {node={lo=(a,alpha); hi=(b,beta)}} =
 (*s Multiplication of general real intervals. *)
 
 
-let mult dom ({node={lo=(a,alpha); hi=(b,beta)}} as i)
-             ({node={lo=(c,gamma); hi=(d,delta)}} as j) =
+let mult dom ({lo=(a,alpha); hi=(b,beta)} as i)
+             ({lo=(c,gamma); hi=(d,delta)} as j) =
   let kind a c l k =
     (l && k) || 
     (l && (Extq.is_zero a)) || 
@@ -323,8 +307,8 @@ let mult dom ({node={lo=(a,alpha); hi=(b,beta)}} as i)
 
 let multq dom q = mult dom (singleton q)
 	
-let div dom ({node={lo=(a,alpha); hi=(b,beta)}} as i)
-        ({node={lo=(c,gamma); hi=(d,delta)}} as j) =
+let div dom ({lo=(a,alpha); hi=(b,beta)} as i)
+        ({lo=(c,gamma); hi=(d,delta)} as j) =
   let make = make Dom.Real in
   let kind a c alpha gamma =
     (alpha && gamma) || (alpha && (Extq.is_zero a)) || (gamma && (Extq.is_zero c))
@@ -382,12 +366,12 @@ let div dom ({node={lo=(a,alpha); hi=(b,beta)}} as i)
 (*s [lo(i)=lo(j), lo(i)<hi(j),hi(i)>lo(j),hi(i)=hi(j)] *)
  
 
-let rec cmp ({node={lo=li;hi=hi}} as i) ({node={lo=lj;hi=hj}} as j) =
-  if i === j then
+let rec cmp ({lo=li;hi=hi} as i) ({lo=lj;hi=hj} as j) =
+  if eq i j then
     Equals 
-  else if i === empty then
+  else if eq i empty then
     Sub
-  else if j === empty then
+  else if eq j empty then
     Super
   else 
     match Extq.cmp (value lj) (value hi) with

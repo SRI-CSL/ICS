@@ -29,7 +29,7 @@ val empty : t
 (*s [cnstrnt_of s] returns a finite map of bindings [x |-> c]
  from the representation [s]. *)
 
-val cnstrnt_of : t -> Number.t Term.map
+val cnstrnt_of : t -> Number.t Term.Map.t
 
 
 (*s [apply s a] returns [c] if there is a binding [a |-> c];
@@ -38,15 +38,14 @@ val cnstrnt_of : t -> Number.t Term.map
 val apply : t -> Term.t -> Number.t
 
 
-(*s Propagating an equality [a = b] to the constraint
+(*s Propagating variable equalities [a = b] to the constraint
  database. Constraints for [a] are deleted in favor of
  those for [b].  As a side effect, newly generated 
  equalities may be pushed on the pending stack of goals,
  and the exception [Exc.Inconsistent] is raised if the
  interpretation domain of [b] becomes empty. *)
 
-
-val propagate : Term.t * Term.t -> t -> t
+val merge : Term.t * Term.t -> t -> (t * Atom.t list)
 
 
 (*s Merging a new constraint [a in c] into the constraint
@@ -54,4 +53,9 @@ val propagate : Term.t * Term.t -> t -> t
  domain of [a] becomes empty, and newly generated equalities
  are pushed on the pending stack of goals. *)
 
-val process: Number.t -> Term.t -> t -> t
+val add : Number.t -> Term.t -> t -> (t * Atom.t list)
+
+
+(*s Replace all [x |-> c] with [y |-> c] where [y] is [find x]. *)
+
+val inst : find:(Term.t -> Term.t) -> t -> t

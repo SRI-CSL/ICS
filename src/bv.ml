@@ -54,11 +54,26 @@ let iter f a =
 	   | _ -> failwith "Bv.iter: ill-formed expression")
     | None -> f a
 
+
+(*s Fold functional. *)
+
+let rec fold f a e =
+  match d_interp a with
+    | Some(op,l) ->
+	(match op, l with
+	   | Sym.Const(_), [] -> e
+	   | Sym.Sub(_,_,_), [x] -> fold f x e
+	   | Sym.Conc(n,m), [x;y] -> fold f x (fold f y e)
+	   | Sym.Bitwise(n), [x;y;z] -> fold f x (fold f y (fold f z e))
+	   | _ -> failwith "Bv.iter: ill-formed expression")
+    | None -> 
+	f a e
+
 (* Term constructors *)
 
 let mk_const c = 
   let f = Sym.mk_bv_const c in
-  Term.make(f,[])
+  Term.mk_const f
 
 let mk_eps = 
   mk_const(Bitv.from_string "")
@@ -134,13 +149,12 @@ let topvar x s2 s3 =
     | None, Some(_,z,_,_) -> max x z
     | None, None -> x
     
-module H3 = Hasht.Make(
+module H3 = Hashtbl.Make(
   struct
     type t = Term.t * Term.t * Term.t
     let equal (a1,a2,a3) (b1,b2,b3) = 
       Term.eq a1 b1 && Term.eq a2 b2 && Term.eq a3 b3
-    let hash (b1,b2,b3) = 
-      b1.Hashcons.tag + b2.Hashcons.tag + b3.Hashcons.tag
+    let hash = Hashtbl.hash
   end)
  
 let ht = H3.create 17
@@ -165,9 +179,9 @@ and build_fun n (s1,s2,s3) =
 	let (pos3,neg3) = cofactors x s3 in
 	let pos = build n (pos1,pos2,pos3) in
 	let neg = build n (neg1,neg2,neg3) in
-	if Term.eq pos neg then pos else Term.make(Sym.mk_bv_bitwise n, [x;pos;neg])
+	if Term.eq pos neg then pos else Term.mk_app (Sym.mk_bv_bitwise n) [x;pos;neg]
     | None ->
-	Term.make(Sym.mk_bv_bitwise n, [s1;s2;s3])
+	Term.mk_app (Sym.mk_bv_bitwise n) [s1;s2;s3]
 
 (*s Term constructors. *)
 
@@ -196,7 +210,7 @@ let rec mk_sub n i j a =
       | Some(Sym.Bitwise(n), [x;y;z]) ->
 	  mk_bitwise (j-i+1) (mk_sub n i j x) (mk_sub n i j y) (mk_sub n i j z) 
       | None ->
-	  Term.make(Sym.mk_bv_sub n i j,[a]) 
+	  Term.mk_app (Sym.mk_bv_sub n i j) [a]
       | Some _ ->
 	  failwith "Bv.mk_sub: ill-formed expression"
 	
@@ -208,7 +222,7 @@ and mk_conc n m a b =
     | false, true -> a
     | false, false ->
 	(match merge n m a b with
-	   | None -> Term.make (Sym.mk_bv_conc n m, [a;b])
+	   | None -> Term.mk_app (Sym.mk_bv_conc n m) [a;b]
 	   | Some(c) -> c)
 
 and merge n m a b =
@@ -271,7 +285,7 @@ and lift n a =
     a 
   else
     let f = Sym.mk_bv_bitwise n in
-    Term.make (f, [a;mk_one n;mk_zero n])
+    Term.mk_app f [a;mk_one n;mk_zero n]
 
 and drop a =
  match d_bitwise a with
@@ -347,22 +361,22 @@ let rec mk_iterate n b = function
 
 (*s Creating fresh bitvector variables. *)
 
-let fresh = ref Ptset.empty
-let _ = Tools.add_at_reset (fun () -> fresh := Ptset.empty)
+let k = ref 0
+let _ = Tools.add_at_reset (fun () -> k := 0)
 
 let mk_fresh n =
   assert (n >= 0);
   if n = 0 then 
     mk_eps 
   else 
-    let sgn = Type.mk_bitvector n in 
-    let f = Sym.mk_fresh ("b",sgn) in
-    let a = Term.make(f,[]) in
-    fresh := Ptset.add a !fresh;
-    a
+    let f = Sym.make(Sym.Internal(Sym.FreshBv(!k))) in
+    incr(k);
+    Term.mk_const f
 
 let is_fresh a =
-  Ptset.mem a !fresh
+  match Sym.destruct(Term.sym_of a) with
+    | Sym.Internal(Sym.FreshBv _) -> true
+    | _ -> false
 
 (* Flattening out concatenations. The result is a list of equivalent
  equalities not containing any concatenations. *)

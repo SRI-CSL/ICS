@@ -30,11 +30,20 @@ open Term
 val is_interp: Term.t -> bool
 val d_interp : Term.t -> (Sym.linarith * Term.t list) option
 
-(* All non-arithmetic terms, that is, terms [a] for which [is_linarith a]
-   fails are considered to be uninterpreted. [iter f a] is used to apply
-   procedure [f] at uninterpreted positions of [a]. *)
+(*s All non-arithmetic terms, that is, terms [a] for which [is_linarith a]
+  fails are considered to be uninterpreted. [iter f a] is used to apply
+  procedure [f] at uninterpreted positions of [a]. *)
 
-val iter: (Term.t -> unit) -> Term.t -> unit  
+val iter: (Term.t -> unit) -> Term.t -> unit 
+
+(*s [fold f a e] applies [f] at uninterpreted positions of [a] and 
+ accumulates the results starting with [e]. *)
+
+val fold : (Term.t -> 'a -> 'a) -> Term.t -> 'a -> 'a
+
+(*s [occurs x a] tests if [x] occurs toplevel uninterpreted in [a]. *)
+
+val occurs : Term.t -> Term.t -> bool
 
 (*s Some normalization functions. *)
 

@@ -15,83 +15,58 @@
  i*)
 
 (*i*)
-open Hashcons
 open Mpa
 open Format
 (*i*)
 
-
-type term = 
-  | App of Sym.t * t list
-
-and t = term hashed
-
-and set = term Ptset.t
-
-and 'a map = (term,'a) Ptmap.t
-
+type t = {
+  sym : Sym.t; 
+  args : t list
+}
 
 (*s Equalities *)
 
-let eql l m =
-  try List.for_all2 (===) l m with Invalid_argument _ -> false
+let rec eq a b = 
+  (Sym.eq a.sym b.sym) &&
+  (try 
+     List.for_all2 eq a.args b.args
+   with 
+       Invalid_argument _ -> false)
 
-let rec eq a b =
-  match a, b with
-    | App(f,l), App(g,m)  -> Sym.eq f g && eql l m
+(*s Sets and maps of terms. *)
 
-(*s Hashconsing Terms. *)
+type trm = t  (* avoid type-check error below *)
 
-module HashTrm = Hashcons.Make(           (*s Hashconsing of terms. *)
-  struct 
-    type t = term
-
-    let equal = eq
-     
-    let hash = function
-      | App(f,[]) -> Sym.tag f
-      | App(f,l) -> (Sym.tag f + (List.fold_left (fun h a -> h + a.tag) 1 l)) land 0x3FFFFFFF
+module Set = Set.Make(
+  struct
+    type t = trm
+    let compare = Pervasives.compare
   end)
 
-let ht = HashTrm.create 107
-  let _ = Tools.add_at_reset (fun () -> HashTrm.clear ht)
-
-let make (f,l) = HashTrm.hashcons ht (App(f,l))
-
-
-let destruct a =
-  match a.node with
-    | App(f,l) -> (f,l)
-
-let sym_of a = match a.node with App(f,_) -> f
-let args_of a = match a.node with App(_,l) -> l
+module Map = Map.Make(
+  struct
+    type t = trm
+    let compare = Pervasives.compare
+  end)
 
 
-(*s Equality of terms. *)
+let mk_const f = { sym = f; args = [] }
 
-let eq = (===)
+let mk_var x = { sym = Sym.mk_uninterp x; args = [] }
 
-(*s Efficient comparisons using hashconsing. Notice, this
-    function depends on the memory layout, and is therefore
-    session-specific *)
+let mk_app f l = { sym = f; args = l }
 
-let fast_cmp a b = a.tag - b.tag		       
+let destruct a = (a.sym, a.args)
+
+let sym_of a = a.sym
+let args_of a = a.args
+	       
 	
 (*s Structural comparison. *)
 
 let rec cmp a b =
-  let f,l = destruct a and g,m = destruct b in
-  match l,m with
-    | [], [] ->
-	(match Sym.is_interpreted_const f, Sym.is_interpreted_const g with
-	   | true, false -> -1
-	   | false, true -> 1
-	   | _ -> Sym.cmp f g)
-    | [], _::_ -> -1
-    | _::_, [] -> 1
-    | _ ->
-	let c1 = Sym.cmp f g in
-	if c1 != 0 then c1 else cmpl l m
+  let c1 = Sym.cmp a.sym b.sym in
+  if c1 != 0 then c1 else cmpl a.args b.args
 
 and cmpl l m =
   let rec loop c l m =
@@ -117,31 +92,43 @@ let order a b =
 
 (*s Some recognizers. *)
 
-let is_const t =
-  match t.node with
-    | App(f,[]) -> Sym.is_interpreted_const f
-    | _ -> false
+let is_const a =
+  a.args = []
+
+let is_label a =
+  (a.args = []) &&
+  (match Sym.destruct a.sym with
+     | Sym.Internal(Sym.Label _) -> true
+     | _ -> false)
+
+let is_slack a =
+  (a.args = []) &&
+  (match Sym.destruct a.sym with
+     | Sym.Internal(Sym.Slack _) -> true
+     | _ -> false)
+
+let d_slack a = 
+  assert(a.args = []);
+  match Sym.destruct a.sym with
+    | Sym.Internal(Sym.Slack(_,c)) -> Some(c)
+    | _ -> None
 
 let is_interp_const a =
-  match destruct a with
-    | f, [] -> Sym.is_interpreted_const f
-    | _ -> false
-
+  a.args = [] && Sym.is_interpreted_const a.sym
+   
 let is_interp a =
-  match a.node with
-    | App(f,_) -> Sym.is_interp f
+  Sym.is_interp a.sym
 
 let is_uninterpreted a =
-  match a.node with
-    | App(f,_) -> not(Sym.is_interp f)
+  not(Sym.is_interp a.sym)
 
 
 (*s Test is arguments are known to be disequal. *)
 
 let is_diseq a b =
-  (a =/= b) && 
   match destruct a, destruct b with
     | (f, []), (g, []) ->
+	not(Sym.eq f g) &&
 	Sym.is_interpreted_const f && Sym.is_interpreted_const g
     | _ ->
 	false
@@ -154,62 +141,30 @@ let rec mapl f l =
     | [] -> []
     | a :: l1 ->
 	let a' = f a and l1' = mapl f l1 in
-	if a' === a && l1 == l1' then l else a' :: l1'
-	
+	if eq a' a && l1 == l1' then l else a' :: l1'
 
-(*s Homomorphisms on terms. [f] is applied to arguments [bi],
-    if [bi] equals [f(bi)] for all [i], then the original term [a]
-    is returned, otherwise a new term is constructed using [op]. *)
-
-let hom1 a op f b =
-  let b' = f b in
-  if b' === b then a else op b'
-
-let hom2 a op f (b1,b2) =
-  let b1' = f b1 and b2' = f b2 in
-  if b1' === b1 && b2' === b2 then a else op(b1',b2')
-
-let hom3 a op f (b1,b2,b3) =
-  let b1' = f b1 and b2' = f b2 and b3' = f b3 in
-  if b1' === b1 && b2' === b2 && b3' === b3 then a else op(b1',b2',b3')
-
-let homl a op f l =
-  let l' = mapl f l in
-  if eql l l' then a else op l'
 
 (*s Association lists for terms. *)
     
-let assq = List.assq
-
-(*s Get theory of top-level function symbol. *)
-
-let theory_of a =
-  Sym.classify (sym_of a)
-
-(*s Fold operator over terms. *)
-
-let rec fold f a acc =
-  match a.node with
-    | App(_,l) -> f a (List.fold_right f l acc)
+let rec assq a = function
+  | [] -> raise Not_found
+  | (x,y) :: xl -> if eq a x then y else assq a xl
 
 (*s Is [a] a subterm of [b]. *)
 
 let is_subterm a b =
   let rec occ b =
-    a === b || 
-       match b.node with 
-	 | App(_,l) -> List.exists occ l
+    eq a b || List.exists occ b.args
   in 
   occ b
 
-
 (*s Iteration over terms. *)
 
-let rec iter f a  =
-  f a;
-  match a.node with
-    | App(_,l) -> List.iter (iter f) l
+let rec fold f a acc =
+  f a (List.fold_right (fold f) a.args acc)
 
+let rec iter f a  =
+  f a; List.iter (iter f) a.args
 
 let rec for_all p a  =
   p a && List.for_all (for_all p) (args_of a)
@@ -230,3 +185,5 @@ let ppeqn fmt (a,b) =
   Format.fprintf fmt " = ";
   pp fmt b;
   Format.fprintf fmt ")@]"
+
+

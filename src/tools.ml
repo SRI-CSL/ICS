@@ -36,19 +36,6 @@ let do_at_reset () =
   List.iter (fun f -> f()) (List.rev !at_reset_functions)
 
 
-(*s Verbose. *)
-
-let verbose_level = ref 0
-let _ = add_at_reset (fun () -> verbose_level := 0)
-
-let set_verbose n = verbose_level := n
-
-let get_verbose () = !verbose_level
-
-let verbose n f x =
-  if !verbose_level >= n then begin f x; Format.print_flush () end
-
-
 (*s Timing functions. *)
 
 open Unix

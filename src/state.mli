@@ -1,15 +1,17 @@
 
 (*i
- * ICS - Integrated Canonizer and Solver
- * Copyright (C) 2002 SRI International
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the ICS license as published at www.icansolve.com
+ * The contents of this file are subject to the ICS(TM) Community Research
+ * License Version 1.0 (the ``License''); you may not use this file except in
+ * compliance with the License. You may obtain a copy of the License at
+ * http://www.icansolve.com/license.html.  Software distributed under the
+ * License is distributed on an ``AS IS'' basis, WITHOUT WARRANTY OF ANY
+ * KIND, either express or implied. See the License for the specific language
+ * governing rights and limitations under the License.  The Licensed Software
+ * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
+ * ``ICS'' is a trademark of SRI International, a California nonprofit public
+ * benefit corporation.
  * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * ICS License for more details.
+ * Author: Harald Ruess
  i*)
 
 type t 
@@ -34,15 +36,10 @@ val nl : unit -> unit
 (*s Adding definitions to state *)
 
 val def : Name.t -> Term.t -> unit
-val sgn : Name.t -> Arity.t -> unit
-val typ : Name.t -> Type.t -> unit
+val sgn : Name.t -> int -> unit
+val typ : Name.t -> Number.t -> unit
 
 (*s State-dependent destructors. *)
-
-val funsym_of : int -> Name.t -> Sym.uninterp
-val enumtype_of : Name.t -> Name.Set.t
-val type_of : Name.t -> Type.t
-val constant_of : Name.t -> Term.t
 
 (*s Context of. *)
 
@@ -50,16 +47,19 @@ val ctxt_of : unit -> Atom.Set.t
 
 (*s Canonization w.r.t current state. *)
 
-val can : Term.t -> Term.t
-val canatom : Atom.t -> Atom.t
+val can_t : Term.t -> Term.t
+val can_a : Atom.t -> Atom.t
 
 (*s Adding a new fact *)
 
-val process : Prop.t -> Dp.t Process.status
+val process_a : Atom.t -> Dp.t Dp.status
 
-(*s Extension of an equivalence class. *)
+val process_p :Prop.t -> Dp.t Dp.status
 
-val ext : Term.t -> Term.set
+(*s Compress the current state. *)
+
+val compress : unit -> unit
+
  
 (*s Change current state. *)
 
@@ -68,25 +68,25 @@ val restore : Name.t -> unit
 val remove : Name.t -> unit
 val forget : unit -> unit
 
-val sub : Name.t -> Name.t -> Three.t
+(*s Accessors. *)
+
+val u : unit -> Term.t Term.Map.t
+val v : unit -> Term.t Term.Map.t
+val a : unit -> Term.t Term.Map.t
+val t : unit -> Term.t Term.Map.t
+val bv : unit -> Term.t Term.Map.t
+val nla : unit -> Term.t Term.Map.t
+
 
 (*s Theory-specific operations. *)
 
-val use_of : Theory.t -> Term.set Term.map
-val use : Theory.t -> Term.t -> Term.set
+val diseq_of: unit -> Term.Set.t Term.Map.t
+val diseq : Term.t -> Term.Set.t
 
-val find_of : Theory.t -> Term.t Term.map
-val find : Theory.t -> Term.t -> Term.t
-
-val diseq_of: unit -> Term.set Term.map
-val diseq : Term.t -> Term.set
-
-val cnstrnt_of : unit -> Number.t Term.map
-val cnstrnt : Term.t -> Type.t
+val cnstrnt_of : unit -> Number.t Term.Map.t
+val cnstrnt : Term.t -> Number.t option
 
 val prop_of : unit -> Prop.t
-
-val solve : Theory.t -> Term.t * Term.t -> (Term.t * Term.t) list option
 
 (*s Toggle variables. *)
 

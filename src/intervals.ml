@@ -135,6 +135,26 @@ let pp fmt l =
   Format.fprintf fmt "@]"
 
 
+
+(*s Additional constructors. *)
+
+let oo dom u v = inj dom (Interval.make dom (Interval.strict u) (Interval.strict v))
+let oc dom u v = inj dom (Interval.make dom (Interval.strict u) (Interval.nonstrict v))
+let co dom u v = inj dom (Interval.make dom (Interval.nonstrict u) (Interval.strict v))
+let cc dom u v = inj dom (Interval.make dom (Interval.nonstrict u) (Interval.nonstrict v))
+
+let lt dom u = inj dom (Interval.make dom Interval.neginf (Interval.strict u))
+let le dom u = inj dom (Interval.make dom Interval.neginf (Interval.nonstrict u))
+let gt dom u = inj dom (Interval.make dom (Interval.strict u) Interval.posinf)
+let ge dom u = inj dom (Interval.make dom (Interval.nonstrict u) Interval.posinf)
+
+let neg dom = lt dom Q.zero
+let pos dom = gt dom Q.zero
+let nonneg dom = ge dom Q.zero
+let nonpos dom = le dom Q.zero
+
+
+
 (*s Finds the interval of two lists*)
 
    
@@ -316,12 +336,19 @@ let expt dom n l =
     | 0 -> singleton Q.one
     | n -> mult dom l (loop (n - 1))
   in
-  loop n
+  let c = loop n in
+  if n mod 2 = 0 then
+    inter dom c (nonneg dom)
+  else 
+    c
 
 (*s Multiplies an interval list with an integer *)
 
 let multq dom  q l =
-  List.fold_right (fun i -> insert dom (Interval.multq dom q i)) l []
+  List.fold_right 
+    (fun i -> 
+       insert dom (Interval.multq dom q i)) 
+    l []
 
 
 (*s Interpretations of a list*)
@@ -331,21 +358,3 @@ let to_list l = l
 let rec of_list dom = function
   | [] -> empty
   | i :: l -> insert dom i (of_list dom l)
-
-
-(*s Additional constructors. *)
-
-let oo dom u v = inj dom (Interval.make dom (Interval.strict u) (Interval.strict v))
-let oc dom u v = inj dom (Interval.make dom (Interval.strict u) (Interval.nonstrict v))
-let co dom u v = inj dom (Interval.make dom (Interval.nonstrict u) (Interval.strict v))
-let cc dom u v = inj dom (Interval.make dom (Interval.nonstrict u) (Interval.nonstrict v))
-
-let lt dom u = inj dom (Interval.make dom Interval.neginf (Interval.strict u))
-let le dom u = inj dom (Interval.make dom Interval.neginf (Interval.nonstrict u))
-let gt dom u = inj dom (Interval.make dom (Interval.strict u) Interval.posinf)
-let ge dom u = inj dom (Interval.make dom (Interval.nonstrict u) Interval.posinf)
-
-let neg dom = lt dom Q.zero
-let pos dom = gt dom Q.zero
-let nonneg dom = ge dom Q.zero
-let nonpos dom = le dom Q.zero

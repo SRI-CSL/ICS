@@ -52,13 +52,20 @@ type interp =
   | Nonlin of nonlin
   | Tuple of tuple
   | Bool of boolean
-  | Enum of enum
   | Bv of bv
 
-type uninterp = Name.t * Arity.t
+type uninterp = Name.t
+
+type internal =
+  | Label of int
+  | Slack of int * Number.t
+  | FreshNla of int * Number.t
+  | FreshBv of int
+  | FreshT of int
 
 type sym = 
   | Uninterp of uninterp
+  | Internal of internal
   | Interp of interp
 
 type t = sym Hashcons.hashed
@@ -67,8 +74,6 @@ type t = sym Hashcons.hashed
 let destruct f = f.node
 
 let eq = (===)
-
-let tag f = f.tag
 
 (*s Comparison. *)
 
@@ -81,10 +86,28 @@ let rec equal s t =
   match s, t with
     | Interp(sym1), Interp(sym2) -> 
 	interp_equal sym1 sym2
-    | Uninterp(x,a), Uninterp(y,b) ->
-	Name.eq x y && Arity.eq a b
+    | Internal(sym1), Internal(sym2) ->
+	fresh_equal sym1 sym2
+    | Uninterp(x), Uninterp(y) ->
+	Name.eq x y
     | _ ->
 	false
+
+and fresh_equal sym1 sym2 =
+  match sym1, sym2 with
+    | Label(n), Label(m) ->
+	n = m
+    | Slack(n,c), Slack(m,d) ->
+	n = m && Number.eq c d
+    | FreshNla(n,c), FreshNla(m,d) ->
+	n = m && Number.eq c d
+    | FreshBv(n), FreshBv(m) ->
+	n = m
+    | FreshT(n), FreshT(m) ->
+	n = m
+    | _ ->
+	false
+  
 
 and interp_equal sym1 sym2 =
   match sym1, sym2 with
@@ -117,8 +140,6 @@ and interp_equal sym1 sym2 =
 	   | _ -> false)
     | Bool(op1), Bool(op2) ->
 	op1 = op2
-    | Enum({elems = ns; idx = n}), Enum({elems = ms; idx = m}) ->
-	Name.Set.equal ns ms && Name.eq n m
     | _ -> false
 
 (*s Initial size of hashconsing tables. *)
@@ -134,7 +155,8 @@ module Sym = Hashcons.Make(        (*s Hashconsing of symbols *)
     type t = sym
     let equal = equal
     let hash = function
-      | Uninterp(f,_) -> Hashtbl.hash f
+      | Uninterp(f) -> Hashtbl.hash f
+      | Internal(op) -> Hashtbl.hash op
       | Interp(op) -> Hashtbl.hash op
   end)
 
@@ -146,23 +168,13 @@ let make = Sym.hashcons ht
 let pp full fmt s = 
   let rec sym s =
     match s.node with 
-      | Uninterp(f,arity) -> 
-	  if full then
-	    begin
-	      Format.fprintf fmt "@[";
-	      Name.pp fmt f; 
-	      Format.fprintf fmt "{";
-	      Arity.pp fmt arity;
-              Format.fprintf fmt "}@]"
-	    end
-	  else  
-	    Name.pp fmt f
+      | Uninterp(f) -> Name.pp fmt f
+      | Internal(x) -> fresh x
       | Interp(Arith(op)) -> arith op
       | Interp(Nonlin(op)) -> nonlin op
       | Interp(Bool(op)) -> boolean op
       | Interp(Tuple(op)) -> tuple op
       | Interp(Bv(op)) -> bv op
-      | Interp(Enum(op)) -> enum op
 
   and arith op =
     match op with
@@ -192,42 +204,24 @@ let pp full fmt s =
       | Sub(n,i,j) -> Format.printf "sub[%d,%d,%d]" n i j
       | Bitwise(n) -> Format.printf "bitwise[%d]" n
 
-  and enum {elems = _; idx = n} =
-    Name.pp fmt n
-
+  and fresh op =
+    match op with
+      | Label(n) -> Format.printf "v!%d" n
+      | Slack(n,c) when full ->
+          let str = Tools.pp_to_string Number.pp c in
+	  Format.printf "@[k!%d{%s}@]" n str
+      | Slack(n,_) ->
+	  Format.printf "@[k!%d@]" n
+      | FreshNla(n,_) -> Format.printf "nla!%d" n
+      | FreshBv(n) -> Format.printf "bv!%d" n
+      | FreshT(n) -> Format.printf "t!%d" n
   in
   sym s
 
 (*s Building symbols. *)
 
-let mk_uninterp (a,sgn) = make(Uninterp(a,sgn))
+let mk_uninterp a = make(Uninterp(a))
 let mk_interp f = make(Interp(f))
-
-(*s Make fresh function symbol *)
-
-let counter = ref (-1)
-let _ = Tools.add_at_reset (fun () -> counter := -1)
-
-let fresh = ref Ptset.empty
-let _ = Tools.add_at_reset (fun () -> fresh := Ptset.empty)
-
-let is_fresh f = 
-  match f.node with
-    | Uninterp _ -> Ptset.mem f !fresh
-    | _ -> false
-
-let rec mk_fresh (a,sgn) =
-  let b = fresh_name a in
-  let f' = Uninterp(b,sgn) in
-  if Sym.mem ht f' then         (* check if [f'] is really fresh. *)
-    mk_fresh (a,sgn)    (* terminates because of side effect in [fresh_name] *)
-  else 
-    let f = make(f') in            
-    (fresh := Ptset.add f !fresh; f)
-   
-and fresh_name a =
-  incr counter;
-  Name.of_string (a ^ string_of_int !counter)
 
 (*s Interpreted symbols. *)
 
@@ -249,62 +243,23 @@ let mk_bv_conc n m = make(Interp(Bv(Conc(n,m))))
 let mk_bv_sub n i j = make(Interp(Bv(Sub(n,i,j))))
 let mk_bv_bitwise n = make(Interp(Bv(Bitwise(n))))
 
-let mk_enum ns n =
-  assert(Name.Set.mem n ns);
-  make(Interp(Enum{elems = ns; idx = n}))
-
 let mk_sin = 
   let x = Name.of_string "sin" in
-  let dom = [Type.mk_real] in
-  let cod = Type.mk_real in
-  let arity = Arity.mk_functorial dom cod in
-  make(Uninterp(x, arity))
+  make(Uninterp(x))
 
 let mk_cos =
   let x = Name.of_string "cos" in
-  let dom = [Type.mk_real] in
-  let cod = Type.mk_real in
-  let arity = Arity.mk_functorial dom cod in
-  make(Uninterp(x, arity))
+  make(Uninterp(x))
 
-let mk_unsigned = 
-  let arity = Arity.mk_functorial [Type.mk_bitvector None] Type.mk_nat in
-  make(Uninterp(Name.of_string "unsigned", arity))
+let mk_unsigned =
+  make(Uninterp(Name.of_string "unsigned"))
 
 let mk_floor = 
-  let arity = Arity.mk_functorial [Type.mk_real] Type.mk_int in
-  make(Uninterp(Name.of_string "floor", arity))
+  make(Uninterp(Name.of_string "floor"))
 
 let mk_ceiling = 
   let name = Name.of_string "ceiling" in
-  let dom = [Type.mk_real] in
-  let cod = Type.mk_int in
-  let arity = Arity.mk_functorial dom cod in
-  make(Uninterp(name, arity))
-
-
-(*s Classify function symbols. *)
-
-type classify =
-  | A     (* Linear arithmetic *)
-  | NLA   (* Nonlinear arithmetic *)
-  | T     (* Tuples *)
-  | B     (* Boolean *)
-  | U     (* Uninterpreted *)
-  | BV    (* Bitvectors. *)
-  | E     (* Enumeration *)
-
-let classify f =
-  match f.node with
-    | Interp(x) ->
-	(match x with
-	  | Arith _ -> A
-	  | Nonlin _ -> NLA
-	  | Tuple _ -> T
-	  | Bv _ -> BV
-	  | Enum _ -> E
-	  | Bool _ -> B)
-    | Uninterp _ -> U
+  make(Uninterp(name))
 
 
 (*s Some recognizers. *)
@@ -342,8 +297,14 @@ let is_uninterp f =
 let d_uninterp f =
   assert(is_uninterp f);
   match f.node with
-    | Uninterp(f,sgn) -> (f,sgn)
+    | Uninterp(f) -> f
     | _ -> assert false
+
+let d_interp f =
+  match f.node with
+    | Interp(op) -> Some(op)
+    | _ -> None
+
 
 (*s Test if [f] is an interpreted constant. *)
 
@@ -351,25 +312,30 @@ let is_interpreted_const f =
   match f.node with
     | Interp(Bool(True | False)) -> true
     | Interp(Arith(Num _)) -> true
-    | Interp(Enum _) -> true
     | _ -> false
+
+
+(*s Creating fresh labels. *)
+
+let k = ref 0
+let _ = Tools.add_at_reset (fun () -> k := 0)
+
+let mk_label () = 
+  incr(k);
+  make(Internal(Label(!k)))
+
+let mk_slack c =
+  incr(k);
+  make(Internal(Slack(!k,c)))
 
 
 (*s Width of bitvector function symbols. *)
 
 let rec width f =
   match f.node with
-    | Uninterp(_,a) -> 
-	(match Arity.destruct a with
-	   | Arity.Constant c -> 
-	       (match Type.destruct c with
-		  | Type.Bitvector(n) -> n
-		  | _ -> None)
-	   | _ -> None)
-    | Interp(Bv(b)) -> 
-	Some(width_bv b)
-    | _ -> 
-	None
+    | Interp(Bv(b)) -> Some(width_bv b)
+    | Internal(FreshBv(n)) -> Some(n)
+    | _ -> None
 
 and width_bv b =
   match b with
@@ -384,3 +350,4 @@ and width_bv b =
     | Bitwise(n) ->
 	assert(n >= 0);
 	n
+

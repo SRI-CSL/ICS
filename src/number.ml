@@ -50,6 +50,10 @@ let mk_nat = (Dom.Int, Intervals.nonneg Dom.Int)
 
 let mk_singleton q = (Dom.of_q q, Intervals.singleton q)
 
+let mk_zero = mk_singleton Mpa.Q.zero
+let mk_one = mk_singleton Mpa.Q.one
+
+
 let mk_diseq q = (Dom.Real, Intervals.diseq Dom.Real q)
 
 
@@ -105,9 +109,6 @@ let cmp (d,is) (e,js) =
 	   | Binrel.Sub -> Binrel.Overlap
 	   | Binrel.Disjoint -> Binrel.Disjoint
 	   | Binrel.Overlap -> Binrel.Overlap)
-
-let analyze (_,i) =
-  Intervals.analyze i
  
 let d_singleton (_,i) =
   if Intervals.is_singleton i then
@@ -196,7 +197,8 @@ let rec multl = function
   | c :: cl -> mult c (multl cl)
 
 let expt n (d,i) =
-  failwith "to do"
+  make (d, Intervals.expt d n i)
 
-let div (d,i) (e,j) =
-  failwith "to do"
+let div (_,i) (_,j) =
+  let d = Dom.Real in
+  make (d, Intervals.div d i j)

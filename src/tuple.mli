@@ -30,6 +30,11 @@ val is_tuple : Term.t -> bool
 val iter: (Term.t -> unit) -> Term.t -> unit 
 
 
+(*s [fold f a e] applies [f] at uninterpreted positions of [a] and 
+ accumulates the results starting with [e]. *)
+
+val fold : (Term.t -> 'a -> 'a) -> Term.t -> 'a -> 'a
+
 (*s [norm f a] applies [f] to all top-level uninterpreted subterms of [a],
  and rebuilds the interpreted parts in order. *)
 

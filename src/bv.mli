@@ -38,6 +38,11 @@ val width : Term.t -> int option
 val iter : (Term.t -> unit) -> Term.t -> unit
   
 
+(*s [fold f a e] applies [f] at uninterpreted positions of [a] and 
+ accumulates the results starting with [e]. *)
+
+val fold : (Term.t -> 'a -> 'a) -> Term.t -> 'a -> 'a
+
 (*s [mk_const c] is the constructor for building constant bitvectors,
   in which all bits are known to be either [0] or [1]. 
   [mk_zero n] is just defined to be the constant zero bitvector of length [n],

@@ -18,9 +18,18 @@
 open Hashcons
 (*i*)
 
-let mk_tt = Term.make(Sym.mk_tt,[])
+let is_interp a = 
+  match Sym.destruct (Term.sym_of a) with
+    | Sym.Interp(Sym.Bool(Sym.True | Sym.False)) -> true
+    | _ -> false
 
-let mk_ff = Term.make(Sym.mk_ff,[])
+let mk_tt = Term.mk_const Sym.mk_tt
+
+let mk_ff = Term.mk_const Sym.mk_ff
+
+let is_tt a = Sym.eq (Term.sym_of a) Sym.mk_tt
+
+let is_ff a = Sym.eq (Term.sym_of a) Sym.mk_ff
 
 let sigma f l =
   match f,l with

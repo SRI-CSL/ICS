@@ -60,7 +60,8 @@ let lookup x dec =
 let add s dec =
   Atom.Set.fold 
     (fun x acc ->
-       match Can.atom s x with
+       let (s,y) = Dp.can_a s x in
+       match y with
 	 | Atom.True ->
 	     {acc with pos = Atom.Set.add x acc.pos; 
                        undec = Atom.Set.remove x acc.undec}
@@ -90,31 +91,30 @@ and build s dec b =
           | Neg -> build s dec n
           | Undec -> 
 	      let y = Atom.mk_neg x in
-	      match Process.atom s x, Process.atom s y with
-		| Process.Satisfiable(ps), Process.Satisfiable(ns) ->
+	      match Dp.process_a s x, Dp.process_a s y with
+		| Dp.Satisfiable(ps), Dp.Satisfiable(ns) ->
 		    let pdec = add ps dec in
 		    let ndec = add ns dec in
 		    let p = build ps pdec p in
 		    let n = build ns ndec n in
 		    if Prop.eq p n then p else Prop.mk_ite x p n
-		| Process.Valid, _           (* Following cases can only happen *)
-		| _, Process.Inconsistent -> (* for possible incompletenesses of [can]. *)
+		| Dp.Valid, _           (* Following cases can only happen *)
+		| _, Dp.Inconsistent -> (* for possible incompletenesses of [can]. *)
 		    build s dec p
-		| _, Process.Valid
-		| Process.Inconsistent, _ ->
+		| _, Dp.Valid
+		| Dp.Inconsistent, _ ->
 		    build s dec n
 
 
 (*s Check for Satisfiability. *)
 
 let rec sat s p =
-  let q = Prop.mk_imp (Dp.p_of s) p in
   let dec = 
     add s { pos = Atom.Set.empty; 
 	    neg = Atom.Set.empty; 
-	    undec = Prop.literals_of q }
+	    undec = Prop.literals_of p }
   in
-  sat1 s dec q
+  sat1 s dec p
 
 and sat1 s dec b =
   match Prop.destruct b with
@@ -126,16 +126,16 @@ and sat1 s dec b =
           | Neg -> sat1 s dec n
           | Undec -> 
 	      let y = Atom.mk_neg x in
-	      match Process.atom s x, Process.atom s y with
-		| Process.Satisfiable(ps), Process.Satisfiable(ns) ->
+	      match Dp.process_a s x, Dp.process_a s y with
+		| Dp.Satisfiable(ps), Dp.Satisfiable(ns) ->
 		    (match sat1 ps (add ps dec) p with
 		       | None -> sat1 ns (add ns dec) n
 		       | res -> res)
-		| Process.Valid, _           (* Following cases can only happen *)
-		| _, Process.Inconsistent -> (* for possible incompletenesses of [can]. *)
+		| Dp.Valid, _           (* Following cases can only happen *)
+		| _, Dp.Inconsistent -> (* for possible incompletenesses of [can]. *)
 		    sat1 s dec p
-		| _, Process.Valid
-		| Process.Inconsistent, _ ->
+		| _, Dp.Valid
+		| Dp.Inconsistent, _ ->
 		    sat1 s dec n
 
 

@@ -12,6 +12,23 @@
  * ICS License for more details.
  i*)
 
+
+
+(*s Verbose Level *)
+
+let verbose_level = ref 0
+let _ = Tools.add_at_reset (fun () -> verbose_level := 0)
+
+let set_verbose n = verbose_level := n
+
+let get_verbose () = !verbose_level
+
+let verbose n f x =
+  if !verbose_level >= n then begin f x; Format.print_flush () end
+
+
+
+
 type 'a pp = Format.formatter -> 'a -> unit   (* pretty-printer type *)
 
 let fmt = Format.std_formatter
@@ -27,7 +44,7 @@ let whitespace n =
 let init () = ()
 
 let call trace_level op args pp =
-  if Tools.get_verbose () >= trace_level then
+  if get_verbose () >= trace_level then
     begin
       Format.fprintf fmt "%s <-- " op;
       pp fmt args;
@@ -35,7 +52,7 @@ let call trace_level op args pp =
     end
 
 let exit trace_level op res pp =
-  if Tools.get_verbose () >= trace_level then
+  if get_verbose () >= trace_level then
     begin
        Format.fprintf fmt "%s --> " op;
        pp fmt res;
@@ -51,14 +68,14 @@ let exc trace_level op res pp =
 				  pp fmt res)
 	      res
   in
-  if Tools.get_verbose () >= trace_level then
+  if get_verbose () >= trace_level then
     begin
       Format.fprintf fmt "%s" str;
       Format.fprintf fmt "@.";
     end
 
 let msg trace_level op args pp =
-  if Tools.get_verbose () >= trace_level then
+  if get_verbose () >= trace_level then
     begin
       Format.fprintf fmt "%s:\t" op;
       pp fmt args;

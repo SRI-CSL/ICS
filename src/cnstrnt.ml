@@ -15,59 +15,53 @@
  i*)
 
 
-exception Non_number
+(*s Arithmetic type. *)
 
+let arith ctxt a =
+  let rec of_term a =
+    let f,l = Term.destruct a in
+    match Sym.destruct f with
+      | Sym.Internal(Sym.FreshNla(_,c)) ->
+          (try Number.inter (ctxt a) c with Not_found -> c)
+      | Sym.Interp(Sym.Arith(op)) -> 
+	  of_linarith op l
+      | Sym.Interp(Sym.Nonlin(op)) -> 
+	  of_nonlin op l
+      | Sym.Internal(Sym.Slack(_, c)) ->
+	  (try Number.inter (ctxt a) c with Not_found -> c)
+      | _ ->
+	  ctxt a
 
-(*s Static type. *)
+  and of_linarith op l =
+    match op, l with
+      | Sym.Num(q), [] ->  
+	  Number.mk_singleton q
+      | Sym.Multq(q), [x] ->
+	  Number.multq q (of_term x)
+      | Sym.Add, _ -> 
+	  List.fold_right 
+	    (fun x -> Number.add (of_term x)) 
+	    l Number.mk_zero
+      | _ -> assert false
 
-let rec of_term ctxt a =
-  let f,l = Term.destruct a in
-  match Sym.destruct f with
-    | Sym.Uninterp(op,sgn) ->
-	of_uninterp ctxt op sgn l
-    | Sym.Interp(op) ->
-	of_interp ctxt op l
-
-and of_uninterp ctxt op sgn l =
-  match Arity.destruct sgn, l with
-    | Arity.Constant(c), [] -> c
-    | Arity.Functorial(dl,r), _ 
-	when List.length l = List.length dl -> r
-    | _ -> Type.mk_top
-
-and of_interp ctxt op l =
-  match op with
-    | Sym.Arith(op) -> of_linarith ctxt op l
-    | Sym.Nonlin _ -> Type.mk_real
-    | Sym.Enum(e) -> Type.mk_enumerative e.Sym.elems
-    | Sym.Bv _ -> Type.mk_bitvector None
-    | _ -> Type.mk_top
-
-and of_linarith ctxt op l =
-  match op, l with
-     | Sym.Num(q), [] -> 
-	 Type.mk_number (Number.mk_singleton q)
-     | Sym.Multq(q), [x] -> 
-	 (match Type.d_number (of_term ctxt x) with
-	    | Some(c) -> Type.mk_number (Number.multq q c)
-	    | None -> Type.mk_top)
-     | Sym.Add, _ ->
-	 (try
-	    Type.mk_number
-	      (List.fold_right
-		 (fun x acc ->
-		    match Type.d_number (of_term ctxt x) with
-		      | Some(c) -> Number.add c acc
-		      | None -> raise Non_number)
-		 l (Number.mk_singleton Mpa.Q.zero))
-	  with
-	      Non_number -> Type.mk_top)
-     | _ -> assert false
-
+  and of_nonlin op l =
+    match op, l with
+      | Sym.Expt(n), [x] -> 
+	  Number.expt n (of_term x)
+      | Sym.Mult, _ -> 
+	  List.fold_right 
+	    (fun x -> Number.mult (of_term x)) 
+	    l Number.mk_one
+      | _ -> assert false
+  in
+  try 
+    Some(of_term a) 
+  with 
+      Not_found -> None
+  
 
 (*s Type from static information only. *)
 
-let of_term0 = 
-  Cache.cache 17 
-   (fun a -> let empty _ = Type.mk_top in of_term empty a)
-  
+let of_term =  
+  let empty _ = raise Not_found in 
+  arith empty

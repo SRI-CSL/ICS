@@ -14,8 +14,14 @@
  * Author: Harald Ruess
  i*)
 
+val is_interp : Term.t -> bool
+
 val mk_tt : Term.t
 
 val mk_ff : Term.t
+
+val is_tt : Term.t -> bool
+
+val is_ff : Term.t -> bool
 
 val sigma : Sym.boolean -> Term.t list -> Term.t

@@ -30,11 +30,14 @@ val is_uninterp : Term.t -> bool
 
 val d_uninterp : Term.t -> Sym.uninterp * Term.t list
 
+
 (*s [sigma f \list{(a1,c1),...,(an,cn)}] returns a normalized
  version of the term [f(a1,...,an)] and the type of this term
  as determined by the signature of the uninterpreted function symbol [f]. *)
 
+
 val sigma : Sym.uninterp -> Term.t list -> Term.t
+
 
 (* [map f a] applies [f] at each uninterpreted position. *)
 

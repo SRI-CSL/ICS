@@ -16,70 +16,132 @@ i*)
 
 
 (*i*)
-open Hashcons
+open Term
+open Binrel
 (*i*)
 
-type t = Number.t Term.map
+type t = Number.t Map.t
  
 let cnstrnt_of s = s
 
-let empty = Ptmap.empty              
+let empty = Map.empty              
        
-let apply s a = Ptmap.find a s
+let apply s a = Map.find a s
 
-let mem s a = Ptmap.mem a s
+let mem s a = Map.mem a s
 
-let propagate ((a,b) as e) s =  
-  Trace.msg 3 "Prop(c)" e Pretty.eqn;
+let merge (a,b) s = 
+  let (a,b) = V.orient (a,b) in
   try
-    let ca = Ptmap.find a s in
+    let ca = match Cnstrnt.of_term a with
+      | Some(c) -> Number.inter (Map.find a s) c
+      | None -> (Map.find a s)
+    in
     try
-      let cb = Ptmap.find b s in
+      let cb = match Cnstrnt.of_term b with
+	| Some(c) -> Number.inter (Map.find b s) c
+	| None -> (Map.find b s)
+      in
       match Number.cmp ca cb with
-	| (Binrel.Same | Binrel.Super) ->
-	    Ptmap.remove a s
-	| Binrel.Sub -> 
-	    Ptmap.add b ca s
-	| Binrel.Disjoint ->
+	| (Same | Super) ->
+	    (Map.remove a s, [])
+	| Sub -> 
+	    (Map.add b ca s, [])
+	| Disjoint ->
 	    raise Exc.Inconsistent
-	| Binrel.Overlap ->
+	| Overlap ->
 	    let cab = Number.inter ca cb in
 	    match Number.d_singleton cab with
 	      | Some(u) ->
-		  let q = Linarith.mk_num u in
-		  Pending.push "c" (Atom.mk_equal b q);
-		  Ptmap.remove a (Ptmap.remove b s)
+		  let e' = Atom.mk_equal b (Linarith.mk_num u) in
+		  let s' = Map.remove a (Map.remove b s) in
+		  (s', [e'])
 	      | None ->
-		  Ptmap.add b cab (Ptmap.remove a s)
+		  let s' = Map.add b cab (Map.remove a s) in
+		  (s', [])
     with
 	Not_found ->
-	  Ptmap.add b ca (Ptmap.remove a s)
+	  (match Cnstrnt.of_term b with
+	     | Some(cb) ->
+		 (match Number.cmp ca cb with
+		    | (Same | Super) ->
+			(Map.remove a s, [])
+		    | Sub -> 
+			(Map.add b ca s, [])
+		    | Disjoint ->
+			raise Exc.Inconsistent
+		    | Overlap ->
+			let cab = Number.inter ca cb in
+			match Number.d_singleton cab with
+			  | Some(u) ->
+			      let e' = Atom.mk_equal b (Linarith.mk_num u) in
+			      let s' = Map.remove a s in
+			      (s', [e'])
+			  | None -> 
+			      let s' = Map.add b ca (Map.remove a s) in
+			      (s', []))
+	     | None -> 
+		 (Map.add b ca (Map.remove a s), []))
   with
       Not_found ->
-	s
+	(match Cnstrnt.of_term a, Cnstrnt.of_term b with
+	   | Some(ca), Some(cb) ->
+	       (match Number.cmp ca cb with
+		  | (Same | Super) ->
+		      (s, [])
+		  | Sub ->
+		      (Map.add b ca s, [])
+		  | Disjoint ->
+		      raise Exc.Inconsistent
+		  | Overlap ->
+		      let cab = Number.inter ca cb in
+		      match Number.d_singleton cab with
+			| Some(u) ->
+			    (s, [Atom.mk_equal b (Linarith.mk_num u)])
+			| None ->
+			    (Map.add b cab s, []))
+	   | None, Some _ ->
+	       (s, [])
+	   | Some(ca), None ->
+	       (Map.add b ca s, [])
+	   | None, None ->
+	       (s, []))
 
 (*s Adding a positive constraint [x in c] *)
 
-let process c a s =
-  Trace.msg 3 "Proc(c)" (a,c) Pretty.inn;
+let add c a s =
   try
-    let d = Ptmap.find a s in
+    let d = Map.find a s in
     match Number.cmp c d with 
-      | (Binrel.Same | Binrel.Super) -> 
-	  s
-      | Binrel.Sub ->
-	  Ptmap.add a c s
-      | Binrel.Disjoint ->
+      | (Same | Super) -> 
+	  (s, [])
+      | Sub ->
+	  (Map.add a c s, [])
+      | Disjoint ->
 	  raise Exc.Inconsistent
-      | Binrel.Overlap ->
+      | Overlap ->
 	  let cd = Number.inter c d in
-	  (match Number.analyze cd with
-	     | Status.Singleton(u) ->    
-		 let q = Linarith.mk_num u in
-                 Pending.push "c" (Atom.mk_equal a q);
-		 Ptmap.remove a s
+	  (match Number.d_singleton cd with
+	     | Some(u) ->    
+		 let e' = Atom.mk_equal a (Linarith.mk_num u) in
+		 let s' = Map.remove a s in
+		 (s', [e'])
 	     | _ -> 
-		 Ptmap.add a cd s)
+		 (Map.add a cd s, []))
   with
       Not_found ->
-	Ptmap.add a c s
+	(Map.add a c s, [])
+
+
+(*s Instantiation. *)
+
+let inst f s =
+  Map.fold
+    (fun x c acc ->
+       let x' = f x in
+       if Term.eq x' x then
+	 acc
+       else 
+	 Map.add x' c acc)
+    s
+    s

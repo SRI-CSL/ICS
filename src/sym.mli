@@ -41,36 +41,35 @@ type bv =
   | Bitwise of int
 
 
-type enum = {
-  elems: Name.Set.t;
-  idx : Name.t
-}
-
 type interp = 
   | Arith of linarith
   | Nonlin of nonlin
   | Tuple of tuple
   | Bool of boolean 
-  | Enum of enum
   | Bv of bv
 
-type uninterp = Name.t * Arity.t
+type uninterp = Name.t
+
+type internal =
+  | Label of int
+  | Slack of int * Number.t
+  | FreshNla of int * Number.t
+  | FreshBv of int
+  | FreshT of int
 
 type sym = 
   | Uninterp of uninterp
+  | Internal of internal
   | Interp of interp
 
-type t = sym Hashcons.hashed
+type t
 
 (*s Equal. *)
 
 val eq : t -> t -> bool
 
-(*s Tag. *)
 
-val tag : t -> int
-
-(*s Hashconsing. *)
+(*s Constructing and destructing a symbol. *)
 
 val make : sym -> t
 
@@ -81,9 +80,6 @@ val destruct : t -> sym
 
 val mk_uninterp : uninterp -> t
 val mk_interp : interp -> t
-
-val mk_fresh : string * Arity.t -> t
-val is_fresh : t -> bool
 
 val mk_num : Mpa.Q.t -> t
 val mk_multq : Mpa.Q.t -> t
@@ -103,8 +99,6 @@ val mk_bv_conc : int -> int -> t
 val mk_bv_sub : int -> int -> int -> t
 val mk_bv_bitwise : int -> t
 
-val mk_enum : Name.Set.t -> Name.t -> t
-
 val mk_sin : t
 val mk_cos : t
 val mk_unsigned : t
@@ -120,19 +114,6 @@ val cmp : t -> t -> int
 val pp : bool -> Format.formatter -> t -> unit
 
 
-(*s Classification of symbols. *)
-
-type classify =
-  | A       (* Linear arithmetic *)
-  | NLA     (* Nonlinear arithmetic *)
-  | T       (* Tuples *)
-  | B       (* Boolean *)
-  | U       (* Uninterpreted *) 
-  | BV      (* Bitvectors. *)
-  | E       (* Enumeration *)
-
-val classify : t -> classify
-
 val is_arith : t -> bool
 val is_nonlin : t -> bool
 val is_bool : t -> bool
@@ -141,7 +122,16 @@ val is_interp : t -> bool
 
 val is_uninterp : t -> bool
 val d_uninterp : t -> uninterp
+val d_interp : t -> interp option
 
 val is_interpreted_const : t -> bool
+
+(*s Create a fresh label. *)
+
+val mk_label : unit -> t
+
+val mk_slack : Number.t -> t
+
+(*s Width of a bitvector symbol. *)
 
 val width : t -> int option

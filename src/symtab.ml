@@ -14,8 +14,8 @@ i*)
 
 type entry = 
   | Def of Term.t
-  | Arity of Arity.t
-  | Type of Type.t
+  | Arity of int
+  | Type of Number.t
   | State of Dp.t
 
 and t = entry Name.Map.t
@@ -51,6 +51,7 @@ and pp_entry fmt e =
   let pr = Format.fprintf fmt in
   match e with
     | Def(x) -> pr "@[def("; Pretty.term fmt x; pr ")@]"
-    | Arity(a) -> pr "@[sig("; Arity.pp fmt a; pr ")@]"
-    | Type(c) -> pr "@[type("; Type.pp fmt c; pr ")@]"
+    | Arity(a) -> pr "@[sig("; Format.fprintf fmt "%d" a; pr ")@]"
+    | Type(c) -> pr "@[type("; Number.pp fmt c; pr ")@]"
+
     | State(s) -> pr "@[state("; Dp.pp fmt s; pr ")@]"

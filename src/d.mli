@@ -25,17 +25,11 @@ type t
  bindings returned by [deq] are closed in that forall [x], [y] 
  such that [x |-> {...,y,...} ] then also [y |-> {....,x,....}] *)
 
-val deq_of : t -> Term.set Term.map 
-
-
-(*s Constant time but incomplete equality test. [eq s t]
- only holds iff [s] and [t] are physically equal. *)
-
-val eq : t -> t -> bool
+val deq_of : t -> Term.Set.t Term.Map.t
 
 (*s [deq s a] is just returns the binding for [a] in [deq_of s]. *)
 
-val deq : t -> Term.t -> Term.set
+val deq : t -> Term.t -> Term.Set.t
 
 (*s check if two terms are known to be disequal. *)
 
@@ -45,12 +39,17 @@ val is_diseq: t -> Term.t -> Term.t -> bool
 
 val empty : t
 
-(*s [process f (a,b) s] disequality [a <> b] to the disequality context [s].
-  [f] is called on newly derived facts. *)
 
-val process : Term.t * Term.t -> t -> t
-
-(*s [propagate f (a,b) s] merges an equality [a = b] over uninterpreted 
+(*s [merge f (a,b) s] merges an equality [a = b] over uninterpreted 
   terms [a], [b] and calls [f] on each derived equality. *)
 
-val propagate : Term.t * Term.t -> t -> t
+val merge : Term.t * Term.t -> t -> t
+
+(*s [add (a,b) s] disequality [a <> b] to the disequality context [s]. *)
+
+val add : Term.t * Term.t -> t -> t
+
+
+(*s Replace all [x |-> {x1,...,xn}] with [y |-> {y1,...,yn}] where [yi] is [find xi]. *)
+
+val inst : find:(Term.t -> Term.t) -> t -> t

@@ -31,7 +31,7 @@ let inter d1 d2 =
   if d1 = d2 then d1 else
     match d1, d2 with
       | Int, Real -> Int
-      | Real, Int -> Real
+      | Real, Int -> Int
       | Nonint, Real -> Nonint
       | Real, Nonint -> Nonint
       | Int, Nonint -> raise Empty

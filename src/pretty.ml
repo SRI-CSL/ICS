@@ -31,13 +31,11 @@ let set_print_all b = (print_all := b)
 let pr fmt str =
   Format.fprintf fmt str
 
-let cnstrnt fmt c =
-  Type.pp fmt c
+let number fmt c =
+  Number.pp fmt c
 
 let sym fmt f =
   Sym.pp !print_all fmt f
-
-let arity fmt a = Arity.pp fmt a
 
 let list pre sep post pp fmt l =
   let rec iter = function
@@ -54,7 +52,7 @@ let rec term fmt a =
   else if !print_all then
     prefix fmt (f,l)
   else 
-    match f.node, l with
+    match Sym.destruct f, l with
       | Sym.Interp(Sym.Nonlin(Sym.Expt(n))), [x] -> 
 	  (term fmt x; pr fmt "^%d" n)
       | Sym.Interp(Sym.Arith(Sym.Multq(q))), [x] -> 
@@ -63,11 +61,11 @@ let rec term fmt a =
 	  (term fmt x; Format.fprintf fmt "[%d:%d]" i j)
       | Sym.Interp(Sym.Bv(Sym.Conc(n,m))), [x;y] -> 
 	  (term fmt x; pr fmt " ++ "; term fmt y)
-      | _ when f === Sym.mk_mult ->
+      | _ when Sym.eq f Sym.mk_mult ->
 	  infixl "**" fmt l
-      | _ when f === Sym.mk_add ->
+      | _ when Sym.eq f Sym.mk_add ->
 	  infixl "+" fmt l
-      | _ when f === Sym.mk_tuple ->
+      | _ when Sym.eq f Sym.mk_tuple ->
 	  list "(" "," ")" term fmt l
       | _ ->
 	  prefix fmt (f,l)
@@ -108,18 +106,20 @@ let inn fmt (a,c) =
   pr fmt "@]"
     
 let set fmt s = 
-  list "{" ", " "}" term fmt (Ptset.to_list s)
+  list "{" ", " "}" term fmt (Term.Set.elements s)
 
 let tset = set
    
 let map p fmt m =
+  let elems =
+    Term.Map.fold (fun a b acc -> (a,b) :: acc) m [] 
+  in 
   let assign fmt (x,a) =
     pr fmt "@["; term fmt x; pr fmt " |-> "; p fmt a;   pr  fmt"@]";
   in 
-  list "[" ", " "]" assign fmt (Ptmap.to_list m)
+  list "[" ", " "]" assign fmt elems
     
-let tmap fmt m =
-  map term fmt m
+let tmap = map term
 
 let tlist = 
   list "[" ", " "]" term
@@ -127,12 +127,14 @@ let tlist =
 let list p fmt = list "[" ", " "]" p fmt
 
 let atom fmt p =
-  match p with
-    | Atom.True -> Format.fprintf fmt "true"
-    | Atom.False -> Format.fprintf fmt "false"
-    | Atom.Equal(x,y) -> infix fmt x " = " y
-    | Atom.Diseq(x,y) -> infix fmt x " <> " y
-    | Atom.In(c,x) -> pr fmt "@["; term fmt x; pr fmt " in "; Number.pp fmt c
+  pr fmt "@[";
+  (match p with
+     | Atom.True -> Format.fprintf fmt "true"
+     | Atom.False -> Format.fprintf fmt "false"
+     | Atom.Equal(x,y) -> infix fmt x " = " y
+     | Atom.Diseq(x,y) -> infix fmt x " <> " y
+     | Atom.In(c,x) -> term fmt x; pr fmt " in "; Number.pp fmt c);
+  pr fmt "@]"
 
 let atoms fmt ps =
   let l = Atom.Set.elements ps in
@@ -141,9 +143,12 @@ let atoms fmt ps =
 let rec prop fmt b = 
   match Prop.destruct b with
     | Prop.True -> 
-	Format.fprintf fmt "true"
+	Format.fprintf fmt "tt"
     | Prop.False -> 
-	Format.fprintf fmt "false"
+	Format.fprintf fmt "ff"
+    | Prop.Ite(x,t,f) 
+	when Prop.is_tt t && Prop.is_ff f ->
+	atom fmt x
     | Prop.Ite(x,p,n) -> 
 	Format.fprintf fmt "@[if ";
 	atom fmt x;

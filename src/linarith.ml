@@ -29,46 +29,80 @@ let is_interp a =
   Sym.is_arith (Term.sym_of a)
 
 let d_interp a =
-  match a.node with
-    | App({node=Interp(Arith(f))},l) -> 
-	Some(f,l)
+  match Sym.destruct (Term.sym_of a) with
+    | Interp(Arith(f)) -> 
+	Some(f, Term.args_of a)
     | _ -> 
 	None
 
 (*s Apply [f] at uninterpreted positions. *)
 
 let rec iter f a =          
-  match a.node with
-    | App({node=Interp(Arith(op))},l) ->
-	(match op, l with
+  match Sym.destruct (Term.sym_of a) with
+    | Interp(Arith(op)) ->
+	(match op, Term.args_of a with
 	   | Num _, [] -> ()
 	   | Multq _, [x] -> f x
-	   | Add, _::_::_ -> List.iter (iter f) l
+	   | Add, l -> List.iter (iter f) l
 	   | _ -> assert false)
     | _ ->
 	f a
 
+(*s Fold functional *)
+
+let rec fold f a e =        
+  match Sym.destruct (Term.sym_of a) with
+    | Interp(Arith(op)) ->
+	(match op, Term.args_of a with
+	   | Num _, [] -> e
+	   | Multq _, [x] -> fold f x e
+	   | Add, l -> List.fold_right (fold f) l e
+	   | _ -> assert false)
+    | _ ->
+	f a e
+
+(*s Occurs. *)
+
+let rec occurs x a =          
+  match Sym.destruct (Term.sym_of a) with
+    | Interp(Arith(op)) ->
+	(match op, Term.args_of a with
+	   | Num _, [] -> false
+	   | Multq _, [x] -> occurs x a
+	   | Add, l -> List.exists (occurs x) l
+	   | _ -> assert false)
+    | _ ->
+	Term.eq x a
+
+
 (*s Destructors. *)
 
 let d_num a =
-  match a.node with
-    | App({node=Interp(Arith(Num(q)))},[]) -> Some(q)
-    | _ -> None
+  match Sym.destruct (Term.sym_of a) with
+    | Interp(Arith(Num(q))) ->
+	assert(Term.args_of a = []);
+	Some(q)
+    | _ -> 
+	None
 
 let d_multq a =
-  match a.node with
-    | App({node=Interp(Arith(Multq(q)))},[x]) -> Some(q,x)
-    | _ -> None
+  let f,l = Term.destruct a  in
+  match Sym.destruct (Term.sym_of a) with
+    | Interp(Arith(Multq(q))) -> 
+	assert(List.length (Term.args_of a) = 1);
+	Some(q,List.hd(Term.args_of a))
+    | _ -> 
+	None
 
 let d_add a =
-  match a.node with
-    | App({node=Interp(Arith(Add))},l) -> Some(l)
+  match Sym.destruct (Term.sym_of a) with
+    | Interp(Arith(Add)) -> Some(Term.args_of a)
     | _ -> None
 
 
 (*s Constants. *)
 
-let mk_num q = Term.make(Sym.mk_num(q),[])
+let mk_num q = Term.mk_const (Sym.mk_num(q))
 
 let mk_zero = mk_num(Q.zero)
 let mk_one = mk_num(Q.one)
@@ -77,9 +111,9 @@ let mk_one = mk_num(Q.one)
 (*s Some normalization functions. *)
 
 let poly_of a =
-  match a.node with
-    | App({node=Interp(Arith(op))},l) ->
-	(match op, l with
+  match Sym.destruct(Term.sym_of a) with
+    | Interp(Arith(op))  ->
+	(match op, Term.args_of a with
 	   | Num(q), [] -> 
 	       (q, [])
 	   | Multq _, [_] -> 
@@ -98,16 +132,12 @@ let of_poly q l =
   match m with 
     | [] -> mk_zero
     | [x] -> x
-    | _ -> Term.make(Sym.mk_add, m)  
+    | _ -> Term.mk_app Sym.mk_add m
 
 let mono_of a =
-  match a.node with
-    | App({node=Interp(Arith(op))},l) ->
-	(match op,l with
-	   | Multq(q), [x] -> (q, x)
-	   | _ -> failwith("Arith.mono_of: Ill-formed monomial"))
-    | _ -> 
-	(Q.one ,a)
+  match d_multq a with
+    | Some(q,x) -> (q,x)
+    | None -> (Q.one ,a)
 
 let of_mono q x =
   if Q.is_zero q then
@@ -117,7 +147,7 @@ let of_mono q x =
   else 
     match d_num x with
       | Some(p) -> mk_num (Q.mult q p) 
-      | None -> Term.make(Sym.mk_multq(q),[x])
+      | None -> Term.mk_app (Sym.mk_multq(q)) [x]
 
 
 (*s Constructors. *)
@@ -181,13 +211,13 @@ and mk_sub a b =
 (*s Apply term transformer [f] at uninterpreted positions. *)
 
 let rec norm f a =
-  match Term.destruct a with
-    | {node=Interp(Arith(op))},l ->
-	(match op, l with
+  match Sym.destruct (Term.sym_of a) with
+    | Interp(Arith(op)) ->
+	(match op, Term.args_of a with
 	   | Num _, [] -> a
 	   | Multq(q), [x] -> mk_multq q (norm f x)
 	   | Add, [x;y] -> mk_add (norm f x) (norm f y)
-	   | Add, _::_::_ -> mk_addl (Term.mapl (norm f) l)
+	   | Add, l -> mk_addl (Term.mapl (norm f) l)
 	   | _ -> assert false)
     | _ ->
 	f a
@@ -217,7 +247,7 @@ and solve_for pred (a,b) =
     let ((p,x), ml) = destructure pred l in
     assert(not(Q.is_zero p));             (*s case [q + p * x + ml = 0] *)
     let b = mk_multq (Q.minus (Q.inv p)) (of_poly q ml) in
-    if x === b then [] else [order x b]
+    if Term.eq x b then [] else [order x b]
 
 and order x b =
   if is_interp b then
@@ -245,5 +275,4 @@ and destructure pred l =
        | _ -> assert false
    in
    loop [] l
-
 

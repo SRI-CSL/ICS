@@ -34,6 +34,11 @@ val is_interp: Term.t -> bool
 val iter: (Term.t -> unit) -> Term.t -> unit        
 
 
+(*s [fold f a e] applies [f] at uninterpreted positions of [a] and 
+ accumulates the results starting with [e]. *)
+
+val fold : (Term.t -> 'a -> 'a) -> Term.t -> 'a -> 'a
+
 (*s Constructors for building up nonlinear arithmetic terms. *)
 
 val mk_mult : Term.t * Term.t -> Term.t
@@ -58,6 +63,5 @@ val norm: (Term.t -> Term.t) -> Term.t -> Term.t
 
 (*s Partial solver. *)
 
-val solve : rename:(Type.t -> Term.t)
-               -> Term.t * Term.t -> (Term.t * Term.t) list
+val solve : Term.t * Term.t -> (Term.t * Term.t) list
 

@@ -16,10 +16,8 @@
 
 (*s Best type from both static and dynamic information. *)
 
-val of_term : ctxt:(Term.t -> Number.t) -> Term.t -> Type.t
-
-val of_linarith : ctxt:(Term.t -> Number.t) -> Sym.linarith -> Term.t list -> Type.t
+val arith : ctxt:(Term.t -> Number.t) -> Term.t -> Number.t option
 
 (*s Type from static information only. *)
 
-val of_term0 : Term.t -> Type.t
+val of_term : Term.t -> Number.t option

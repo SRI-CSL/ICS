@@ -18,8 +18,8 @@ i*)
 
 type entry = 
   | Def of Term.t
-  | Arity of Arity.t
-  | Type of Type.t
+  | Arity of int
+  | Type of Number.t
   | State of Dp.t
 
 and t
