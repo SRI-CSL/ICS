@@ -35,7 +35,7 @@ inline void connect_nodes(LPIdList ** implication_graph, unsigned int source, un
 
 inline LPIdList** allocate_blank_implication_graph(unsigned int size)
 {
-	LPIdList ** implication_graph = new (LPIdList *)[size];
+	LPIdList ** implication_graph = new LPIdList*[size];
 	memset(implication_graph, 0, sizeof(LPIdList *) * size);
 	return implication_graph;
 }
