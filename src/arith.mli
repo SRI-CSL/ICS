@@ -146,5 +146,20 @@ val replacel : (Term.t * Term.t) list -> Term.t -> Term.t
   and [qsolve] chooses to solve for the largest power product according to the 
   term ordering [<<<]. *)
 
-val solve : (Term.t -> bool) -> Term.t * Term.t -> (Term.t * Term.t) option
+val solve_for : (Term.t -> bool) -> Term.t * Term.t -> (Term.t * Term.t) option
 
+val solve : 
+  (Term.t -> Cnstrnt.t)
+  -> Term.t * Term.t 
+    -> ((Term.t * Term.t) list * (Term.t * Cnstrnt.t) list) option
+
+(*s Abstract interpretation in the domain of constraints. Given 
+ a context [f], which associates uninterpreted subterms of [a]
+ with constraints, [cnstrnt f a] recurses over the interpreted
+ structure of [a] and accumulates constraints by calling [f] at
+ uninterpreted positions and abstractly interpreting the 
+ interpreted arithmetic operators in the domain of constraints.
+ May raise the exception [Not_found], when some uninterpreted 
+ subterm of [a] is not in the domain of [f]. *) 
+
+val cnstrnt : (Term.t -> Cnstrnt.t) -> (Term.t -> Cnstrnt.t)
