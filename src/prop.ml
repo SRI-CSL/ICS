@@ -132,7 +132,7 @@ external set_clause_relevance : int -> unit = "icsat_set_clause_relevance"
 external set_cleanup_period : int -> unit = "icsat_set_cleanup_period"
 external set_num_refinements : int -> unit = "icsat_set_num_refinements"
 
-let debug = ref true
+let debug = ref false
 
 let validate_explanations = ref false
 
