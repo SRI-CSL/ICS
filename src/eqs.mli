@@ -135,7 +135,7 @@ module type SET = sig
       (** [exists s p y] holds iff [p e] holds for all equalities
 	[x = a] with [x] dependent on [y]. *)
 
-    val choose : t -> Term.t -> Fact.Equal.t
+    val choose : t -> (Fact.Equal.t -> bool) -> Term.t -> Fact.Equal.t
       (** [choose s y] returns equality [e] of the form [x = a]
 	if [x] is dependent on [y]; otherwise, [Not_found] is raised. *)
   end
@@ -287,7 +287,7 @@ module type SET2 = sig
     val fold :  tag -> t -> (Fact.Equal.t -> 'a -> 'a) -> Term.t -> 'a  -> 'a
     val for_all :  tag -> t -> (Fact.Equal.t -> bool) -> Term.t -> bool
     val exists :  tag -> t -> (Fact.Equal.t -> bool) -> Term.t -> bool
-    val choose :  tag -> t -> Term.t -> Fact.Equal.t
+    val choose :  tag -> t -> (Fact.Equal.t -> bool) -> Term.t -> Fact.Equal.t
   end
   val copy : t -> t
   type config = Partition.t * t
@@ -307,3 +307,10 @@ module Union(Left: SET)(Right: SET)(Ext: EXT)
          with type lext = Left.ext 
          with type rext = Right.ext)
 
+module UnionCnstnt
+  (LTh: TH)
+  (LExt: EXT)
+  (RTh: TH)
+  (RExt: EXT)
+  (Cnstnt: CNSTNT)
+: SET2

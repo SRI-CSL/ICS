@@ -122,7 +122,7 @@ module type SET = sig
     val fold : t -> (Fact.Equal.t -> 'a -> 'a) -> Term.t -> 'a  -> 'a
     val for_all : t -> (Fact.Equal.t -> bool) -> Term.t -> bool
     val exists : t -> (Fact.Equal.t -> bool) -> Term.t -> bool
-    val choose : t -> Term.t -> Fact.Equal.t
+    val choose : t -> (Fact.Equal.t -> bool) -> Term.t -> Fact.Equal.t
   end
   val copy : t -> t
   type config = Partition.t * t
@@ -273,11 +273,19 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
      let for_all s p y = Term.Set.for_all (apply_to_e s p) (dep s y)
      let exists s p y = Term.Set.exists (apply_to_e s p) (dep s y)
 
-     let choose s y =
-       let x = Term.Set.choose (dep s y) in
-       let (b, rho) = find s x in
-	 assert(not(x == b));
-	 Fact.Equal.make (x, b, rho)
+     exception Found of Fact.Equal.t
+
+     let choose s p y =
+       try
+	 Term.Set.iter
+	   (fun x -> 
+	      let e = equality s x in
+		if p e then 
+		  raise(Found(e)))
+	   (dep s y);
+	 raise Not_found
+       with
+	   Found(e) -> e
    end
 
    (** {6 Internal Update Functions} *)
@@ -515,7 +523,7 @@ module type SET2 = sig
     val fold :  tag -> t -> (Fact.Equal.t -> 'a -> 'a) -> Term.t -> 'a  -> 'a
     val for_all :  tag -> t -> (Fact.Equal.t -> bool) -> Term.t -> bool
     val exists :  tag -> t -> (Fact.Equal.t -> bool) -> Term.t -> bool
-    val choose :  tag -> t -> Term.t -> Fact.Equal.t
+    val choose :  tag -> t -> (Fact.Equal.t -> bool) -> Term.t -> Fact.Equal.t
   end
   val copy : t -> t
   type config = Partition.t * t
@@ -527,9 +535,142 @@ module type SET2 = sig
 end
 
 
-module Union(Left: SET)(Right: SET)(Ext: EXT) = struct
+module Union(Left: SET)(Right: SET)(Ext: EXT) = 
+struct
 
   type t = {                    (* to do: establish confluence across theories. *)
+    mutable left : Left.t; 
+    mutable right : Right.t; 
+    mutable ext : Ext.t 
+  }
+
+  type ext = Ext.t
+  type lext = Left.ext
+  type rext = Right.ext
+      
+  let eq s t = 
+    Left.eq s.left t.left && 
+    Right.eq s.right t.right
+		 
+  let pp fmt s = 
+    Left.pp fmt s.left;
+    Right.pp fmt s.right;
+    if !pp_index then 
+      begin
+	Ext.pp fmt s.ext
+      end
+      
+  let empty = { 
+    left = Left.empty; 
+    right = Right.empty; 
+    ext = Ext.empty
+  }
+		
+  let copy s = {
+    left = Left.copy s.left; 
+    right = Right.copy s.right; 
+    ext = s.ext
+  }
+		                                                    
+  let is_empty s = 
+    Left.is_empty s.left && 
+    Right.is_empty s.right
+
+  type tag = Left | Right
+	     
+  (** Depending on value of [tag] apply either [f_left] to left part of
+    state or [f_right] to the right part. *)
+  let case_tag f_left f_right tag s =
+    match tag with
+      | Left -> f_left s.left
+      | Right -> f_right s.right
+
+  let is_dependent = case_tag Left.is_dependent Right.is_dependent
+  let is_independent = case_tag Left.is_independent Right.is_independent
+  let fold tag f = case_tag (Left.fold f) (Right.fold f) tag
+  let to_list = case_tag Left.to_list Right.to_list
+  let apply = case_tag Left.apply Right.apply
+  let equality = case_tag Left.equality Right.equality
+  let find = case_tag Left.find Right.find
+  let inv = case_tag Left.inv Right.inv
+  let dep = case_tag Left.dep Right.dep
+  let ext s = (s.ext, Left.ext s.left, Right.ext s.right)
+
+  let apply2 s x =
+    try apply Left s x with Not_found -> apply Right s x
+
+  module Dep = struct
+    let iter = case_tag Left.Dep.iter Right.Dep.iter
+    let fold tag = case_tag Left.Dep.fold Right.Dep.fold tag
+    let for_all = case_tag Left.Dep.for_all Right.Dep.for_all
+    let exists = case_tag Left.Dep.for_all Right.Dep.for_all
+    let choose = case_tag Left.Dep.choose Right.Dep.choose
+  end
+    
+  type config = Partition.t * t
+
+  (** Establish confluence across solution sets; if [x = a] in [Left]
+    and [y = a] in Right, then [x = y]. *)
+  let do_at_add tag (p, s) e =
+    let (x, a, rho) = Fact.Equal.destruct e in
+      try                         
+	(match tag with
+	   | Right ->
+	       let (y, tau) = Left.inv s.left a in        (* [tau |- y = a] *)
+	       let  sigma = Justification.trans (x, a, y) tau rho in
+		 Partition.merge p (Fact.Equal.make (x, y, sigma));
+		 Left.restrict (p, s.left) y              (* restrict [y = a] in [Left]. *)
+	   | Left ->
+	       let (y, tau) = Right.inv s.right a in      (* [tau |- y = a] *)
+	       let  sigma = Justification.trans (x, a, y) tau rho in
+		 Partition.merge p (Fact.Equal.make (x, y, sigma));
+		 Left.restrict (p, s.left) x)             (* restrict [x = a] in [Left] *)
+      with
+	  Not_found -> ()
+	    
+  (** Depending on [tag] call either the update function [f_left]
+    on the left configuration [(p, s.left)] or [f_right] on the
+    right configuration [f_right]. *)
+  let update_case_tag f_left f_right tag (p, s) =
+    match tag with 
+      | Left -> f_left (p, s.left)   
+      | Right -> f_right (p, s.right)
+	  
+  let name = update_case_tag Left.name Right.name
+	       
+  let update tag cfg e =                                
+    update_case_tag Left.update Right.update tag cfg e;
+    do_at_add tag cfg e                        (* establish confluence *)
+      
+  let restrict = update_case_tag Left.restrict Right.restrict
+		   
+  let fuse = update_case_tag Left.fuse Right.fuse
+
+  let compose tag cfg el =
+    update_case_tag Left.compose Right.compose tag cfg el;
+    List.iter (do_at_add tag cfg) el            (* establish confluence *)
+
+end
+    
+
+
+module UnionCnstnt
+  (LTh: TH)
+  (LExt: EXT)
+  (RTh: TH)
+  (RExt: EXT)
+  (Cnstnt: CNSTNT) =
+struct
+                                   (* to do: establish confluence across theories. *)
+  module Ext = Cnstnt2Ext(Cnstnt)
+
+  module LExt1 = CombineExt(Ext)(LExt)
+  module RExt1 = CombineExt(Ext)(RExt)
+
+  module Left = Make(LTh)(LExt1)
+  module Right = Make(RTh)(RExt1)
+
+  type t = {                  
     mutable left : Left.t; 
     mutable right : Right.t; 
     mutable ext : Ext.t 
