@@ -25,6 +25,7 @@ bindir = @bindir@
 libdir = @libdir@
 includedir = @includedir@
 LIBS=@LIBS@
+SYSTEM_LIBS=@SYSTEM_LIBS@
 CPPFLAGS=@CPPFLAGS@
 
 ### end of configuration part ###
@@ -170,7 +171,7 @@ TOPCMX = $(TOPCMO:.cmo=.cmx)
 
 ifeq ($(MAKELEVEL),1)
 $(BINDIR)/ics: $(COBJS) $(TOPCMI) $(TOPCMX) $(ICSAT)
-	$(OCAMLOPT) -cc $(CXX) $(OFLAGS) -o $@ unix.cmxa $(TOPCMX) $(COBJS) $(LIBS) \
+	$(OCAMLOPT) -cc $(CXX) $(OFLAGS) -o $@ unix.cmxa $(TOPCMX) $(COBJS) -ccopt "$(SYSTEM_LIBS)" $(LIBS) \
         $(ICSAT)  -ccopt "-lstdc++"
 else
 ics: $(OBJDIR) # $(ICSAT)
