@@ -12,71 +12,52 @@
  * ICS License for more details.
  i*)
 
+type level = string
+
+module Levels = Set.Make(
+  struct
+    type t = level
+    let compare = Pervasives.compare
+  end)
+
+let levels = ref Levels.empty
+let _ = Tools.add_at_reset (fun () -> levels := Levels.empty)
+
+let reset () = (levels := Levels.empty)
+
+let add l = (levels := Levels.add l !levels)
+
+let remove l = (levels := Levels.remove l !levels)
+
+let get () = Levels.elements !levels
+
+let is_active l = 
+  Levels.mem l !levels ||
+  Levels.mem "all" !levels
 
 
-(*s Verbose Level *)
-
-let verbose_level = ref 0
-let _ = Tools.add_at_reset (fun () -> verbose_level := 0)
-
-let set_verbose n = verbose_level := n
-
-let get_verbose () = !verbose_level
-
-let verbose n f x =
-  if !verbose_level >= n then begin f x; Format.print_flush () end
-
-
-
-
-type 'a pp = Format.formatter -> 'a -> unit   (* pretty-printer type *)
-
-let fmt = Format.std_formatter
-	
-
-let whitespace n =
-  let rec loop = function
-    | 0 -> ()
-    | k -> Format.fprintf fmt " "; loop (k - 1)
-  in
-  loop n
-
-let init () = ()
-
-let call trace_level op args pp =
-  if get_verbose () >= trace_level then
+let call level op args pp =
+  if is_active level then
     begin
-      Format.fprintf fmt "%s <-- " op;
-      pp fmt args;
-      Format.fprintf fmt "@." 
+      Format.eprintf "%s: %s <-- " level op;
+      pp Format.err_formatter args;
+      Format.eprintf "@." 
     end
 
-let exit trace_level op res pp =
-  if get_verbose () >= trace_level then
+let exit level op res pp =
+  if is_active level then
     begin
-       Format.fprintf fmt "%s --> " op;
-       pp fmt res;
-       Format.fprintf fmt "@."
-    end
-    
-let exc trace_level op res pp =
-  let str = Pretty.to_string (fun fmt e ->
-				  Format.fprintf fmt "Exception %s for" op;
-				  pp fmt res)
-	      res
-  in
-  if get_verbose () >= trace_level then
-    begin
-      Format.fprintf fmt "%s" str;
-      Format.fprintf fmt "@.";
+       Format.eprintf "%s: %s --> " level op;
+       pp Format.err_formatter res;
+       Format.eprintf "@."
     end
 
-let msg trace_level op args pp =
-  if get_verbose () >= trace_level then
+let msg level op args pp =
+  if is_active level then
     begin
-      Format.fprintf fmt "%s:\t" op;
-      pp fmt args;
-      Format.fprintf fmt "@." 
+      Format.eprintf "%s: %s\t" level op;
+      pp Format.err_formatter args;
+      Format.eprintf "@." 
     end
     
 
