@@ -17,10 +17,11 @@ i*)
 type t = {
   find : Term.t Term.Map.t;
   inv : Term.Set.t Term.Map.t;
-  changed : Term.Set.t
+  changed : Term.Set.t;
+  removable : Term.Set.t
 }
 
-let unchanged s t =
+let eq s t =
   s.find == t.find
 
 (*s Canonical representative of equivalence class containing [x] *)
@@ -40,7 +41,16 @@ let union x y s =
   let invy = Term.Set.add x (try Term.Map.find y s.inv with Not_found -> Term.Set.empty) in
   let inv' = Term.Map.add y invy s.inv in
   let changed' = Term.Set.add x s.changed in
-  {find = find'; inv = inv'; changed = changed'}
+  let removable' = 
+    if Term.is_fresh_var x then
+      Term.Set.add x s.removable
+    else 
+      s.removable
+  in
+  {find = find'; 
+   inv = inv'; 
+   changed = changed'; 
+   removable = removable'}
 
 
 (*s Canonical representative with dynamic path compression. *)
@@ -63,7 +73,7 @@ let find' s x =
 
 (*s Variable equality modulo [s]. *)
 
-let eq s x y = 
+let is_equal s x y = 
   Term.eq (find s x) (find s y)
 
 
@@ -72,13 +82,29 @@ let eq s x y =
 let empty = {
   find = Term.Map.empty;
   inv = Term.Map.empty;
-  changed = Term.Set.empty
+  changed = Term.Set.empty;
+  removable = Term.Set.empty
 }
 
 let is_empty s = 
   (s.find == Term.Map.empty)
 
+(*s Return the set of removable variables. *)
 
+let removable s = s.removable
+
+(*
+let normalize s =
+  let find' = Set.fold Term.Map.remove s.removable s.find in
+  let invy = Term.Set.remove x (try Term.Map.find y s.inv with Not_found -> Term.Set.empty) in
+  let inv' = Term.Map.add y invy s.inv in
+  let changed' = Term.Set.diff s.changed s.removable in
+  let removable' = Term.Set.empty in
+  {find = find'; 
+   inv = inv'; 
+   changed = changed'; 
+   removable = removable'}
+ *)
 
 (*s Starting from the canonical representative [x' = find s x], the
   function [f] is applied to each [y] in [inv s x'] and the results are
@@ -219,3 +245,4 @@ let external_of s =
 	 union x y acc)
     s.find
     empty
+
