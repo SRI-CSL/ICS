@@ -15,15 +15,15 @@
 let is_pure = Term.is_pure Th.p
 
 let is_interp = function
-  | Term.App(Sym.Pair _, _) -> true
+  | Term.App(sym, _, _) -> Sym.theory_of sym = Th.p
   | _ -> false
 
 let is_cons = function
-  | Term.App(Sym.Pair(Sym.Cons), [_;_]) -> true
+  | Term.App(sym, [_;_], _) when Sym.eq sym Sym.Pair.cons -> true
   | _ -> false
 
 let d_interp = function
-  | Term.App(Sym.Pair(op), al) -> (op, al)
+  | Term.App(sym, al, _) -> (Sym.Pair.get sym, al)
   | _ -> raise Not_found
 
 let d_cons a =
@@ -117,7 +117,7 @@ let sigma op l =
     | Sym.Cons, [a; b] -> mk_cons a b
     | Sym.Car, [a] -> mk_car a
     | Sym.Cdr, [b] -> mk_cdr b 
-    | _ -> Term.App.mk_app (Sym.Pair(op)) l
+    | _ -> assert false
 
 
 (** Fresh variables. *)
