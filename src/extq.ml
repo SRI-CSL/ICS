@@ -25,32 +25,16 @@ type extq =
   | Posinf
   | Neginf
 
-and t = extq hashed
+and t = extq
 
-let destruct x = x.node
+let destruct x = x
 
-(*s Hashconsing constructors. *)
 
-module HashT = Hashcons.Make(        (*s Hashconsing of symbols *)
-  struct 
-    type t = extq
-    let equal x y =
-      match x, y with
-	| Inject p, Inject q -> Q.equal p q
-	| Posinf, Posinf -> true
-	| Neginf, Neginf -> true
-	| _ -> false
-    let hash = Hashtbl.hash
-  end)
+let inject q = Inject(q)
 
-let ht = HashT.create 17
-let _ = Tools.add_at_reset (fun () -> HashT.clear ht)
+let posinf = Posinf
 
-let inject q = HashT.hashcons ht (Inject(q))
-
-let posinf = HashT.hashcons ht Posinf
-
-let neginf = HashT.hashcons ht Neginf
+let neginf = Neginf
 
 
 (*s Miscellaneous. *)
@@ -58,24 +42,24 @@ let neginf = HashT.hashcons ht Neginf
 let zero = inject Q.zero
 
 let is_zero x =
-  match x.node with
+  match x with
     | Inject q -> Q.is_zero q
     | _ -> false
 
 let is_q x =
-  match x.node with
+  match x with
     | Inject _ -> true
     | _ -> false
 
 let to_q x =
-  match x.node with
+  match x with
     | Inject q -> Some q
     | _ -> None
 
 let of_q = inject
 
 let pp fmt x =
-  match x.node with
+  match x with
     | Inject q -> Q.pp fmt q
     | Posinf -> Format.fprintf fmt "inf"
     | Neginf -> Format.fprintf fmt "-inf"
@@ -84,21 +68,26 @@ let pp fmt x =
 (*s Test if argument is an integer. *)
 
 let is_int x =
-  match x.node with
+  match x with
     | Inject q -> Q.is_integer q
     | _ -> false
 
 (*s Equality is just pointer comparison for hash-consing. *)
 
-let eq = (===)
+let eq x y =
+  match x, y with
+    | Inject(q), Inject(p) -> Q.equal q p
+    | Posinf, Posinf -> true
+    | Neginf, Neginf -> true
+    | _ -> false
 
 
 (*s Ordering relation. *)
 
 let lt x y =
-  match x.node with
+  match x with
     | Inject q ->
-	(match y.node with
+	(match y with
 	   | Inject p -> Q.lt q p  
            | Posinf -> true
            | Neginf -> false)
@@ -117,7 +106,7 @@ let max x y = if lt x y then y else x
 (*s Comparisons. *)
 
 let cmp x y =
-  match x.node, y.node with
+  match x, y with
     | Inject u, Inject v -> Q.cmp u v
     | Inject _, Posinf -> Q.Less
     | Inject _, Neginf -> Q.Greater
@@ -129,7 +118,7 @@ let cmp x y =
 (*s Sign computation. *)
 
 let sign x =
-  match x.node with
+  match x with
     | Inject q -> Q.sign q
     | Posinf -> Sign.Pos
     | Neginf -> Sign.Neg
@@ -141,41 +130,41 @@ let sign x =
 exception Undefined
 
 let add x y = 
-  match x.node with
+  match x with
     | Inject p -> 
-	(match y.node with
+	(match y with
 	   | Inject q -> inject (Q.add p q)
 	   | Posinf -> posinf
 	   | Neginf -> neginf)
     | Neginf ->
-	(match y.node with
+	(match y with
 	   | Posinf -> raise Undefined
 	   | _ -> neginf)
     | Posinf ->
-	(match y.node with
+	(match y with
 	   | Neginf -> raise Undefined
 	   | _ -> posinf)
 
 let sub x y =
-  match x.node with
+  match x with
     | Inject p ->
-	(match y.node with
+	(match y with
 	   | Inject q -> inject (Q.sub p q)
 	   | Posinf -> neginf
 	   | Neginf -> posinf)
     | Neginf -> 
-	(match y.node with
+	(match y with
 	   | Neginf -> raise Undefined
 	   | _ -> neginf)
     | Posinf ->
-	(match y.node with
+	(match y with
 	   | Posinf -> raise Undefined
 	   | _ -> posinf)
 
 let mult x y =
-  match x.node with
+  match x with
     | Inject p ->
-	(match y.node with
+	(match y with
 	   | Inject q -> inject (Q.mult p q)
 	   | Neginf -> 
 	       (match Q.sign p with
@@ -188,7 +177,7 @@ let mult x y =
 		  | Neg -> neginf
 		  | Pos -> posinf))
     | Posinf ->
-	(match y.node with
+	(match y with
 	   | Inject q ->
 	       (match Q.sign q with
 		  | Neg -> neginf
@@ -197,7 +186,7 @@ let mult x y =
 	   | Posinf -> posinf
 	   | Neginf -> neginf)
     | Neginf ->
-	(match y.node with
+	(match y with
            | Neginf -> 
 	       posinf
 	   | Inject q ->
@@ -209,26 +198,26 @@ let mult x y =
 	       neginf)
 	       
 let div x y =
-  match y.node with
+  match y with
     | Inject q ->
 	(match Q.sign q with
 	   | Zero -> 
 	       raise Undefined
 	   | Neg -> 
-	       (match x.node with
+	       (match x with
 		  | Inject p -> inject (Q.div p q)
 		  | Neginf -> neginf 
 		  | Posinf -> posinf)
 	   | Pos ->
-	       (match x.node with
+	       (match x with
 		  | Inject p -> inject (Q.div p q)
 		  | Neginf -> posinf
 		  | Posinf -> neginf))
     | Posinf -> 
-	(match x.node with
+	(match x with
 	   | Neginf | Posinf -> raise Undefined
 	   | _ -> zero)
     | Neginf ->
-	(match x.node with
+	(match x with
 	   | Neginf | Posinf -> raise Undefined
 	   | _ -> zero)
