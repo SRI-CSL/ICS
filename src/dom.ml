@@ -67,6 +67,24 @@ let cmp d e =
     | Int, Nonint -> 1  (* arbitrary nonzero *)
     | Nonint, Int -> -1
 
+let cmp d e =
+  match d with
+    | Real ->
+	(match e with
+	   | Real -> 0
+	   | Int -> 1
+	   | Nonint -> 1)
+    | Int ->
+	(match e with
+	   | Real -> -1
+	   | Int -> 0
+	   | Nonint -> 1)
+    | Nonint ->
+	(match e with
+	   | Real -> -1
+	   | Int -> -1
+	   | Nonint -> 0)
+
 
 (** Testing for subdomains. *)
 let rec sub d1 d2 =
