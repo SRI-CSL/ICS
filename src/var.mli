@@ -34,10 +34,13 @@ val k : int ref
 
 val mk_fresh : Name.t -> int option -> t
 
+val mk_slack : int option -> t
+
 (*s Recognizers. *)
 
 val is_var : t -> bool
 val is_fresh : t -> bool
+val is_slack : t -> bool
 
 (*s Printing variables. *)
 

@@ -27,7 +27,7 @@ type t =
 
 let name_of = function
   | External(n) -> n
-  | Internal(n,i) ->  
+  | Internal(n, i) ->  
       let str = Format.sprintf "%s!%d" (Name.to_string n) i in
       Name.of_string str
 
@@ -82,10 +82,22 @@ let mk_fresh x = function
       incr(k);
       Internal(x, !k)
 
+let mk_slack =
+  let slackname = Name.of_string "k" in
+    mk_fresh slackname
+
 (*s Recognizers. *)
 
 let is_var = function External _ -> true | _ -> false
 let is_fresh = function Internal _ -> true | _ -> false
+
+let is_slack =
+  let slackname = Name.of_string "k" in
+    function
+      | Internal(k, _) -> 
+	  Name.eq k slackname
+      | _ ->
+	  false
 
 (*s Printer. *)
 
