@@ -71,13 +71,55 @@ if test "$OCAMLWEB" = true ; then
 fi
 
 dnl Check for library
-if test -z "$with_gmp"; then
-  GMPPATH=
-else
-  GMPPATH=$with_gmp
-fi
 
-AC_CHECK_LIB(gmp,__gmpz_cmp, , AC_MSG_WARN(Potential problem with GMP library.))
+dnl The following is meaningless since we want the libgmp.a file, and this
+dnl uses the libgmp.so file
+dnl AC_CHECK_LIB(gmp,__gmpz_cmp, , AC_MSG_WARN(Potential problem with GMP library.))
+
+AC_MSG_NOTICE(Trying to find a usable libgmp.a)
+   
+if test -z "$with_gmp"; then
+   gmplibs=`ld --verbose | grep SEARCH_DIR | sed -e 's,SEARCH_DIR(,,g' -e 's,);,,g'`
+else
+   gmplibs=$with_gmp/lib
+fi
+olibs=$LIBS
+for ldir in $gmplibs; do
+    AC_MSG_CHECKING(for libgmp.a in $ldir)
+    if test -f $ldir/libgmp.a; then
+       AC_MSG_RESULT(found)
+       LIBS=$ldir/libgmp.a
+       AC_TRY_RUN([#include<string.h>
+#include<malloc.h>
+char *__gmp_version;
+int main() {
+  char *p;
+  int maj;
+  int min;
+  if (! __gmp_version) exit(1);
+  p = strdup(__gmp_version);
+  maj = atoi(strsep(&p, "."));
+  min = atoi(strsep(&p, "."));
+  if (maj < 4) exit(1);
+  if (maj == 4 && min < 1) exit(1);
+  exit(0);
+}], libgmp_ok=yes, libgmp_ok=no, libgmp_ok=no)
+       AC_MSG_CHECKING($ldir/libgmp.a version >= 4.1)
+       if test $libgmp_ok = yes; then
+          AC_MSG_RESULT(yes)
+          GMPPATH=`dirname $ldir`
+          break
+       else
+          AC_MSG_RESULT(no)
+       fi
+    else
+       AC_MSG_RESULT(not found)
+    fi
+done
+LIBS=$olibs	
+if test -z $GMPPATH; then
+   AC_MSG_ERROR(Could not find libgmp.a version >= 4.1 in $gmplibs)
+fi
 
 dnl Finally create all the generated files
 AC_SUBST(GMPPATH)
