@@ -297,12 +297,16 @@ tags:
 .ml.prof:
 	ocamlprof $< > $@
 
-.PHONY: clean
+.PHONY: clean distclean
 
 clean::
 	rm -f $(BINDIR)/ics $(BINDIR)/ics.byte 
 	rm -rf $(OBJDIR) $(LIBDIR)
 	make -C chameleon clean
+
+distclean:: clean
+	rm -f config.cache config.log confdefs.h config.status
+	rm -f configure Makefile
 
 # Static dependencies for the generated files.   There are no
 # strange dependencies in the  manually generated files, so don't 

@@ -47,7 +47,7 @@ if test "$OCAMLWEB" = true ; then
 fi
 
 # Check for library
-AC_CHECK_LIB(gmp,mpz_cmp, , AC_MSG_ERROR(Cannot find the GMP library.))
+AC_CHECK_LIB(gmp,mpz_cmp, , AC_MSG_WARN(Cannot find the GMP library - please set manually in the Makefile.))
 
 # Finally create all the generated files
 AC_OUTPUT(Makefile chameleon/Makefile)
