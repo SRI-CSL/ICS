@@ -35,6 +35,12 @@ module Make(Th: INTERP): sig
   val use : t -> Term.t -> Term.Set.t
   val occurs : t -> Term.t -> bool
 
+(*s [adduse x ys] explicitly manipulates the
+ [use] structure so that [use s x] equals [ys].
+ Use with caution! *)
+
+  val adduse : Term.t -> Term.Set.t -> t -> t
+
 (*s Normalization. *)
 
   val norm : t -> Term.t -> Term.t
@@ -55,17 +61,20 @@ module Make(Th: INTERP): sig
 
   val extend : Term.t -> t -> Term.t * t
 
+
 (*s Union. *)
 
   val union : Term.t -> Term.t -> t -> t
 
-(*s Composing a solved form. *)
+(*s Composing a solved form. Returns the modified substitution,
+ the set of all derived variable equalities, and the set of
+ variables for which the [find] changed. *)
 
-  val compose : t -> (Term.t * Term.t) list -> t * Veqs.t
+  val compose : t -> (Term.t * Term.t) list -> t * Veqs.t * Term.Set.t
 
 (*s Propagation of equalities on lhs. *)
 
-  val propagate : t -> (Term.t * Term.t) list -> t * Veqs.t
+  val propagate : t -> (Term.t * Term.t) list -> t * Veqs.t * Term.Set.t
 
 (*s Solution set *)
 
@@ -75,10 +84,11 @@ module Make(Th: INTERP): sig
 
   val inst : (Term.t -> Term.t) -> t -> t
 
-(*s [fold s f a e] applies [f] to all [x |-> y] in [s] such
- that [y] is in [use s a]. *)
+(*s [fold f s e] applies [f x a] to all [x = a] in
+ the solution set of [s] in an unspecified order and
+ accumulates the result. *)
 
-  val fold : t -> (Term.t -> Term.t -> 'a -> 'a) -> Term.t -> 'a -> 'a
+  val fold : (Term.t -> Term.t -> 'a -> 'a) -> t -> 'a -> 'a
 
 (*s Pretty-printing. *)
 
