@@ -63,9 +63,13 @@ val merge : Fact.equal -> t -> t
 val diseq : Fact.diseq -> t -> t
 
 
-(*s Deduce constraints from new arithmetic equalities. *)
+(*s Cnstrnts from terms. Raises [Not_found] when unconstrained. *)
 
-val deduce : Term.t * Term.t -> t -> t
+val of_term : V.t * t -> Term.t -> Cnstrnt.t
+
+val of_arith : V.t * t -> Sym.arith -> Term.t list -> Cnstrnt.t
+
+val of_builtin : V.t * t -> Sym.builtin -> Term.t list -> Cnstrnt.t
 
 (*s Split. *)
 
