@@ -31,7 +31,8 @@ let rec find th s a  =
   if Th.eq th Th.u || Th.eq th Th.app then  
     a
   else if Th.is_fully_interp th then
-    Context.find th s a
+    let b = Context.find th s a in
+      b
   else 
     findequiv th s a
 
@@ -40,7 +41,8 @@ and findequiv th s a =
     choose s
       (fun x ->
 	 try 
-	   Some(apply th s x) 
+	   let b = apply th s x in 
+	     Some(b) 
 	 with Not_found -> None)
       a
   with
@@ -59,12 +61,17 @@ and can s a =
 	v s a
     | App(Sym.Arith(op), al) ->
 	arith s op al
+    | App(Sym.Bvarith(Sym.Unsigned), [x]) ->
+	unsigned s x
     | App(f, al) ->
 	let th = Th.of_sym f in
 	let interp x = find th s (can s x) in
 	let al' = mapl interp al in
 	let a' = if al == al' then a else sigma s f al' in
 	  lookup s a'
+
+and unsigned s x =
+  lookup s (Bvarith.mk_unsigned (find Th.bv s x))
 
 and arith s op l =    (* special treatment for arithmetic *)
   match op, l with       (* for optimizing memory usage. *)

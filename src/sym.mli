@@ -1,5 +1,5 @@
 
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -12,13 +12,13 @@
  * benefit corporation.
  * 
  * Author: Harald Ruess
- i*)
+ *)
 
-(*s Module [Sym]: Interpreted and uninterpreted function symbols *)
+(** Module [Sym]: Interpreted and uninterpreted function symbols *)
 
 
 
-(*s Interpreted symbols. *)
+(** {Interpreted symbols} *)
 
 type arith = 
   | Num of Mpa.Q.t  
@@ -53,7 +53,7 @@ type bvarith =
   | Unsigned
 
 
-(*s Symbols. *)
+(** {Symbols} *)
 
 type t = 
   | Uninterp of Name.t       (* Uninterpreted function symbols. *)
@@ -67,24 +67,26 @@ type t =
   | Bvarith of bvarith       (* Bitvector interpretations. *)
 
 
-(*s Equality test *)
+
 
 val eq : t -> t -> bool
+(** Equality test *)
 
-(*s Comparison. *)
 
 val cmp : t -> t -> int
+(** Comparison. *)
 
-
-(*s Pretty printing *)
 
 val pp : Format.formatter -> t -> unit
+(** Pretty printing *)
 
 
-(*s Width of a bitvector symbol. *)
 
 val width : t -> int option
+(** Width of a bitvector symbol. *)
 
+
+(** {Miscellaneous symbols} *)
 
 val tuple : t
 val car : t

@@ -20,10 +20,6 @@ open Sym
 open Term
 (*i*)
 
-(*
-let _ = 
- set_signal sigint (Signal_handle(fun _ -> raise Break))
-*)
 
 let init (n, pp, eot, inch, outch) =
   Istate.initialize pp eot inch outch;
@@ -99,6 +95,9 @@ let _ = Callback.register "cnstrnt_pp" cnstrnt_pp
 
 let cnstrnt_mk_int () = Cnstrnt.mk_int
 let _ = Callback.register "cnstrnt_mk_int" cnstrnt_mk_int
+
+let cnstrnt_mk_nonint () = Cnstrnt.mk_nonint
+let _ = Callback.register "cnstrnt_mk_nonint" cnstrnt_mk_nonint
 
 let cnstrnt_mk_nat () = Cnstrnt.mk_nat
 let _ = Callback.register "cnstrnt_mk_nat" cnstrnt_mk_nat
@@ -410,11 +409,11 @@ let atom_mk_equal a b =
 let _ = Callback.register "atom_mk_equal" atom_mk_equal  
 
 let atom_mk_diseq a b = 
-  Atom.mk_diseq (Fact.mk_diseq a b (Some(Fact.Axiom)))
+  Atom.mk_diseq (Fact.mk_diseq a b Fact.mk_axiom)
 let _ = Callback.register "atom_mk_diseq" atom_mk_diseq
 
 let atom_mk_in i a = 
-  Atom.mk_in (Fact.mk_cnstrnt a i (Some(Fact.Axiom)))
+  Atom.mk_in (Fact.mk_cnstrnt a i Fact.mk_axiom)
 let _ = Callback.register "atom_mk_in" atom_mk_in
 
 let atom_mk_true = Atom.mk_true
@@ -424,23 +423,35 @@ let atom_mk_false = Atom.mk_false
 let _ = Callback.register "atom_mk_false" atom_mk_false
 
 let atom_mk_real a = 
-  Atom.mk_in (Fact.mk_cnstrnt a Cnstrnt.mk_real None)
+  Atom.mk_in (Fact.mk_cnstrnt a Cnstrnt.mk_real Fact.mk_axiom)
 let _ = Callback.register "atom_mk_real" atom_mk_real
 
 let atom_mk_int a = 
-  Atom.mk_in (Fact.mk_cnstrnt a Cnstrnt.mk_int None)
+  Atom.mk_in (Fact.mk_cnstrnt a Cnstrnt.mk_int Fact.mk_axiom)
 let _ = Callback.register "atom_mk_int" atom_mk_int
 
-let atom_mk_lt = Atom.mk_lt
+let atom_mk_nonint a = 
+  Atom.mk_in (Fact.mk_cnstrnt a Cnstrnt.mk_nonint Fact.mk_axiom)
+let _ = Callback.register "atom_mk_nonint" atom_mk_nonint
+
+let atom_mk_lt a b = 
+  Atom.mk_in (Fact.mk_cnstrnt  
+		(Arith.mk_sub a b)
+		(Cnstrnt.mk_neg Dom.Real)
+		Fact.mk_axiom)
 let _ = Callback.register "atom_mk_lt"  atom_mk_lt
 
-let atom_mk_le = Atom.mk_le
+let atom_mk_le a b = 
+  Atom.mk_in (Fact.mk_cnstrnt  
+		(Arith.mk_sub a b)
+		(Cnstrnt.mk_nonpos Dom.Real)
+		Fact.mk_axiom)
 let _ = Callback.register "atom_mk_le"  atom_mk_le
 
-let atom_mk_gt a b = Atom.mk_lt b a
+let atom_mk_gt a b = atom_mk_lt b a
 let _ = Callback.register "atom_mk_gt" atom_mk_gt
 
-let atom_mk_ge a b = Atom.mk_le b a
+let atom_mk_ge a b = atom_mk_le b a
 let _ = Callback.register "atom_mk_ge" atom_mk_ge
 
 let term_is_true = Boolean.is_true
@@ -482,10 +493,12 @@ let _ = Callback.register "term_mk_select" term_mk_select
 let term_mk_div = Sig.mk_div
 let _ = Callback.register "term_mk_div" term_mk_div
 
-let term_mk_apply = Apply.mk_apply None
+let term_mk_apply = 
+  Apply.mk_apply (Context.sigma Context.empty) None
 let _ = Callback.register "term_mk_apply" term_mk_apply
 
-let term_mk_arith_apply c = Apply.mk_apply (Some(c))
+let term_mk_arith_apply c = 
+  Apply.mk_apply (Context.sigma Context.empty) (Some(c))
 let _ = Callback.register "term_mk_arith_apply" term_mk_arith_apply
 
 
@@ -527,11 +540,11 @@ let _ = Callback.register "trace_get" trace_get
 
 type solution = Solution.t
 
-let solution_apply = Solution.apply
+let solution_apply s x = Solution.apply s x
 
-let solution_find = Solution.find
+let solution_find s x = Solution.find s x
 
-let solution_inv = Solution.inv
+let solution_inv s b = Solution.inv s b
 
 let solution_mem = Solution.mem
 
@@ -637,29 +650,51 @@ let read_from_string str =
 let rec cmd_rep () =
   let inch = Istate.inchannel() in
   let outch = Istate.outchannel() in
-  try 
+  try
     cmd_output outch (read_from_channel inch);
+    Format.fprintf outch "@?"
   with
     | Invalid_argument str -> cmd_error outch str
-    | Parsing.Parse_error -> cmd_error outch "Syntax"
-    | End_of_file ->  cmd_quit 0 outch;
-    | Sys.Break -> cmd_quit 1 outch;
+    | Parsing.Parse_error -> cmd_error outch ("Syntax error on line " ^ string_of_int !Tools.linenumber)
+    | End_of_file ->
+	 cmd_quit 0 outch;
+    | Sys.Break -> 
+	 cmd_quit 1 outch;
     | Failure "drop" -> raise (Failure "drop")
     | exc -> (cmd_error outch ("Exception " ^ (Printexc.to_string exc)); exit 2)
+
+and cmd_batch () =
+  let inch = Istate.inchannel() in
+  let outch = Istate.outchannel() in
+  try
+    cmd_output outch (Parser.commandsequence Lexer.token (Lexing.from_channel inch));
+    Format.fprintf outch "@?"
+  with
+    | Invalid_argument str -> cmd_error outch str
+    | Parsing.Parse_error -> cmd_error outch ("Syntax error on line " ^ string_of_int !Tools.linenumber)
+    | End_of_file ->
+	 cmd_quit 0 outch;
+    | Sys.Break -> 
+	 cmd_quit 1 outch;
+    | Failure "drop" -> raise (Failure "drop")
+    | exc -> (cmd_error outch ("Exception " ^ (Printexc.to_string exc)); exit 2)
+
+
 
 and cmd_output fmt result =
   (match result with
      | Result.Process(status) -> 
 	 Process.pp Name.pp fmt status
      | Result.Unit() ->
-	 Format.fprintf fmt ":unit"
+	 Format.fprintf fmt ":unit@?"
      | Result.Bool(true) ->
-	 Format.fprintf fmt ":true"
+	 Format.fprintf fmt ":true@?"
      | Result.Bool(false) ->
-	 Format.fprintf fmt ":false"
+	 Format.fprintf fmt ":false@?"
      | value -> 
 	 Format.fprintf fmt ":val ";
-	 Result.output fmt value);
+	 Result.output fmt value;
+         Format.fprintf fmt "@?");
   cmd_endmarker fmt
 	
 and cmd_error fmt str =
@@ -667,7 +702,7 @@ and cmd_error fmt str =
   Format.fprintf fmt "\n%s@?" (Istate.eot())
 
 and cmd_quit n fmt = 
- Format.fprintf fmt ":quit\n";
+ Format.fprintf fmt ":quit\n@?";
  cmd_endmarker fmt;
  exit n
 
@@ -682,6 +717,7 @@ and cmd_endmarker fmt =
     end 
 
 let _ = Callback.register "cmd_rep" cmd_rep
+let _ = Callback.register "cmd_batch" cmd_batch
 
 
 (*s Abstract sign interpretation. *)

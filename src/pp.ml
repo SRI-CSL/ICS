@@ -87,7 +87,7 @@ and mk_mult_with_pp xl b =
     | _ ->
 	insert b 1 xl
 
-and cmp (x, n) (y, m) =
+and cmp1 (x, n) (y, m) =
   let res = Term.cmp x y in
     if res = 0 then Pervasives.compare n m else res
 
@@ -104,7 +104,7 @@ and insert1 x = insert x 1
 
 and merge al bl =
   Trace.msg "pp" "Merge" (al, bl) (Pretty.pair (Pretty.list Term.pp) (Pretty.list Term.pp));
-  let compare a b = cmp (destruct a) (destruct b) in
+  let compare a b = cmp1 (destruct a) (destruct b) in
   let rec loop acc al bl = 
     match al, bl with
       | [], [] -> acc
@@ -130,7 +130,7 @@ and merge al bl =
     | cl -> mk_app mult cl
 
 let mk_inv a = mk_expt (-1) a
-	    
+	
 
 (*s Sigma normal forms. *)
 
@@ -178,6 +178,25 @@ let to_list a =
   match a with
     | App(Pp(Mult), xl) -> xl
     | _ -> [a]
+
+    
+(*s Ordering relation. *)
+
+let cmp a b =
+  let rec loop al bl =
+    match al, bl with
+      | [], [] -> 0
+      | [], _ -> -1
+      | _, [] -> 1
+      | x :: xl', y :: yl' ->
+	  let res = cmp1 (destruct x) (destruct y) in
+	    if res = 0 then loop xl' yl' else res
+  in
+    loop (to_list a) (to_list b)
+
+let min a b = if cmp a b <= 0 then a else b
+
+let max a b = if cmp a b <= 0 then b else a
 
 
 (*s Greatest common divisor of two power products. For example,
@@ -255,3 +274,38 @@ let lcm qq pp =
 	    loop acc' al' bl'
   in
     loop mk_one (to_list pp) (to_list qq)
+
+
+(*s Divisibility. *)
+
+let div =
+  Trace.func "foo" "div" (Pretty.pair Term.pp Term.pp)  (Pretty.option Term.pp)
+    (fun (pp, qq) ->
+       try
+	 let rec loop acc al bl =
+	   match al, bl with
+	     | [], [] -> 
+		 acc
+	     | [], bl ->
+		 mk_mult acc (mk_multl bl)
+	     | al, [] ->
+		 raise Not_found
+	     | a :: al', b :: bl' ->
+		 let (x, n) = destruct a 
+		 and (y, m) = destruct b in
+		 let cmp = Term.cmp x y in
+		   if cmp = 0 then
+		     if n = m then
+		       loop acc al' bl'
+		     else if n < m then
+		       loop (mk_mult acc (mk_expt (m - n) x)) al' bl'
+		     else 
+		       raise Not_found
+		   else if cmp > 0 then
+		     loop (mk_mult b acc) al bl'
+		   else 
+		     raise Not_found
+	 in
+	   Some(loop mk_one (to_list pp) (to_list qq))
+       with
+	   Not_found -> None)

@@ -152,6 +152,9 @@ let mk_real =
 let mk_int = 
   of_interval Interval.mk_int
 
+let mk_nonint =
+  of_interval Interval.mk_nonint
+
 let mk_nat = 
   let i = Interval.make (Dom.Int, Endpoint.nonstrict Q.zero, Endpoint.posinf) in
   of_interval i
@@ -372,8 +375,3 @@ let expt n (i,_) =
     of_interval (Interval.expt n i)
 
 let div (i,_) (j,_) = mk_real
-  
-
-(*
-  of_interval (Interval.div i j)
-*)

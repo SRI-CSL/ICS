@@ -15,6 +15,7 @@
  i*)
 
 (*i*)
+open Mpa
 open Term
 open Sym
 open Context
@@ -22,17 +23,18 @@ open Context
 
 (*s Fold over all partitions of a list [l]. *)
 
-let rec partitions_fold l f e = 
-  match l with
+let partitions_fold l f e =
+  let rec part = function
     | [] -> 
-	f ([], []) e
-    | x :: xl ->
-	List.fold_left
-	  (fun acc (l1, l2) ->
-	     f ((x ::l1), l2) (f (l1, (x :: l2)) acc))
-	[] 
-	(partitions_fold xl f e)
-
+	[([], [])]
+    | a :: al ->
+	(List.fold_left
+           (fun acc (l1, l2) ->
+	      (a :: l1, l2) :: (l1, a :: l2) :: acc)
+           []
+	   (part al))
+  in
+    List.fold_left f e (part l)
 
 (*s Deduce new constraints from an equality. *)
 
@@ -44,10 +46,11 @@ let rec deduce e s =
       | Var _ -> of_var x b s
       | App(Pp(pp), yl) -> of_pprod x (pp, yl) s
       | App(Arith(op), yl) -> of_linarith x (op, yl) s
+      | App(Bvarith(op), [y]) -> of_bvarith x (op, y) s
       | _ -> s
 
 and infer x i s =
-  let c' = Fact.mk_cnstrnt x i None in
+  let c' = Fact.mk_cnstrnt (v s x) i None in
   let p' = Partition.add c' (p_of s) in
     update p' s
 
@@ -61,6 +64,13 @@ and of_var x y s =
       infer x j (infer y i s)
   with
       Not_found -> s
+
+and of_bvarith x (op, y) s =
+  match op with
+    | Unsigned ->               (* [x = unsigned(y)] *)
+	infer x Cnstrnt.mk_nat s
+
+	
 
 and of_pprod x (op, yl) s =
   Trace.msg "deduce" "Deduce(u)" x Term.pp;
@@ -209,18 +219,39 @@ and propagate_zero ml =
   in
     loop Cnstrnt.mk_zero ml
 
-(*
-and propagate ml s =                           (* [ml = 0]. Solve for every "subterm" in [ml].  *)
+and propagate_zero_all ml =                           (* [ml = 0]. Solve for every "subterm" in [ml].  *)
   Trace.msg "deduce" "Propagate" ml (Pretty.list Term.pp);
-  fold_partitions
-    (fun (ml1, ml2) ->
-*)      
-
+  let install ml1 ml2 s =        (* add constraint for [ml1 in -C(ml2)]. *)
+    match ml1 with
+      | [] -> s
+      | [App(Arith(Num(_)), [])] -> s
+      | [App(Arith(Multq(q)), [x])]
+	  when not(Q.is_zero q) ->
+	  let i = Cnstrnt.multq (Q.minus (Q.inv q)) (cnstrnt_of_monomials s ml2) in
+	    infer x i s
+      | [x] ->
+	  let i = Cnstrnt.multq Q.negone (cnstrnt_of_monomials s ml2) in
+	    infer x i s  
+      | _ ->
+	  let a = Can.term s (Arith.mk_addl ml1) in
+	    if Arith.is_num a then s else 
+	      let i = Cnstrnt.multq Mpa.Q.negone (cnstrnt_of_monomials s ml2) in
+		if is_var a then
+		  infer a i s
+		else
+		  let x = Var(Var.mk_slack None) in
+		  let e =  Fact.mk_equal x a None in
+		    Trace.msg "deduce" "Extend" e Fact.pp_equal;
+		    compose Th.la e (infer x i s) 
+  in
+  partitions_fold ml
+    (fun acc (ml1, ml2) -> (install ml1 ml2 acc))
 
 (*s And now also propagate the integer information. *)
 
 and of_add_int x ml s = 
   let ml' = Arith.mk_neg x :: ml in                 (* [ml'] not necessarily orderd. *)
+  Trace.msg "deduce" "Int" ml' (Pretty.list Term.pp);
   match List.filter (fun m -> not (is_int s m)) ml' with
     | [] -> 
 	s
@@ -228,7 +259,8 @@ and of_add_int x ml s =
 	infer x Cnstrnt.mk_int s
     | [App(Arith(Num(q)), [])] -> 
 	if Mpa.Q.is_integer q then s else raise Exc.Inconsistent
-    | [App(Arith(Multq(q)), [x])] when Mpa.Q.is_integer q ->
+    | [App(Arith(Multq(q)), [x])] 
+	when Mpa.Q.is_integer q ->
 	infer x Cnstrnt.mk_int s
     | ql -> 
 	let a = Can.term s (Arith.mk_addl ql) in
@@ -243,10 +275,21 @@ and of_add_int x ml s =
 
 	   
 and is_int s m = 
-  let (q, x) = Arith.mono_of m in
-    Mpa.Q.is_integer q &&
+  let is_int_var x = 
     try 
       Cnstrnt.dom_of (c s x) = Dom.Int 
     with 
 	Not_found -> false
+  in
+    match m with
+      | App(Arith(Num(q)), []) ->
+	  Mpa.Q.is_integer q
+      | App(Arith(Multq(q)), [x]) ->
+	  Mpa.Q.is_integer q &&
+	  is_int_var x
+      | _ ->
+	  is_int_var m
   
+
+
+

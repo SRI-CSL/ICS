@@ -26,10 +26,6 @@ val to_list : t -> (Var.t * Cnstrnt.t) list
 
 val apply : t -> Term.t -> Cnstrnt.t
 
-val find : t -> Term.t -> Cnstrnt.t
-
-val justification : t -> Term.t -> Cnstrnt.t * Fact.justification option
-
 val to_fact : t -> Term.t -> Fact.cnstrnt
 
 val mem : Term.t -> t -> bool

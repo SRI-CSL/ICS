@@ -1,5 +1,3 @@
-
-
 (*i
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
@@ -14,5 +12,8 @@
  * 
  * Author: Harald Ruess
  i*)
+
+(** Three-valued datatype for classifying real numbers into negative ([Neg]) numbers,
+ the [Zero] number, and positive numbers ([Pos]). *)
 
 type t = Neg | Zero | Pos

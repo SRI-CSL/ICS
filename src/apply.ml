@@ -23,15 +23,23 @@ let mk_abs a =
   mk_app (Fun(Abs)) [a]
 
 
-let rec mk_apply r a al =
+let rec mk_apply sigma r a al =
   match a, al with
     | App(Fun(Abs), [x]), [y] -> 
-	subst x y 0
+	eval sigma (subst sigma x y 0)
     | _ ->
 	mk_app (Fun(Apply(r))) (a :: al)
- 
 
-and subst a s k =
+and eval sigma a =
+  match a with
+    | App(Fun(Apply(_)), [App(Fun(Abs), [x]); y]) -> 
+	(subst sigma x y 0)
+    | App(f, xl) ->
+	sigma f (mapl (eval sigma) xl)
+    | _ ->
+	a
+
+and subst sigma a s k =
   match a with
     | Var(x) -> 
 	if Var.is_free x then
@@ -45,16 +53,12 @@ and subst a s k =
 	else 
 	  a
     | App(Fun(Abs), [x]) ->
-        mk_abs (subst x (lift s 0) (k + 1))
-    | App(Arith(op), xl) ->
-	Arith.sigma op (substl xl s k)
-(*    | App(Pp(Mult), xl) ->
-	Sig.mk_multl (substl xl s k) *)
+        mk_abs (subst sigma x (lift s 0) (k + 1))
     | App(f, xl) ->
-	mk_app f (substl xl s k)
+	sigma f (substl sigma xl s k)
 
-and substl al s k =
-  mapl (fun x -> subst x s k) al
+and substl sigma al s k =
+  mapl (fun x -> subst sigma x s k) al
 
 and lift a k =
   match a with
@@ -75,17 +79,20 @@ and liftl al k =
 
 let sigma op al =
   match op, al with
-    | Apply(r), x :: xl -> mk_apply r x xl
-    | Abs, [x] -> mk_abs x
+    | Apply(r), x :: xl -> 
+	mk_apply mk_app r x xl   (* no simplifications *)
+    | Abs, [x] -> 
+	mk_abs x
     | _ -> assert false
 	
+
 let rec map f a =
   match a with
     | App(Fun(Apply(r)), x :: xl) ->
 	let x' = map f x in
 	let xl' = mapl (map f) xl in
 	  if x == x' && xl == xl' then a else
-	    mk_apply r x' xl'
+	    mk_apply mk_app r x' xl'
     | App(Fun(Abs), [x]) ->
 	let x' = map f x in
 	  if x == x' then a else 

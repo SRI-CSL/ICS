@@ -21,7 +21,9 @@ open Term
 
 (*s Module [Apply]: Theoruy of function application and abstraction *)
 
-val mk_apply : Cnstrnt.t option -> Term.t -> Term.t list -> Term.t
+val mk_apply : (Sym.t -> Term.t list -> Term.t) 
+                  -> Cnstrnt.t option -> Term.t -> Term.t list 
+                    -> Term.t
 
 val mk_abs : Term.t -> Term.t
 

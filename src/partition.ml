@@ -54,6 +54,10 @@ let update_c p c = (p.c <- c; p)
 
 let v s = V.find s.v
 
+(*s Constraint for a variable. *)
+
+let c s = C.apply s.c
+
 
 (*s All disequalities of some variable [x]. *)
 
@@ -100,7 +104,8 @@ let is_equal s x y =
 
 let is_int s x = 
   try 
-    Cnstrnt.dom_of (C.apply s.c x) = Dom.Int 
+    let i = C.apply s.c x in
+    Cnstrnt.dom_of i = Dom.Int 
   with 
       Not_found -> false
 
@@ -151,8 +156,8 @@ let restrict xs s =
 (*s Stored facts. *)
 
 let equality p = V.equality p.v
-let disequalities p x = D.disequalities p.d (V.find p.v x)
-let cnstrnt p x = C.to_fact p.c (V.find p.v x)
+let disequalities p = D.disequalities p.d
+let cnstrnt p = C.to_fact p.c
 
 
 (*s Management of changed sets. *)

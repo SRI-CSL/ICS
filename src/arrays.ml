@@ -27,8 +27,13 @@ open Context
  and [upd1 == z2 mod s], [x == i2 mod s], [y == j1 mod s] deduce
  that [z1 = k2]. *)
 
-let propagate e s =
-  let (x, y, _) = Fact.d_equal e in
+let rec propagate e s =
+  Trace.msg "rule" "Array(=)" e Fact.pp_equal;
+  let (x, y, prf) = Fact.d_equal e in
+    propagate1 (x, y, prf)
+      (propagate1 (y, x, prf) s)
+
+and propagate1 (x, y, prf) s =
     Set.fold
       (fun z1 s1 -> 
 	 match apply Th.arr s1 z1 with 
@@ -55,7 +60,12 @@ let propagate e s =
  [z1 = z3], where [z3 = select(a,j)]. *)
 
 let rec diseq d s =
-  let (i, j, _) = Fact.d_diseq d in
+  Trace.msg "rule" "Array(<>)" d Fact.pp_diseq;
+  let (i, j, prf) = Fact.d_diseq d in
+    diseq1 (i, j, prf)
+      (diseq1 (j, i, prf) s)
+
+and diseq1 (i, j, prf) s =
   Set.fold
    (fun z1 s1 -> 
       match apply Th.arr s1 z1 with

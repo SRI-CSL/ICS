@@ -21,7 +21,10 @@ type rule = string
 
 type justification =
   | Axiom
-  | Rule of rule * t list
+  | Rule of rule * justification list
+
+val mk_axiom : justification option
+val mk_rule : rule -> justification option list -> justification option
 
 type equal
 type diseq

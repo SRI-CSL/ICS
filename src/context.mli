@@ -58,16 +58,6 @@ val eq : t -> t -> bool
 
 val cnstrnt : t -> Term.t -> Cnstrnt.t
 
-(*
-(*s Cnstrnts from terms. Raises [Not_found] when unconstrained. *)
-
-val of_term : V.t * t -> Term.t -> Cnstrnt.t
-
-val of_arith : V.t * t -> Sym.arith -> Term.t list -> Cnstrnt.t
-
-val of_builtin : V.t * t -> Sym.builtin -> Term.t list -> Cnstrnt.t
-*)
-
 val is_equal : t -> Term.t -> Term.t -> Three.t
 
 

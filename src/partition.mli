@@ -41,6 +41,12 @@ val empty : t
 
 val v : t -> Term.t -> Term.t
 
+(*s [c s x] returns, for a canonical variable [x], an associatiatede
+ arithmetic constraint, if there is one. Otherwise, [Not_found] is
+ raised. *)
+
+val c : t -> Term.t -> Cnstrnt.t
+
 
 (*s [update_v s v] updates the [v] part of the partitioning [s] if it
  is different from [s.v]. Similarly,  [update_d] and [update_c] update

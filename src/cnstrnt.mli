@@ -54,6 +54,7 @@ val is_neg : t -> bool
 
 val mk_real : t
 val mk_int : t
+val mk_nonint : t
 val mk_nat : t
 
 val mk_singleton : Mpa.Q.t -> t

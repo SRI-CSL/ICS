@@ -24,9 +24,7 @@
 
   The theory of tuples is given as the initial algebra generated
   by the axioms
-      \begin{array}{lcl}
-      ... & = & ...
-      \end{array}
+     
 *)
 
 (*s [is_interp a] holds iff [a] is a projection of the form

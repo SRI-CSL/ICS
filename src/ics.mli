@@ -160,6 +160,7 @@ val cnstrnt_output : outchannel -> cnstrnt -> unit
 val cnstrnt_pp : cnstrnt -> unit
 
 val cnstrnt_mk_int : unit -> cnstrnt
+val cnstrnt_mk_nonint : unit -> cnstrnt
 val cnstrnt_mk_nat : unit -> cnstrnt
 val cnstrnt_mk_singleton : q -> cnstrnt
 val cnstrnt_mk_diseq : q -> cnstrnt
@@ -441,6 +442,7 @@ val atom_mk_false : unit -> atom
 
 val atom_mk_real : term -> atom
 val atom_mk_int : term -> atom
+val atom_mk_nonint : term -> atom
     
 val atom_mk_lt : term -> term -> atom
 val atom_mk_le : term -> term -> atom
@@ -576,6 +578,10 @@ val init : int * bool * string * inchannel * outchannel -> unit
  accordingly, and outputs the result to the current output channel. *)
 
 val cmd_rep : unit -> unit
+
+val cmd_batch : unit -> unit
+
+
 
 
 (*s Sleeping for a number of seconds. *)

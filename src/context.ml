@@ -146,13 +146,52 @@ let pp fmt s =
 
 let mem i s = Solution.mem (eqs_of s i)
 
-let inv i s = Solution.inv (eqs_of s i)
+let use i s = Solution.use (eqs_of s i)
 
 let apply i s = Solution.apply (eqs_of s i)
 
 let find i s = Solution.find (eqs_of s i)
 
-let use i s = Solution.use (eqs_of s i)
+let rec inv i s =
+  if Th.eq i Th.pprod then
+    inv_pprod s
+  else 
+    Solution.inv (eqs_of s i)
+
+(*s Search for largest match on rhs. For example, if [a] is
+ of the form [x * y] and there is an equality [u = x^2 * y],
+ then [inv_pprod s a] returns [u * x] if there is no larger
+ rhs which matches [a]. *)
+
+and inv_pprod s a =           
+  let usea = 
+    match a with
+      | App(Pp(Mult), x :: _) -> (use Th.pprod s x)
+      | App(Pp(Expt(_)), [x]) -> (use Th.pprod s x)
+      | _ -> Set.empty
+  in
+  let lookup =
+    Set.fold
+      (fun x acc ->
+	 try
+	   let b' = apply Th.pprod s x in
+	     (match Pp.div (a, b') with
+		| None -> acc
+		| Some(c') ->    (* [a * c' = b'] *)
+		    (match acc with
+		       | Some(_, _, b) when Pp.cmp b b' > 0 -> acc
+		       | _ -> Some(x, c', b')))
+	 with
+	     Not_found -> acc)
+      usea
+      None
+  in
+    match lookup with
+      | Some(x, c, _) -> 
+	  Pp.mk_mult (v s x) c
+      | None ->
+	  raise Not_found
+
 
 let equality i s = Solution.equality (eqs_of s i)
 
@@ -188,46 +227,6 @@ let solve i _ =
     (Pretty.list Fact.pp_equal)
     (Th.solve i)
 
-(* disable for now.
-let rec solve i s = 
-  Trace.func "slv" "Solve" Fact.pp_equal (Pretty.list Fact.pp_equal)
-    (fun e ->
-       if Th.eq i Th.p then
-	 Tuple.solve e
-       else if Th.eq i Th.cop then
-	 Coproduct.solve e
-       else if Th.eq i Th.bv then
-	 Bitvector.solve e
-       else if Th.eq i Th.la then
-	 la_solve s e 
-       else
-	 [e])
-
-and la_solve s e =
-  let is_var_on_rhs x = 
-    is_var x &&  not(Set.is_empty (use Th.la s x))
-  and is_unconstrained_var x = 
-    is_var x && not (C.mem x (c_of s))
-  and is_unconstraining_var x = 
-    is_var x &&
-    try Cnstrnt.is_unbounded (c s x) with Not_found -> true
-  in
-  let asolve p e =    
-    match Arith.solve_for p e with
-      | Some(e') -> [e']
-      | None -> []
-  in
-    try asolve is_var_on_rhs e
-    with Exc.Unsolved ->
-      try asolve is_unconstrained_var e
-      with Exc.Unsolved ->
-	try asolve is_unconstraining_var e
-	with Exc.Unsolved ->
-	  try asolve is_fresh_var e
-	  with Exc.Unsolved -> asolve is_var e
-*)
-		  
-
 let fuse i e s =
   install s i (Solution.fuse i (s.p, eqs_of s i) [e])
 
@@ -242,7 +241,7 @@ let rec compose i e s =
 	ignore i e s
 
 and ignore i e s =
-  let (a, b, _) = Fact.d_equal e in
+  let (a, b, prf) = Fact.d_equal e in
   let (x', ei') = Solution.name i (a, eqs_of s i) in
   let (y', ei'') = Solution.name i (b, ei') in
   let e' = Fact.mk_equal x' y' None in
@@ -259,22 +258,33 @@ let lookup s a =
 	v s a
     | App(f, _) ->
 	let i = Th.of_sym f in
-	  try v s (inv i s a) with Not_found -> a
+	  try 
+	    let x = inv i s a in
+	      v s x
+	  with 
+	      Not_found -> a
 
 
 (*s List all constraints with finite extension. *)
 
-let split s  = C.split (c_of s)
-(*
+let rec split s =
+  Atom.Set.union 
+    (split_cnstrnt s) 
+    (split_arrays s)
+
+and split_cnstrnt s = 
+  C.split (c_of s)
+
+and split_arrays s = 
   Solution.fold
     (fun _ (b,_) acc1 ->
        match b with
-	 | App(Builtin(Select), [upd1; j1]) ->
+	 | App(Arrays(Select), [upd1; j1]) ->
 	     V.fold (v_of s)
 	     (fun upd2 acc2 ->
 		try
-		  (match apply U s upd2 with
-		     | App(Builtin(Update), [_; i2; _]) ->
+		  (match apply arr s upd2 with
+		     | App(Arrays(Update), [_; i2; _]) ->
 			 (match is_equal s i2 j1 with
 			    | X -> Atom.Set.add (Atom.mk_equal (Fact.mk_equal i2 j1 None)) acc2
 			    | _ -> acc2)
@@ -284,9 +294,8 @@ let split s  = C.split (c_of s)
 		    Not_found -> acc1)
 	     upd1 acc1
 	 | _ -> acc1)
-    (eqs_of s U)
-*)
-
+    (eqs_of s arr)
+    Atom.Set.empty
 
 
 

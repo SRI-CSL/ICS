@@ -72,3 +72,7 @@ let dynamic_let (x, v) f a =
       | exc ->
 	  x := saved;
 	  raise exc
+
+(*s Global variable for linenumers. *)
+
+let linenumber = ref 0

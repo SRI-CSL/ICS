@@ -73,11 +73,6 @@ val cant : Term.t -> Term.t
 
 val sigma : Sym.t -> Term.t list -> Term.t
 
-(*s Abstraction. *)
-
-val abstract_term: Term.t -> Term.t
-
-val abstract_atom: Atom.t -> Atom.t
 
 (*s Adding a new fact *)
 

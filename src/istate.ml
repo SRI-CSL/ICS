@@ -60,10 +60,12 @@ let outchannel () = s.outchannel
 
 (*s Adding to symbol table *)
 
-let def n a = 
-  let e = Symtab.Def(a) in
-  s.symtab <- Symtab.add n e s.symtab
-
+let def n =
+  Trace.proc "istate" "def" Term.pp 
+  (fun a ->
+     let e = Symtab.Def(a) in
+       s.symtab <- Symtab.add n e s.symtab)
+  
 let sgn n a =
   let e = Symtab.Arity(a) in
   s.symtab <- Symtab.add n e s.symtab
@@ -141,8 +143,10 @@ let ctxt_of = function
 
 (*s Canonization w.r.t current state. *)
 
-let can p = 
-  Can.atom s.current p
+let can = 
+  Trace.func "istate" "can" Atom.pp Atom.pp
+    (Tools.profile "can"
+       (fun p -> Can.atom s.current p))
 
 let cant a = 
   Can.term s.current a
@@ -151,19 +155,6 @@ let sigma f l =
   Context.sigma s.current f l
 
 
-let abstract_term p = failwith "to do" 
-  (*
-  let (s', p') = Shostak.abstract_toplevel_term s.current p in
-    s.current <- s';
-    p'
-  *)
-
-let abstract_atom a = failwith "to do"
-(*
-  let (s', a') = Shostak.abstract s.current a in
-    s.current <- s';
-    a'
-*)
 
 (*s Create a fresh name for a state. *)
 
@@ -204,18 +195,20 @@ let forget () =
 
 (*s Adding a new fact *)
 
-let process n a =
+let process n =
   let t = (get_context n) in
-  let status = Process.atom t a in
-  match status with      (* Update state and install new name in symbol table *)
-    | Process.Ok(t') -> 
-	s.current <- t';
-	let n = save None in
-	Process.Ok(n)
-    | Process.Valid ->
-	Process.Valid
-    | Process.Inconsistent ->
-	Process.Inconsistent
+    Tools.profile "process"
+      (fun a -> 
+	 let status = Process.atom t a in
+	   match status with      (* Update state and install new name in symbol table *)
+	     | Process.Ok(t') -> 
+		 s.current <- t';
+		 let n = save None in
+		   Process.Ok(n)
+	     | Process.Valid ->
+		 Process.Valid
+	     | Process.Inconsistent ->
+		 Process.Inconsistent)
 
 let valid n a =
   match Process.atom (get_context n) a with 
@@ -249,8 +242,8 @@ let cnstrnt n a =
 (*s Applying maps. *)
 
 
-let find n i = Context.find i (get_context n)
-let inv n i = Context.inv i (get_context n)
+let find n i x = Context.find i (get_context n) x
+let inv n i b = Context.inv i (get_context n) b
 let use n i = Context.use i (get_context n)
 
 (*s Solution sets. *)
@@ -273,19 +266,15 @@ let partition () =
 (*s Solver. *)
 
 let solve i (a, b) = 
-  let e = Fact.mk_equal a b None in
-  List.map (fun e' -> 
-	      let (x, b, _) = Fact.d_equal e' in
-		(x, b))
-    (Th.solve i e)
-
-(*
   try
-    Context.solve i (s.current.p.Partition.c, s.current.a) (a, b)
+    let e = Fact.mk_equal a b None in
+      List.map (fun e' -> 
+		  let (x, b, _) = Fact.d_equal e' in
+		    (x, b))
+	(Th.solve i e)
   with
     | Exc.Inconsistent -> raise(Invalid_argument("Unsat"))
-    |	Exc.Unsolved -> raise(Invalid_argument("Unsolvable"))
-*)
+    | Exc.Unsolved -> raise(Invalid_argument("Unsolvable"))
  
 (*s Equality/disequality test. *)
 

@@ -34,7 +34,7 @@ let keyword =
       "proj", PROJ;
       "cons", CONS; "car", CAR; "cdr", CDR;
       "conc", CONC; "sub", SUB; "ite", BWITE;
-      "drop", DROP; "can", CAN; "assert", ASSERT; "abstract", ABSTRACT; "exit", EXIT; 
+      "drop", DROP; "can", CAN; "assert", ASSERT; "exit", EXIT; 
       "valid", VALID; "unsat", UNSAT;
       "save", SAVE; "restore", RESTORE; "remove", REMOVE; "forget", FORGET;
       "reset", RESET; "sig", SIG; "type", TYPE; "def", DEF;
@@ -59,12 +59,12 @@ let keyword =
 
 let ident = ['A'-'Z' 'a'-'z'] ['A'-'Z' 'a'-'z' '\'' '_' '0'-'9']*
 
-let space = [' ' '\t' '\r' '\n']
-
 let int =  ['0'-'9']+  
 
-rule token = parse
-  | space+     { token lexbuf }
+rule token = parse 
+    [' ' '\t'] { token lexbuf }
+  | '\n'       { Tools.linenumber := !Tools.linenumber + 1;
+  	        token lexbuf }
   | '%' [^ '\n']* {token lexbuf }
   | ident      { keyword (Lexing.lexeme lexbuf) }
   | "-inf"     { NEGINF }
@@ -123,8 +123,8 @@ rule token = parse
   | "[]"       { NIL }
   | '.'        { DOT }
   | '$'        { APPLY }
-  | '@'        { KLAMMERAFFE }
-  | eof        { EOF }  
-  | _          { raise Parsing.Parse_error }
+  | '@'        { KLAMMERAFFE } 
+  | eof        { EOF }
+(*  | _          { raise Parsing.Parse_error } *)
 
 

@@ -22,13 +22,28 @@ type t =
 
 and justification =
   | Axiom
-  | Rule of string * t list
+  | Rule of string * justification list
 
 and equal = Term.t * Term.t * justification option
 and diseq = Term.t * Term.t * justification option
 and cnstrnt = Term.t * Cnstrnt.t * justification option
 
 and rule = string 
+
+let mk_axiom = 
+  Some(Axiom)
+
+let mk_rule str jl =
+  try
+    let jl' =  List.map 
+		(function 
+		   | Some(j) -> j 
+		   | None -> raise Not_found)
+		jl
+    in
+      Some(Rule(str, jl'))
+  with
+      Not_found -> None
 
 let mk_equal x y j =
   let (x, y) = Term.orient (x, y) in

@@ -79,8 +79,12 @@ and abstract_term i (s, a) =
 	let j = Th.of_sym f in
 	let (s', al') = abstract_args j (s, al) in
 	let a' = if Term.eql al al' then a else sigma s f al' in
-	  if i = u || i <> j then
-	    try (s', v s' (inv j s' a')) with Not_found -> extend (s', a')
+	  if i = u || i = arr || i <> j then
+	    try
+	      let x' = inv j s' a' in
+	      (s', v s' x')
+	    with 
+		Not_found -> extend (s', a')
 	  else 
 	    (s', a')
 	    
@@ -191,7 +195,8 @@ and compose i e s =
   Trace.msg "rule" "Compose" e Fact.pp_equal;
   let (x, y, _) = Fact.d_equal e in
     if not(Set.is_empty (use i s x)) then      (* [x] occurs on rhs. *)
-      let e' = Fact.mk_equal x (find i s y) None in
+      let b = find i s y in
+      let e' = Fact.mk_equal x b None in
 	fuse i e' s
     else
       try
@@ -204,7 +209,7 @@ and compose i e s =
 	  with
 	      Not_found ->
 		let e' = Fact.mk_equal y a None in
-		  Context.compose i e' (Context.restrict i x s)
+		  Context.compose i e' s (* (Context.restrict i x s) *)
 	  with
 	      Not_found -> s        (* [x] occurs neither on rhs nor on lhs. *)
 
@@ -213,12 +218,8 @@ and compose i e s =
 
 (*s Deduce new facts from changes in the linear arithmetic part. *)
 
-let rec arith_star ch = 
-  fold la ch arith
-
-and arith e =   
-  Trace.msg "rule" "Arith" e Fact.pp_equal;
-  arith_deduce e
+let rec arith_star ch =
+  fold la ch arith_deduce
  
 and arith_deduce e s = 
   Trace.msg "rule" "Arith_deduce" e Fact.pp_equal;
@@ -305,11 +306,45 @@ and pproduct_cnstrnt c s =
 
 (*s Propagate variable equalities and disequalities into array equalities. *)
 
-let arrays_star (che, chd) s = s
-(*
+let arrays_star (che, chd) =
   fold arr che Arrays.propagate &&&  
   foldd chd Arrays.diseq
-*)
+
+
+(*s Propagate variable equalities and disequalities into array equalities. *)
+
+let rec bvarith_star (chbva, chbv) =
+  fold bv chbv bvarith_propagate &&&
+  fold bvarith chbva bvarith_deduce
+
+and bvarith_propagate e s =
+  Trace.msg "rule" "Bvarith" e Fact.pp_equal;
+  let (x, bv, prf) = Fact.d_equal e in
+  Set.fold
+    (fun u s ->
+       try
+	 match apply bvarith s u with
+	   | App(Bvarith(Unsigned), [x'])
+	       when Term.eq x x' ->
+	       let ui = Bvarith.mk_unsigned bv in
+	       let (s', a') = abstract_term la (s, ui) in
+	       let e' = Fact.mk_equal (v s' u) a' None in
+		 Context.compose la e' s'
+	   | _ ->
+	       s 
+       with
+	   Not_found -> s)
+    (use bvarith s x)
+    s
+ 
+and bvarith_deduce e s = 
+  Trace.msg "rule" "Bvarith_deduce" e Fact.pp_equal;
+  let (x, b, _) = Fact.d_equal e in
+    match b with
+      | App(Bvarith(op), [y]) -> 
+	  Deduce.of_bvarith x (op, y) s
+      | _ -> s
+
 
 (*s Deduce new facts from changes in the constraint part. *)
 
@@ -321,7 +356,8 @@ and cnstrnt c =
   (cnstrnt_singleton c &&&
    cnstrnt_diseq c &&&
    cnstrnt_equal la c &&&
-   cnstrnt_equal pprod c) 
+   cnstrnt_equal pprod c &&&
+   cnstrnt_equal bvarith c)
      
 and cnstrnt_equal th c s =
   Trace.msg "rule" "Cnstrnt(=)" c Fact.pp_cnstrnt;
@@ -332,15 +368,15 @@ and cnstrnt_equal th c s =
       Deduce.deduce e s
   with
       Not_found ->
-	Set.fold
-	(fun y s ->
-	   try
-	     let b = apply th s y in
-	     let e = Fact.mk_equal y b None in
-	       Deduce.deduce e s
-	   with
-	       Not_found -> s)
-	(use th s x) s
+	(Set.fold
+	   (fun y s ->
+	      try
+		let e = equality th s y in
+		  Deduce.deduce e s
+	      with
+		  Not_found -> s)
+	   (use th s x) 
+	   s)
 
 	       
 and cnstrnt_diseq c s = 
@@ -397,7 +433,7 @@ let normalize s =
 (*s [close s] applies the rules above until the resulting state is unchanged. *)
 	
 
-let maxclose = ref 10 (* value -1 is unbounded *)
+let maxclose = ref 20 (* value -1 is unbounded *)
 
 exception Maxclose
 
@@ -416,7 +452,7 @@ let rec close s =
       normalize !s
     with
 	Maxclose ->
-	  Format.eprintf "\nPossible incompleteness: Upper bound %d reached.@."                         !maxclose;
+	  Format.eprintf "\nPossible incompleteness: Upper bound %d reached.@." !maxclose;
 	  !s
 
 and close1 ch =
@@ -428,6 +464,7 @@ and close1 ch =
     prop_star chv &&&
     arith_star (ch la) &&&
     cnstrnt_star chc &&&
-    pprod_star (ch pprod, chc) &&&  (* Propagate into Power products. *)
-    arrays_star (chv, chd)        (* Propagate into arrays. *)
+    pprod_star (ch pprod, chc) &&&   (* Propagate into Power products. *)
+    arrays_star (chv, chd) &&&       (* Propagate into arrays. *)
+    bvarith_star (ch bvarith, ch bv) (* Propagate into arithmetic interps. *)
  
