@@ -1,0 +1,7 @@
+mli_parser.cmi: mli_types.cmi 
+chameleon.cmo: mli_lexer.cmo mli_types.cmi 
+chameleon.cmx: mli_lexer.cmx mli_types.cmi 
+mli_lexer.cmo: mli_parser.cmi 
+mli_lexer.cmx: mli_parser.cmx 
+mli_parser.cmo: mli_types.cmi mli_parser.cmi 
+mli_parser.cmx: mli_types.cmi mli_parser.cmi 
