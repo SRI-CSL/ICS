@@ -156,6 +156,9 @@ let diseq d s =
 
 let rec deduce (x, b) c = 
   Trace.msg "c" "Deduce" (x, b) Term.pp_equal;
+  equal (x, b) c
+
+and equal (x, b) c = 
   try
     let i = apply c x in                                  
     match cnstrnt_split c b with
