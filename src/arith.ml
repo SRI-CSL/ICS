@@ -357,7 +357,7 @@ and mk_add a b =
 		  map2 l1' l2'
 		else 
 		  (of_mono q x1) :: (map2 l1' l2')
-	    else if cmp < 0 then
+	    else if cmp > 0 then
 	      m2 :: map2 l1 l2'
 	  else (* cmp > 0 *)
 	    m1 :: map2 l1' l2
