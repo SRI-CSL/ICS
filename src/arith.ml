@@ -480,6 +480,10 @@ let qsolve ((a, b) as e) =
 		       (mk_addl ml))
 	  in
 	    Some(x, b)
+
+let qsolve =
+  Trace.func "foo10" "Solve" Term.Equal.pp (Pretty.option Term.Equal.pp)
+    qsolve
 	
 
 (** {6 Integer solver} *)

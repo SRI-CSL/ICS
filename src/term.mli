@@ -47,7 +47,7 @@ module Var : sig
       {!Term.Var.k} is incremented. [mk_fresh_var n Some(k)] simply constructs
       a variable of name [n] and index [k]. *)
 
-  val mk_slack : int option -> Dom.t -> Var.slack -> t
+  val mk_slack : int option -> Var.slack -> t
 
   val mk_fresh : Th.t -> int option -> Dom.t option -> t
 

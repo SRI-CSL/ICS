@@ -34,8 +34,6 @@ val inv : t -> Justification.Eqtrans.t
 
 val dep : t -> Term.t -> Term.Set.t
 
-val can : config -> Justification.Eqtrans.t
-
 val is_dependent : t -> Term.t -> bool
 
 val is_independent : t -> Term.t -> bool

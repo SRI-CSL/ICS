@@ -222,9 +222,9 @@ var:
 	 { let (x, k) = $1 in 
 	   let n = Name.of_string x in
 	     if Name.eq n name_of_slack then
-	       Term.Var.mk_slack (Some(k)) Dom.Real Var.Nonneg
+	       Term.Var.mk_slack (Some(k)) (Var.Nonneg(Dom.Real))
 	     else if  Name.eq n name_of_zero_slack then
-	       Term.Var.mk_slack (Some(k)) Dom.Real Var.Zero
+	       Term.Var.mk_slack (Some(k)) Var.Zero
 	     else 
 	       Term.Var.mk_rename n (Some(k)) None }
 | FREE    { Term.Var(Var.mk_free $1) }
