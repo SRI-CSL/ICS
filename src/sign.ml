@@ -14,4 +14,8 @@
  * Author: Harald Ruess
  i*)
 
+
+(** Three-valued datatype for classifying real numbers into negative ([Neg]) numbers,
+ the [Zero] number, and positive numbers ([Pos]). *)
+
 type t = Neg | Zero | Pos
