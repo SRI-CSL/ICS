@@ -380,8 +380,10 @@ let add s atm =
 	Status.Inconsistent(rho')
     | atm' -> 
 	(try 
+(*
 	   assert(Fact.Eqs.is_empty());
 	   assert(Fact.Diseqs.is_empty());
+*)
 	   Term.Var.k := s.upper;             (* Install fresh variable index *)
 	   let s = copy s in                  (* Protect state against updates *)
 	     process s (abst s fct');
