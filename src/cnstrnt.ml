@@ -40,6 +40,16 @@ let dom_of (i,_) =
   let (d,_,_) = Interval.destructure i in
   d
 
+let endpoints_of (i, _) =
+  let (_, lo, hi) = Interval.destructure i in
+    (lo, hi)
+
+
+let is_unbounded (i, _) =
+  let (_, lo, hi) = Interval.destructure i in
+    Endpoint.eq Endpoint.neginf lo && 
+    Endpoint.eq Endpoint.posinf hi
+
 
 (*s Empty constraint. *)
 
@@ -337,5 +347,9 @@ let rec multl = function
 let expt n (i,_) =
   of_interval (Interval.expt n i)
 
-let div (i,_) (j,_) =
+let div (i,_) (j,_) = mk_real
+  
+
+(*
   of_interval (Interval.div i j)
+*)

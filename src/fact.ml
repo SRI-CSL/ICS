@@ -14,6 +14,10 @@
  * Author: Harald Ruess
  i*)
 
+(*i*)
+open Term
+(*i*)
+
 type t = 
   | Equal of equal
   | Diseq of diseq
@@ -28,18 +32,18 @@ and cnstrnt = Term.t * Cnstrnt.t * justification option
 and rule = string 
 
 let mk_equal x y j =
-  match x, y with
-    | Term.Var _, Term.App _ -> (x, y, j)     (*s Force variables on lhs. *)
-    | Term.App _, Term.Var _ -> (y, x, j)
-    | _ -> 
-	let (x, y) = Term.orient (x, y) in
-	  (x, y, j)
+  Trace.msg "fact" "mk_equal" (x, y) pp_equal;
+  let (x, y) = orient (x, y) in
+    Trace.msg "fact" "Equal" (x, y) pp_equal;
+    (x, y, j)
 
 let mk_diseq x y j =
-  let (x, y) = Term.orient (x,y) in
-  (x, y, j)
+  let (x, y) = orient (x, y) in 
+    Trace.msg "fact" "Diseq" (x, y) pp_diseq;
+    (x, y, j)
 
-let mk_cnstrnt x c j =
+let mk_cnstrnt x c j = 
+  Trace.msg "fact" "Cnstrnt" (x, c) pp_in;
   (x, c, j)
 
 let d_equal e = e

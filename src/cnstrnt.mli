@@ -32,6 +32,12 @@ val destruct : t -> Interval.t * Diseqs.t
 
 val dom_of : t -> Dom.t
 
+val endpoints_of : t -> Endpoint.t * Endpoint.t
+
+(*s Test if the interval part is bounded by a finite bound. *)
+
+val is_unbounded : t -> bool
+
 (*s Has finite extension. *)
 
 val is_finite : t -> bool

@@ -81,8 +81,8 @@ let args_of a =
 
 let rec cmp a b =
   match a, b with
-    | Var _, App _ -> -1
-    | App _, Var _ -> 1
+    | Var _, App _ -> 1
+    | App _, Var _ -> -1
     | Var(x), Var(y) -> Var.cmp x y
     | App(f, l), App(g, m) ->
 	let c1 = Sym.cmp f g in
@@ -108,8 +108,8 @@ let (<<<) a b = (cmp a b <= 0)
   Otherwise, the term ordering is arbitrary and we use [Term.cmp] for
   ordering all the other cases. *)
 
-let orient (a,b) =
-  if a <<< b then (b,a) else (a,b)
+let orient ((a, b) as e) =
+  if cmp a b >= 0 then e else (b, a)
 
 let min a b =
   if a <<< b then a else b
@@ -153,10 +153,9 @@ let rec assq a = function
 (*s Iteration over terms. *)
 
 let rec fold f a acc =
-  if is_var a then
-    f a acc
-  else 
-    f a (List.fold_right (fold f) (args_of a) acc)
+  match a with
+    | Var _ -> f a acc
+    | App(_, l) -> f a (List.fold_right (fold f) l acc)
 
 let rec iter f a  =
   f a; 
@@ -181,7 +180,7 @@ let occurs x b = subterm x b
 
 (*s Printer. *)
 
-let pretty = ref true
+let pretty = ref true  (* Infix/Mixfix output when [pretty] is true. *)
 
 let rec pp fmt a =
   let str = Pretty.string fmt in

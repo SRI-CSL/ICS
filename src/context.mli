@@ -123,6 +123,14 @@ val sigma : t -> Sym.t -> Term.t list -> Term.t
 
 val solve : Sym.theories -> t -> Term.t * Term.t -> (Term.t * Term.t) list
 
+(* Extend. *)
+
+val extend : t -> Term.t -> Term.t * t
+
+(*s Variable abstraction of a term *)
+
+val abstract_term : Sym.theories -> t -> Term.t -> t * Term.t
+
 (*s [propagate i (x, y) s]. *)
 
 val propagate : Sym.theories -> Fact.equal -> t -> t

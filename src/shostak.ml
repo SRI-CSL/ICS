@@ -35,9 +35,9 @@ let find i s x =
 (*s Canonization of terms. *)
 
 let rec can_t s a =
-  Trace.call "shostak" "Can" a Term.pp;
+  Trace.call "can" "Can" a Term.pp;
   let b = canterm s a in
-    Trace.exit "shostak" "Can" b Term.pp;
+    Trace.exit "can" "Can" b Term.pp;
     b
 
 and canterm s a =
@@ -92,8 +92,6 @@ and canbuiltin s op l =
 	Sig.select s (canterm s x, canterm s y)
     | Floor, [x] -> 
 	Sig.floor s (canterm s x)
-    | Ceiling, [x] -> 
-	Sig.ceiling s (canterm s x)
     | Mult, l -> 
 	Sig.multl s (mapl (canterm s) l)
     | Div, [x; y] -> 
@@ -106,6 +104,10 @@ and canbuiltin s op l =
 	Sig.cos s (canterm s x)
     | Unsigned, [x] -> 
 	Sig.unsigned s (canterm s x)
+    | Apply(r), x :: xl ->
+        Sig.apply s r (canterm s x) (mapl (canterm s) xl)
+    | Lambda(i), [x] ->
+	Sig.lambda s i x
     | _ ->
 	assert false
 
@@ -168,7 +170,7 @@ and denums s a =
 
 and can_c s c a =
   let mk_in x i =
-    let (x', i') = (* normalize s *) (x, i) in
+    let (x', i') = normalize s (x, i) in
       Atom.mk_in i' x'
   in
   let a' = canterm s a in
@@ -190,46 +192,38 @@ and can_c s c a =
       Not_found -> mk_in a' c
 
 and normalize s (a, c) =
+  let arrange a q ds =    (* compute [a * ds - q * ds]. *)
+    Sig.sub s (Sig.mult s (a, ds)) (Sig.multq s q ds)
+  in
+  let lower dom alpha = Cnstrnt.mk_lower dom (Mpa.Q.zero, alpha) in
+  let upper dom alpha = Cnstrnt.mk_upper dom (alpha, Mpa.Q.zero) in
   try
     match Cnstrnt.d_upper c with     (* [a < q] or [a <= q]. *)
       | Some(dom, q, beta) ->
 	  let ds = denums s a in
           let d = cnstrnt s ds in
-	    if Cnstrnt.is_pos d then
-	      (Sig.sub s (Sig.mult s (a, ds)) (Sig.multq s q ds), 
-	       Cnstrnt.mk_lower dom (Mpa.Q.zero, beta))
-	    else if Cnstrnt.is_neg d then
-	      (Sig.sub s (Sig.mult s (a, ds)) (Sig.multq s q ds), 
-	       Cnstrnt.mk_upper dom (beta, Mpa.Q.zero))
-	    else 
-		(a, c)
+	    if Cnstrnt.is_pos d then (arrange a q ds, lower dom beta)
+	    else if Cnstrnt.is_neg d then (arrange a q ds, upper dom beta)
+	    else (a, c)
       | _ ->
 	  (match Cnstrnt.d_lower c with  (*s [a > q] or [a >= q]. *)
 	     | Some(dom, alpha, q) ->
 		 let ds = denums s a in
 		 let d = cnstrnt s ds in
-		   if Cnstrnt.is_pos d then
-		       (Sig.sub s (Sig.mult s (a, ds)) (Sig.multq s q ds),
-			Cnstrnt.mk_upper dom (alpha, Mpa.Q.zero))
-		   else if Cnstrnt.is_neg d then
-		       (Sig.sub s (Sig.mult s (a, ds)) (Sig.multq s q ds),
-			Cnstrnt.mk_lower dom (Mpa.Q.zero, alpha))
-		   else 
-		       (a, c)
-	     | _ ->
-		 (a, c))
+		   if Cnstrnt.is_pos d then (arrange a q ds, upper dom alpha)
+		   else if Cnstrnt.is_neg d then (arrange a q ds, lower dom alpha)
+		   else (a, c)
+	     | _ -> (a, c))
     with
-	Not_found ->
-	  (a, c)
-	  
+	Not_found -> (a, c)  
 
 
 (*s Abstraction. *)
 
 let rec abstract s a = 
-  Trace.call "shostak" "Abstract" a Atom.pp;
+  Trace.call "abstract" "Abstract" a Atom.pp;
   let (s', a') = abstract_atom s a in
-    Trace.exit "shostak" "Abstract" a' Atom.pp;
+    Trace.exit "abstract" "Abstract" a' Atom.pp;
     (s', a')
 
 and abstract_atom s = function
@@ -246,40 +240,11 @@ and abstract_atom s = function
       let (s'', y') = abstract_toplevel_term s' b in
 	(s'', Atom.mk_diseq x' y')
   | Atom.In(c, a) ->
-      let (s', x') = abstract_toplevel_term s a in
-	(s', Atom.mk_in c x')
+      let (s', a') = abstract_term A s a in   (* not necessarily a variable. *)
+	(s', Atom.mk_in c a')
 
 and abstract_toplevel_term s a =
   abstract_term U s a
-	    
-and abstract_args i s al =
-  match al with
-    | [] -> 
-	(s, [])
-    | b :: bl ->
-	let (s', bl') = abstract_args i s bl in
-	let (s'', b') = abstract_term i s' b in
-	  if Term.eq b b' && bl == bl' then
-	    (s'', al)
-	  else 
-	    (s'', b' :: bl')
-
-and abstract_term i s a =
-  match a with
-    | Var _ -> 
-	(s, a)
-    | App(f, al) ->
-	let j = theory_of f in
-	let (s', al') = abstract_args j s al in
-	let a' = if Term.eql al al' then a else App(f, al') in
-	  if i = U || i <> j then
-	    try
-	      (s', v s (inv j s a'))
-	    with Not_found ->
-	      let (x'', s'') = Rule.extend s' a' in
-		(s'', x'')
-	  else 
-	    (s', a')
 
 
 (*s Processing an atom *)
@@ -290,9 +255,9 @@ type 'a status =
   | Satisfiable of 'a
 
 let rec process s a =
-  Trace.call "shostak" "Process" a Atom.pp;
+  Trace.call "process" "Process" a Atom.pp;
   let exitmsg str = 
-    Trace.exit "shostak" "Process" str Pretty.string
+    Trace.exit "process" "Process" str Pretty.string
   in
   let s = {s with ctxt = Atom.Set.add a s.ctxt} in
   let a' = can s a in
@@ -313,21 +278,21 @@ let rec process s a =
 	  let s'' = diseq x y s' in
 	    exitmsg "Satisfiable";
 	    Satisfiable(s'')
-      | Atom.In(i,a) -> 
+      | Atom.In(i, a) -> 
 	  let s'' = add a i s' in
 	    exitmsg "Satisfiable";
 	    Satisfiable(add a i s')
   with 
       Exc.Inconsistent -> 
-	Trace.exit "shostak" "Process" "Inconsistent" Pretty.string;
+	Trace.exit "process" "Process" "Inconsistent" Pretty.string;
 	Inconsistent
 
 and merge x y s = 
   let e = Fact.mk_equal x y None in
   Rule.close (Rule.merge e s)
 
-and add x i s = 
-  let c = Fact.mk_cnstrnt x i None in
+and add a i s = 
+  let c = Fact.mk_cnstrnt a i None in
   Rule.close (Rule.add c s)
 
 and diseq x y s =

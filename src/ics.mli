@@ -398,6 +398,11 @@ val term_mk_mult : term -> term -> term
 val term_mk_multl : term list -> term
 val term_mk_expt : q -> term -> term
 
+val term_mk_apply : term -> term list -> term
+val term_mk_arith_apply : int * cnstrnt -> term -> term list -> term
+val term_mk_pred_apply : int -> term -> term list -> term
+
+
 (*s The operation [process s a] adds a new atom [a] to a logical context [s].
   The codomain of this function is of type [status], elements of
   which represent the three possible outcomes of processing a

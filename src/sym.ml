@@ -41,7 +41,13 @@ type bv =
 type builtin = 
   | Select | Update
   | Unsigned 
-  | Floor | Ceiling | Mult | Expt | Div | Sin | Cos
+  | Floor | Mult | Expt | Div | Sin | Cos 
+  | Apply of range option
+  | Lambda of Var.t
+
+and range =
+  | Real of int * Cnstrnt.t 
+  | Boolean of int
 
 
 (*s Symbols. *)
@@ -66,7 +72,10 @@ let rec eq s t =
     | Uninterp(x), Uninterp(y) ->
 	Name.eq x y
     | Builtin(x), Builtin(y) ->
-	x = y
+	(match x, y with
+	   | Apply _, Apply _ -> true
+	   | Lambda i, Lambda j -> Var.eq i j
+	   | _ -> x = y)
     | Arith(op1), Arith(op2) ->
 	(match op1, op2 with
 	   | Num(q1), Num(q2) -> Q.equal q1 q2
@@ -92,6 +101,15 @@ let rec eq s t =
     | _ ->
 	false
 
+and applyeq u v = 
+  match u, v with
+    | None, None -> true
+    | Some(Real(n, c)), Some(Real(m, d)) ->
+	n = m && Cnstrnt.eq c d
+    | Some(Boolean(n)), Some(Boolean(m)) ->
+	n = m
+    | _ ->
+	false
 
 let pp fmt s = 
   let rec sym s =
@@ -126,8 +144,12 @@ let pp fmt s =
 	| Select -> "select" 
 	| Update -> "update"
 	| Unsigned -> "unsigned"
+	| Apply(Some(Real(n, c))) -> 
+	    "apply[" ^ string_of_int n ^ "]"
+	| Apply _ -> "apply"
+	| Lambda(x) -> 
+	    "lambda[" ^  (Pretty.to_string Var.pp x) ^ "]"
 	| Floor -> "floor"
-	| Ceiling -> "ceiling"
 	| Mult -> "*"
 	| Expt -> "^"
 	| Div -> "/"
@@ -220,12 +242,18 @@ let unsigned = Builtin(Unsigned)
 
 let is_unsigned f = (f == unsigned)
 
+(*s Function application. *)
+
+let apply =
+  let app = Builtin(Apply(None)) in
+    function 
+      | None -> app
+      | r -> Builtin(Apply(r))
 
 (*s Predefined nonlinear function symbols. *)
 
 
 let floor = Builtin(Floor)
-let ceiling = Builtin(Ceiling)
 let mult =  Builtin(Mult)
 let expt = Builtin(Expt)
 let div = Builtin(Div)
@@ -234,7 +262,7 @@ let cos = Builtin(Cos)
 
 
 let is_nonlin = function
-  | Builtin(Floor | Ceiling | Mult | Expt | Div | Sin | Cos) -> true
+  | Builtin(Floor | Mult | Expt | Div | Sin | Cos) -> true
   | _ -> false
 
 

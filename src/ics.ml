@@ -367,7 +367,7 @@ let _ = Callback.register "term_mk_div" term_mk_div
 let term_mk_floor a = mk_app Sym.floor [a]
 let _ = Callback.register "term_mk_floor" term_mk_floor
 
-let term_mk_ceiling a = mk_app Sym.ceiling [a]
+let term_mk_ceiling = Sig.ceiling Context.empty
 let _ = Callback.register "term_mk_ceiling" term_mk_ceiling
 
 let term_mk_sin a = mk_app Sym.sin [a]
@@ -375,6 +375,19 @@ let _ = Callback.register "term_mk_sin" term_mk_sin
 
 let term_mk_cos a = mk_app Sym.cos [a]
 let _ = Callback.register "term_mk_cos" term_mk_cos
+
+let term_mk_apply = 
+  Sig.apply Context.empty None
+let _ = Callback.register "term_mk_apply" term_mk_apply
+
+let term_mk_arith_apply (n, c) = 
+  Sig.apply Context.empty (Some(Sym.Real(n, c)))
+let _ = Callback.register "term_mk_arith_apply" term_mk_arith_apply
+
+let term_mk_pred_apply n = 
+  Sig.apply Context.empty (Some(Sym.Boolean(n)))
+let _ = Callback.register "term_mk_pred_apply" term_mk_pred_apply
+
 
 
 (*s Set of terms. *)

@@ -33,11 +33,6 @@ val add : Fact.cnstrnt -> Context.t -> Context.t
 val diseq : Fact.diseq -> Context.t -> Context.t
 
 
-(*s Extension. *)
-
-val extend : Context.t -> Term.t -> Term.t * Context.t
-
-
 (*s Tactics. *)
 
 val propagate : Fact.equal -> Context.t -> Context.t

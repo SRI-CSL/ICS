@@ -30,31 +30,23 @@ let merge e s =
   Trace.msg "tac" "Merge" e Fact.pp_equal;
   update_p s (Partition.merge e s.p)
 
-let add c s =
-  Trace.msg "tac" "Add" c Fact.pp_cnstrnt;  
-  update_p s (Partition.add c s.p)
 
 let diseq d s = 
   Trace.msg "tac" "Diseq" d Fact.pp_diseq;
   update_p s (Partition.diseq d s.p)
 
 
-(*s Abstracting a term [a] in theory [i]
- by introducing a new name for it. *)
-
-let rec extend s a =
-  assert(not(is_var a));
-  let x = Term.mk_fresh_var (Name.of_string "v") None in 
-    Trace.msg "tac" "Extend" (x, a) Term.pp_equal;
-    let s' = match theory_of(sym_of a) with
-      | U -> update U s (Solution.union (x, a) s.u)
-      | T -> update T s (Solution.union (x, a) s.t)
-      | BV -> update BV s (Solution.union (x, a) s.bv)
-      | A ->
-	  let e = Fact.mk_equal x a None in
-	  compose A e s
-    in
-      (x, s')
+let add c s =
+  Trace.msg "tac" "Add" c Fact.pp_cnstrnt;
+  let (a, i, _) = Fact.d_cnstrnt c in
+    if is_var a then
+      update_p s (Partition.add c s.p)
+    else 
+      let x' = Term.mk_fresh_var (Name.of_string "k") None in
+      let e' = Fact.mk_equal x' a None in
+      let c' = Fact.mk_cnstrnt x' i None in
+      let s' = update_p s (Partition.add c' s.p) in  (* install constraint first. *)
+	compose A e' s'
 
 
 (*s Composition. *)
@@ -79,6 +71,33 @@ and propagate_theories e =
   Context.fuse U e
 
 
+and fuse_u e s =                                    (* fuse in [u] with builtin simplification. *)
+  let (x, y, _) = Fact.d_equal e in                 (* Normalization may yield terms involving. *)
+  let varrepl z = if Term.eq x z then y else z in   (* nested uninterpreted and interpreted terms. *) 
+  Set.fold
+    (fun x acc ->
+       try
+	 let b = apply U acc x in
+	 let (acc', b') = 
+	   match b with
+	     | App(Builtin(op), xl) ->
+		 let xl' = mapl varrepl xl in
+		   if xl == xl' then (acc, b) else 
+		     (abstract_term U acc (Sig.sigma acc op xl'))
+	     | App(f, xl) ->
+		 let xl' = mapl varrepl xl in
+		   if xl == xl' then (acc, b) else 
+		     (acc, mk_app f xl')
+	     | Var _ -> (* should not happen. *)
+		 (acc, varrepl b)
+	 in
+	   install U acc' (Solution.update (x, b') (acc'.p, acc'.u))
+       with
+	   Not_found -> acc)
+    (use U s x)
+    s
+
+
 (*s Propagating newly generated disequalities. *)
 
 let rec diseqs d =
@@ -97,8 +116,8 @@ and diseqs_array d s =
 
 let rec arith e =  
   Trace.msg "tac" "Arith" e Fact.pp_equal;
-    deduce e &&&
-    linearize e
+    deduce e  (* &&&
+    linearize e *)   (* linearize is now subsumed by fuse_u. *)
  
 and deduce e s =
   let (_, a, _) = Fact.d_equal e in
@@ -224,12 +243,12 @@ and close1 n s =
    ddeduce (Partition.changed_d s.p) &&&
    cdeduce (Partition.changed_c s.p)) s
 
-and repeat loops f s =
-  let t = f loops s in
+and repeat numloops f s =
+  let t = f numloops s in
     if Context.eq s t then 
       t
-    else if loops < !maxclose then
-      repeat (loops + 1) f t
+    else if numloops < !maxclose then
+      repeat (numloops + 1) f t
     else 
       begin
 	Format.eprintf "\nPossible incompleteness: Upper bound %d reached.@." !maxclose;
