@@ -154,7 +154,7 @@ $(LIBDIR)/libics.a: $(OBJS) # $(LISPOBJS)
 	cp $(OCAMLSTDLIB)/libasmrun.a $(LIBDIR)/libics.a
 	ar r $(LIBDIR)/libics.a $(OBJS)
 
-ics_stub.c ics.h ics.lisp: ics.ml ics.mli
+ics_stub.c ics.h ics.lisp: ics.ml ics.mli ../../chameleon/$(ARCH)/chameleon
 	../../chameleon/$(ARCH)/chameleon ics.ml
 
 ics.fasl: ics.lisp
@@ -206,14 +206,14 @@ bench:: consistent inconsistent benchmarks
 check:: consistent inconsistent
 
 consistent: $(BINDIR)/ics
-	@for f in `find tests/consistent/ -maxdepth 1 -type f -print`; \
+	@for f in `find examples/consistent/ -maxdepth 1 -type f -print`; \
 	do \
 	echo -n $$f"..."; \
 	$(BINDIR)/ics $$f; \
 	done
 
 inconsistent: $(BINDIR)/ics
-	@for f in `find tests/inconsistent/ -maxdepth 1 -type f -print`; do \
+	@for f in `find examples/inconsistent/ -maxdepth 1 -type f -print`; do \
 	echo -n $$f"..."; \
 	$(BINDIR)/ics $$f; \
 	done
@@ -244,19 +244,20 @@ cprofile:
 	$(BINDIR)/ics.byte $(CPROFFILE)
 	$(MAKE) process.prof
 
-### Tar file
+### Tar file and release to WEB
 
 .PHONY : web
 
 LICENSE = fm-license.pdf
 
 web::	
-	cp ./bin/$(OBJDIR)/ics $(WEBDIR)/download/$(OBJDIR)/ics     # Save these files before cleaning
-	cp ./bin/$(OBJDIR)/ics.byte $(WEBDIR)/download/$(OBJDIR)/ics.byte
-	cp ./lib/$(OBJDIR)/libics.so $(WEBDIR)/download/$(OBJDIR)/libics.so
-	cp ./lib/$(OBJDIR)/libics.a $(WEBDIR)/download/$(OBJDIR)/libics.a
-	cp ./obj/$(OBJDIR)/ics_stub.c $(WEBDIR)/download/$(OBJDIR)/ics_stub.c
-	cp ics.tar.gz $(WEBDIR)/download
+	cp $(DOCDIR)/doc.ps.gz $(DOCDIR)/doc.pdf $(DOCDIR)/doc.html $(WEBHOME)
+	cp $(BINDIR)/ics $(WEBHOME)/download/$(ARCH)/ics  # Save these files before cleaning
+	cp $(BINDIR)/ics.byte $(WEBHOME)/download/$(ARCH)/ics.byte
+	cp $(LIBDIR)/libics.so $(WEBHOME)/download/$(ARCH)/libics.so
+	cp $(LIBDIR)/libics.a $(WEBHOME)/download/$(ARCH)/libics.a
+	cp $(OBJDIR)/ics_stub.c $(WEBHOME)/download/$(ARCH)/ics_stub.c
+	cp ics.tar.gz $(WEBHOME)/download
 	cp -rf $(WEBDIR) $(WEBHOME)
 
 
@@ -267,12 +268,14 @@ ics.tar.gz:	distclean
 
 ### Update executables in Lab
 
-.PHONE : labinstall
+.PHONE : labbinaries
 
-labinstall::
-	cp -R ./bin $(LABDIR)
-	cp -R ./lib $(LABDIR)
-	cp ./obj/i686-unknown-linux/ics.h $(LABDIR)/include
+labbinaries::
+	cp $(BINDIR)/ics $(LABDIR)/$(BINDIR)
+	cp $(BINDIR)/ics.byte $(LABDIR)/$(BINDIR)
+	cp $(LIBDIR)/libics.a $(LABDIR)/$(LIBDIR)
+	cp $(LIBDIR)/libics.so $(LABDIR)/$(LIBDIR)
+	cp $(OBJDIR)/ics.h $(LABDIR)/include
 
 
 ### Documention
@@ -288,10 +291,9 @@ $(DOCDIR)/literal/%.mli.tex: $(SRCDIR)/%.mli
 	$(OCAMLWEB) --no-preamble --no-index --intf $< -o $(DOCDIR)/literal/$(@F)
 
 doc:  $(DOCDIR)/doc.ps.gz $(DOCDIR)/doc.html $(DOCDIR)/doc.pdf
-	cp $(DOCDIR)/doc.ps.gz $(DOCDIR)/doc.pdf $(DOCDIR)/doc.html $(WEBHOME)
 
 $(DOCDIR)/doc.dvi: $(LITERAL)  $(DOCDIR)/dep.ps $(DOCDIR)/doc.tex
-	(cd $(DOCDIR); latex ./doc.tex  && latex ./doc.tex)
+	(cd $(DOCDIR); latex ./doc.tex  && bibtex ./doc && latex ./doc.tex)
 
 $(DOCDIR)/doc.pdf: $(LITERAL)  $(DOCDIR)/dep.ps $(DOCDIR)/doc.tex
 	(cd $(DOCDIR); pdflatex ./doc.tex  && pdflatex ./doc.tex)
