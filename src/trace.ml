@@ -59,11 +59,34 @@ let msg level op args pp =
       pp Format.err_formatter args;
       Format.eprintf "@." 
     end
-    
 
+let rec whitespace = function
+  | 0 -> ()
+  | n -> (Format.eprintf "%d " n; whitespace (n - 1))
+  
 
+let func level = 
+  let indent = ref 0 in
+    fun name pp qq f a ->
+      try  
+	whitespace !indent;
+	indent := !indent + 1;
+	call level name a pp;
+	let b = f a in
+	  indent := !indent - 1;
+	  whitespace !indent;
+	  exit level name b qq;
+	  b
+      with
+	| exc -> 
+	    begin
+	      indent := !indent - 1;
+	      whitespace !indent;
+	      (if is_active level then
+		 Format.eprintf "Exit: %s@." (Printexc.to_string exc));
+	      raise exc
+	    end
 
-
-
-
-
+let proc level = 
+  let qq fmt () = Format.fprintf fmt "()" in 
+    (fun name pp -> func level name pp qq)
