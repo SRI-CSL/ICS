@@ -252,7 +252,7 @@ cprofile:
 
 LICENSE = fm-license.pdf
 
-web:: ics.tar.gz $(DOCDIR)/doc.ps.gz cp $(BINDIR)/ics $(BINDIR)/ics.byte $(LIBDIR)/libics.so $(LIBDIR)/libics.a $(OBJDIR)/ics_stub.c $(LICENSE)
+web:: ics.tar.gz $(BINDIR)/ics $(BINDIR)/ics.byte $(LIBDIR)/libics.so $(LIBDIR)/libics.a $(OBJDIR)/ics_stub.c $(LICENSE)
 	cp $(DOCDIR)/doc.ps.gz $(DOCDIR)/doc.pdf $(DOCDIR)/doc.html $(WEBHOME)
 	cp $(BINDIR)/ics $(WEBHOME)/download/$(ARCH)/ics  # Save these files before cleaning
 	cp $(BINDIR)/ics.byte $(WEBHOME)/download/$(ARCH)/ics.byte
