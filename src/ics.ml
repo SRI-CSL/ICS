@@ -518,7 +518,7 @@ let rec cmd_rep () =
     | Parsing.Parse_error -> cmd_error outch "Syntax"
     | End_of_file ->  cmd_quit 0 outch;
     | Sys.Break -> cmd_quit 1 outch;
-    | Failure "drop" -> ()
+    | Failure "drop" -> raise (Failure "drop")
     | exc -> (cmd_error outch ("Exception " ^ (Printexc.to_string exc)); exit 2)
 
 and cmd_output fmt result =
