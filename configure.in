@@ -107,8 +107,8 @@ int main() {
   int min;
   if (! __gmp_version) exit(1);
   p = strdup(__gmp_version);
-  maj = atoi(strsep(&p, "."));
-  min = atoi(strsep(&p, "."));
+  maj = atoi(strtok(p, "."));
+  min = atoi(strtok(NULL, "."));
   if (maj < 4) exit(1);
   if (maj == 4 && min < 1) exit(1);
   exit(0);
