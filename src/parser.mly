@@ -33,11 +33,47 @@
 
   let from_fixed (b,_) = b
 
-  let bitwise op f1 f2 =
+  let bitwise_binary op f1 f2 =
     match get_width f1, get_width f2 with
-      | Some(n1), _ -> op n1 (from_fixed f1) (from_fixed f2)
-      | _, Some(n2) -> op n2 (from_fixed f1) (from_fixed f2)
-      | _ -> raise Parsing.Parse_error		   
+      | Some(n1), _ ->
+	  if n1 > 0 then
+	    op n1 (from_fixed f1) (from_fixed f2)
+	  else
+	    raise Parsing.Parse_error
+      | _, Some(n2) ->
+	  if n2 > 0 then
+	    op n2 (from_fixed f1) (from_fixed f2)
+	  else
+	    raise Parsing.Parse_error
+      | _ ->
+	  raise Parsing.Parse_error
+
+
+  let bitwise_unary op (a,width) =
+    match width, Ics.width_of a with
+      | Some(n), Some(m) ->
+	  if n = m && n > 0 then
+	    op n a
+	  else 
+	    raise Parsing.Parse_error		
+      | Some(n), None ->
+	  op n a
+      | None, Some(m) ->
+	  if m > 0 then
+	    op m a
+	  else
+	    raise Parsing.Parse_error
+      | None, None ->
+	  raise Parsing.Parse_error
+
+  let check_width n a =
+    if n <= 0 then
+      raise Parsing.Parse_error;
+    match Ics.width_of a with
+      | Some(m) when n <> m ->
+	  raise Parsing.Parse_error
+      | _ ->
+	  ()
 
 %}
 
@@ -51,12 +87,13 @@
 %token <int> INTCONST
 %token <Ics.q> RATCONST
 %token <string> BV_CONST
-%token BV_OR
-%token BV_XOR
-%token BV_AND
-%token BV_CONC
-%token BV_EXTR
-%token BV_COMPL
+%token <int option> BV_OR
+%token <int option> BV_XOR
+%token <int option> BV_AND
+%token <int option> BV_COMPL
+%token <(int * int) option> BV_CONC
+%token <int option> BV_EXTR
+
 %token <int> WIDTH
 
 %token LPAR RPAR  LBRA RBRA LCUR RCUR UNDERSCORE
@@ -81,7 +118,13 @@
 %nonassoc IN NOTIN
 %left MINUS PLUS
 %left TIMES DIVIDE
-%left LBRA
+%right BV_CONC
+%right BV_AND
+%right BV_OR
+%right BV_XOR
+%nonassoc LBRA
+%nonassoc LCUR
+%nonassoc BV_EXTR
 %nonassoc prec_unary
 %nonassoc CONV
 
@@ -196,28 +239,51 @@ atom:
 ;
 
 bv: 
-  BV_CONST                                    { Ics.mk_bv_const $1 }
-| BV_CONC LPAR fixed COMMA fixed RPAR         { match get_width $3,  get_width $5 with
-                                                  | Some(n1), Some(n2) ->
-                                                       Ics.mk_bv_conc
-							 (n1, from_fixed $3)
-							 (n2,from_fixed $5)
-                                                  | _ -> raise Parsing.Parse_error }
-| BV_AND LPAR fixed COMMA fixed RPAR          { bitwise Ics.mk_bv_and $3 $5 }
-| BV_XOR LPAR fixed COMMA fixed RPAR          { bitwise Ics.mk_bv_xor $3 $5 }
-| BV_OR LPAR fixed COMMA fixed RPAR           { bitwise Ics.mk_bv_or $3 $5 }
-| BV_EXTR LBRA INTCONST COLON INTCONST RBRA LPAR fixed RPAR
-                                              { match get_width $8 with
-						  | Some(n) -> Ics.mk_bv_extr (n,from_fixed $8) $3 $5
-						  | _ -> raise Parsing.Parse_error }
+  BV_CONST                          { Ics.mk_bv_const $1 }
+| term BV_CONC term                 { match $2 with
+                                        | Some(n,m) ->
+					    check_width n $1;
+					    check_width m $3;
+					    if n > 0 && m > 0 then
+                                              Ics.mk_bv_conc (n,$1) (m,$3)
+					    else
+					      raise Parsing.Parse_error
+					| None ->
+					    (match Ics.width_of $1, Ics.width_of $3 with
+					       | Some(n), Some(m) ->
+						   if n > 0 && m > 0 then
+						     Ics.mk_bv_conc (n,$1) (m,$3)
+						   else
+						     raise Parsing.Parse_error
+					       | _ ->
+                                                   raise Parsing.Parse_error) }
+| term BV_AND term                  { bitwise_binary Ics.mk_bv_and ($1,$2) ($3,$2) }
+| term BV_OR term                   { bitwise_binary Ics.mk_bv_or ($1,$2) ($3,$2) }
+| term BV_XOR term                  { bitwise_binary Ics.mk_bv_xor ($1,$2) ($3,$2) }
+| BV_COMPL term %prec prec_unary   { bitwise_unary Ics.mk_bv_neg ($2,$1) }
+| term BV_EXTR extract              { let (i,j) = $3 in
+				      match $2 with
+					| Some(n) ->
+					    check_width n $1;
+					    if 0 <= i && i <= j && j < n then
+					      Ics.mk_bv_extr (n,$1) i j
+				            else
+					      raise Parsing.Parse_error
+					| None ->
+					    (match Ics.width_of $1 with
+					       | Some(m) ->
+						   if 0 <= i && i <= j && j < m then
+						     Ics.mk_bv_extr (m,$1) i j
+						   else
+						     raise Parsing.Parse_error
+					       | None ->
+						   raise Parsing.Parse_error) }
 ;
 
-fixed:
-  term widthopt  { ($1, $2) }
+extract:
+  LBRA INTCONST RBRA                { ($2,$2) }
+| LBRA INTCONST COLON INTCONST RBRA { ($2,$4) }
 
-widthopt:  { None }
-| WIDTH    { Some($1) }
-;
 
 termlist:
   term                { [$1] }
@@ -228,6 +294,7 @@ equation:
 term EQUAL term    { ($1,$3) }
 ;
 
+
 optterm:           { None }
 | term             { Some($1) }
 ;
@@ -235,7 +302,6 @@ optterm:           { None }
 
 command:
   CAN term       DOT   { Cmd.can $2 }
-| SIMP term      DOT   { Cmd.simp $2 }
 | NORM term      DOT   { Cmd.norm $2 }
 | term CMP term  DOT   { Cmd.less ($1,$3)}
 | SOLVE equation DOT   { Cmd.solve None $2 }

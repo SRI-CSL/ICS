@@ -90,10 +90,6 @@ val uninterp : Ics.term option -> unit
     
 val can : Ics.term -> unit
 
-    (*s Computes a normal form of argument term. [simp] is like [can], but without recursive
-      processing in conditionals. *)
-    
-val simp : Ics.term -> unit
 
     (*s Simplifies all interpreted terms, and replaces uninterpreted terms with
       their finds. *)

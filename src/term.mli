@@ -60,20 +60,13 @@ and arith =
   | Div of t * t
 
       (*s Propositional terms are either [False], [True], or conditionals [Ite(a,b,c)].
-	Other propositional connectives can be encoded using these constructors.  Constructors
-	for universal and existential are included to allow for extensions dealing with
-	first-order extensions. However, the core algorithms of ICS do not support
-	first-order quantification.
-      *)
+	Other propositional connectives can be encoded using these constructor. *)
      
 and prop =
   | True
   | False
   | Equal of t * t  
   | Ite of t * t * t
-  | Forall of variable list * t
-  | Exists of variable list * t
-
       (*s Propositional sets are build from the empty set [Empty], the full set
 	  [Full], the finite set constructor [Finite s], denoting the extension of
 	  the set of terms [s], the constraint set [Cnstrnt(c)], which denotes

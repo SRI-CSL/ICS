@@ -138,13 +138,6 @@ val conjl : Term.t list -> Term.t
 val disjl : Term.t list -> Term.t
 
     
-    (*s Constructors for universal and existential quantification.
-      Currently, no simplifications are perfored. *)
-
-val forall : Term.variable list -> Term.t -> Term.t
-val exists : Term.variable list -> Term.t -> Term.t
-
-    
     (* Given an equation [(a,b)], where at least one of [a] and [b] is an [Ite]-structure,
        [solve (a,b)] either fails, in which case [a = b] is unsatisfiable in the theory of
        booleans, or it returns a list of equations [\list{(x1,e1);...(xn,en)}]

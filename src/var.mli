@@ -38,8 +38,8 @@ val fresh : Term.variable -> Term.t option -> Term.t
 
 val is_fresh : Term.t -> bool
 
-    (* Return, if possible a term equivalent to the argument, which is supposed
-       to be a fresh variable. The result does not contain this argument variable. *)
+    (*s Return, if possible a term equivalent to the argument, which is supposed
+      to be a fresh variable. The result does not contain this argument variable. *)
 
 val equiv : Term.t -> Term.t option
 

@@ -13,7 +13,7 @@
  i*)
 
 
-(*s Module [Bv]: Constructors, recognizers, and accessors for
+(*s Module [Arith]: Constructors, recognizers, and accessors for
  arithmetic terms. Solvers for rational and integer arithmetic. *)
 
 (*s Constructors for building up arithmetic terms. Each
@@ -111,4 +111,14 @@ val le : Term.t * Term.t -> Term.t
 
 val int : Term.t -> Term.t
 val real : Term.t -> Term.t
+
+
+
+
+
+
+
+
+
+
 

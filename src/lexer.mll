@@ -42,7 +42,6 @@ let keyword =
       "unsigned", UNSIGNED;
       "true", TRUE; "false", FALSE; "if", IF; "then", THEN; "else", ELSE; "end", END;
       "setif", SETIF; "bvif", BVIF;
-      "conc", BV_CONC; "extr", BV_EXTR; "bvor", BV_OR; "bvand", BV_AND; "bvxor", BV_XOR; "bvcompl", BV_COMPL;
       "integer", INTEGER_PRED;
       "forall", FORALL; "exists", EXISTS
     ];
@@ -55,7 +54,7 @@ let keyword =
 
 (*s The lexer it-self is quite simple. *)
 
-let ident = ['A'-'Z' 'a'-'z'] ['A'-'Z' 'a'-'z' '\'' '0'-'9']*
+let ident = ['A'-'Z' 'a'-'z' '_'] ['A'-'Z' 'a'-'z' '\'' '0'-'9']*
 
 let space = [' ' '\t' '\r' '\n']
 
@@ -99,10 +98,45 @@ rule token = parse
   | "<->"      { IFF }
   | ".."       { DOTDOT }
   | "<<"       { CMP }
-  | "[" ['0'-'9']+ "]" { let s = lexeme lexbuf in
+  | "{" ['0'-'9']+ "}" { let s = lexeme lexbuf in
 			 let str = String.sub s 1 (String.length s - 2) in
 			 WIDTH (int_of_string str) }
-  | ":"        { COLON}
+  | "&" ['0'-'9']* "&" { let s = lexeme lexbuf in
+			 let str = String.sub s 1 (String.length s - 2) in
+			 if str = "" then
+			   BV_AND(None)
+			 else
+			  BV_AND(Some(int_of_string str)) }
+  | "|" ['0'-'9']* "|"  { let s = lexeme lexbuf in
+			  let str = String.sub s 1 (String.length s - 2) in
+			  if str = "" then
+			    BV_OR(None)
+			  else
+			    BV_OR(Some(int_of_string str)) }
+  | "#" ['0'-'9']* "#"  { let s = lexeme lexbuf in
+			  let str = String.sub s 1 (String.length s - 2) in
+			  if str = "" then
+			    BV_XOR(None)
+			  else
+			    BV_XOR(Some(int_of_string str)) }
+  |  "~" ['0'-'9']+ "~" { let s = lexeme lexbuf in
+			  let str = String.sub s 1 (String.length s - 2) in
+			  BV_COMPL(Some(int_of_string str)) }
+  | "++"                { BV_CONC None }
+  | "+" ['0'-'9']+ "," ['0'-'9']+ "+"
+                        { let str = lexeme lexbuf in
+			  let len = String.length str in
+			  let idx = String.index str ',' in
+			  let n = int_of_string(String.sub str 1 (idx - 1)) in
+			  let m = int_of_string(String.sub str (idx + 1) (len - idx - 2)) in
+			  BV_CONC(Some(n,m)) }
+  |  "^" ['0'-'9']* "^" { let s = lexeme lexbuf in
+			  let str = String.sub s 1 (String.length s - 2) in
+			  if str = "" then
+			    BV_EXTR(None)
+			  else
+			    BV_EXTR(Some(int_of_string str)) }
+  | ":"        { COLON }
   | ';'        { SEMI }
   | '.'        { DOT }
   | _          { raise Parsing.Parse_error }

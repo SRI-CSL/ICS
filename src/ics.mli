@@ -547,16 +547,10 @@ val is_unsat : state -> term -> bool
      [canon] normalizes terms inside-out. A predicate [t] reduces
      to [true] if and only if it is valid in the argument state.
 
-     [simplify] is weaker than [canon] in that it does not
-     compute a canonical form, since, in contrast to  [canon], it
-     does not process conditionals in a complete way.  Consequently, it
-     is both more efficient than \texttt{canon} and the simplified term
-     is guaranteed not to contain any new constant symbols.
   *)
 
 val norm : state -> term -> term
 val can : state -> term -> term
-val simplify : term -> term
 
 val is_solvable : term -> bool
 

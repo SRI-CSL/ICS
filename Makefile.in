@@ -29,12 +29,14 @@ ifeq ($(MAKELEVEL),0)
 	LIBDIR = ./lib/$(ARCH)
 	SRCDIR = ./src
 	DOCDIR = ./doc
+        WEBDIR = ./www.icansolve.com
 else
 	OBJDIR = .
 	BINDIR = ../../bin/$(ARCH)
 	LIBDIR = ../../lib/$(ARCH)
 	SRCDIR = ../../src
 	DOCDIR = ../../doc
+        WEBDIR = ../../www.icansolve.com
 endif
 
 # Flags
@@ -62,8 +64,8 @@ CMO = cmp.cmo gmp.cmo mpa.cmo \
       euclid.cmo poly.cmo arith.cmo \
       sets.cmo \
       conc.cmo bv.cmo \
-      tuple.cmo app.cmo \
       pretty.cmo  \
+      tuple.cmo app.cmo \
       subst.cmo \
       funsym.cmo \
       state.cmo solve.cmo process.cmo \
@@ -175,7 +177,7 @@ $(OBJDIR)/ics_error.c: $(SRCDIR)/ics_error.c
 $(OBJDIR)/ics-pvs.lisp: $(SRCDIR)/ics-pvs.lisp
 	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
 
-### Automatic tests
+### Automated tests
 
 bench:: consistent inconsistent benchmarks
 
@@ -226,23 +228,19 @@ cprofile:
 
 LICENSE = ICS-License-and-NDA.doc
 
-HTMLFILES = \
-       $(DOCDIR)/index.html \
-       $(DOCDIR)/introduction.html \
-       $(DOCDIR)/people.html \
-       $(DOCDIR)/status.html \
-       $(DOCDIR)/syntax.html \
-       $(DOCDIR)/downloading.html \
-       $(DOCDIR)/demonstration.html
-
 web::
-	cp $(HTMLFILES) $(WEBHOME) 
-	cp $(LICENSE) $(WEBHOME)
-	cp $(DOCDIR)/icslogo.gif $(WEBHOME)
-	cp -R ./tests $(WEBHOME)
-	make distclean 
-	tar cf $(WEBHOME)/ics.tar .
-	gzip $(WEBHOME)/ics.tar.gz
+	cp ./bin/i686-unknown-linux/ics $(WEBDIR)/download/i686-unknown-linux/ics     # Save these files before cleaning
+	cp ./bin/i686-unknown-linux/ics.byte $(WEBDIR)/download/i686-unknown-linux/ics.byte
+	cp ./lib/i686-unknown-linux/libics.so $(WEBDIR)/download/i686-unknown-linux/libics.so
+	cp ./lib/i686-unknown-linux/libics.a $(WEBDIR)/download/i686-unknown-linux/libics.a
+	cp ./obj/i686-unknown-linux/ics_stub.c $(WEBDIR)/download/i686-unknown-linux/ics_stub.c
+	cp -rf $(WEBDIR) $(WEBHOME)
+
+ics.tar.gz:                 # make distclean 
+	tar cf /tmp/ics.tar .
+	gzip /tmp/ics.tar
+	mv /tmp/ics.tar.gz $(WEBDIR)/download
+
 
 ### Documention
 
@@ -258,7 +256,7 @@ $(DOCDIR)/literal/%.ml.tex: $(SRCDIR)/%.ml
 $(DOCDIR)/literal/%.mli.tex: $(SRCDIR)/%.mli
 	$(OCAMLWEB) --no-preamble --no-index --intf $< -o $(DOCDIR)/literal/$(@F)
 
-doc:  $(DOCDIR)/doc.ps.gz $(DOCDIR)/doc.pdf $(DOCDIR)/doc.html
+doc:  $(DOCDIR)/doc.ps.gz $(DOCDIR)/doc.html $(DOCDIR)/doc.pdf
 	cp $(DOCDIR)/doc.ps.gz $(DOCDIR)/doc.pdf $(DOCDIR)/doc.html $(WEBHOME)
 
 $(DOCDIR)/doc.dvi: $(LITERAL)  $(DOCDIR)/dep.ps $(DOCDIR)/doc.tex
@@ -352,9 +350,11 @@ clean::
 	rm -rf $(OBJDIR) $(LIBDIR)
 	rm -f $(DOCDIR)/*.aux  $(DOCDIR)/*.toc
 	rm -f $(DOCDIR)/*.bbl $(DOCDIR)/*.log $(DOCDIR)/*.haux $(DOCDIR)/*.dvi
+	rm -f $(DOCDIR)/literal/*.tex
 	make -C chameleon clean
 	rm -f $(DOCDIR)/*.ppm $(DOCDIR)/*.blg $(DOCDIR)/*.brf $(DOCDIR)/*.out 
 	rm -rf $(DOCDIR)/doc/literal/*.tex 
+	rm -f $(WEBDIR)/download/ics.tar.gz
 
 distclean:: clean
 	rm -f config.cache config.log confdefs.h config.status

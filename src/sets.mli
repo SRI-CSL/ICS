@@ -14,7 +14,16 @@ val sub : Term.tag -> Term.t -> Term.t -> Term.t
 val equal : Term.tag -> Term.t -> Term.t -> Term.t
 
     
-    (*s Set connective, including recognizers and destructors. *)
+    (*s Set connective, including recognizers and destructors.
+      [ite(x,p,n)] can be thought of being defined as
+      [union (inter x p) (inter (compl x) n)], where [union],[inter],
+      and [compl] are just set union, set intersection, and set complement,
+      respectively. [diff s1 s2] is the set difference, and [sym_diff]
+      is the symmetric set difference operator.
+
+      [sub $s_1$ $s_2$] denotes the set [union (compl $s_1$) $s_2$],
+      and [equal $s_1$ $s_2$] denotes [inter (sub $s_1$ $s_2$) (sub $s_2$ $s_1$)]. *)
+    
       
 val ite : Term.tag -> Term.t * Term.t * Term.t -> Term.t
 
@@ -40,7 +49,16 @@ val d_sub : Term.t -> Term.t * Term.t
 val d_equal: Term.t -> Term.t * Term.t
 
     
-    (*s Solving equalities over terms built up from set connectors. *)
+    (*s Solving equalities over terms built up from set connectors.
+      The solver satisfies the following recursive definition.
+         \begin{tabular}{lcl}
+         [solve(setite(x,p,n) = full)]
+            & = & [x = p inter (compl c union delta)] \\
+            & and & [solve(p union n = full)] \\
+         \end{tabular}
+      Given an equation [$s_1$ = $s_2$] between sets, solve first
+      computes the set [s] which equals [equal $s_1$ $s_2$], and
+      then solves [solve(s,full)]. *)
 
 val solve : Term.tag -> Term.eqn -> Term.eqn list
 

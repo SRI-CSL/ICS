@@ -33,7 +33,7 @@ let rec proj i n a =
     | Bool(Ite(x,y,z)) ->
 	Bool.cond(x, proj i n y, proj i n z)
     | _ ->
-	hc(Tuple(Proj(i,n,a)))     
+	hc(Tuple(Proj(i,n,a)))   
 
 
 (*s Solving tuples. *) 
@@ -71,7 +71,7 @@ let proj_solve i n s t =
 	if i = j
 	then t
 	else
-	  Var.fresh "p" (Some(proj j n s))
+	  Var.fresh "_p" (Some(proj j n s))
       in
       args (j - 1) (a :: acc)
   in
@@ -80,7 +80,7 @@ let proj_solve i n s t =
 let solve ((a,b) as e) =
   match a.node,b.node with
     | Tuple(Tup al), Tuple(Tup bl) -> tuple_tuple_solve al bl
-    | Tuple(Proj (i,n,a)), _ -> proj_solve i n a b
+    | Tuple(Proj(i,n,a)), _ -> proj_solve i n a b
     | _, Tuple(Proj(i,n,a)) ->  proj_solve i n a b
     | Tuple(Tup al), _ -> tuple_solve b al
     | _, Tuple(Tup al) -> tuple_solve b al
