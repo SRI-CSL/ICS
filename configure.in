@@ -66,7 +66,7 @@ else
   GMPPATH=$with_gmp
 fi
 
-AC_CHECK_LIB(gmp,__gmpz_cmp, , AC_MSG_WARN(Cannot find the GMP library.))
+AC_CHECK_LIB(gmp,__gmpz_cmp, , AC_MSG_WARN(Potential problem with GMP library.))
 
 dnl Finally create all the generated files
 AC_SUBST(GMPPATH)
