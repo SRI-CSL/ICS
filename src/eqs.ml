@@ -18,33 +18,33 @@ let pp_index = ref false
 
 module Use = struct
   
-  type t = Term.Set.t Term.Map.t
+  type t = Term.Var.Set.t Term.Var.Map.t
 
-  let mem = Term.Map.mem
+  let mem = Term.Var.Map.mem
 
-  let apply u a = Term.Map.find a u
+  let apply u a = Term.Var.Map.find a u
 
   let find u a =
-    try Term.Map.find a u with Not_found -> Term.Set.empty
+    try Term.Var.Map.find a u with Not_found -> Term.Var.Set.empty
 
-  let set = Term.Map.add
+  let set = Term.Var.Map.add
 
   (** empty use list. *)
-  let empty = Term.Map.empty
+  let empty = Term.Var.Map.empty
 
   let pp_set fmt us =
-    Pretty.set Term.pp fmt (Term.Set.elements us)
+    Pretty.set Term.pp fmt (Term.Var.Set.elements us)
 
   (** [add x y m] adds [x] to the use of [y]. *)
   let add1 x y m =
     Trace.msg "use" "Add" (x, y) (Pretty.pair Term.pp Term.pp);
     try 
-      let uy = Term.Map.find y m in
-      let uy' = Term.Set.add x uy in
-	if uy == uy' then m else Term.Map.add y uy' m
+      let uy = Term.Var.Map.find y m in
+      let uy' = Term.Var.Set.add x uy in
+	if uy == uy' then m else Term.Var.Map.add y uy' m
     with
 	Not_found -> 
-	  Term.Map.add y (Term.Set.singleton x) m
+	  Term.Var.Map.add y (Term.Var.Set.singleton x) m
 
   (** [add x a use] adds [x] to the use of [y] for each toplevel
     uninterpreted term in [a]. *)
@@ -54,14 +54,14 @@ module Use = struct
   let remove1 x y m = 
     Trace.msg "use" "Rem" (x, y) (Pretty.pair Term.pp  Term.pp);
     try 
-      let uy = Term.Map.find y m in
-      let uy' = Term.Set.remove x uy in
-	if Term.Set.is_empty uy' then
-	  Term.Map.remove y m
+      let uy = Term.Var.Map.find y m in
+      let uy' = Term.Var.Set.remove x uy in
+	if Term.Var.Set.is_empty uy' then
+	  Term.Var.Map.remove y m
 	else if uy == uy' then 
 	  m
 	else
-	  Term.Map.add y uy' m
+	  Term.Var.Map.add y uy' m
     with
 	Not_found -> m
 
@@ -82,7 +82,7 @@ module Use = struct
     Pretty.map Term.pp (Pretty.set Term.pp) fmt (to_list u)
 
   and to_list u =
-    Term.Map.fold (fun x ys acc -> (x, Term.Set.elements ys) :: acc) u []
+    Term.Var.Map.fold (fun x ys acc -> (x, Term.Var.Set.elements ys) :: acc) u []
 end
 
 
@@ -93,10 +93,10 @@ module type TH = sig
   val th : Th.t
   val nickname : string
   val apply : Term.Equal.t -> Term.t -> Term.t
-  val is_infeasible : Justification.Pred2.t
+  val is_infeasible : Jst.Pred2.t
 end
 
-type equality = Term.t * Term.t * Justification.t
+type equality = Term.t * Term.t * Jst.t
 
 
 (** Signature for equality sets with dependency index. *)
@@ -109,13 +109,13 @@ module type SET = sig
   val is_empty : t -> bool
   val is_dependent : t -> Term.t -> bool
   val is_independent : t -> Term.t -> bool
-  val fold : (Term.t -> Term.t * Justification.t -> 'a -> 'a) -> t -> 'a -> 'a
+  val fold : (Term.t -> Term.t * Jst.t -> 'a -> 'a) -> t -> 'a -> 'a
   val to_list : t -> (Term.t * Term.t) list
-  val apply : t -> Justification.Eqtrans.t
+  val apply : t -> Jst.Eqtrans.t
   val equality : t -> Term.t -> Fact.Equal.t
-  val find : t -> Justification.Eqtrans.t
-  val inv : t -> Justification.Eqtrans.t 
-  val dep : t -> Term.t -> Term.Set.t
+  val find : t -> Jst.Eqtrans.t
+  val inv : t -> Jst.Eqtrans.t 
+  val dep : t -> Term.t -> Term.Var.Set.t
   val ext : t -> ext
   module Dep : sig
     val iter : t -> (Fact.Equal.t -> unit) -> Term.t -> unit 
@@ -126,7 +126,7 @@ module type SET = sig
   end
   val copy : t -> t
   type config = Partition.t * t
-  val name:  config -> Justification.Eqtrans.t
+  val name:  config -> Jst.Eqtrans.t
   val update : config -> Fact.Equal.t -> unit
   val restrict : config -> Term.t -> unit
   val fuse: config -> Fact.Equal.t list -> unit
@@ -177,7 +177,7 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
   
   (** [x |-> (a, rho)] in [find] represent the equality [x = a] with justificationo [rho] *)
   type t = {
-    mutable find: (Term.t * Justification.t) Term.Map.t;
+    mutable find: (Term.t * Jst.t) Term.Var.Map.t;
     mutable inv : Term.t Term.Map.t;          (* inverse find *)
     mutable dep : Use.t;                      (* dependency index *)
     mutable ext : Ext.t                       (* extension field *)
@@ -188,7 +188,7 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
   let eq s1 s2 = (s1.find == s2.find)
 
   let empty = {
-    find = Term.Map.empty;
+    find = Term.Var.Map.empty;
     inv = Term.Map.empty;
     dep = Use.empty;
     ext = Ext.empty;
@@ -201,16 +201,16 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
     ext = s.ext;
   }
 
-  let is_empty s = (s.find == Term.Map.empty)
+  let is_empty s = (s.find == Term.Var.Map.empty)
 
-  let is_dependent s x = Term.Map.mem x s.find
+  let is_dependent s x = Term.Var.Map.mem x s.find
   
   let dep s = Use.find s.dep
 
   let is_independent s x =
-    not(Term.Set.is_empty (dep s x))
+    not(Term.Var.Set.is_empty (dep s x))
  
-  let fold f s = Term.Map.fold f s.find
+  let fold f s = Term.Var.Map.fold f s.find
 
   let to_list s = fold (fun x (b,_) acc -> (x, b) :: acc) s []
 
@@ -231,7 +231,7 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
   let apply s a =
     match a with
       | Term.App _ -> raise Not_found  (* Invariant: only vars in domain of [s]. *)
-      | _ -> Term.Map.find a s.find
+      | _ -> Term.Var.Map.find a s.find
 
   let equality s a =
     let (b, rho) = apply s a in
@@ -240,12 +240,12 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
   let find s a =
     match a with
       | Term.App _ -> 
-	  Justification.Eqtrans.id a
+	  Jst.Eqtrans.id a
       | _ -> 
 	  (try 
-	     Term.Map.find a s.find 
+	     Term.Var.Map.find a s.find 
 	   with 
-	       Not_found -> Justification.Eqtrans.id a)
+	       Not_found -> Jst.Eqtrans.id a)
 
   let inv s a =
     let x = Term.Map.find a s.inv in
@@ -268,16 +268,16 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
        in
 	 f e
                         
-     let iter s f y = Term.Set.iter (apply_to_e s f) (dep s y)
-     let fold s f y = Term.Set.fold (apply_to_e s f) (dep s y) 
-     let for_all s p y = Term.Set.for_all (apply_to_e s p) (dep s y)
-     let exists s p y = Term.Set.exists (apply_to_e s p) (dep s y)
+     let iter s f y = Term.Var.Set.iter (apply_to_e s f) (dep s y)
+     let fold s f y = Term.Var.Set.fold (apply_to_e s f) (dep s y) 
+     let for_all s p y = Term.Var.Set.for_all (apply_to_e s p) (dep s y)
+     let exists s p y = Term.Var.Set.exists (apply_to_e s p) (dep s y)
 
      exception Found of Fact.Equal.t
 
      let choose s p y =
        try
-	 Term.Set.iter
+	 Term.Var.Set.iter
 	   (fun x ->
 	      try
 		let e = equality s x in
@@ -307,27 +307,27 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
 		  (* s.dep <- Use.remove x b' s.dep; *)  
 		  s.dep <- Use.add x b s.dep; 
 		  s.ext <- Ext.do_at_restrict (p, s.ext) (x, b, rho');
-		  s.find <- Term.Map.add x (b, rho) s.find;
+		  s.find <- Term.Var.Map.add x (b, rho) s.find;
 		  s.inv <- Term.Map.add b x s.inv;
 		  s.ext <- Ext.do_at_add (p, s.ext) (x, b, rho)
 	      with 
 		  Not_found ->     (* extend *)
 		    begin
 		      s.dep <- Use.add x b s.dep;
-		      s.find <- Term.Map.add x (b, rho) s.find;
+		      s.find <- Term.Var.Map.add x (b, rho) s.find;
 		      s.inv <- Term.Map.add b x s.inv;
 		      s.ext <- Ext.do_at_add (p, s.ext) (x, b, rho)
 		    end)
 	 | Some(tau) -> 
-	     let sigma = Justification.dependencies2 rho tau in
-	       raise(Justification.Inconsistent(tau))
+	     let sigma = Jst.dependencies2 rho tau in
+	       raise(Jst.Inconsistent(tau))
 
 	 
    let restrict (p, s) x =
      try
-       let (b, rho) = Term.Map.find x s.find in
-	 Trace.msg Th.nickname "Restrict" (x, b) Term.Equal.pp;
-	 s.find <- Term.Map.remove x s.find;
+       let (b, rho) = Term.Var.Map.find x s.find in
+	 Trace.msg Th.nickname "Restrict" x Term.pp;
+	 s.find <- Term.Var.Map.remove x s.find;
 	 s.inv <- Term.Map.remove b s.inv;
 	 s.dep <- Use.remove x b s.dep; 
 	 s.ext <- Ext.do_at_restrict (p, s.ext) (x, b, rho)
@@ -349,8 +349,7 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
 	   let (y, rho2) = inv s b in           (* [rho2 |- y = b]. *)
 	     if not(Term.eq x y) then
 	       let rho' =                       (* [rho' |- x = y]. *)          
-		 Justification.trans (x, b, y) 
-		   rho1 (Justification.sym (b, y) rho2)
+		 Jst.trans x b y rho1 rho2
 	       in
 		 Partition.merge p (Fact.Equal.make (x, y, rho'));
 		 if Term.(<<<) y x then 
@@ -371,7 +370,7 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
 	   if Term.(<<<) y x then 
 	     restrict (p, s) x 
 	   else 
-	     let rho = Justification.trans (x, y, a) rho1 rho2 in
+	     let rho = Jst.trans x y a rho1 rho2 in
 	       begin                               (* [rho |- x = a]. *)
 		 restrict (p, s) y;
 		 add (p, s) (Fact.Equal.make (x, a, rho))
@@ -384,16 +383,14 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
    (** Return a canonical variable [x] equal to [b]. If [b] is not a rhs in
      the equality set for theory [i], then a variable [x] is newly created. *)
    let name (p, s) b =
-     if Term.is_var b then 
-       Justification.Eqtrans.id b
-     else
+     if Term.is_var b then Jst.Eqtrans.id b else
        try 
 	 inv s b 
        with 
 	   Not_found ->
 	     let dom = try Some(Arith.dom_of b) with Not_found -> None in
 	     let x = Term.Var.mk_rename (Name.of_string "v") None dom in 
-	     let rho = Justification.extend (x, b) in
+	     let rho = Jst.extend (x, b) in
 	       update (p, s) (Fact.Equal.make (x, b, rho));
 	       (x, rho)
 	       
@@ -434,22 +431,22 @@ module type INDEX = sig
   val holds : Term.t -> bool
 end
 
-module Idx2Ext(Idx: INDEX): (EXT with type t = Term.Set.t) =
+module Idx2Ext(Idx: INDEX): (EXT with type t = Term.Var.Set.t) =
   struct
-    type t = Term.Set.t
+    type t = Term.Var.Set.t
     let pp fmt s =   
       Format.fprintf fmt "\n%s: " Idx.name;
-      Pretty.set Term.pp fmt (Term.Set.elements s)
-    let empty = Term.Set.empty 
+      Pretty.set Term.pp fmt (Term.Var.Set.elements s)
+    let empty = Term.Var.Set.empty 
     let eq = (==)
     let do_at_add (p, s) (x, a, _) = 
-      if Idx.holds a then Term.Set.add x s else s
+      if Idx.holds a then Term.Var.Set.add x s else s
     let do_at_restrict (p, s) (x, a, _) =
-      Term.Set.remove x s
+      Term.Var.Set.remove x s
 end
 
 
-module MakeIndex(Th: TH)(Idx : INDEX): (SET with type ext = Term.Set.t) =
+module MakeIndex(Th: TH)(Idx : INDEX): (SET with type ext = Term.Var.Set.t) =
   Make(Th)(Idx2Ext(Idx))
 
 
@@ -460,38 +457,38 @@ module type CNSTNT = sig
   val is_diseq : Term.t -> Term.t -> bool
 end 
 
-module Cnstnt2Ext(Cnstnt: CNSTNT): (EXT with type t = (Term.t * Justification.t) Term.Map.t) =
+module Cnstnt2Ext(Cnstnt: CNSTNT): (EXT with type t = (Term.t * Jst.t) Term.Var.Map.t) =
   struct
-    type t = (Term.t * Justification.t) Term.Map.t
+    type t = (Term.t * Jst.t) Term.Var.Map.t
     let pp fmt s =
-      if not(s == Term.Map.empty) then
+      if not(s == Term.Var.Map.empty) then
 	begin
 	  Format.fprintf fmt "\ncnstnt: ";
-	  let l = Term.Map.fold 
+	  let l = Term.Var.Map.fold 
 		    (fun x (a, _) acc -> (x, a) :: acc)
 		    s []
 	  in
 	    Pretty.map Term.pp Term.pp fmt l   
 	end 
-    let empty = Term.Map.empty
+    let empty = Term.Var.Map.empty
     let eq = (==)
 	       (** Generate disequalities [x <> y] for constant equalities 
 		 [x = a] and [y = b] with [a <> b]. *)
     let do_at_add (p, s) (x, a, rho) = 
-      Term.Map.iter                         (* [rho |- x = a] *)
+      Term.Var.Map.iter                         (* [rho |- x = a] *)
 	(fun y (b, tau) ->                  (* [tau |- y = b] *)
 	   if Cnstnt.is_diseq a b then      (* [sigma |- x <> y] *)
-	     let sigma = Justification.dependencies2 rho tau in
+	     let sigma = Jst.dependencies2 rho tau in
 	     let d = Fact.Diseq.make (x, y, sigma) in
 	       Partition.dismerge p d)
       s;
-      if Cnstnt.is_const a then Term.Map.add x (a, rho) s else s
+      if Cnstnt.is_const a then Term.Var.Map.add x (a, rho) s else s
     let do_at_restrict (_, s) (x, a, _) =
-      if Cnstnt.is_const a then Term.Map.remove x s else s
+      if Cnstnt.is_const a then Term.Var.Map.remove x s else s
 end
 
 module MakeCnstnt(Th: TH)(Cnstnt: CNSTNT)
-  : (SET with type ext = (Term.t * Justification.t) Term.Map.t) =
+  : (SET with type ext = (Term.t * Jst.t) Term.Var.Map.t) =
   Make(Th)(Cnstnt2Ext(Cnstnt))
 
 
@@ -499,7 +496,7 @@ module MakeCnstnt(Th: TH)(Cnstnt: CNSTNT)
 (** {6 Solution sets with constant index} *)
 
 module MakeIndexCnstnt(Th: TH)(Idx: INDEX)(Cnstnt: CNSTNT)
-  : (SET with type ext = Term.Set.t * (Term.t * Justification.t) Term.Map.t) =
+  : (SET with type ext = Term.Var.Set.t * (Term.t * Jst.t) Term.Var.Map.t) =
   Make(Th)(CombineExt(Idx2Ext(Idx))(Cnstnt2Ext(Cnstnt)))
 
 
@@ -517,13 +514,13 @@ module type SET2 = sig
   type tag = Left | Right
   val is_dependent : tag -> t -> Term.t -> bool
   val is_independent :  tag -> t -> Term.t -> bool
-  val fold :  tag -> (Term.t -> Term.t * Justification.t -> 'a -> 'a) -> t -> 'a -> 'a
+  val fold :  tag -> (Term.t -> Term.t * Jst.t -> 'a -> 'a) -> t -> 'a -> 'a
   val to_list :  tag -> t -> (Term.t * Term.t) list
-  val apply :  tag -> t -> Justification.Eqtrans.t
+  val apply :  tag -> t -> Jst.Eqtrans.t
   val equality :  tag -> t -> Term.t -> Fact.Equal.t
-  val find :  tag -> t -> Justification.Eqtrans.t
-  val inv :  tag -> t -> Justification.Eqtrans.t 
-  val dep :  tag -> t -> Term.t -> Term.Set.t
+  val find :  tag -> t -> Jst.Eqtrans.t
+  val inv :  tag -> t -> Jst.Eqtrans.t 
+  val dep :  tag -> t -> Term.t -> Term.Var.Set.t
   val ext : t -> ext * lext * rext
   module Dep : sig
     val iter :  tag -> t -> (Fact.Equal.t -> unit) -> Term.t -> unit 
@@ -534,7 +531,7 @@ module type SET2 = sig
   end
   val copy : t -> t
   type config = Partition.t * t
-  val name:   tag -> config -> Justification.Eqtrans.t
+  val name:   tag -> config -> Jst.Eqtrans.t
   val update :  tag -> config -> Fact.Equal.t -> unit
   val restrict :  tag -> config -> Term.t -> unit
   val fuse:  tag -> config -> Fact.Equal.t list -> unit
@@ -624,12 +621,12 @@ struct
 	(match tag with
 	   | Right ->
 	       let (y, tau) = Left.inv s.left a in        (* [tau |- y = a] *)
-	       let  sigma = Justification.trans (x, a, y) tau rho in
+	       let  sigma = Jst.trans x a y tau rho in
 		 Partition.merge p (Fact.Equal.make (x, y, sigma));
 		 Left.restrict (p, s.left) y              (* restrict [y = a] in [Left]. *)
 	   | Left ->
 	       let (y, tau) = Right.inv s.right a in      (* [tau |- y = a] *)
-	       let  sigma = Justification.trans (x, a, y) tau rho in
+	       let  sigma = Jst.trans x a y tau rho in
 		 Partition.merge p (Fact.Equal.make (x, y, sigma));
 		 Left.restrict (p, s.left) x)             (* restrict [x = a] in [Left] *)
       with
@@ -756,12 +753,12 @@ struct
 	(match tag with
 	   | Right ->
 	       let (y, tau) = Left.inv s.left a in        (* [tau |- y = a] *)
-	       let  sigma = Justification.trans (x, a, y) tau rho in
+	       let  sigma = Jst.trans x a y tau rho in
 		 Partition.merge p (Fact.Equal.make (x, y, sigma));
 		 Left.restrict (p, s.left) y              (* restrict [y = a] in [Left]. *)
 	   | Left ->
 	       let (y, tau) = Right.inv s.right a in      (* [tau |- y = a] *)
-	       let  sigma = Justification.trans (x, a, y) tau rho in
+	       let  sigma = Jst.trans x a y tau rho in
 		 Partition.merge p (Fact.Equal.make (x, y, sigma));
 		 Left.restrict (p, s.left) x)             (* restrict [x = a] in [Left] *)
       with
