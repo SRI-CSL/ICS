@@ -122,7 +122,7 @@ let solve =
   Fact.Equal.equivn Arith.solve
 
 let solve = 
-  Trace.func "la" "Solve"  Fact.Equal.pp (Pretty.list Fact.Equal.pp)
+  Trace.func "la'" "Solve"  Fact.Equal.pp (Pretty.list Fact.Equal.pp)
     solve
 
 (**  Solve for an unrestricted variable if possible. *)
@@ -455,7 +455,7 @@ let name cfg =
 
 (** Fusing a list of solved equalities into solution set for mode [m]. *)
 let fuse1 tag cfg e =
-  Trace.msg "la" "Fuse" e Fact.Equal.pp;
+  Trace.msg "la'" "Fuse" e Fact.Equal.pp;
   match tag with
     | S.Left -> S.fuse r cfg [e] 
     | S.Right -> S.fuse t cfg [e]
@@ -463,7 +463,7 @@ let fuse1 tag cfg e =
 
 (** Composing a list of solved equalities into solution set for mode [m]. *)
 let compose1 tag cfg e =
-  Trace.msg "la" "Compose" e Fact.Equal.pp;
+  Trace.msg "la'" "Compose" e Fact.Equal.pp;
   match tag with
     | S.Left ->
 	S.compose r cfg [e] 
@@ -516,7 +516,7 @@ let rec merge ((p, s) as cfg) e =
 	el
       
 and process_solved ((p, s) as cfg) e = 
-  Trace.msg "la" "Process_solved" e Fact.Equal.pp;
+  Trace.msg "la'" "Process_solved" e Fact.Equal.pp;
   let (x, a, rho) = Fact.Equal.destruct e in
     assert(Term.is_var x);
     if is_unrestricted_var x then 
@@ -617,7 +617,7 @@ and gomory_cut ((_, s) as cfg) e =
   let a' = Arith.mk_addq b' ml' in
   let rho' = Jst.dep1 rho in
   let nn' = Fact.Nonneg.make (a', rho') in
-    Trace.msg "la" "Gomory" nn' Fact.Nonneg.pp;
+    Trace.msg "la'" "Gomory" nn' Fact.Nonneg.pp;
     process_nonneg1 cfg nn'
   
 (** Process a nonnegativity constraint [nn] of the form [a >= 0]. *)
@@ -654,7 +654,7 @@ and process_nonneg1 ((_, s) as cfg) nn =
 and add_to_t ((_, s) as cfg) e =
   let (k, a, rho) = Fact.Equal.destruct e in
     assert(is_restricted_var k && is_restricted a);
-    Trace.msg "la" "Add_to_t" e Fact.Equal.pp;
+    Trace.msg "la'" "Add_to_t" e Fact.Equal.pp;
     let c = Arith.constant_of a in
       if Q.is_nonneg (Arith.constant_of a) then
 	compose1 t cfg e
@@ -710,7 +710,7 @@ and pivot ((_, s) as cfg) y =
   try
     let (_, e) = gain s y in
     let e' = isolate y e in                
-      Trace.msg "la" "Pivot" (e, e') (Pretty.infix Fact.Equal.pp " ==> " Fact.Equal.pp);
+      Trace.msg "la'" "Pivot" (e, e') (Pretty.infix Fact.Equal.pp " ==> " Fact.Equal.pp);
       compose1 t cfg e'
   with
       Not_found -> failwith "Fatal Error: Failed pivot step"
@@ -741,7 +741,7 @@ and maximize ((_, s) as cfg) zeros =
 
 
 and maximize1 ((_, s) as cfg) zeros (k, a, rho) =   (* [rho |- k = a] *)
-  Trace.msg "la" "Maximize" (k, a) Term.Equal.pp;
+  Trace.msg "la'" "Maximize" (k, a) Term.Equal.pp;
   let monomial_is_unbounded (_, y) = is_unbounded s y in
   let monomial_is_nonzero (_, y) = not(Term.Set.mem y zeros) in
   if Arith.Monomials.Pos.is_empty a then
@@ -832,7 +832,7 @@ let rec is_nonpos cfg a =
 
 and process_pos ((_, s) as cfg) c =
   let c = Fact.Pos.map (replace s) c in 
-    Trace.msg "la" "Process" c Fact.Pos.pp;
+    Trace.msg "la'" "Process" c Fact.Pos.pp;
     let (a, rho) = Fact.Pos.destruct c in           (* [rho |- a >= 0] *)
       dismerge cfg (Fact.Diseq.make (a, Arith.mk_zero, Jst.dep1 rho));
       process_nonneg cfg (Fact.Nonneg.make (a, Jst.dep1 rho))
@@ -940,7 +940,7 @@ and process_ge cfg (a, b, rho) =
     process_nonneg cfg nn
 
 and case_process_le cfg =
-  Trace.proc "la" "Case(le)" (Pretty.pair Term.pp Term.pp)
+  Trace.proc "la'" "Case(le)" (Pretty.pair Term.pp Term.pp)
     (fun (a, b) ->
        let diff = Arith.mk_sub b a in
 	 try
@@ -951,7 +951,7 @@ and case_process_le cfg =
 		 raise(Jst.Inconsistent(rho)))
       
 and case_process_ge cfg = 
-  Trace.proc "la" "Case(ge)" (Pretty.pair Term.pp Term.pp)
+  Trace.proc "la'" "Case(ge)" (Pretty.pair Term.pp Term.pp)
     (fun (a, b) ->
        let diff = Arith.mk_sub a b in
 	 try
@@ -962,7 +962,7 @@ and case_process_ge cfg =
 		 raise(Jst.Inconsistent(rho)))
   
 and contiguous_diseq_segment ((p, s) as cfg) (e, n) =
-  Trace.call "la" "Contiguous" (e, n) (Pretty.pair Term.pp Mpa.Q.pp);
+  Trace.call "la'" "Contiguous" (e, n) (Pretty.pair Term.pp Mpa.Q.pp);
   let taus = ref [] in
   let rec upper max =                           (* [rho |- e <> n] *)
     let max' = Q.add max Q.one in
@@ -983,7 +983,7 @@ and contiguous_diseq_segment ((p, s) as cfg) (e, n) =
 	    min
   in
   let (min, max) = (lower n, upper n) in
-    Trace.exit "la" "Contiguous" (min, max) (Pretty.pair Mpa.Q.pp Mpa.Q.pp);
+    Trace.exit "la'" "Contiguous" (min, max) (Pretty.pair Mpa.Q.pp Mpa.Q.pp);
     (min, max, !taus)
 
   
@@ -991,7 +991,7 @@ and contiguous_diseq_segment ((p, s) as cfg) (e, n) =
 
 (** Maximize [a] in [s] by systematically eliminating positive 
   monomials in the canonical form [a'] of [a].  It returns either 
-  - [(b, rho') such that [b+] is empty and [rho' |- a = b], or
+  - [(b, rho')] such that [b+] is empty and [rho' |- a = b], or
   - raises [Unbounded] if [a] is unbounded. *)
 let rec upper ((p, s) as cfg) a =
   let rec max_term a (b, rho) =                (* [rho |- b = a] *)

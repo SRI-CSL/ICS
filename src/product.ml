@@ -232,7 +232,7 @@ and pre (a, b) =
 (** Repetitively apply the rules (symmetrically).
   - Triv:  [a = a, el; sl] ==> [el; sl]
   - Ext:   [cons(a', a'') = cons(b', b''), el; sl] ==> [a' = b', a'' = b'', el; sl]
-  - Bot:   [x = a, el; sl] ==> bot] 
+  - Bot:   [x = a, el; sl] ==> [bot] 
               if [x] is a proper subterm of [a]
   - Subst: [x = a, el; sl] ==> [sigma(el[a/x]); s o {x = a}] 
               if [x] occurs in [el] but not in [a].

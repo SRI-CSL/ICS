@@ -75,11 +75,36 @@ let copy s = {
   upper = s.upper
 }
 
+module Mode = struct
+
+  type t = Context | Internals | None
+
+  let value = ref Internals
+
+  let set m f a =
+    let save = !value in
+    try
+      value := m;
+      let b = f a in
+	value := save;
+	b
+    with
+	exc -> 
+	  value := save;
+	  raise exc
+    
+end 
 
 (** Pretty-printing. *)
-let pp fmt s =
-  Partition.pp fmt s.p;
-  Th.iter (fun i -> Combine.pp i fmt s.eqs)
+let rec pp fmt s =
+  match !Mode.value with
+    | Mode.Internals ->
+	Partition.pp fmt s.p;
+        Th.iter (fun i -> Combine.pp i fmt s.eqs)
+    | Mode.Context -> 
+	Pretty.set Atom.pp fmt s.ctxt
+    | Mode.None -> 
+	()
 
 
 (** {6 Accessors} *)
@@ -214,4 +239,9 @@ let add s atm =
 	       raise exc)
 
 
-
+let add s =
+  let pp fmt s = Mode.set Mode.None (pp fmt) s in
+    Trace.func "top" "Process" 
+      Atom.pp 
+      (Status.pp pp) 
+      (add s)

@@ -812,7 +812,7 @@ and cmd_batch (inch) =
 	Format.fprintf !Istate.outchannel "\n:unsat ";
 	Jst.pp !Istate.outchannel rho;
 	Format.fprintf !Istate.outchannel "@.";
-	Istate.do_quit (-1); (-1)
+	Istate.do_quit 0; 0
     | exc -> 
 	Istate.do_error ("Exception " ^ (Printexc.to_string exc)); 
 	Istate.do_quit (-2); (-2)
