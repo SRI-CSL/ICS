@@ -24,116 +24,67 @@ open Sym
 (*s Theory-specific recognizers *)
 
 let is_interp a =
-  Term.is_app a &&
-  Sym.is_arith (Term.sym_of a)
-
-let d_interp a =
-  if Term.is_var a then
-    None
-  else 
-    match Sym.destruct (Term.sym_of a) with
-      | Interp(Arith(f)) -> Some(f, Term.args_of a)
-      | _ -> None
-
-
-
-(*s Set of subterms not interpreted in linear arithmetic. *)
-
-let rec uninterps a =
-  if not(is_interp a) then
-    Set.singleton a
-  else
-    List.fold_right
-      (fun b -> Set.union (uninterps b)) 
-      (Term.args_of a)
-      Set.empty
+  match a with
+    | App(Arith _, _) -> true
+    | _ -> false
 
 
 (*s Fold functional *)
 
-let rec fold f a e =        
-  match d_interp a with
-    | Some(op,l) ->
+let rec fold f a e = 
+  match a with
+    | App(Arith(op), l) ->
 	(match op, l with
-	   | Sym.Num _, [] -> e
-	   | (Sym.Add | Sym.Mult), l -> List.fold_right (fold f) l e
-	   | Sym.Expt _, [x] -> fold f x e
+	   | Num _, [] -> e
+	   | Add, l -> List.fold_right (fold f) l e
+	   | Multq _, [x] -> fold f x e
 	   | _ -> assert false)
     | _ ->
 	f a e
-
+	
 
 (*s Destructors. *)
 
-let d_num a =
-  match d_interp a with
-    | Some(Sym.Num(q),[]) -> Some(q)
-    | _ -> None
+let d_num = function
+  | App(Arith(Num(q)), []) -> Some(q)
+  | _ -> None
 
-let d_multq a =
-  match d_interp a with
-    | Some(Sym.Mult, x :: xl) ->
-	(match d_num x with
-	   | Some(q) -> 
-	       (match xl with
-		  | [y] -> Some(q, y)
-		  | _ :: _ -> Some(q, Term.mk_app Sym.mk_mult xl)
-		  | [] -> assert false)
-	   | None -> None)
-    | _ -> 
-	None
+let d_multq = function
+  | App(Arith(Multq(q)), [x]) -> Some(q, x)
+  | _ -> None
 
-let d_add a =
-  match d_interp a with
-    | Some(Sym.Add, l) -> Some(l)
-    | _ -> None
+let d_add = function
+  | App(Arith(Add), xl) -> Some(xl)
+  | _ -> None
 
-let d_mult a =
- match d_interp a with
-    | Some(Sym.Mult, l) -> Some(l)
-    | _ -> None
 
-let d_expt a =
-  match d_interp a with
-    | Some(Sym.Expt(n), [x]) -> Some(n,x)
-    | _ -> None
-
-let monomials a =
-  match d_add a with
-    | Some(l) -> l
-    | None -> [a]
-
+let monomials = function
+  | App(Arith(Add), xl) -> xl
+  | x -> [x]
 
 (*s Recognizers. *)
 
-let is_num a =
-  match d_num a with Some _ -> true | None -> false
+let is_num = function
+  | App(Arith(Num _), []) -> true
+  | _ -> false
 
-let is_zero a =
-  match d_num a with
-    | Some(q) -> Q.is_zero q
-    | _ -> false
+let is_zero = function
+  | App(Arith(Num(q)), []) -> Q.is_zero q
+  | _ -> false
 
-let is_one a =
-  match d_num a with
-    | Some(q) -> Q.is_one q
-    | _ -> false
+let is_one = function
+  | App(Arith(Num(q)), []) -> Q.is_one q
+  | _ -> false
 
-let is_linear a =
-  match d_interp a with
-    | Some(op, l) ->
-	(match op, l with
-	   | Sym.Num _, [] -> true
-	   | Sym.Add, _ -> true
-	   | Sym.Mult, [x;_] when is_num x -> true
-	   | _ -> false)
-    | _ ->
-	false
-  
+let is_q q = function
+  | App(Arith(Num(p)), []) -> Q.equal q p
+  | _ -> false
+
+
 
 (*s Constants. *)
 
-let mk_num q = Term.mk_const (Sym.mk_num(q))
+let mk_num q = App(Arith(Num(q)), [])
 
 let mk_zero = mk_num(Q.zero)
 let mk_one = mk_num(Q.one)
@@ -142,31 +93,31 @@ let mk_one = mk_num(Q.one)
 (*s Some normalization functions. *)
 
 let poly_of a =
-  match d_interp a with
-    | Some(op,l)  ->
+  match a with
+    | App(Arith(op), l) ->
 	(match op, l with
 	   | Num(q), [] -> (q, [])
-	   | Expt _ , [_] -> (Q.zero, [a])
-	   | Mult, _ -> (Q.zero, [a])
+	   | Multq _, _ -> (Q.zero, [a])
 	   | Add, ((x :: xl') as xl) ->
 	       (match d_num x with
 		  | Some(q) -> (q, xl')
 		  | None -> (Q.zero, xl))
 	   | _ -> assert false)
-    | None -> 
+    | _ -> 
 	(Q.zero, [a])
 
-let of_poly q l =
-  let m = if  Q.is_zero q then l else mk_num q :: l in
-  match m with 
-    | [] -> mk_zero
-    | [x] -> x
-    | _ -> Term.mk_app Sym.mk_add m
+let of_poly =
+  let addsym = Arith(Add) in
+  fun q l ->
+    let m = if  Q.is_zero q then l else mk_num q :: l in
+      match m with 
+	| [] -> mk_zero
+	| [x] -> x
+	| _ -> Term.mk_app addsym m
 
-let mono_of a =
-  match d_multq a with
-    | Some(q,x) -> (q, x)
-    | None -> (Q.one, a)
+let mono_of = function
+  | App(Arith(Multq(q)), [x]) -> (q, x)
+  | a -> (Q.one, a)
 
 let of_mono q x =
   if Q.is_zero q then
@@ -176,27 +127,25 @@ let of_mono q x =
   else 
     match d_num x with
       | Some(p) -> mk_num (Q.mult q p) 
-      | None -> Term.mk_app Sym.mk_mult [mk_num q; x]
-
+      | None -> App(Arith(Multq(q)), [x])
 
 
 (*s Constructors. *)
 
 let rec mk_multq q a =
-  if Q.is_zero q then 
-    mk_zero
-  else if Q.is_one q then 
-    a
-  else 
-    let (p,l) = poly_of a in
-    of_poly (Q.mult q p) (multq q l)
-
-and multq q l =
-  match l with
+  let rec multq q = function
     | [] -> []
     | m :: ml ->
 	let (p,x) = mono_of m in
-	(of_mono (Q.mult q p) x) :: (multq q ml)
+	  (of_mono (Q.mult q p) x) :: (multq q ml)
+  in
+    if Q.is_zero q then 
+      mk_zero
+    else if Q.is_one q then 
+      a
+    else 
+      let (p, ml) = poly_of a in
+	of_poly (Q.mult q p) (multq q ml)
 
 and mk_add a b =
   let rec  map2 f l1 l2 =      (* Add two polynomials *)
@@ -229,7 +178,7 @@ and mk_addl l =
     | x :: xl -> mk_add x (mk_addl xl)
  
 and mk_incr a =
-  let (q,l) = poly_of a in
+  let (q, l) = poly_of a in
   of_poly (Q.add q Q.one) l
 
 and mk_neg a =
@@ -238,136 +187,29 @@ and mk_neg a =
 and mk_sub a b =
   mk_add a (mk_neg b)
 
-and mk_mult a b =
-  let rec multl l1 l2 =             
-    match l1, l2 with
-      | [], _ -> l2
-      | _ , [] -> l1
-      | m1 :: l1', m2 :: l2' ->
-	  let n1,x1 = expt_of m1 in
-	  let n2,x2 = expt_of m2 in
-	  let cmp = Term.cmp x1 x2 in
-	  if cmp = 0 then
-	    let n = n1 + n2 in
-	    if n = 0 then
-	      multl l1' l2'
-	    else 
-	      (mk_expt n x1) :: (multl l1' l2')
-	  else if cmp < 0 then
-	    m1 :: multl l1' l2
-	  else (* cmp > 0 *)
-	    m2 :: multl l1 l2'
-  and of_list l =
-    match l with
-      | [] -> mk_one
-      | [x] -> x
-      | _ -> Term.mk_app Sym.mk_mult l
-  and expt_of a =
-    match d_expt a with
-      | Some(n,x) -> (n, x)
-      | None -> (1, a)
-  in
-  if Term.eq a b then                                       (* [ a * a --> a^2] *)
-    mk_expt 2 a 
-  else
-    match d_num a, d_num b with
-      | Some(q), Some(p) -> mk_num (Q.mult q p)
-      | None, Some(p) -> mk_multq p a
-      | Some(q), None -> mk_multq q b
-      | None, None ->
-	  (match d_expt a, d_expt b with
-	    | Some(n,x), Some(m,y) when Term.eq x y ->       (* [ x^n * x^m --> x^(n+m)] *)
-		mk_expt (n + m) x
-	    | Some(n,x), _ when Term.eq x b ->               (* [ x^n * x --> x^(n+1)] *)
-		mk_expt (n + 1) x
-	    | _, Some(m,y) when Term.eq y a ->               (* [ y * y^m --> y^(m+1)] *)
-		mk_expt (m + 1) y
-	    | _ ->
-		(match d_add a, d_add b with                 (* [(x1+...+xn) * b = x1*b+...+xn*b] *)
-		   | Some(xl), _ -> 
-		       mk_addl (List.map (mk_mult b) xl)
-		   | _, Some(yl) ->                          (* [(y1+...+yn) * b = y1*b+...+yn*b] *)
-		       mk_addl (List.map (mk_mult a) yl)
-		   | None, None ->
-		       (match d_mult a, d_mult b with
-			  | Some(xl), Some(yl) ->
-			      of_list (multl xl yl)
-			  | Some(xl), None ->
-			      of_list (multl xl [b])
-			  | None, Some(yl) ->
-			      of_list (multl yl [a])
-			  | _ ->
-			      let (a,b) = Term.orient (a,b) in
-			      Term.mk_app Sym.mk_mult [a;b])))
 
-and mk_multl al =
-  match al with
-    | [] -> mk_one
-    | [x] -> x
-    | x :: y :: zl -> mk_multl (mk_mult x y :: zl)
-
-and mk_expt n a =
-  match n with
-    | 0 -> mk_one
-    | 1 -> a
-    | _ ->
-	(match d_expt a with
-	   | Some(m, x) when Term.eq x a ->
-	       mk_expt (n + m) a
-	   | _ ->
-	       (match d_mult a with
-		  | Some(xl) ->
-		      mk_multl (List.map (mk_expt n) xl)
-		  | None ->
-		      (match d_num a with
-			 | Some(q) -> 
-			     mk_num (Mpa.Q.expt q n)
-			 | None ->
-			     Term.mk_app (Sym.mk_expt n) [a])))
-
-(*s Decomposition. *)
-
-type decompose =
-  | Const of Mpa.Q.t
-  | One of Mpa.Q.t * Mpa.Q.t * Term.t
-  | Many of Mpa.Q.t * Mpa.Q.t * Term.t * Term.t
-
-
-let decompose a =
-  let (q, al) = poly_of a in
-  match al with
-    | [] -> 
-	Const(q)
-    | [m] ->
-	let (p,x) = mono_of m in
-	One(q,p,x)
-    | m :: ml ->
-	let (p,x) = mono_of m in
-	Many(q, p, x, Term.mk_app Sym.mk_add ml)
 
 (*s Apply term transformer [f] at uninterpreted positions. *)
 
 let rec map f a =
-  match d_interp a with
-    | Some(op,l)  ->
+  match a with
+    | App(Arith(op), l) ->
 	(match op, l with
-	   | Num _, [] -> a
-	   | Mult, [x;y] -> 
-	       (match d_num x with
-		  | Some(q) -> 
-		      let y' = map f y in
-		      if Term.eq y y' then a else mk_multq q y'
-		  | None -> mk_multl (Term.mapl (map f) l))
-	   | Mult, l -> mk_multl (Term.mapl (map f) l)
-	   | Add, [x;y] -> 
+	   | Num _, [] -> 
+	       a
+	   | Multq(q), [x] ->
+	       let x' = map f x in
+		 if Term.eq x x' then a else mk_multq q x'
+	   | Add, [x; y] -> 
 	       let x' = map f x and y' = map f y in
-	       if Term.eq x x' && Term.eq y y' then
-		 a
-	       else 
-		 mk_add x' y'
-	   | Add, l -> mk_addl (Term.mapl (map f) l)
-	   | Expt(n), [x] -> mk_expt n (map f x)
-	   | _ -> assert false)
+		 if Term.eq x x' && Term.eq y y' then a
+		 else mk_add x' y'
+	   | Add, xl -> 
+	       let xl' = Term.mapl (map f) xl in
+		 if xl == xl' then a else
+		   mk_addl xl'
+	   | _ -> 
+	       assert false)
     | _ ->
 	f a
 
@@ -380,32 +222,6 @@ let replacel el =
   map (fun x -> try Term.assq x el with Not_found -> x)
 
 
-(* Does every nonconstant monomial satisfy predicate [p]. *)
-
-let rec for_all p a =
-  match d_interp a with
-    | Some(op, l) -> 
-	(match op, l with
-	   | Sym.Num _, [] -> 
-	       true
-	   | Sym.Add, l -> 
-	       for_all_list p l
-	   | Sym.Mult, (x :: xl) ->
-	       (match d_num x with
-		  | Some(q) -> p (q, mk_multl xl)
-		  | None -> p (Q.one, a))
-	   | Sym.Expt _, [_] ->
-	       p (Q.one, a)
-	   | _ -> assert false)
-    | _ ->
-	p (Q.one, a)
-
-and for_all_list p l =
-  match l with
-    | [] -> true
-    | x :: xl -> 
-	for_all p x && for_all_list p xl
-
 
 (*s Interface for sigmatizing arithmetic terms. *)
 
@@ -414,38 +230,80 @@ let rec sigma op l =
     | Num(q), [] -> mk_num q
     | Add, [x; y] -> mk_add x y
     | Add, _ :: _ :: _ -> mk_addl l
-    | Mult, [x;y] ->
-	(match d_num x with
-	   | Some(q) -> mk_multq q y
-	   | None -> mk_mult x y)
-    | Mult, _ -> mk_multl l
-    | Expt(n), [x] -> mk_expt n x
+    | Multq(q), [x] -> mk_multq q x
     | _ ->  assert false
 
 
 (*s Abstract interpretation in the domain of constraints. *)
 
-let rec cnstrnt ctxt a =
-  match d_interp a with
-    | Some(op, l) -> 
-	let c = 
-	  match op, l with
-	    | Sym.Num(q), [] -> 
-		Cnstrnt.mk_singleton q
-	    | Sym.Mult, l -> 
-		Cnstrnt.multl (List.map (cnstrnt ctxt) l)
-	    | Sym.Add, l -> 
-		Cnstrnt.addl (List.map (cnstrnt ctxt) l)
-	    | Sym.Expt(n), [x] -> 
-		Cnstrnt.expt n (cnstrnt ctxt x)
-	    | _ -> assert false
-	in
+let rec cnstrnt ctxt = function
+  | (App(Arith(op), l) as a) ->
+      let c = 
+	match op, l with
+	  | Sym.Num(q), [] -> 
+	      Cnstrnt.mk_singleton q
+	  | Sym.Multq(q), [x] -> 
+	      Cnstrnt.multq q (cnstrnt ctxt x)
+	  | Sym.Add, l -> 
+	      Cnstrnt.addl (List.map (cnstrnt ctxt) l)
+	  | _ -> 
+	      assert false
+      in
 	(try 
-	  Cnstrnt.inter (ctxt a) c
+	   Cnstrnt.inter (ctxt a) c
 	 with
 	     Not_found -> c)
-    | _ ->
-	ctxt a
+  | a ->
+      ctxt a
+
+
+
+(*s Solving of an equality [a = b] in the rationals and the integers. 
+  Solve for maximal monomial which satisfies predicate [pred]. *)
+
+let rec solve_for pred (a,b) =
+  let (q,l) = poly_of (mk_sub a b) in
+  if l = [] then
+    if Q.is_zero q then None else raise(Exc.Inconsistent)
+  else
+    try
+      let ((p,x), ml) = destructure pred l in
+      assert(not(Q.is_zero p));             (*s case [q + p * x + ml = 0] *)
+      let b = mk_multq (Q.minus (Q.inv p)) (of_poly q ml) in
+      if Term.eq x b then 
+	None
+      else 
+	Some(orient pred x b)
+    with
+	Not_found -> 
+	  raise Exc.Unsolved
+
+and orient pred x b = 
+  if is_interp b then
+    (x, b)
+  else if is_var b then
+    Term.orient (x, b)
+  else if x <<< b && pred b then
+    (b, x)
+  else 
+    (x, b)
+
+(*s Destructuring a polynomial into the monomial which satisfies predicate [f]
+  and the remaining polynomial. *)
+
+and destructure pred l =
+   let rec loop acc l =   
+     match l with 
+       | m :: ml ->
+	   let (p,x) = mono_of m in
+	   if pred x then
+	     ((p, x), List.rev acc @ ml)
+	   else
+	     loop (m :: acc) ml
+       | [] -> 
+	   raise Not_found
+   in
+   loop [] l
 
 
 (*s Split a term into the part with constraints and the unconstraint part.
@@ -480,119 +338,3 @@ let split ctxt a =
     | None -> None
   in
   (constr', unconstr')
-
-
-
-(*s Solving of an equality [a = b] in the rationals and the integers. 
-  Solve for maximal monomial which satisfies predicate [pred]. *)
-
-let rec solve_for pred (a,b) =
-  let orient x b =
-  if is_interp b then
-    (x, b)
-  else if is_var b then
-    Term.orient (x, b)
-  else if x <<< b && pred b then
-    (b, x)
-  else 
-    (x, b)
-  in
-  let (q,l) = poly_of (mk_sub a b) in
-  if l = [] then
-    if Q.is_zero q then None else raise(Exc.Inconsistent)
-  else
-    try
-      let ((p,x), ml) = destructure pred l in
-      assert(not(Q.is_zero p));             (*s case [q + p * x + ml = 0] *)
-      let b = mk_multq (Q.minus (Q.inv p)) (of_poly q ml) in
-      if Term.eq x b then 
-	None
-      else 
-	Some(orient x b)
-    with
-	Not_found -> 
-	  raise Exc.Unsolved
-
-and solve ctxt (a, b) =
-  match solve_for is_var (a, b) with
-    | None -> None
-    | Some(x, a) -> Some(deduce ctxt (x, a))
-  
-and deduce ctxt (x, b) =
-  try
-    let c = cnstrnt ctxt x and d = cnstrnt ctxt b  in
-    match Cnstrnt.cmp c d with
-      | Binrel.Disjoint ->
-	  raise Exc.Inconsistent
-      | Binrel.Sub | Binrel.Same ->
-	  ([(x, b)], [])
-      | Binrel.Super ->
-	  ([(x, b)], [(x, d)])
-      | Binrel.Overlap(cd) ->
-	  ([(x, b)], [(x, cd)])
-      | Binrel.Singleton(q) ->
-	  let num = mk_num q in
-	  try
-	    match solve ctxt (b, num) with
-	      | None -> ([(x, num)], [])
-	      | Some(sl2, cl2) -> ((x, num) :: sl2, cl2)
-	  with
-	      Exc.Unsolved ->
-		([(x, b)], [(x, Cnstrnt.mk_singleton q)])
-  with
-      Not_found ->
-	([(x, b)], [])
-
-
-
-
-(*s Destructuring a polynomial into the monomial which satisfies predicate [f]
-  and the remaining polynomial. *)
-
-and destructure pred l =
-   let rec loop acc l =   
-     match l with 
-       | m :: ml ->
-	   let (p,x) = mono_of m in
-	   if pred x then
-	     ((p, x), List.rev acc @ ml)
-	   else
-	     loop (m :: acc) ml
-       | [] -> 
-	   raise Not_found
-   in
-   loop [] l
-
-
-(* Folding over [a] such that [a] always equal [pre + q * x + post]. *)
-
-let foldall f a e =
-  let rec loop pre post acc =
-    match post with
-      | [] -> acc
-      | m :: post' -> 
-	  let (q, x) = mono_of m in
-	  let acc' = f (mk_addl pre) q x (mk_addl post) acc in
-	  loop (m :: pre) post' acc'
-  in
-  loop [] (monomials a) e
-
-
-(*s Normalize a constraint. *)
-
-let normalize (a, i) = 
- let norm q p =           
-    if Mpa.Q.is_zero q && Mpa.Q.is_one p then i
-    else if Mpa.Q.is_zero q then Cnstrnt.multq (Mpa.Q.inv p) i
-    else Cnstrnt.multq (Mpa.Q.inv p) (Cnstrnt.addq (Mpa.Q.minus q) i)
-  in
-  if is_var a then
-    (a, i)
-  else 
-    match decompose a with     
-      | Const(q) -> 
-	  (a, i)
-      | One(q, p, x) ->          
-	  (x, norm q p)
-      | Many(q, p, x, y) -> 
-	  (mk_add x (mk_multq (Mpa.Q.inv p) y), norm q p)
