@@ -219,7 +219,8 @@ let to_prop p =
 	   with
 	       Not_found -> 
 		 let id = icsat_mk_var (Name.to_string x) in
-		   Nametbl.add vartbl x id;
+		   if not(Nametbl.mem vartbl x) then
+		     Nametbl.add vartbl x id;
 		   id)
       | Atom(a) -> 
 	  assert(Atom.is_negatable a);
@@ -228,7 +229,8 @@ let to_prop p =
 	  let j = atom_to_id b in
 	  let id = icsat_mk_atom i j in
 	    Trace.msg "foo6" "Idtbl.add" (a, id) (Pretty.pair Atom.pp Pretty.number);
-	    Atomtbl.add idtbl a id;
+	    if not(Atomtbl.mem idtbl a) then
+	      Atomtbl.add idtbl a id;
 	    id
       | Let(x, p, q) ->
 	  (match p with
