@@ -121,9 +121,21 @@ let of_pos a = of_atom(Pos(a))
 
 
 (* Construct an equality atom. *)
-let mk_equal (a, b) =
-  if Term.eq a b then mk_true else
+let rec mk_equal (a, b) =
+  if Term.eq a b then 
+    mk_true 
+  else if is_diseq_num a b then
+    mk_false
+  else 
     of_equal (Term.orient(a, b))
+
+and is_diseq_num a b =
+  match a, b with
+    | Term.App((Sym.Arith(Sym.Num(q)), _), [], _), 
+      Term.App((Sym.Arith(Sym.Num(p)), _), [], _) ->
+	not(Mpa.Q.equal q p)
+    | _ -> 
+	false
 
 
 (** Boolean constants for normalizing some diequalities. *)
@@ -145,7 +157,7 @@ module Boolean = struct
 
 end 
 
-let mk_diseq (a, b) =
+let rec mk_diseq (a, b) =
   if Term.eq a b then mk_false else
     if Boolean.is_true a then
       mk_equal (b, (Boolean.mk_false()))
@@ -155,8 +167,18 @@ let mk_diseq (a, b) =
       mk_equal (a, (Boolean.mk_false()))
     else if Boolean.is_false b then
       mk_equal (a, (Boolean.mk_true()))
+    else if is_equal_num a b then
+      mk_false
     else
       of_diseq (Term.orient (a, b))
+
+and is_equal_num a b = 
+  match a, b with
+    | Term.App((Sym.Arith(Sym.Num(q)), _), [], _), 
+      Term.App((Sym.Arith(Sym.Num(p)), _), [], _) ->
+	Mpa.Q.equal q p
+    | _ -> 
+	false
 
 let mk_nonneg a = of_atom(Nonneg(a))
 
