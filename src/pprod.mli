@@ -46,8 +46,6 @@ val mk_multl : Term.t list -> Term.t
   
 val mk_expt : Term.t -> int -> Term.t
   
-val divide : Term.t -> (Term.t * int) -> Term.t
-  
 val dom : (Term.t -> Dom.t) ->  Sym.pprod -> Term.t list -> Dom.t
   (** [tau lookup op al] returns a constraint in [Cnstrnt.t] given a [lookup]
     function, which is applied to each noninterpreted term, and by
