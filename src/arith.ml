@@ -128,8 +128,11 @@ let nonconstant_of a =
     | Term.App((Sym.Arith(op), _), l, _) ->
 	(match op, l with
 	   | Sym.Num(_), [] -> 
-	       mk_zero()
+	       mk_zero()  
+	   | Sym.Add, [Term.App((Sym.Arith(Sym.Num(_)), _), [], _); a1] ->
+	       a1
 	   | Sym.Add, (Term.App((Sym.Arith(Sym.Num(_)), _), [], _) :: al) ->
+	       assert(List.length al >= 2);
 	       Term.App.mk_app Sym.Arith.mk_add al
 	   | _ -> 
 	       a)
@@ -484,7 +487,7 @@ and mk_decr a =
 and mk_neg a =
   mk_multq (Q.minus (Q.one)) a
 
-and mk_sub a b =
+let mk_sub a b =
   mk_add a (mk_neg b)
 
 (** Mapping a term transformer [f] over [a]. *)
