@@ -27,6 +27,17 @@ AC_CHECK_PROG(OCAMLC,ocamlc,ocamlc,no)
 if test "$OCAMLC" = no ; then
 	AC_MSG_ERROR(Cannot find ocamlc.)
 fi
+	
+AC_MSG_CHECKING(for $OCAMLC version)
+ocamlc_version=`$OCAMLC -v | sed -e 's,[[^0-9.]],,g'`
+maj_ocamlc_version=`echo $ocamlc_version | cut -d. -f 1`
+min_ocamlc_version=`echo $ocamlc_version | cut -d. -f 2`
+if test $maj_ocamlc_version -lt 3 -o \( $maj_ocamlc_version -eq 3 -a $min_ocamlc_version -lt 4 \); then
+   AC_MSG_ERROR(Wrong version of $OCAMLC: $ocamlc_version - need at least 3.04)
+else
+   AC_MSG_RESULT($ocamlc_version)
+fi
+				
 AC_CHECK_PROG(OCAMLOPT,ocamlopt,ocamlopt,no)
 if test "$OCAMLOPT" = no ; then
 	AC_MSG_ERROR(Cannot find ocamlopt.)
