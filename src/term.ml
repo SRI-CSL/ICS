@@ -399,11 +399,6 @@ let rec subterm a b  =
     | Var _ -> false
     | App(_, l) -> List.exists (subterm a) (App.args_of b)
 
-let subterm a b =
-  Trace.func "foo" "subterm" (Pretty.pair pp pp) Pretty.bool
-    (fun (a, b) -> subterm a b)
-    (a, b)
-
 let occurs x b = subterm x b
 
 let is_pure i =
@@ -412,8 +407,6 @@ let is_pure i =
     | App(f, al) -> Th.of_sym f = i && List.for_all loop al
   in
     loop
-
-
 
 
 (** {6 Sets and maps of terms.} *)
