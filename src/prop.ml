@@ -441,13 +441,14 @@ let rec sat s p =
   try
     init s;
     let result = 
-      if icsat_sat (to_prop p) true then
-	begin
-	  debug();
-	  Some(assignment (), top())
-	end 
-      else 
-	None
+      let mode = if !Justification.proofmode = Justification.Mode.No then false else true in
+	if icsat_sat (to_prop p) true then
+	  begin
+	    debug();
+	    Some(assignment (), top())
+	  end 
+	else 
+	  None
     in
       if !statistics then
 	icsat_print_statistics();
