@@ -20,23 +20,16 @@ type t =
   | True
   | Equal of Term.t * Term.t           (* represents [a = b]. *)
   | Diseq of Term.t * Term.t           (* represents [a <> b]. *)
-  | In of Term.t * Interval.t          (* represents [a in d] *)
+  | In of Term.t * Sign.t              (* represents [a in d]. *) 
   | False
 
 let eq a b =
   match a, b with
-    | True, True -> 
-	true
-    | False, False -> 
-	true
-    | Equal(a1, b1), Equal(a2, b2) -> 
-	Term.eq a1 a2 && Term.eq b1 b2
-    | Diseq(a1, b1), Diseq(a2, b2) -> 
-	Term.eq a1 a2 && Term.eq b1 b2
-    | In(a1, d1), In(a2, d2) -> 
-	Term.eq a1 a2 && Interval.eq d1 d2
-    | _ -> 
-	false
+    | True, True -> true
+    | False, False -> true
+    | Equal(a1, b1), Equal(a2, b2) -> Term.eq a1 a2 && Term.eq b1 b2
+    | In(a1, d1), In(a2, d2) -> Term.eq a1 a2 && Sign.eq d1 d2
+    | _ -> false
 
 
 (** {6 Set of atoms} *)
@@ -84,29 +77,22 @@ let rec mk_diseq (a, b) =
     Diseq(a, b)
 	  
   
-let mk_in (a, i) =
-  if Interval.is_empty i then
-    False
-  else match Arith.linearize a with
-    | Arith.Const(q) -> 
-	if Interval.mem q i then True else False
-    | Arith.Linear(p, q, x, b) ->   (* [p + q * x + b in i] *)
-	assert(not(Q.is_zero q));
-	if Q.is_pos q then          (* [x + 1/q * b in 1/q*(-p + i) ] *)
-	  let a' = Arith.mk_add x (Arith.mk_multq (Q.inv q) b)
-	  and i' = Interval.multq (Q.inv q) (Interval.addq (Q.minus p) i) in
-	    In(a', i')
-	else 
-	(*  try
-	    let ci = Interval.complement i in
-	    let a' = Arith.mk_add x (Arith.mk_multq (Q.inv q) b)
-	    and i' = Interval.multq (Q.inv q) (Interval.addq (Q.minus p) ci) in
-	      In(a', i') 
-	  with
-	      Invalid_argument _ -> *)
-		let a' = Arith.mk_add (Arith.mk_multq q x) b
-		and i' = Interval.addq (Q.minus p) i in
-		  In(a', i')
+let mk_in (a, c) =
+  if Sign.is_empty c then
+    mk_false
+  else if Sign.is_zero c then
+    mk_equal (a, Arith.mk_zero)
+  else 
+    match Arith.d_num a with
+      | Some(q) -> 
+	  if Sign.mem q c then mk_true else mk_false
+      | None ->
+	  In(a, c)
+
+let mk_ge (a, b) = mk_in (Arith.mk_sub a b, Sign.nonneg)
+let mk_gt (a, b) = mk_in (Arith.mk_sub a b, Sign.pos)
+let mk_le (a, b) = mk_ge (b, a)
+let mk_lt (a, b) = mk_gt (b, a)
 	
 
 (** {6 Pretty-printing} *)
@@ -124,19 +110,16 @@ let pp fmt = function
       Term.pp fmt a;
       Pretty.string fmt " <> ";
       Term.pp fmt b
-  | In(a, i) ->
+  | In(a, c) -> 
       Term.pp fmt a;
       Pretty.string fmt " in ";
-      Interval.pp fmt i
-
-let mk_in =
-  Trace.func "foo" "Atom.mk_in" (Pretty.pair Term.pp Interval.pp) pp mk_in
+      Sign.pp fmt c
   
 
 (** {6 Negations of atoms} *)
 
 let is_negatable = function
-  | In(_, i) -> Interval.is_complementable i
+  | In(_, c) -> Sign.complementable c
   | _ -> true
 
 let negate = function
@@ -144,9 +127,8 @@ let negate = function
   | False -> mk_true
   | Equal(a, b) -> mk_diseq (a, b)
   | Diseq(a, b) -> mk_equal (a, b)
-  | In(a, i) when Interval.is_complementable i ->
-      mk_in (a, Interval.complement i)
-  | (In(x, i) as a) ->
+  | In(a, s) when Sign.complementable s -> mk_in (a, Sign.complement s)
+  | a ->
       let str = Pretty.to_string pp a in
 	raise (Invalid_argument ("Atom " ^ str ^ " not negatable."))
 
@@ -191,3 +173,7 @@ let is_connected a b =
       | Equal(s, t) -> terms_is_connected (s, t)
       | Diseq(s, t) -> terms_is_connected (s, t)
       | In(s, _) -> term_is_connected s
+
+
+
+

@@ -60,16 +60,17 @@ let mk_num =
 
 let mk_fresh_var x k = Var(Var.mk_fresh x k)
 
-let mk_slack k = Var(Var.mk_slack k)
+let mk_slack k = Var(Var.mk_slack(k))
 
 let is_fresh_var = function
   | Var(x) -> Var.is_fresh x
   | _ -> false
 
-let is_slack = function
-  | Var(x) -> Var.is_slack x
+let is_internal = function
+  | Var(x) -> Var.is_fresh x || Var.is_slack x 
   | _ -> false
 
+let is_slack = function Var(x) -> Var.is_slack x | _ -> false
 
 let is_var = function Var _ -> true | _ -> false
 let is_app = function App _ -> true | _ -> false

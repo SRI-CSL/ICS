@@ -19,16 +19,16 @@
 type t
   (** A constraint context consists of a conjunction of constraints
     of the form [x in i], where [x] is a term variable and [i] is
-    a constraint of type {!Interval.t}. *)
+    a constraint of type {!Sign.t}. *)
   
 
 (** {6 Accessors} *)
 
-val cnstrnts : t -> (Interval.t * Fact.justification option) Term.Map.t
+val cnstrnts : t -> (Sign.t * Fact.justification option) Term.Map.t
   (** [cnstrnts s] returns a map with bindings [x |-> (i, prf)] iff
     [x in i] is stored in [s] with justification [prf]. *)
 
-val apply : t -> Term.t -> Interval.t * Fact.justification option
+val apply : t -> Term.t -> Sign.t * Fact.justification option
   (** [apply s x] returns [i] if [x in i] is in [s]. Otherwise,
     [Not_found] is raised. *)
 
@@ -47,9 +47,9 @@ val eq : t -> t -> bool
 val empty : t 
   (** Empty constraint context. *)
 
-val add : Fact.cnstrnt -> t -> Term.Set.t * Fact.equal option * t
+val add : Fact.cnstrnt -> t -> Term.Set.t * t
 
-val merge : Fact.equal -> t -> Term.Set.t * Fact.equal option * t
+val merge : Fact.equal -> t -> Term.Set.t * t
   (** Merge a variable equality [x = y] in the constraint map by
     adding [x in ij] for the canonical variable [x], where [x in i],
     [y in j] are in the constraint map and [ij] is the intersection of
@@ -58,25 +58,9 @@ val merge : Fact.equal -> t -> Term.Set.t * Fact.equal option * t
     keep the invariant that the best available constraint
     are always associated with canonical variables. *)
 
-val diseq : Fact.diseq -> t -> Term.Set.t * Fact.equal option * t
+val diseq : Fact.diseq -> t -> Term.Set.t * t
   (** Propagate disequalities to the constraint part. *) 
 
-
-(** {6 Split predicates} *)
-
-val split : t -> Fact.cnstrnt list
-
-
-(** {6 Interval interpretation} *)
-
-val of_term : t -> Term.t -> Interval.t
-
-val holds : t -> (Term.t * Interval.t) -> Three.t
-
-
-(** {6 Predicates} *)
-
-val is_diophantine : t -> Term.t -> bool
 
 
 (** {6 Pretty-printing} *)

@@ -19,7 +19,7 @@
 type t = 
   | Term of Term.t
   | Atom of Atom.t
-  | Cnstrnt of Interval.t option
+  | Cnstrnt of Sign.t option
   | Optterm of Term.t option
   | Name of Name.t
   | Terms of Term.Set.t

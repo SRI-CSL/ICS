@@ -92,6 +92,12 @@ let is_multq = function
   | App(Arith(Multq(_)), _) -> true
   | _ -> false
 
+let rec is_diophantine is_int = function
+  | App(Arith(Num _), []) -> true
+  | App(Arith(Multq(_)), [x]) -> is_int x 
+  | App(Arith(Add), xl) -> List.for_all (is_diophantine is_int) xl
+  | a -> is_int a
+
 
 (** {6 Constants} *)
 
@@ -227,6 +233,26 @@ let of_list p ml =
 	  loop acc' ml
   in
     loop (mk_num p) ml
+
+(** Choose *)
+let choose f a =
+  let (p, ml) =  poly_of a in
+  let rec loop pre = function
+    | [] -> raise Not_found
+    | m :: post' ->              (* [a = p + pre + q*x + post]. *)
+	let (q, x) = mono_of m in
+	  if f (q, x) then
+	    (q, x, mk_addq p (mk_addl (pre @ post')))
+	  else 
+	    let pre' = pre @ [m] in
+	      loop pre' post'
+  in
+    loop [] ml
+
+let choose f =
+  Trace.func "foo5" "Choose" Term.pp (Pretty.triple Mpa.Q.pp Term.pp Term.pp)
+    (choose f)
+    
 
 (** Mapping a term transformer [f] over [a]. *)
 let rec map f a =
@@ -425,14 +451,14 @@ module Euclid = Euclid.Make(
 let rec zsolve (a, b) = 
   let (q, ml) = poly_of (mk_sub a b) in   (* [q + ml = 0] *)
     if ml = [] then
-      if Q.is_zero q then [], [] else raise(Exc.Inconsistent)
+      if Q.is_zero q then [] else raise(Exc.Inconsistent)
     else
       let (cl, xl) = vectorize ml in     (* [cl * xl = ml] in vector notation *)
 	match Euclid.solve cl (Q.minus q) with
 	  | None -> raise Exc.Inconsistent
 	  | Some(d, pl) -> 
 	      let (kl, gl) = general cl (d, pl) in
-		(kl, List.combine xl gl)
+		List.combine xl gl
 	     
 and vectorize ml =
   let rec loop (ql, xl) = function
@@ -468,6 +494,17 @@ and general al (d, pl) =
   in
     (!fl, loop al (List.map mk_num pl))
 
+
+let solve d e =
+  let (a, b, prf) = Fact.d_equal e in 
+  let prf' =  Fact.mk_rule "Arith.solve" [prf] in
+    if d = Dom.Int then
+      let sl = zsolve (a, b) in
+	List.map (fun (c, d) -> Fact.mk_equal c d prf') sl
+    else 
+      match qsolve (a, b) with
+	| None -> []
+	| Some(c, d) -> [Fact.mk_equal c d prf']
 
 
 (** Isolate [y] in a solved equality [x = a]. *)
@@ -583,4 +620,3 @@ let less (a, alpha, b) =
 
 let greater (a, alpha, b) =
   less (b, alpha, a)
-

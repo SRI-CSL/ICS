@@ -17,8 +17,7 @@
   A {b partition} consists of a
   - set of variable equalities [x = y], 
   - a set of variable disequalities [x <> y], and
-  - a set of variable constraints [x in i],
-  where [i] is an arithmetic constraint of type {!Supinf.t}.
+  - a set of variable constraints [x in c] with [c] a constraint in {!Sign.t}.
 
   @author Harald Ruess
 *)
@@ -46,16 +45,17 @@ val d : t -> Term.t -> (Term.t * Fact.justification option) list
     in the variable disequality part [d] of the partitioning [s].  Disequalities as
     obtained from the constraint part [c] are not necessarily included. *)
 
-val c : t -> Term.t -> Interval.t * Fact.justification option
+val c : t -> Term.t -> Sign.t * Fact.justification option
 
 (** {6 Recognizers} *)
 
 val is_equal : t -> Term.t -> Term.t -> Three.t
-  (** [is_equal s x y] for variables [x], [y] returns [Three.Yes] if [x] and
-    [y] belong to the same equivalence class modulo [s], that is, if [v s x]
-    and [v s y] are equal. The result is [Three.No] if [x] is in [deq y],
-    [y] is in [deq x], or [x in i] and [y in j] are constraints in [s] and [i],
-    [j] are disjoint. Otherwise, [Three.X] is returned. *)
+  (** [is_equal s x y] for variables [x], [y] returns 
+    - [Three.Yes] if [x] and [y] belong to the same equivalence class modulo [s], that is, if [v s x]
+      and [v s y] are equal,
+    - [Three.No] if [x] is in [deq y], [y] is in [deq x], or [x in i] and [y in j] are constraints in [s] and [i],
+      [j] are disjoint,
+    - [Three.X] otherwise. *)
  
 
 (** {6 Pretty-printing} *)
@@ -65,8 +65,7 @@ val pp : t Pretty.printer
 
 (** {6 Changed Sets} *)
 
-
-type changed = {chv: Term.Set.t; chd: Term.Set.t; chc: Term.Set.t}
+type changed = {chv: Term.Set.t; chd: Term.Set.t; chc : Term.Set.t}
 
 val is_unchanged : changed -> bool
 
@@ -76,21 +75,20 @@ val is_unchanged : changed -> bool
 val empty : t
   (** The [empty] partition. *)
 
-val merge : Fact.equal -> t -> changed * Fact.Equalset.t * t
+val merge : Fact.equal -> t -> changed * t
   (** [merge e s] adds a new variable equality [e] of the form [x = y] into
     the partition [s]. If [x] is already equal to [y] modulo [s], then [s]
     is unchanged; if [x] and [y] are disequal, then the exception [Exc.Inconsistent]
     is raised; otherwise, the equality [x = y] is added to [s] to obtain [s'] such
     that [v s' x] is identical to [v s' y]. *)
 
-val diseq : Fact.diseq -> t -> changed * Fact.Equalset.t * t
+val diseq : Fact.diseq -> t -> changed * t
   (** [diseq d s] adds a disequality of the form [x <> y] to [s]. If [x = y] is
     already known in [s], that is, if [is_equal s x y] yields [Three.Yes], then
     an exception [Exc.Inconsistent] is raised; if [is_equal s x y] equals [Three.No]
     the result is unchanged; otherwise, [x <> y] is added using [D.add]. *)
 
-val add : Fact.cnstrnt -> t -> changed * Fact.Equalset.t * t
-  (** Adding a constraint. *)
+val add : Fact.cnstrnt -> t -> changed * t
 
 val gc: (Term.t -> bool) -> t -> t
   (** [gc s] removes all internal variables which are not canonical. *)

@@ -107,8 +107,6 @@ let args () =
         "-usage", Arg.Set disable_usage_flag,     
 	"Disable printing of usage message";
         "-compactify", Arg.Set disable_compactify_flag,
-	"Use integer solver";
-        "-integer-solve", Arg.Set(Context.integer_solve),  
 	"Disable compactification";
         "-eot", Arg.String (fun str -> end_of_transmission := str), 
 	"Print string argument after each transmission";

@@ -28,6 +28,7 @@ let keyword =
     [ "arith", ARITH; "tuple", TUPLE;
       "in", IN; "inf", INF;
       "bot", BOT; "int", INT; "nonint", NONINT; "real", REAL; "top", TOP;
+      "pos", POS; "neg", NEG; "nonneg", NONNEG; "nonpos", NONPOS; "zero", ZERO;
       "bitvector", BV; "with", WITH;
       "proj", PROJ;
       "cons", CONS; "car", CAR; "cdr", CDR;

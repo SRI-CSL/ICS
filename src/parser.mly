@@ -40,6 +40,7 @@ let lastresult = ref(Result.Unit())
 
 let name_of_slack = Name.of_string "k"
 
+
 %}
 
 %token DROP CAN ASSERT EXIT SAVE RESTORE REMOVE FORGET RESET SYMTAB SIG VALID UNSAT
@@ -59,7 +60,7 @@ let name_of_slack = Name.of_string "k"
 %token <Name.t> PROPVAR
 
 %token IN
-%token BOT INT NONINT REAL BV TOP 
+%token BOT INT NONINT REAL BV TOP POS NEG NONNEG NONPOS ZERO
 %token INF NEGINF
 %token ALBRA ACLBRA CLBRA
 
@@ -193,7 +194,7 @@ var:
 	      | _ -> Term.mk_var $1
 	  with
 	      Not_found -> Term.mk_var $1 }
-| FRESH  { let (x,k) = $1 in 
+| FRESH  { let (x, k) = $1 in 
 	   let n = Name.of_string x in
 	     if Name.eq n name_of_slack then
 	       Term.mk_slack(Some(k))
@@ -301,10 +302,10 @@ negatable:
 | TT                       { Atom.mk_true }
 | term EQUAL term          { Atom.mk_equal($1, $3)}
 | term DISEQ term          { Atom.mk_diseq($1, $3) }
-| term LESS term           { Atom.mk_in(Arith.mk_sub $1 $3, Interval.mk_neg) }
-| term GREATER term        { Atom.mk_in(Arith.mk_sub $1 $3, Interval.mk_pos) }
-| term LESSOREQUAL term    { Atom.mk_in(Arith.mk_sub $1 $3, Interval.mk_nonpos) }
-| term GREATEROREQUAL term { Atom.mk_in(Arith.mk_sub $1 $3, Interval.mk_nonneg) }
+| term LESS term           { Atom.mk_lt ($1, $3) }
+| term GREATER term        { Atom.mk_gt ($1, $3) }
+| term LESSOREQUAL term    { Atom.mk_le ($1, $3) }
+| term GREATEROREQUAL term { Atom.mk_ge ($1, $3) }
 
 atom:
   negatable          { $1 }
@@ -312,32 +313,18 @@ atom:
 ;
 
 cnstrnt:
-  interval     { $1 }
+  INT          { Sign.integer }
+| REAL         { Sign.real }
 | name         { match Istate.type_of $1 with
-		   | Some(c) -> c
+		   | Some(c) -> Sign.domain c
 		   | None ->
 		       let str = Name.to_string $1 in
 			 raise (Invalid_argument ("No type definition for " ^ str)) }
-;
-
-interval: 
-  INT                                     { Interval.mk_int }
-| REAL                                    { Interval.mk_real }
-| INT leftendpoint COMMA rightendpoint    { Interval.make (Dom.Int, $2, $4) }
-| REAL leftendpoint COMMA rightendpoint   { Interval.make (Dom.Real, $2, $4) }
-| leftendpoint COMMA rightendpoint        { Interval.make (Dom.Real, $1, $3) }
-;
-
-leftendpoint:
-  LPAR NEGINF     { None }
-| LPAR rat        { Some(false, $2) }
-| LBRA rat        { Some(true, $2) }
-;
-
-rightendpoint:
-  INF RPAR          { None }
-| rat RPAR          { Some($1, false) }
-| rat RBRA          { Some($1, true) }
+| POS          { Sign.pos }
+| NEG          { Sign.neg }
+| NONNEG       { Sign.nonneg }
+| NONPOS       { Sign.nonpos }
+| ZERO         { Sign.zero }
 ;
 
 
@@ -351,8 +338,7 @@ signature:
 ;
 
 command: 
-  CAN atom                  { Result.Atom(Istate.can $2) }
-| CAN term                  { Result.Term(Istate.cant $2) }
+| CAN term                  { Result.Term(Istate.can $2) }
 | ASSERT optname atom       { Result.Process(Istate.process $2 $3) }
 | DEF name ASSIGN term      { Result.Unit(Istate.def $2 (Symtab.Term($4))) }
 | PROP name ASSIGN prop     { Result.Unit(Istate.def $2 (Symtab.Prop($4))) }

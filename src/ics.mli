@@ -19,12 +19,12 @@
   - switching between different logical contexts, and 
   - manipulating and normalizing terms.
 
-  There are two sets of interface functions.  The functional interface
+  There are two sets of interface functions.  The {b functional interface}
   provides functions for building up the main syntactic categories of
   ICS such as terms and atoms, and for extending logical contexts 
   using {!Ics.process},  which is side-effect free.
 
-  In contrast to this functional interface, the command interface
+  In contrast to this functional interface, the {b command interface}
   manipulates a global state consisting, among others, of symbol tables 
   and the current logical context.  The {!Ics.cmd_rep} procedure, which 
   reads commands from the current input channel and manipulates the global
@@ -115,25 +115,74 @@ val name_eq : name -> name -> bool
 (** {6 Arithmetic Constraints} *)
 
 (** An {b arithmetic constraint} consists of 
-  - a domain restriction,
-  - an interval with rational or unbounded endpoints, 
-  - and a set of rational disequality numbers. 
-  A real number satisfies such a constraint if
-  - it satisfies the domain restriction,
-  - it is a member of the interval, 
-  - it is none of the numbers in the disequality set.
-  To each constraint we associate the set of all reals satisfying
-  these requirements. For more details see description of 
-  module {!Cnstrnt}.
-*)
-
+  - a domain restriction, and 
+  - a sign restriction.
+  A real number satisfies such a constraint if it satisfies both
+  - the domain restriction and
+  - the sign restriction.
+  To each constraint [s] we associate the set [D(s)] of reals satisfying
+  these requirements. *)
 
 type cnstrnt
+
+val cnstrnt_pp : cnstrnt -> unit
+  (** Printing a constraint to standard output. *)
+
+val cnstrnt_mk_zero : unit -> cnstrnt
+  (** Constructing a constraints with [D(cnstrnt_mk_zero()) = {0}] *)
+
+val cnstrnt_mk_real : unit -> cnstrnt
+  (** [D(cnstrnt_mk_real)] is the real number line. *)
+
+val cnstrnt_mk_int : unit -> cnstrnt
+  (** [D(cnstrnt_mk_int)] is the set of integers. *)
+
+val cnstrnt_mk_pos : unit -> cnstrnt
+  (** [D(cnstrnt_mk_pos)] is the set of positive reals. *)
+
+val cnstrnt_mk_neg : unit -> cnstrnt
+ (** [D(cnstrnt_mk_neg)] is the set of negative reals. *)
+
+val cnstrnt_mk_nonneg : unit -> cnstrnt
+ (** [D(cnstrnt_mk_nonneg)] is the set of non-negative reals. *)
+
+val cnstrnt_mk_nonpos : unit -> cnstrnt
+ (** [D(cnstrnt_mk_nonpos)] is the set of non-positive reals. *)
+
+val cnstrnt_is_int : cnstrnt -> bool
+  (** [cnstrnt_is_int s] holds iff [D(s)] is a subset of the integers. *)
+
+val cnstrnt_is_empty : cnstrnt -> bool
+  (** [cnstrnt_is_empty(s)] holds iff [D(s)] is the empty set. *)
+
+val cnstrnt_is_pos : cnstrnt -> bool
+  (** [cnstrnt_is_pos s] holds iff [D(s)] is the set of positive reals *)
+
+val cnstrnt_is_neg : cnstrnt -> bool
+  (** [cnstrnt_is_neg s] holds iff [D(s)] is the set of negative reals *)
+
+val cnstrnt_is_nonneg : cnstrnt -> bool
+  (** [cnstrnt_is_nonneg s] holds iff [D(s)] is the set of non-negative reals *)
+
+val cnstrnt_is_nonpos : cnstrnt -> bool
+  (** [cnstrnt_is_nonpos s] holds iff [D(s)] is the set of non-positive reals *)
+
+val cnstrnt_eq : cnstrnt -> cnstrnt -> bool
+  (** [cnstrnt_eq s t] holds iff [D(s)] equals [D(t)]. *)
+
+val cnstrnt_sub : cnstrnt -> cnstrnt -> bool
+  (** [cnstrnt_sub s t] holds iff [D(s)] is a subset of [D(t)]. *)
+
+val cnstrnt_disjoint : cnstrnt -> cnstrnt -> bool
+  (** [cnstrnt_disjoint s t] holds iff the intersection of [D(s)]  and [D(t)] is empty. *)
+
+val cnstrnt_inter : cnstrnt -> cnstrnt -> cnstrnt
+  (** [D(cnstrnt_inter s t)] is the intersection of [D(s)] and [D(t)]. *)
 
 
 (** {6 Equality theories} *)
 
-(** An {b equality theory} is associated with each function symbol.
+(** An {b equality theory} is associated with each function symbol of terms.
  These theories are indexed by naturals between [0] and [maxtheories = 8] according
  to the following table
  - [0] Theory of uninterpreted function symbols.
@@ -167,7 +216,7 @@ val sym_eq : sym -> sym -> bool
   (** [sym_eq] tests for equality of two function symbols. *)
 
 val sym_cmp : sym -> sym -> int
-  (** [sym_cmpf g] provides a total ordering on function symbols.
+  (** [sym_cmp f g] provides a total ordering on function symbols.
     If it returns
     - a negative integer, then [f] is said to be smaller than [g],
     - [0], then [f] is equal to [g] and {!Ics.sym_eq}[(f, g)], and
@@ -184,14 +233,11 @@ val sym_d_uninterp : sym -> name
     an uninterpreted function symbol [f]. This accessor is
     undefined if {!Ics.sym_is_uninterp}[(f)] does not hold. *)
 
-
 (** {b Linear arithmetic} function symbols are either 
   - {i numerals} for representing all rational numbers, 
   - the {i addition} symbols, 
   - symbols for representing {i linear multiplication} by a 
-  rational of type {!Ics.q}. 
-*)
-
+  rational of type {!Ics.q}. *)
 
 val sym_mk_num : q -> sym
   (** [sym_mk_num q] constructs a numeral symbol for representing [q]. *)
@@ -225,8 +271,7 @@ val sym_d_multq : sym -> q
 
 (** Symbols of the {b product theory} consist of
   - tupling
-  - projections of the [i]-th component in a tuple of length [n]. 
-*)
+  - projections of the [i]-th component in a tuple of length [n]. *)
 
 val sym_mk_tuple : unit -> sym
   (** [sym_mk_tuple ()] constructs the symbol for tupling. *)
@@ -249,8 +294,7 @@ val sym_d_proj : sym -> int * int
 
 (** Symbols of the theory of {b coproducts} are eith
   - left and right injections,
-  - left and right coinjections
-*)
+  - left and right coinjections *)
 
 val sym_mk_inl : unit -> sym
   (** [sym_mk_inl ()] constructs symbol for left injection. *)
@@ -282,8 +326,7 @@ val sym_is_outr : sym -> bool
   - concatenation of a bitvector of width [n >= 0] with a bitvector of width [m >= 0],
   - extraction of bits [i] through [j] of a bitvector of length [n >= 0],
     ([0 <= i <= j < n]), and
-  - bitwise conditionals for bitvectors of length [n]. 
-*)
+  - bitwise conditionals for bitvectors of length [n]. *)
 
 val sym_mk_bv_const : string -> sym
   (** [sym_mk_bv_const str] constructs, say, a bitvector constant [01001]
@@ -322,12 +365,10 @@ val sym_mk_bv_bitwise : int -> sym
     for bitvectors of width [n >= 0]. *)
 
 val sym_is_bv_bitwise : sym -> bool
-  (** [sym_is_bv_bitwise f] holds iff [f] represents a logical bitwise operation
-    symbol. *)
+  (** [sym_is_bv_bitwise f] holds iff [f] represents a logical bitwise operation symbol. *)
 
 val sym_d_bv_bitwise : sym -> int
- (** [sym_d_bitwise f] returns [n] iff [f] represents a logical bitwise
-   operation of width [n]. *)
+ (** [sym_d_bitwise f] returns [n] iff [f] represents a logical bitwise operation of width [n]. *)
 
 
 (** Symbols from the theory of {b power products} include
@@ -356,8 +397,7 @@ val sym_d_expt : sym -> int
   - function application
 
   A function application symbol may have a constraint of type {!Ics.cnstrnt} associated
-  with it.
-*)
+  with it. *)
 
 val sym_mk_apply : cnstrnt option -> sym
  (** [sym_mk_apply co] constructs a symbol for function application with associated
@@ -379,8 +419,7 @@ val sym_is_abs : sym -> bool
 
 (** Symbols from the theory of {b arrays} include
   - array updates (write)
-  - array selection (read)
-*)
+  - array selection (read) *)
 
 val sym_mk_select : unit -> sym
   (** The array select symbol. *)
@@ -396,8 +435,7 @@ val sym_is_update : sym -> bool
 
 
 (** Symbols from the theory of {b arithmetic interpretations of bitvectors} include
-  - the {i unsigned} interpretation symbol. 
-*)
+  - the {i unsigned} interpretation symbol. *)
 
 val sym_mk_unsigned : unit -> sym
   (** Constructing the unsigned interpretation symbol. *)
@@ -467,8 +505,7 @@ val var_d_bound : var -> int
    
 (** Terms are either 
   - variables or
-  - applications of function symbols of type {!Ics.sym} to a list of terms.
-*)
+  - applications of function symbols of type {!Ics.sym} to a list of terms. *)
 
 type term
 
@@ -518,6 +555,7 @@ val term_mk_uninterp : string -> term list -> term
   (** [term_mk_uninterp s al] constructs an application of an 
     uninterpreted function symbol [s] to a list [al] of argument 
     terms. *)
+
 
 (** {b Linear arithmetic terms} are built-up from rational constants,
   linear multiplication of a rational with a variable, and n-ary
@@ -640,7 +678,7 @@ val term_mk_bwnot : int -> term -> term
     for a bitvectors [a] of width [n]. *)
 
 
-(** Boolean constants. *)
+(** {b Boolean Term Constants.} *)
     
 val term_mk_true  : unit -> term
   (** The propositional constant [term_mk_true()] is encoded
@@ -660,7 +698,10 @@ val term_is_false : term -> bool
 (** {b Coproducts} *)
 
 val term_mk_inj : int -> term -> term
+  (** [term_mk_inj n a] constructs a term for [n]-ary injection. *)
+
 val term_mk_out : int -> term -> term
+  (** [term_mk_out n a] constructs a term for [n]-ary outjection. *)
 
 
 (** Builtin simplifying constructors. *)
@@ -683,9 +724,9 @@ val term_mk_apply : term -> term list -> term
 
 type terms
 
-(** {6 Interpretation Domains} *)
+val terms_of_list : term list -> terms
 
-type dom
+val terms_to_list : terms -> term list
 
 
 (** {6 Atoms} *)
@@ -699,17 +740,33 @@ type dom
  Atoms are printed to [stdout] using [atom_pp]. *)
 
 type atom
+  (** An {b atom} is either
+    - the trivially true atom [atom_mk_true],
+    - the unsatisfiable [atom_mk_false],
+    - an equality atom [atom_mk_equal a b],
+    - a disequality atom [atom_mk_diseq a b], or
+    - a constraint atom [atom_mk_in a c], which
+      constrains [a] to be interpreted over the domain [D(c)] associated
+      with the constraint [c] of type {!Ics.cnstrnt}. *)
 
 val atom_pp : atom -> unit
 
 val atom_of_string : string -> atom
 val atom_to_string : atom -> string
-      
+     
+val atom_mk_true : unit -> atom
+val atom_mk_false : unit -> atom
 val atom_mk_equal  : term -> term -> atom
 val atom_mk_diseq  : term -> term -> atom
 val atom_mk_in  : term -> cnstrnt -> atom
-val atom_mk_true : unit -> atom
-val atom_mk_false : unit -> atom
+
+val atom_mk_le : term -> term -> atom
+val atom_mk_lt : term -> term -> atom
+val atom_mk_ge : term -> term -> atom
+val atom_mk_gt : term -> term -> atom
+val atom_mk_real : term -> atom
+val atom_mk_int : term -> atom
+
 
 val atom_is_negatable : atom -> bool
 val atom_negate : atom -> atom
@@ -722,43 +779,14 @@ val atoms_add : atom -> atoms -> atoms
 val atoms_to_list : atoms -> atom list
 
 
-(** Derived atomic constraints. [atom_mk_int t] restricts the domain of 
-  interpretations of term [t] to the integers. Similarly, [atom_mk_real] 
-  restricts its argument to the real numbers. [atom_mk_lt a b] generates
-  the constraint ['a' < 'b'],  [atom_mk_le a b] yields ['a' <= 'b'], 
-  [atom_mk_gt a b] yields ['a' > 'b'], and [atom_mk_ge a b] yields ['a' >= 'b'].
-*)
-
-val atom_mk_real : term -> atom
-val atom_mk_int : term -> atom
-    
-val atom_mk_lt : term -> term -> atom
-val atom_mk_le : term -> term -> atom
-val atom_mk_gt : term -> term -> atom
-val atom_mk_ge : term -> term -> atom
-
-
-
 (** {6 Solutions sets} *)
 
-(** Solution sets. *)
-
 type solution
+  (** A {b solution set} is a set of equalities [a = b] over terms [a], [b]. *)
 
-val solution_apply : solution -> term -> term
-
-val solution_find : solution -> term -> term
-
-val solution_inv : solution -> term -> term
-
-val solution_mem : solution -> term -> bool
-
-val solution_occurs : solution -> term -> bool
-
-val solution_use : solution -> term -> terms
-
-val solution_is_empty : solution -> bool
-
+val solution_to_list : solution -> (term * term) list
+  (** Representing a solution set [{a1 = b1,...,an = bn}] as a list of
+    pairs [(ai, bi)]. *)
 
 
 (** {6 Logical Context} *)
@@ -767,39 +795,56 @@ val solution_is_empty : solution -> bool
 type context
   (** A logical context represents a conjunction of atoms. *)
 
+val context_pp : context -> unit
+  (** Pretty-printing a context to standard output. *)
+
+val context_ctxt_pp : context -> unit
+  (** Pretty-printing the logical context in a way that can be read in again by the parser. *)
+
 val context_eq : context -> context -> bool
   (** [context_eq s1 s2] is a constant-time predicate for 
     testing for identity of two states. Thus, whenever this 
     predicate holds, its corresponding contexts are logically
     equivalent. *)
- 
+
+val context_ctxt_of : context -> atoms
+  (** [context_ctxt_of s] returns the logical context of [s] as a set of atoms. *)
+  
+val context_solution_of : context -> int -> solution
+  (** [context_solution_of th s] returns the solution set for theory [th] in [s]. *)
+  
+val context_mem : int -> context -> Term.t -> bool
+  (** [context_mem th s x] iff [x = _] is in the solution set for theory [th] in [s]. *)
+  
+val context_apply : int -> context -> Term.t -> Term.t
+  (** [apply th s x] is [a] when [x = a] is in the solution set for theory [th]
+    in [s]; otherwise [Not_found] is raised. *)
+  
+val context_find : int -> context -> Term.t -> Term.t
+  (** [find th s x] is [a] if [x = a] is in the solution set for theory [th]
+    in [s]; otherwise, the result is just [x]. *)
+  
+val context_inv : int -> context -> Term.t -> Term.t
+  (** [inv th s a] is [x] if there is [x = a] in the solution set for
+    theory [th]; otherwise [Not_found] is raised. *)
+  
+val context_use : int -> context -> Term.t -> Term.Set.t
+  (** [use th s x] consists of the set of all term variables [y] such
+    that [y = a] in [s], and [x] is a variable [a]. *)
+
+
 val context_empty : unit -> context
   (** [context_empty()] represents the empty logical context. *)
 
-val context_ctxt_of : context -> atom list
-  (** [context_ctxt_of c] returns a set of atoms whose
-    conjunction is represented by [c].  This set is not
-    necessarily minimal. *)
-
-val context_u_of : context -> solution
-
-val context_a_of : context -> solution
-
-val context_t_of : context -> solution
-
-val context_bv_of : context -> solution
-
-val context_pp : context -> unit
-
-val context_ctxt_pp : context -> unit
-
 type status
+  (** Inhabitants of type status are used as return values for {!Ics.process}. *)
     
 val is_consistent   : status -> bool
 val is_redundant    : status -> bool
 val is_inconsistent : status -> bool
 
 val d_consistent : status -> context
+  (** In case [is_consistent st] holds, [d_consistent st] returns a new context. *)
     
 val process : context -> atom -> status
   (** The operation [process s a] adds a new atom [a] to a logical context [s].
@@ -823,10 +868,9 @@ val process : context -> atom -> status
     see also {!Ics.split}. *)
 
 val split : context -> atom list
-  (** Suggesting case splits. *)
+  (** Suggested case splits. *)
 
-
-val can : context -> atom -> atom
+val can : context -> term -> term
   (** Given a logical context [s] and an atom [a],
     [can s a] computes a semicanonical form of [a] in [s], that is,
     - if [a] holds in [s] it returns [Atom.True], 
@@ -884,8 +928,8 @@ val prop_d_neg : prop -> prop
 (** {6 Commands} *)
 
 (** An imperative state [istate] does not only include a logical 
- context of type [state] but also a symbol table and input and output 
- channels. A global [istate] variable is manipulated and
+ context of type [state] but also a symbol table and input and 
+ output channels. A global [istate] variable is manipulated and
  destructively updated by commands. *)
 
 val init : int * bool * string * inchannel * outchannel -> unit
@@ -903,7 +947,8 @@ val cmd_rep : unit -> unit
     accordingly, and outputs the result to the current output channel. *)
 
 val cmd_batch : unit -> unit
-
+  (** Similar to {!Ics.cmd_rep}, but syntax error messages contain line numbers,
+    and processing is aborted after state is unsatisfiable. *)
 
 val flush : unit -> unit
 
@@ -936,13 +981,15 @@ val trace_reset : unit -> unit
   (** [trace_reset()] disables all tracing. *)
 
 val trace_add : string -> unit
-  (** [trace_add str] enables tracing of functions associated with trace level [str]. *)
+  (** [trace_add str] enables tracing of functions associated with trace level [str].
+    For example, [trace_add "rule"] traces the calls for processing all generated equalities,
+    disequalities, and constraints. *)
 
 val trace_remove : string -> unit
   (** [trace_remove str] removes [str] from the set of active trace levels *)
 
 val trace_get : unit -> string list
-    (** [trace_get()] returns the set of active trace levels. *) 
+    (** [trace_get()] returns the set of active trace levels. *)
 
 
 (** {6 Lists} *)
@@ -991,4 +1038,7 @@ val is_some : 'a option -> bool
 val is_none : 'a option -> bool
 
 val value_of : 'a option -> 'a
+
+
+
 

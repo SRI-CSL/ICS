@@ -68,7 +68,64 @@ let _ = Callback.register "name_eq" name_eq
 
 (** Constrains. *)
 
-type cnstrnt = Interval.t
+type cnstrnt = Sign.t
+
+let cnstrnt_pp s = 
+  Sign.pp Format.std_formatter s;
+  Format.print_flush ()
+let _ = Callback.register "cnstrnt_pp" cnstrnt_pp
+
+let cnstrnt_mk_zero () = Sign.zero
+let _ = Callback.register "cnstrnt_mk_zero" cnstrnt_mk_zero
+
+let cnstrnt_mk_real () = Sign.real
+let _ = Callback.register "cnstrnt_mk_real" cnstrnt_mk_real
+
+let cnstrnt_mk_int () = Sign.integer
+let _ = Callback.register "cnstrnt_mk_int" cnstrnt_mk_int
+
+let cnstrnt_mk_pos () = Sign.pos
+let _ = Callback.register "cnstrnt_mk_pos" cnstrnt_mk_pos
+
+let cnstrnt_mk_neg () = Sign.neg
+let _ = Callback.register "cnstrnt_mk_neg" cnstrnt_mk_neg
+
+let cnstrnt_mk_nonneg () = Sign.nonneg
+let _ = Callback.register "cnstrnt_mk_nonneg" cnstrnt_mk_nonneg
+
+let cnstrnt_mk_nonpos () = Sign.nonpos
+let _ = Callback.register "cnstrnt_mk_nonpos" cnstrnt_mk_nonpos
+
+let cnstrnt_is_int s = Dom.eq (Sign.dom s) Dom.Int
+let _ = Callback.register "cnstrnt_is_int" cnstrnt_is_int
+
+let cnstrnt_is_empty = Sign.is_empty
+let _ = Callback.register "cnstrnt_is_empty" cnstrnt_is_empty
+
+let cnstrnt_is_pos s = (Sign.sign s = Sign.Pos)
+let _ = Callback.register "cnstrnt_is_pos" cnstrnt_is_pos
+
+let cnstrnt_is_neg s = (Sign.sign s = Sign.Neg)
+let _ = Callback.register "cnstrnt_is_neg" cnstrnt_is_neg
+
+let cnstrnt_is_nonneg s = (Sign.sign s = Sign.Nonneg)
+let _ = Callback.register "cnstrnt_is_nonneg" cnstrnt_is_nonneg
+
+let cnstrnt_is_nonpos s = (Sign.sign s = Sign.Nonpos)
+let _ = Callback.register "cnstrnt_is_nonpos" cnstrnt_is_nonpos
+
+let cnstrnt_eq = Sign.eq
+let _ = Callback.register "cnstrnt_eq" cnstrnt_eq
+
+let cnstrnt_sub = Sign.sub
+let _ = Callback.register "cnstrnt_sub" cnstrnt_sub
+
+let cnstrnt_disjoint = Sign.disjoint
+let _ = Callback.register "cnstrnt_disjoint" cnstrnt_disjoint
+
+let cnstrnt_inter = Sign.inter
+let _ = Callback.register "cnstrnt_inter" cnstrnt_inter
+
 
 (** Theories. *)
 
@@ -450,23 +507,23 @@ let _ = Callback.register "atom_mk_false" atom_mk_false
 let atom_mk_in a i = Atom.mk_in (a, i)
 let _ = Callback.register "atom_mk_in" atom_mk_in
 
-let atom_mk_real a = Atom.mk_in (a, Interval.mk_real)
+let atom_mk_real a = Atom.mk_in (a, Sign.real)
 let _ = Callback.register "atom_mk_real" atom_mk_real
 
-let atom_mk_int a = Atom.mk_in (a, Interval.mk_int)
+let atom_mk_int a = Atom.mk_in (a, Sign.integer)
 let _ = Callback.register "atom_mk_int" atom_mk_int
 
 
-let atom_mk_lt a b = Atom.mk_in (Arith.mk_sub a b, Interval.mk_neg)
+let atom_mk_lt a b = Atom.mk_lt (a, b)
 let _ = Callback.register "atom_mk_lt"  atom_mk_lt
 
-let atom_mk_le a b = Atom.mk_in (Arith.mk_sub a b, Interval.mk_nonpos)
+let atom_mk_le a b = Atom.mk_le (a, b)
 let _ = Callback.register "atom_mk_le"  atom_mk_le
 
-let atom_mk_gt a b = atom_mk_lt b a
+let atom_mk_gt a b = Atom.mk_gt (a, b)
 let _ = Callback.register "atom_mk_gt" atom_mk_gt
 
-let atom_mk_ge a b = atom_mk_le b a
+let atom_mk_ge a b = Atom.mk_ge (a, b)
 let _ = Callback.register "atom_mk_ge" atom_mk_ge
 
 let atom_is_negatable = Atom.is_negatable
@@ -628,6 +685,13 @@ let _ = Callback.register "term_mk_apply" term_mk_apply
 
 type terms = Term.Set.t
 
+let terms_to_list = Term.Set.elements
+let _ = Callback.register "terms_to_list" terms_to_list
+
+let terms_of_list = List.fold_left (fun acc a -> Term.Set.add a acc) Term.Set.empty
+let _ = Callback.register "terms_of_list" terms_of_list
+
+
 (* Term map. *)
 
 type 'a map = 'a Term.Map.t
@@ -662,21 +726,8 @@ let _ = Callback.register "trace_get" trace_get
 
 type solution = Solution.t
 
-let solution_apply s x = Solution.apply s x
-
-let solution_find s x = Solution.find s x
-
-let solution_inv s b = Solution.inv s b
-
-let solution_mem = Solution.mem
-
-let solution_occurs = Solution.occurs
-
-let solution_use = Solution.use
-
-let solution_is_empty = Solution.is_empty
-
-
+let solution_to_list = Solution.to_list 
+let _ = Callback.register "solution_to_list" solution_to_list
 
 
 (** States. *)
@@ -689,20 +740,26 @@ let _ = Callback.register "context_eq" context_eq
 let context_empty () = Context.empty
 let _ = Callback.register "context_empty" context_empty
 
-let context_ctxt_of s = (Atom.Set.elements (Context.ctxt_of s))
+let context_ctxt_of = Context.ctxt_of
 let _ = Callback.register "context_ctxt_of" context_ctxt_of
 
-let context_u_of s = Context.eqs_of s Th.u
-let _ = Callback.register "context_u_of" context_u_of
+let context_use i = Context.use (Th.of_int i)
+let _ = Callback.register "context_use" context_use
 
-let context_a_of s = Context.eqs_of s Th.la
-let _ = Callback.register "context_a_of" context_a_of
+let context_inv i = Context.inv (Th.of_int i)
+let _ = Callback.register "context_inv" context_inv
 
-let context_t_of s = Context.eqs_of s Th.p
-let _ = Callback.register "context_t_of" context_t_of
+let context_find i = Context.find (Th.of_int i)
+let _ = Callback.register "context_find" context_find
 
-let context_bv_of s =  Context.eqs_of s Th.bv
-let _ = Callback.register "context_bv_of" context_bv_of
+let context_apply i = Context.apply (Th.of_int i)
+let _ = Callback.register "context_apply" context_apply
+
+let context_mem i = Context.mem (Th.of_int i)
+let _ = Callback.register "context_mem" context_mem
+
+let context_solution_of s i = Context.eqs_of s (Th.of_int i)
+let _ = Callback.register "context_solution_of" context_solution_of
 
 let context_pp s = Context.pp Format.std_formatter s; Format.print_flush()
 let _ = Callback.register "context_pp" context_pp
@@ -717,9 +774,7 @@ let context_ctxt_pp s =
 	 Pretty.string fmt " .")
       al;
     Format.print_flush()
-let _ = Callback.register "context_ctxt_pp" context_ctxt_pp
-
-	  
+let _ = Callback.register "context_ctxt_pp" context_ctxt_pp  
 
 (** Processing of new equalities. *)
 
@@ -758,7 +813,7 @@ let _ = Callback.register "split" split
 
 (** Normalization functions *)
 
-let can = Context.Can.atom
+let can = Context.can
 let _ = Callback.register "can" can
 
 let read_from_channel ch = 

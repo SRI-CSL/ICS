@@ -53,7 +53,7 @@ let cmp x y =
     | Fresh(n, i), Fresh(m, j) -> 
 	let c1 = Name.cmp n m in
 	if c1 != 0 then c1 else Pervasives.compare i j
-    | Slack(i), Slack(j) ->  (* newer slack vars are smaller *)
+    | Slack(i), Slack(j) ->        (* newer slack vars are smaller *)
 	-(Pervasives.compare i j)
     | Slack _, _ -> -1
     | _, Slack _ -> 1
@@ -106,12 +106,13 @@ let mk_fresh x = function
 
 let mk_free i = Bound(i)
 
-let mk_slack = function
-  | Some(k) -> 
-      Slack(k)
-  | None ->
-      incr(k);
-      Slack(!k)
+let mk_slack (i) =
+  match i with
+    | Some(k) -> 
+	Slack(k)
+    | None ->
+	incr(k);
+	Slack(!k)
 
 (** {6 Recognizers} *)
 
@@ -124,7 +125,6 @@ let is_slack = function Slack _ -> true | _ -> false
 let d_free = function
   | Bound(i) -> i
   | _ -> assert false
-
 
 (** {6 Printer} *)
 

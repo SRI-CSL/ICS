@@ -60,14 +60,13 @@ let union x y prf s =
   in
     {find = Map.add x (y, prf) s.find;
      inv = Map.add y invy s.inv;
-     removable = if is_fresh_var x then Set.add x s.removable else s.removable}
+     removable = if is_internal x then Set.add x s.removable else s.removable}
 
 
-(*
 let restrict x s =
   try
     let (y, prf) = apply s x in              (* [prf |- x = y]. *)
-      Trace.msg "v" "Restrict" x pp;
+      Trace.msg "v" "Restrict" x Term.pp;
       let  (y, _) = find s y in              (* now get canonical [y]. *)
       let find' =
 	let newfind = Map.remove x s.find in (* remove [x |-> y]. *)
@@ -95,9 +94,14 @@ let restrict x s =
 	{find = find'; inv = inv'; removable = Set.remove x s.removable}
   with
       Not_found -> s
-*)
 
-let gc f s = s
+let gc f s =
+  Set.fold
+    (fun x s ->
+       if f x then restrict x s else s)
+    s.removable
+    s
+  
 
 
 (** Variable equality modulo [s]. *)
@@ -236,35 +240,17 @@ let partition s =
 let pp fmt s =
   if not(is_empty s) then
     let m = partition s in
-    let l = Map.fold (fun x ys acc -> (x, Set.elements ys) :: acc) m [] in
+    let l = Map.fold 
+	      (fun x ys acc -> 
+		 match Set.elements ys with
+		   | [_] -> acc   (* restrict may lead to singleton sets. *)
+		   | yl -> (x, yl) :: acc) 
+	      m [] 
+    in
     Pretty.string fmt "\nv:";
-    Pretty.map Term.pp (Pretty.set Term.pp) fmt l
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    Pretty.list
+      (fun fmt (x, ys) -> 
+	 Term.pp fmt x;
+	 Pretty.string fmt ":";
+	 Pretty.set Term.pp fmt ys)
+      fmt l

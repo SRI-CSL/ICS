@@ -138,11 +138,8 @@ let ctxt_of = function
 
 (** Canonization w.r.t current state. *)
 
-let can a =
-  Context.Can.atom s.current a
-    
-let cant a = 
-  Context.Can.term s.current a
+let can a = 
+  Context.can s.current a
 
 let sigma f l =
   Context.sigma s.current f l
@@ -214,7 +211,7 @@ let unsat n a =
 
 let diseq n a =
   let s = get_context n in
-  let a' = Context.Can.term s a in
+  let a' = Context.can s a in
   try
     Context.d s a'
   with
@@ -222,7 +219,7 @@ let diseq n a =
 
 let cnstrnt n a =
   let s = get_context n in
-  let a' = Context.Can.term s a in
+  let a' = Context.can s a in
     try
       Some(Context.cnstrnt s a')
     with
@@ -252,21 +249,15 @@ let solve i (a, b) =
       List.map (fun e' -> 
 		  let (x, b, _) = Fact.d_equal e' in
 		    (x, b))
-	(Th.solve i e)
+	(Context.solve i s.current e)
   with
     | Exc.Inconsistent -> raise(Invalid_argument("Unsat"))
-    | Exc.Unsolved -> raise(Invalid_argument("Unsolvable"))
  
 (** Equality/disequality test. *)
 
 let is_equal a b =
-  Context.Can.eq s.current a b
+  Context.is_equal s.current a b = Three.Yes
 
-let is_int a =
-  try
-   Context.is_int s.current a
-  with
-      Not_found -> false
 
 (** Sat solver *)
 

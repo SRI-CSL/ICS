@@ -19,8 +19,7 @@
   A {b logical context} is simply a conjunction [ctxt] of atoms.  When atoms 
   are added to a logical context, the following datastructures are maintained.
   - A {b partitioning} [p] of type {!Partition.t} consisting of variable 
-    equalities and variable disequalities.
-  - A set of {b arithmetic constraints}.
+    equalities, variable disequalities, and variable constraints.
   - A {b solution set} for every equality theory defined in {!Th}. 
   - An upper bound on the indices of all fresh variables in all the data
     structures above.
@@ -28,6 +27,9 @@
 
 type t
   (** Representation of logical contexts. *)
+
+val eq : t -> t -> bool
+  (** Identity test on contexts. *)
 
 (** {6 Accessors} *)
 
@@ -70,25 +72,10 @@ val v_of : t -> V.t
 val d_of : t -> D.t
 val c_of : t -> C.t
 
-val cnstrnt_of : t -> Term.t -> Fact.cnstrnt
-  (** [cnstrnt_of s x] returns a constraint [c] for a variable [x]
-    or throws [Not_found]. *)
-
-val deqs_of : t -> Term.t -> Fact.diseq list
-  (** [diseqs_of s x] returns the set of known disequalities for [x] *)
-
-(*
-val equality : Th.t -> t -> Term.t -> Fact.equal
-  (** [equality th s x] returns a fact for the equality [x = a],
-    if in [s]; otherwise [Not_found] is raised. *)
-*)
-
 val pp : t Pretty.printer
   (** Pretty-printing the context of a state. *)
 
-val cnstrnt : t -> Term.t -> Interval.t
-
-val is_int : t -> Term.t -> bool
+val cnstrnt : t -> Term.t -> Sign.t
 
 val v : t -> Term.t -> Term.t
   (** [v s x] returns the canonical variable in [s] of the equivalence 
@@ -98,17 +85,15 @@ val d : t -> Term.t -> Term.t list
   (** [d s x] returns the set of variable terms known to be disequal
     in the partitioning of [s]. *)
 
-val c : t -> Term.t -> Interval.t
-  (** [c s x] looks up a constraint for [x] in the partitioning part
-    of [s]. If no such constraint is known, [Not_found] is raised. *)
-
+val c : t -> Term.t -> Sign.t
 
 (** {6 Predicates} *)
 
 val is_equal : t -> Term.t -> Term.t -> Three.t
-
-val eq : t -> t -> bool
-  (** Identity test on contexts. *)
+  (** [is_equal s a b] is 
+    - {!Three.T} if the equality [a = b] can be shown to hold in [s], 
+    - {!Three.F} if the disequality [a <> b] can be shown to hold in [s], and
+    - {!Three.X} otherwise. *)
 
 
 (** {6 Canonizer and Solver} *)
@@ -116,16 +101,10 @@ val eq : t -> t -> bool
 val sigma : t -> Sym.t -> Term.t list -> Term.t
   (** [sigma] normal form. *)
 
-module Can : sig
-  val term : t -> Term.t -> Term.t
-  val atom : t -> Atom.t -> Atom.t
-  val eq : t -> Term.t -> Term.t -> bool
-end
+val can : t -> Term.t -> Term.t
 
 val solve : Th.t -> t -> Fact.equal -> Fact.equal list
   (** [solve i s (a, b)] applies solver for theory [i] on equality [a = b]. *)
-
-val integer_solve : bool ref
 
 
 (** {6 Constructors} *)

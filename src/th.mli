@@ -27,7 +27,9 @@ val eq : t -> t -> bool
 
 val u : t          (** Theory of uninterpreted function symbols. *)
 
-val la : t         (** Linear arithmetic theory. *)
+val la : t         (** Rational linear arithmetic. *)
+
+val z : t          (** Integer linear arithmetic. *)
 
 val p : t          (** Product theory. *)
 

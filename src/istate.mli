@@ -59,7 +59,7 @@ val ctxt_of : Name.t option -> Atom.Set.t
 val diseq : Name.t option -> Term.t -> Term.t list
   (** Disequalities. *)
   
-val cnstrnt : Name.t option -> Term.t -> Interval.t option
+val cnstrnt : Name.t option -> Term.t -> Sign.t option
   (** Constraint. *)
 
 
@@ -122,7 +122,7 @@ val sgn : Name.t -> int -> unit
     current symbol table. Raises [Invalid_argument], if [n] is already in 
     the domain of the table. *)
 
-val typ : Name.t -> Interval.t -> unit
+val typ : Name.t -> Dom.t -> unit
   (** [typ n i] adds a {i type definition} [n] for type [i] to the
     current symbol table. Raises [Invalid_argument], if [n] is already in 
     the domain of the table. *)
@@ -130,7 +130,7 @@ val typ : Name.t -> Interval.t -> unit
 val entry_of : Name.t -> Symtab.entry option
   (** [entry_of n] returns the entry for name [n] in the current symbol table. *)
 
-val type_of : Name.t -> Interval.t option
+val type_of : Name.t -> Dom.t option
   (** [type_of n] returns the corresponding type for the
     type definition [n] in the current symbol table. *)
 
@@ -142,10 +142,7 @@ val width_of : Term.t -> int option
 
 (** Canonization w.r.t current state. *)
 
-val can : Atom.t -> Atom.t
-  (** [can a] normalizes atom [a] w.r.t the current logical context. *)
-
-val cant : Term.t -> Term.t
+val can : Term.t -> Term.t
   (** [cant a] canonizes term [a] w.r.t the current logical context. *)
 
 val sigma : Sym.t -> Term.t list -> Term.t

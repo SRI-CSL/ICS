@@ -25,7 +25,7 @@ and equal = Term.t * Term.t * justification option
 
 and diseq = Term.t * Term.t * justification option
 
-and cnstrnt = Term.t * Interval.t * justification option
+and cnstrnt = Term.t * Sign.t * justification option
 
 and rule = string 
 
@@ -55,7 +55,7 @@ let mk_diseq x y j =
     (x, y, j)
 
 let mk_cnstrnt x c j = 
-  Trace.msg "fact" "Cnstrnt" (x, c) (Pretty.infix Term.pp " in " Interval.pp);
+  Trace.msg "fact" "Cnstrnt" (x, c) (Pretty.infix Term.pp " in " Sign.pp);
   (x, c, j)
 
 
@@ -70,7 +70,7 @@ let of_cnstrnt c = Cnstrnt(c)
 let rec pp fmt = function
   | Equal(x, y, _) ->  Pretty.infix Term.pp "=" Term.pp fmt (x, y)
   | Diseq(x, y, _) ->  Pretty.infix Term.pp "<>" Term.pp fmt (x, y)
-  | Cnstrnt(x, c, _) -> Pretty.infix Term.pp "in" Interval.pp fmt (x, c)
+  | Cnstrnt(x, c, _) -> Pretty.infix Term.pp "in" Sign.pp fmt (x, c)
 
 and pp_equal fmt e = 
   let (x, y, _) = d_equal e in
@@ -82,7 +82,7 @@ and pp_diseq fmt d =
 
 and pp_cnstrnt fmt c = 
   let (x, i, _) = d_cnstrnt c in
-  Pretty.infix Term.pp "in" Interval.pp fmt (x, i)
+  Pretty.infix Term.pp "in" Sign.pp fmt (x, i)
 
 module Equalset = Set.Make(
   struct

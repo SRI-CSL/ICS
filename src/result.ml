@@ -16,7 +16,7 @@
 type t = 
   | Term of Term.t
   | Atom of Atom.t
-  | Cnstrnt of Interval.t option
+  | Cnstrnt of Sign.t option
   | Optterm of Term.t option
   | Name of Name.t
   | Terms of Term.Set.t
@@ -38,7 +38,7 @@ exception Result of t
 let output fmt = function
   | Term(t) -> Term.pp fmt t
   | Atom(a) -> Atom.pp fmt a
-  | Cnstrnt(Some(c)) -> Interval.pp fmt c
+  | Cnstrnt(Some(c)) -> Sign.pp fmt c
   | Cnstrnt(None) -> Format.fprintf fmt "None"
   | Optterm(Some(t)) -> Term.pp fmt t
   | Optterm(None) -> Format.fprintf fmt "None"

@@ -109,10 +109,6 @@ module Q = struct
     let b = compare x y in
     if b == 0 then Equal else if b > 0 then Greater else Less
 
-  let sign x =
-    let b = compare x zero in
-    if b == 0 then Sign.Zero else if b > 0 then Sign.Pos else Sign.Neg
-
   let denominator = Q.get_den
   let numerator = Q.get_num
 

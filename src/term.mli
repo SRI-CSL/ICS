@@ -75,6 +75,8 @@ val is_fresh_var : t -> bool
 
 val is_slack : t -> bool
 
+val is_internal : t -> bool
+
 (** {6 Destructors} *)
 
 val name_of : t -> Name.t
@@ -171,7 +173,6 @@ val subterm : t -> t -> bool
 
 val occurs : t -> t -> bool
   (** [occurs x a] holds if term [x] occurs in [a]. *)
-
 
 val assq : t -> (t * 'a) list -> 'a
   (** Association lists for terms. *)

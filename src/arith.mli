@@ -111,6 +111,9 @@ val is_q : Mpa.Q.t -> Term.t -> bool
 val is_multq : Term.t -> bool
   (** [is_multq a] holds iff [a] is equal to some [mk_multq _ _]. *)
 
+val is_diophantine : (Term.t -> bool) -> Term.t -> bool
+  (** [is_diophantine is_int a] holds iff all maximal uninterpreted subterms [b] of [a]
+    are integer, that is [is_int b] holds. *)
 
 (** {6 Destructors} *)
 
@@ -187,6 +190,10 @@ val replace : Term.t -> Term.t -> Term.t -> Term.t
 val foldq : (Mpa.Q.t -> 'a -> 'a) -> Term.t -> 'a -> 'a
   (** Folding over all coefficients (including constant) *)
 
+val choose : (Mpa.Q.t * Term.t -> bool) -> Term.t -> Mpa.Q.t * Term.t * Term.t
+  (* [choose f a] returns the largest monomial [q*x] in [a] that satisfies [f (q,x)]
+     and returns [(q, x, b)] where [b] is equal to [a - q*x]. Otherwise [Not_found]
+     is raised. *)
 
 (** {6 Canonization} *)
 
@@ -210,13 +217,14 @@ val qsolve : Term.t * Term.t -> (Term.t * Term.t) option
     already contained in [e], and [t] is a linear arithmetic term 
     not containing [x]. *)
   
-val zsolve : Term.t * Term.t  -> Term.t list * (Term.t * Term.t) list
+val zsolve : Term.t * Term.t  -> (Term.t * Term.t) list
   (** Solution for a linear diophantine equation. The result is
     a list of equalities of the form [x = t], where [x] is a variable
     contained in [e], and [t] does not contain any variable in [e].
     [t] usually contains newly generated variables. {!Exc.Inconsistent}
     if raised if the given equation [e] is unsatisfiable in the integers. *)
 
+val solve : Dom.t -> Fact.equal -> Fact.equal list
 
 val isolate : Term.t -> (Term.t * Term.t) -> Term.t
   (** [isolate y (x, a)] isolates [y] in a solved equality [x = a];

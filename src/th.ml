@@ -24,7 +24,7 @@ let of_int i = i
 let to_int i = i
 
 
-let names = ["u"; "a"; "p"; "bv"; "cop"; "nl"; "app"; "arr"; "bva"]
+let names = ["u"; "a"; "p"; "bv"; "cop"; "nl"; "app"; "arr"; "bva"; "z"]
 
 let num_of_theories = List.length names
 
@@ -39,6 +39,7 @@ let pprod = 5
 let app = 6
 let arr = 7
 let bvarith = 8
+let z = 9
 
 let to_string = List.nth names
 
@@ -135,6 +136,7 @@ let maps =
       (fun (i, m) -> Array.set a i m)
       [u, App.map;
        la, Arith.map;
+       z, Arith.map;
        p, Tuple.map;
        bv, Bitvector.map;
        cop, Coproduct.map;
@@ -167,17 +169,14 @@ let sigma f =
 let solvers = 
   let a = Array.create (fun e -> [e]) in
     List.iter
-      (fun (i, m) -> Array.set a i m)
-      [la, (fun e ->
-	      let (a, b, _) = Fact.d_equal e in
-	      match Arith.qsolve (a, b) with
-		| None -> []
-		| Some(x, c) -> 
-		    let e' = Fact.mk_equal x c None in
-		      [e']);
+      (fun (i, m) -> 
+	 Array.set a i m)
+      [la, Arith.solve Dom.Real;
+       z, Arith.solve Dom.Int;
        p, Tuple.solve;
        bv, Bitvector.solve;
        cop, Coproduct.solve];
     a
 
 let solve = Array.get solvers
+

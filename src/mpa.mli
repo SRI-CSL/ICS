@@ -102,8 +102,6 @@ module Q : sig
 
   val cmp : t -> t -> cmp
 
-  val sign : t -> Sign.t
-
   val denominator : t -> Z.t
   val numerator : t -> Z.t
       
