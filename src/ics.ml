@@ -163,11 +163,17 @@ let _ = Callback.register "dom_mk_int" dom_mk_int
 let dom_mk_real () = Dom.Real
 let _ = Callback.register "dom_mk_real" dom_mk_real
 
+let dom_mk_nonint () = Dom.Nonint
+let _ = Callback.register "dom_mk_nonint" dom_mk_nonint
+
 let dom_is_int d = (d = Dom.Int)
 let _ = Callback.register "dom_is_int" dom_is_int
 
 let dom_is_real d = (d = Dom.Real)
 let _ = Callback.register "dom_is_real" dom_is_real
+
+let dom_is_nonint d = (d = Dom.Nonint)
+let _ = Callback.register "dom_is_nonint" dom_is_nonint
 
 
 (** {6 Theories} *)
@@ -389,6 +395,13 @@ let term_mk_var str =
   let x = Name.of_string str in
   Term.Var.mk_var x Var.Cnstrnt.Unconstrained
 let _ = Callback.register "term_mk_var" term_mk_var
+
+let term_mk_dom_var str dom =
+  let x = Name.of_string str in
+  Term.Var.mk_var x (Var.Cnstrnt.mk_real dom)
+let _ = Callback.register "term_mk_dom_var" term_mk_dom_var
+
+
 
 
 (** Uninterpred function application and function update. *)     
