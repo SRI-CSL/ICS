@@ -48,6 +48,7 @@ val mk_zero : t
 val mk_empty : t 
 val mk_real : t 
 val mk_int : t
+val mk_nonint : t
 val mk_singleton : Mpa.Q.t -> t
 
 (*s [is_singleton i] returns the single value for an interval whose 

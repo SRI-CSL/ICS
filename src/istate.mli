@@ -89,10 +89,6 @@ val valid : Name.t option -> Atom.t -> bool
 
 val unsat : Name.t option -> Atom.t -> bool
 
-(*s Compress the current state. *)
-
-val compress : unit -> Name.t
-
  
 (*s Change current state. *)
 

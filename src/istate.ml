@@ -43,7 +43,7 @@ let s = init ()
 (*s Initialize. *)
 
 let initialize pp eot inch outch =
-  Term.set_pretty_print pp;
+  Term.pretty := pp;
   s.eot <- eot;
   s.inchannel <- inch;
   s.outchannel <- outch
@@ -198,12 +198,6 @@ let remove n =
 
 let forget () =
   s.current <- Context.empty
-
-(*s State compression. *)
-
-let compress () =
-  s.current <- Context.compress s.current;
-  save None
 
 (*s Adding a new fact *)
 

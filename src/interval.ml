@@ -65,7 +65,7 @@ let rec make (d,lo,hi) =
     | Dom.Real -> makereal lo hi
     | Dom.Nonint -> makenonint lo hi
 
-and makenonint lo hi =  (* to do *)
+and makenonint lo hi =
   let (a,l) = Endpoint.destruct lo
   and (b,k) = Endpoint.destruct hi 
   in
@@ -132,6 +132,7 @@ and makeint lo hi =
 
 let mk_real = make (Dom.Real, Endpoint.neginf, Endpoint.posinf)
 let mk_int = make (Dom.Int, Endpoint.neginf, Endpoint.posinf)
+let mk_nonint = make (Dom.Nonint, Endpoint.neginf, Endpoint.posinf)
 
 
 let mk_singleton q = 

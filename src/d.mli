@@ -42,7 +42,7 @@ val empty : t
 
 (*s Is state unchanged. *)
 
-val unchanged : t -> t -> bool
+val eq : t -> t -> bool
 
 (*s [merge e s] merges a variable equality ['x = y'] *)
 
@@ -52,9 +52,6 @@ val merge : Fact.equal -> t -> t
 
 val add : Fact.diseq -> t -> t
 
-(*s Replace all [x |-> {x1,...,xn}] with [y |-> {y1,...,yn}] where [yi] is [find xi]. *)
-
-val inst : (Term.t -> Term.t) -> t -> t
 
 (*s [changed s] returns the set of variables [x] with a new
  canonical representative, where 'new' is relative to the last

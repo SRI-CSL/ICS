@@ -32,7 +32,7 @@ let init (n, pp, eot, inch, outch) =
                                          (*s user interrupt. *)
 
 let set_maxloops n =
-  Context.maxclose := n
+  Rule.maxclose := n
 let _ = Callback.register "set_maxloops" set_maxloops
 
 let do_at_exit () = Tools.do_at_exit ()
