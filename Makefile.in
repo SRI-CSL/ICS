@@ -2,9 +2,6 @@
 
 OCAMLSTDLIB = `ocamlc -v | tail -1 | cut -f 4 -d " "`
 
-LIBGMPA = @GMPPATH@/lib/libgmp.a
-GMPINCLUDE = -I @GMPPATH@/include
-
 CC = @CC@
 CXX = @CXX@
 
@@ -27,7 +24,8 @@ exec_prefix = @exec_prefix@
 bindir = @bindir@
 libdir = @libdir@
 includedir = @includedir@
-
+LIBS=@LIBS@
+CPPFLAGS=@CPPFLAGS@
 
 ### end of configuration part ###
 
@@ -58,7 +56,6 @@ endif
 INCLUDE =
 CFLAGS = 
 BFLAGS = -g $(INCLUDE)
-LIBS = $(LIBGMPA)
 
 ifeq ($(DEBUG),0)
   OFLAGS = $(INCLUDE) -compact -inline 3 -noassert -unsafe
@@ -69,7 +66,7 @@ endif
 
 ### Object files ###
 
-COBJS = mlgmp41.o ocaml-signals.o icsat.o licensing.o
+COBJS = mlgmp41.o ocaml-signals.o icsat.o licensing.o verify_signature.o
 
 OBJS = ics_all.o ics_stub.o ocaml-signals.o mlgmp41.o icsat.o licensing.o
 
@@ -128,7 +125,7 @@ CORECMO = three.cmo \
       combine.cmo \
       context.cmo \
       prop.cmo
-    
+
 
 CMO = $(FOREIGNCMO) \
       $(CORECMO) \
@@ -267,17 +264,10 @@ $(INCDIR):
 	-umask 022; if test '!' -d $(INCDIR) ; then \
            mkdir -p $(INCDIR); fi;
 
-
-
-
 ### Source file links
 
 .PRECIOUS : $(OBJDIR)/%.ml $(OBJDIR)/%.mli $(OBJDIR)/%.mly 
-.PRECIOUS : $(OBJDIR)/%.mll $(OBJDIR)/mlgmp41.c
-.PRECIOUS : $(OBJDIR)/%.mll $(OBJDIR)/ocaml-signals.c
-.PRECIOUS : $(OBJDIR)/%.mll $(OBJDIR)/icsat.c 
-.PRECIOUS : $(OBJDIR)/%.mll $(OBJDIR)/ics_lisp_error.c
-.PRECIOUS : $(OBJDIR)/%.mll $(OBJDIR)/licensing.c
+.PRECIOUS : $(OBJDIR)/%.mll $(OBJDIR)/%.c
 
 $(OBJDIR)/%.ml: $(SRCDIR)/%.ml
 	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
@@ -291,21 +281,8 @@ $(OBJDIR)/%.mly: $(SRCDIR)/%.mly
 $(OBJDIR)/%.mll: $(SRCDIR)/%.mll
 	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
 
-$(OBJDIR)/mlgmp41.c: $(SRCDIR)/mlgmp41.c
+$(OBJDIR)/%.c: $(SRCDIR)/%.c
 	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
-
-$(OBJDIR)/ocaml-signals.c: $(SRCDIR)/ocaml-signals.c
-	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
-
-$(OBJDIR)/icsat.c: $(SRCDIR)/icsat.c
-	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
-
-$(OBJDIR)/ics_lisp_error.c: $(SRCDIR)/ics_lisp_error.c
-	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
-
-$(OBJDIR)/licensing.c: $(SRCDIR)/licensing.c
-	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
-
 
 # Distribution
 
@@ -418,7 +395,7 @@ tags:
 	pdflatex $< && pdflatex $<
 
 .c.o:
-	$(OCAMLC) -c -ccopt "-o $@" $(GMPINCLUDE)  $<
+	$(OCAMLC) -c -ccopt "$(CPPFLAGS) -o $@"  $<
 
 .mli.cmi:
 	$(OCAMLC) $(BFLAGS) -c $<
@@ -495,7 +472,6 @@ lexer.cmi: lexer.ml
 
 parser.mli parser.ml: parser.mly
 
-  
 # Dependencies
 .depend: $(SRC)
 	$(OCAMLDEP) *.mli *.ml main.ml > .depend

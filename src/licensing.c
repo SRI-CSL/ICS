@@ -19,16 +19,11 @@
 #include <caml/memory.h>
 #include <caml/fail.h>
 
-
-/* extern int license_check(); */
-
-int license_check() {
-  return 1;
-}
+extern int verify_signature(char *);
 
 value ics_is_licensed() {
   CAMLparam0();
-  CAMLreturn(Val_bool(license_check()));
+  CAMLreturn(Val_bool(verify_signature("ics")));
 }
 
 

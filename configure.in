@@ -3,6 +3,90 @@ dnl ICS autoconf input
 dnl make sure we are using a recent autoconf version
 AC_PREREQ(2.50)
 
+AC_DEFUN([CSL_CHECK_DOT_A_LIB],
+[ 	
+AC_MSG_NOTICE([Trying to find a usable $1])
+if test -z "$2"; then
+   search_libs=`ld --verbose | grep SEARCH_DIR | sed -e 's,SEARCH_DIR(\"\?,,g' -e 's,\"\?);,,g'`
+	 prev_l_opt=false
+	 for ld_arg in $LDFLAGS; do
+     if test "$prev_l_opt" = "true"; then
+        search_libs="$search_libs $ld_arg"
+     else 
+        if test "$ld_arg" = "-L"; then
+           prev_l_opt=true 
+        else
+           prefix=`echo $ld_arg | cut -c -2`
+           body=`echo $ld_arg | cut -c 3-`
+           if test "$prefix" = "-L"; then
+             search_libs="$search_libs $body"
+           else
+             prefix=`echo $ld_arg | cut -c -15`
+             body=`echo $ld_arg | cut -c 16-`
+             if test "$prefix" = "--library-path"; then
+               search_libs="$search_libs $body"
+             fi
+           fi   
+        fi
+     fi
+   done
+else
+   search_libs=$2/lib
+fi
+olibs=$LIBS
+ocppflags=$CPPFLAGS
+LIBPATH=""
+for ldir in $search_libs; do
+    AC_MSG_CHECKING([for $1 in $ldir])
+		found_all="true"
+		for target_lib in $1; do 
+				if test ! -f $ldir/$target_lib; then
+           found_all="false"
+        fi
+    done
+    if test "$found_all" = "true"; then
+       AC_MSG_RESULT(found)
+			 currlibs=""
+       for target_lib in $1; do
+         currlibs="$currlibs $ldir/$target_lib"
+       done
+       LIBS="$currlibs $olibs"
+       tmppath=`dirname $ldir`
+       CPPFLAGS="-I$tmppath/include $ocppflags"
+       AC_TRY_RUN([#include<string.h>
+#include<stdlib.h>
+$3
+int main() {
+  $4
+  ;
+	return 0;
+}], target_lib_ok=yes, target_lib_ok=no, target_lib_ok=no)
+       AC_MSG_CHECKING([$1 at $ldir])
+       if test $target_lib_ok = yes; then
+         AC_MSG_RESULT(yes)
+         LIBPATH=`dirname $ldir`
+         break
+       else
+         AC_MSG_RESULT(no)
+       fi
+    else
+       AC_MSG_RESULT([not found])
+    fi
+done
+LIBS=$olibs	
+CPPFLAGS=$ocppflags
+if test -z $LIBPATH; then
+   $5
+fi
+currlibs=""
+for target_lib in $1; do
+		currlibs="$currlibs $LIBPATH/lib/$target_lib"
+done
+LIBS="$currlibs $LIBS"
+CPPFLAGS="-I$LIBPATH/include $CPPFLAGS"
+])
+
+
 dnl If it doesn't look like GNU Make is being used, give a friendly warning
 tem=`make --version -f /dev/null 2>&1 | grep GNU`
 if test "x$tem" = "x"; then
@@ -120,55 +204,57 @@ if test "$SED" = no; then
 fi
 
 dnl Check for library
+CSL_CHECK_DOT_A_LIB(libgmp.a, $with_gmp, 
+ [ 
+   #include<gmp.h> 
+ ],
+ [ char *p;
+   int maj;
+   int min;
+   p = strdup(__gmp_version);
+   maj = atoi(strtok(p, "."));
+   min = atoi(strtok(NULL, "."));
+   if (maj < 4) exit(1);
+   if (maj == 4 && min < 1) exit(1);
+ ],
+ AC_MSG_ERROR([*** Could not find GMP library (libgmp.a) version >= 4.1. ***])
+)
 
-dnl The following is meaningless since we want the libgmp.a file, and this
-dnl uses the libgmp.so file
-dnl AC_CHECK_LIB(gmp,__gmpz_cmp, , AC_MSG_WARN(Potential problem with GMP library.))
-
-AC_MSG_NOTICE(Trying to find a usable libgmp.a)
-   
-if test -z "$with_gmp"; then
-   gmplibs=`ld --verbose | grep SEARCH_DIR | sed -e 's,SEARCH_DIR(\"\?,,g' -e 's,\"\?);,,g'`
-else
-   gmplibs=$with_gmp/lib
+dnl ICS CERTIFICATE Libraries
+posixos=`./os`
+if test "$posixos" = "sunos"; then
+	 AC_CHECK_LIB(socket, htonl, LIBS="-lsocket $LIBS", AC_MSG_ERROR([*** SOCKET library not found. Try to set the environment variable (LDFLAGS) ***]))
 fi
-olibs=$LIBS
-for ldir in $gmplibs; do
-    AC_MSG_CHECKING(for libgmp.a in $ldir)
-    if test -f $ldir/libgmp.a; then
-       AC_MSG_RESULT(found)
-       LIBS=$ldir/libgmp.a
-       AC_TRY_RUN([#include<string.h>
-#include<stdlib.h>
-extern char *__gmp_version;
-int main() {
-  char *p;
-  int maj;
-  int min;
-  if (! __gmp_version) exit(1);
-  p = strdup(__gmp_version);
-  maj = atoi(strtok(p, "."));
-  min = atoi(strtok(NULL, "."));
-  if (maj < 4) exit(1);
-  if (maj == 4 && min < 1) exit(1);
-  exit(0);
-}], libgmp_ok=yes, libgmp_ok=no, libgmp_ok=no)
-       AC_MSG_CHECKING($ldir/libgmp.a version >= 4.1)
-       if test $libgmp_ok = yes; then
-          AC_MSG_RESULT(yes)
-          GMPPATH=`dirname $ldir`
-          break
-       else
-          AC_MSG_RESULT(no)
-       fi
-    else
-       AC_MSG_RESULT(not found)
-    fi
-done
-LIBS=$olibs	
-if test -z $GMPPATH; then
-   AC_MSG_ERROR(Could not find libgmp.a version >= 4.1 in $gmplibs)
-fi
+CSL_CHECK_DOT_A_LIB(libssl.a libcrypto.a, $with_openssl, 
+   [	
+    #include<openssl/dsa.h>
+		#include<openssl/evp.h>
+		#include<openssl/pem.h>
+		#include<openssl/err.h>
+		extern char * DSA_version;
+		extern char * SSL_version_str;
+		void check_version(char * ver) {
+			char * str = strdup(ver);
+			char * delim = " .\tABCDEFGHIJKLMNOPQRSTUVZWYZabcdefghijklmnopqrstuvzwyz,.?!@#$%^&*\"'/";
+			char * curr = strtok(str, delim);
+			int major = curr ? atoi(curr) : -1;
+			int minor;
+			int patch;
+			curr = strtok(0, delim);
+			minor = curr ? atoi(curr) : -1;
+			curr = strtok(0, delim);
+			patch = curr ? atoi(curr) : -1;
+			if (major < 0) exit(1);
+			if (major == 0 && minor < 9) exit(1);
+			if (major == 0 && minor == 9 && patch < 7) exit(1);
+		}
+   ],
+   [
+			check_version(DSA_version);
+			check_version(SSL_version_str);
+			return 0;				
+	 ],
+ 	 AC_MSG_ERROR([*** Could not find OpenSSL. ***]))
 
 dnl UPDATE Flags
 if test -n "$CDEBUGFLAG"; then
