@@ -132,11 +132,11 @@ prop:
 /* | LPAR prop RPAR                  { $2 } */
 | name                            { try Istate.prop_of $1 with Not_found -> Prop.mk_var $1 }
 | atom                            { Prop.mk_poslit $1 }
-| prop CONJ prop                  { Prop.mk_conj [$1; $3] }
-| prop DISJ prop                  { Prop.mk_disj [$1; $3] }
+| prop CONJ prop                  { Prop.mk_conj2 $1 $3 }
+| prop DISJ prop                  { Prop.mk_disj2 $1 $3 }
 | prop BIIMPL prop                { Prop.mk_iff $1 $3 }
 | prop XOR prop                   { Prop.mk_neg (Prop.mk_iff $1 $3) }
-| prop IMPL prop                  { Prop.mk_disj [Prop.mk_neg $1; $3] }
+| prop IMPL prop                  { Prop.mk_disj2 (Prop.mk_neg $1) $3 }
 | NEG prop %prec prec_unary       { Prop.mk_neg $2 }
 | IF prop THEN prop ELSE prop END { Prop.mk_ite $2 $4 $6 }
 ;
