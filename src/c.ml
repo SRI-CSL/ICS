@@ -35,18 +35,25 @@ let to_list s =
 (*s Pretty-printing. *)
 
 let rec pp fmt s = 
-  Pretty.list pp_in fmt (to_list s)
-
-and pp_in fmt =
-  Pretty.infix Term.pp "in" Cnstrnt.pp fmt
+  Pretty.list Term.pp_in fmt (to_list s)
 
 
 (*s Accessors. *)
 
-let cnstrnt x s =
-  try 
-    Some(Term.Map.find x s)
-  with 
+
+let rec cnstrnt s a =
+  let rec loop a =
+  match Arith.d_interp a with
+    | Some(Sym.Num(q), []) -> Cnstrnt.mk_singleton q
+    | Some(Sym.Mult, l) -> Cnstrnt.multl (List.map loop l)
+    | Some(Sym.Add, l) -> Cnstrnt.addl (List.map loop l)
+    | Some(Sym.Expt(n), [x]) -> Cnstrnt.expt n (loop x)
+    | _ ->
+	Term.Map.find a s  (* raise [Not_found] if [a] not in domain. *)
+  in 
+  try
+    Some(loop a)
+  with
       Not_found -> None
 
 
@@ -62,45 +69,93 @@ let is_empty s = (s == empty)
 
 (*s Extend domain. *)
 
-let extend (x,c) s =
+let extend (x,d) s =
   assert(not(mem x s));
-  Trace.msg 6 "Extend(c)" (x,c) pp_in;
-  if Cnstrnt.is_empty c then
+  Trace.msg 6 "Extend(c)" (x,d) Term.pp_in;
+  if Cnstrnt.is_empty d then
     raise Exc.Inconsistent
   else
-    Term.Map.add x c s
+    Term.Map.add x d s
 
 
 (*s Restrict domain. *)
 
 let restrict x s =
-  Trace.msg 6 "Restrict(c)" x Term.pp;
+  if Term.Map.mem x s then
+    Trace.msg 6 "Restrict(c)" x Term.pp;
   Term.Map.remove x s
 
 
+(*s Normalize constraint such as ['2 * x + 5' in 'c'] 
+ to ['x' in '1/2 ** (c -- 5)'], where ['**'], ['--']
+ are abstract interval operations for linear multiplication and subtraction. *)
+
+let normalize (a, c) =
+  match Arith.decompose a with
+    | None -> 
+	(a, c)
+    | Some(q, p, a') ->
+	let c' = Cnstrnt.multq (Mpa.Q.inv p) (Cnstrnt.addq (Mpa.Q.minus q) c) in
+	(a', c')
+
 (*s Adding a constraint. *)
     
-let rec add (x,c) s =
-  Trace.msg 6 "Add(c)" (x,c) pp_in;
+let rec add (a,c) s =
+  let (a, c) = normalize (a, c) in
+  Trace.msg 6 "Add(c)" (a,c) Term.pp_in;
+  if is_var a then
+    add_var (a,c) (s, [])
+  else 
+    add_nonvar (a,c) (s, [])
+
+and add_var (x,c) (s, eqs) =
+  (* assert(is_var x); *)
   try
     let d = Term.Map.find x s in
     match Cnstrnt.cmp c d with
       | Binrel.Disjoint ->
 	  raise Exc.Inconsistent
       | (Binrel.Super | Binrel.Same) ->
-	  (s, [])
+	  (s, eqs)
       | Binrel.Sub ->
-	  (Term.Map.add x c s, [])
+	  (Term.Map.add x c s, eqs)
       | Binrel.Singleton(q) ->
-	  (Term.Map.remove x s, [(x, Arith.mk_num q)])
+	  (Term.Map.remove x s, (x, Arith.mk_num q) :: eqs)
       | Binrel.Overlap(cd) ->
-	  (Term.Map.add x cd s, [])
+	  (Term.Map.add x cd s, eqs)
   with
       Not_found -> 
 	if Cnstrnt.is_empty c then
 	  raise Exc.Inconsistent
 	else match Cnstrnt.d_singleton c with
 	  | Some(q) ->
-	      (Term.Map.remove x s, [(x, Arith.mk_num q)])
+	      (Term.Map.remove x s, (x, Arith.mk_num q) :: eqs)
 	  | None ->
-	      (Term.Map.add x c s, [])
+	      (Term.Map.add x c s, eqs)
+
+and add_nonvar (a,c) (s, eqs) =
+  Trace.msg 1 "Possible Incompleteness" (a,c) Term.pp_in;
+  match Arith.monomials a with
+    | [] ->
+	if Cnstrnt.mem Mpa.Q.zero c then
+	  (s, eqs)
+	else 
+	  raise Exc.Inconsistent
+    | [m] ->
+	let (q,k) = Arith.mono_of m in
+	add_var (k, (Cnstrnt.multq (Mpa.Q.inv q) c)) (s, eqs)
+    | m :: ml ->
+	let (q,k) = Arith.mono_of m in  (* [a = q * k + b] *)
+	let b = Arith.mk_multl ml in
+	match cnstrnt s b with   
+	  | Some(d) ->  (* [q*k+b in c], [b in d] implies [k in 1/q * c - 1/q * d] *)
+	      let qinv = Mpa.Q.inv q in
+	      let c' = Cnstrnt.multq qinv c in
+	      let d' = Cnstrnt.multq (Mpa.Q.minus qinv) d in
+	      add_var (k, Cnstrnt.add c' d') (s, eqs)
+	  | None ->
+	       add_var (a, c) (s,eqs)
+	      
+	      
+	
+ 
