@@ -91,7 +91,7 @@ CMO = three.cmo \
       apply.cmo \
       app.cmo \
       atom.cmo \
-      justification.cmo \
+      jst.cmo \
       fact.cmo \
       d.cmo \
       v.cmo \
