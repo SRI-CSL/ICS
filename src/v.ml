@@ -47,7 +47,7 @@ let find s x =
     try 
       let (z, sigma) = apply s y in    (* [sigma |- y = z] *)
 	Trace.msg "v'" "find" (y, z) (Pretty.pair Term.pp Term.pp);
-	(* assert(not(Term.eq y z)); *)
+	assert(not(Term.eq y z));
 	let tau = Justification.trans (x, y, z) rho sigma in
 	  loop x (z, tau)
     with 
@@ -65,13 +65,14 @@ let removable s = s.removable
 
 (** {6 Basic Data Manipulations} *)
 
-let union (x, y, prf) s = 
+let union (x, y, rho) s = 
   Trace.msg "v" "Union" (x, y) Term.Equal.pp;
+  assert(not(Term.eq x y));
   let invy = 
     Set.add x 
       (try Map.find y s.inv with Not_found -> Set.empty)
   in
-    {find = Map.add x (y, prf) s.find;
+    {find = Map.add x (y, rho) s.find;
      inv = Map.add y invy s.inv;
      removable = if Term.Var.is_internal x then Set.add x s.removable else s.removable}
 
@@ -110,8 +111,6 @@ let restrict x s =
 	{find = find'; inv = inv'; removable = Set.remove x s.removable}
   with
       Not_found -> s
-
-
 
 
 (** {6 Variable equality modulo [s]} *)
