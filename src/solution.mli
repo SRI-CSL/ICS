@@ -155,3 +155,11 @@ val compose :  ((Term.t -> Term.t) -> Term.t -> Term.t)
 val changed : t -> Term.Set.t
 
 val reset : t -> t
+
+
+(*s [instantiate p xs s] replaces [x = b] in [s] with [y = b], if
+ [x] is in [xs] and [y] is the canonical representative of [x] w.r.t to
+ the partition [p]. *)
+
+val instantiate : Partition.t -> Term.Set.t -> t -> t
+  

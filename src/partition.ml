@@ -126,6 +126,15 @@ let diseq d s =
 	let s' = {s with d = d'} in
 	s'
 
+(*s Remove noncanonical, internal variables. Assumes that [d] and [c]
+ do not contain any of these variables. *)
+
+let removable s = V.removable s.v
+
+let restrict xs s = 
+  let v' = Set.fold V.restrict xs s.v in
+  {s with v = v'}
+
 (*s Triple of changes in the equality, disequality, and constraint parts
  (in this order). *) 
 

@@ -78,6 +78,12 @@ val is_equal : t -> Term.t -> Term.t -> Three.t
 
 val merge : Fact.equal -> t -> t
 
+(*s [remove s] removes all internal variables which are not canonical. *)
+
+val removable : t -> Term.Set.t
+
+val restrict : Term.Set.t -> t -> t
+
 
 (*s [add c s] adds a constraint of the form [x in i] to the constraint part [c]
  of the partition [s]. May raise [Exc.Inconsistent] if the resulting constraint
