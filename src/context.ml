@@ -17,6 +17,8 @@
 (*i*)
 open Term
 open Three
+open Mpa
+open Sym
 (*i*)
 
 (*s Decision procedure state. *)
@@ -64,11 +66,43 @@ let v s = V.find s.p.Partition.v
 
 (*s Constraint of [a] in [s]. *)
 
-let cnstrnt s = C.cnstrnt s.p.Partition.c
+let rec cnstrnt s a = 
+  let ctxt = C.apply (c_of s) in
+  match a with  
+    | Var _ -> 
+	ctxt (v s a)
+    | App(Arith(op), xl) ->
+	Arith.cnstrnt ctxt a
+    | App(Uninterp(f), xl) when Name.eq f Name.mult ->
+	Cnstrnt.multl (List.map (cnstrnt s) xl)
+    | App(Uninterp(f), [_]) when Name.eq f Name.floor ->
+	Cnstrnt.mk_int
+    | App(Uninterp(f), [_]) when Name.eq f Name.sin ->
+	Cnstrnt.mk_cc Dom.Real (Q.of_int (-1)) (Q.of_int 1)
+    | App(Uninterp(f), [_]) when Name.eq f Name.unsigned ->
+	Cnstrnt.mk_nat
+    | App(Uninterp(f), [x; _])
+	when Name.eq f Name.expt && Arith.is_q (Q.of_int 2) x ->
+	let c = Cnstrnt.mk_ge Dom.Real Q.zero in
+	  c
+(*
+	(try
+	  let d = cnstrnt s x in
+	    Cnstrnt.inter c d
+	with
+	    Not_found -> c)
+ *)
+    | _ ->
+	raise Not_found
+	 
 
 (*s All disequalities of some variable [x]. *)
 
 let deq s = D.deq s.p.Partition.d
+
+(*s Choosing a variable. *)
+
+let choose s = V.choose s.p.Partition.v
 
 
 (*s Pretty-printing. *)
@@ -92,10 +126,10 @@ let pp fmt s =
 
 let solutions e s = 
   match e with
-    | Theories.Uninterp -> s.u
-    | Theories.Interp(Interp.A) -> s.a
-    | Theories.Interp(Interp.T) -> s.t
-    | Theories.Interp(Interp.BV) -> s.bv
+    | U -> s.u
+    | A -> s.a
+    | T -> s.t
+    | BV -> s.bv
 
 (*s Parameterized operations. *)
 
@@ -109,70 +143,86 @@ let use e s = Solution.use (solutions e s)
 let partition s = (s.p.Partition.v, s.p.Partition.d)
 
 let is_int s = Partition.is_int s.p
-let is_equal s = Partition.is_equal s.p
 
+let rec is_equal s x y =
+  match Partition.is_equal s.p x y with
+    | Three.X when is_diseq_constants s x y -> Three.No
+    | res -> res
 
-
-(*s Sigmatization. [sigma s f l] encodes the following 
- array axioms: [select(update(a,i,x),j)] reduces to [x] if [i = j] 
- and to  [select(a,j)] if [i <> j]. *)
-
-exception Found of Term.t
-
-let rec sigma s f l =
-  match Sym.destruct f with
-    | Sym.Interp(Sym.Arith(op)) -> Arith.sigma op l
-    | Sym.Interp(Sym.Tuple(op)) -> Tuple.sigma op l
-    | Sym.Interp(Sym.Bv(op)) -> Bitvector.sigma op l 
-    | Sym.Uninterp _ ->
-	let a = mk_app f l in
-	try
-	  sigma_select_update s a
-	with
-	    Not_found -> a
-
-and sigma_select_update s a =     (* throws [Not_found] if no pattern matches. *)
-  let (upd, j) = d_select a in       (* otherwise returns simplified term. *)
-  try 
-    V.iter s.p.Partition.v
-      (fun upd' ->
-	 try
-	   let (a, i, x) = d_update (Solution.apply s.u upd') in
-	   match Partition.is_equal s.p i j with
-	     | Three.Yes -> raise (Found x)
-	     | Three.No -> raise (Found(mk_app Sym.mk_select [a; j]))
-	     | Three.X -> ()
-	 with
-	     Not_found -> ())
-      (v s upd);
-    raise Not_found
+and is_diseq_constants s x y =   (* Disequality of arithmetic constants *)
+  try                            (* already tested via constraints. *)
+    let a = Solution.apply s.bv x in
+    is_const a &&
+    let b = Solution.apply s.bv y in
+    is_const b &&
+    not(Term.eq a b)
   with
-      Found(b) -> b
+      Not_found -> false
+
+(*s [sigma]-normal forms. *)
+
+let rec sigma s f =
+  match f with
+    | Arith(op) -> Arith.sigma op
+    | Tuple(op) -> Tuple.sigma op
+    | Bv(op) -> Bitvector.sigma op
+    | Uninterp _ -> mk_app f
+
+
+(*s Basic functions for updating the [u] solution set. *)
+
+let umap f a = 
+  match a with
+    | Var _ -> f(a)
+    | App(g, l) ->  mk_app g (mapl f l)
+
+let u_fuse (x, a) s =
+  let (p', u') =  Solution.fuse umap (s.p, s.u) [(x, a)] in
+  {s with p = p'; u = u'}
+
+let u_compose (x, a) s =
+  let (p', u') =  Solution.compose umap (s.p, s.u) [(x, a)] in
+  {s with p = p'; u = u'}
 
   
 (*s Abstracting a term [a] in theory [i]
  by introducing a new name for it. *)
 
 let rec extend s a =
+  assert(not(is_var a));
   let x = Term.mk_fresh_var (Name.of_string "v") None in 
-  Trace.msg "tac" "Extend" (x, a) Term.pp_equal;
-  match Theories.index a with
-    | Theories.Uninterp ->
-	(x, {s with u = Solution.union (x, a) s.u})
-    | Theories.Interp(Interp.T) ->
-	(x, {s with t = Solution.union (x, a) s.t})
-    | Theories.Interp(Interp.BV) ->
-	(x, {s with bv = Solution.union (x, a) s.bv})
-    | Theories.Interp(Interp.A) ->
-	try
-	  match arith_solve s (x, a) with
-	    | None -> assert false
-	    | Some(x',b') -> 
-		let (p', a') = Solution.compose Arith.map (s.p, s.a) [(x', b')] in
-		(x, {s with p = p'; a = a'})
-	with
-	    Exc.Unsolved ->
-	      (x, {s with a = Solution.union (x, a) s.a})
+    Trace.msg "tac" "Extend" (x, a) Term.pp_equal;
+    let f = sym_of a in
+      match theory_of f with
+	| U ->
+	    let s' = 
+	      (match f, args_of a with      (* Eliminate division using: *)
+		 | Uninterp(div), [y; z]    (* [x = y / z  <=> y = x * z *] *)
+		     when Name.eq Name.div div ->
+		     let (x, z) = Term.orient (x, z) in
+		     let a' =  mk_app Sym.mult [x; z] in
+		       u_compose (y, a') s
+		 | _ ->
+		     {s with u = Solution.union (x, a) s.u})
+	    in
+	      (x, s')
+	| T ->
+	    (x, {s with t = Solution.union (x, a) s.t})
+	| BV ->
+	    (x, {s with bv = Solution.union (x, a) s.bv})
+	| A ->
+	    try
+	      match arith_solve s (x, a) with
+		| None -> assert false
+		| Some(x', b') -> 
+		    let (p', a') = 
+		      Solution.compose Arith.map (s.p, s.a) [(x', b')] 
+		    in
+		      (x, {s with p = p'; a = a'})
+	      with
+		  Exc.Unsolved ->
+		    let a' = Solution.union (x, a) s.a in
+		      (x, {s with a = a'})
 
 and arith_solve s (a, b) = 
   let is_var_on_rhs x = 
@@ -188,49 +238,64 @@ and arith_solve s (a, b) =
 
 (*s Adding equalities/disequalities/constraints to partition. *)
 
-let merge e s = {s with p = Partition.merge e s.p}
+let merge e s =
+  Trace.msg "tac" "Merge" e Fact.pp_equal;
+  {s with p = Partition.merge e s.p}
 
-let add c s = {s with p = Partition.add c s.p}
+let add c s =
+  Trace.msg "tac" "Add" c Fact.pp_cnstrnt; 
+  {s with p = Partition.add c s.p}
 
-let diseq d s = {s with p = Partition.diseq d s.p}
+let diseq d s = 
+  Trace.msg "tac" "Diseq" d Fact.pp_diseq;
+  {s with p = Partition.diseq d s.p}
 
 
 (*s Close. *)
 
+let maxclose = ref 1024 (* no bound given (as long as there is no overflow) *)
+
 let rec close s =
-  (repeat close1 &&& normalize) s
+  (repeat 0 close1 &&& normalize) s
 
-and close1 s =
-  Trace.msg "tac" "Close" () (fun _ _ -> ());
-  let vfocus = V.changed s.p.Partition.v
-  and dfocus = D.changed s.p.Partition.d
-  and afocus = Solution.changed s.a
-  and cfocus = C.changed s.p.Partition.c
-  in
-  (deduce afocus &&&
-   prop vfocus &&&
-   diseqs dfocus &&&
-   infer cfocus)
-  s
+and close1 n s =
+  Trace.msg "tac" "Close" n Pretty.number;
+  let (vfocus, dfocus, cfocus) = Partition.changed s.p in
+    (deduce_from_a (Solution.changed s.a) &&&
+     (*  deduce_from_u (Solution.changed s.u) &&& *)
+     deduce_from_v vfocus &&&
+     deduce_from_d dfocus &&&
+     deduce_from_c cfocus)
+    s
 
-and repeat f s =
-  let t = f s in
-  if is_confluent t then t else repeat f t
-
+and repeat loops f s =
+  Trace.msg "tac" "Repeat" loops Pretty.number;
+  Trace.msg "tac" "with max" !maxclose Pretty.number;
+  let t = f loops s in
+    if is_confluent t then 
+      t
+    else if loops < !maxclose then
+      repeat (loops + 1) f t
+    else 
+      begin
+	Format.eprintf "\nWarning: Upper bound reached.@.";
+	t
+      end
 and is_confluent s = 
-  Set.is_empty (V.changed s.p.Partition.v) &&
-  Set.is_empty (Solution.changed s.a) &&
-  D.changed s.p.Partition.d = [] &&
-  Set.is_empty (C.changed s.p.Partition.c)
+  let (vfocus, dfocus, cfocus) = Partition.changed s.p in
+  Set.is_empty vfocus &&
+  dfocus = [] &&
+  Set.is_empty cfocus &&
+  Set.is_empty (Solution.changed s.a)
 
 
 and (&&&) f g s = g (f s)
 
-and prop focus s =
+and deduce_from_v focus s =
   Set.fold 
     (fun x -> 
        let e = (x, V.find s.p.Partition.v x) in 
-       Trace.msg "tac" "Prop" e Term.pp_equal;
+       Trace.msg "tac" "Deduce(v)" e Term.pp_equal;
        u_prop e &&&
        arith_prop e &&&
        tuple_prop e &&&
@@ -240,16 +305,7 @@ and prop focus s =
     {s with p = {s.p with Partition.v = V.reset (v_of s)}}
 
 and u_prop (x, y) s =
-  let rec map f a =
-    if is_var a then
-      f(a)
-    else 
-      let g, l = Term.destruct a in
-      Term.mk_app g (Term.mapl f l)
-  in
-  let (p', u') =  Solution.fuse map (s.p, s.u) [(x, y)] in
-  {s with p = p'; u = u'}
-  
+  u_fuse (x, y) s
 
 and tuple_prop (x, y) s =
   Trace.msg "t" "Prop" (x, y) Term.pp_equal;
@@ -313,7 +369,7 @@ and arith_prop (x, y) s =
     try
       let a = Solution.apply s.a x in
       try
-	let b = Solution.apply s.a y in
+	let b = Solution.apply s.a y in 
 	if Term.eq a b then s else arith_compose (a, b) s
       with
 	  Not_found ->
@@ -342,6 +398,7 @@ and arith_compose (a, b) s =
 	let (x, sa') = Solution.name (a, s.a) in
 	let (y, sa'') = Solution.name (b, sa') in
 	{s with a = sa''}
+
 
 
 (*s From the equality [x = y] and the facts
@@ -381,20 +438,33 @@ and select_update_prop (x, y) s =
     (Solution.use s.u x)
     s
 
-and normalize s = s
+and compactify = ref true
 
-and diseqs focus s =
+and normalize s =
+  if !compactify then
+    let xs = Partition.removable s.p in
+      Trace.msg "tac" "Normalize" (Set.elements xs) (Pretty.set Term.pp);
+      let xs' = Set.filter (fun x -> not (Solution.mem s.u x)) xs in
+      let p' = Partition.restrict xs' s.p in
+	{s with p = p'}
+  else
+    s
+
+and deduce_from_d focus s =
    List.fold_right 
      (fun d ->
+	Trace.msg "tac" "Deduce(d)" d Fact.pp_diseq;
 	cnstrnt_diseq d &&&
         array_diseq d)
      focus
      {s with p = {s.p with Partition.d = D.reset (d_of s)}}
 
 and cnstrnt_diseq d s =
-  let c' = C.diseq d s.p.Partition.c in
-  let p' = {s.p with Partition.c = c'} in
-  {s with p = p'}
+  let c = c_of s in
+  let c' = C.diseq d c in
+  if C.eq c c' then s else 
+    let p' = {s.p with Partition.c = c'} in
+      {s with p = p'}
 
 (*s Propagating a disequalities.
  From the disequality [i <> j] and the facts
@@ -428,7 +498,7 @@ and select_update_diseq (i, j) s =
 		 if not(V.is_equal (v_of s2) i i') then
 		   s2
 		 else 
-		   let u3 = Term.mk_app Sym.mk_select [a;j] in
+		   let u3 = Term.mk_app (Uninterp(Name.of_string "select")) [a;j] in
 		   try
 		     let z3 = Solution.inv s2.u u3 in 
 		     let e' = Fact.mk_equal (V.find (v_of s2) z1) (V.find (v_of s2) z3) None in
@@ -448,26 +518,91 @@ and select_update_diseq (i, j) s =
    (Solution.use s.u j)
    s
 
-and deduce focus s = 
-  Trace.msg "tac" "Deduce" (Set.elements focus) (Pretty.set Term.pp);
-  let s = {s with a = Solution.reset s.a} in
-  let c' = 
-    Set.fold
-      (fun x acc ->
-	 let y = V.find (v_of s) x in
-	 let e = (y, Solution.find s.a y) in
-	 C.deduce e acc)
-      focus
-      s.p.Partition.c
-  in
-  let p' = {s.p with Partition.c = c'} in
-  {s with p = p'}
+and d_update a =
+  match a with 
+    | App(Uninterp(op), [b; i; x]) 
+        when Name.eq op Name.update ->
+	(b, i, x)
+    | _ ->
+	raise Not_found
 
-and infer focus s =
+and d_select a =
+  match a with 
+    | App(Uninterp(op), [a; i]) 
+	when Name.eq op Name.select ->
+	(a, i)
+    | _ ->
+	raise Not_found
+
+and deduce_from_u focus s =
+  Trace.msg "tac" "Deduce(u)" (Set.elements focus) (Pretty.set Term.pp);
+  let s = {s with a = Solution.reset s.u} in
+  Set.fold
+    (fun x acc ->
+       try
+	 let a = Solution.apply s.u x in
+	 deduce_cnstrnt (x, a) s 
+       with
+	   Not_found -> acc)
+    focus
+    s
+
+(*s Deduce new facts from changes in the linear arithmetic part. *)
+
+and deduce_from_a focus s = 
+  Trace.msg "tac" "Deduce(a)" (Set.elements focus) (Pretty.set Term.pp);
+  let s = {s with a = Solution.reset s.a} in
+  Set.fold
+    (fun x acc ->
+       let y =  V.find (v_of s) x in
+	 try
+	   let a = Solution.apply s.a y in
+	     deduce_cnstrnt (y, a) 
+	       (deduce_linearize (y, a) acc)
+	 with
+	     Not_found -> acc)
+    focus
+    s
+ 
+
+and deduce_cnstrnt (x, a) s =
+  let c = s.p.Partition.c in
+  let c' = C.deduce (x, a) s.p.Partition.c in
+  if C.eq c c' then s else
+    let p' = {s.p with Partition.c = c'} in
+      {s with p = p'}
+  
+
+and deduce_linearize (x, a) s =
+  match Arith.d_num a with
+    | None -> s
+    | Some(q) ->
+	Set.fold 
+	   (fun y s ->
+	      match Solution.find s.u y with
+		| App(Uninterp(op), zl) when Name.eq op Name.mult ->
+		    (match zl with
+		       | [z] ->
+			   arith_compose (y, Arith.mk_num q) s
+		       | [z1; z2] when Term.eq z1 x ->    (* [y = q * z2] *)
+			   arith_compose (y, Arith.mk_multq q z2) s
+		       | [z1; z2] when Term.eq z2 x ->    (* [y = z1 * q] *)
+			   arith_compose (y, Arith.mk_multq q z1) s
+		       | _ ->
+			   s)  (* to be done. *)
+		| _ ->
+		    s)
+	(Solution.use s.u x)
+	s
+
+
+(*s Deduce new facts from changes in the constraint part. *)
+
+and deduce_from_c focus s =
   let s = {s with p = {s.p with Partition.c = C.reset (c_of s)}} in
   Set.fold
     (fun x s -> 
-       Trace.msg "tac" "Infer" x Term.pp;
+       Trace.msg "tac" "Deduce(c)" x Term.pp;
        try
 	 let i = C.apply (c_of s) (V.find (v_of s) x) in
 	 singleton_infer (x, i)
@@ -511,14 +646,13 @@ and diseq_infer (x, i) s =
 	  (D.deq s.p.Partition.d x)
 	  s
   
-and singleton_infer (x, i) s = 
+and singleton_infer (x, i) s =
   match Cnstrnt.d_singleton i with
     | None ->
 	s
     | Some(q) ->
 	let (p', a') = Solution.compose Arith.map (s.p, s.a) [x, Arith.mk_num q] in
 	{s with a = a'; p = p'}
-
 
 (*s List all constraints with finite extension. *)
 
@@ -531,7 +665,7 @@ let split s  =
 	   (fun upd2 acc2 ->
 	      try
 		let (_,i2,_) = d_update (Solution.apply s.u upd2) in
-		match Partition.is_equal s.p i2 j1 with
+		match is_equal s i2 j1 with
 		  | X -> Atom.Set.add (Atom.mk_equal i2 j1) acc2
 		  | Yes -> acc2
 		  | No -> acc2
