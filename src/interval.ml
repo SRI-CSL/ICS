@@ -1,5 +1,4 @@
-
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -12,15 +11,13 @@
  * benefit corporation.
  * 
  * Author: Harald Ruess
-i*)
+ *)
 
-(*i*)
 open Mpa
 open Sign
 open Endpoint
-(*i*)
 
-(*s General real intervals are represented by their endpoints [a] and [b]
+(** General real intervals are represented by their endpoints [a] and [b]
   and two bits of information [alpha] and [beta], with [alpha] (resp. [beta])
   specifying whether [a] (resp. [b]) belongs to the interval. More formally.
   [(a,b,true,true)] denotes the closed interval [{x in R | u <= x <= v}],
@@ -36,7 +33,7 @@ and tnode = {
   hi : Endpoint.t
 }
 
-(*s Accessors. *)
+(** Accessors. *)
 
 let dom i = i.dom
 let lo i = i.lo
@@ -45,7 +42,7 @@ let hi i = i.hi
 let destructure i = (i.dom,i.lo,i.hi)
 
 
-(*s Equality. *)
+(** Equality. *)
 
 let eq i j =
   Dom.eq i.dom j.dom &&
@@ -53,7 +50,7 @@ let eq i j =
   Endpoint.eq i.hi j.hi
 
 
-(*s Constructing intervals. *)
+(** Constructing intervals. *)
 
 let mk_empty =
   let z = Endpoint.strict Mpa.Q.zero in
@@ -128,7 +125,7 @@ and makeint lo hi =
 
 
 
-(*s Derived constructors. *)
+(** Derived constructors. *)
 
 let mk_real = make (Dom.Real, Endpoint.neginf, Endpoint.posinf)
 let mk_int = make (Dom.Int, Endpoint.neginf, Endpoint.posinf)
@@ -158,7 +155,7 @@ let d_singleton i =
 
 let is_zero i = (eq i mk_zero)
 
-(*s Return rational endpoints. *)
+(** Return rational endpoints. *)
 
 let rational_endpoints i =
   let (a,_) = Endpoint.destruct i.lo 
@@ -168,7 +165,7 @@ let rational_endpoints i =
     | Some(q), Some(p) -> Some(q,p)
     | _ -> None
 
-(*s Test if [q] is in the interval [i]. *)
+(** Test if [q] is in the interval [i]. *)
 
 let mem q i =
   Dom.mem q i.dom &&
@@ -202,7 +199,7 @@ let mem q i =
     | Extq.Posinf ->
 	false
 
-(*s Printing an interval. *)
+(** Printing an interval. *)
 
 let pp fmt i =
   let (a,alpha) = Endpoint.destruct i.lo in
@@ -266,13 +263,13 @@ let union i j =
   make (d', lo', hi')
 
 
-(*s The implementation of interval arithmetic 
+(* The implementation of interval arithmetic 
  operations follows the tables given in ``Interval Arithmetic: 
  from Principles to Implementation'' by Hickey, Ju, and Emden in the 
  Journal of ACM, 2002. *)
 
 
-(*s Addition and Subtraction. *)
+(** Addition and Subtraction. *)
 
 let rec add i j =
   let (a,alpha) = Endpoint.destruct i.lo
@@ -296,15 +293,15 @@ and add_dom d1 d2 =
     | Dom.Nonint, Dom.Int -> Dom.Nonint
 
 
-(*s Classification of intervals according to the signs of endpoints. *)
+(** Classification of intervals according to the signs of endpoints. *)
   
 type classification = 
-  | M                 (*s [(a,b)] in [M] iff [a < 0 < b]. *)
-  | Z                 (*s [(0,0)] is only interval in [Z]. *)
-  | P0                (*s [(0,b)] in [P0] iff [b > 0]. *)
-  | P1                (*s [(a,b)] in [P1] iff [0 < a <= b]. *)
-  | N0                (*s [(a,0)] in [N0] iff [a < 0]. *)
-  | N1                (*s [(a,b)] in [N1] iff [a <= b < 0]. *)
+  | M                 (** [(a,b)] in [M] iff [a < 0 < b]. *)
+  | Z                 (** [(0,0)] is only interval in [Z]. *)
+  | P0                (** [(0,b)] in [P0] iff [b > 0]. *)
+  | P1                (** [(a,b)] in [P1] iff [0 < a <= b]. *)
+  | N0                (** [(a,0)] in [N0] iff [a < 0]. *)
+  | N1                (** [(a,b)] in [N1] iff [a <= b < 0]. *)
 
 
 let classify i =
@@ -325,7 +322,7 @@ let classify i =
 	   | Neg -> N1
 	   | Pos -> M)
 
-(*s Multiplication of general real intervals. *)
+(** Multiplication of general real intervals. *)
 
 let mult i j =
   let dom = Dom.union i.dom j.dom
@@ -437,7 +434,7 @@ let expt n l =
   else 
     c
 
-(*s Comparing two intervals. *)
+(** Comparing two intervals. *)
 
 let sub i j =
   let lo_ge (a,alpha) (c, gamma) =

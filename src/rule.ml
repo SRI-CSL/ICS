@@ -227,7 +227,7 @@ and fme x b s =
 		   let i2 = c s y in
 		   let dom2 = Cnstrnt.dom_of i2 in
 		   let (lo2, hi2) = Cnstrnt.endpoints_of i2 in
-		   let dom = Dom.union dom1 dom2 in
+		   let dom = Dom.Real (* Dom.union dom1 dom2 *) in
 		     (match Q.sign q1, Q.sign q2 with
 			| Sign.Pos, Sign.Pos ->
 			    less dom (q2, lo2, ml2) (q1, hi1, ml1)

@@ -30,7 +30,7 @@ let mk_abs a =
 let rec mk_apply sigma r a al =
   match a, al with
     | App(Fun(Abs), [x]), [y] -> 
-	subst sigma x y 0
+	byValue sigma (subst sigma x y 0)
     | _ ->
 	mk_app (apply r) (a :: al)
 

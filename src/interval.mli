@@ -1,5 +1,5 @@
 
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -12,98 +12,138 @@
  * benefit corporation.
  * 
  * Author: Harald Ruess
-i*)
+*)
 
-(*s Module [Interval]: Real intervals with rational endpoints (including infinity). *)
+(** Module [Interval]: Real intervals with lower and upper 
+  endpoints of type {!Endpoints.t} and an interpretation domain in {!Dom.t}.
+
+  Let [i] be a interval with lower bound [lo], higher bound [hi], and
+  interpretation domain [d]. The denotation [D(i)] of [i] is a subset of the 
+  set of real numbers defined as follows.
+  [D(make d '(a,true)' '(b,true)')] equals the closed interval [{x in d | a <= x <= b}],
+  [D(make d '(a,true)' '(b,false)')] is the right-open interval [{x in d | a <= x < b}],
+  [D(make d '(a,false)' '(b, true)')] denotes the left-open interval [{x in d | a<x <= b}],
+  and [D(make d '(a,false)' '(b,false)')] denotes the open interval [{x in d | a < x < b}]. 
+*)
 
 type t
 
-(* [make d (a,alpha) (b,beta)] constructs a general, interval 
-   with rational endpoints [a] and [b] (including negative and positive
-   infinity) and two bits of information [alpha] and [beta], 
-   with [alpha] (resp. [beta]) specifying whether [a] (resp. [b]) belongs to the interval. 
-   Each interval denotates a set of reals (or integers), denoted by [D(i)].
-   [D(make d (a,true) (b,true))] equals the closed interval [{x in d | a <= x <= b}],
-   [D(make d (a,true) (b,false))] is the right-open interval [{x in d | a <= x < b}],
-   [D(make d (a,false) (b, true))] denotes the left-open interval [{x in d | a < x <= b}],
-   and [D(make d (a,false) (b,false))] denotes the open interval [{x in d | a < x < b}]. 
-*)
+(** {Constructor}. *)
 
 val make : Dom.t * Endpoint.t * Endpoint.t -> t
-
-(*s The accessor [destructure i] returns the endpoint information [(d,lo,hi)]
-  for an interval [i] with denotation [D(make d lo hi)]. [lo i] returns
-  the lower bound in the form [(a,alpha)] and [hi i] the upper bound in the form
-  [(b, beta)]. *)
-
-val destructure : t -> Dom.t * Endpoint.t * Endpoint.t
-
-val dom : t -> Dom.t
-val lo : t -> Endpoint.t
-val hi : t -> Endpoint.t
-
-(*s Derived constructors. *)
+(** [make d (a,alpha) (b,beta)] constructs a general, interval 
+   with rational endpoints [a] and [b] (including negative and positive
+   infinity) and two bits of information [alpha] and [beta], 
+   with [alpha] (resp. [beta]) specifying whether [a] (resp. [b]) 
+   belongs to the interval. *)
 
 val mk_zero : t
-val mk_empty : t 
-val mk_real : t 
-val mk_int : t
-val mk_nonint : t
-val mk_singleton : Mpa.Q.t -> t
+(** [mk_zero] is the singleton interval containing only [0].  *)
 
-(*s [is_singleton i] returns the single value for an interval whose 
-    denotation is a singleton set over the reals. *)
+val mk_empty : t
+(** [mk_empty] is an interval with empty denotation. *)
+ 
+val mk_real : t 
+(** The denotation of the interval [mk_real] contains the whole real number line. *)
+
+val mk_int : t
+(** The denotation of [mk_int] contains all integers (positive and negative). *)
+
+val mk_nonint : t
+(** The denotation of [mk_nonint] is comprised of all reals which are not integer. *)
+
+val mk_singleton : Mpa.Q.t -> t
+(** The denotation of [mk_singleton q] contains only the rational [q]. *)
+
+
+(** {Destructors.} *)
+
+val destructure : t -> Dom.t * Endpoint.t * Endpoint.t
+(** The accessor [destructure i] returns the endpoint information [(d, lo, hi)]
+  for an interval [i] with denotation [D(make d lo hi)]. *)
+
+val dom : t -> Dom.t
+(** [dom i] returns the interpretation domain of an interval. *)
+
+val lo : t -> Endpoint.t
+(** [lo i] returns the lower bound in the form of an endpoint [(a, alpha)] *)
+
+val hi : t -> Endpoint.t
+(** [hi i] the upper bound in the form [(b, beta)]. *)
+
+
+(** {Recognizers.} *)
 
 val d_singleton : t -> Mpa.Q.t option
-val is_empty : t -> bool
-val is_full : t -> bool
+(** [is_singleton i] returns the single value [Some(q)] for an interval whose 
+    denotation is a singleton set over the reals. Otherwise it returns [None]. *)
 
-(*s [rational_endpoints i] returns the pair of rational endpoints. *)
+val is_empty : t -> bool
+(** [is_empty i] holds iff if [D(i)] is empty. *)
+
+val is_full : t -> bool
+(** [is_full i] holds iff if [D(i)] is the full real number line *)
 
 val rational_endpoints : t -> (Mpa.Q.t * Mpa.Q.t) option
+(** [rational_endpoints i] returns the pair of rational endpoints. *)
 
-(*s [mem q i] tests if the rational [q] is a member of the interval [i]. *)
+
+(** {Predicates.} *)
+
 
 val mem: Mpa.Q.t -> t -> bool
+(** [mem q i] tests if the rational [q] is in [D(i)]. *)
 
-(*s Equality [eq i j] on intervals [i], [j] holds if and only if they denote
-    the same set of numbers. In particular, two empty intervals are always 
-    identified to be equal. *)
 
 val eq: t -> t -> bool
+(** [eq i j] holds iff [D(i)] equals [D(j)]. In particular, two different
+  intervals with empty denotations are always identified to be equal. *)
 
-(*s Union and intersection of two intervals. It is the case that
-  the denotation of [union i j] (resp. [inter i j]) is the union 
-  (resp. intersection) of the denotations of [i] and [j]. *)
+
+(** {Connectives.} *)
 
 val union : t -> t -> t
+(** [D(union i j)] contains the union of [D(i)] and [D(j)]. *)
+
 
 val inter : t -> t -> t
+(** [D(inter i j)] is [D(i)] inter [D(j)]. *)
 
 
-(*s Interval arithmetic. Let [i], [j] be two intervals
-    with denotations [D(i)] and [D(j)].  Then, 
-    [D(add i j)] is [D(i) + D(j)],
-    [D(sub i j)] is [D(i) - D(j)],
-    [D(mult i j)] is [D(i) * D(j)],
-    and [D(div i j)] consists of the set of rationals 
-    $\{ z | \exists x \in D(i), y \in D(j) \mbox{~such that~} y /= 0,\,z = x / y\}$\@. *)
+(** {Interval arithmetic.} *)
   
 val add : t -> t -> t
-val subtract : t -> t -> t
-val multq :  Mpa.Q.t -> t -> t
-val mult :  t -> t -> t
-val expt : int -> t -> t
-val div :   t -> t -> t
+(**  [D(add i j)] is [D(i) + D(j)]. *)
 
-(*s Comparisons. *)
+val subtract : t -> t -> t
+(** [D(sub i j)] is [D(i) - D(j)] *)
+
+val multq :  Mpa.Q.t -> t -> t
+(** [D(multq q i)] is [q * D(j)] *)
+
+val mult :  t -> t -> t
+(** [D(mult i j)] is a superset of [D(i) * D(j)] *)
+
+val expt : int -> t -> t
+(** [D(expt n i)] is [D(i)^n]. *)
+
+val div :   t -> t -> t
+(** [D(div i j)] consists of the set of rationals [z] such that
+ there exists [x in D(i)], [y in D(j)] with [y /= 0], [z = x / y]. *)
+
+
+(** {Comparisons.} *)
 
 val cmp : t -> t -> t Binrel.t
 
 val sub : t -> t -> bool
+(** [sub i j] holds iff [D(i)] is a subset of [D(j)]. *)
 
 val disjoint : t -> t -> bool
+(** [disjoint i j] holds iff [D(i)] and [D(j)] are disjoint. *)
 
-(*s Printing an interval. *)
 
-val pp : Format.formatter -> t -> unit
+(** {Printing} *)
+
+val pp : t Pretty.printer
+(** Printing an interval. *)
