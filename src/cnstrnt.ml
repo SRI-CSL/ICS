@@ -50,6 +50,11 @@ let is_empty (i,_) = Interval.is_empty i
 let is_full (i,qs) = 
   Interval.is_full i && Diseqs.is_empty qs
 
+(*s Membership. *)
+
+let mem q (i,qs) =
+  Interval.mem q i && not(Diseqs.mem q qs)
+
 
 (*s Constructing a constraint from components *)
 
@@ -225,6 +230,12 @@ let mk_nonpos dom = mk_le dom Q.zero
 
 (*s Abstract interpretation. *)
 
+let addq q (j, ps) = 
+  let i = Interval.mk_singleton q in
+  let j' = Interval.add i j in
+  let ps' = Diseqs.fold (fun p -> Diseqs.add (Q.add q p)) ps Diseqs.empty in
+  make (j', ps')
+
 let add (i,_) (j,_) = 
   of_interval (Interval.add i j)
 
@@ -236,7 +247,7 @@ let rec addl = function
 let multq q (i,qs) =
   let j' = Interval.multq q i in
   let qs' = Diseqs.fold (fun p -> Diseqs.add (Mpa.Q.mult q p)) qs Diseqs.empty in
-  make (j',qs')
+  make (j', qs')
 
 let mult (i,_) (j,_) =
   of_interval (Interval.mult i j)
