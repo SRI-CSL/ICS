@@ -142,8 +142,6 @@ let rec neg a =
   match a.node with
     | Bool(x) ->
 	bool_neg x
-    | App({node=Set(Cnstrnt(c))},[x]) ->
-	Some(Cnstrnt.app (Interval.compl c) x)
     | _ ->
 	None
 
