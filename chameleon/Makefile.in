@@ -14,7 +14,7 @@ OFLAGS =
 LIBS    = -cclib -lstr
 
 ifeq ($(MAKELEVEL),0)
-   ARCH := $(shell ../bin/config.guess)
+   ARCH := $(shell ../config.guess)
    export ARCH
 endif
 
