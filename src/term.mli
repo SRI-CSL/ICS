@@ -11,7 +11,9 @@
  * benefit corporation.
  *)
 
-(** A term is either a variable [Var(s)] with a name [s] of type {!Name.t} or
+(** Datatype of terms 
+
+  A term is either a variable [Var(s)] with a name [s] of type {!Name.t} or
   an application [App(f,l)] of a function symbol of type {!Sym.t}
   to a list of argument terms. 
 
