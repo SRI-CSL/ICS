@@ -81,7 +81,11 @@ val add : t -> Atom.t -> t Status.t
     - [Ok(s')] otherwise.  In this case, [s'] is a logical state equivalent 
     to [s] conjoined with [a]. *)
 
+val statistics : bool ref
+val verbose : bool ref
 val coi_enabled : int ref
+val semantic_coi_min : int ref
+val syntactic_coi_min : int ref
 
 val addl : t -> Atom.t list -> t Status.t
 

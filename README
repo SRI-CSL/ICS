@@ -1,8 +1,8 @@
-ICS 1.1: Integrated Canonizer and Solver
+ICS 2.0: Integrated Canonizer and Solver
 ========================================
 
-Decision procedure for the combination of theories
-based on Shostak's procedure. See also:
+Decision procedure for the combination of t
+heories based on Shostak's procedure. See also:
 
 http://ics.csl.sri.com
 
@@ -19,7 +19,7 @@ Requirements:
 
 To compile ICS, you need to install first:
  
- - Objective Caml version 3.04 or later
+ - Objective Caml version 3.06 or later
    Available at http://caml.inria.fr
 
  - GNU MP version 4.1 or later
@@ -31,12 +31,30 @@ To compile ICS, you need to install first:
 Installation from sources  
 -------------------------
 
-After unpacking the source distribution and 'cding' to this directory, do:
+ICS can be can build from sources by using the following sequence of shell 
+commands in a directory of your choice.
 
-1> ./configure [--with-gmp=/path/to/gmp] [--prefix=/path/to/binaries]  ; creates the Makefile etc from XXX.in
-2> make			                   ; builds ICS
-4> make install                            ; installs executables and libraries in directory /path/to/binaries
+       $ mkdir ics
+       $ cd ics
+       $ tar zxvf ics-2-0.tar.gz
 
+An executable is build using the the commands.
+    
+      $ ./configure [--with-gmp=/path/to/gmp] [--prefix=/path/to/binaries]
+      $ make
+
+'configure' creates the Makefile from corresponding file Makefile.in,
+whereas 'make' builds ICS.  If configure fails to find an appropriate GMP, 
+the --with-gmp flag can be used to explicitly provide a path to the GMP library.
+
+Now, the ICS interactor is called using
+
+     $ ./ics
+
+The executables and libraries can be installed in /path/to/binaries using
+
+     $ make install
+ 
 Binaries will be in ./bin/$(ARCH)/ 
 Libraries in ./lib/$(ARCH)/
 
@@ -45,8 +63,17 @@ Build directory is ./obj/$(ARCH)/
 Documentation is in ./doc
 
 
+Problems
+--------
 
-Credits:
+Configure does not find required programs. In this case check your PATH variable.
+
+Sometimes, the path to an appropriate GMP has to be given explicitly when configure
+does not find one. E.g. ./configure --with-gmp=/local  if there is an appropriate
+GMP library in /local/lib
+
+
+Credits
 --------
 
 Main code by Harald Ruess with help from Jean-Christophe Filliâtre,
@@ -57,6 +84,9 @@ and patched for ocaml 3.00 by Jean-Christophe Filliâtre.
 
 Changes: 
 --------
+
+Version 2.0
+  - to do
 
 Version 1.1 
   - more efficient inequality reasoning

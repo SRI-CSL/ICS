@@ -12,6 +12,7 @@
  *)
 
 module S = Solution.Set
+module Tr = Trace
 
 module T = Ac.Make(Pprod.Sig)
 
@@ -104,8 +105,8 @@ module Infsys: (Infsys.EQ with type e = S.t) = struct
 
   let rec merge e =
     assert(Fact.Equal.is_pure Th.nl e || Fact.Equal.is_pure Th.la e);
-    if Fact.Equal.is_pure Th.nl e then
-      merge_nl e
+    if Fact.Equal.is_pure Th.nl e then 
+      merge_nl e 
     else 
       merge_la e
 
@@ -122,13 +123,16 @@ module Infsys: (Infsys.EQ with type e = S.t) = struct
     if not(S.is_empty (current())) then
       let a_sub_b = Arith.mk_sub a b in
       let e' = Fact.Equal.make a_sub_b (Arith.mk_zero()) rho in
+	Tr.msg "nl'" "Merge(la)" e' Fact.Equal.pp;
 	Arith.iter 
 	  (fun y -> 
 	     try infer_la (isolate y e') with Not_found -> ())
-	  a_sub_b
+	  a_sub_b;
+	infer_nonneg()
 
   and infer_la ((x, a, _) as e) =
-    assert(Term.is_var x && Arith.is_interp a);
+    Tr.msg "nl'" "Infer(la)" e Fact.Equal.pp;
+    assert(Term.is_var x && (Arith.is_interp a || Term.is_var a));
     S.Dep.iter (current())           
       (fun (y, b, rho) ->                    (* [rho |- y = b] *)
 	 let (b', tau) = apply_subst e b in  (* [tau |- b = b'] *)
@@ -165,6 +169,7 @@ module Infsys: (Infsys.EQ with type e = S.t) = struct
 
   let nl_merge_la_eqs e =
     assert(Fact.Equal.is_pure Th.la e);
+    Tr.msg "nl'" "Propagate_nl_in_la" e Fact.Equal.pp;
     if not(S.is_empty (current())) then
       merge_la e
 

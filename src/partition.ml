@@ -205,8 +205,10 @@ let fresh_equal p =
   match p.equal with
     | [] -> 
 	raise Not_found
-    | e :: equal' ->
-	p.equal <- equal'; e
+    | (x, y, rho) :: equal' ->
+	let (z, tau) = find p y in
+	let e' = Fact.Equal.make x z (Jst.dep2 rho tau) in
+	  p.equal <- equal'; e'
 
 let fresh_diseq p =
   let d = Fact.Diseq.Set.choose p.diseq in

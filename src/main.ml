@@ -50,8 +50,12 @@ let args () =
 	"Set proofmode to [No | Dep]";
         "-eot", Arg.String Ics.set_eot, 
 	"Print string argument after each transmission";
-	"-cone_of_influence", Arg.Int(fun i -> Context.coi_enabled := i), 
+	"-cone_of_influence", Arg.Int(fun i -> Context.coi_enabled := i; Context.statistics := true), 
 	"Cone of influence reduction for explanations [0 = disabled; 1 = syntactic; 2 = semantic]";
+	"-syntactic_cone_of_influence", Arg.Int(fun i -> Context.syntactic_coi_min := i; Context.statistics := true), 
+	"Enable syntactic cone of influence deduction for explanations [>= n].";
+	"-semantic_cone_of_influence", Arg.Int(fun i -> Context.semantic_coi_min := i; Context.statistics := true), 
+	"Enable semantic cone of influence deduction for explanations [>= n].";
         "-server", Arg.Int (fun portnum -> portnum_flag := Some(portnum)), 
 	"Run in server mode";
 	"-verbose", set_true Ics.set_verbose,
@@ -124,7 +128,10 @@ and batch1 name =
       Ics.cmd_batch (inch)
   in
     if exit_code <> 0 then
-      exit exit_code
+      begin
+	Tools.do_at_exit();
+	exit exit_code
+      end 
     
 
 (** {6 Server Mode} *)
@@ -157,10 +164,12 @@ let rec main () =
 	  Gc.print_stat stderr
 	end;
       Format.eprintf "@.";
+      Tools.do_at_exit();
       exit 0
   with
       exc ->
 	Format.eprintf "%s@." (Printexc.to_string exc);
+	Tools.do_at_exit();
 	exit (-1)
 	  
 let _ = Printexc.catch main ()

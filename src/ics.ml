@@ -40,7 +40,7 @@ let _ = Callback.register "set_pretty" set_pretty
 let set_compactify b =  V.garbage_collection_enabled := b
 let _ = Callback.register "set_compactify" set_compactify
 
-let set_verbose = Prop.set_verbose
+let set_verbose b = Prop.set_verbose b; Context.verbose := true
 let _ = Callback.register "set_verbose" set_verbose
 
 let set_assertion_frequency = Prop.set_assertion_frequency

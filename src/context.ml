@@ -157,7 +157,40 @@ module Status = struct
 
 end
 
-let coi_enabled = ref 0   (* disabled *)
+(** Enable/Disable cone of influence. *)
+let coi_enabled = ref 0        (* disabled *)
+let semantic_coi_min = ref 3   (* initial value for semantic cone of influence. May be adjusted. *)
+let syntactic_coi_min = ref (-1)
+
+
+(** Statistics. *)
+let statistics = ref false
+let verbose = ref false
+let num_of_inconsistencies = ref 0
+let total_savings = ref 0.
+
+let _ = Tools.add_at_reset (fun () -> num_of_inconsistencies := 0)
+let _ = Tools.add_at_reset (fun () -> total_savings := 0.)
+
+let _ = 
+  Tools.add_at_exit 
+    (fun () -> 
+       if !statistics then
+	 begin
+	   if !coi_enabled = 2 || !semantic_coi_min >= 0 then
+	     Format.eprintf "\nSemantic cone of influence (min: %d)"
+	       (if !semantic_coi_min >= 0 then !semantic_coi_min else 0)
+	   else if !coi_enabled = 1 || !syntactic_coi_min >= 0 then
+	     Format.eprintf "\nSyntactic cone of influence (min: %d)"
+	       (if !syntactic_coi_min >= 0 then !syntactic_coi_min else 0)
+	   else 
+	     Format.eprintf "\nNo cone of influence";
+	   Format.eprintf "\nNumber of inconsistencies: %d" !num_of_inconsistencies;
+	   Format.eprintf "\nCone of influence savings: %d / 100" 
+	     (truncate ((1. -. (!total_savings /. (float_of_int !num_of_inconsistencies))) *. 100.));
+	   Format.eprintf "\n@."
+	 end)
+
 
 let rec add s atm =
   let atm', rho' = Combine.simplify (s.eqs, s.p) atm in
@@ -189,28 +222,79 @@ let rec add s atm =
 	 | Jst.Inconsistent(rho) -> 
 	     let tau = cone_of_influence s atm rho in
 	       Status.Inconsistent(tau))
-(*
-	 | exc ->
-	     Format.eprintf "Error in process with context: ";
-	     Pretty.list Atom.pp Format.err_formatter (atm :: s.ctxt);
-	     raise exc)
-*)
 
 and cone_of_influence s atm rho = 
-  if !coi_enabled <= 0 then 
-    rho
-  else 
-    let inconsistency = match Jst.Mode.get () with
-      | Jst.Mode.Dep -> Jst.axioms_of rho
-      | Jst.Mode.No -> Atom.Set.add atm (ctxt2atoms s)
-    in
-    let inconsistency' = 
-      if !coi_enabled = 1 then 
-	syntactic_cone_of_influence atm inconsistency
-      else 
-	semantic_cone_of_influence atm inconsistency
-    in
-      Jst.of_axioms inconsistency'
+  let inconsistency = match Jst.Mode.get () with
+    | Jst.Mode.Dep -> Jst.axioms_of rho
+    | Jst.Mode.No -> Atom.Set.add atm (ctxt2atoms s)
+  in
+  let inconsistency' = 
+    match !coi_enabled with
+      | 1 -> 
+	  syntactic_cone_of_influence atm inconsistency
+      | 2 -> 
+	  semantic_cone_of_influence atm inconsistency
+      | _ ->
+	  if !semantic_coi_min >= 0 &&  
+	    (Atom.Set.cardinal inconsistency) >= !semantic_coi_min 
+	  then
+	    semantic_cone_of_influence atm inconsistency
+	  else if !syntactic_coi_min >= 0 && 
+	    (Atom.Set.cardinal inconsistency) >= !syntactic_coi_min 
+	  then
+	    syntactic_cone_of_influence atm inconsistency
+	  else 
+	    inconsistency
+  in
+  let savings = 
+    if inconsistency == inconsistency' then 1. else
+      let n = float_of_int (Atom.Set.cardinal inconsistency')
+      and m = float_of_int (Atom.Set.cardinal inconsistency) in
+	n /. m
+  in
+    if !statistics then
+      begin
+	incr(num_of_inconsistencies);
+	total_savings := !total_savings +. savings;
+      end;
+    adjust_coi savings;
+    Jst.of_axioms inconsistency'
+
+(** Dynamically adjust cone of influence *)
+and adjust_coi savings = 
+ (*  if !statistics then
+    Format.eprintf "\nCOI Ratio: %f" savings; *)
+  if savings > 0.97 then   
+    begin
+      if !semantic_coi_min >= 0 && !semantic_coi_min <= 150 then 
+	begin
+	  semantic_coi_min := !semantic_coi_min + 1;
+	  if false && !verbose then
+	    Format.eprintf "\n Adjusting min for semantic COI to %d" !semantic_coi_min
+	end 
+      else if !syntactic_coi_min >= 0 && !semantic_coi_min <= 150 then 
+	begin
+	  syntactic_coi_min := !syntactic_coi_min + 1;
+	  if false && !verbose then
+	    Format.eprintf "\n Adjusting min for syntactic COI to %d" !syntactic_coi_min
+	end
+    end
+  else if savings < 0.90 then
+    begin
+      if !semantic_coi_min > 0 then 
+	begin
+	  semantic_coi_min := !semantic_coi_min - 1;
+	  if false && !verbose then
+	    Format.eprintf "\n Adjusting min for semantic COI to %d" !semantic_coi_min
+	end 
+      else if !syntactic_coi_min > 0 then 
+	begin
+	  syntactic_coi_min := !syntactic_coi_min - 1;
+	  if false && !verbose then
+	    Format.eprintf "\n Adjusting min for syntactic COI to %d" !syntactic_coi_min
+	end
+    end
+
 
 and ctxt2atoms s =
   List.fold_right Atom.Set.add s.ctxt Atom.Set.empty
@@ -271,7 +355,6 @@ and semantic_cone_of_influence atm inconsistency =
       try
 	Jst.Mode.set Jst.Mode.No;
 	let inconsistency' = try loop () with Found(atms) -> atms in
-	  trace_coi inconsistency' inconsistency;
 	  Jst.Mode.set proofmode;
 	  inconsistency'
       with
@@ -332,7 +415,7 @@ let is_valid =
 
 (* Check if [s] is satisfiable after case-splittiing. *)
 let check_sat s =
-  Some(s)
+  Some(s)  (* to do *)
 
 
 let diff s1 s2 =

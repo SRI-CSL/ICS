@@ -22,7 +22,6 @@ let rec pp_justification fmt j =
 and print_justification = ref false
 
 
-
 (** Sigma normal forms for individual theories. *)
 let sigma f al =
   match Sym.get f with

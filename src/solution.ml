@@ -356,7 +356,7 @@ module Make(Ext: EXT): (SET with type ext = Ext.t) = struct
      assert(Term.is_var x);  (* allow for equalities [x = y] with [y] internal. *)
      if Term.is_var b && not(is_fresh b) then
        begin
-	 Partition.merge p e; 
+	 Partition.merge p e;
 	 restrict s x
        end 
      else                        

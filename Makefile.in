@@ -340,8 +340,7 @@ doc: $(DOCDIR)/doc.ps.gz $(DOCDIR)/doc.pdf $(DOCDIR)/api.tex $(DOCDIR)/dep.ps
 
 $(DOCDIR)/doc.dvi: $(DOCDIR)/dep.ps $(DOCDIR)/doc.tex $(DOCDIR)/api.tex
 	(cd $(DOCDIR); \
-	 rm doc.aux; \
-         latex ./doc.tex && bibtex ./doc && latex ./doc.tex && latex ./doc.tex)
+         latex ./doc.tex && latex ./doc.tex)
 
 $(DOCDIR)/dep.ps: $(SRC)
 	(cd src; $(OCAMLDEP) -native *.ml *.mli | ocamldot | dot -Tps > ../doc/dep.ps)

@@ -385,7 +385,8 @@ module Is = struct
 
   let branch () = ()
 
-  let normalize () = ()
+  let normalize () =
+    La.Infsys.normalize ()
 
   let nonneg nn =
     assert(Fact.Nonneg.is_pure Th.la nn);

@@ -32,7 +32,7 @@ let name_of_rename = Name.of_string "v"
 %token DROP CAN SIMPLIFY ASSERT EXIT SAVE RESTORE REMOVE FORGET RESET SYMTAB SIG VALID UNSAT
 %token TYPE SIGMA
 %token SOLVE HELP DEF PROP TOGGLE SET GET TRACE UNTRACE CMP FIND USE INV SOLUTION PARTITION MODEL
-%token SHOW SIGN DOM SYNTAX COMMANDS SPLIT SAT ECHO CHECK UNDO
+%token SHOW SIGN DOM SYNTAX COMMANDS SPLIT SAT ECHO CHECK UNDO LOAD
 %token DISEQ CTXT 
 %token IN NOTIN TT FF DEF
 %token EOF QUOTE
@@ -372,6 +372,7 @@ command:
 | SUP optname term          { Istate.do_sup ($2, $3) }
 | INF optname term          { Istate.do_inf ($2, $3) }
 | UNDO                      { Istate.do_undo () }
+| LOAD optname ident        { Istate.do_load ($2, $3) }               
 | help                      { $1 }
 ;
 
@@ -437,6 +438,7 @@ help:
 | HELP ASSIGN               { Istate.do_help (Istate.Command("set")) }
 | HELP LESS IDENT GREATER   { Istate.do_help (Istate.Nonterminal($3)) }
 | HELP UNDO                 { Istate.do_help (Istate.Command("undo")) }
+| HELP LOAD                 { Istate.do_help (Istate.Command("load")) }
 ;
 
 optname:                    { None }

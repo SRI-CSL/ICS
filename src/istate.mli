@@ -238,6 +238,8 @@ val do_forget : unit -> unit
 
 val do_undo : unit -> unit
 
+val do_load : Name.t option * string -> unit
+
 
 (** {6 Sat solver} *)
 

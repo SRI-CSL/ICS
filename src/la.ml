@@ -290,7 +290,9 @@ let is_nondependent_equal e =
   Fact.Equal.both_sides is_nondependent_term e
 
 let is_noncircular () =
-  S.for_all (fun (_, a, _) -> is_nondependent_term a) !s
+  S.for_all 
+    (fun (_, a, _) -> is_nondependent_term a) 
+    !s
 
 let all_zeros_propagated () =
   not(S.exists 
@@ -341,8 +343,11 @@ let upd ((x, a, rho) as e) =
 	S.update (!Infsys.p, !s) e''
   else 
 *)
-    (* Trace.msg "la'" "Update" e Fact.Equal.pp; *)
+    Trace.msg "la'" "Update" e Fact.Equal.pp;
     S.update (!Infsys.p, !s) e
+
+let restrict x = 
+  S.restrict !s x 
 
 let apply a = S.apply !s a
 let find a = Jst.Eqtrans.totalize (S.apply !s) a
@@ -614,6 +619,13 @@ let is_canonical a =
   let (b, _) = can a in
     Term.eq a b
 
+let all_variables_propagated () =
+  S.for_all 
+    (fun (k, a, _) -> 
+         Partition.is_canonical !Infsys.p k && 
+         Arith.Monomials.for_all (fun _ k -> Partition.is_canonical !Infsys.p k) a)
+    !s
+
 let name a =
   if Term.is_var a then 
     Jst.Eqtrans.id a 
@@ -709,15 +721,24 @@ type config = Partition.t * S.t
 let do_infer = ref false
 
 let update ((k, a, _) as e) =
-  if is_restricted_var k &&
-    Mpa.Q.is_zero (Arith.constant_of a) 
-  then
-    do_infer := true;           (* if this update comes from pivoting, flag does not need to be set. *)
-  upd e
+  upd e;
+  if is_restricted_var k && Mpa.Q.is_zero (Arith.constant_of a) then
+    do_infer := true   (* todo: if this update comes from pivoting, flag does not need to be set. *)
+ 
 
-let fuse ((x, _, _) as e) = 
-  let instantiate_rhs e' = 
-    update (Fact.Equal.map_rhs (apply1 e) e') 
+let rec fuse ((x, _, _) as e) = 
+  let instantiate_rhs (y, a, rho) = 
+    let (b, tau) = apply1 e a in
+    let e' = Fact.Equal.make y b (Jst.dep2 rho tau) in
+      if Term.is_var b then
+	begin
+	  if not(Term.Var.is_fresh Th.la b) then
+	    Partition.merge !Infsys.p e';
+	  S.restrict !s y;
+	  fuse e'   (* in every recursive call one less equation. *)
+	end
+      else 
+	update e'
   in 
     S.Dep.iter !s instantiate_rhs x
       
@@ -762,7 +783,7 @@ let compose e =
      go below [0] in this process. *)
 
 let rec process_equal e =
-  (* Trace.msg "la'" "Merge" e Fact.Equal.pp; *)  
+  Trace.msg "la'" "Merge" e Fact.Equal.pp;
   assert(is_noncircular());
   let e = Fact.Equal.map replace e in
     assert(is_nondependent_equal e);
@@ -880,7 +901,7 @@ and eliminate_zero_slack (k, rho) =                 (* [rho |- k = 0] *)
 	  compose_and_cut e0
 	    
 and compose_and_cut ((x, a, _) as e) = 
-  (* Trace.msg "la'" "Compose" e Fact.Equal.pp;  *)
+  Trace.msg "la'" "Compose" e Fact.Equal.pp;
   assert(Term.is_var x);
   assert(is_noncircular());
   compose e;
@@ -917,7 +938,7 @@ and gomory_cut e =
 
 
 and process_nonneg ((a, rho) as nn) =                 (* [rho |- a >= 0] *)
-  (* Trace.msg "la'" "process_nonneg" nn Fact.Nonneg.pp; *)
+  Trace.msg "la'" "process_nonneg" nn Fact.Nonneg.pp;
   match Arith.is_nonneg a with
     | Three.Yes -> ()
     | Three.No -> raise(Jst.Inconsistent(rho))
@@ -935,11 +956,14 @@ and process_nonneg ((a, rho) as nn) =                 (* [rho |- a >= 0] *)
 		    let (k, tau) = mk_nonneg_slack a rho in  (* [tau |- k = a] *) 
 		    let e = Fact.Equal.make k a (Jst.dep2 rho tau) in
 		      !nl_merge e;
+		      Trace.msg "nl" "Merge(nl)" e Fact.Equal.pp;
 		      compose (isolate y e))
 		 with
 		     Not_found ->
-		       assert(is_restricted a);
-		       process_nonneg_restricted (a, rho))
+		       begin
+			 assert(is_restricted a);
+			 process_nonneg_restricted (a, rho)
+		       end)
 	
 	
 and process_nonneg_restricted (a, rho) =                 (* [rho |- a >= 0] *)
@@ -969,13 +993,15 @@ and process_nonneg_make_feasible e =
 		  process_nonneg_make_feasible e'
 	    with
 		Not_found -> (* Case IV: [a] is unbounded. *)
-		  assert(Arith.Monomials.Pos.is_empty a);
-		  raise(Jst.Inconsistent(rho))
+		  begin
+		    assert(Arith.Monomials.Pos.is_empty a);
+		    raise(Jst.Inconsistent(rho))
+		  end
 		
 
 and add_to_t ((k, a, rho) as e) =
   assert(is_restricted_var k && is_restricted a);
-  (* Trace.msg "la'" "Add_to_t" e Fact.Equal.pp; *)
+  Trace.msg "la'" "Add_to_t" e Fact.Equal.pp;
   if Q.is_nonneg (Arith.constant_of a) then
     compose_and_cut e
   else if Arith.Monomials.Pos.is_empty a then
@@ -992,25 +1018,24 @@ and add_to_t ((k, a, rho) as e) =
 	else 
 	  compose_and_cut e'
     with
-	Not_found ->  
-	  assert(not(Arith.Monomials.Pos.is_empty a));
-	  let y = choose_pos_least a in
-	    pivot y;
-	    let (a', rho') = replace a in          (* [rho' |- a = a'] *)
-	      assert(not(Term.subterm y a'));      (* [S.replace] removes dependent vars. *)
-	      let rho'' = Jst.dep2 rho rho' in      (* [rho'' |- k = a'] *)
-		add_to_t (Fact.Equal.make k a' rho'')
-
+	Not_found -> 
+	  begin
+	    assert(not(Arith.Monomials.Pos.is_empty a));
+	    let y = choose_pos_least a in
+	      pivot y;
+	      let (a', rho') = replace a in          (* [rho' |- a = a'] *)
+		assert(not(Term.subterm y a'));      (* [S.replace] removes dependent vars. *)
+		let rho'' = Jst.dep2 rho rho' in      (* [rho'' |- k = a'] *)
+		  add_to_t (Fact.Equal.make k a' rho'')
+	  end 
 
 and pivot y =
   assert(not(is_unbounded y));
   try
     let (g, e) = gain y in
     let e' = isolate y e in 
-(*
     Trace.msg "la'" "Pivot" (e, e') (Pretty.infix Fact.Equal.pp " ==> " Fact.Equal.pp);
     Trace.msg "la'" "with gain" g Mpa.Q.pp;
-*)
       compose e'                        (* no Gomory cuts required for pivoting. *)
   with
       Not_found -> 
@@ -1027,17 +1052,17 @@ and pivot y =
   analysis are already closed.  One could make the second static
   analysis incremental. *)
 and infer () =
-  let stuck_at_zeros = analyze () in  (* 1. find all stuck at zero variables. *)
-    (* Trace.msg "la'" "Analyze" (Term.Var.Set.elements stuck_at_zeros) (Pretty.set Term.pp); *)
-    maximize stuck_at_zeros           (* 2. maximize all zeros which are not stuck at zero. *)
+  if !do_infer then
+    begin
+      let stuck_at_zeros = analyze () in  (* 1. find all stuck at zero variables. *)
+	Trace.msg "la'" "Analyze" (Term.Var.Set.elements stuck_at_zeros) (Pretty.set Term.pp);
+	maximize stuck_at_zeros           (* 2. maximize all zeros which are not stuck at zero. *)
+    end
 
 and toplevel f a =
   do_infer := false;
   f a;
-  if !do_infer then
-    begin 
-      infer ();
-    end 
+  infer ()
               (* ADD: infer only needed if [x = a] with [|a| = 0] has been 
                  added other than with pivoting!!! *)
 
@@ -1060,12 +1085,13 @@ and maximize stuck_at_zeros =
 	 let stuck_at_zeros' = maximize1 stuck_at_zeros (z, a, rho) in
 	   maximize stuck_at_zeros'
        with
-	   Not_found -> ())
+	   Not_found -> ())   (* stuck at zero variables might have disappeared. *)
   with
       Not_found -> ()
       
 and maximize1 stuck_at_zeros ((k, a, rho) as e) = (* [rho |- k = a] *)
-  (* Trace.msg "la'" "Maximize1" e Fact.Equal.pp;  *) 
+  Trace.msg "la'" "Maximize1" e Fact.Equal.pp;
+  Trace.msg "la'" "with stuck_at_zeros" (Term.Var.Set.elements stuck_at_zeros) (Pretty.set Term.pp);
   let monomial_is_unbounded _ y = is_unbounded y in
     if not(Mpa.Q.is_zero (Arith.constant_of a)) then
       stuck_at_zeros
@@ -1093,7 +1119,7 @@ and stuck_at_zeros_is_zero y =
 
 and pivot_in_maximize stuck_at_zeros y =  (* pivot and update stuck at zero variables to *)
   assert(not(is_unbounded y));            (* contain only dependent variables. *)
-  (* Trace.msg "la'" "Pivot" y Term.pp; *)
+  Trace.msg "la'" "Pivot" y Term.pp;
   try
     let (g, e) = gain y in  
       let e' = isolate y e in  
@@ -1101,7 +1127,7 @@ and pivot_in_maximize stuck_at_zeros y =  (* pivot and update stuck at zero vari
 	if not(Mpa.Q.is_zero (Arith.constant_of (Fact.Equal.rhs_of e'))) then
 	  begin
 	    compose e';
-	    stuck_at_zeros
+	    Term.Var.Set.remove (Fact.Equal.lhs_of e) stuck_at_zeros
 	  end
 	else 
 	  begin
@@ -1117,7 +1143,7 @@ and set_to_zero (x, a, rho) =             (* [rho |- x = a] *)
   Arith.Monomials.Neg.iter
     (fun _ y ->
        let e = Fact.Equal.make y (Arith.mk_zero()) rho in
-	 (* Trace.msg "la'" "Set_to_zero" e Fact.Equal.pp; *)
+	 Trace.msg "la'" "Set_to_zero" e Fact.Equal.pp;
 	 compose e)
     a
 
@@ -1202,8 +1228,10 @@ let rec upper a =
 	  max_term a' (b, tau)            (* [tau |- b = a'] *)
       with
 	  Not_found -> 
-	    assert(Arith.Monomials.Pos.is_empty a);
-	    (a, rho)
+	    begin
+	      assert(Arith.Monomials.Pos.is_empty a);
+	      (a, rho)
+	    end
   and max_var x (b, rho) =                 (* [rho |- x = b] *)
     assert(is_restricted_var x);
     make_dependent x;                      (* make [x] a dependent variable. *)
@@ -1428,7 +1456,7 @@ end
 (** {6 Inference System} *)
 
 (** Inference system for linear arithmetic. *)
-module Infsys: (Infsys.ARITH with type e = S.t) = struct
+module Infsys0: (Infsys.ARITH with type e = S.t) = struct
 
   type e = S.t
   
@@ -1457,20 +1485,55 @@ module Infsys: (Infsys.ARITH with type e = S.t) = struct
         (Fact.Equal.map can e);
     assert(is_noncircular())
 
-  (** Propagate variable equality [x = y]. *)
-  let rec propagate e =
+  (** Propagate variable equality [x = y].
+    - If both variables are independent, orient and compose.
+    - If only one of the variables, say [x], is independent, replace the
+      other with its find to get [x = find(y)].  Since this is
+      already feasible, we can just fuse the equality result.
+      The new equality can be discarded since [y = find(y)] is already
+      there in [la]. 
+    - If both are dependent, then get [find(x) = find(y)], solve
+    and compose. *)
+  let propagate ((x, y, rho) as e) =
     assert(Fact.Equal.is_var e);
     if not(S.is_empty !s) then
-      let (x, y, _) = e in
-	if occurs x && occurs y then
-	  let ((a, b, _) as e') = Fact.Equal.map find e in
-	    if not(Term.eq a b) then
-	      toplevel 
-		process_equal e';
-	    assert(is_noncircular())
-
-  and occurs x = true        (* following is incomplete. why? *)
-  (* S.is_dependent !s x || S.is_independent !s x *)
+      (try
+	 let (b, tau) = apply x in
+	   (try
+	      let (c, sigma) = apply y in       (* case: [find(x) = find(y)]. *)
+		if not(Term.eq b c) then
+		  let e' = Fact.Equal.make b c (Jst.dep3 rho tau sigma) in
+		    toplevel
+		      process_equal e'
+	    with                                (* case: [find(x) = y] *)
+		Not_found -> 
+		  let e' = Fact.Equal.make y b (Jst.dep2 rho tau) in
+		    do_infer := false;  (* toplevel  *)
+		    restrict x;
+		    process_equal e';
+		    infer ())
+	 with
+	     Not_found -> 
+               (try                            (* case: [x = find(y)] *)
+		  let (findy, sigma) = apply y in
+                  let e' = Fact.Equal.make x findy (Jst.dep2 rho sigma) in
+		    do_infer := false; (* toplevel  *)
+		(*    restrict y; *)
+		    process_equal e';
+		    compose e;
+		    infer ()
+                with
+                    Not_found ->               (* case: [x = y]. *)
+                      toplevel compose e));
+    if not(is_noncircular()) then
+      begin
+	Format.eprintf "\nCircularity when propagating %s in \n" (Pretty.to_string Fact.Equal.pp e);
+        pp R Format.err_formatter !s;
+	pp T Format.err_formatter !s;
+	Format.eprintf "@.";
+        exit 1;
+      end;
+    assert(is_noncircular())
 
   let dismerge d = 
     assert(Fact.Diseq.is_pure Th.la d);
@@ -1528,6 +1591,7 @@ module Infsys: (Infsys.ARITH with type e = S.t) = struct
   let normalize () =
     assert(is_noncircular ());
     assert(all_zeros_propagated ());
+    assert(all_variables_propagated());
     ()
     
   let nonneg ((a, rho) as nn) =
@@ -1565,7 +1629,6 @@ module Infsys: (Infsys.ARITH with type e = S.t) = struct
 
 end
 
-(**
 (** Tracing inference system. *)
 module Infsys: (Infsys.ARITH with type e = S.t) =
   Infsys.TraceArith(Infsys0)
@@ -1576,7 +1639,6 @@ module Infsys: (Infsys.ARITH with type e = S.t) =
        let diff = S.diff
        let pp = S.pp
      end)
-*)
 
 
 (** {6 Inequality Tests} *)

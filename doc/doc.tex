@@ -2,16 +2,21 @@
 
 \usepackage{ocamldoc}
 \usepackage{fullpage}
-\usepackage[latin1]{inputenc}
-\usepackage[T1]{fontenc}
 \usepackage{latexsym}
 \usepackage{amssymb}
 \usepackage{url}
 \usepackage{epsf}
 \usepackage{verbatim}
 \usepackage[chapter]{/homes/owre/tex/tocbibind}
-\usepackage[bookmarks=true,hyperindex=true,colorlinks=true,backref=true,pagebackref=true]{hyperref}
-\usepackage{pslatex}
+% \usepackage[bookmarks=true,hyperindex=true,colorlinks=true,backref=true,pagebackref=true]{hyperref}
+
+\makeatletter
+\@ifundefined{pdfoutput}%
+{\usepackage[bookmarks=true,hyperindex=true]{hyperref}}%
+{\usepackage[pdftex,dvipsnames,usenames]{color}%
+\usepackage[bookmarks=true,hyperindex=true,colorlinks=true,linkcolor=Brown,citecolor=blue,backref=page,pagebackref=true,plainpages=false,pdfpagelabels]{hyperref}%
+}%
+\makeatother
 
 \newcommand{\replace}[2]{#1[#2]}
 \newcommand{\norm}[2]{\mathit{norm}(#1)(#2)}

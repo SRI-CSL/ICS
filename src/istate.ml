@@ -710,6 +710,16 @@ let do_undo =
      examples = [];
      seealso = ""}
 
+let do_load = 
+  Command.register "load"
+    (fun (n, filename) ->
+       failwith "Loading of files: next version")
+    {args = "[@<ident>] <filename>";
+     short = "Load commands from file.";
+     description = "" ; 
+     examples = [];
+     seealso = ""}
+
 
 let do_show = 
   Command.register "show"
