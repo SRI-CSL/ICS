@@ -57,7 +57,7 @@ CMO = cmp.cmo gmp.cmo mpa.cmo \
       tools.cmo binrel.cmo \
       trace.cmo \
       interval.cmo \
-      bitv.cmo term.cmo eqn.cmo\
+      term.cmo eqn.cmo\
       exc.cmo\
       pretty.cmo  \
       cache.cmo \
