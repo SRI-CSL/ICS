@@ -582,6 +582,11 @@ module MakeIndexCnstnt(Th: TH)(Idx: INDEX)(Cnstnt: CNSTNT)
   Make(Th)(CombineExt(Idx2Ext(Idx))(Cnstnt2Ext(Cnstnt)))
 
 
+module MakeIndexExt(Th: TH)(Idx: INDEX)(Ext: EXT)
+  : (SET with type ext = index * Ext.t) =
+  Make(Th)(CombineExt(Idx2Ext(Idx))(Ext))
+
+
 (** {6 Combining two equality sets} *)
 
 module type SET2 = sig

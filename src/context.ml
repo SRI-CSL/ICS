@@ -238,10 +238,11 @@ let add s atm =
 	   | exc ->     
 	       raise exc)
 
-let add s =
-  let pp fmt s = Mode.set Mode.None (pp fmt) s in
-    Trace.func "top" "Process" Atom.pp (Status.pp pp) 
-      (add s)
+let add =
+  let pp0 fmt s = Mode.set Mode.None (pp fmt) s in
+  let ppc fmt s = Mode.set Mode.Context (pp fmt) s in
+    Trace.func2 "top" "Process" ppc Atom.pp (Status.pp pp0) 
+      add
 
 let addl =
   let rec loop s = function

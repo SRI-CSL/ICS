@@ -97,7 +97,9 @@ val is_zero : Term.t -> bool
 val is_one : Term.t -> bool  
   (** [is_one a] holds iff all bits in [a] are [1]. *)
 
-    
+val is_diseq : Term.t -> Term.t -> bool
+  (** Two bitvector terms [a], [b] are disequal iff they disagree
+    on at least one position. *)
 
 (** {6 Canonizer} *)
 

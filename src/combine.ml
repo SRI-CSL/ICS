@@ -72,12 +72,12 @@ let pp i fmt s =
 	   | LA -> La.pp fmt s.a
 	   | P -> P.pp fmt s.p
 	   | BV -> Bv.pp fmt s.bv
-	   | COP -> Cop.pp fmt s.cop
+	   | COP -> Cop.pp fmt s.cop  
+	   | APP -> L.pp fmt s.app
 	   | SET -> Pset.pp fmt s.pset)
     | Can(i) ->
 	(match i with
 	   | NL -> Nl.pp fmt s.nl
-	   | APP -> L.pp fmt s.app
 	   | ARR -> Arr.pp fmt s.arr)
 
 let is_empty s = function 
@@ -88,12 +88,12 @@ let is_empty s = function
 	 | LA ->  La.is_empty s.a
 	 | P -> P.is_empty s.p
 	 | BV -> Bv.is_empty s.bv
-	 | COP -> Cop.is_empty s.cop
+	 | COP -> Cop.is_empty s.cop 
+	 | APP -> L.is_empty s.app
 	 | SET -> Pset.is_empty s.pset)
   | Can(i) ->
       (match i with
 	 | NL -> Nl.is_empty s.nl
-	 | APP -> L.is_empty s.app
 	 | ARR -> Arr.is_empty s.arr)
 
 let is_empty_but i s =
@@ -107,12 +107,12 @@ let is_dependent s = function
 	 | LA -> La.is_dependent s.a
 	 | P-> P.is_dependent s.p
 	 | BV -> Bv.is_dependent s.bv
-	 | COP -> Cop.is_dependent s.cop
+	 | COP -> Cop.is_dependent s.cop 
+	 | APP -> L.is_dependent s.app
 	 | SET -> Pset.is_dependent s.pset)
   | Can(i) ->
       (match i with
 	 | NL -> Nl.is_dependent s.nl
-	 | APP -> L.is_dependent s.app
 	 | ARR -> Arr.is_dependent s.arr)
 
 let is_independent s = function
@@ -123,7 +123,7 @@ let is_independent s = function
   | Shostak(COP) -> Cop.is_independent s.cop
   | Shostak(SET) -> Pset.is_independent s.pset
   | Can(NL) -> Nl.is_independent s.nl
-  | Can(APP) -> L.is_independent s.app
+  | Shostak(APP) -> L.is_independent s.app
   | Can(ARR) -> Arr.is_independent s.arr
    
 let occurs s i x =
@@ -138,7 +138,7 @@ let apply s =  function
   | Shostak(COP) -> Cop.apply s.cop
   | Shostak(SET) -> Pset.apply s.pset
   | Can(NL) -> Nl.apply s.nl
-  | Can(APP) -> L.apply s.app
+  | Shostak(APP) -> L.apply s.app
   | Can(ARR) -> Arr.apply s.arr
 
 let find s = function
@@ -149,7 +149,7 @@ let find s = function
   | Shostak(COP) -> Cop.find s.cop
   | Shostak(SET) -> Pset.find s.pset
   | Can(NL) -> Nl.find s.nl
-  | Can(APP) -> L.find s.app
+  | Shostak(APP) -> L.find s.app
   | Can(ARR) -> Arr.find s.arr
 
 let inv (p, s) a =
@@ -161,7 +161,7 @@ let inv (p, s) a =
     | Shostak(COP) -> Cop.inv s.cop a
     | Shostak(SET) -> Pset.inv s.pset a
     | Can(NL) -> Nl.inv s.nl a
-    | Can(APP) -> L.inv s.app a
+    | Shostak(APP) -> L.inv s.app a
     | Can(ARR) -> Arr.uninterp (p, s.arr) a
 
 let dep s = function
@@ -172,7 +172,7 @@ let dep s = function
   | Shostak(COP) -> Cop.dep s.cop
   | Shostak(SET) -> Pset.dep s.pset
   | Can(NL) -> Nl.dep s.nl
-  | Can(APP) -> L.dep s.app
+  | Shostak(APP) -> L.dep s.app
   | Can(ARR) -> Arr.dep s.arr
 
 
@@ -184,7 +184,7 @@ let fold f s = function
   | Shostak(COP) -> Cop.fold f s.cop
   | Shostak(SET) -> Pset.fold f s.pset
   | Can(NL) -> Nl.fold f s.nl
-  | Can(APP) -> L.fold f s.app
+  | Shostak(APP) -> L.fold f s.app
   | Can(ARR) -> Arr.fold f s.arr
 
 
@@ -220,40 +220,45 @@ let name (p, s) i a =
     | Shostak(COP) -> Cop.name (p, s.cop) a
     | Shostak(SET) -> Pset.name (p, s.pset) a
     | Can(NL) -> Nl.name (p, s.nl) a
-    | Can(APP) -> L.name (p, s.app) a
+    | Shostak(APP) -> L.name (p, s.app) a
     | Can(ARR) -> Arr.name (p, s.arr) a
+
 
 
 (** {6 Predicates} *)
 
 let cheap = ref false
 
-(** Test if terms [a] and [b] are equal or disequal in [s]. *)
-let rec is_equal ((p, s) as cfg)  =
-  Jst.Rel2.orelse
-    (Partition.is_equal_or_diseq p)
-    (is_equal_interp cfg)
+let is_equal ((p, s) as cfg) a b =
+  if Term.eq a b then
+    Some(Jst.dep0)
+  else 
+    Partition.is_equal p a b
 
-and is_equal_interp ((p, s) as cfg) a b =
-  let pure_of (a, b) =
-    match a, b with
-      | Term.App(f, _, _), _ ->
-	  let i = Sym.theory_of f in
-	    if Term.is_pure i a && Term.is_pure i b then i else raise Not_found
-      | _, Term.App(f, _, _) ->
-	  let i = Sym.theory_of f in
-	    if Term.is_pure i a && Term.is_pure i b then i else raise Not_found
-      | _ -> 
-	  raise Not_found
-  in
+let is_diseq ((p, s) as cfg) a b =
   try
-    (match pure_of (a, b) with
-       | Shostak(LA) -> Jst.Rel2.yes (La.is_diseq (p, s.a)) a b
-       | Shostak(COP) -> Jst.Rel2.yes (Cop.is_diseq s.cop) a b
-       | Shostak(BV) -> Jst.Rel2.yes (Bv.is_diseq s.bv) a b
-       | _ -> Jst.Three.X)
+    let i = Term.pure_of (a, b) in
+      if i = Th.la then 
+	La.is_diseq (p, s.a) a b
+      else if i = Th.cop then 
+	Cop.is_diseq (p, s.cop) a b
+      else if i = Th.bv then 
+	Bv.is_diseq (p, s.bv) a b
+      else if i = Th.set then 
+	Pset.is_diseq (p, s.pset) a b
+      else 
+	None
   with
-      Not_found -> Jst.Three.X
+      Not_found ->
+	Partition.is_diseq p a b
+      
+
+(** Test if terms [a] and [b] are equal or disequal in [s]. *)
+let is_equal_or_diseq cfg =
+  Jst.Rel2.yes_or_no 
+    (is_equal cfg) 
+    (is_diseq cfg)
+   
 
 let rec is_pos (p, s) a = 
   let is_pos0 = Jst.Three.of_three Atom.Pos.holds in
@@ -300,13 +305,13 @@ let rec sigma cfg f al =
 	    let (b, rho) = sigma cfg g bl in
 	      rhos := rho :: !rhos; b
 	  in
-	  let a = Apply.sigma sigma' op al in
+	  let a = Apply.with_simplifier sigma' (Apply.sigma op) al in
 	    (a, Jst.dep !rhos)
       | Sym.Pp(op) -> inj Pprod.sigma op al
       | Sym.Uninterp _ -> inj Term.App.mk_app f al
       | Sym.Arrays(op) -> 
 	  let rhos = ref [] in
-	  let is_equal' = Jst.Three.to_three rhos (is_equal cfg) in
+	  let is_equal' = Jst.Three.to_three rhos (is_equal_or_diseq cfg) in
 	  let b = Funarr.sigma is_equal' op al in
 	    (b, Jst.dep !rhos)
 
@@ -342,6 +347,7 @@ let solve th e =
 	   | BV -> Bitvector.solve e
 	   | P -> Product.solve e
 	   | COP -> Coproduct.solve e
+	   | APP -> Apply.solve e
 	   | SET -> Propset.solve e)
     | _ -> 
 	raise Exc.Incomplete
@@ -376,7 +382,7 @@ let dom (p, _) a =
 (** {6 Atom transformers} *)
 
 let map cfg = 
-  Fact.map (is_equal cfg, is_nonneg cfg, is_pos cfg)
+  Fact.map (is_equal_or_diseq cfg, is_nonneg cfg, is_pos cfg)
 
 let simplify cfg = map cfg (can cfg)
 
@@ -473,12 +479,12 @@ and process_equal th (p, s) e =
 	   | LA -> La.merge (p, s.a) e
 	   | BV -> Bv.merge (p, s.bv) e
 	   | P -> P.merge (p, s.p) e
-	   | COP -> Cop.merge (p, s.cop) e
+	   | COP -> Cop.merge (p, s.cop) e  
+	   | APP -> L.merge  (p, s.app) e
 	   | SET -> Pset.merge (p, s.pset) e)
     | Can(i) ->
 	(match i with
 	   | ARR -> Arr.merge (p, s.arr) e
-	   | APP -> L.merge  (p, s.app) e
 	   | NL ->  Nl.merge (p, s.nl) e)
 
 let process_nonneg (p, s) =
@@ -525,6 +531,7 @@ let gc (p, s) =
 	      is_dependent s i x))
   in
     Partition.gc filter p
+
 
 (** {6 Model construction} *)
 

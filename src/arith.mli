@@ -88,6 +88,10 @@ val mk_multq: Mpa.Q.t -> Term.t -> Term.t
 (** {6 Accessors} *)
 
 val poly_of : Term.t -> Mpa.Q.t * Term.t list
+  (** [poly_of a] decomposes a normalized linear arithmetic term
+    into a pair [(q, [a1;...;an])] such that [a] equals 
+    [q + a1 + ... + an] and none of the [ai] is a constant term. *)
+
 val mono_of : Term.t -> Mpa.Q.t * Term.t
 
 val constant_of : Term.t -> Mpa.Q.t
@@ -126,6 +130,10 @@ val is_diophantine : Term.t -> bool
 val is_nonneg : Term.t -> Three.t
 
 val is_pos : Term.t -> Three.t
+
+val is_diseq : Term.t -> Term.t -> bool
+  (** [is_diseq a b] returns [true] iff 
+    [a] is disequal to [b] in theory {!Th.la} *)
 
 (** {6 Destructors} *)
 

@@ -71,7 +71,6 @@ let d_conc a =
     | Sym.Conc(n, m), [x; y] -> (n, m, x, y)
     | _ -> raise Not_found
 
-
 let d_sub a = 
   match d_interp a with
     | Sym.Sub(n, i, j), [x] -> (n, i, j , x)
@@ -222,25 +221,17 @@ and cut n i a =
 (** Two terms are disequal iff there is at least one
   position on which bitconstants differ. *)
 let rec is_diseq a b =
-  let rec loop n a b = false in (* to do *)
   match width a, width b with
-    | Some(n), Some(m) ->
-	if n <> m then true else
-	  loop n a b
-    | _ ->
+    | Some(n), Some(m) -> 
+	(n <> m) ||
+	(try
+	   let c = d_const a 
+	   and d = d_const b in
+	     not(Bitv.equal c d)
+	 with
+	     Not_found -> true)
+    | _ -> 
 	false
-
-and bit_of k a =
-  try
-    (match d_interp a with
-       | Sym.Const(c), [] -> Bitv.sub c k 1
-       | Sym.Sub(n, i, j), [b] -> 
-	   raise Not_found
-       | Sym.Conc(n, m), [b1; b2] -> 
-	   if k <= n then bit_of k b1 else bit_of (k - n) b2
-       | _ -> raise Not_found)
-  with
-      Not_found -> raise Not_found
 
 
 

@@ -59,9 +59,19 @@ let replace (p, s) =
   Jst.Eqtrans.replace Apply.map 
     (Jst.Eqtrans.totalize
        (Partition.choose p (apply s)))
-
+  
+let solve = 
+  Trace.func "l" "Solve" Fact.Equal.pp (Pretty.list Fact.Equal.pp)
+    (Fact.Equal.equivn Apply.solve) 
 
 let merge ((p, s) as cfg) e =
   Trace.msg "l" "Process" e Fact.Equal.pp;
-  let e = Fact.Equal.map_lhs (name cfg) e in
-    S.compose cfg [e]
+  let e' = Fact.Equal.map (replace cfg) e in
+    try
+      let sl = solve e' in
+	S.compose (p, s) sl
+    with
+	Exc.Incomplete ->
+	  let e'' = Fact.Equal.map_lhs (S.name cfg) e' in
+	    S.compose cfg [e'']
+		

@@ -179,6 +179,7 @@ module Symtab = struct
 	  let rho' = (x, (k1, k2)) :: rho in
 	    (k1, k2, rho')
 
+
   (** Replace every occurrence of fresh variables [k] with
     corresponding representation. *)
   let concretize rho =
@@ -202,7 +203,8 @@ end
 
 
 (** Solving a pair equality.  For example [x = cons(car(x), y)] is 
-  solved as [y |-> cdr(x)]. *) 
+  solved as [y |-> p!2; x |-> cons(p!1, p!2)] with [p!1], [p!2] fresh. *)
+ 
 let rec solve e =
   let e0, sl0, rho = pre e in
   let sl1 = solvel ([e0], sl0)in
@@ -265,9 +267,20 @@ and solve1 (a, b) (el, sl) =
 	    if Term.subterm x a then       (* Bot *) 
 	      raise Exc.Inconsistent
 	    else                           (* Subst *)
+	      let (x, a) = orient (x, a) in
 	      let el' = apply_to_eqs [(x, a)] el in
 	      let sl' = compose (x, a) sl in
 		solvel (el', sl')
+
+(** Ensure [y = x] with [y] fresh and [x] not fresh can not happen. *)
+and orient (a, b) =
+  if Term.is_var a && Term.is_var b then
+    if is_fresh a && not(is_fresh b) then
+      (b, a)
+    else 
+      Term.orient (a, b)
+  else
+    (a, b)
 
 and apply_to_trm rho =
   let lookup x =
@@ -283,27 +296,11 @@ and apply_to_eqs rho a =
        
 and compose (x, a) sl =
   assert(not(is_interp x));
-  let (x, a) =       (* ensure external variables in renamings are on lhs. *)
-    if  is_fresh x   (* otherwise, 'information' is lost. *)
-      && not(is_interp a)
-      && not(is_fresh a) 
-    then
-      (a, x)
-    else
-      (x, a)
-  in
-    Term.Subst.compose apply (x, a) sl
+  Term.Subst.compose apply (x, a) sl
 
 (** Postprocessing is needed to ensure that the solution does not
-  contain new variables. This is done as follows: if [k1] replaces
-  [car(x)] and [k2] replaces [cdr(x)] , then we get [x = cons(sl[k1], sl[k2])].
-  We can then discard any equations of the form [k = a] in [sl] for
-  newly introduced [k]. *)
+  contain new variables. We can then discard any equations of the form 
+  [k = a] in [sl] for newly introduced [k]. The result does not necessarily
+  use a minimal number of fresh variables. *)
 and post rho sl =
-  Term.Subst.fold
-    (fun (x, a) acc ->
-       if is_fresh x then acc else
-	 let a' = Symtab.concretize rho a in
-	   if Term.eq x a' then acc else
-	     (x, a') :: acc)
-    sl []
+  List.filter (fun (x, _) -> not (is_fresh x)) sl

@@ -327,6 +327,13 @@ let is_pos a =
     else
       Three.X
 
+(** [q + a'], [p + b'] are diseq iff [q], [p] are 
+  diseq and [a'] equals [b']. *)
+let is_diseq a b =
+  let (q, a') = destruct a
+  and (p, b') = destruct b in
+    Term.eq a' b' && not(Mpa.Q.equal q p)
+
 
 (** {6 Constructors} *)
 

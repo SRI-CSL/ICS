@@ -107,6 +107,20 @@ module Var = struct
 	      let x = Var.mk_free k in
 	      let a = Index.create x in
 		Hashtbl.add table k a; a
+
+
+  (** Constructing hashconsed reification variable, which are
+    2nd-order variables for uninterpreted function symbols. *)
+  let mk_reify = 
+    let table = Name.Hash.create 17 in
+    let _ =  Tools.add_at_reset (fun () -> Name.Hash.clear table) in 
+      fun f ->
+	try
+	  Name.Hash.find table f
+	with
+	    Not_found ->
+	      let a = Index.create (Var.mk_reify f) in
+		Name.Hash.add table f a; a
 		  
 
   (** Global variable for creating fresh variables. *)
@@ -228,6 +242,7 @@ module Var = struct
   let is_fresh i = function Var(x, _) -> Var.is_fresh i x | _ -> false
   let is_internal = function Var(x, _) -> Var.is_internal x | _ -> false
   let is_free = function Var(x, _) -> Var.is_free x | _ -> false
+  let is_reify = function Var(x, _) -> Var.is_reify x | _ -> false
 
 
   (** {7 Accessors} *)
@@ -446,7 +461,17 @@ let is_pure i =
   in
     loop
 
-
+(** Return theory [i] if both [a] and [b] are [i]-pure. *)
+let pure_of (a, b) =
+  match a, b with
+    | App(f, _, _), _ ->
+	let i = Sym.theory_of f in
+	  if is_pure i a && is_pure i b then i else raise Not_found
+    | _, App(f, _, _) ->
+	let i = Sym.theory_of f in
+	  if is_pure i a && is_pure i b then i else raise Not_found
+    | _ -> 
+	raise Not_found
 
 (** {6 Sets and maps of terms.} *)
 

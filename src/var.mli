@@ -129,6 +129,9 @@ val mk_fresh : Th.t -> int -> Cnstrnt.t -> t
 val mk_free : int -> t
   (** [mk_free i] constructs a free variable with associated name [!i]. *)
 
+val mk_reify : Sym.uninterp -> t
+  (** [mk_reify f] constructs a 2nd-order variable corresponding to
+    the uninterpreted function symbol [f]. *)
 
 (** {6 Recognizers} *)
 
@@ -153,6 +156,9 @@ val is_fresh : Th.t -> t -> bool
 
 val is_free : t -> bool
   (** [is_free x] holds iff [x] is a free variable. *)
+
+val is_reify : t -> bool
+  (** [is_reify x] holds iff [x] is a reification variable. *)
 
 val is_internal : t -> bool
   (** [is_internal x] holds iff either [is_rename x], [is_slack x], or

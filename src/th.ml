@@ -16,9 +16,9 @@ type t =
   | Can of can
   | Uninterpreted
 
-and shostak =  LA | P | BV | COP | SET
+and shostak =  LA | P | BV | COP | SET | APP
 
-and can = NL | APP | ARR
+and can = NL | ARR
 
 
 (** {6 Names} *)
@@ -28,9 +28,9 @@ let p = Shostak(P)
 let bv = Shostak(BV)
 let cop = Shostak(COP)
 let set = Shostak(SET)
+let app = Shostak(APP)
 
 let nl = Can(NL)
-let app = Can(APP)
 let arr = Can(ARR)
 
 let u = Uninterpreted
@@ -60,11 +60,11 @@ and shostak_to_string i =
     | BV -> "bv"
     | COP -> "cop"
     | SET -> "pset"
+    | APP -> "l"
 
 and can_to_string i =
   match i with
     | NL -> "nl"
-    | APP -> "l"
     | ARR -> "arr"
 
 
@@ -113,8 +113,8 @@ let inj =
   and u = Some(u)
   and set = Some(set) in
     function
-      | Shostak(i) -> (match i with LA -> la | P -> p | BV -> bv | COP -> cop | SET -> set)
-      | Can(i) -> (match i with APP -> app | ARR -> arr | NL -> nl)
+      | Shostak(i) -> (match i with APP -> app | LA -> la | P -> p | BV -> bv | COP -> cop | SET -> set)
+      | Can(i) -> (match i with ARR -> arr | NL -> nl)
       | Uninterpreted -> u
     
 

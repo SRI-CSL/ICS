@@ -103,18 +103,29 @@ let  diseqs (p, s) (x, n) =
 let replace s =
   Jst.Eqtrans.replace Bitvector.map (find s)
 
-let is_diseq s a b =
-  let (a', rho') = replace s a in
-    try
-      let c = Bitvector.d_const a' in
-      let (b', tau') = replace s b in
-      let d = Bitvector.d_const b' in
-	if Bitv.equal c d then
-	  Some(Jst.dep2 rho' tau')
-	else 
-	  None
-    with
-	Not_found -> None
+
+let uninterp (p, s) =
+  Jst.Eqtrans.compose 
+    (Partition.find p)
+    (Jst.Eqtrans.totalize (inv s))
+  
+(** Two bitvector terms [a], [b] are diseq if either
+  - the interpreted terms [S[a]] and [S[b]] are disequal in the bitvector theory or
+  - [S^-1(a)], [S^-1(b)] are variables disequal in the partition. *)
+let rec is_diseq cfg =
+  Jst.Pred2.orelse
+    (is_diseq1 cfg)
+    (is_diseq2 cfg)
+
+and is_diseq1 (_, s) =
+  Jst.Pred2.apply
+    (replace s)
+    (Jst.Pred2.inj Bitvector.is_diseq)
+
+and is_diseq2 ((p, _) as cfg) =
+  Jst.Pred2.apply
+    (uninterp cfg)
+    (Partition.is_diseq p)
     
 let solve = Fact.Equal.equivn Bitvector.solve
 

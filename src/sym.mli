@@ -323,10 +323,10 @@ end
 (** {6 Applicaton and Abstraction} *)
 
 (** Function symbols of the theory {!Th.app} of functions
-  - [Apply(r)] of function application with codomain restriction [r], and
+  - [Apply of function application, and
   - [Abs] of function abstraction. *)
 type apply = 
-  | Apply of Dom.t option
+  | Apply
   | Abs
 
    
@@ -343,7 +343,7 @@ type apply =
   {i binary} and [Abs] is {i unary}. *)
 module Fun : sig
   val get : t -> apply
-  val apply : Dom.t option -> t
+  val apply : t
   val abs : t
   val is : t -> bool
   val is_apply : t -> bool

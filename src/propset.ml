@@ -36,8 +36,13 @@ let is_full a =
   with
       Not_found -> false
 
-let mk_empty = Term.App.mk_const (Sym.Propset.mk_empty)
-let mk_full = Term.App.mk_const (Sym.Propset.mk_full)
+ let is_diseq a b =
+   (is_empty a && is_full b) || (is_full a && is_empty b)
+
+let is_const a = is_empty a || is_full a
+
+let mk_empty () = Term.App.mk_const (Sym.Propset.mk_empty)
+let mk_full () = Term.App.mk_const (Sym.Propset.mk_full)
 
 let d_ite a = 
   match d_interp a with
@@ -102,7 +107,7 @@ let mk_ite a b c =
   in
   let lift a =
     if is_interp a then a else
-      Term.App.mk_app Sym.Propset.mk_ite [a; mk_full; mk_empty]
+      Term.App.mk_app Sym.Propset.mk_ite [a; mk_full(); mk_empty()]
   in
   let  drop a =
     try
@@ -119,10 +124,10 @@ let mk_ite a b c =
 	Not_found -> invalid_arg "ite"
       
 
-let mk_inter a b = mk_ite a b mk_empty
-let mk_union a b = mk_ite a mk_full b
-let mk_compl a = mk_ite a mk_empty mk_full
-let mk_imp a b = mk_ite a b mk_full
+let mk_inter a b = mk_ite a b (mk_empty())
+let mk_union a b = mk_ite a (mk_full()) b
+let mk_compl a = mk_ite a (mk_empty()) (mk_full())
+let mk_imp a b = mk_ite a b (mk_full())
 let mk_iff a b = mk_ite a b (mk_compl b)
 
 
@@ -149,8 +154,8 @@ let apply (x, b) =
 (** Canonized set expressions. *)
 let sigma op l =
   match op, l with
-    | Sym.Empty, [] -> mk_empty
-    | Sym.Full, [] -> mk_full
+    | Sym.Empty, [] -> mk_empty()
+    | Sym.Full, [] -> mk_full()
     | Sym.Ite, [a; b; c] -> mk_ite a b c
     | _ ->  failwith "Propset.sigma: ill-formed expression"
 
@@ -181,7 +186,7 @@ and solve1 a sl =
       | _ -> failwith "Ill-formed propositional set term")
   with
       Not_found -> 
-	compose (a, mk_full) sl
+	compose (a, mk_full()) sl
 
 and compose (x, b) sl =
   Term.Subst.compose apply (x, b) sl

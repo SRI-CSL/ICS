@@ -307,7 +307,7 @@ let _ = Callback.register "sym_mk_select" sym_mk_select
 let sym_is_update = Sym.Array.is_update
 let _ = Callback.register "sym_is_update" sym_is_update
 
-let sym_mk_apply _ = Sym.Fun.apply None
+let sym_mk_apply () = Sym.Fun.apply
 let _ = Callback.register "sym_mk_apply" sym_mk_apply
 
 let sym_is_apply = Sym.Fun.is_apply
@@ -493,6 +493,14 @@ let _ = Callback.register "term_is_false" term_is_false
 
 type prop = Prop.t
 
+let prop_of_string s =
+  let lb = Lexing.from_string s in 
+    Parser.propeof Lexer.token lb
+let _ = Callback.register "prop_of_string" prop_of_string
+
+let prop_to_string = Pretty.to_string Prop.pp
+let _ = Callback.register "prop_to_string" prop_to_string
+
 let prop_pp = Prop.pp Format.std_formatter
 let _ = Callback.register "prop_pp" prop_pp
  
@@ -621,7 +629,7 @@ let _ = Callback.register "term_mk_select" term_mk_select
 let term_mk_div = Nonlin.mk_div
 let _ = Callback.register "term_mk_div" term_mk_div
 
-let term_mk_apply = Apply.mk_apply Term.App.mk_app None
+let term_mk_apply = Apply.mk_apply
 let _ = Callback.register "term_mk_apply" term_mk_apply
 
 

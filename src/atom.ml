@@ -211,7 +211,7 @@ module AtomTbl = Hashtbl.Make(
   end)
   
 let heap = AtomTbl.create 117
-let index = Dynarray.make 2000  (* (Obj.magic 0) *)
+let index = Dynarray.make 2000
 let max = ref 0
 
 let mk_true = (TT, 0)
@@ -234,14 +234,13 @@ let of_index i = Dynarray.get index i
 
 (** [0] and [1] are reserved for [TT], [FF]. Then
   initialize and register initialization for resetting. *)
-let initialize () = 
+let _ = 
   max := 2;
   AtomTbl.add heap TT mk_true;
-  AtomTbl.add heap FF mk_false
+  Dynarray.add index mk_true;
+  AtomTbl.add heap FF mk_false;
+  Dynarray.add index mk_false
 
-
-let _ = initialize ()
-let _ = Tools.add_at_reset initialize
 
 let equal (_, i) (_, j) = (i == j)
 

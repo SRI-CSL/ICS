@@ -133,6 +133,8 @@ end
 module Pred2 : sig
   type t = Term.t -> Term.t -> jst option
   val apply : Eqtrans.t -> t -> t
+  val orelse : t -> t -> t
+  val inj : (Term.t -> Term.t -> bool) -> t
   val trace : Trace.level -> string -> t -> t
 end
 
@@ -150,6 +152,7 @@ module Rel2 : sig
   val apply : Eqtrans.t -> t -> t
   val orelse : t -> t -> t
   val yes : Pred2.t -> t
+  val no : Pred2.t -> t
   val yes_or_no : Pred2.t -> Pred2.t -> t
   val trace : Trace.level -> string -> t -> t
 end

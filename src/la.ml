@@ -169,31 +169,49 @@ let occurs_negatively x e  =
     try Q.is_neg (Arith.coefficient_of x a) with Not_found -> false
 
 
-(** {6 Solution Sets} *)
+(** {6 Use Structure} *)
 
-(** Index for equalities [x = q], where [q] is a rational constant. *)
-module QIdx: Eqs.CNSTNT = struct  
-  let th = Th.la
-  let is_const = Arith.is_num
-  let is_diseq a b =
-    try 
-      not(Mpa.Q.equal (Arith.d_num a) (Arith.d_num b))
-    with
-	Not_found -> false
+(** Index for equalities [x = q + a1 + ... + an] with [q] is a rational constant
+  and [a1 +...+ an] possibly [0]. In this case, [x in use(a1 + ... + an)] is recorded.  
+  This index is used for deducing all implied disequalities. *)
+module UseExt: Eqs.EXT = struct  
+  type t = Term.Var.Set.t Term.Map.t
+  let empty = Term.Map.empty
+  let use idx a =
+    try Term.Map.find a idx with Not_found -> Term.Var.Set.empty
+  let pp fmt m =
+    let pp_set fmt us = Pretty.set Term.pp fmt (Term.Var.Set.elements us) in
+    let l = Term.Map.fold (fun a x acc -> (a, x) :: acc) m [] in
+      Pretty.map Term.pp pp_set fmt l
+  let do_at_add (_, idx, _) (x, a, _) =
+    let (_, b) = Arith.destruct a in   (* [b] is the 'nonconstant' part of [a]. *)
+    let ub = use idx b in
+    let ub' = Term.Var.Set.add x ub in
+      if ub == ub' then idx else Term.Map.add b ub' idx
+  let do_at_restrict (_, idx, _) (x, a, _) =
+    let (_, b) = Arith.destruct a in
+    let ub = use idx b in
+    let ub' = Term.Var.Set.remove x ub in
+      if ub = ub' then idx
+      else if Term.Var.Set.is_empty ub' then 
+	Term.Map.remove b idx
+      else 
+	Term.Map.add b ub' idx
 end
+
 
 
 (** [R.t] represents solution sets of the form [x = a], where [x] is
   unrestricted, and [a] is an arithmetic term. *)
-module R: Eqs.SET = 
-  Eqs.MakeCnstnt(
+module R: (Eqs.SET with type ext = UseExt.t) = 
+  Eqs.Make(
     struct
       let th = Th.la
       let nickname = Th.to_string Th.la
       let map = Arith.map
       let is_infeasible = Arith.is_infeasible
     end)
-    (QIdx)
+    (UseExt)
 
 
 (** Specification for an index for the variable [x] such that
@@ -208,8 +226,8 @@ end
   variable [k] and terms [a] containing only slack variables.  
   We maintain an index [zero t] such that [k] is in [zero t] iff 
   [k = a] with  constant summand of [a] is  [0]. *)
-module T: (Eqs.SET with type ext = Eqs.index * Eqs.cnstnt) = 
-  Eqs.MakeIndexCnstnt
+module T: (Eqs.SET with type ext = Eqs.index * UseExt.t) = 
+  Eqs.MakeIndexExt
     (struct
        let th = Th.la
        let nickname = "t"
@@ -217,7 +235,7 @@ module T: (Eqs.SET with type ext = Eqs.index * Eqs.cnstnt) =
        let is_infeasible = Arith.is_infeasible
      end)
     (ZeroIdx)
-    (QIdx)
+    (UseExt)
 
 
 (** Combined solution set [S = (R; T)]. *)
@@ -248,10 +266,28 @@ let is_independent s x =
   S.is_independent r s x
 
 
+
+(** [x] is in [use(a)] iff [x = q + a] in [s]. *)
+module Use = struct
+
+(* Baustelle
+  let get tag s a =  
+    let (use_r, (_, use_t)) = S.ext s in
+      match tag with
+	| S.Left -> (try Term.Map.find a use_r with Not_found -> Term.Var.Set.empty)
+	| S.Right -> (try Term.Map.find a use_t with Not_found -> Term.Var.Set.empty)
+
+  let iter s f a =
+    ()
+*)
+    
+
+end
+
 (** [Zero] index. *)
 module Zero = struct
 
-  (** [zero t] returns the set of [x] with [x = a] in [t] such that
+  (** [get t] returns the set of [x] with [x = a] in [t] such that
     the constant monomial of [a] is [0]. *)
   let get s = 
     let (_, (zero, _)) = S.ext s in
@@ -413,25 +449,36 @@ let is_num s q x =
 
 let is_zero s = is_num s Mpa.Q.zero
 
-(* Return [(q, rho)] such that [rho |- x = q] or raise [Not_found]. *)
+(** Return [(q, rho)] such that [rho |- x = q] or raise [Not_found]. *)
 let d_num s x =
   let (a, rho) = apply s x in
   let p = Arith.d_num a in
     (p, rho)
 
-(** [is_diseq a b] tests if [a] and [b] are known to be disequal.
-  It assumes that neither [a] nor [b] contain dependent variables.
-  In this case it returns [Some(rho)] with [rho |- a <> ]. *)
-let is_diseq ((p, _) as cfg) a b =
+
+(** Two linear arithmetic terms [a], [b] are diseq if either
+  - the interpreted terms [S[a]] and [S[b]] are disequal in the theory
+    [LA] of linear arithmetic or
+  - [S^-1(a)], [S^-1(b)] are variables disequal in the partition. *)
+let rec is_diseq cfg a b =
   assert(Term.is_pure Th.la a);
   assert(Term.is_pure Th.la b);
-  Jst.Pred2.apply 
-    (uninterp cfg) 
-    (Partition.is_diseq p) a b
-      
-(** Test if [a] and [q] are known to be disequal. *)
-let is_num_diseq cfg a q =
-  is_diseq cfg a (Arith.mk_num q)
+  Jst.Pred2.orelse
+    (is_diseq1 cfg)
+    (is_diseq2 cfg)
+    a b
+
+and is_diseq1 (_, s) =
+  Jst.Pred2.apply
+    (replace s)
+    (Jst.Pred2.inj Arith.is_diseq)
+
+and is_diseq2 ((p, _) as cfg) =
+  Jst.Pred2.apply
+    (uninterp cfg)
+    (Partition.is_diseq p)
+    
+
 
 (** {6 Basic Updates} *)
 
@@ -987,6 +1034,26 @@ and contiguous_diseq_segment ((p, s) as cfg) (e, n) =
   let (min, max) = (lower n, upper n) in
     Trace.exit "la'" "Contiguous" (min, max) (Pretty.pair Mpa.Q.pp Mpa.Q.pp);
     (min, max, !taus)
+
+    
+(** Test if [a] and [q] are known to be disequal, where all variables in [a]
+  are independent. This is the case if either
+  - [a] is a rational disequal from [q]
+  - [x = q] is in [s] and [y] is [uninterp a] and [x <> y] in [p]. *) 
+and is_num_diseq ((p, s) as cfg) a q =
+  try
+    let p = Arith.d_num a in
+      if Mpa.Q.equal q p then None else Some(Jst.dep0)
+  with
+      Not_found -> 
+	(try
+	   let (x, rho) = inv s (Arith.mk_num q)
+	   and (y, tau) = uninterp cfg a in
+	     (match Partition.is_diseq p x y with
+		| Some(sigma) -> Some(Jst.dep3 rho tau sigma)
+		| None -> None)
+	 with
+	     Not_found -> None)
 
   
 (** {6 Extremal Values} *)    

@@ -20,12 +20,20 @@
   [union (inter x p) (inter (compl x) n)], where [union],[inter],
   and [compl] are just set union, set intersection, and set complement,
   respectively. [diff s1 s2] is the set difference, and [sym_diff]
-  is the symmetric set difference operator.
+  is the symmetric set difference operator. There is one 
+  disequality [empty <> full].
 *)
 
+val d_interp : Term.t -> Sym.propset * Term.t list
+
+val is_empty : Term.t -> bool
+val is_full : Term.t -> bool
+
+val is_diseq : Term.t -> Term.t -> bool
+val is_const : Term.t -> bool
    
-val mk_empty : Term.t
-val mk_full : Term.t    
+val mk_empty : unit -> Term.t
+val mk_full : unit -> Term.t    
 val mk_ite : Term.t -> Term.t -> Term.t -> Term.t
 
 val mk_inter : Term.t -> Term.t -> Term.t

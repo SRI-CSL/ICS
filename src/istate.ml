@@ -107,16 +107,16 @@ let context_of n =
 
 (** Getting the width of bitvector terms from the signature. *)
 let width_of a =
-  if Term.is_var a then
-    let n = Term.Var.name_of a in
-    try
-      match Symtab.lookup n !symtab with
-	| Symtab.Arity(i) -> Some(i)
-	| _ -> None
-    with
-	Not_found -> None
-  else
-    Bitvector.width a
+  match Bitvector.width a with
+    | None when Term.is_var a -> 
+	let n = Term.Var.name_of a in
+	  (try
+	    (match Symtab.lookup n !symtab with
+	      | Symtab.Arity(i) -> Some(i)
+	      | _ -> None)
+	    with
+		Not_found -> None)
+    | res -> res
 
 
 (** {6 Pretty-printing results} *)
@@ -1180,7 +1180,7 @@ let do_is_equal =
        Out.yes_or_no 
        (Jst.Rel2.apply 
 	  (Combine.can (Context.config_of !current))
-	  (Combine.is_equal (Context.config_of !current))
+	  (Combine.is_equal_or_diseq (Context.config_of !current))
 	  a b))
     {args = "<term> <term> ";
      short = "Test whether terms are equal or disequal."; 

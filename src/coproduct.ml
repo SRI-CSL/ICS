@@ -24,10 +24,8 @@ let d_interp = function
   | Term.App(sym, [a], _) -> (Sym.Coproduct.get sym, a)
   | _ -> raise Not_found
 
-let destruct = function
-  | Term.App(sym, [a], _) -> Some(Sym.Coproduct.get sym, a)
-  | _ -> None
- 
+let destruct a = 
+ try Some(d_interp a) with Not_found -> None
 
 let d_outl a =
   match d_interp a with
@@ -177,12 +175,6 @@ and solvel el sl =
 and solve1 (a, b) el sl = 
   if Term.eq a b then                              (* [Triv] *)
     solvel el sl
-  else if Term.is_var a && Term.is_var b  then
-    solvel el (compose (Term.orient (a, b)) sl)
-  else if Term.is_var a && not(Term.subterm a b) then
-    solvel el (compose (a, b) sl)
-  else if Term.is_var b && not(Term.subterm b a) then
-    solvel el (compose (b, a) sl)
   else 
     match destruct a, destruct b with
       | Some(Sym.In(x), a'), Some(Sym.In(y), b') -> 
@@ -199,20 +191,24 @@ and solve1 (a, b) el sl =
 	    solvel ((a', b') :: el) sl           
 	  else                                     (* [Out/=] *) 
 	    solvel ((a', mk_inX x b) :: el) sl
-      | None, Some _ -> 
-	  solvevar (a, b) el sl
-      | Some _, None -> 
-	  solvevar (b, a) el sl
+      | None, Some(Sym.Out _, _) -> 
+	  if occurs a b then                       (* Bot *) 
+	    raise Exc.Inconsistent
+	  else 
+	    solvevar (a, b) el sl
+      | Some(Sym.Out _, _), None -> 
+	  if occurs b a then                       (* Bot *) 
+	    raise Exc.Inconsistent
+	  else 
+	    solvevar (b, a) el sl
       | None, None -> 
-	  solvel el (compose (Term.orient (a, b)) sl)
+	  solvevar (Term.orient (a, b)) el sl
 
 and solvevar (x, b) el sl =
-  if occurs x b then                                (* Bot *) 
-    raise Exc.Inconsistent
-  else 
-    let el' = substitute (x, b) el                  (* Subst *)
-    and sl' = compose (x, b) sl in
-      solvel el' sl'
+  assert(not(occurs x b));
+  let el' = substitute (x, b) el                  (* Subst *)
+  and sl' = compose (x, b) sl in
+    solvel el' sl'
 
 and occurs x a =
   try

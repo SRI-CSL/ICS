@@ -102,7 +102,7 @@ val solve : Th.t -> Term.Equal.t -> Term.Subst.t
 
 val cheap : bool ref
 
-val is_equal : config -> Jst.Rel2.t
+val is_equal_or_diseq : config -> Jst.Rel2.t
 
 val is_nonpos : config -> Jst.Rel1.t
   (** [is_nonpos s a] returns [Some(rho)] if [a <= 0] holds in [s]. 

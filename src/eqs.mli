@@ -239,6 +239,10 @@ module MakeIndex(Th: TH)(Idx : INDEX): (SET with type ext = index)
     the accessor [index i], whereas the accessor [cnstnt] is undefined. *)
 
 
+module MakeIndexExt(Th: TH)(Idx: INDEX)(Ext: EXT)
+  : (SET with type ext = index * Ext.t)
+
+
 (** {6 Solution sets with constant index} *)
 
   (** Specification of a constant index. *)

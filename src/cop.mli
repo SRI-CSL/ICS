@@ -63,7 +63,7 @@ val fold : (Term.t -> Term.t * Jst.t -> 'a -> 'a) -> t -> 'a -> 'a
     [rho] in [s] and accumulates the result starting with [e]. The order of
     application is unspecified. *)
   
-val is_diseq : t -> Jst.Pred2.t
+val is_diseq : Partition.t * t -> Jst.Pred2.t
   (** [is_diseq a b] returns
     - [Some(rho)] if [rho |- a <> b] in the theory [COP]
     - [None] otherwise. *)

@@ -397,7 +397,7 @@ val sym_d_expt : sym -> int
   A function application symbol may have a constraint of type {!Ics.cnstrnt} associated
   with it. *)
 
-val sym_mk_apply : dom option -> sym
+val sym_mk_apply : unit -> sym
  (** [sym_mk_apply co] constructs a symbol for function application with associated
    constraint [co]. *)
 
@@ -847,11 +847,27 @@ val dom : context -> term -> dom * justification
 
 
 type prop
-  (** Representation of propositional formulas with propositional variables
-    and atoms as literals. *)
+  (** Representation of propositional formulas with propositional 
+    variables and atoms as literals. A propositional formual is either
+    - one of the propositional constants [tt], [ff]
+    - a propositional variable [x],
+    - a literal [l] with [l] an atom (atoms are closed under negation),
+    - a conjunction [p1 & ... & pn],
+    - a disjunction [p1 | ... | pn],
+    - a negation [~p], or
+    - a let binding [let x := p in q]. *)
 
 val prop_pp : prop -> unit
   (** Printing a propositional formula. *)
+
+val prop_of_string : string -> prop
+  (** Parsing a string to obtain a propositional formula.
+    The syntax of propositional formulas is roughly given by
+    the grammar above, and brackets [[]] are used for grouping.
+    For details of the grammar see file [parser.mly]. *)
+
+val prop_to_string  : prop -> string
+  (** Pretty-print a propositional variable to a string. *)
  
 val prop_mk_true : unit -> prop
   (** The trivially true propositional formula. *)
@@ -862,10 +878,10 @@ val prop_mk_false : unit -> prop
 val prop_mk_var : name -> prop
   (** Constructing a propositional variable. *)
 
-val prop_mk_poslit : Atom.t -> prop
+val prop_mk_poslit : atom -> prop
   (** Injecting an atom into a propositional formula. *)
 
-val prop_mk_neglit : Atom.t -> prop
+val prop_mk_neglit : atom -> prop
  (** Injecting a negated atom into a propositional formula. *)
 
 val prop_mk_ite : prop -> prop -> prop -> prop
@@ -873,7 +889,8 @@ val prop_mk_ite : prop -> prop -> prop -> prop
    equivalent to [prop_mk_disj (prop_mk_conj p q) (prop_mk_conj (prop_mk_neg p) r)]. *)
 
 val prop_mk_conj : prop list -> prop
-  (** [prop_mk_conj p q] constructs a representation of the conjunction of [p] and [q]. *)
+  (** [prop_mk_conj [p1;...;pn]] constructs a representation of the 
+    conjunction of [p1 & ... & pn] with the empty list [[]] equivalent to [prop_mk_true()]. *)
 
 val prop_mk_disj : prop list -> prop
  (** [prop_mk_disj p q] constructs a representation of the disjunction of [p] and [q]. *)

@@ -13,14 +13,22 @@
 
 open Mpa
 
-module P = Eqs.Make0(
+
+(** Index for equalities [x = c] *)
+module Cnstnt = struct 
+  let th = Th.bv      
+  let is_diseq = Propset.is_diseq
+  let is_const = Propset.is_const
+end
+
+module P = Eqs.MakeCnstnt(
   struct
     let th = Th.set
     let nickname = Th.to_string Th.set
     let map = Propset.map
     let is_infeasible _ = false
   end)
-
+  (Cnstnt)
 
 module S = P
 
@@ -42,14 +50,39 @@ let is_independent = S.is_independent
 
 let fold = S.fold
 
+let uninterp (p, s) =
+  Jst.Eqtrans.compose 
+    (Partition.find p)
+    (Jst.Eqtrans.totalize (inv s))
 
-let name = S.name
 
 (** [replace s a] substitutes dependent variables [x]
   in [a] with their right hand side [b] if [x = b] in [s].
   The result is canonized. *)
 let replace s = 
   Jst.Eqtrans.replace Propset.map (find s)
+
+
+(** Two set terms [a], [b] are diseq if either
+  - the interpreted terms [S[a]] and [S[b]] are disequal in the theory
+    [SET] of propositional sets or
+  - [S^-1(a)], [S^-1(b)] are variables disequal in the partition. *)
+let rec is_diseq cfg =
+  Jst.Pred2.orelse
+    (is_diseq1 cfg)
+    (is_diseq2 cfg)
+
+and is_diseq1 (_, s) =
+  Jst.Pred2.apply
+    (replace s)
+    (Jst.Pred2.inj Propset.is_diseq)
+
+and is_diseq2 ((p, _) as cfg) =
+  Jst.Pred2.apply
+    (uninterp cfg)
+    (Partition.is_diseq p)
+
+let name = S.name
 
 let solve sl = 
   Fact.Equal.equivn Propset.solve sl

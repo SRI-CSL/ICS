@@ -95,12 +95,14 @@ let name_of_rename = Name.of_string "v"
 
 %type <Term.t> termeof
 %type <Atom.t> atomeof
+%type <Prop.t> propeof
 %type <unit> commands
 %type <unit> commandseof
 %type <unit> commandsequence
 
 %start termeof
 %start atomeof
+%start propeof
 %start commands
 %start commandseof
 %start commandsequence
@@ -110,6 +112,7 @@ let name_of_rename = Name.of_string "v"
 
 termeof : term EOF           { $1 }
 atomeof : atom EOF           { $1 }
+propeof : prop EOF           { $1 }
 commandseof : command EOF    { () }
 
 commands : 
@@ -192,7 +195,7 @@ list:
 ;
 
 apply: 
-  term APPLY term               { Apply.mk_apply Term.App.mk_app None $1 $3 }
+  term APPLY term               { Apply.mk_apply $1 $3 }
 | LAMBDA LPAR term RPAR         { Apply.mk_abs $3 }
 ;
 
@@ -234,8 +237,8 @@ array:
 
 
 propset:
-  EMPTY                          { Propset.mk_empty }
-| FULL                           { Propset.mk_full }
+  EMPTY                          { Propset.mk_empty() }
+| FULL                           { Propset.mk_full() }
 | term UNION term                { Propset.mk_union $1 $3 }
 | term INTER term                { Propset.mk_inter $1 $3 }
 | COMPL term %prec prec_unary    { Propset.mk_compl $2 }

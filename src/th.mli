@@ -45,9 +45,9 @@ type t =
   | Can of can
   | Uninterpreted
 
-and shostak = LA | P | BV | COP | SET
+and shostak = LA | P | BV | COP | SET | APP
 
-and can = NL | APP | ARR
+and can = NL | ARR
 
 
 (** Theory identifiers. *)

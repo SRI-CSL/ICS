@@ -51,7 +51,7 @@ and pprod =
   | Expt of int
 
 and apply = 
-  | Apply of Dom.t option
+  | Apply
   | Abs
 
 and arrays = Create | Select | Update
@@ -441,36 +441,21 @@ module Fun = struct
 
   let equal f g =
     match f, g with
-      | Apply(d1), Apply(d2) -> d1 = d2
+      | Apply, Apply -> true
       | Abs, Abs -> true
       | _ -> false
 
   let abs = (Fun(Abs), 111)
 
-  let apply = 
-    let apply0 = (Fun(Apply(None)), 12) 
-    and apply_int = (Fun(Apply(Some(Dom.Int))), 13)
-    and apply_nonint = (Fun(Apply(Some(Dom.Nonint))), 14)
-    and apply_real = (Fun(Apply(Some(Dom.Real))), 15) in
-      function
-	| None -> apply0
-	| Some(d) ->
-	    (match d with
-	       | Dom.Int -> apply_int
-	       | Dom.Nonint -> apply_nonint
-	       | Dom.Real -> apply_real)
+  let apply = (Fun(Apply), 112)
 
   let pp p fmt = 
     function
-      | Apply(Some(c)), [a; b] -> 
-	  let op = Format.sprintf "apply[" ^ Pretty.to_string Dom.pp c ^ "]" in
-	    Pretty.apply p fmt (op, [a; b])
-      | Apply(None), [a; b] ->
-	  (match !Pretty.flag with
-	     | Pretty.Mode.Mixfix -> 
-		 Pretty.infix p " $ " p fmt (a, b)
-	     | _ ->
-		 Pretty.apply p fmt ("apply",  [a; b]))
+      | Apply, [a; b] -> 
+	  let op = Format.sprintf "apply" in 
+	    Pretty.string fmt "(";
+	    Pretty.infix p "$" p fmt (a, b);
+	    Pretty.string fmt ")"
       | Abs, [a] -> 
 	  Pretty.apply p fmt ("lambda",  [a])
       | _ ->
@@ -478,7 +463,7 @@ module Fun = struct
 
   let is = function Fun _, _ -> true | _ -> false
   let is_abs = function Fun(Abs), _ -> true | _ -> false
-  let is_apply = function Fun(Apply _), _ -> true | _ -> false
+  let is_apply = function Fun(Apply), _ -> true | _ -> false
 
 end
 

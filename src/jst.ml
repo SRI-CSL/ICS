@@ -246,9 +246,18 @@ module Pred2 = struct
 	| (Some(tau) as res) ->      (* [tau |- p a' b'] *)
 	    if a == a' && b == b' then res else
 	      Some(dep3 tau alpha' beta')
+
+  let orelse p q a b =
+    match p a b with
+      | None -> q a b
+      | res -> res
 		
   let trace lvl name =
     Trace.func2 lvl name Term.pp Term.pp (Pretty.option pp)
+
+  let inj =
+    let some = Some(dep0) in
+      fun p a b -> if p a b then some else None
 end
 
 
@@ -312,6 +321,11 @@ module Rel2 = struct
       | Some(rho) -> Three.Yes(rho)
       | None -> Three.X
 
+  let no p a b =
+    match p a b with
+      | Some(rho) -> Three.No(rho)
+      | None -> Three.X
+
   let yes_or_no yes no a b =
     match yes a b with
       | Some(rho) -> 
@@ -322,6 +336,7 @@ module Rel2 = struct
 		 Three.No(rho) 
 	     | None ->
 		 Three.X)
+
 
   let trace lvl name =
     Trace.func2 lvl name Term.pp Term.pp Three.pp

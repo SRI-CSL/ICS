@@ -84,6 +84,10 @@ module Var : sig
 
   val mk_free : int -> t
     (** [mk_free i] creates a deBruijn index for bound variables. *)
+ 
+  val mk_reify : Sym.uninterp -> t
+    (** [mk_reify f] creates a 2nd-order variable for an uninterpreted function symbol. *)
+
 
   (** Variables are partitioned into {i renaming}, {i external}, {i fresh}, {i free},
     and {i slack variables}, and the following recognizers can be used to test membership
@@ -190,6 +194,10 @@ val is_const : t -> bool
 val is_pure : Th.t -> t -> bool
   (** [is_pure i a] holds iff all function symbols in [a] are of 
     theory [i] (see {Theory.t}). *)
+
+val pure_of : t * t -> Th.t
+  (** Return theory [i] if both [a] and [b] are [i]-pure (and not
+    both of [a] and [b] are variables). Otherwise, [Not_found] is raised. *)
 
 val is_equal : t -> t -> Three.t
   (** [is_equal a b] returns
