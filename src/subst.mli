@@ -63,6 +63,10 @@ module Make(Th: INTERP): sig
 
   val compose : t -> (Term.t * Term.t) list -> t * Veqs.t
 
+(*s Propagation of equalities on lhs. *)
+
+  val propagate : t -> (Term.t * Term.t) list -> t * Veqs.t
+
 (*s Solution set *)
 
   val solution : t -> (Term.t * Term.t) list
