@@ -42,6 +42,7 @@ let keyword =
       "syntax", SYNTAX; "commands", COMMANDS; "ctxt", CTXT; "diseq", DISEQ; 
       "show", SHOW; "symtab", SYMTAB; "cnstrnt", CNSTRNT; "split", SPLIT; "sat", SAT;
       "true", TRUE; "false", FALSE;
+      "tt", TT; "ff", FF;
       "inr", INR; "inl", INL; "outr", OUTR; "outl", OUTL;
       "inj", INJ; "out", OUT;
       "hd", HEAD; "tl", TAIL;

@@ -43,7 +43,7 @@ let equal_width_of a b =
 %token SOLVE HELP DEF PROP TOGGLE SET TRACE UNTRACE CMP FIND USE INV SOLUTION PARTITION
 %token SHOW CNSTRNT SYNTAX COMMANDS SPLIT SAT
 %token DISEQ CTXT 
-%token IN DEF
+%token IN TT FF DEF
 %token EOF
 
 %token ARITH TUPLE
@@ -290,7 +290,9 @@ topprop:
 ;
 
 negatable:  
-  term EQUAL term          { Atom.mk_equal($1, $3)}
+  FF                       { Atom.mk_false }
+| TT                       { Atom.mk_true }
+| term EQUAL term          { Atom.mk_equal($1, $3)}
 | term DISEQ term          { Atom.mk_diseq($1, $3) }
 | term LESS term           { Atom.mk_less($1, false, $3) }
 | term GREATER term        { Atom.mk_greater($1, false, $3) }

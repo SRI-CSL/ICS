@@ -27,8 +27,11 @@ let pp fmt p = Pretty.string fmt "<prop ...>"
 let mk_true = True
 let mk_false = False
 let mk_var n = Var(n)
-let mk_poslit a = Atom(a)
-let mk_neglit a = Atom(Atom.negate a)
+let mk_poslit = function
+  | Atom.True -> True
+  | Atom.False -> False
+  | a -> Atom(a)
+let mk_neglit a = mk_poslit (Atom.negate a)
 let mk_disj pl = Disj(pl)
 let mk_iff p q = Iff(p, q)
 let mk_ite p q r = Ite(p, q, r)
