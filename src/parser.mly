@@ -175,7 +175,7 @@ namelist:
 ;
 
 funsym: 
-  name                                                 { Sym.Uninterp($1) }
+  name                                                 { Sym.Uninterp.uninterp($1) }
 | PLUS                                                 { Sym.Arith.add }
 | TIMES                                                { Sym.Pprod.mult }
 | EXPT LBRA int RBRA                                   { Sym.Pprod.expt $3 }
