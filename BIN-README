@@ -1,0 +1,39 @@
+*** Copyright (c) SRI International 2003. ***
+ICS : Integrated Canonizer and Solver 
+=====================================
+
+ICS is a decision procedure for the combination of
+interesting datatypes.
+
+For installation instructions, see the file INSTALL.
+
+1. Web Resources
+================
+
+The ICS's home page is at:
+
+  http://ics.csl.sri.com/
+
+Please be sure to visit this site for information, documentation,
+tutorials, news, etc.  All things ICS-ish are available from there.
+
+2. Mailing Lists
+================
+
+There are the following ICS mailing list:
+ics@csl.sri.com and ics-help@csl.sri.com.
+
+3. Documentation
+================
+
+Check the `doc' subdirectory.
+
+5. Bugs
+=======
+Please report problems to ics-bugs@csl.sri.com. 
+Before reporting a problem, you may want to see if someone else
+did already - check http://ics.csl.sri.com
+
+Have fun,
+
+  Harald Ruess

@@ -1,0 +1,35 @@
+#!/bin/sh
+
+#
+# This script is used to install ICS in the binary distribution
+#
+
+echo "Installing ICS (version @ICSVERSION@). Copyring (c) SRI International 2003."
+echo "------------------------------------------------------------------"
+
+ics_dir=`pwd`
+
+echo "Installation summary:"
+echo "  ICS directory: $ics_dir"
+
+gen_script ()
+{
+  template=bin/$1.template
+  script=$ics_dir/bin/$1
+  if sed -e "s|__ICS_DIR__|$ics_dir|g" $template > $script
+  then
+		chmod +x $script
+	else
+     echo "Error: generating script $script"
+		 exit -1
+  fi
+}
+
+echo "Generating auxiliary scripts..."
+gen_script ics
+
+echo "Installation completed!"
+echo "You can start ICS typing: $ics_dir/bin/ics"
+echo "It is also a good idea to add the directory $ics_dir/bin to your command search PATH environment variable."
+
+

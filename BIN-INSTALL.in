@@ -1,0 +1,6 @@
+*** Copyright (c) SRI International 2003. ***
+
+To install the binary distribution of ICS @ICSVERSION@,
+you just need to execute the following command:
+         
+       % ./install.sh
