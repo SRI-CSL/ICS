@@ -880,17 +880,23 @@ let do_process =
   Command.register "assert"
     (fun (n, a) ->
        let t = (get_context n) in
-       let status = Context.add t a in
-	 match status with  (* Update state and install new name in symbol table *)
-	   | Context.Status.Ok(t') -> 
-	       current := t';
-	       let n = save_state None in Out.ok n
-	   | Context.Status.Valid(rho) ->  Out.valid rho
-	   | Context.Status.Inconsistent(rho) -> 
-	       (if !batch then (* Exit in batch mode when inconsistency is detected *)
-		  raise(Justification.Inconsistent(rho))
-		else 
-		  Out.unsat rho))
+	 if !batch then
+	   (match Context.add_unprotected t a with
+	      | Context.Status.Inconsistent(rho) -> 
+		  if !batch then (* Exit in batch mode when inconsistency is detected *)
+		    raise(Justification.Inconsistent(rho))
+	      | _ -> ())
+	 else
+	   match Context.add t a with  (* Update state and install new name in symbol table *)
+	     | Context.Status.Ok(t') -> 
+		 current := t';
+		 let n = save_state None in Out.ok n
+	     | Context.Status.Valid(rho) ->  Out.valid rho
+	     | Context.Status.Inconsistent(rho) -> 
+		 (if !batch then (* Exit in batch mode when inconsistency is detected *)
+		    raise(Justification.Inconsistent(rho))
+		  else 
+		    Out.unsat rho))
     {args = "[<ident>]  <atom>";
      short = "Add an atom to a context"; 
      description = "
@@ -1167,9 +1173,10 @@ let do_sat =
 	       else
 		 Out.unsat rho
 	 | Some(rho, s') -> 
-	     let n = fresh_state_name () in
-	       symtab := Symtab.add n (Symtab.State(s')) !symtab;
-	       Out.sat (n, rho))
+	     if !batch then () else 
+	       let n = fresh_state_name () in
+		 symtab := Symtab.add n (Symtab.State(s')) !symtab;
+		 Out.sat (n, rho))
     {args = "<prop> ";
      short = "SAT Solver for propositional constraints."; 
      description = 
