@@ -185,6 +185,8 @@ let name i (s, b) =
   let (x', ei') = Solution.name i (b, eqs_of s i) in
     (update s i ei', x')
 
+let extend i e s =
+  update s i (Solution.extend i e (eqs_of s i))
 
 
 (** Pretty-printing. *)
@@ -513,14 +515,30 @@ end
 let rec equality e s =
   Trace.msg "rule" "Assert" e Fact.pp_equal;
   let (a, b, _) = Fact.d_equal e in
+  let extend_i i (x, b) s =  
+    let x = v s x 
+    and b = replace i s b in
+      if not(mem i s x) then
+	let e' = Fact.mk_equal x b None in
+	  extend i e' s
+      else  
+	try
+	  let y = inv i s b in
+	  let e' = Fact.mk_equal x y None in
+	    merge_v e s
+	with
+	    Not_found ->
+	      let e' = Fact.mk_equal x b None in
+		compose i s (Th.solve i e')
+  in
     match a, b with
       | Var _, Var _ -> 
 	  merge_v e s 
       | App(f, _), _ -> 
-	  merge_i (Th.of_sym f) e s
+	  extend_i (Th.of_sym f) (a, b) s
       | _, App(f, _) -> 
-	  merge_i (Th.of_sym f) e s
-
+	  extend_i (Th.of_sym f) (a, b) s
+	  
 and merge_v e s =
   let (x, y, prf) = Fact.d_equal e in
     match Partition.is_equal s.p x y with
@@ -537,14 +555,26 @@ and merge_v e s =
 	      close ch' s''
 
 and merge_i i e s =
-  let (a, b, prf) = Fact.d_equal e in
-  let a' =  replace i s (find i s a)
-  and b' = replace i s (find i s b) in
-    if Term.eq a' b' then s else
-      begin
-	Trace.msg "rule" "Merge(i)" e Fact.pp_equal;
-	compose i s (Th.solve i (Fact.mk_equal a' b' None))
-      end 
+  let (x, y, prf) = Fact.d_equal e in
+    if not(Set.is_empty (use i s x)) then      (* [x] occurs on rhs. *)
+      let b = find i s y in
+      let e' = Fact.mk_equal x b None in
+	fuse i e' s
+    else
+      try
+	let a = replace i s (apply i s x) in
+	  try
+	    let b = replace i s (apply i s y) in 
+	      if Term.eq a b then s else 
+		let e' = Fact.mk_equal a b None in
+		  compose i s (Th.solve i e')
+	  with
+	      Not_found ->
+		let e' = Fact.mk_equal y a None in
+		  compose i s (Th.solve i e') (* (Context.restrict i x s) *)
+	  with
+	      Not_found -> s        (* [x] occurs neither on rhs nor on lhs. *)
+
       
 (** Propagating a variable equality into all the other solution sets. *)
 and propagate e s =    

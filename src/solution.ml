@@ -109,11 +109,10 @@ let union i e s =
 
 (** Extend with binding [x = b], where [x] is fresh *)
 
-let extend i b s = 
-  let x = Term.mk_rename (Name.of_string "v") None None in
-  let e = Fact.mk_equal x b (Fact.mk_rule "extend" []) in
-    Trace.msg (to_string i) "Ext" e Fact.pp_equal;
-    (x, union i e s)
+let extend i e s =
+  let (x, a, prf) = Fact.d_equal e in
+    assert(not (mem s x));
+    union i e s
 
 (** Restrict domain. *)
 
@@ -132,11 +131,17 @@ let restrict i x s =
 	      [x'] and installs a solution [x' = a] in [e]. *)
 
 let name i (b, s) =
-  try
-    (inv s b, s)
-  with
-      Not_found ->   
-	extend i b s
+  let extend i b s = 
+    let x = Term.mk_rename (Name.of_string "v") None None in
+    let e = Fact.mk_equal x b (Fact.mk_rule "extend" []) in
+      Trace.msg (to_string i) "Ext" e Fact.pp_equal;
+      (x, union i e s)
+  in
+    try
+      (inv s b, s)
+    with
+	Not_found -> 
+	  extend i b s
 
 let rec replace v s =
   let rec repl a = 

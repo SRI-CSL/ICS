@@ -97,9 +97,9 @@ val empty : t
 val restrict : Th.t -> Term.t -> t -> t 
   (** [restrict s x] removes equalities [x = a] from [s]. *)
 
-val union : Th.t -> Fact.equal -> t -> t
-  (** [union (x, b) s] adds an equality [x = b] to [s], 
-    possibly removing an equality [x = b'] in [s]. *)
+val extend : Th.t -> Fact.equal -> t -> t
+  (** [update i e s] adds an equality [e] of the form [x = b] to [s];
+    It is assumed that [x] is not already in the domain of [s]. *)
 
 
 val name : Th.t -> Term.t * t -> Term.t * t
