@@ -197,9 +197,11 @@ type dom
 
 val dom_mk_int : unit -> dom
 val dom_mk_real : unit -> dom
+val dom_mk_nonint : unit -> dom
 
 val dom_is_int : dom -> bool
 val dom_is_real : dom -> bool
+val dom_is_nonint : dom -> bool
 
 
 (** {6 Theories} *)
@@ -524,6 +526,11 @@ val term_cmp : term -> term -> int
 val term_mk_var : string -> term
   (** Given a string [s], [term_mk_var s] constructs an 
     {i external} variable with name [s]. *)
+
+val term_mk_dom_var : string -> dom -> term
+  (** Given a string [s] and a domain, [term_mk_var s dom] constructs an 
+    {i external} variable with name [s] and domain restriction [dom]. *)
+
 
 val term_mk_uninterp : string -> term list -> term
   (** [term_mk_uninterp s al] constructs an application of an 
