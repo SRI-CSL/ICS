@@ -58,8 +58,9 @@ let remove l = (levels := Levels.remove l !levels)
 let get () = Levels.elements !levels
 
 let is_active l = 
-  Levels.mem l !levels ||
-  Levels.mem "all" !levels
+  if !levels == Levels.empty then false else 
+    (Levels.mem l !levels ||
+     Levels.mem "all" !levels)
 
 
 let call level op args pp =
