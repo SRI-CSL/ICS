@@ -11,57 +11,112 @@
  * benefit corporation.
  *)
 
-type t = Int | Real
+type t = Int | Real | Nonint
 
 let eq d1 d2 = (d1 = d2)
 
-(** Union of two domains*)
-let union d1 d2 =
-  match d1, d2 with
-    | Int, Int -> Int
-    | _ -> Real
+(** {6 Connectives} *)
+
+exception Empty
+
+(** Domain complement *)
+let compl =
+  function
+    | Int -> Nonint
+    | Real -> raise Empty
+    | Nonint -> Int
+
 
 (** Intersection of two domains *)
 
 let inter d1 d2 =
   match d1, d2 with
-    | Real, Real -> Real
-    | Int, _ -> Int
-    | _, Int -> Int
+    | Real, _ -> d2
+    | _, Real -> d1
+    | Int, Int -> Int
+    | Nonint, Nonint -> Nonint
+    | Int, Nonint -> raise Empty
+    | Nonint, Int -> raise Empty
 
+
+(** Union of two domains*)
+let union d1 d2 =
+  match d1, d2 with
+    | Int, Int -> Int
+    | Nonint, Nonint -> Nonint
+    | Real, _ -> Real
+    | _, Real -> Real
+    | Int, Nonint -> Real
+    | Nonint, Int -> Real
+  
 
 (** Testing for disjointness. *)
 let disjoint d1 d2 =
   match d1, d2 with
+    | Int, Nonint -> true
+    | Nonint, Int -> true
     | _ -> false
+
+let cmp d e =
+  match d, e with   
+    | Real, Real -> 0
+    | Real, _ -> 1
+    | _, Real -> -1
+    | Int, Int -> 0
+    | Nonint, Nonint -> 0
+    | _ -> Pervasives.compare d e
 
 
 (** Testing for subdomains. *)
-let sub d1 d2 =
+let rec sub d1 d2 =
   match d1, d2 with
     | _, Real -> true
     | Int, Int -> true
+    | Nonint, Nonint -> true
     | _ -> false
 
-let cmp d1 d2 = 
-  match d1, d2 with
-    | Int, Int -> Binrel.Same
-    | Int, Real -> Binrel.Sub
-    | Real, Int -> Binrel.Super
-    | Real, Real -> Binrel.Same
-
 let of_q q =
-  if Mpa.Q.is_integer q then Int else Real
+  if Mpa.Q.is_integer q then Int else Nonint
+
+let add d1 d2 =
+  match d1, d2 with
+    | Int, Int -> Int
+    | _ -> Real
+
+let addl dl =
+  let is_int = function Int -> true | _ -> false in
+    if dl = [] then Int
+    else if List.for_all is_int dl then Int 
+    else Real
+
+let expt n d = d
+
+let mult d1 d2 =
+  match d1, d2 with
+    | Int, Int -> Int
+    | _ -> Real
+
+let multq q = mult (of_q q)
+
+let multl dl = 
+ let is_int = function Int -> true | _ -> false in
+   if dl = [] then Int
+   else if List.for_all is_int dl then Int
+   else Real
 
 let mem q = function
   | Real -> true
   | Int -> Mpa.Q.is_integer q
+  | Nonint -> not(Mpa.Q.is_integer q)
 
+
+let to_string = function
+  | Real -> "real"
+  | Int -> "int"
+  | Nonint -> "nonint"
+	
 let pp fmt d =
-  let s = match d with
-    | Real -> "real"
-    | Int -> "int"
-  in
-  Format.fprintf fmt "%s" s
+  Format.fprintf fmt "%s" (to_string d)
 
 
+let to_string = Pretty.to_string pp

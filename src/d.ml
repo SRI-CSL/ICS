@@ -11,104 +11,142 @@
  * benefit corporation.
 *)
 
+
+
 open Sym
 open Mpa
-open Status
 
-(** Known disequalities; [x |-> {y,z}] is interpreted as [x <> y & x <> z].
-  The function is closed in that forall [x], [y] such that [x |-> {...,y,...} ]
-  then also [y |-> {....,x,....}] *)
+(** Known disequalities; [x |-> {y, z}] is interpreted as [x <> y & x <> z].
+  The function is closed in that forall [x], [y] such that [x |-> {..., y,...}]
+  then also [y |-> {...., x,....}] *)
 
-type t = Term.Set.t Term.Map.t
+
+module Set = Set.Make(
+  struct
+    type t = Term.t * Justification.t
+    let compare (x, _) (y, _) = Term.cmp x y
+  end)
+
+exception Found of Set.elt
+
+(** Return [(x, rho)] if there is such an entry in [ds];
+  otherwise raise [Not_found]. *)
+let assoc x ds =
+  try
+    Set.iter
+      (fun ((y, _) as d) ->
+	 if Term.eq x y then 
+	   raise(Found(d)))
+      ds;
+    raise Not_found
+  with
+      Found(d) -> d
+	    
+
+type t =  Set.t Term.Map.t
 
 let empty = Term.Map.empty
 
 let eq s t = (s == t)
 
-let deq_of s = s
+
+(** List all disequalities. *)
+let to_set s =
+  Term.Map.fold
+    (fun x ys ->
+       Set.fold 
+         (fun (y, rho) -> 
+	    let d = Fact.Diseq.make (x, y, rho) in
+	      Fact.Diseq.Set.add d)
+         ys)
+    s 
+    Fact.Diseq.Set.empty
 
 let to_list s =
-  let eq (x1,y1) (x2,y2) =
-    (Term.eq x1 x2 && Term.eq y1 y2) ||
-    (Term.eq x1 y2 && Term.eq y1 x2)
-  in
-  let mem (x,y) = List.exists (eq (x,y)) in
-  Term.Map.fold
-    (fun x ys acc ->
-       Term.Set.fold
-	 (fun y acc ->
-	    if mem (x, y) acc then acc else (x, y) :: acc)
-	 ys acc)
-    s []
+  Fact.Diseq.Set.fold (fun d acc -> d :: acc) (to_set s) []
+	   
 
-let pp fmt s = 
-  let l = to_list s in
-  if l <> [] then
+
+(** Pretty-printing. *)
+let rec pp fmt s = 
+  let ds = to_set s in
+  if not(Fact.Diseq.Set.is_empty ds) then
     begin
       Format.fprintf fmt "\nd:";
-      Pretty.list Term.pp_diseq fmt l
+      Pretty.list Fact.Diseq.pp fmt (Fact.Diseq.Set.elements ds)
     end
-
+    
 
 (** All terms known to be disequal to [a]. *)
+let diseqs s x =
+  try Term.Map.find x s with Not_found -> Set.empty
 
-let deq s a =
-  try Term.Map.find a s with Not_found -> Term.Set.empty
+let map_diseqs s f a =
+  let (x, rho) = f a in
+  let ds = diseqs s x in
+    if Term.eq a x then ds else
+      Set.fold 
+	(fun (z, tau) ->                       (* [tau |- y <> z] *)
+	   let sigma = Justification.subst_diseq (x, z) tau [rho] in
+	     Set.add (z, sigma))
+	ds Set.empty
 
+exception Found of Justification.t
 
 (** Check if two terms are known to be disequal. *)
-
-let is_diseq s a b =
-  Term.Set.mem b (deq s a)
+let is_diseq s x y =
+  try
+    Set.iter
+      (fun (z, rho) ->
+	 if Term.eq y z then
+	   raise(Found(rho)))
+      (diseqs s x);
+    None
+  with
+      Found(rho) -> Some(rho)
 
 
 (** Adding a disequality over variables *)
-
-let rec add d s =
-  Trace.msg "d" "Add" d Fact.pp_diseq;
-  let (x,y,_) = Fact.d_diseq d in
-  let xd = deq s x in
-  let yd = deq s y in
-  let xd' = Term.Set.add y xd in
-  let yd' = Term.Set.add x yd in
-  match xd == xd', yd == yd' with
-    | true, true -> 
-	(Term.Set.empty, s)
-    | true, false ->
-	Trace.msg "d" "Update" (x, y) Term.pp_diseq;
-	(Term.Set.singleton y, Term.Map.add y yd' s)
-    | false, true -> 
-	Trace.msg "d" "Update" (x, y) Term.pp_diseq;
-	(Term.Set.singleton x, Term.Map.add x xd' s)
-    | false, false -> 
-	Trace.msg "d" "Update" (x, y) Term.pp_diseq;
-	let ch' = Term.Set.add x (Term.Set.singleton y) in
-	let s' = Term.Map.add x xd' (Term.Map.add y yd' s) in
-	  (ch', s')
-
-
+let add deq s =
+  let (x, y, rho) = Fact.Diseq.destruct deq in
+    match is_diseq s x y with
+      | Some _ -> s
+      | None ->
+	  Trace.msg "d" "Add(d)" deq Fact.Diseq.pp;
+	  Fact.Diseqs.push None deq;      (* new disequality *)
+	  let dx' = Set.add (y, rho) (diseqs s x)
+	  and dy' = Set.add (x, rho) (diseqs s y) in
+	    Term.Map.add x dx'
+	      (Term.Map.add y dy' s)
+	    
+	
 (** Propagating an equality between variables. *)
-
-let merge e s = 
-  Trace.msg "d" "Merge" e Fact.pp_equal;
-  let (a, b, _) = Fact.d_equal e in
-  let da = deq s a and db = deq s b in
-  if Term.Set.mem a db || Term.Set.mem b da then
-    raise Exc.Inconsistent
-  else
-    let dab = Term.Set.union da db in
-    if db == dab then
-      (Term.Set.empty, Term.Map.remove a s)
-    else
-      let ch' = Term.Set.singleton b in
-      let s' = Term.Map.add b dab (Term.Map.remove a s) in
-	(ch', s')
-
-(** Return disequalities for [x]. *)
-
-let d s x =
-  Term.Set.fold
-    (fun y acc -> 
-       (y, None) :: acc)
-    (deq s x)
-    []
+let rec merge e s =                 
+  Trace.msg "d" "Merge(d)" e Fact.Equal.pp;
+  let (x, y, rho) = Fact.Equal.destruct e in         (* [rho |- x = y] *)
+    match is_diseq s x y with
+      | Some(tau) ->                                 (* [tau |- x <> y] *)
+	  let sigma = Justification.contradiction rho tau in
+	    raise(Justification.Inconsistent(sigma))
+      | None -> 
+	  let dx = diseqs s x and dy = diseqs s y in
+	  let s' = 
+	    let dxy = Set.union dx dy in
+	      if dy == dxy then
+		Term.Map.remove x s
+	      else 
+		Term.Map.add y dxy (Term.Map.remove x s)
+	  in
+	    Set.fold
+	      (fun (z, tau) s ->                      (* [tau |- z <> x] *)
+		 let dz = diseqs s z in
+		   try
+		     let dz' = Set.remove (assoc x dz) dz in
+		     let sigma = Justification.subst_equal (z, y) tau [rho] in
+		     let dz'' = Set.add (y, sigma) dz' in  (* [sigma|-z<>y] *)
+		       Term.Map.add z dz'' s
+		   with
+		       Not_found -> s)
+	      dx
+	      s'
+  

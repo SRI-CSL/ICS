@@ -11,54 +11,67 @@
  * benefit corporation.
  *)
 
-open Sym
-open Term
-
-let inl = Coproduct(InL)
-let inr = Coproduct(InR)
-let outl = Coproduct(OutL)
-let outr = Coproduct(OutR)
-
 
 let is_interp = function
-  | App(Coproduct _, _) -> true
+  | Term.App(Sym.Coproduct _, _) -> true
   | _ -> false
 
+let rec is_pure = function
+  | Term.Var _ -> true
+  | Term.App(Sym.Coproduct _, [a]) -> is_pure a
+  | _ -> false
 
-(** Fold iterator  *)
+let d_interp = function
+  | Term.App(Sym.Coproduct(op), [a]) -> (op, a)
+  | _ -> raise Not_found
 
-let rec fold f a e = 
-  match a with
-    | App(Coproduct(_), [x]) -> fold f x e
-    | _ -> f a e
+let d_outl a =
+  match d_interp a with
+    | Sym.OutL, b -> b
+    | _ -> raise Not_found
+
+let d_outr a =
+  match d_interp a with
+    | Sym.OutR, b -> b
+    | _ -> raise Not_found
+
+let d_inr a =
+  match d_interp a with
+    | Sym.InR, b -> b
+    | _ -> raise Not_found
+
+let d_inl a =
+  match d_interp a with
+    | Sym.InL, b -> b
+    | _ -> raise Not_found
 
 
-(** Constructors for tuples and projections. *)
+let mk_inl a =
+  try 
+    d_outl a 
+  with 
+      Not_found -> Term.App.mk_app Sym.Coproduct.inl [a]
 
-let mk_inl =
-  let sym = Coproduct(InL) in
-    function
-      | App(Coproduct(OutL), [x]) -> x
-      | x -> mk_app sym [x]
+let mk_inr a =
+  try 
+    d_outr a 
+  with 
+      Not_found -> Term.App.mk_app Sym.Coproduct.inr [a]
 
-let mk_inr =
-  let sym = Coproduct(InR) in
-    function
-      | App(Coproduct(OutR), [x]) -> x
-      | x -> mk_app sym [x]
+let mk_outr a =
+  try
+    d_inr a 
+  with
+      Not_found -> Term.App.mk_app Sym.Coproduct.outr [a]
 
-let mk_outr =
-  let sym = Coproduct(OutR) in
-    function
-      | App(Coproduct(InR), [x]) -> x
-      | x -> mk_app sym [x]
+let mk_outl a =
+  try
+    d_inl a 
+  with
+      Not_found -> Term.App.mk_app Sym.Coproduct.outl [a]
 
-let mk_outl =
-  let sym = Coproduct(OutL) in
-    function
-      | App(Coproduct(InL), [x]) -> x
-      | x -> mk_app sym [x]
 
+(** Generalize injection. *)
 let rec mk_inj i x = 
   if i <= 0 then
     mk_inl x
@@ -67,6 +80,7 @@ let rec mk_inj i x =
   else 
     mk_inr (mk_inj (i - 1) x)
 
+(** Generalized coinjection. *)
 let rec mk_out i x = 
   if i <= 0 then
     mk_outl x
@@ -75,91 +89,117 @@ let rec mk_out i x =
   else 
     mk_outr (mk_out (i - 1) x)
 
+
 (** Two chains of injections are disequal if they differ. *)
-
 let rec is_diseq a b =
-  match a, b with
-   | App(Coproduct(f), [x]), App(Coproduct(g), [y]) ->
-       (match f, g with
-         | InL, InL -> is_diseq x y
-         | InR, InR -> is_diseq x y
-         | InL, InR -> true
-         | InR, InL -> true
+  try
+    let (f, x) = d_interp a
+    and (g, y) = d_interp b in
+      (match f, g with
+         | Sym.InL, Sym.InL -> is_diseq x y
+         | Sym.InR, Sym.InR -> is_diseq x y
+         | Sym.InL, Sym.InR -> true
+         | Sym.InR, Sym.InL -> true
          | _ -> false)
-   | _ ->
-      false
+  with
+      Not_found -> false
+ 
 
-(** Sigmatizing. *)
-
+(** Canonical forms *)
 let sigma op l =
   match op, l with
-    | InL, [x] -> mk_inl x 
-    | InR, [x] -> mk_inr x 
-    | OutL, [x] -> mk_outl x 
-    | OutR, [x] -> mk_outr x 
+    | Sym.InL, [x] -> mk_inl x 
+    | Sym.InR, [x] -> mk_inr x 
+    | Sym.OutL, [x] -> mk_outl x 
+    | Sym.OutR, [x] -> mk_outr x 
     | _ -> assert false
 
  
 (** Apply term transformer [f] at uninterpreted positions. *)
-
 let rec map f a =
-  match a with
-    | App(Coproduct(op), [x]) ->
+  try
+    let op, x = d_interp a in
 	let x' = map f x in
 	  if x == x' then a else sigma op [x']
-    | _ -> 
-	f a
+  with
+      Not_found -> f a
 
 
+(** Replacing a variable with a term. *)
+let apply (x, b) =
+  map (fun y -> if Term.eq x y then b else y)
 
-(** Solving tuples. *) 
+
+(** Solving equalities. A configuration [(el, sl)] consists
+  of unsolved equalities [el] and a partial solution [sl].
+  Starting with the argument equality in canonical form
+  and the empty solution set, the following rules are applied.
+  - Triv   : [a = a, el; sl] ==> [el; sl]
+  - In     : [inY(a) = b, el; sl] ==> [a = outY(b), el; sl] 
+                for [Y in {L, R}].
+  - Out    : [outY(a) = b, el; sl] ==> [a = inY(b), el; sl] 
+                for [Y in {L, R}].
+  - Orient : [a = y, el; sl] ==> [y = a, el; sl] 
+                if [a] is not a variable.
+  - Var    : [x = y, el; sl] ==> [el[x/y]; {x = y} |> sl ]
+  - Bot    : [x = b, el; sl] ==> [bot] 
+                if variable [x] is a proper subterm of [b].
+  - Subst  : [x = b, el; sl] ==> [el[x/b]; {x = b} o sl] 
+                if variable [x] does not occur in the nonvariable term [b].
+*)
 
 let rec solve e =
-  let (a, b, _) = Fact.d_equal e in
-    solvel [(a, b)] []
+  solvel [e] []
 
 and solvel el sl =
   match el with
     | [] -> sl
     | (a, b) :: el1 ->
-	solve1 (a, b) el1 sl 
+	solve1 (a, b) el1 sl
 
 and solve1 (a, b) el sl = 
-  if Term.eq a b then 
+  if Term.eq a b then            (* Triv *)
     solvel el sl
-  else if Term.is_var b then
-    solvevar (b, a) el sl
-  else match a with
-    | App(Coproduct(op), [x]) ->  (** solve [inY(x) = b] is [x = outY(b)]. *)
-	let rhs' = match op with  (** solve [outY(x) = b] is [x = inY(b)]. *)
-	  | InL -> mk_outl b
-	  | InR -> mk_outr b
-	  | OutL -> mk_inl b
-	  | OutR -> mk_inr b
-	in 
-	  solvel ((x, rhs') :: el) sl
-    | _ -> 
-	solvevar (a, b) el sl
-	
+  else if Term.is_var b then   
+    if Term.is_var a then        (* Var *)
+      let el' = substitute (a, b) el in
+      let sl' = fuse (a, b) el in
+	solvel el' sl'
+    else                          (* Orient *)
+      solvevar (b, a) el sl
+  else 
+    try
+      let (op, c) = d_interp a in 
+      let rhs' =                 
+	match op with 
+	  | Sym.InL -> mk_outl b  (* In *)
+	  | Sym.InR -> mk_outr b
+	  | Sym.OutL -> mk_inl b  (* Out *)
+	  | Sym.OutR -> mk_inr b
+      in 
+	solvel ((c, rhs') :: el) sl
+    with
+	Not_found -> 
+	  solvevar (a, b) el sl
+	  
 and solvevar (x, b) el sl =
-  if is_var b then
-    solvel el (add (Term.orient (x, b)) sl)
-  else if Term.occurs x b then
+  assert(Term.is_var x);
+  assert(not(Term.is_var b));
+  if Term.occurs x b then          (* Bot *) 
     raise Exc.Inconsistent
   else 
-    solvel el (add (x, b) sl)
+    let el' = substitute (x, b) el (* Subst *)
+    and sl' = compose (x, b) sl in
+      solvel el' sl'
+      
+and compose (x, b) sl =
+  Term.Subst.compose apply (x, b) sl
 
-and add (a, b) sl =
-  if Term.eq a b then  sl else
-    let e = Fact.mk_equal a b None in  (* does not swap terms *)
-      e :: (substl a b sl)             (* since [a] and [b] are oriented *)
+and fuse (x, b) sl =
+  Term.Subst.fuse apply (x, b) sl
 
-and substl a b = 
-  List.map 
-    (fun e -> 
-       let (x, y, _) = Fact.d_equal e in
-	 Fact.mk_equal x (subst1 y a b) None)
-
-and subst1 a x b =      (* substitute [x] by [b] in [a]. *)
-  map (fun y -> if Term.eq x y then b else y) a
-
+and substitute (x, b) el =
+  let subst1 (a1, a2) =
+    (apply (x, b) a1, apply (x, b) a2)
+  in
+    List.map subst1 el

@@ -11,31 +11,78 @@
  * benefit corporation.
  *)
 
-open Term
-open Three
+(** A {b logical context} consists of a set of atoms. Such a context is
+  represented in terms of a 
+    - {b partition} (see {!Partition.t}) and an 
+    - {b equality set} (see {!Solution.t}) for each theory in {!Th.t}. 
+
+  A partition represents variable equalities [x = y] and variable disequalities [x <> y], and
+  the solution sets represent equalities [x = a], where [x] is a variable and [a]  
+  is a pure term in some theory. An atom is added to a logical context by
+  successively
+    - Abstracting the atom to one which contains only pure terms using {!Context.abstract}, 
+      this may involve the introduction of newly generated variables.
+    - Canonization of terms using {!Context.can}, that is, computation of a normal form.
+    - Processing of atoms using {!Context.equality} for merging two terms, {!Context.diseq}
+      for adding a disequality, and {!Context.add} for adding a constraint.
+    - Propagation of newly deduced facts to other components using {!Context.close}.
+
+  For details see also: H. Ruess, N. Shankar, {i Combining Shostak Theories}, 
+  published in the proceedings of RTA, 2002. 
+
+  The operations above are all destructive in that they update logical
+  contexts. A state is protected by first copying it {!Context.copy} and then
+  updating the copy.
+
+  We use the following conventions: [s] always denotes the logical state,
+  [ctxt] denotes the set of atoms in the logical states, [p] denotes a partition, 
+  and [eqs] stands for a set of equality sets. Furthermore, [a],[b] etc. are used for 
+  terms, and whenever a term variable is intended, we use the names [x],[y],[z]. Theory
+  names are denoted by [i],[j] etc.
+ *)
+
+
 open Mpa
-open Sym
-open Th
 
 
-(** {6 Decision procedure state} *)
+(** {6 Logical context} *)
 
 type t = {
   mutable ctxt : Atom.Set.t;      (* Current context. *)
   mutable p : Partition.t;        (* Variable partitioning. *)
-  eqs : Solution.t Th.Array.arr;  (* Theory-specific solution sets. *)
+  eqs : Ths.t;                    (* Theory-specific solution sets. *)
   mutable upper : int;            (* Upper bound on fresh variable index. *)
-  mutable diseqs : (int * Term.Set.t) Term.Map.t  (* Index for bitvector diseqs. *)
 }
 
 
+(** The empty logical context. *)
 let empty = {
   ctxt = Atom.Set.empty;
   p = Partition.empty;
-  eqs = Array.create Solution.empty;
-  upper = 0;
-  diseqs = Term.Map.empty
+  eqs = Ths.empty;
+  upper = 0
 } 
+
+
+(** Identity test. Do not take upper bounds into account. *)
+let eq s1 s2 =              
+  Partition.eq s1.p s2.p && 
+  Ths.eq s1.eqs s2.eqs
+
+
+(** Shallow copying. *)
+let copy s = {
+  ctxt = s.ctxt;
+  p = Partition.copy s.p;
+  eqs = Ths.copy s.eqs;
+  upper = s.upper
+}
+
+
+(** Pretty-printing. *)
+let pp fmt s =
+  Partition.pp fmt s.p;
+  Th.iter (fun i -> Ths.pp i fmt s.eqs)
 
 
 (** {6 Accessors} *)
@@ -44,1223 +91,261 @@ let ctxt_of s = s.ctxt
 let p_of s = s.p
 let v_of s = Partition.v_of s.p
 let d_of s = Partition.d_of s.p
-let c_of s = Partition.c_of s.p
-let eqs_of s = Array.get s.eqs
+let eqs_of s = s.eqs
+let partition_of s = s.p
 let upper_of s = s.upper
+let config_of s = (s.p, s.eqs)
 
 
-(** Equality test. Do not take upper bounds into account. *)
-let eq s t =              
-  Partition.eq s.p t.p &&
-  (Array.for_all2 
-    (fun eqs1 eqs2 -> 
-       Solution.eq eqs1 eqs2) 
-    s.eqs t.eqs)
-
-
-(** Destructive updates. *)
-let update s i eqs =
-  (Array.set s.eqs i eqs; s)
-
-
-(** Shallow copying. *)
-let copy s = {
-  ctxt = s.ctxt;
-  p = Partition.copy s.p;
-  eqs = Array.copy s.eqs;
-  upper = s.upper;
-  diseqs = s.diseqs
-}
-
-(** Canonical variables module [s]. *)
+(** {6 Accessing Partitions} *)
 	       
-let v s x = fst(Partition.v s.p x)
+let v s = Partition.find s.p
+let d s = Partition.diseqs s.p
 
-let d s x = List.map fst (Partition.d s.p (v s x))
+let diseqs s = Partition.diseqs s.p
 
-let sign lookup a = 
-  let rec term a =
-    match a with
-      | Var _ -> lookup a
-      | Term.App(Arith(op), xl) -> arith op xl
-      | Term.App(Pp(op), xl) -> pprod op xl
-      | Term.App(Bvarith(op), [x]) -> bvarith op x
-      | a -> raise Not_found
-  and arith op al = 
-    try
-      match op, al with
-	| Num(q), [] -> Sign.of_q q
-	| Multq(q), [x] -> Sign.multq q (term x)
-	| Add, [x; y] -> Sign.add (term x) (term y)
-	| Add, xl -> Sign.addl (List.map term xl)
-	| _ -> assert false
-      with
-	  Not_found -> Sign.T
-  and bvarith op a =
-    match op with
-      | Unsigned -> Sign.Nonneg
-  and pprod op al =
-    try
-      match op, al with
-	| Expt(n), [x] -> Sign.expt n (try term x with Not_found -> Sign.T)
-	| Mult, [] -> Sign.of_q Q.one
-	| Mult, [x] -> term x
-	| Mult, [x; y] -> Sign.mult (term x) (term y)
-	| Mult, xl -> Sign.multl (List.map term xl)
-	| _ -> assert false
-      with
-	  Not_found -> Sign.T
-  in
-    term a
 
-let c s a =
-  let lookup k =
-    fst(Partition.c s.p k)
-  in
-    sign lookup a
-
+(** Folding over equivalence class of [x]. *)
 let fold s f x = 
-  let y = v s x in
+  let (y, _) = v s x in 
     V.fold (v_of s) f y
 
 
-(** Parameterized operations on solution sets. *)
+(** {6 Parameterized operations on solution sets} *)
 
-let mem i s = Solution.mem (eqs_of s i)
-	
-let use i s = Solution.use (eqs_of s i)
-
-let apply i s = Solution.apply (eqs_of s i)
-
-let find i s = Solution.find (eqs_of s i)
-
-let replace i s = Solution.replace (v s) (eqs_of s i)
-
-let inv i s = Solution.inv (eqs_of s i)
-
-let is_empty i s = Solution.is_empty (eqs_of s i)
-
-let interp i s = apply i s  (* for now *)
-
-
-(** Array selection *)
-
-let d_select s (p1, p2) v = 
-  match apply Th.arr s v with
-    | App(Arrays(Select), [a; i]) when p1 a && p2 i -> (a, i)
-    | _ -> raise Not_found
-
-let d_update s (p1, p2, p3) v =
-  match apply Th.arr s v with
-    | App(Arrays(Update), [a; i; x]) when p1 a && p2 i && p3 x -> (a, i, x)
-    | _ -> raise Not_found
-
-let tt _ = true
-
-(** Constraint of [a] in [s]. *)
-
-let dom s a =
-  let rec of_term = function
-    | App(Arith(op), xl) -> of_arith op xl
-    | App(Pp(op), xl) -> of_pprod op xl
-    | App(Bvarith(op), xl) -> of_bvarith op xl
-    | a -> 
-	if is_intvar a then Dom.Int 
-	else if is_realvar a then Dom.Real 
-	else of_term (apply Th.la s a)
-  and of_arith op xl =
-    try
-      match op, xl with
-	| Num(q), [] ->
-	    if Q.is_integer q then Dom.Int else Dom.Real
-	| Multq(q), [x] -> 
-	    if Q.is_integer q && of_term x = Dom.Int 
-	    then Dom.Int 
-	    else Dom.Real
-	| Add, xl -> 
-	    if List.for_all (fun x -> Dom.eq (of_term x) Dom.Int) xl 
-	    then Dom.Int 
-	    else Dom.Real
-	| _ -> 
-	    Dom.Real
-      with
-	  Not_found -> Dom.Real
-  and of_pprod op xl = 
-    try
-      match op, xl with
-	| Mult, _ -> 
-	    if List.for_all (fun x -> Dom.eq (of_term x) Dom.Int) xl 
-	    then Dom.Int 
-	    else Dom.Real
-	| Expt(n), [x] ->
-	    if n >= 0 && of_term x = Dom.Int 
-	    then Dom.Int 
-	    else Dom.Real
-	| _ ->
-	    Dom.Real
-      with
-	  Not_found -> Dom.Real
-  and of_bvarith op xl =
-    match op, xl with
-      | Unsigned, [_] -> Dom.Int
-      | _ -> Dom.Real
-  in
-    of_term a
-
-let is_int s a = 
-  try Dom.eq (dom s a) Dom.Int with Not_found -> false
+let is_dependent i s = Ths.is_dependent s.eqs i 
+let dep i s = Ths.dep s.eqs i
+let apply i s = Ths.apply s.eqs i
+let find i s = Ths.find s.eqs i
+let inv s = Ths.inv (s.p, s.eqs)
+let is_empty i s = Ths.is_empty s.eqs i
 
 
 
-(** Pretty-printing. *)
- 
-let pp fmt s =
-  let pps i sl =   
-    if not(Solution.is_empty sl) then
-      Solution.pp i fmt sl
-  in
-    Partition.pp fmt s.p;
-    Array.iter (fun i eqs -> pps i eqs) s.eqs
 
-let equation i s = Solution.equality (eqs_of s i)
+(** Return a canonical variable [x] equal to [b]. If [b] is not a rhs in
+  the equality set for theory [i], then such a variable [x] is newly created. *)
+let name i s = 
+  Justification.Eqtrans.compose 
+    (v s) 
+    (Ths.name (s.p, s.eqs) i)
 
-
-(** Variable partitioning. *)
-
-let is_equal s x y =
-  match Term.is_equal x y with
-    | Three.X -> Partition.is_equal s.p x y
-    | res -> res
-
-let is_eq s x y = (is_equal s x y = Three.Yes)
-
-let is_diseq s x y = (is_equal s x y = Three.No)
- 
-
-(** Constraint of a term. *)
-
-let rec cnstrnt s a =
-  let lookup x = 
-    try
-      fst(Partition.c s.p x)
-    with
-	Not_found -> 
-	  let b = apply Th.la s x in
-	    Trace.msg "foo" "Interp" (x, b) (Pretty.pair Term.pp Term.pp);
-	    cnstrnt s b
-  in
-    sign lookup a
-
-let cnstrnt s a =
-  let b = Arith.map (fun x -> if is_slack x then x else find Th.la s x) a in
-    c s b
-
-let cnstrnt s =
-  Trace.func "foo" "Cnstrnt" Term.pp Sign.pp (cnstrnt s)
+let name_of_term s a =
+  if Term.is_var a then v s a else 
+    name (Th.of_sym (Term.App.sym_of a)) s a
 
 
-(** Sigma normal forms. *)
-
-let sigma s op =
-  match op with
-    | Arrays(op) ->
-	Arr.sigma (is_equal s) op
-    | _ ->
-	Th.sigma op
 
 
-(* Lookup terms on rhs of solution sets. *)
-    
-let rec lookup s a = 
-  match a with
-    | Var _ ->
-	v s a
-    | App(f, _) ->
-	let i = Th.of_sym f in
-	  try 
-	    let x = 
-	      if Th.eq i Th.pprod then
-		inv_pprod s a 
-	      else 
-		inv i s a
-	    in
-	      v s x
-	  with 
-	      Not_found -> a
+(** {6 Abstractions} *)
 
-(** Search for largest match on rhs. For example, if [a] is
- of the form [x * y] and there is an equality [u = x^2 * y],
- then [inv_pprod s a] returns [u * x] if there is no larger
- rhs which matches [a]. *)
 
-and inv_pprod s a =           
-  let rec usea acc = 
-    match a with
-      | App(Pp(Mult), xl) ->
-	  (List.fold_left 
-	     (fun acc' x -> 
-		let (x', _) = Pp.destruct x in
-		  Set.union (use Th.pprod s x') acc')
-	     acc xl)
-      | App(Pp(Expt(_)), [x]) -> 
-	  use Th.pprod s x
-      | _ -> 
-	  acc
-  in
-  let lookup =
-    Set.fold
-      (fun x acc ->
-	 try
-	   let b = apply Th.pprod s x in
-	     (match acc with
-	       | None ->        (* [lcm = p * a = q * b = q * x] *)
-		   let (p, q, lcm) = Pp.lcm (a, b) in
-		     if Pp.is_one p then Some(q, x, b) else None
-	       | Some(_, _, b') when Pp.cmp b b' <= 0 ->
-		   acc
-	       | _ ->
-		   let (p, q, lcm) = Pp.lcm (a, b) in
-		     if Pp.is_one p then Some(q, x, b) else acc)
-	 with
-	     Not_found -> acc)
-      (usea Set.empty)
-      None
-  in
-    match lookup with
-      | Some(q, x, _) -> 
-	  let a' = Pp.mk_mult q (v s x) in
-	    inv_pprod s a'
-      | None ->
-	  a
-
-(** {6 Canonization} *)
-
-module Can = struct
-
-  (* Don't use [find] for uninterpreted theory. *)
-
-  let rec fnd th s a  =
-    if Th.eq th Th.u || Th.eq th Th.app then  
-      a
-    else if Th.is_fully_interp th then
-      let b = find th s a in  (* Context.find *)
+(** Generate a term with all function symbols in [i], which is equal to [a]
+  in [s] possibly extended with variables for subterms of (abstractions) of [a]
+  as generated by {!Context.name}. In addition. if [i] is fully uninterpreted,
+  then the abstraction of [a] is a flat term of the form [f(x_1,...,x_n)] with
+  [x_i] a variable. *)
+let abstract s a =   
+  let rec of_args j al =
+    let rhol = ref [] in       (* collect nontrivial equations used. *)
+    let trans a =
+      let (b, rho) = of_term j a in
+	if not(a == b) then rhol := rho :: !rhol; 
 	b
-    else 
-      findequiv th s a
-	
-  and findequiv th s a =
-    let choose s = V.choose (v_of s) in
-      try
-	choose s
-	  (fun x ->
-	     try Some(apply th s x) 
-	     with Not_found -> None)
-	  a
-      with
-	  Not_found -> a
-	
-  (** {6 Canonization of terms} *)
-	
-  let rec term s =
-    Trace.func "canon" "Term" Term.pp Term.pp
-      (can s)
-      
-  and can s a =
-    match a with
-      | Var _ -> v s a 
-      | App(Sym.Arith(op), al) -> arith s op al
-      | App(Sym.Bvarith(Sym.Unsigned), [x]) -> unsigned s x
-      | App(Sym.Pp(op), xl) -> pprod s op xl
-      | App(f, al) ->
-	  let th = Th.of_sym f in
-	  let interp x = fnd th s (can s x) in
-	  let al' = mapl interp al in
-	  let a' = if al == al' then a else sigma s f al' in
-	    lookup s a'
-
-  and pprod s op al =   
-    match op, al with
-      | Expt(n), [x] ->
-	  lookup s (Sig.mk_expt n (fnd Th.la s (can s x)))
-      | Mult, xl ->
-	  lookup s (Sig.mk_multl (Term.mapl (fun x -> fnd Th.la s (can s x)) xl))
-      | _ ->
-	  assert false
-	  
-  and unsigned s x =
-    lookup s (Bvarith.mk_unsigned (fnd Th.bv s (can s x)))
-      
-  and arith s op l =       (* special treatment for arithmetic *)
-    match op, l with       (* for optimizing memory usage. *)
-      | Sym.Num(q), [] -> 
-	  lookup s (Arith.mk_num q)
-      | Sym.Multq(q), [x] -> 
-	  let y = can s x in
-	    lookup s (Arith.mk_multq q (fnd Th.la s y))
-      | Sym.Add, [x; y] -> 
-	  let a' = fnd Th.la s (can s x) 
-	  and b' = fnd Th.la s (can s y) in
-	    lookup s (Arith.mk_add a' b')
-      | Sym.Add, _ :: _ :: _ -> 
-	  let f a = fnd Th.la s (can s a) in
-	  let l' =  mapl f l in
-	    lookup s (Arith.mk_addl l')
-      | _ ->  
-	  let str = "Ill-formed term " ^ 
-		    (Pretty.to_string Sym.pp (Sym.Arith(op))) ^
-		    (Pretty.to_string (Pretty.list Term.pp) l)
-	  in
-	    failwith str
-	      
-  let eq s a b =
-    Term.eq (term s a) (term s b)
-      
-
-(** {6 Canonization and normalization of atoms} *)
-
-  let rec atom s a =
-    Trace.call "rule" "Can" a Atom.pp;
-    let b = match a with
-      | Atom.True -> Atom.True
-      | Atom.Equal(a, b) -> equal s (a, b)
-      | Atom.Diseq(a, b) -> diseq s (a, b)
-      | Atom.In(a, d) -> sign s (a, d)
-      | Atom.False -> Atom.False
     in
-      Trace.exit "rule" "Can" b Atom.pp;
-      b
-      
-  and equal s (a, b) = 
-    let x' = can s a and y' = can s b in
-      match is_equal s x' y' with
-	| Three.Yes ->
-	    Atom.mk_true
-	| Three.No -> 
-	    Atom.mk_false
-	| Three.X -> 
-	    let (x'', y'') = crossmultiply s (x', y') in
-	      Atom.mk_equal (x'', y'')
- 
-  and diseq s (a, b) =
-    let x' = can s a and y' = can s b in
-      match is_equal s x' y' with
-	| Three.Yes -> 
-	    Atom.mk_false
-	| Three.No -> 
-	    Atom.mk_true
-	| Three.X ->
-	    let (x'', y'') = crossmultiply s (x', y') in
-	      Atom.mk_diseq (x'', y'')
+    let bl = Term.mapl trans al in
+      (bl, !rhol)
+  and of_term i a =
+    match a with
+      | Term.Var _ ->  
+	  v s a
+      | Term.App(f, al) ->
+	  let j = Th.of_sym f in
+	  let (bl, rhol) = of_args j al in    (* roughly, [rhok |- bk = ak] *) 
+	  let (c, rho) =                      (* [rho |- c = f(b1,...,bn)] *)
+	    if Term.eql al bl then 
+	      (a, Justification.refl a)
+	    else 
+	      Ths.sigma (config_of s) f bl 
+	  in
+	    if i = Th.u || i = Th.arr || i <> j then
+	      let (x, tau) = name j s c in    (* [tau |- x = c] *)
+	      let sigma = Justification.subst_equal (x, a) tau (rho :: rhol) in
+		(x, sigma)                    (* [sigma |- x = a] *)
+	    else 
+	      (c, rho)
+  in
+    match a with 
+      | Term.Var _ -> Justification.Eqtrans.id a
+      | Term.App(f, _) -> of_term (Th.of_sym f) a
 
-  and crossmultiply s (a, b) =
-    let (a', b') = crossmultiply1 s (a, b) in
-      if Term.eq a a' && Term.eq b b' then
-	(a, b)
-      else 
-	let (a'', b'') = crossmultiply s (a', b') in
-	  (can s a'', can s b'')
 
-  and crossmultiply1 s (a, b) =
-    let da = Pp.denumerator a in
-    let db = Pp.denumerator b in
-    let (_, _, d) = Pp.lcm (da, db) in
-      if Pp.is_one d then (a, b) else
-	(Sig.mk_mult a d, Sig.mk_mult b d)
+(** {6 Facts} *)
 
-  and sign s (a, i) =
-    let a' = can s a in
-      try
-	let j = cnstrnt s a' in
-	let k = Sign.inter i j in
-	  if Sign.eq k j then Atom.mk_true 
-	  else if k = Sign.F then Atom.mk_false
-	  else Atom.mk_in (a', k)
-      with
-	  Not_found -> Atom.mk_in (a', i)
-	    
-  let eq s a b =
-    Term.eq (term s a) (term s b)
+let cheap = ref true
 
+module Fct = struct
+
+  let is_equal s = Ths.is_equal (config_of s)
+
+  let is_nonneg0 = 
+    let yes = Justification.Three.Yes(Justification.dependencies0) 
+    and no = Justification.Three.No(Justification.dependencies0) in
+      fun a -> 
+	match Arith.is_nonneg a with
+	  | Three.Yes -> yes
+	  | Three.No -> no
+	  | Three.X -> Justification.Three.X
+
+	      
+  let is_pos0 = 
+    let yes = Justification.Three.Yes(Justification.dependencies0) 
+    and no = Justification.Three.No(Justification.dependencies0) in
+      fun a -> 
+	match Arith.is_pos a with
+	  | Three.Yes -> yes
+	  | Three.No -> no
+	  | Three.X -> Justification.Three.X
+
+  let is_nonneg s a = 
+    if !cheap then
+      is_nonneg0 a
+    else 
+      Ths.is_nonneg (config_of s) a
+
+  let is_pos s a = 
+    if !cheap then
+      is_pos0 a
+    else 
+      Ths.is_pos (config_of s) a
+
+  let mk_equal s = Fact.mk_equal (is_equal s)
+  let mk_diseq s = Fact.mk_diseq (is_equal s)
+  let mk_nonneg s = Fact.mk_nonneg (is_nonneg s)
+  let mk_pos s = Fact.mk_pos (is_pos s)
+
+  let map s =
+    Fact.map (is_equal s, is_nonneg s, is_pos s)
+	  
 end
 
-let can = Can.term
+let simplify s =
+  Trace.func "rule" "Simplify" Fact.pp Fact.pp
+    (Fct.map s (Ths.can (config_of s)))
 
-(** {6 Abstraction} *)
+let abst s = 
+  Trace.func "rule" "Abstract" Fact.pp Fact.pp
+    (Fct.map s (abstract s))
 
-let rec abstract i (s, a) =
-  let rec args i (s, al) =
-    match al with
-      | [] -> 
-	  (s, [])
-      | b :: bl ->
-	  let (s', bl') = args i (s, bl) in
-	  let (s'', b') = abstract i (s', b) in
-	    if Term.eq b b' && bl == bl' then
-	      (s'', al)
-	    else 
-	      (s'', b' :: bl')
-  in
-    match a with
-      | Var _ -> 
-	  (s, a)
-      | App(f, al) ->
-	  let j = Th.of_sym f in
-	  let (s', al') = args j (s, al) in
-	  let a' = if Term.eql al al' then a else sigma s f al' in
-	    if not(Th.is_fully_interp i) || i <> j then
-	      try
-		let x' = inv j s' a' in
-		  (s', v s' x')
-	      with 
-		  Not_found -> name j (s', a')
-	    else 
-	      (s', a')
 
-(* Return a name for a nonvariable term. *)
-and name i (s, b) =
-  let (fresh, x', ei') = Solution.name i (b, eqs_of s i) in
-  let s' = update s i ei' in
-  let s'' = 
-    if fresh then  
-      close_i i (Term.Set.singleton x') s'
-    else 
-      s'
-  in
-    (s'', x')
+(** Processing} *)
 
-(** Processing an equality over pure terms. *)
-and equality e s =
-  Trace.msg "rule" "Assert" e Fact.pp_equal;
-  let (a, b, _) = Fact.d_equal e in
-    if Term.eq a b then s else 
-      match a, b with
-	| Var _, Var _ -> 
-	    merge_v e s
-	| App(f, _), Var _ -> 
-	    let i = Th.of_sym f in
-	      merge_i i e s
-	| Var _, App(f, _) -> 
-	    let i = Th.of_sym f in
-	      merge_i i e s
-	| App(f, _), App(g, _) ->
-	    let i = Th.of_sym f and j = Th.of_sym g in
-	      if Th.eq i j && Th.is_fully_interp i then
-		merge_i i e s
-	      else 
-		let (s', x') = name i (s, a) in
-		let (s'', y') = name j (s', b) in
-		  merge_v (Fact.mk_equal x' y' None) s''
+let rec process s ((atm, rho) as fct) =
+  Trace.msg "rule" "Process" atm Atom.pp;
+  match atm with
+    | Atom.True -> ()
+    | Atom.False -> 
+	raise(Justification.Inconsistent(rho))
+    | Atom.Equal(a, b) -> 
+	process_equal s (Fact.Equal.make (a, b, rho))
+    | Atom.Diseq(a, b) -> 
+	process_diseq s (Fact.Diseq.make (a, b, rho))
+    | Atom.Nonneg(a) -> 
+	process_nonneg s (Fact.Nonneg.make (a, rho))
+    | Atom.Pos(a) -> 
+	process_pos s (Fact.Pos.make (a, rho))
 	
-(** Processing of a variable equality. *)  
-and merge_v e s =
-  let propagate e = 
-    List.fold_right 
-      (fun i s -> 
-	 if is_empty i s then 
-	   s 
-	 else if Th.is_fully_interp i then
-	   merge_i i e s
-	 else 
-	   fuse i e s)
-  in
-  let (x, y, prf) = Fact.d_equal e in
-    match is_equal s x y with
-      | Three.Yes -> 
-	  s
-      | Three.No -> 
-	  raise Exc.Inconsistent
-      | Three.X ->
-	  Trace.msg "rule" "Merge(v)" e Fact.pp_equal;
-	  let (ch', p') = Partition.merge e s.p in
-	    s.p <- p';
-	    let s' = propagate e Th.all s in  (* propagate on rhs. *)  
-	      close_p ch' s'
+and process_nonneg s c =
+  Ths.process_nonneg (s.p, s.eqs) c
+
+and process_pos s c = 
+  let (a, rho) = Fact.Pos.destruct c in
+  (let tau1 = Justification.nonzero a rho in
+   let d = Fct.mk_diseq s (a, Arith.mk_zero, tau1) in
+     process s d);
+  (let tau2 = Justification.weaken a rho in
+   let c = Fct.mk_nonneg s (a, tau2) in 
+     process s c)
+
+and process_diseq s d =
+  if Fact.Diseq.is_diophantine d then
+    Ths.process_diseq (s.p, s.eqs) d
+  else 
+    let d' = Fact.Diseq.map (name_of_term s) d in
+      Partition.dismerge s.p d'
+
+and process_equal s e =              
+  match Fact.Equal.lhs_of e, Fact.Equal.rhs_of e with
+    | Term.Var _, Term.Var _ -> 
+	Partition.merge s.p e
+    | Term.App(f, _), Term.Var _ -> 
+	Ths.process_equal (s.p, s.eqs) (Th.of_sym f) e
+    | Term.Var _, Term.App(f, _) -> 
+	Ths.process_equal (s.p, s.eqs) (Th.of_sym f) e
+    | Term.App(f, _), Term.App(g, _) ->
+	let i = Th.of_sym f 
+	and j = Th.of_sym g in
+	  if i = j then 
+	    Ths.process_equal (s.p, s.eqs) i e
+	  else
+	    let e' = Fact.Equal.map2 (name i s, name j s) e in
+	      Partition.merge s.p e'
+
+let process s =
+  Trace.proc "rule" "Process" Fact.pp (process s)
 
 
-(** Processing of an interpreted equality. *)
-and merge_i i e s =
-  let (x, y, rho) = Fact.d_equal e in
-  let a = find i s x
-  and b = find i s y in
-    if Term.eq a b then s else
-      let e' = Fact.mk_equal a b None in
-	Trace.msg "rule" "Merge(i)" e' Fact.pp_equal;
-	try
-	  let sl = Th.solve i e' in
-	    compose i s sl
-	with 
-	    Exc.Incomplete ->
-	      let (a, b, _) = Fact.d_equal e in
-	      let (s, x) = name i (s, a) in
-	      let (s, y) = name i (s, b) in
-	      let e' = Fact.mk_equal x y None in
-		merge_v e' s
+(** {6 Close} *)
 
+(** Propagate newly deduced facts. *)   
+let rec close_star s =
+  close_star_e s;
+  close_star_d s
 
-and fuse i e s =   
-  let (ch', es', eqs') = Solution.fuse i (eqs_of s i) [e] in
-    Array.set s.eqs i eqs';
-    let s' = Fact.Equals.fold merge_v es' s in
-      close_i i ch' s'
+and close_star_e s =
+  while not(Fact.Eqs.is_empty()) do
+    close_e s (Fact.Eqs.pop())
+  done
 
-and compose i s r =
-  let (ch', es', eqs') = Solution.compose i (eqs_of s i) r in
-    Array.set s.eqs i eqs';
-    let s' =  Fact.Equals.fold merge_v es' s in
-      close_i i ch' s'
+and close_e s (_, e) =
+  Trace.msg "rule" "Close" e Fact.Equal.pp;
+  if Fact.Equal.is_var e then
+    Th.iter (fun j -> Ths.merge (s.p, s.eqs) j e)
+  else if Fact.Equal.is_pure Th.a e then
+    Ths.propagate (s.p, s.eqs) e (Th.a, Th.nl)
 
+and close_star_d s = 
+  while not(Fact.Diseqs.is_empty()) do
+      close_d s (Fact.Diseqs.pop())
+  done
 
-(** Infer new disequalities from equalities. *)
-and infer i e s =
-  let (a, b, _) = Fact.d_equal e in
-    if Term.eq a b then 
-      s
-    else if Th.eq i Th.la then
-      infer_la e s
-    else if Th.eq i Th.bv then
-      infer_bv e s
-    else if Th.eq i Th.cop then
-      infer_cop e s
-    else 
-      s
+and close_d s (i, d) = 
+  Trace.msg "rule" "Close" d Fact.Diseq.pp; 
+  let (a, b, _) = Fact.Diseq.destruct d in
+  match i with
+    | None -> 
+	Th.iter (fun j -> Ths.dismerge (s.p, s.eqs) j d)
+    | Some(i) ->
+	Th.iter (fun j -> if not(i = j) then Ths.dismerge (s.p, s.eqs) j d)
 
-(** If [x = q] and [y = p] with [q], [p] numerical constraints,
-  then deduce [x <> y]. *)
-and infer_la e s =
-  let (x, a, _) = Fact.d_equal e in
-    match Arith.d_num a with  
-      | Some(q) ->
-          Solution.fold
-            (fun y (b, _) s ->
-               match Arith.d_num b with
-                 | Some(p) when not(Q.equal q p) ->
-	             let d = Fact.mk_diseq (v s x) (v s y) None in
-                        diseq d s
-	         | _ -> s)               
-            (eqs_of s Th.la) s
-      | None ->
-	 s 
-
-and infer_bv e s =
-  let (x, a, _) = Fact.d_equal e in
-    match Bitvector.d_const a with  
-      | Some(c) ->
-          Solution.fold
-            (fun y (b, _) s ->
-               match Bitvector.d_const b with
-                 | Some(d) when not(Bitv.equal c d) ->
-	             let d = Fact.mk_diseq (v s x) (v s y) None in
-                        diseq d s
-	         | _ -> s)               
-            (eqs_of s Th.bv) s
-      | None ->
-	 s 
-
-(** If [x = a], [y = b] are in the coproduct solution set, 
-  and if [a] and [b] are diseq in this theory, then deduce [x <> y]. *)
-and infer_cop e s =
-  let (x, a, _) = Fact.d_equal e in
-    match a with
-     | App(Coproduct(InL | InR), [_]) ->
-         Solution.fold
-           (fun y (b, _) s ->
-              if Coproduct.is_diseq a b then
-                let d = Fact.mk_diseq (v s x) (v s y) None in 
-                  diseq d s              
-              else
-                 s)
-           (eqs_of s Th.cop) s
-     | _ -> s
-
-(** Deduce new constraints from an equality *)
-and deduce i e s =
-  let (a, b, _) = Fact.d_equal e in
-    if Term.eq a b then 
-      s
-    else if Th.eq i Th.la then
-      deduce_la e s
-    else if Th.eq i Th.bvarith then
-      deduce_bvarith e s
-    else if Th.eq i Th.pprod then
-      deduce_nonlin e s (* (deduce_nonlin2 e s) *)
-    else 
-      s
-
-and deduce_bvarith e s = 
-  let (x, b, _) = Fact.d_equal e in
-    match b with
-      | App(Bvarith(Unsigned), [y]) ->   (* [x = unsigned(y)] *)      
-	  let c = Fact.mk_cnstrnt (v s x) Sign.T None in
-	    add c s
-      | _ -> 
-	  s
-
-and deduce_nonlin e s =
-  Trace.msg "rule" "Deduce(nl)" e Fact.pp_equal;
-  let (x, a, _) = Fact.d_equal e in
-  let x' = v s x in
-  try
-    let j = c s a in
-      (try
-	 let i = c s x' in
-	   if Sign.sub j i then s else 
-	     add (Fact.mk_cnstrnt x' j None) s
-       with
-	   Not_found -> 
-	     add (Fact.mk_cnstrnt x' j None) s)
-  with
-      Not_found -> s
-
-and deduce_nonlin2 e s =
-  let partition a = 
-    let (bl, dl) = 
-      Pp.fold
-	(fun y n (bl, dl) ->
-	   try
-	     let _ = c s y in
-	       (bl, (y, n) :: dl)
-	   with
-	       Not_found -> ((y, n):: bl, dl))
-	a ([], [])
-    in
-      (Pp.of_list bl, Pp.of_list dl)
-  in
-  let (x, a, _) = Fact.d_equal e in
-  let x' = v s x in
-  let (b, d) = partition a in   (* [b] is unconstrained, [d] is constrained. *)
-    Trace.msg "foo" "Partition" (b, d) (Pretty.pair Term.pp Term.pp);
-    try
-      (match c s x', c s d with
-	 | Sign.Pos, Sign.Pos ->
-	     add (Fact.mk_cnstrnt b Sign.Pos None) s
-	 | Sign.Nonneg, Sign.Nonneg -> 
-	     add (Fact.mk_cnstrnt b Sign.Nonneg None) s
-	 | _ -> s)
-    with
-	Not_found -> 
-	  if not(Term.eq b Pp.mk_one) then s else
-	    try
-	      add (Fact.mk_cnstrnt x' (c s d) None) s
-	    with
-		Not_found -> s  (* should not happen *)
-
-
-(** If [k = R[k''], [k' = R'[k'']] in [A], then
-    isolate [k''] in [k' = R'[k'']] to obtain [k'' = R'']
-    and plug this solution into [R] to obtain [R'''] as [sigma(R[k'':= R''])].
-    deduce new constraints from [k = R'''].  Notice that equality [k' = R'] has
-    only to be considered once. *)
-
-and deduce_la e s =
-  let s' = deduce_la1 e s in
-  let (k, r, _) = Fact.d_equal e in
-  let k = v s k in
-    if not(is_slack k) then s else
-      let visited = ref Term.Set.empty in
-	Arith.fold
-	  (fun _ k'' s ->
-	     Set.fold
-	       (fun k' s ->
-		  if Term.Set.mem k' !visited then s else 
-		    try
-		      let r' = apply Th.la s k' in
-		      let r'' = Arith.isolate k'' (k', r') in
-		      let e' = Fact.mk_equal k (Arith.replace r k'' r'') None in
-			visited := Term.Set.add k' !visited;
-			deduce_la1 e' s
-		    with
-			Not_found -> s)
-	       (use Th.la s k'') 
-	       s)
-	  r s'
-     
-    
-(* If C(k) = 0, then we can assert that S(k) = 0.
-   Inequality Propagation: If S(k) = R+[k'] - R-[k''],
-   then if either C(k) or C[R-[k'']] goes from >= to >,
-   then we can assert R+[k']>0. *) 
-
-and deduce_la1 e s =
-  let inconsistent (x, a) =
-    try
-      (dom s x = Dom.Int) &&
-      (match Arith.d_num a with
-	 | Some(q) -> not(Q.is_integer q)
-	 | None -> false)
-    with
-	Not_found -> false
-  in
-  let partition s a =
-    let sign_of_monomial = function
-      | App(Arith(Num(q)), []) -> Sign.of_q q
-      | App(Arith(Multq(q)), [k]) -> Sign.multq q (c s k)
-      | k -> cnstrnt s k
-    in
-    let rec loop posl negl = function
-      | [] -> (Arith.mk_addl posl, Arith.mk_addl negl)
-      | m :: ml ->
-	  (match sign_of_monomial m with
-	     | (Sign.Pos | Sign.Nonneg | Sign.Zero) ->
-		 loop (m :: posl) negl ml
-	     | (Sign.Neg | Sign.Nonpos) -> 
-		 loop posl (Arith.mk_neg m :: negl) ml
-	     | Sign.F -> raise Exc.Inconsistent  (* following should not happen *)
-	     | Sign.T -> raise Not_found)
-    in
-      loop [] [] (Arith.monomials a)
-  in
-  let (x, sk, prf) = Fact.d_equal e in
-  let k = v s x in
-    if not(is_slack k) then 
-      s 
-    else if inconsistent (k, sk) then
-      raise Exc.Inconsistent
-    else  
-      begin
-	Trace.msg "rule" "Deduce(la)" e Fact.pp_equal;
-	try  
-	  let c_sk = c s sk in  (* Keep invariant that [c s k] is stronger than [c s sk]. *)
-	  let s = add (Fact.mk_cnstrnt k c_sk None) s in 
-	  let c_k = c s k in 
-	    if c_k = Sign.Zero then
-	      equality (Fact.mk_equal k Arith.mk_zero None) s
-	    else 
-	      let (r_plus, r_minus) = partition s (find Th.la s k) in
-		if c_k = Sign.Pos || c s r_minus = Sign.Pos then
-		  if c s r_plus = Sign.Pos then s else 
-		    add (Fact.mk_cnstrnt r_plus Sign.Pos None) s 
-		else 
-		  s
-	with
-	    Not_found -> s (* should not happen *)
-      end 
-	    
-
-(** Merging variable equality/disequalities/constraints *)
-and diseq d s =
-  Trace.msg "rule" "Diseq" d Fact.pp_diseq;
-  let (x, y, _) = Fact.d_diseq d in
-  let (ch', p') = Partition.diseq d s.p in
-    s.p <- p';
-    close_p ch' s
-
-and add c s =
-  Trace.msg "rule" "Add" c Fact.pp_cnstrnt;
-  let normalize (a, i) =
-    let (a', i') = match i with
-      | Sign.Neg -> (Arith.mk_neg a, Sign.Pos)
-      | Sign.Nonpos -> (Arith.mk_neg a, Sign.Nonneg)
-      | _ -> (a, i)
-    in
-      (lookup s a', i')   
-  in
-  let (a, i, prf) = Fact.d_cnstrnt c in
-    match Arith.d_num a with
-      | Some(q) -> 
-	  if Sign.disjoint i (Sign.of_q q) then 
-	    raise Exc.Inconsistent
-	  else 
-	    s
-      | None ->
-	  (match i with
-	     | Sign.F ->
-		 raise Exc.Inconsistent
-	     | Sign.Zero -> 
-		 equality (Fact.mk_equal a Arith.mk_zero None) s
-	     | Sign.T ->
-		 s
-	     | _ ->
-		 let (b, i) = normalize (a, i) in  (* now [i] is either [Pos] or [Nonneg]. *)
-		   match b with
-		     | Var _ when is_slack b ->
-			 let c' = Fact.mk_cnstrnt b i prf in
-			 refine c' s
-		     | App(Arith(Multq(q)), [x]) when is_slack x ->
-			 let c' = Fact.mk_cnstrnt x (Sign.multq (Q.inv q) i) None in
-			 refine c' s
-		     | _ ->
-			 let d = if is_int s a then Some(Dom.Int) else None in
-			 let alpha = if i = Sign.Pos then false else true in
-			 let k = Term.mk_slack None alpha d in
-			   equality (Fact.mk_equal k b None)
-			     (refine (Fact.mk_cnstrnt k i None) s))
-
-and refine c s = 
-  Trace.msg "rule" "Refine" c Fact.pp_cnstrnt;
-  let (k, i, _) = Fact.d_cnstrnt c in
-    assert(is_slack k);
-    assert(Sign.eq i Sign.Pos || Sign.eq i Sign.Nonneg);
-    let (ch', p') = Partition.add c s.p in
-      s.p <- p';
-      close_p ch' s
-
-
-(** Propagate changes in non-variable equalities *)    
-and close_i i =
-  Set.fold
-    (fun x s ->
-       try
-	 let e' = equation i s x in
-	 let s' =  if Th.eq i Th.la then nonlin_equal e' s else s in
-	 let s'' =  deduce i e' s' in
-         let s''' = infer i e' s'' in
-           s'''
-       with
-	   Not_found -> s)
-
-and nonlin_equal e s =
-  let rec linearize occs s =
-    Set.fold
-      (fun x s ->
-	 try 
-	   let a = apply Th.pprod s x in
-	   let b = Sig.map (find Th.la s) a in
-	     if Term.eq a b then s else 
-	       let (s', b') = abstract Th.u (s, b) in
-	       let e' = Fact.mk_equal (v s' x) b' None in
-		 merge_v e' s'
-	 with
-	     Not_found -> s)
-      occs s
-  in
-  let (x, _, _) = Fact.d_equal e in
-    linearize (use Th.pprod s x) s
-
-
-(** Propagate changes in the variable partitioning. *)    
-and close_p ch s =
-  close_v ch.Partition.chv
-    (close_c ch.Partition.chc 
-       (close_d ch.Partition.chd s))
-
-and close_v chv = 
-  Fact.Equals.fold
-    (fun e s ->
-       let (x, y, _) = Fact.d_equal e in
-	 if Term.eq x y then s else 
-	   begin
-	     Trace.msg "rule" "Close(v)" e Fact.pp_equal;
-	     let s' =  List.fold_right
-			 (fun i s ->
-			    let a = find i s x 
-			    and b = find i s y in
-			      if Term.eq a b || (is_var a && is_var b) then 
-				s 
-			      else
-				merge_i i e s)
-			 Th.interp s
-	     in
-	     let s' = fuse Th.u e s' in       (* new *) 
-             let s' = fuse Th.arr e s' in     (* new *) 
-             let s' = fuse Th.bvarith e s' in (* new *) 
-	     let s'' = arrays_equal e s' in
-	     let s''' = bvarith_equal e s'' in
-	       s'''
-	   end)
-    chv 
-    
-and close_c chc = 
-  Fact.Cnstrnts.fold
-    (fun c s ->
-       let (x, i, _) = Fact.d_cnstrnt c in
-	 match i with
-	   | Sign.F -> 
-	       raise Exc.Inconsistent
-	   | Sign.Zero ->
-	       equality (Fact.mk_equal x Arith.mk_zero None) s
-	   | _ ->
-	       s)
-    chc
-
-and close_d chd =
-  Fact.Diseqs.fold
-    (fun d s -> 
-       arrays_diseq d (bv_diseq d s))
-    chd 
-
-(** {6 Bitvector propagation} *)
-
-and bv_diseq d' s =
-  let add x c =
-    try
-      let (k, cs) = Term.Map.find x s.diseqs in
-	failwith "to do"
-    with
-	Not_found -> 
-	  Term.Map.add x (1, Term.Set.singleton c)
-  in
-  let (x, _, _) = Fact.d_diseq d' in
-    try
-      let a = apply Th.bv s x in
-	if not(Bitvector.is_const a) then s else
-	  s
-    with
-	Not_found -> s
   
-(** {6 Array propagation} *)
-
-(** Forward chaining on the array properties
-  - [a[i:=x][i] = x]
-  - [i <> j] implies [a[i:=x][j] = a[x]]
-  - [i <> j] and [i <> k] implies [a[j:=x][i] = a[k:=y][i]]
-  - [a[j:=x] = b[k:=y]], [i <> j], [i <> k] implies [a[i] = b[i]].
-  - [a[i:=x] = b[i := y]] implies [x = y]. *)
-
-and arrays_diseq d s =
-  if is_empty Th.arr s then s else 
-    arrays_diseq1 d
-      (arrays_diseq2 d
-	 (arrays_diseq3 d
-	    (arrays_diseq4 d s)))
-
-(** [i <> j] implies [a[i:=x][j] = a[j]].
-  Thus, look for [v = u[j]] and [u' = a[i := x]] with [u = u'] in [s]
-  using the use lists. Now, when [w = a[j]], then infer [v = w]. *)
-and arrays_diseq1 d s =
-  let (i, j, prf) = Fact.d_diseq d in
-  let diseq  (i, j) s =
-    Set.fold
-      (fun v s -> 
-	 try
-	   let (u, j) = d_select s (tt, tt) v in     (* [v = u[j]] *)
-	     fold s
-	       (fun u' s ->                         (* [u = u'] *)
-		  try                               (* [u' = a[i:=x]] *)
-		    let (a, i, x) = d_update s (tt, tt, tt) u' in
-		    let (s, w) = name Th.arr (s, Arr.mk_select Term.is_equal a j) in
-		    let e' = Fact.mk_equal v w None in
-		      merge_v e' s
-		  with
-		      Not_found -> s)
-	       u s
-	 with
-	     Not_found -> s)
-      (use Th.arr s j) s
-  in
-    diseq (i, j)
-      (diseq (j, i) s)
-
-(** [i <> j] and [i <> k] implies [a[j:=x][i] = a[k:=y][i]].
-  Thus, for [i <> j], select [v = u[i]] and [u' = a[j:=x]] with
-  [u = u'] in [s]. Now, for all [u'' = a[k:=y]] with [k <> i],
-  add [a[j:=x][i] = a[k:=y][i]]. *)
-and arrays_diseq2 d s =
-  let (i, j, _) = Fact.d_diseq d in
-  let diseq (i, j) s =
-    Set.fold 
-      (fun v s ->
-	 (try
-	    let (u, _) = d_select s (tt, is_eq s i) v in
-	      fold s
-		(fun u' s ->
-		   if not(is_eq s u u') then s else
-		     try
-		       let (a, _, x) = d_update s (tt, is_eq s j, tt) u' in
-			 Set.fold
-			   (fun u'' s ->
-			      try
-				let (_, k, y) = d_update s (is_eq s a, is_diseq s i, tt) u'' in
-				let (s, u1) = name Th.arr (s, Arr.mk_update Term.is_equal a j x) in
-				let (s, v1) = name Th.arr (s, Arr.mk_select Term.is_equal u1 i) in
-				let (s, u2) = name Th.arr (s, Arr.mk_update Term.is_equal a k y) in
-				let (s, v2) = name Th.arr (s, Arr.mk_select Term.is_equal u2 i) in
-				let e' = Fact.mk_equal v1 v2 None in
-				  merge_v e' s
-			      with
-				  Not_found -> s)
-			   (use Th.arr s a) s
-		     with
-			 Not_found -> s)
-		u s
-	  with 
-	      Not_found -> s))
-      (use Th.arr s i) s
-  in
-    diseq (i, j)
-      (diseq (i, j) s)
-
-(** [a[j:=x] = b[k:=y]], [i <> j], [i <> k] implies [a[i] = b[i]].
-  We are propagating disequalities [i <> j]. 
-  If [u = a[j := x]], then look for all [k] disequal from [i] for [v = b[k:=y]].
-  Now, assert [a[i] = b[i]]. *)
-and arrays_diseq3 d' s = 
-  let (i, j, _) = Fact.d_diseq d' in
-  let diseq (i, j) s =
-    Set.fold
-      (fun u s ->
-	 try
-	   let (a, j, _) = d_update s (tt, tt, tt) u in
-	     List.fold_right
-	       (fun k s ->
-		  Set.fold
-		    (fun v s ->
-		       try
-			 let (b, _, _) = d_update s (tt, is_eq s k, tt) v in
-			 let (s, w1) = name Th.arr (s, Arr.mk_select Term.is_equal a i) in
-			 let (s, w2) = name Th.arr (s, Arr.mk_select Term.is_equal b i) in
-			 let e' = Fact.mk_equal w1 w2 None in
-			   merge_v e' s
-		       with
-			   Not_found -> s)
-		    (use Th.arr s k) s)
-	       (d s i) s
-	 with
-	     Not_found -> s)
-      (use Th.arr s j) s
-  in
-    diseq (i, j)
-      (diseq (j, i) s)
-
-
-(** [a[i:=x][j:=y] = a[j:=y][i:=x] if [i <> j]. 
-  We are propagating disequalities [i <> j].
-  If [u = a[i:=x]] and [v = u[j:=y]], 
-  then assert [v = w2] with [w2 = w1[i:=x]] with [w1 = a[j:=y]]. *)
-and arrays_diseq4 d s =
-  let (i, j, _) = Fact.d_diseq d in
-    Set.fold
-      (fun u s ->
-	 try
-	   let (a, i, x) = d_update s (tt, is_eq s i, tt) u in
-	     Set.fold
-	       (fun v' s ->
-		  try
-		    let (u, j, y) = d_update s (is_eq s (v s u), is_eq s j, tt) v' in
-		    let (s, w1) = name Th.arr (s, Arr.mk_update Term.is_equal a j y) in
-		    let (s, w2) = name Th.arr (s, Arr.mk_update Term.is_equal (v s w1) i x) in
-		    let e' = Fact.mk_equal (v s v') (v s w2) None in
-		      Trace.msg "rule" "Arrays(d4)" e' Fact.pp_equal;
-		      merge_v e' s
-		  with
-		      Not_found -> s)
-	       (use Th.arr s j)
-	       s
-	 with
-	     Not_found -> s)
-      (use Th.arr s i)
-      s
-
-
-and arrays_equal e s =
-  if is_empty Th.arr s then s else 
-    arrays_equal1 e
-      (arrays_equal2 e
-	 (arrays_equal3 e s))
-     
-(** [i = j] implies [a[i:= x][j] = x].
-  Since [i] and [j] are already merged on rhs, it suffices
-  to look for [v1 = v2'[i]] and [v2 = a[i := x]] with [v2] equal [v2'] in [s].
-  Now, [v1 = x].  *)
-and arrays_equal1 e s =
-  let (i, j, _) = Fact.d_equal e in
-    Set.fold
-      (fun v1 s ->
-	 try
-	   let (v2', _) = d_select s (tt, is_eq s i) v1 in
-	     Set.fold
-	       (fun v2 s -> 
-		  if not(is_eq s v2 v2') then s else 
-		    try
-		      let (a, _, x) = d_update s (tt, is_eq s i, tt) v2 in
-		      let e' = Fact.mk_equal (v s v1) x None in
-			merge_v e' s
-		    with
-			Not_found -> s)
-	       (use Th.arr s (v s j))
-	       s
-	  with
-	      Not_found ->  s)
-      (use Th.arr s (v s j))
-      s
-
-(** [a[i:=x] = b[i := y]] implies [x = y].
-  Thus, if [v = u] has been merged, then look for
-  [v = a[i:=x]] and [v' = b[i := y]] with [v = v'] in [s], now merge [x = y]. *)
-and arrays_equal2 e s = 
-  let (v, _, _) = Fact.d_equal e in   (* [find] of [v] has changed. *)
-    try
-      let (_, i, x) = d_update s (tt, tt, tt) v in
-	fold s
-	  (fun v' s ->
-	     if Term.eq v v' then s else
-	       try
-		 let (_, _, y) = d_update s (tt, is_eq s i, tt) v' in
-		 let e' = Fact.mk_equal x y None in
-		   merge_v e' s
-	       with
-		   Not_found -> s)
-	  v s
-    with
-	Not_found -> s
-
-(** [a[j:=x] = b[k:=y]], [i <> j], [i <> k] implies [a[i] = b[i]].
-  Thus, for a merged [v = u], look for [v = a[j:= x]] and [v' = b[k := y]] 
-  with [v = v'] in [s]. For all [i] such that [i <> j] and [i <> k] add
-  [w1 = w2] for [w1 = a[i]] and [w2 = b[i]], possibly extending the solution set. *)
-and arrays_equal3 e s = 
-  let (v, _, _) = Fact.d_equal e in   (* [find] of [v] has changed. *)
-    try
-      let (a, j, _) = d_update s (tt, tt, tt) v in
-	fold s
-	  (fun v' s ->
-	     if Term.eq v v' then s else
-	       try
-		 let (b, k, _) = d_update s (tt, tt, tt) v' in
-		   List.fold_right
-		     (fun i s ->
-			if not(is_diseq s i k) then s else
-			  let (s, w1) = name Th.arr (s, Arr.mk_select Term.is_equal a i) in
-			  let (s, w2) = name Th.arr (s, Arr.mk_select Term.is_equal b i) in
-			  let e' = Fact.mk_equal w1 w2 None in
-			    merge_v e' s)
-		     (d s j) s
-	       with
-		   Not_found -> s)
-	  v s
-    with
-	Not_found -> s
-   
-	  
-and bvarith_equal e s =
-  if is_empty Th.bvarith s then s else 
-    let (x, bv, prf) = Fact.d_equal e in
-      Set.fold
-	(fun u s ->
-	   try
-	     (match apply bvarith s u with
-		| App(Bvarith(Unsigned), [x'])
-		    when Term.eq x x' ->
-		    let ui = Bvarith.mk_unsigned bv in
-		    let (s', a') = abstract la (s, ui) in
-		    let e' = Fact.mk_equal (v s' u) a' None in
-		      equality e' s'
-		| _ ->
-		    s )
-	   with
-	       Not_found -> s)
-	(use bvarith s x)
-	s
-
-    
 (** Garbage collection. Remove all variables [x] which are are scheduled
  for removal in the partitioning. Check also that this variable [x] does
  not occur in any of the solution sets. Since [x] is noncanonical, this
  check only needs to be done for the [u] part, since all other solution
- sets are kept in canonical form. *)
+   sets are kept in canonical form. *)
 
 
 let compactify = ref true
 
 let rec normalize s =
-  if !compactify then gc s else s
+  if !compactify then gc s
 
 and gc s =
   let filter x =  
-    not (List.exists (fun i -> mem i s x) Th.all)
+    not (Th.exists (fun i -> is_dependent i s x))
   in
-  let p' = Partition.gc filter s.p in
-    s.p <- p'; s
-
+    Partition.gc filter s.p
 
 
 (** {6 Adding new atoms} *)
@@ -1268,199 +353,55 @@ and gc s =
 module Status = struct
 
   type 'a t = 
-    | Valid 
-    | Inconsistent
+    | Valid of Justification.t
+    | Inconsistent of Justification.t
     | Ok of 'a
 
-  let pp pp fmt = function
-    | Valid -> Format.fprintf fmt ":valid"
-    | Inconsistent -> Format.fprintf fmt ":unsat"
-    | Ok(x) -> Format.fprintf fmt ":ok "; pp fmt x
+  let pp_justification = ref true
+
+  let pp pp fmt status =
+    let ppj rho =
+      if !pp_justification then
+	begin
+	  Format.fprintf fmt "\n";
+	  Justification.pp fmt rho
+	end
+    in
+      match status with
+	| Valid(rho) -> 
+	    Format.fprintf fmt ":valid"; ppj rho
+	| Inconsistent(rho) -> 
+	    Format.fprintf fmt ":unsat"; ppj rho
+	| Ok(x) -> 
+	    Format.fprintf fmt ":ok "; pp fmt x
 
 end
 
-module Process = struct
-
-  let rec atom s =
-    Trace.func "process" "Process" Atom.pp (Status.pp pp)
-      (fun a ->
-	 try
-	   (match Can.atom s a with
-	      | Atom.True -> 
-		  Status.Valid
-	      | Atom.False ->
-		  Status.Inconsistent
-	      | a ->
-		  Status.Ok(protect
-			      (fun s ->
-				 s.ctxt <- Atom.Set.add a s.ctxt;
-				 let (s, a) = abstract_atom (s, a) in
-				   process a s)
-			      s))
-	 with 
-	     Exc.Inconsistent -> 
-	       Status.Inconsistent)
-
-  and process a s = 
-    match a with
-      | Atom.Equal(x, y) ->
-	  let e = Fact.mk_equal x y Fact.mk_axiom in
-	    normalize (equality e s)
-      | Atom.Diseq(x, y) ->
-	  let d = Fact.mk_diseq x y Fact.mk_axiom in
-	    normalize (diseq d s)
-      | Atom.In(x, d) ->
-	  let c = Fact.mk_cnstrnt x d Fact.mk_axiom in
-	    normalize (add c s)
-      | Atom.True -> 
-	  s
-      | Atom.False ->
-	  raise Exc.Inconsistent
-
-
-  and  abstract_atom (s, a) =
-    Trace.call "rule" "Abst" a Atom.pp;
-    let rec  equal s (a, b) =
-      match a, b with
-	| Var _, Var _ -> 
-	    (s, Atom.mk_equal (a, b))
-	| Var _, App(f, _) ->
-	    let i = Th.of_sym f in
-	    let (s', y') = abstract i (s, b) in
-	    let e' = Atom.mk_equal (a, y') in
-	      (s', e')
-	| App(f, _), Var _ ->
-	    let i = Th.of_sym f in
-	    let (s', x') = abstract i (s, a) in
-	    let e' = Atom.mk_equal (b, x') in
-	      (s', e')
-	| App(f, _), App(g, _) -> 
-	    let i = Th.of_sym f and j = Th.of_sym g in
-	    let (i', j') = 
-	      if Th.eq i j then (i, i) 
-	      else if Th.is_fully_interp i && not(Th.is_fully_interp j) then (i, u)
-	      else if not(Th.is_fully_interp i) && Th.is_fully_interp j then (u, j)
-	      else (u, u)
-	    in
-	    let (s', x') = abstract i' (s, a) in
-	    let (s'', y') = abstract j' (s', b) in
-	    let e' = Atom.mk_equal (x', y') in
-	      (s'', e')     
-    and diseq s (a, b) =
-      let (s', x') = abstract Th.u (s, a) in
-      let (s'', y') = abstract Th.u (s', b) in
-      let d' = Atom.mk_diseq (x', y') in
-	(s'', d')
-    and cnstrnt s (a, i) =
-      let (s', x') = abstract Th.la (s, a) in
-      let l' = Atom.mk_in  (x', i) in
-	(s', l')
-    in
-    let (s', a') = match a with
-      | Atom.True -> (s, Atom.True)  
-      | Atom.False -> (s, Atom.False)
-      | Atom.Equal(x, y) -> equal s (x, y)
-      | Atom.Diseq(x, y) -> diseq s (x, y)
-      | Atom.In(x, d) -> cnstrnt s (x, d)
-    in
-      Trace.exit "rule" "Abst" a' Atom.pp;
-      (s', a')
-	     
-  and protect f s =
-   let k' = !Var.k in
-     try
-       Var.k := s.upper;
-       let s' = f (copy s) in
-	 s'.upper <- !Var.k;
-	 Var.k := k';
-	 s'
-     with
-       | exc ->
-	   Var.k := k';
-	   raise exc
-end
- 
-let add = Process.atom
-
-
-(** List all constraints with finite extension. *)
-
-let rec split s =
-  Atom.Set.union 
-    (split_cnstrnt s) 
-    (split_arrays s)
-
-and split_cnstrnt s = 
-  (* C.split (c_of s) *)
-  Atom.Set.empty
-
-and split_arrays s = 
-  Solution.fold
-    (fun _ (b,_) acc1 ->
-       match b with
-	 | App(Arrays(Select), [upd1; j1]) ->
-	     V.fold (v_of s)
-	     (fun upd2 acc2 ->
-		try
-		  (match apply arr s upd2 with
-		     | App(Arrays(Update), [_; i2; _]) ->
-			 (match is_equal s i2 j1 with
-			    | X -> Atom.Set.add (Atom.mk_equal (i2, j1)) acc2
-			    | _ -> acc2)
-		     | _ -> 
-			 acc1)
-		with
-		    Not_found -> acc1)
-	     upd1 acc1
-	 | _ -> acc1)
-    (eqs_of s arr)
-    Atom.Set.empty
-
-
-(** {6 Model construction} *)
-
-let model s xs =
-  let rec mod_star rho = function
-    | [] -> rho
-    | x :: xs -> mod_star (mod1 x rho) xs
-
-  and (|||) m1 m2 x rho =
-    try m1 x rho with Not_found -> m2 x rho
-
-  and mod1 x rho =
-    if Term.Map.mem x rho then rho else
-      (mod_la ||| mod_u) x rho
-
-  and mod_la x rho =
-    try 
-      let a = interp Th.la s x in
-      let rho' = Set.fold mod_la (Term.vars_of a) rho in
-	Term.Map.add x (Arith.apply a rho') rho'
-    with
-	Not_found ->
-	  let a = 
-	    (try
-	       match c s x with
-		 | Sign.Pos -> Arith.mk_one
-		 | Sign.Neg -> Arith.mk_num (Q.negone)
-		 | _ -> Arith.mk_zero
-	       with
-		   Not_found -> Arith.mk_zero)
-	  in
-	    Term.Map.add x a rho
-	  
-  and mod_u x rho =
-    let u = interp Th.u s x in
-    let rho' = Set.fold mod_u (Term.vars_of u) rho in
-      Term.Map.add x (Term.apply rho' u) rho'
-
+let add s atm =
+  let ((atm', rho') as fct) = 
+    simplify s (Fact.mk_axiom atm)
   in
-  let restrict xs m =
-    Term.Map.fold
-      (fun x a m ->
-	 if List.exists (Term.eq x) xs then m 
-	 else Term.Map.remove x m)
-      m m
-  in
-  let m = mod_star Term.Map.empty xs in
-    restrict xs m
+    if Atom.is_true atm' then
+      Status.Valid(rho')
+    else if Atom.is_false atm' then
+      Status.Inconsistent(rho')
+    else 
+      let k' = !Term.Var.k in                  (* Save global variable. *)
+	(try 
+	   Term.Var.k := s.upper;
+	   let s' = copy s in                  (* Protect state against updates *)
+	     Fact.Eqs.clear();                 (* Clear out stacks before processing *)
+	     Fact.Diseqs.clear();
+	     process s' (abst s' fct);
+             close_star s';
+	     normalize s';
+	     s'.ctxt <- Atom.Set.add atm s'.ctxt;
+	     s'.upper <- !Term.Var.k;          (* Install variable counter. *)
+	     Term.Var.k := k';                 (* Restore old value of variable counter. *)
+	     Status.Ok(s')
+	 with
+	   | Justification.Inconsistent(rho) -> 
+	       Term.Var.k := k';               (* Restore global variable. *)
+	       Status.Inconsistent(rho)
+	   | exc ->
+	       Term.Var.k := k'; raise exc)

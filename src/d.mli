@@ -32,21 +32,20 @@ val eq : t -> t -> bool
 (** {6 Accessors} *)
 
 
-val deq_of : t -> Term.Set.t Term.Map.t
-  (** Return disequalities as bindings of the form [x |-> {y1,...,yn}].
-    The interpretation of such a binding is the conjunction 
-    [x <> y1 & ... & x <> yn] of all known disequalities for [x]. The
-    bindings returned by [deq] are closed in that forall [x], [y] 
-    such that [x |-> {...,y,...} ] then also [y |-> {....,x,....}] *)
+module Set : (Set.S with type elt = Term.t * Justification.t)
 
-val d : t -> Term.t -> (Term.t * Fact.justification option) list
-  (** [disequalities s x] returns the maximal set of  disequalites [di] 
-    of the form [x <> y] such that [x <> y] is represented in [s]. *)
+val diseqs : t -> Term.t -> Set.t
+ (** [diseqs s x] returns set of  disequalites of the form [x <> y] 
+   such that [x <> y] is represented in [s]. *)
+
+
+val map_diseqs : t -> Justification.Eqtrans.t -> Term.t -> Set.t
+ 
 
 
 (** {6 Recognizers} *)
 
-val is_diseq: t -> Term.t -> Term.t -> bool
+val is_diseq: t -> Term.t -> Term.t -> Justification.t option
   (** Check if two terms are known to be disequal. *)
 
 
@@ -55,14 +54,14 @@ val is_diseq: t -> Term.t -> Term.t -> bool
 val empty : t
   (** The empty disequality context. *)
  
-val merge : Fact.equal -> t -> Term.Set.t * t
+val merge : Fact.Equal.t -> t -> t
   (** [merge e s] propagates an equality [e] of the form [x = y]
     into the disequality context by computing a new disequality
     context which is equal to [s] except that every [x] has been
     replaced by [y]. Raises {!Exc.Inconsistent} if [x <> y] is
     already in [s]. *)
 
-val add : Fact.diseq -> t -> Term.Set.t * t
+val add : Fact.Diseq.t -> t -> t
   (** [add d s] adds a disequality [d] of the form
     [x <> y] to the disequality context [s]. As a side
     effect, both [x] and [y] are added to the set {!D.changed}. *)

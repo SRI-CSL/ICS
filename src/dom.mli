@@ -12,12 +12,13 @@
  *)
 
 (** Various subdomains of numbers. The symbol [Real] {b denotes} the 
-  set of real numbers, [Int] all integers/
+  set of real numbers, [Int] all integers, [Compl(Int)] all reals which 
+  are not integer, and [Compl(Real)] is the empty set.
 
   @author Harald Ruess
 *)
 
-type t = Int | Real 
+type t = Int | Real | Nonint
 
 
 (** {6 Relations} *)
@@ -25,6 +26,13 @@ type t = Int | Real
 val eq : t -> t -> bool
   (** [eq d e] holds iff the denotation of [d] equals the
     denotation of [e]. *)
+
+val cmp : t -> t -> int
+  (** [cmp d e] is 
+    - [0] if [eq d e] holds
+    - [-1] if [sub d e] holds
+    - [1] if [sub e d] holds.
+    Otherwise the result is unspecified. *)
 
 val sub : t -> t -> bool
   (** [sub d e] holds iff the denotation of [d] is a subset of the
@@ -34,13 +42,6 @@ val disjoint : t -> t -> bool
   (** [disjoint d e] holds iff the denotations of [d] and [e] 
     are disjoint. *)
 
-val cmp : t -> t -> (unit, Mpa.Q.t) Binrel.t
-  (** [cmp d e] returns 
-    - [Sub] if [sub d e] holds and [eq d e] does not hold
-    - [Equal] if [eq d e] holds
-    - [Super] if [sub e d] holds and [eq d e] does not hold
-    - [Disjoint] if the denotation of [d] and [e] are disjoint *)
-
 
 (** {6 Connectives} *)
 
@@ -48,10 +49,26 @@ val union : t -> t -> t
   (** [union d1 d2] returns [d] iff the denotation
     [d] is the union of the denotations of [d1] and [d2]. *)
 
+exception Empty
+
+
+val compl : t -> t
 
 val inter : t -> t -> t
  (** [inter d1 d2] returns [d] iff the denotation of [d] is the 
    nonempty intersection of the denotations of [d1] and [d2]. *)
+
+val multq : Mpa.Q.t -> t -> t
+
+val add : t -> t -> t
+
+val addl : t list -> t
+
+val expt : int -> t -> t
+
+val mult : t -> t -> t
+
+val multl : t list -> t
 
 
 (** {6 Rationals} *)
@@ -68,3 +85,5 @@ val mem : Mpa.Q.t -> t -> bool
 (** {6 Pretty-printing} *)
 
 val pp: t Pretty.printer
+
+val to_string : t -> string

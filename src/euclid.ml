@@ -40,18 +40,18 @@ module Make(R: Rat) = struct
 
   let ( - ) a b = a + inv(b)
 
-  (** Given two rational numbers [a], [b], [euclid] finds
-    integers {% x_0 %}, [y0] satisfying
-    [a * x0 + b * y0 = (a, b)],
-    where [(a, b)] denotes the greatest common divisor of [a], [b].
+  (** Given two rational numbers [a0], [b0], [euclid a0 b0] finds
+    integers [x0], [y0], [(a0, b0)] satisfying
+                 [a0 * x0 + b0 * y0 = (a0, b0)],
+    where [(a0, b0)] denotes the greatest common divisor of [a0], [b0].
     For example,  [euclid 1547 560] equals [(7, 21, -58)]
     
     The value of [(a, b)] is unchanged in the loop in [euclid], since
     [(a, b) = (a - (a/b)*b, b)]; thus, using [(a, 0) = a],
     the first result of [euclid] computes [(a0, b0)]. Other
     invariants are:
-        [c * a0 + e * b0 = a]
-        [d * a0 + f * b0 = b]
+        [c * a + e * b = a]
+        [d * a + f * b = b]
     Now it is obvious that [a * x0 + b * y0 = (a, b)]. *)	    
   let euclid a0 b0 =
     let rec loop k a b c d e f =
@@ -69,29 +69,29 @@ module Make(R: Rat) = struct
 	              e (f - v * e)
       else assert false
     in
-    loop 0 a0   b0
+    loop 0 a0 b0
       one  zero
       zero one
 
   (** Solving a linear diophantine equation with nonzero, rational coefficients
     [ci], for [i = 1,...,n] with [n >= 1]:
-         [c0*x_0 + \ldots c_n * xn = b]
+         [c0*x_0 + \ldots c_n * xn = b] (1)
     The algorithm proceeds by recursion on [n]. The case [n = 1] is
     trivial. Let [n >= 2]. Find, with the Euclidean algorithm
     [c'] and integers [d], [e] satisfying
-    [a' = (c0, c1) = c0 * d + c1 * e]
+    [c' = (c0, c1) = c0 * d + c1 * e]
     Next solve the linear diophantine equation (in [n] variables)
-         [c'*x + c2 * x2 + ... + cn * xn = b]
+         [c'*x + c2 * x2 + ... + cn * xn = b] (2)
     If equation has no integral solution,
     then neither has.
     Otherwise, if [x,x2,...,xn] is an integral solution
-    of, then [d*x, e*x,x2,...,xn] gives an integral solution of. *)
+    of (2), then [d*x, e*x,x2,...,xn] gives an integral solution of (1). *)
   let solve cl b =
     let rec loop = function
       | [] -> assert false
       | [c0] -> (c0, [b / c0])
       | c0 :: c1 :: l ->
-	  let (d,e1,e2) = euclid c0 c1 in
+	  let (d, e1, e2) = euclid c0 c1 in
 	  match loop (d :: l) with
 	    | e, x :: xs ->
 		(e, (e1 * x) :: (e2 * x) :: xs)

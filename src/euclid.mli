@@ -59,16 +59,16 @@ module type S =
   type t
 
   val euclid : t -> t -> t * t * t
-    (** Given two rational numbers [p], [q], [euclid p q] finds integers [x], [y],
-      [(p, q)] satisfying  [p * x + q * y = (p, q)], 
+    (** Given two rational numbers [p], [q], [euclid p q] finds integers 
+      [x], [y], [(p, q)] satisfying  [p * x + q * y = (p, q)], 
       where [(p, q)] denotes the greatest common divisor of [p], [q]. *)
       
   val solve : t list -> t -> (t * t list) option
     (** [solve [c1;...;cn] b] yields a particular solution
       for a linear diophantine equation [c0 * x0 + ... + cn * xn = b]
-      with nonzero, rational coefficients [ci], for [i = 1,...,n] with [n >= 1].
-      In case such a solution exists, it returns the gcd of the coefficients and
-      a list of solutions [li] for variable [xi]. *)   
+      with nonzero, rational coefficients [ci], for [i = 1,...,n] 
+      with [n >= 1]. In case such a solution exists, it returns the gcd 
+      of the coefficients and a list of solutions [li] for variable [xi]. *)   
 end
   (** Input signature of the functor {!Euclid.Make}. *)
 
@@ -76,7 +76,7 @@ end
 module Make(R: Rat): S with type t = R.q
   (** Functor building an implementation of the {!Euclid.S}
     signature given an input structure {!Euclid.Rat} isomorphic
-    to the rationalss. *)
+    to the rationals. *)
 
 
 
