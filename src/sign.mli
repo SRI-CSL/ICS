@@ -45,6 +45,13 @@ val mem : Mpa.Q.t -> t -> bool
 val sub : t -> t -> bool
   (** [sub c d] iff [D(c)] is a subset of [D(d)]. *)
 
+val cmp : t -> t -> int
+  (** Total order on signs with [cmp c d] equals
+    - [0] if [eq c d] holds,
+    - [-1] if [sub c d] holds, and
+    - [1] if [sub d c] holds.
+    Otherwise the result is unspecified. *)
+
 val disjoint : t -> t -> bool
   (** [disjoint c d] iff [D(c)] is disjoint from [D(d)]. *)
 
@@ -84,6 +91,8 @@ val mult : t -> t -> t
 val multl : t list -> t
   (** [D(mult [c1;...;cn])] is a superset of [{x1* ... *xn | xi in D(ci)}]. *)
 
+val inv : t -> t
+
 val expt : int -> t -> t
   (** [D(expt n c)] is a superset of [{x^n | x in D(c)}]. *)
 
@@ -91,9 +100,11 @@ val div : t -> t -> t
   (** For [d] with [D(d)] not containing [0],
     [D(div c d)] is the set [{x / y | x in D(c), y in D(d)}]. *)
 
+(*
 val of_term : (Term.t -> t) -> Term.t -> t
   (** [of_term lookup a] yields an abstract sign interpretation of term [a]. 
     Signs of nonarithmetic subterms of [a] are obtained as [lookup a].  Lookup
     is assumed to raise [Not_found] if there is no such constraint for [a].
     If [a] is not interpreted as a real number in the context [lookup], then
     [Not_found] is raised. *)
+*)

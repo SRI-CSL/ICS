@@ -68,47 +68,44 @@ COBJS = mlgmp41.o ocaml-signals.o icsat.o
 
 CMO = three.cmo \
       gmp41.cmo mpa.cmo \
-      binrel.cmo \
-      hashcons.cmo \
-      tools.cmo status.cmo \
+      tools.cmo \
       pretty.cmo \
-      trace.cmo \
       exc.cmo\
       bitv.cmo \
       dom.cmo \
-      interval.cmo \
       name.cmo \
-      var.cmo \
       sym.cmo \
+      th.cmo \
+      trace.cmo \
+      var.cmo \
       term.cmo \
-      sign.cmo \
       euclid.cmo \
-      fact.cmo \
       arith.cmo \
-      pair.cmo \
+      product.cmo \
       coproduct.cmo \
       bitvector.cmo \
       boolean.cmo \
-      pp.cmo \
-      arr.cmo \
-      bvarith.cmo \
-      sig.cmo \
+      pprod.cmo \
+      funarr.cmo \
+      nonlin.cmo \
       apply.cmo \
       app.cmo \
-      th.cmo \
       atom.cmo \
-      use.cmo \
+      justification.cmo \
+      fact.cmo \
       d.cmo \
       v.cmo \
-      c.cmo \
       partition.cmo \
-      solution.cmo \
-      sl.cmo \
+      eqs.cmo \
+      arr.cmo \
+      la.cmo \
+      nl.cmo \
+      bv.cmo \
+      cop.cmo \
+      combine.cmo \
       context.cmo \
       prop.cmo \
       symtab.cmo istate.cmo \
-      help.cmo \
-      result.cmo \
       parser.cmo lexer.cmo \
       ics.cmo
 

@@ -1,4 +1,3 @@
-
 (*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
@@ -12,8 +11,7 @@
  * benefit corporation.
  *)
 
-(** Operations on uninterpreted terms (will probably be deprecated in the
-  future)
+(** Operations on uninterpreted terms
 
   @author Harald Ruess
 *)

@@ -40,13 +40,13 @@ val empty : t
 val ctxt_of : t -> Atom.Set.t
   (** [ctxt_of s] returns the logical context of [s] as a set of atoms. *)
 
-val eqs_of : t -> Ths.t
+val eqs_of : t -> Combine.t
   (** [eqs_of s] returns ths solution sets associated with [s]. *)
 
 val partition_of : t -> Partition.t
   (** [p_of s] returns the partitioning associated with [s]. *)
 
-val config_of : t -> Partition.t * Ths.t
+val config_of : t -> Partition.t * Combine.t
 
 val upper_of : t -> int
   (** [upper_of s] returns an upper bound on the indices of all fresh

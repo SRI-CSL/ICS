@@ -22,25 +22,27 @@
  @author Harald Ruess
 *)
 
-type t
+type t =  
+  | Slack of int * Dom.t * slack
+  | External of Name.t * Dom.t option
+  | Rename of Name.t * int  * Dom.t option
+  | Fresh of Th.t * int * Dom.t option
+  | Bound of int   
 
+and slack = Zero | Nonneg
+      
 
 (** {6 Destructors} *)
 
 val name_of : t -> Name.t
   (** [name_of x] returns the name associated with a variable [x]. *)
 
-val dom_of : t -> Dom.t option
+val dom_of : t -> Dom.t
   (** [dom_of x] returns the domain of interpretation of variable [x],
     and [None] if this domain is "unrestricted". *)
 
 
 (** {6 Comparisons} *)
-
-val eq : t -> t -> bool
-  (** [eq x y] holds iff [x] and [y] are in the same category (that is,
-    external, rename, and bound) of variables and if their names are identical. *)
-
 
 val cmp : t -> t -> int
   (** [cmp x y] realizes a total ordering on variables. The result is [0]
@@ -62,30 +64,21 @@ val hash : t -> int
 
 (** {6 Constructors} *)
 
-val mk_var : Name.t -> Dom.t option -> t
+val mk_external : Name.t -> Dom.t option -> t
   (** [mk_var x] creates an external variable with associated name [x]. *)
 
 
-val k : int ref
-  (** [k] is a global variable which is incremented by the {!Var.mk_rename} 
-    variable constructor below.  In addition, calls to {!Tools.do_at_reset} 
-    are resetting this variable to its default value [0]. *)
-
-val mk_rename : Name.t -> int option -> Dom.t option -> t
+val mk_rename : Name.t -> int -> Dom.t option -> t
   (** [mk_rename n None] constructs a rename variable with associated name
     ["n!i"], where [i] is the current value of the variable {!Var.k} above. As
     as side-effect, {!Var.k} is incremented by one.  [mk_rename n Some(i)]
     constructs a rename variable with associated name ["n!i"]; there are no
     side effects on {!Var.k}. *)
 
-val mk_fresh : Name.t -> int option -> Dom.t option -> t
-  (** [mk_fresh n None] constructs a rename variable with associated name
-    ["n!i"], where [i] is the current value of the variable {!Var.k} above. As
-    as side-effect, {!Var.k} is incremented by one.  [mk_fresh n Some(i)]
-    constructs a rename variable with associated name ["n!i"]; there are no
-    side effects on {!Var.k}. *)
+val mk_slack : int -> Dom.t -> slack -> t
 
-val mk_slack : int option -> bool -> Dom.t option -> t
+
+val mk_fresh : Th.t -> int -> Dom.t option -> t
 
 val mk_free : int -> t
   (** [mk_free i] constructs a free variable with associated name [!i]. *)
@@ -99,13 +92,24 @@ val is_var : t -> bool
 val is_rename : t -> bool
   (** [is_rename x] holds iff [x] is a rename variable. *)
 
-val is_fresh : t -> bool
-  (** [is_fresh x] holds iff [x] is a fresh variable. *)
+val is_slack : slack -> t -> bool
+  (** [is_cnstrnt x] holds iff [x] is a slack variable. *)
+
+
+val is_fresh : Th.t -> t -> bool
+  (** [is_fresh i x] holds iff [x] is a fresh variable of theory [i]. *)
 
 val is_free : t -> bool
   (** [is_free x] holds iff [x] is a free variable. *)
 
-val is_slack : t -> bool
+val is_internal : t -> bool
+
+
+(** Interpretation domains *)
+
+val is_real : t -> bool
+val is_int : t -> bool
+
 
 (** {6 Destructors} *)
 

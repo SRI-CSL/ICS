@@ -73,7 +73,7 @@ let args () =
         "Enables Solving for the integers"
       ]
       (fun f -> files := f :: !files)
-      "Usage: ";
+      "Usage: ics [args] <seqence-of-batch-files>";
     List.rev !files
 
 

@@ -20,6 +20,8 @@
 
 type level = string
 
+val registered : (level * string) list ref
+
 val reset : unit -> unit
   (** Reset the set of trace levels to the empty set, that is,
     all tracing is disabled. *)

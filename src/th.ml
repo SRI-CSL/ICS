@@ -11,176 +11,119 @@
  * benefit corporation.
  *)
 
-open Mpa
+type t =
+  | Shostak of shostak
+  | Can of can
+  | Uninterpreted
 
-(** Classification of function symbols. *)
+and shostak =  A | P | BV | COP
 
-type t = int
-
-let eq i j = (i = j)
-
-let of_int i = i
-
-let to_int i = i
+and can = NL | APP | ARR
 
 
-let names = ["u"; "a"; "p"; "bv"; "cop"; "nl"; "app"; "arr"; "bva"]
+(** {6 Names} *)
 
-let num_of_theories = List.length names
+let a = Shostak(A)
+let p = Shostak(P)
+let bv = Shostak(BV)
+let cop = Shostak(COP)
 
-let u = 0
+let nl = Can(NL)
+let app = Can(APP)
+let arr = Can(ARR)
 
-let la = 1
-let p = 2
-let bv = 3
-let cop = 4
+let u = Uninterpreted
 
-let pprod = 5
-let app = 6
-let arr = 7
-let bvarith = 8
+let is_shostak = function
+  | Shostak _ -> true
+  | _ -> false
 
-let to_string = List.nth names
+let is_can = function
+  | Can _ -> true
+  | _ -> false
 
-let all = [u; la; p; bv; cop; pprod; app; arr; bvarith]
+let is_uninterpreted = function
+  | Uninterpreted -> true
+  | _ -> false
 
-let interp = [la; p; bv; cop]
+let rec to_string th =
+  match th with
+    | Shostak(i) -> shostak_to_string i
+    | Can(i) -> can_to_string i
+    | Uninterpreted -> "u"
+
+and shostak_to_string i =
+  match i with
+    | A -> "a"
+    | P -> "p"
+    | BV -> "bv"
+    | COP -> "cop"
+
+and can_to_string i =
+  match i with
+    | NL -> "nl"
+    | APP -> "app"
+    | ARR -> "arr"
 
 
-exception Found of t
+let of_string = function
+  | "u" -> u
+  | "a" -> a
+  | "p" -> p
+  | "bv" -> bv
+  | "cop" -> cop
+  | "nl" -> nl
+  | "app" -> app
+  | "arr" -> arr
+  | str -> raise (Invalid_argument (str ^ ": no such theory"))
 
-let of_string str =
-  try
-    let i = ref 0 in
-      while !i < num_of_theories do
-	if to_string !i = str then
-	  raise(Found(!i));
-	i := !i + 1
-      done;
-      raise(Invalid_argument str)
-  with
-      Found(i) -> i
 
-let pp fmt th =
-  Format.fprintf fmt "%s" (to_string th)
+let fold f e =
+  f u (f a (f p (f bv (f cop (f nl (f app (f arr e)))))))
 
-let is_fully_uninterp i = (i = u)
+let iter f =
+  f u; f a; f p; f bv; f cop; f nl; f app; f arr
 
-let is_fully_interp i = 
-  (la <= i && i <= cop)
+let for_all f =
+  f u && f a && f p && f bv && f cop && f nl && f app && f arr
+
+let exists f =
+  f u || f a || f p || f bv || f cop || f nl || f app || f arr
+
+let for_all_but i p =
+  let p' j = if i <> j then p j else true in
+    for_all p'
+
+let exists_but i p =
+  let p' j = if i <> j then p j else true in
+    exists p'
 
 let of_sym = function
   | Sym.Uninterp _ -> u
-  | Sym.Arith _ -> la
+  | Sym.Arith _ -> a
   | Sym.Pair _ -> p
   | Sym.Bv _ -> bv
   | Sym.Coproduct _ -> cop
   | Sym.Arrays _ -> arr
-  | Sym.Pp _ -> pprod
+  | Sym.Pp _ -> nl
   | Sym.Fun _ -> app
-  | Sym.Bvarith _ -> bvarith
 
 
-module Array = struct
+let inj =
+  let a = Some(a)
+  and p = Some(p)
+  and bv = Some(bv)
+  and cop = Some(cop)
+  and nl = Some(nl)
+  and app = Some(app)
+  and arr = Some(arr)
+  and u = Some(u) in
+    function
+      | Shostak(i) -> (match i with A -> a | P -> p | BV -> bv | COP -> cop)
+      | Can(i) -> (match i with APP -> app | ARR -> arr | NL -> nl)
+      | Uninterpreted -> u
+    
 
-  type 'a arr = 'a array
-
-  let create x = Array.create num_of_theories x
-
-  let copy = Array.copy
-
-  let get = Array.unsafe_get
-  let set = Array.unsafe_set
-
-  let reset a x =
-    for i = 0 to num_of_theories - 1 do
-      set a i x
-    done
-
-  let iter f a =
-    for i = 0 to num_of_theories - 1 do
-      f i (get a i)
-    done
-
-  let fold_left = Array.fold_left
-  let fold_right = Array.fold_right
-
-  let of_list = Array.of_list
-
-  exception No
-
-  let for_all p a =
-    try
-      for i = 0 to num_of_theories - 1 do
-	if not (p (get a i)) then
-	  raise No
-      done;
-      true
-    with
-	No -> false
-
-  let for_all2 p a b = 
-    try
-      for i = 0 to num_of_theories - 1 do
-	if not(p (get a i) (get b i)) then
-	  raise No
-      done;
-      true
-    with
-	No -> false
-	
-
-end
-
-(** Theory-specific normalization. *)
-
-let maps = 
-  let a = Array.create (fun _ a -> a) in
-    List.iter
-      (fun (i, m) -> Array.set a i m)
-      [u, App.map;
-       la, Arith.map;
-       p, Pair.map;
-       bv, Bitvector.map;
-       cop, Coproduct.map;
-       pprod, Pp.map;
-       app, Apply.map;
-       arr, Arr.map Term.is_equal;
-       bvarith, Bvarith.map];
-    a
-
-let map = Array.get maps
-
-
-(** [sigma]-normal forms. *)
-
-let sigma f =
-  match f with
-    | Sym.Arith(op) -> Arith.sigma op
-    | Sym.Pair(op) -> Pair.sigma op
-    | Sym.Bv(op) -> Bitvector.sigma op
-    | Sym.Coproduct(op) -> Coproduct.sigma op
-    | Sym.Fun(op) -> Apply.sigma op
-    | Sym.Pp(op) -> Pp.sigma op
-    | Sym.Bvarith(op) -> Bvarith.sigma op
-    | Sym.Arrays(op) -> Arr.sigma Term.is_equal op
-    | Sym.Uninterp _ -> Term.mk_app f
-
-
-(** Theory-specific solver *)
-
-let solvers = 
-  let a = Array.create (fun e -> [e]) in
-    List.iter
-      (fun (i, m) -> 
-	 Array.set a i m)
-      [la, Arith.solve;
-       p, Pair.solve;
-       bv, Bitvector.solve;
-       cop, Coproduct.solve];
-    a
-
-let solve i =
-  Trace.func "rule" "Solve" Fact.pp_equal (Pretty.list Fact.pp_equal)
-    (Array.get solvers i)
-
+let pp fmt = function
+  | None -> Format.fprintf fmt "v"
+  | Some(i) -> Format.fprintf fmt "%s" (to_string i)

@@ -182,7 +182,8 @@ let sym_is_cons = function Sym.Pair(Sym.Cons) -> true | _ -> false
 let _ = Callback.register "sym_is_cons" sym_is_cons
 
 let sym_mk_car () = Sym.Pair.car
-let _ = Callback.register "sym_mk_car" sym_mk_car
+let _ = Callback.register "sym_
+mk_car" sym_mk_car
 
 let sym_is_car  = function Sym.Pair(Sym.Car) -> true | _ -> false
 let _ = Callback.register "sym_is_car" sym_is_car
@@ -711,7 +712,7 @@ let _ = Callback.register "context_find" context_find
 let context_apply = Context.apply
 let _ = Callback.register "context_apply" context_apply
 
-let context_mem i s = Ths.is_dependent (Context.eqs_of s) i
+let context_mem i s = Combine.is_dependent (Context.eqs_of s) i
 let _ = Callback.register "context_mem" context_mem
 
 let context_pp s = Context.pp Format.std_formatter s; Format.print_flush()
@@ -766,7 +767,7 @@ let _ = Callback.register "split" split
 
 (** Normalization functions *)
 
-let can s = Ths.can (Context.config_of s)
+let can s = Combine.can (Context.config_of s)
 let _ = Callback.register "can" can
 
 let set_outchannel formatter =

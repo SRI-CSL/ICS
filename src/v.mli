@@ -18,29 +18,36 @@
 *)
 
 type t
-  (** Elements of [t] represent a set of variable equalities.
+  (** Elements of [t] represent a conjunction of variable equalities.
     These equalities induce an equivalence relation. We say
-    that [x] and [y] are equivalent modulo [s], if they are
-    in the same equivalence class induced by [s]. *)
+    that [x] and [y] are equivalent modulo [s], if the equality
+    [x = y] follows from the equalities in [s] by equality reasoning. *)
+
+
+(** {6 Identity} *)
+
+val eq : t -> t -> bool
+  (** [eq s t] holds iff [s] and [t] are identical. Notice that
+    [eq s t] equals [false] does not imply that these contexts are not
+    logically equivalent. *)
 
 
 (** {6 Accessors} *)
 
-val apply : t -> Term.t -> Term.t * Fact.justification option
-
-val find : t -> Term.t -> Term.t * Fact.justification option
+val find : t -> Justification.Eqtrans.t
   (** [find s x] returns the canonical representative of [x]
     of the equivalence class in [s] containing [x]. The canonical
     representative is the smallest variable in this class according
     to the variable ordering {!Var.cmp}. *)
-  
-val equality : t -> Term.t -> Fact.equal
-  (** [equality s x] returns an equality [e] between [x] and [find s x]. *)
+
+val removable : t -> Term.Set.t
+  (** Set of removable variables. All variables in [removable s] are 
+    internal, noncanonical variables. *)
 
 
 (** {6 Recognizers} *)
 
-val is_equal : t -> Term.t -> Term.t -> bool
+val is_equal : t -> Term.t -> Term.t -> Justification.t option
   (** [is_equal s x y] holds if and only if [x] and [y] are
     in the same equivalence class modulo [s]. *)
 
@@ -50,7 +57,7 @@ val is_equal : t -> Term.t -> Term.t -> bool
 val empty : t
   (** The empty variable context. *)
 
-val merge : Fact.equal -> t -> Term.Set.t * t
+val merge : Fact.Equal.t -> t -> t
   (** Adding a variable equality [x = y] to a context [s].
     As a side effect, [x] is added to the global variable {!V.changed}.
     In addition, every non-external variable [v] which is canoncal in
@@ -59,23 +66,6 @@ val merge : Fact.equal -> t -> Term.Set.t * t
 val gc : (Term.t -> bool) -> t -> t
   (** [gc filter s] removes variables [x] in [removable s],
     if the test [filter x] succeeds. *)
-
-val removable : t -> Term.Set.t
-  (** Set of removable variables. All variables in
-    [removable s] are internal, noncanonical variables. *)
-
-
-(** {6 Equality} *)
-
-val eq : t -> t -> bool
-  (** [eq s t] holds iff [s] and [t] are physically equal. Notice that
-    [eq s t] equals [false] does not imply that these contexts are not
-    logically equivalent. *)
-
-
-(** {6 Pretty-printing} *)
-
-val pp : t Pretty.printer
 
 
 (** {6 Iterators} *)
@@ -99,3 +89,7 @@ val choose : t -> (Term.t -> 'a option) -> Term.t -> 'a
     which satisfies [p]. If there is no such [y], the exception [Not_found]
     is raised. *)
 
+
+(** {6 Pretty-printing} *)
+
+val pp : t Pretty.printer

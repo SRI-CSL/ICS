@@ -12,6 +12,13 @@
  *)
 
 
+(** {6 Global variables} *)
+
+let linenumber = ref 0
+
+let profiling = ref false
+
+
 (** {6 Functions to run at exit} *)
 
 let at_exit_functions = ref []
@@ -39,45 +46,41 @@ let do_at_reset () =
 open Unix
 
 let utime f x =                                                   
-  let u = (times()).tms_utime in                                  
+  let u = (Unix.times()).tms_utime in                                  
   let y = f x in
-  let ut = (times()).tms_utime -. u in
+  let ut = (Unix.times()).tms_utime -. u in
   (y,ut)
 
 let timers = ref [0.]
 
-let profile str f =
-  let timer = ref 0. in
-  let calls = ref 0 in
-  add_at_exit
-    (fun () -> Format.printf "%s: utime = %f  calls = %d\n@ " str !timer !calls);
-  (fun x ->
-     let start = (Unix.times()).tms_utime in
-     let y = f x in
-     let finish = (Unix.times()).tms_utime in
-       timer := !timer +. (finish -. start);
-       calls := !calls + 1;
-       y)
+let profile str f a =
+  if !profiling then 
+    let timer = ref 0. in
+    let calls = ref 0 in
+      add_at_exit
+	(fun () -> Format.printf "%s: utime = %f  calls = %d\n@ " str !timer !calls);
+      (fun x ->
+	 let start = (Unix.times()).tms_utime in
+	 let y = f x in
+	 let finish = (Unix.times()).tms_utime in
+	   timer := !timer +. (finish -. start);
+	   calls := !calls + 1;
+	   y) a
+  else 
+    f a
 
 
-(** {6 Simulate dynamic binding} *)
+(** {6 Accumulate side effects} *)
 
-let dynamic_let (x, v) f a = 
-  let saved = !x in
-    try
-      let result = (x := v; f a) in
-	x := saved;
-	result
-    with
-      | exc ->
-	  x := saved;
-	  raise exc
+let acc1 acc f a =
+  let (b, side_effect) = f a in
+    acc := side_effect :: !acc; b
 
+let acc2 acc f a1 a2 =
+  let (b, side_effect) = f a1 a2 in
+    acc := side_effect :: !acc; b
 
-(** {6 Global variable for linenumers} *)
-
-let linenumber = ref 0
-
-type mode = Atom | Prop
-
-let mode = ref Atom
+let accb acc p a =
+  match p a with 
+    | None -> false
+    | Some(side_effect) -> acc := side_effect :: !acc; true

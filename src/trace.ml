@@ -14,6 +14,32 @@
 
 type level = string
 
+let registered = 
+  ref [
+    "all", "Enable all trace levels"; 
+    "rule", "Trace top-level integration methods";
+    "v", "Tracing modifications of variable equalities";
+    "d", "Tracing modifications of variable diesequalities";
+    "la", "Tracing methods of simplex algorithm"
+  ]
+
+let _ =
+  Th.iter
+    (fun i ->
+       let name = Th.to_string i in
+       let pair = (name, "Tracing modifications in solution set " ^ name) in
+	 registered := pair :: !registered)
+
+let is_registered level =
+  List.mem_assoc level !registered
+
+let pp fmt () =
+  Format.fprintf fmt "\nTrace levels: ";
+  List.iter
+    (fun (level, explanation) ->
+       Format.fprintf fmt "\n%s : %s" level explanation)
+    !registered
+
 module Levels = Set.Make(
   struct
     type t = level
@@ -70,7 +96,7 @@ let rec whitespace level n =
 
 let indent = ref 0
 
-let func level = 
+let func level =
   fun name pp qq f a ->
     try  
       whitespace level !indent;

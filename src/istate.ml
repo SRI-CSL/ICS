@@ -1,3 +1,4 @@
+
 (*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
@@ -206,7 +207,7 @@ module Out = struct
 	else
 	  begin
 	    Format.fprintf fmt ":splits ";
-	    Pretty.list Ths.Split.pp fmt sl
+	    Pretty.list Combine.Split.pp fmt sl
 	  end;
 	Format.fprintf fmt "@?"
 
@@ -720,7 +721,7 @@ let do_show =
 let do_can =
   Command.register "can"
     (fun a ->
-       Out.term (Ths.can (Context.config_of !current) a))
+       Out.term (Combine.can (Context.config_of !current) a))
     {args = "<term>";
      short = "Canonical term w.r.t. current context."; 
      description =
@@ -949,7 +950,7 @@ let do_model =
   Command.register "model"
     (fun (n, xs) ->
        try
-	 let m = Ths.model (Context.config_of (get_context n)) xs in
+	 let m = Combine.model (Context.config_of (get_context n)) xs in
 	 let l = Term.Map.fold (fun x a acc -> (x, a) :: acc) m [] in
 	   Out.assignment l
        with
@@ -967,7 +968,7 @@ let do_diseq =
   Command.register "diseq"
     (fun (n, a) ->
        let s = get_context n in
-       let (b, rho1) = Ths.can (Context.config_of s) a in    (* [rho1 |- a = b] *)
+       let (b, rho1) = Combine.can (Context.config_of s) a in    (* [rho1 |- a = b] *)
 	 try
 	   let ds = Partition.diseqs (Context.partition_of s) b in
 	     D.Set.iter
@@ -1009,7 +1010,7 @@ let do_sup =
   (fun (n, a) ->
      let s = get_context n in
        try
-	 let (b, rho) = Ths.maximize (Context.config_of s) a in
+	 let (b, rho) = Combine.maximize (Context.config_of s) a in
 	   Out.term (b, rho)
        with
 	   La.Unbounded -> Out.none ())
@@ -1030,7 +1031,7 @@ let do_inf =
     (fun (n, a) ->
        let s = get_context n in
 	 try
-	   let (b, rho) = Ths.minimize (Context.config_of s) a in
+	   let (b, rho) = Combine.minimize (Context.config_of s) a in
 	     Out.term (b, rho)
 	 with
 	     La.Unbounded -> Out.none ())
@@ -1050,7 +1051,7 @@ let do_split =
   Command.register "split"
     (fun n ->
        let s = get_context n in
-	 Out.split (Ths.split (Context.config_of s)))
+	 Out.split (Combine.split (Context.config_of s)))
     {args = "[<ident>]";
      short = "Suggested case splits."; 
      description = "" ; 
@@ -1065,7 +1066,7 @@ let do_find =
     (fun (n, th, x) ->
        let s = get_context n in
        let (b, rho) = match th with
-	 | Some(i) -> Ths.find (Context.eqs_of s) i x
+	 | Some(i) -> Combine.find (Context.eqs_of s) i x
 	 | None -> Partition.find (Context.partition_of s) x
        in
 	 Out.term (b, rho))
@@ -1116,7 +1117,7 @@ let do_solve =
   Command.register "solve"
     (fun (i, e) -> 
        try
-	 let al = Ths.solve i e in
+	 let al = Combine.solve i e in
 	   Out.assignment al
        with
 	 | Exc.Inconsistent -> Out.inconsistent ()
@@ -1142,8 +1143,8 @@ let do_is_equal =
     (fun (a, b) ->
        Out.yes_or_no 
        (Justification.Rel2.apply 
-	  (Ths.can (Context.config_of !current))
-	  (Ths.is_equal (Context.config_of !current))
+	  (Combine.can (Context.config_of !current))
+	  (Combine.is_equal (Context.config_of !current))
 	  a b))
     {args = "<term> <term> ";
      short = "Test whether terms are equal or disequal."; 
@@ -1212,6 +1213,7 @@ module Parameters = struct
     | Prompt
     | IntegerSolve
     | Index
+    | Clock
 
   let to_string = function
     | Compactify -> "compactify"
@@ -1226,6 +1228,7 @@ module Parameters = struct
     | Prompt -> "prompt"
     | IntegerSolve -> "integersolve"
     | Index -> "index"
+    | Clock -> "clock"
 
   let of_string = function
     | "compactify" -> Compactify
@@ -1240,21 +1243,28 @@ module Parameters = struct
     | "prompt" -> Prompt
     | "integersolve" -> IntegerSolve
     | "index" -> Index
+    | "clock" -> Clock
     | str -> raise(Invalid_argument (str ^ " : no such variable"))
 
-  let get = function
-    | Compactify -> Bool.to_string !Context.compactify
-    | Footprint -> Bool.to_string !Fact.footprint
-    | Pretty ->  Bool.to_string !Term.pretty
-    | Statistics ->  Bool.to_string !Prop.statistics
-    | Proofmode ->  Justification.Mode.to_string !Justification.proofmode
-    | Justifications -> Bool.to_string !Fact.print_justification
-    | Inchannel -> Inchannel.to_string !inchannel
-    | Outchannel -> Outchannel.to_string !outchannel
-    | Eot -> !eot
-    | Prompt -> !prompt
-    | Index -> Bool.to_string !Eqs.pp_index
-    | IntegerSolve -> Bool.to_string !Arith.integer_solve
+  let get var =
+    match var with
+      | Compactify -> Bool.to_string !Context.compactify
+      | Footprint -> Bool.to_string !Fact.footprint
+      | Pretty ->  Bool.to_string !Term.pretty
+      | Statistics ->  Bool.to_string !Prop.statistics
+      | Proofmode ->  Justification.Mode.to_string !Justification.proofmode
+      | Justifications -> Bool.to_string !Fact.print_justification
+      | Inchannel -> Inchannel.to_string !inchannel
+      | Outchannel -> Outchannel.to_string !outchannel
+      | Eot -> !eot
+      | Prompt -> !prompt
+      | Index -> Bool.to_string !Eqs.pp_index
+      | IntegerSolve -> Bool.to_string !Arith.integer_solve
+      | Clock -> 
+	  let times =  Unix.times() in
+	  let utime =  times.Unix.tms_utime in
+	  let systime = times.Unix.tms_stime in
+	    Format.sprintf "utime = %f, systime = %f" utime systime
 	
   let set var value =
     match var with
@@ -1272,6 +1282,9 @@ module Parameters = struct
       | Pretty -> 
 	  Term.pretty := Bool.of_string value;
 	  Var.pretty := Bool.of_string value
+      | Clock -> 
+	  raise(Invalid_argument "Can not reset clock")
+	
 
   let reset () = 
     set Compactify "true";
@@ -1317,6 +1330,7 @@ module Parameters = struct
     | Prompt -> "Value of prompt"
     | IntegerSolve -> "Enable integer solver"
     | Index -> "Enable printing of indices"
+    | Clock -> "Current user and system time"
       
 end
 
@@ -1326,6 +1340,7 @@ let do_get =
     (fun var -> 
        try
 	 Out.string (Parameters.get var);
+	 Out.nl();
 	 Out.unit()
        with
 	   exc -> Out.error(Printexc.to_string exc))
@@ -1585,7 +1600,7 @@ let _ =
 
 
 let _ =
-  Nonterminal.register "parameter"
+  Nonterminal.register "parameters"
     (let params = ref [] in
        Parameters.iter
 	 (fun x ->  params := Parameters.to_string x :: !params);

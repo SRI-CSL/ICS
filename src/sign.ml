@@ -12,8 +12,6 @@
  *)
 
 open Mpa
-open Sym
-open Term
 
 type t =
   | F
@@ -92,6 +90,12 @@ let sub s t =
     | Nonpos, Nonpos -> true
     | Nonpos, _ -> false
 
+let cmp s t =
+  if eq s t then 0
+  else if sub s t then -1
+  else if sub t s then 1
+  else Pervasives.compare s t
+
 let disjoint s t =
   match s, t with
     | F, _ -> true
@@ -120,13 +124,13 @@ let complementable = function
 (** {6 Pretty-printing} *)
 
 let pp fmt = function
-  | Zero -> Pretty.string fmt "=0"
-  | Pos -> Pretty.string fmt ">0"
-  | Neg -> Pretty.string fmt "<0"
-  | Nonneg -> Pretty.string fmt ">=0"
-  | Nonpos -> Pretty.string fmt "<=0"
-  | F -> Pretty.string fmt "bot"
-  | T -> Pretty.string fmt "real"
+  | Zero -> Pretty.string fmt "Zero"
+  | Pos -> Pretty.string fmt "Pos"
+  | Neg -> Pretty.string fmt "Neg"
+  | Nonneg -> Pretty.string fmt "Nonneg"
+  | Nonpos -> Pretty.string fmt "Nonpos"
+  | F -> Pretty.string fmt "Bot"
+  | T -> Pretty.string fmt "Real"
 
 
 (** {6 Sign abstraction} *)
@@ -239,46 +243,3 @@ let div s t =
     | Nonneg, (Neg | Nonpos) -> Nonpos
     | Nonpos, (Pos | Nonneg) -> Nonpos
     | Nonpos, (Neg | Nonpos) -> Nonneg
-
-let of_term lookup a = 
-  let rec term a =
-    match a with
-      | Term.App(Arith(op), xl) -> arith op xl
-      | Term.App(Pp(op), xl) -> pprod op xl
-      | Term.App(Bvarith(op), [x]) -> bvarith op x
-      | _ -> lookup a
-  and arith op al = 
-    try
-      match op, al with
-	| Num(q), [] -> of_q q
-	| Multq(q), [x] -> multq q (term x)
-	| Add, [x; y] -> add (term x) (term y)
-	| Add, xl -> addl (List.map term xl)
-	| _ -> assert false
-      with
-	  Not_found -> T
-  and bvarith op a =
-    match op with
-      | Unsigned -> Nonneg
-  and pprod op al =
-    try
-      match op, al with
-	| Expt(n), [x] -> expt n (try term x with Not_found -> T)
-	| Mult, [] -> of_q Q.one
-	| Mult, [x] -> term x
-	| Mult, [x; y] -> mult (term x) (term y)
-	| Mult, xl -> multl (List.map term xl)
-	| _ -> assert false
-      with
-	  Not_found -> T
-  in
-    term a
-
-let of_term lookup =
-  Trace.func "foo6" "Sign.of_term" Term.pp pp (of_term lookup)
-
-let inter s t =
-  Trace.call "foo6" "Sign.inter" (s, t) (Pretty.pair pp pp);
-  let res = inter s t in
-    Trace.exit "foo6" "Sign.inter" res pp;
-    res

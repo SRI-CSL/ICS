@@ -50,7 +50,7 @@ open Mpa
 type t = {
   mutable ctxt : Atom.Set.t;      (* Current context. *)
   mutable p : Partition.t;        (* Variable partitioning. *)
-  eqs : Ths.t;                    (* Theory-specific solution sets. *)
+  eqs : Combine.t;                    (* Theory-specific solution sets. *)
   mutable upper : int;            (* Upper bound on fresh variable index. *)
 }
 
@@ -59,7 +59,7 @@ type t = {
 let empty = {
   ctxt = Atom.Set.empty;
   p = Partition.empty;
-  eqs = Ths.empty;
+  eqs = Combine.empty;
   upper = 0
 } 
 
@@ -67,14 +67,14 @@ let empty = {
 (** Identity test. Do not take upper bounds into account. *)
 let eq s1 s2 =              
   Partition.eq s1.p s2.p && 
-  Ths.eq s1.eqs s2.eqs
+  Combine.eq s1.eqs s2.eqs
 
 
 (** Shallow copying. *)
 let copy s = {
   ctxt = s.ctxt;
   p = Partition.copy s.p;
-  eqs = Ths.copy s.eqs;
+  eqs = Combine.copy s.eqs;
   upper = s.upper
 }
 
@@ -82,7 +82,7 @@ let copy s = {
 (** Pretty-printing. *)
 let pp fmt s =
   Partition.pp fmt s.p;
-  Th.iter (fun i -> Ths.pp i fmt s.eqs)
+  Th.iter (fun i -> Combine.pp i fmt s.eqs)
 
 
 (** {6 Accessors} *)
@@ -113,12 +113,12 @@ let fold s f x =
 
 (** {6 Parameterized operations on solution sets} *)
 
-let is_dependent i s = Ths.is_dependent s.eqs i 
-let dep i s = Ths.dep s.eqs i
-let apply i s = Ths.apply s.eqs i
-let find i s = Ths.find s.eqs i
-let inv s = Ths.inv (s.p, s.eqs)
-let is_empty i s = Ths.is_empty s.eqs i
+let is_dependent i s = Combine.is_dependent s.eqs i 
+let dep i s = Combine.dep s.eqs i
+let apply i s = Combine.apply s.eqs i
+let find i s = Combine.find s.eqs i
+let inv s = Combine.inv (s.p, s.eqs)
+let is_empty i s = Combine.is_empty s.eqs i
 
 
 
@@ -128,7 +128,7 @@ let is_empty i s = Ths.is_empty s.eqs i
 let name i s = 
   Justification.Eqtrans.compose 
     (v s) 
-    (Ths.name (s.p, s.eqs) i)
+    (Combine.name (s.p, s.eqs) i)
 
 let name_of_term s a =
   if Term.is_var a then v s a else 
@@ -166,7 +166,7 @@ let abstract s a =
 	    if Term.eql al bl then 
 	      (a, Justification.refl a)
 	    else 
-	      Ths.sigma (config_of s) f bl 
+	      Combine.sigma (config_of s) f bl 
 	  in
 	    if i = Th.u || i = Th.arr || i <> j then
 	      let (x, tau) = name j s c in    (* [tau |- x = c] *)
@@ -186,7 +186,7 @@ let cheap = ref true
 
 module Fct = struct
 
-  let is_equal s = Ths.is_equal (config_of s)
+  let is_equal s = Combine.is_equal (config_of s)
 
   let is_nonneg0 = 
     let yes = Justification.Three.Yes(Justification.dependencies0) 
@@ -211,13 +211,13 @@ module Fct = struct
     if !cheap then
       is_nonneg0 a
     else 
-      Ths.is_nonneg (config_of s) a
+      Combine.is_nonneg (config_of s) a
 
   let is_pos s a = 
     if !cheap then
       is_pos0 a
     else 
-      Ths.is_pos (config_of s) a
+      Combine.is_pos (config_of s) a
 
   let mk_equal s = Fact.mk_equal (is_equal s)
   let mk_diseq s = Fact.mk_diseq (is_equal s)
@@ -231,7 +231,7 @@ end
 
 let simplify s =
   Trace.func "rule" "Simplify" Fact.pp Fact.pp
-    (Fct.map s (Ths.can (config_of s)))
+    (Fct.map s (Combine.can (config_of s)))
 
 let abst s = 
   Trace.func "rule" "Abstract" Fact.pp Fact.pp
@@ -256,7 +256,7 @@ let rec process s ((atm, rho) as fct) =
 	process_pos s (Fact.Pos.make (a, rho))
 	
 and process_nonneg s c =
-  Ths.process_nonneg (s.p, s.eqs) c
+  Combine.process_nonneg (s.p, s.eqs) c
 
 and process_pos s c = 
   let (a, rho) = Fact.Pos.destruct c in
@@ -269,7 +269,7 @@ and process_pos s c =
 
 and process_diseq s d =
   if Fact.Diseq.is_diophantine d then
-    Ths.process_diseq (s.p, s.eqs) d
+    Combine.process_diseq (s.p, s.eqs) d
   else 
     let d' = Fact.Diseq.map (name_of_term s) d in
       Partition.dismerge s.p d'
@@ -279,14 +279,14 @@ and process_equal s e =
     | Term.Var _, Term.Var _ -> 
 	Partition.merge s.p e
     | Term.App(f, _), Term.Var _ -> 
-	Ths.process_equal (s.p, s.eqs) (Th.of_sym f) e
+	Combine.process_equal (s.p, s.eqs) (Th.of_sym f) e
     | Term.Var _, Term.App(f, _) -> 
-	Ths.process_equal (s.p, s.eqs) (Th.of_sym f) e
+	Combine.process_equal (s.p, s.eqs) (Th.of_sym f) e
     | Term.App(f, _), Term.App(g, _) ->
 	let i = Th.of_sym f 
 	and j = Th.of_sym g in
 	  if i = j then 
-	    Ths.process_equal (s.p, s.eqs) i e
+	    Combine.process_equal (s.p, s.eqs) i e
 	  else
 	    let e' = Fact.Equal.map2 (name i s, name j s) e in
 	      Partition.merge s.p e'
@@ -310,9 +310,9 @@ and close_star_e s =
 and close_e s (_, e) =
   Trace.msg "rule" "Close" e Fact.Equal.pp;
   if Fact.Equal.is_var e then
-    Th.iter (fun j -> Ths.merge (s.p, s.eqs) j e)
+    Th.iter (fun j -> Combine.merge (s.p, s.eqs) j e)
   else if Fact.Equal.is_pure Th.a e then
-    Ths.propagate (s.p, s.eqs) e (Th.a, Th.nl)
+    Combine.propagate (s.p, s.eqs) e (Th.a, Th.nl)
 
 and close_star_d s = 
   while not(Fact.Diseqs.is_empty()) do
@@ -324,9 +324,9 @@ and close_d s (i, d) =
   let (a, b, _) = Fact.Diseq.destruct d in
   match i with
     | None -> 
-	Th.iter (fun j -> Ths.dismerge (s.p, s.eqs) j d)
+	Th.iter (fun j -> Combine.dismerge (s.p, s.eqs) j d)
     | Some(i) ->
-	Th.iter (fun j -> if not(i = j) then Ths.dismerge (s.p, s.eqs) j d)
+	Th.iter (fun j -> if not(i = j) then Combine.dismerge (s.p, s.eqs) j d)
 
   
 (** Garbage collection. Remove all variables [x] which are are scheduled

@@ -18,6 +18,13 @@
  *)
 
 
+(** {6 Global variables} *)
+
+val linenumber : int ref
+  (** [linenumber] used by lexer and parser. *) 
+
+val profiling : bool ref
+
 
 (** {6 Exit functions} *)
 
@@ -54,17 +61,21 @@ val profile : string -> ('a -> 'b) -> ('a -> 'b)
     of this function, and the total time spent in this function;
     the argument [str] is usually just the name of the function. *)
 
-val dynamic_let : 'a ref * 'a -> ('b -> 'c) -> 'b -> 'c
-  (** [dynamic_let (x, v) f a] simulated dynamic binding of value [v]
-    to the global variable [x] in the call of [f] to [a]. *)
 
+(** {6 Accumulation of side effects} *)
 
-(** {6 Global variables} *)
+val acc1 : 'a list ref -> ('b -> 'c * 'a) -> 'b -> 'c
+  (** [acc1 acc f b] calls [f b] to obtain [(c, a)].
+    Now, [a] is consed to [acc] as a side effect
+    and the result [c] is returned. *)
 
-val linenumber : int ref
-  (** [linenumber] used by lexer and parser. *) 
+val acc2 : 'a list ref -> ('b1 -> 'b2 -> 'c * 'a) -> 'b1 -> 'b2 -> 'c
+  (** [acc2 acc f b1 b2] calls [f b1 b2] to obtain [(c, a)].
+    Now, [a] is consed to [acc] as a side effect and the result [c] 
+    is returned. *)
 
-type mode = Atom | Prop
-    (** tie-breaker used by lexer and parser. *)
-
-val mode : mode ref
+val accb : 'a list ref -> ('b -> 'a option) -> 'b -> bool
+  (** [accb acc p b] calls [p b]. If the result of evaluating
+    [p b] is of the form [Some(a)], then [a] is consed to [acc] 
+    as a side effect and the result [true] is returned. Otherwise,
+    if [p b] is [None], there is no side effect, and [false] is returned. *)
