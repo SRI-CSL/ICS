@@ -55,17 +55,25 @@ let is_finite (i,_) =
   d = Dom.Int && Endpoint.is_q l && Endpoint.is_q h
 
 let is_pos (i, _) =
-  let (eq, _) = Endpoint.destruct (Interval.lo i) in
+  let (eq, alpha) = Endpoint.destruct (Interval.lo i) in
     match Extq.destruct eq with
       | Extq.Posinf -> true
-      | Extq.Inject(q) -> Mpa.Q.gt q Mpa.Q.zero
+      | Extq.Inject(q) -> 
+	  if alpha then
+	    Mpa.Q.gt q Mpa.Q.zero
+	  else 
+	    Mpa.Q.ge q Mpa.Q.zero
       | _ -> false
 
 let is_neg (i, _) =
-  let (eq, _) = Endpoint.destruct (Interval.hi i) in
+  let (eq, beta) = Endpoint.destruct (Interval.hi i) in
     match Extq.destruct eq with
       | Extq.Neginf -> true
-      | Extq.Inject(q) -> Mpa.Q.lt q Mpa.Q.zero
+      | Extq.Inject(q) -> 
+	  if beta then
+	    Mpa.Q.lt q Mpa.Q.zero
+	  else 
+	    Mpa.Q.le q Mpa.Q.zero
       | _ -> false
   
 
