@@ -69,8 +69,8 @@ CMO = sign.cmo three.cmo \
       bitv.cmo \
       extq.cmo dom.cmo endpoint.cmo interval.cmo cnstrnt.cmo \
       name.cmo \
-      sym.cmo \
       var.cmo \
+      sym.cmo \
       term.cmo \
       trace.cmo \
       arith.cmo \
@@ -89,8 +89,8 @@ CMO = sign.cmo three.cmo \
       arrays.cmo \
       deduce.cmo \
       context.cmo \
-      rule.cmo \
       sig.cmo \
+      rule.cmo \
       shostak.cmo \
       symtab.cmo istate.cmo \
       help.cmo \
