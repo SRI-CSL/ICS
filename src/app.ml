@@ -29,10 +29,10 @@ let lazy_sigma a f l =
   else 
     sigma f l
 	  
-let is_uninterp a =
-  not(Term.is_var a) &&
-  Sym.is_uninterp (Term.sym_of a)
-
+let is_uninterp = function
+  | App(Sym.Uninterp _, _) -> true
+  | _ -> false
+ 
 let d_uninterp a =
   assert(is_uninterp a);
   let f,l = Term.destruct a in

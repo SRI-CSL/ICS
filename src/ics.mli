@@ -51,15 +51,20 @@ val gc : unit -> unit
 
 val do_at_exit : unit -> unit
 
+(*s [set_maxloops n] determines an upper number of loops in
+ the main ICS loop. [n < 0] determines that there is no such
+ bound; this is also the default. *)
+
+val set_maxloops : int -> unit
+
 
 (*s Rudimentary control on tracing. *)
-     
-type trace_level = string
+
 
 val trace_reset : unit -> unit
-val trace_add : trace_level -> unit
-val trace_remove : trace_level -> unit
-val trace_get : unit -> trace_level list
+val trace_add : string -> unit
+val trace_remove : string -> unit
+val trace_get : unit -> string list
 
 
 (*s Channels. [inchannel] is the type of input channels. A channel
@@ -258,9 +263,7 @@ val term_mk_add : term -> term -> term
 val term_mk_addl : term list -> term   
 val term_mk_sub : term -> term -> term
 val term_mk_unary_minus : term -> term
-val term_mk_mult : term -> term -> term
-val term_mk_multl : term list -> term
-val term_mk_expt : int -> term -> term
+
 
 val term_is_arith : term -> bool
 
@@ -379,18 +382,20 @@ val context_pp : context -> unit
 
 (*s Builtin simplifying constructors. *)
 
-val term_mk_unsigned : context -> term -> term
+val term_mk_unsigned : term -> term
 
-val term_mk_update : context -> term * term * term -> term
-val term_mk_select :  context -> term * term -> term
+val term_mk_update : term -> term -> term -> term
+val term_mk_select :  term -> term -> term
 
-val term_mk_div :  context -> term -> term -> term
-val term_mk_floor : context -> term -> term
-val term_mk_ceiling : context -> term -> term
+val term_mk_div :  term -> term -> term
+val term_mk_floor : term -> term
+val term_mk_ceiling : term -> term
 
-val term_mk_sin : context -> term -> term
-val term_mk_cos : context -> term -> term
+val term_mk_sin : term -> term
+val term_mk_cos : term -> term
 
+val term_mk_mult : term -> term -> term
+val term_mk_expt : q -> term -> term
 
 (*s The operation [process s a] adds a new atom [a] to a logical context [s].
   The codomain of this function is of type [status], elements of
@@ -420,7 +425,7 @@ val split : context -> atom list
  equivalent normalized atom built up only from variables is 
  returned. The returned logical state might contain fresh variables. *)
 
-val can : context -> atom -> context * atom
+val can : context -> atom -> atom
 
 (*s Given a logical context [s] and a term [a], [cnstrnt s a]
  computes the best possible arithmetic constraint for [a] in [s]
