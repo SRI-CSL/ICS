@@ -1,13 +1,7 @@
 dnl ICS autoconf input
 
 dnl make sure we are using a recent autoconf version
-AC_PREREQ(2.52)
-
-dnl Checking flags
-AC_ARG_ENABLE(debug, [  --enable-debug                  turn on debugging [[default=no]]],
-if eval "test x$enable_debug = xyes"; then
-  CDEBUGFLAG="-g -Wall"
-fi)
+AC_PREREQ(2.50)
 
 dnl If it doesn't look like GNU Make is being used, give a friendly warning
 tem=`make --version -f /dev/null 2>&1 | grep GNU`
@@ -19,6 +13,12 @@ dnl begin
 AC_INIT(src/ics.mli)
 
 AC_PREFIX_DEFAULT(/usr)
+
+dnl Checking flags
+AC_ARG_ENABLE(debug, [  --enable-debug                  turn on debugging [[default=no]]],
+if eval "test x$enable_debug = xyes"; then
+  CDEBUGFLAG="-g -Wall"
+fi)
 
 dnl optionally give path, otherwise use cwd
 AC_MSG_CHECKING(icspath)
@@ -157,11 +157,11 @@ fi
 
 dnl UPDATE Flags
 if test -n "$CDEBUGFLAG"; then
-  CFLAGS="$CFLAGS $CDEBUGFLAG"
-	CXXFLAGS="$CXXFLAGS $CDEBUGFLAG"
+  CFLAGS="$CDEBUGFLAG"
+	CXXFLAGS="$CDEBUGFLAG"
 else
-	CFLAGS="$CFLAGS -O3 -DNDEBUG"
-	CXXFLAGS="$CXXFLAGS -O3 -DNDEBUG"
+	CFLAGS="-O3 -DNDEBUG"
+	CXXFLAGS="-O3 -DNDEBUG"
 fi				
 
 dnl Finally create all the generated files
