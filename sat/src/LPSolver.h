@@ -500,9 +500,10 @@ private:
 
 
 public:
-	LPSolver(LPFormulaManager * f_manager, unsigned int initial_capacity = INITIAL_NUMBER_OF_FORMULAS,
-					 unsigned int initial_number_of_clauses = INITIAL_NUMBER_OF_CLAUSES,
-					 unsigned int initial_number_of_literals = INITIAL_NUMBER_OF_LITERALS);
+	LPSolver(LPFormulaManager * f_manager, bool use_proof_objs, 
+		 unsigned int initial_capacity = INITIAL_NUMBER_OF_FORMULAS,
+		 unsigned int initial_number_of_clauses = INITIAL_NUMBER_OF_CLAUSES,
+		 unsigned int initial_number_of_literals = INITIAL_NUMBER_OF_LITERALS);
 
 	~LPSolver();
 

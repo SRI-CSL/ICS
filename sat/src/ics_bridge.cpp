@@ -188,7 +188,7 @@ extern "C" {
 		sat_formula_manager->dump_mem_info();
 	}
 
-  int ics_sat(LPFormulaId root_id) {
+  int ics_sat(LPFormulaId root_id, bool use_proof_objs) {
 
 //     DBG_CODE(cout << "working!!! root_id = " << root_id << "\n";
 // 						 sat_formula_manager->dump_formula(cout, root_id););
@@ -207,7 +207,7 @@ extern "C" {
 
 		if (sat_solver != NULL) 
 			delete sat_solver;
-		sat_solver = new LPSolver(sat_formula_manager);
+		sat_solver = new LPSolver(sat_formula_manager, use_proof_objs);
 
 		sat_solver->set_branching_mode(LP_ASSIGNMENT_MODE);
 		sat_solver->set_conflict_resolution_mode(LP_FIRST_UIP_CR);
