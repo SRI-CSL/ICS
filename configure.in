@@ -1,5 +1,14 @@
 dnl ICS autoconf input
 
+dnl make sure we are using a recent autoconf version
+AC_PREREQ(2.52)
+
+dnl If it doesn't look like GNU Make is being used, give a friendly warning
+tem=`make --version -f /dev/null 2>&1 | grep GNU`
+if test "x$tem" = "x"; then
+  AC_MSG_WARN([You need to use GNU Make when compiling])
+fi
+
 dnl begin
 AC_INIT(src/ics.mli)
 
