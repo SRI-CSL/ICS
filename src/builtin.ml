@@ -81,9 +81,10 @@ let mk_update s a i e =
   Term.mk_app Sym.mk_update [a;i;e]
 
 let rec mk_select s a x =
+  let a = Context.find Theories.u s a in
   if is_var a then
     Term.mk_app Sym.mk_select [a;x]
-  else 
+  else
     match Term.destruct a with
       | f, [b;y;e] 
 	  when Sym.eq f Sym.mk_update ->
