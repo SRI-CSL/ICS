@@ -142,20 +142,25 @@ let ctxt_of = function
 (*s Canonization w.r.t current state. *)
 
 let can p = 
-  let (t, q) = Shostak.can s.current p in
-  s.current <- t;
-  q
+  Shostak.can s.current p
 
 let cant a = 
-  let (t, b) = Shostak.can_t s.current a in
-  s.current <- t;
-  b
+  Shostak.can_t s.current a
 
 let sigma f l =
   Context.sigma s.current f l
 
 
+let abstract_term p = 
+  let (s', p') = Shostak.abstract_toplevel_term s.current p in
+    s.current <- s';
+    p'
 
+
+let abstract_atom a = 
+  let (s', a') = Shostak.abstract s.current a in
+    s.current <- s';
+    a'
 
 (*s Create a fresh name for a state. *)
 
@@ -229,17 +234,17 @@ let unsat n a =
 
 let diseq n a =
   let s = get_context n in
-  let (s', a') = Shostak.can_t s a in
+  let a' = Shostak.can_t s a in
   try
-    Context.deq s' a'
+    Context.deq s a'
   with
       Not_found -> Term.Set.empty
 
 let cnstrnt n a =
   let s = get_context n in
-  let (s', a') = Shostak.can_t s a in
+  let a' = Shostak.can_t s a in
   try
-    Some(Context.cnstrnt s' a')
+    Some(Context.cnstrnt s a')
   with
       Not_found -> None
 
@@ -267,6 +272,23 @@ let partition () =
        (x, Term.Set.elements ys) :: acc)
     (V.partition s.current.Context.p.Partition.v)
     []
+
+(*s Solver. *)
+
+let solve i (a, b) =
+  try
+    match i with
+      | Sym.T -> Tuple.solve (a, b)
+      | Sym.BV -> Bitvector.solve (a, b)
+      | Sym.A -> 
+	  (match Arith.solve_for Term.is_var (a, b) with
+	     | None -> []
+	     | Some(x, b') -> [(x, b')])
+      | _ -> 
+	  raise(Invalid_argument("No interpreted theory of name " ^ (Sym.name_of_theory i)))
+    with
+      | Exc.Inconsistent -> raise(Invalid_argument("Unsat"))
+      |	Exc.Unsolved -> raise(Invalid_argument("Unsolvable"))
  
 (*s Equality/disequality test. *)
 

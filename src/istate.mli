@@ -73,6 +73,12 @@ val cant : Term.t -> Term.t
 
 val sigma : Sym.t -> Term.t list -> Term.t
 
+(*s Abstraction. *)
+
+val abstract_term: Term.t -> Term.t
+
+val abstract_atom: Atom.t -> Atom.t
+
 (*s Adding a new fact *)
 
 val process : Name.t option -> Atom.t -> Name.t Shostak.status
@@ -98,13 +104,17 @@ val forget : unit -> unit
 
 (*s Applying maps. *)
 
-val find : Name.t option -> Theories.t -> Term.t -> Term.t
-val inv : Name.t option -> Theories.t -> Term.t -> Term.t
-val use : Name.t option -> Theories.t -> Term.t -> Term.Set.t
+val find : Name.t option -> Sym.theories -> Term.t -> Term.t
+val inv : Name.t option -> Sym.theories -> Term.t -> Term.t
+val use : Name.t option -> Sym.theories -> Term.t -> Term.Set.t
 
 (*s Solution set for equality theories. *)
 
-val solution: Name.t option -> Theories.t -> (Term.t * Term.t) list
+val solution: Name.t option -> Sym.theories -> (Term.t * Term.t) list
+
+(*s Solver. *)
+
+val solve : Sym.theories ->  (Term.t * Term.t) -> (Term.t * Term.t) list
 
 (*s Variable partitioning. *)
 
