@@ -381,13 +381,12 @@ let addl atms =
   in
     loop atms
 
-
 (*
 (* For debugging:  *)
 let add =
   let pp0 fmt s = Mode.set Mode.None (pp fmt) s in
   let ppc fmt s = Mode.set Mode.Context (pp fmt) s in
-    Trace.func2 "top" "Process" ppc Atom.pp (Status.pp pp0)
+    Trace.func2 "all" "Process" ppc Atom.pp (Status.pp pp0)
       add
 *)
 
