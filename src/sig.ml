@@ -108,5 +108,3 @@ let mk_div a b =
 
 let mk_inv a = 
   mk_expt (-1) a
-
-

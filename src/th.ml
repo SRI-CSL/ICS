@@ -159,9 +159,12 @@ let solvers =
     List.iter
       (fun (i, m) -> Array.set a i m)
       [la, (fun e ->
-	      match Arith.qsolve e with
+	      let (a, b, _) = Fact.d_equal e in
+	      match Arith.qsolve (a, b) with
 		| None -> []
-		| Some(e') -> [e']);
+		| Some(x, c) -> 
+		    let e' = Fact.mk_equal x c None in
+		      [e']);
        p, Tuple.solve;
        bv, Bitvector.solve;
        cop, Coproduct.solve];

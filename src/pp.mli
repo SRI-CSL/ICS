@@ -83,15 +83,10 @@ val sigma : Sym.pprod -> Term.t list -> Term.t
 val map: (Term.t -> Term.t) -> Term.t -> Term.t
 
 
-(** {6 Constraints} *)
 
-val tau : (Term.t -> Cnstrnt.t) -> Sym.pprod -> Term.t list -> Cnstrnt.t
-  (** Abstract interpretation in the domain of constraints. Given 
-    a context [f], which associates uninterpreted subterms of [a]
-    with constraints, [cnstrnt f a] recurses over the interpreted
-    structure of [a] and accumulates constraints by calling [f] at
-    uninterpreted positions and abstractly interpreting the 
-    interpreted arithmetic operators in the domain of constraints. *)
+(** {6 Iterators} *)
+
+val fold : (Term.t -> int -> 'a -> 'a) -> Term.t -> 'a -> 'a
 
 
 (** {6 Comparisons} *)
@@ -124,3 +119,5 @@ val denumerator : Term.t -> Term.t
 
 val destruct : Term.t -> Term.t * int
 
+
+val cnstrnt : (Term.t -> Cnstrnt.t) -> Term.t -> Cnstrnt.t

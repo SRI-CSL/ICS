@@ -26,7 +26,7 @@ let disable_usage_flag = ref false
 let disable_pretty_print_flag = ref false
 let end_of_transmission = ref ""
 let disable_compactify_flag = ref false
-let maxloops_flag = ref !Rule.maxclose
+let maxloops_flag = ref !Context.maxclose
 let portnum_flag = ref None
      
 (** {6 Interactive toplevel} *)
@@ -103,15 +103,11 @@ let args () =
 	"Disable printing of prompt";
         "-pp", Arg.Set disable_pretty_print_flag, 
 	"Disable Pretty-Printing of terms";
-	"-fme", Arg.Set Rule.fme,   
-	"Enable complete Fourier-Motzkin elimnation.";
 	"-trace", Arg.String Ics.trace_add,
 	"Trace level";
         "-usage", Arg.Set disable_usage_flag,     
 	"Disable printing of usage message";
         "-compactify", Arg.Set disable_compactify_flag,
-	"Incomplete Fourier-Motzkin";
-        "-fme", Arg.Clear(Rule.fme), 
 	"Use integer solver";
         "-integer-solve", Arg.Set(Context.integer_solve),  
 	"Disable compactification";
@@ -129,7 +125,7 @@ let args () =
 let rec main () =
   try
     let l = args () in
-      Rule.maxclose := !maxloops_flag;
+      Context.maxclose := !maxloops_flag;
       (match !portnum_flag with
 	| None ->   
 	    (match l with

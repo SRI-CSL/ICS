@@ -15,10 +15,6 @@ open Sym
 open Term
 open Context
 
-type sign = Pos of Term.t | Neg of Term.t
-
-exception Found of sign
-
 
 (* Don't use [find] for uninterpreted theory. *)
 
@@ -41,6 +37,9 @@ and findequiv th s a =
   with
       Not_found -> a
 
+
+(** {6 Canonization of terms} *)
+
 let rec term s =
   Trace.func "canon" "Term" Term.pp Term.pp
     (can s)
@@ -53,8 +52,8 @@ and can s a =
 	arith s op al
     | App(Sym.Bvarith(Sym.Unsigned), [x]) ->
 	unsigned s x
-  (*  | App(Sym.Pp(op), xl) ->
-	pprod s op xl *)
+    | App(Sym.Pp(op), xl) ->
+	pprod s op xl
     | App(f, al) ->
 	let th = Th.of_sym f in
 	let interp x = find th s (can s x) in
@@ -62,35 +61,32 @@ and can s a =
 	let a' = if al == al' then a else sigma s f al' in
 	  lookup s a'
 
-(*
-and pprod s op al =
+and pprod s op al =   
   match op, al with
     | Expt(n), [x] ->
-	lookup s (Pp.mk_expt n (find Th.pprod s (can s x)))
-    | Mult, _ ->
-	lookup s (Pp.mk_multl al)
+	lookup s (Sig.mk_expt n (find Th.la s (can s x)))
+    | Mult, xl ->
+	lookup s (Sig.mk_multl (Term.mapl (fun x -> find Th.la s (can s x)) xl))
     | _ ->
 	assert false
-*)
-	
 
 and unsigned s x =
   lookup s (Bvarith.mk_unsigned (find Th.bv s (can s x)))
-
 
 and arith s op l =       (* special treatment for arithmetic *)
   match op, l with       (* for optimizing memory usage. *)
     | Sym.Num(q), [] -> 
 	lookup s (Arith.mk_num q)
     | Sym.Multq(q), [x] -> 
-	lookup s (Arith.mk_multq q (find Th.la s (can s x)))
+	let y = can s x in
+	lookup s (Arith.mk_multq q (find Th.la s y))
     | Sym.Add, [x; y] -> 
 	let a' = find Th.la s (can s x) 
 	and b' = find Th.la s (can s y) in
 	  lookup s (Arith.mk_add a' b')
     | Sym.Add, _ :: _ :: _ -> 
-	let interp a = find Th.la s (can s a) in
-	let l' =  mapl interp l in
+	let f a = find Th.la s (can s a) in
+	let l' =  mapl f l in
 	  lookup s (Arith.mk_addl l')
     | _ ->  
 	let str = "Ill-formed term " ^ 
@@ -102,63 +98,41 @@ and arith s op l =       (* special treatment for arithmetic *)
 let eq s a b =
   Term.eq (term s a) (term s b)
 
+
+(** {6 Canonization and normalization of atoms} *)
+
 let rec atom s = 
   Trace.func "canon" "Atom" Atom.pp Atom.pp
     (function 
        | Atom.True -> Atom.True
-       | Atom.Equal(e) -> equal s e
-       | Atom.Diseq(d) -> diseq s d
-       | Atom.In(c) ->  cnstrnt s c
+       | Atom.Equal(a, b) -> equal s (a, b)
+       | Atom.Diseq(a, b) -> diseq s (a, b)
+       | Atom.Less(a, kind, b) ->  less s (a, kind, b)
+       | Atom.Greater(a, kind, b) -> greater s (a, kind, b)
+       | Atom.In(a, d) -> cnstrnt s (a, d)
        | Atom.False -> Atom.False)
    
-and equal s e =
-  let (a, b, _) = Fact.d_equal e in
-  let x' = can s a
-  and y' = can s b in
-  match Context.is_equal s x' y' with
-    | Three.Yes ->
-	Atom.mk_true()
-    | Three.No -> 
-	Atom.mk_false()
-    | Three.X -> 
-	let (x'', y'') = crossmultiply s (x', y') in
-	Atom.mk_equal (Fact.mk_equal x'' y'' None)
- 
-and diseq s d =
-  let (a, b, _) = Fact.d_diseq d in
-  let x' = can s a
-  and y' = can  s b in
+and equal s (a, b) = 
+  let x' = can s a and y' = can s b in
     match Context.is_equal s x' y' with
-      | Three.Yes -> Atom.mk_false()
-      | Three.No -> Atom.mk_true()
+      | Three.Yes ->
+	  Atom.mk_true
+      | Three.No -> 
+	  Atom.mk_false
+      | Three.X -> 
+	  let (x'', y'') = crossmultiply s (x', y') in
+	    Atom.mk_equal (x'', y'')
+ 
+and diseq s (a, b) =
+  let x' = can s a and y' = can s b in
+    match Context.is_equal s x' y' with
+      | Three.Yes -> 
+	  Atom.mk_false
+      | Three.No -> 
+	  Atom.mk_true
       | Three.X ->
 	  let (x'', y'') = crossmultiply s (x', y') in
-	    Atom.mk_diseq (Fact.mk_diseq x'' y'' None)
-
-
-and cnstrnt s c =
-  let (a, c, _) = Fact.d_cnstrnt c in
-  let mk_in x i =
-    let (x', i') = normalize s (x, i) in
-      Atom.mk_in (Fact.mk_cnstrnt x' i' None)
-  in
-  let a' = can s a in                (* to do: look for multiples, too *)
-  try                                (* e.g. [v = x + y] and we canonize [2-x-y]. *)
-    let d = Context.cnstrnt s a' in
-    match Cnstrnt.cmp c d with
-      | Binrel.Sub -> 
-	  mk_in a' c
-      | (Binrel.Super | Binrel.Same) ->
-	  Atom.mk_true()
-      | Binrel.Disjoint ->
-	  Atom.mk_false()
-      | Binrel.Singleton(q) ->
-	  let n = lookup s (Arith.mk_num q) in
-	  Atom.mk_equal (Fact.mk_equal n a' None)
-      | Binrel.Overlap(cd) ->
-	  mk_in a' cd
-  with
-      Not_found -> mk_in a' c
+	    Atom.mk_diseq (x'', y'')
 
 and crossmultiply s (a, b) =
   let (a', b') = crossmultiply1 s (a, b) in
@@ -175,59 +149,44 @@ and crossmultiply1 s (a, b) =
     if Pp.is_one d then (a, b) else
       (Sig.mk_mult a d, Sig.mk_mult b d)
 
-
-and normalize s (a, c) =
-  let (a', c') = normalize1 s (a, c) in
-    if Term.eq a a' && Cnstrnt.eq c c' then
-      (a, c)
-    else 
-      let (a'', c'') = normalize1 s (a', c') in
-	Arith.normalize (can s a'', c'')
-
-and normalize1 s =
-  Trace.func "foo" "Normalize1" Term.pp_in Term.pp_in
-    (fun (a, c) ->
-   let arrange a q ds =    (* compute [a * ds - q * ds]. *)
-     Arith.mk_sub (Sig.mk_mult a ds) (Arith.mk_multq q ds)
-   in
-   let lower dom alpha = Cnstrnt.mk_lower dom (Mpa.Q.zero, alpha) in
-   let upper dom alpha = Cnstrnt.mk_upper dom (alpha, Mpa.Q.zero) in
-     try 
-       match Cnstrnt.d_upper c with        (* [a < q] or [a <= q]. *)
-	 | Some(dom, q, beta) ->
-	     (match signed_denum s a with
-		| Pos(ds) -> 
-		    (arrange a q ds, lower dom beta)
-		| Neg(ds) -> 
-		    (arrange a q ds, upper dom beta))
-	 | _ ->
-	     (match Cnstrnt.d_lower c with  (* [a > q] or [a >= q]. *)
-		| Some(dom, alpha, q) ->
-		    (match signed_denum s a with
-		       | Pos(ds) -> 
-			   (arrange a q ds, upper dom alpha)
-		       | Neg(ds) -> 
-			   (arrange a q ds, lower dom alpha))
-		| _ -> (a, c))
-       with
-	   Not_found -> (a, c))
-
-
-and signed_denum s a =
-  try
-    List.iter
-      (fun m ->
-	 let (_, x) = Arith.mono_of m in
-	 let d = Pp.denumerator x in
-	   if Pp.is_one d then () else
-	     let i = Context.cnstrnt s d in
-	       if Cnstrnt.is_pos i then
-		 raise (Found(Pos(d)))
-	       else if Cnstrnt.is_neg i then
-		 raise (Found(Neg(d)))
-	       else 
-		 ())
-      (Arith.monomials a);
-    raise Not_found
+and less s (x, beta, b) =   (* [x <(=) b] *)
+  let x = can s x
+  and b = Context.find Th.la s (can s b) in (* use arithmetic interp if possible *)
+  try                           
+    let c = Context.cnstrnt s x in
+    let d = Cnstrnt.mk_less Dom.Real (b, beta) in
+      (match Cnstrnt.cmp c d with
+	| Cnstrnt.Super -> 
+	    Atom.mk_less (x, beta, b)
+	| (Cnstrnt.Sub | Cnstrnt.Same) ->
+	    Atom.mk_true
+	| Cnstrnt.Disjoint ->
+	    Atom.mk_false
+	| Cnstrnt.Overlap ->
+	    Atom.mk_less (x, beta, b))
   with
-      Found(res) -> res
+      Not_found ->
+	Atom.mk_less (x, beta, b)
+
+and greater s (x, alpha, a) =  (* [x >(=) a] *)
+  let x = can s x
+  and a =  Context.find Th.la s (can s a) in
+    try                           
+      let c = Context.cnstrnt s x in
+      let d = Cnstrnt.mk_greater Dom.Real (alpha, a) in
+	(match Cnstrnt.cmp c d with
+	   | Cnstrnt.Super -> 
+	       Atom.mk_greater (x, alpha, a)
+	   | (Cnstrnt.Sub | Cnstrnt.Same) ->
+	       Atom.mk_true
+	   | Cnstrnt.Disjoint ->
+	       Atom.mk_false
+	   | Cnstrnt.Overlap ->
+	       Atom.mk_greater (x, alpha, a))
+    with
+	Not_found ->
+	  Atom.mk_greater (x, alpha, a)
+
+and cnstrnt s (a, d) =
+  let a = can s a in
+    Atom.mk_in (a, d)

@@ -11,10 +11,10 @@
  * benefit corporation.
  *)
 
-type 'a t = 
+type ('a, 'b) t = 
   | Same 
   | Disjoint 
   | Sub 
   | Super 
-  | Singleton of Mpa.Q.t 
+  | Singleton of 'b 
   | Overlap of 'a

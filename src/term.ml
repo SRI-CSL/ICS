@@ -40,6 +40,24 @@ let mk_var x = Var(Var.mk_var x)
 let mk_const f = App(f,[])
 let mk_app f l = App(f,l)
 
+module Hashq = Hashtbl.Make(
+  struct
+    type t = Mpa.Q.t
+    let equal = Mpa.Q.equal
+    let hash = Mpa.Q.hash
+  end)
+
+let mk_num =
+  let table = Hashq.create 17 in
+  let _ =  Tools.add_at_reset (fun () -> Hashq.clear table) in
+    fun q ->
+      try
+	Hashq.find table q 
+      with
+	  Not_found ->
+	    let n = App(Arith(Num(q)), []) in
+	      Hashq.add table q n; n
+
 let mk_fresh_var x k = Var(Var.mk_fresh x k)
 
 let is_fresh_var = function
@@ -72,6 +90,26 @@ let args_of a =
   assert(is_app a);
   match a with App(_,l) -> l | _ -> assert false
 
+let poly_of a =
+  match a with
+    | App(Arith(op), l) ->
+	(match op, l with
+	   | Num(q), [] -> (q, [])
+	   | Multq _, _ -> (Q.zero, [a])
+	   | Add, ((x :: xl') as xl) ->
+	       (match x with
+		  | App(Arith(Num(q)), []) -> (q, xl')
+		  | _ -> (Q.zero, xl))
+	   | _ -> assert false)
+    | _ -> 
+	(Q.zero, [a])
+	
+
+let rec hash = function
+  | Var(x) ->
+      Var.hash x
+  | App(f, l) ->
+      (Sym.hash f + (List.fold_left (fun h a -> h + hash a) 1 l)) land 0x3FFFFFFF
 
 let rec cmp a b =
   match a, b with
@@ -242,9 +280,6 @@ let pp_equal fmt (x,y) =
 let pp_diseq fmt (x,y) = 
   Pretty.infix pp "<>" pp fmt (x,y)
 
-let pp_in fmt (x,c) = 
-  Pretty.infix pp "in" Cnstrnt.pp fmt (x,c)
-
 
 (** {6 Sets and maps of terms.} *)
 
@@ -274,3 +309,4 @@ let rec vars_of a =
 	     Set.union (vars_of b) acc)
 	  Set.empty
 	al
+

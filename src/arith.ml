@@ -35,7 +35,7 @@ let is_interp a =
 (** {6 Iterators} *)
 
 (** Folding over coefficients. *)
-let rec foldcoeffs f a e = 
+let rec foldq f a e = 
   match a with
     | App(Arith(op), l) ->
 	(match op, l with
@@ -44,7 +44,7 @@ let rec foldcoeffs f a e =
 	   | Multq(q), [_] -> 
 	       f q e
 	   | Add, l -> 
-	       List.fold_right (foldcoeffs f) l e
+	       List.fold_right (foldq f) l e
 	   | _ -> assert false)
     | _ ->
 	f Q.one e
@@ -68,6 +68,7 @@ let d_add = function
 let monomials = function
   | App(Arith(Add), xl) -> xl
   | x -> [x]
+
 
 (** {6 Recognizers} *)
 
@@ -94,7 +95,7 @@ let is_multq = function
 
 (** {6 Constants} *)
 
-let mk_num q = App(Arith(Num(q)), [])
+let mk_num = Term.mk_num
 
 let mk_zero = mk_num(Q.zero)
 let mk_one = mk_num(Q.one)
@@ -103,19 +104,7 @@ let mk_two = mk_num(Q.of_int 2)
 
 (** {6 Normalizations} *)
 
-let poly_of a =
-  match a with
-    | App(Arith(op), l) ->
-	(match op, l with
-	   | Num(q), [] -> (q, [])
-	   | Multq _, _ -> (Q.zero, [a])
-	   | Add, ((x :: xl') as xl) ->
-	       (match d_num x with
-		  | Some(q) -> (q, xl')
-		  | None -> (Q.zero, xl))
-	   | _ -> assert false)
-    | _ -> 
-	(Q.zero, [a])
+let poly_of = Term.poly_of
 
 let of_poly q l =
   let m = if  Q.is_zero q then l else mk_num q :: l in
@@ -134,9 +123,11 @@ let of_mono q x =
   else if Q.is_one q then 
     x
   else 
-    match d_num x with
-      | Some(p) -> mk_num (Q.mult q p) 
-      | None -> mk_app (multq q) [x]
+    match x with
+      | App(Arith(Num(p)), []) ->
+	  mk_num (Q.mult q p) 
+      | _ -> 
+	  mk_app (multq q) [x]
 
 
 (** {6 Constructors} *)
@@ -245,6 +236,10 @@ let rec map f a =
     | _ ->
 	f a
 
+let replace x a b =
+  let repl y = if Term.eq x y then a else y in
+    map repl b
+
 
 (** Interface for sigmatizing arithmetic terms. *)
 let rec sigma op l =
@@ -256,35 +251,33 @@ let rec sigma op l =
     | _ ->  assert false
 
 
+(** [pre + q * x + post = 0] implies [x = 1/q * (-pre - post)] *)
+let rec qsolve (a, b) =
+  let rec destructure pre post =     (* [pre + post = 0]. *)
+    match post with
+      | [m] ->
+	  let (q, x) = mono_of m in
+	  (pre, q, x, [])
+      | m :: post' ->
+	  let (q, x) = mono_of m in
+	    if is_fresh_var x then
+	      destructure (m :: pre) post'
+	    else 
+	      (pre, q, x, post')
+      | [] ->
+	  assert false
+  in
+  let p, ml = poly_of (mk_sub a b) in
+    if ml = [] then
+      if Q.is_zero p then None else raise Exc.Inconsistent
+    else 
+      let (pre, q, x, post) = destructure [] ml in
+      let c = mk_addq (Q.minus (Q.div p q))
+		(mk_multq (Q.minus (Q.inv q)) 
+		   (mk_addl (pre @ post))) 
+      in
+	Some(x, c)
 
-(** Solving of an equality [a = b] in the rationals. *)
-let rec qsolve e =
-  let (a, b, j) = Fact.d_equal e in
-    match mk_sub a b with
-      | App(Arith(Num(q)), []) ->     (* [q = 0] *)
-	  if Q.is_zero q then None else raise(Exc.Inconsistent)
-      | App(Arith(Multq(q)), [x]) ->  (* [q * x = 0] *)
-	  if Q.is_zero q then None else 
-	    Some(Fact.mk_equal x mk_zero j)
-      | App(Arith(Add), xl) ->
-	  (match xl with
-	     | App(Arith(Num(q)), []) :: m :: ml ->
-		 let (p, x) = mono_of m in (* case [q + p * x + ml = 0] *)
-		 let b' = mk_multq (Q.minus (Q.inv p)) (of_poly q ml) in
-		 let e' = Fact.mk_equal x b' j in
-		   Some(e')
-	     | m :: ml ->
-		 let (p, x) = mono_of m in (* case [p * x + ml = 0] *)
-		   assert(is_var x);
-		   let b' = mk_multq (Q.minus (Q.inv p)) (of_poly Q.zero ml) in
-		   let e' = Fact.mk_equal x b' j in
-		     Some(e')
-	     | [] -> 
-		 None)
-      | a_sub_b ->
-	  let e' = Fact.mk_equal a_sub_b mk_zero j in
-	    Some(e')
-	  
 
 (** Largest monomial and rest. *)
 let destructure a = 
@@ -307,84 +300,8 @@ let destructure a =
 	raise Not_found
 	
 
-(** Integer test. Incomplete. *)
-let rec is_int c a = 
-  let is_int_var x = 
-    try 
-      Cnstrnt.dom_of (c x) = Dom.Int 
-    with 
-	Not_found -> false
-  in
-    match a with
-      | App(Arith(Num(q)), []) ->
-	  Q.is_integer q
-      | App(Arith(Multq(q)), [x]) ->
-	  Q.is_integer q &&
-	  is_int_var x
-      | App(Arith(Add), xl) ->
-	  List.for_all (is_int c) xl
-      | _ ->
-	  false
 
-(** Test if all variables are interpreted in the integers. *)
-let rec is_diophantine c a =
-  try
-    let rec loop = function
-      | App(Arith(Num(_)), []) -> true
-      | App(Arith(Multq(_)), [x]) -> Cnstrnt.sub (c x) Cnstrnt.mk_int
-      | App(Arith(Add), xl) -> List.for_all loop xl
-      | a -> Cnstrnt.sub (c a) Cnstrnt.mk_int
-    in 
-      loop a
-  with
-      Not_found -> false
-
-
-(** Constraints. *)
-let rec tau c op al = 
-  try
-    (match op, al with
-       | Num(q), [] ->  
-	   Cnstrnt.mk_singleton q
-       | Multq(q), [x] -> 
-	   Cnstrnt.multq q (c x)
-       | Add, _ -> 
-	   cnstrnt_of_addl c al
-       | _ -> 
-	   Cnstrnt.mk_real)
-  with
-      Not_found -> Cnstrnt.mk_real
 	
-
-(** Constraint of a list of monomials. *)
-and cnstrnt_of_addl c ml =
-  try
-    let of_monomial = function
-      | App(Arith(Num(q)), []) -> 
-	  Cnstrnt.mk_singleton q
-      | App(Arith(Multq(q)), [x]) -> 
-	  Cnstrnt.multq q (c x)
-      | x -> c x 
-    in
-      match ml with
-	| [] -> 
-	    Cnstrnt.mk_zero
-	| [m] -> 
-	    of_monomial m
-	| [m1; m2] -> 
-	    let i1 = of_monomial m1 in
-	    let i2 = of_monomial m2 in
-	      Cnstrnt.add i1 i2
-	| m :: ml' -> 
-	    let i = of_monomial m in
-	      Cnstrnt.add i (cnstrnt_of_addl c ml')
-      with
-	  Not_found -> Cnstrnt.mk_real
-
-and cnstrnt c a =
-  cnstrnt_of_addl c (monomials a)
-
-
 (** Check if there exists a [q] such that [q * a] equals [b]. *)
 let rec multiple (a, b) =
   let divnum q p =         (* return [r] s.t. [r * q = p]. *)
@@ -447,6 +364,24 @@ let leading = function
 
 let leading = 
   Trace.func "foo" "Leading" Term.pp Term.pp leading
+
+
+type linear = 
+  | Const of Q.t
+  | Linear of Q.t * Q.t * Term.t * Term.t
+
+let linearize a =
+  let (p, al) = poly_of a in
+    match al with
+      | [] -> Const(p)
+      | m :: ml ->
+	  let (q, x) = mono_of m in
+	  let a' = match ml with
+	    | [] -> mk_zero
+	    | [m] -> m
+	    | ml -> mk_app add ml
+	  in
+	    Linear(p, q, x, a')
     
 
 (** {6 Integer solver} *)
@@ -471,8 +406,7 @@ module Euclid = Euclid.Make(
   end)
 
 
-let rec zsolve e = 
-  let (a, b, _) = Fact.d_equal e in
+let rec zsolve (a, b) = 
   let (q, ml) = poly_of (mk_sub a b) in   (* [q + ml = 0] *)
     if ml = [] then
       if Q.is_zero q then [] else raise(Exc.Inconsistent)
@@ -482,7 +416,7 @@ let rec zsolve e =
 	  | None -> raise Exc.Inconsistent
 	  | Some(d, pl) -> 
 	      let gl = general cl (d, pl) in
-		List.map2 (fun x a -> Fact.mk_equal x a None) xl gl
+		List.combine xl gl
 	     
 and vectorize ml =
   let rec loop (ql, xl) = function
@@ -516,56 +450,94 @@ and general al (d, pl) =
   in
     loop al (List.map mk_num pl)
 
-    
-(** Normalize a constraint. *)
-let rec normalize (a, c) =
-  match a with
-    | App(Arith(Multq(q)), [x]) 
-	when not(Q.is_zero q) ->
-	(x, Cnstrnt.multq (Q.inv q) c)
-    | App(Arith(Add), [App(Arith(Num(q)), []);  App(Arith(Multq(p)), [x])]) ->
-	assert(not(Q.is_zero p));         (* [q + p*x in c] iff *)
-	let pinv = Q.inv p in             (* [x in 1/ p * (c - q)] *)
-	let c' = Cnstrnt.multq pinv (Cnstrnt.addq (Q.minus q) c) in
-	  (x, c')
-    | _ ->
-	let (p, ml) = poly_of a in
-	let (a', c') = (mk_addl ml, Cnstrnt.addq (Q.minus p) c) in
-	let lcm =       (* least-common multiple of denominators of all rationals. *)
-	  foldq 
-	    (fun q -> 
-	       Z.lcm (Q.denominator q)) 
-	    (a', c') 
-	    Z.one
-	in
-	let  lcm' = Q.of_z lcm in
-	let gcd =       (* greatest common divisor of integerized coefficients. *)
-	  foldq 
-	    (fun q gcd -> 
-	       let q' = Q.mult lcm' q in  (* [q'] is now an integer. *)
-		 assert(Z.equal (Q.denominator q') Z.one);
-		 Z.gcd (Q.numerator q') gcd)
-	    (a', c') 
-	    Z.one 
-	in
-	let gcd' = Q.of_z gcd in
-	let multiplier = Q.div lcm' gcd' in
-	  if Q.is_one multiplier then
-	    (a', c')
-	  else
-	    (mk_multq multiplier a', Cnstrnt.multq multiplier c')
 
 
-(** Fold over all rationals in a pair [a in c]. *)
-and foldq f (a, c) e =
-  foldcoeffs f a (Cnstrnt.foldq f c e)
+(** Isolate [y] in a solved equality [x = a]. *)
+let isolate y (x, a) = 
+  let rec destructure pre post =     (* [pre + post = 0]. *)
+    match post with
+      | [m] ->
+	  let (q, y') = mono_of m in
+	    if Term.eq y y' then
+	      (pre, q, y, [])
+	    else 
+	      raise Not_found
+      | m :: post' ->
+	  let (q, y') = mono_of m in
+	    if Term.eq y y' then
+	      (pre, q, y, post')
+	    else 
+	      destructure (m :: pre) post'
+      | [] ->
+	  assert false
+  in                              (* [pre + q * y + post = a]. *)
+  let (pre, q, y, post) = destructure [] (monomials a) in
+    assert(not(Q.is_zero q));
+    mk_multq (Q.inv q)
+      (mk_sub x (mk_addl (pre @ post)))
 
-let normalize (a, c) =
-  Trace.call "arith" "Normalize" (a, c) Term.pp_in;
-  let (a', c') = normalize (a, c) in
-    Trace.exit "arith" "Normalize" (a', c') Term.pp_in;
-    (a', c')
+(** {6 Inequalities} *)
 
+type ineq = 
+  | True
+  | False
+  | Less of Term.t * bool * Term.t
+  | Greater of Term.t * bool * Term.t
 
+let mk_less (a, alpha, b) =
+  match linearize (mk_sub a b) with
+      | Const(p) ->                   (* p < 0 *)
+	  let res = Q.compare p Q.zero in
+	    if res < 0 then
+	      True
+	    else if res > 0 then
+	      False
+	    else (* [p = r] *)
+	      if alpha then True else False
+      | Linear(p, q, x, a') ->    (* [p + q*x + a' < 0] *) 
+	  assert(not(Q.is_zero q));
+	  let b' = mk_addq (Q.minus (Q.div p q))
+		     (mk_multq (Q.minus (Q.inv q)) a')
+	  in
+	    if Q.is_pos q then          (* <=> [x < -p/q - 1/q * a' *)
+	      Less(x, alpha, b')
+	    else (* [ q < 0] *)  
+	      Greater(x, alpha, b')
 
+let mk_greater (a, alpha, b) =              (* [a >(=) b] *)
+    match linearize (mk_sub a b) with
+      | Const(p) ->                         (* [p >(=) 0] *)
+	  let res = Q.compare p Q.zero in
+	    if res < 0 then
+	      False
+	    else if res > 0 then
+	      True
+	    else (* [p = r] *)
+	      if alpha then True else False
+      | Linear(p, q, x, a') ->      (* [p + q*x + a' >(=) r] *) 
+	  assert(not(Q.is_zero q));
+	  let b' =  mk_addq (Q.minus (Q.div p q))
+		     (mk_multq (Q.minus (Q.inv q)) a')
+	  in
+	    if Q.is_pos q then
+	      Greater(x, alpha, b')
+	    else 
+	      Less(x, alpha, b')
+
+let mk_lt a b = mk_less (a, false, b)
+let mk_le a b = mk_less (a, true, b)
+let mk_gt a b = mk_less (b, false, a)
+let mk_ge a b = mk_less (b, true, a)
+
+let pp_ineq fmt = function
+  | True -> Pretty.string fmt "True"
+  | False -> Pretty.string fmt "False"
+  | Less(a, kind, b) ->
+      Term.pp fmt a;
+      Pretty.string fmt (if kind then " <= " else " < ");
+      Term.pp fmt b
+  | Greater(a, kind, b) ->
+      Term.pp fmt a;
+      Pretty.string fmt (if kind then " >= " else " > ");
+      Term.pp fmt b
 

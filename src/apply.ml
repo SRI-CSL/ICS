@@ -154,14 +154,6 @@ let sigma op al =
     | _ -> 
 	assert false
 
-let tau ctxt op l =
-  match op, l with
-    | Apply(Some(r)), [_] -> 
-	r
-    | _ ->
-	raise Not_found
-	
-
 let rec map f a =
   match a with
     | App(Fun(Apply(r)), x :: xl) ->

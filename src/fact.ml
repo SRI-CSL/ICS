@@ -22,7 +22,9 @@ and justification =
   | Rule of string * justification list
 
 and equal = Term.t * Term.t * justification option
+
 and diseq = Term.t * Term.t * justification option
+
 and cnstrnt = Term.t * Cnstrnt.t * justification option
 
 and rule = string 
@@ -53,8 +55,9 @@ let mk_diseq x y j =
     (x, y, j)
 
 let rec mk_cnstrnt x c j = 
-  Trace.msg "fact" "Cnstrnt" (x, c) Term.pp_in;
+  Trace.msg "fact" "Cnstrnt" (x, c) (Pretty.infix Term.pp " in " Cnstrnt.pp);
   (x, c, j)
+
 
 let d_equal e = e
 let d_diseq d = d
@@ -67,7 +70,7 @@ let of_cnstrnt c = Cnstrnt(c)
 let rec pp fmt = function
   | Equal(x, y, _) ->  Pretty.infix Term.pp "=" Term.pp fmt (x, y)
   | Diseq(x, y, _) ->  Pretty.infix Term.pp "<>" Term.pp fmt (x, y)
-  | Cnstrnt(x, i, _) ->  Pretty.infix Term.pp "in" Cnstrnt.pp fmt (x, i)
+  | Cnstrnt(x, c, _) -> Pretty.infix Term.pp "in" Cnstrnt.pp fmt (x, c)
 
 and pp_equal fmt e = 
   let (x, y, _) = d_equal e in

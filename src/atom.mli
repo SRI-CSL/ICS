@@ -22,25 +22,43 @@
   @author Harald Ruess
 *)
 
-type t  =
+type t =
   | True
-  | Equal of Fact.equal
-  | Diseq of Fact.diseq
-  | In of Fact.cnstrnt
+  | Equal of Term.t * Term.t           (* represents [a = b]. *)
+  | Diseq of Term.t * Term.t           (* represents [a <> b]. *)
+  | Less of Term.t * bool * Term.t     (* represents [a < q] or [a <= q]. *)
+  | Greater of Term.t * bool * Term.t  (* represents [a > q] or [a >= q]. *)
+  | In of Term.t * Dom.t               (* represents [a in d]. *)
   | False
+
+val eq : t -> t -> bool
 
 
 (** {6 Constructors} *)
 
-val mk_true : unit -> t
+val mk_true : t
 
-val mk_false : unit -> t
+val mk_false : t
 
-val mk_equal : Fact.equal -> t
+val mk_equal : Term.t * Term.t -> t
 
-val mk_diseq : Fact.diseq -> t
+val mk_diseq : Term.t * Term.t -> t
 
-val mk_in : Fact.cnstrnt -> t
+val mk_less :  Term.t * bool * Term.t -> t
+
+val mk_greater :  Term.t * bool * Term.t -> t
+
+val mk_in : Term.t * Dom.t -> t
+
+(** {6 Negations of atoms} *)
+
+val is_negatable : t -> bool
+
+val negate : t -> t
+
+(** {6 Accessors} *)
+
+val vars_of : t -> Term.Set.t
 
 
 (** {6 Pretty-printing} *)

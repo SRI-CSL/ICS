@@ -59,8 +59,9 @@ val ctxt_of : Name.t option -> Atom.Set.t
 val diseq : Name.t option -> Term.t -> Term.Set.t
   (** Disequalities. *)
   
-val cnstrnt : Name.t option -> Term.t -> Cnstrnt.t option
+val cnstrnt : Name.t option -> Term.t -> Cnstrnt.t
   (** Constraint. *)
+
 
 val solve : Th.t ->  (Term.t * Term.t) -> (Term.t * Term.t) list
   (** Solver. *)
@@ -153,7 +154,7 @@ val sigma : Sym.t -> Term.t list -> Term.t
   
 (** {6 Processing} *)
 
-val process : Name.t option -> Atom.t -> Name.t Process.status
+val process : Name.t option -> Atom.t -> Name.t Context.Status.t
   (** Adding a new fact *)
 
 
@@ -180,6 +181,10 @@ val forget : unit -> unit
 
 val is_equal : Term.t -> Term.t -> bool
   (** Equality/disequality test. *)
+
+(** {6 Sat solver} *)
+
+val sat : Prop.t -> Atom.Set.t option
 
 
 (** {6 Suggested Splits} *)

@@ -45,6 +45,9 @@ val mk_zero : t
 
 val mk_empty : t
   (** [mk_empty] is an interval with empty denotation. *)
+
+val mk_dom : Dom.t -> t
+  (** Make a domain constraint. *)
  
 val mk_real : t 
   (** The denotation of the interval [mk_real] contains the whole real number line. *)
@@ -57,6 +60,12 @@ val mk_nonint : t
 
 val mk_singleton : Mpa.Q.t -> t
   (** The denotation of [mk_singleton q] contains only the rational [q]. *)
+
+val mk_inf : Dom.t -> bool * Mpa.Q.t -> t
+
+val mk_sup : Dom.t -> Mpa.Q.t * bool -> t
+
+val mk_supinf : Dom.t -> bool * Mpa.Q.t -> Mpa.Q.t * bool -> t
 
 
 (** {6 Destructors.} *)
@@ -146,7 +155,7 @@ val sub : t -> t -> bool
 val disjoint : t -> t -> bool
   (** [disjoint i j] holds iff [D(i)] and [D(j)] are disjoint. *)
 
-val cmp : t -> t -> t Binrel.t
+val cmp : t -> t -> (t, Mpa.Q.t) Binrel.t
   (** [cmp i j] returns 
     - [Sub] if [sub i j] holds and [eq i j] does not hold
     - [Equal] if [eq i j] holds

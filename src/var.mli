@@ -43,12 +43,18 @@ val cmp : t -> t -> int
 (** [cmp x y] realizes a total ordering on variables. The result is [0]
  if [eq x y] holds, it is less than [0] we say, '[x] is less than [y]',
  and, otherwise, '[x] is greater than [y]'. An external variable [x] is always
- less than a nonexternal (that is, a fresh or a free) variable [y]. Otherwise, 
- the outcome of [cmp x y] is unspecified. *)
+ larger than a fresh variable [y]. Otherwise, the outcome of [cmp x y] is 
+  unspecified. *)
 
 
 val (<<<) : t -> t -> bool
 (** [x <<< y] holds iff [cmp x y <= 0]. *)
+
+
+(** {6 Hashvalue} *)
+
+val hash : t -> int
+  (** compute an integer (not necessarily unique) for a variable. *)
 
 
 (** {6 Constructors} *)

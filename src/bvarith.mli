@@ -35,8 +35,3 @@ val sigma : Sym.bvarith -> Term.t list -> Term.t
 (** {6 Iterators} *)
 
 val map: (Term.t -> Term.t) -> Term.t -> Term.t
-
-
-(** {6 Constraints} *)
-
-val tau : (Term.t -> Cnstrnt.t) -> Sym.bvarith -> Term.t list -> Cnstrnt.t

@@ -83,6 +83,8 @@ module Q : sig
   val inv : t -> t
   val expt : t -> int -> t
 
+  val abs : t -> t
+
   val floor : t -> Z.t
   val ceil  : t -> Z.t
 

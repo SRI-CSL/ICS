@@ -42,7 +42,7 @@ let equal_width_of a b =
 %token DROP CAN ASSERT EXIT SAVE RESTORE REMOVE FORGET RESET SYMTAB SIG VALID UNSAT
 %token TYPE SIGMA
 %token SOLVE HELP DEF TOGGLE SET TRACE UNTRACE CMP FIND USE INV SOLUTION PARTITION
-%token SHOW CNSTRNT SYNTAX COMMANDS SPLIT
+%token SHOW CNSTRNT SYNTAX COMMANDS SPLIT SAT
 %token DISEQ CTXT
 %token EOF
 
@@ -51,6 +51,7 @@ let equal_width_of a b =
 %token <string> IDENT
 %token <int> INTCONST
 %token <Mpa.Q.t> RATCONST
+%token <Name.t> PROPVAR
 
 %token IN
 %token BOT INT NONINT REAL BV TOP 
@@ -75,7 +76,8 @@ let equal_width_of a b =
 %token INL INR OUTL OUTR
 %token INJ OUT 
 %token HEAD TAIL LISTCONS
-%token DISJ XOR IMPL BIIMPL CONJ NEG
+%token PROPVAR DISJ XOR IMPL BIIMPL CONJ NEG
+%token IF THEN ELSE END
 %token PROJ
 
 %right DISJ XOR IMPL
@@ -99,7 +101,6 @@ let equal_width_of a b =
 
 %type <Term.t> termeof
 %type <Atom.t> atomeof
-%type <Cnstrnt.t> cnstrnteof
 %type <Result.t> commands
 %type <Result.t> commandseof
 %type <Result.t> commandsequence
@@ -107,7 +108,6 @@ let equal_width_of a b =
 
 %start termeof
 %start atomeof
-%start cnstrnteof
 %start commands
 %start commandsequence
 %start commandseof
@@ -116,7 +116,6 @@ let equal_width_of a b =
 
 termeof : term EOF           { $1 }
 atomeof : atom EOF           { $1 }
-cnstrnteof : cnstrnt EOF     { $1 }
 commandseof : command EOF    { $1 }
 
 commands : command DOT       { $1 }
@@ -129,12 +128,10 @@ commandsequence : command DOT    { $1 }
     
 int: 
   INTCONST  { $1 }
-| MINUS INTCONST %prec prec_unary { -$2 }
 
 rat:
   int       { Q.of_int $1 }
 | RATCONST  { $1 }
-| MINUS RATCONST %prec prec_unary { Q.minus $2 }
 ;
 
 
@@ -159,8 +156,6 @@ funsym:
 ;
 
 range:                              { None }
-| LBRA cnstrnt RBRA                 { Some($2) }
-;
 
 constsym: 
   rat       { Sym.Arith(Sym.Num($1)) }
@@ -179,7 +174,7 @@ term:
 | array            { $1 }
 | bv               { $1 }
 | coproduct        { $1 }
-| boolean          { $1 }
+/* | boolean          { $1 } */
 | list             { $1 }
 | apply            { $1 }
 ;
@@ -267,64 +262,35 @@ bv:
 | term BWIFF term     { Bitvector.mk_bwiff (equal_width_of $1 $3) $1 $3 }
 ;
 
-boolean:
-| term CONJ term            { Boolean.mk_conj $1 $3 }
-| term DISJ term            { Boolean.mk_disj $1 $3 }
-| term XOR term             { Boolean.mk_xor $1 $3 }
-| NEG term %prec prec_unary { Boolean.mk_neg $2 }
-;
-
-
 atom:
-  term EQUAL term         { Atom.mk_equal(Fact.mk_equal $1 $3 Fact.mk_axiom)}
-| term DISEQ term         { Atom.mk_diseq(Fact.mk_diseq $1 $3 Fact.mk_axiom) }
-| term LESS term          { Atom.mk_in(Fact.mk_cnstrnt (Arith.mk_sub $1 $3) (Cnstrnt.mk_neg Dom.Real) Fact.mk_axiom) }
-| term GREATER term       { Atom.mk_in(Fact.mk_cnstrnt (Arith.mk_sub $3 $1) (Cnstrnt.mk_neg Dom.Real) Fact.mk_axiom) }
-| term LESSOREQUAL term   { Atom.mk_in(Fact.mk_cnstrnt (Arith.mk_sub $1 $3) (Cnstrnt.mk_nonpos Dom.Real) Fact.mk_axiom) }
-| term GREATEROREQUAL term{ Atom.mk_in(Fact.mk_cnstrnt (Arith.mk_sub $3 $1) (Cnstrnt.mk_nonpos Dom.Real) Fact.mk_axiom)}
-| term IN cnstrnt         { Atom.mk_in (Fact.mk_cnstrnt $1 $3 Fact.mk_axiom) }
+  term EQUAL term         { Atom.mk_equal($1, $3)}
+| term DISEQ term         { Atom.mk_diseq($1, $3) }
+| term LESS term          { Atom.mk_less($1, false, $3) }
+| term GREATER term       { Atom.mk_greater($1, false, $3) }
+| term LESSOREQUAL term   { Atom.mk_less($1, true, $3) }
+| term GREATEROREQUAL term{ Atom.mk_greater($1, true, $3) }
+| term IN dom             { Atom.mk_in ($1, $3) }
 ;
 
-
-cnstrnt:
-| interval optdiseqs { Cnstrnt.make ($1, $2) }
-| name               { match Istate.type_of $1 with
-			 | Some(c) -> c
-			 | None ->
-			    let str = Name.to_string $1 in
-			    raise (Invalid_argument ("No type definition for " ^ str)) }
+dom:
+  INT    { Dom.Int }
+| REAL   { Dom.Real }
+| NONINT { Dom.Nonint }
 ;
 
-optdiseqs:                   { Cnstrnt.Diseqs.empty }
-| BACKSLASH LCUR diseqs RCUR { $3 }
+prop:
+  LBRA prop RBRA                  { $2 } 
+| name                            { Prop.mk_var $1 }
+| atom                            { Prop.mk_poslit $1 }
+| prop CONJ prop                  { Prop.mk_conj [$1; $3] }
+| prop DISJ prop                  { Prop.mk_disj [$1; $3] }
+| prop BIIMPL prop                { Prop.mk_iff $1 $3 }
+| prop XOR prop                   { Prop.mk_neg (Prop.mk_iff $1 $3) }
+| prop IMPL prop                  { Prop.mk_disj [Prop.mk_neg $1; $3] }
+| NEG prop %prec prec_unary       { Prop.mk_neg $2 }
+| IF prop THEN prop ELSE prop END { Prop.mk_ite $2 $4 $6 }
 ;
 
-diseqs: rat          { Cnstrnt.Diseqs.singleton $1 }     
-| diseqs COMMA rat   { Cnstrnt.Diseqs.add $3 $1 }
-
-
-
-interval: 
-  INT                                    { Interval.mk_int }
-| REAL                                   { Interval.mk_real }
-| NONINT                                 { Interval.mk_nonint }
-| NONINT leftendpoint DDOT rightendpoint { Interval.make (Dom.Nonint, $2, $4) }
-| INT leftendpoint DDOT rightendpoint    { Interval.make (Dom.Int, $2, $4) }
-| REAL leftendpoint DDOT rightendpoint   { Interval.make (Dom.Real, $2, $4) }
-| leftendpoint DDOT rightendpoint        { Interval.make (Dom.Real, $1, $3) }
-;
-
-leftendpoint:
-  LPAR NEGINF     { Endpoint.neginf }
-| LPAR rat        { Endpoint.strict $2 }
-| LBRA rat        { Endpoint.nonstrict $2 }
-;
-
-rightendpoint:
-  INF RPAR          { Endpoint.posinf }
-| rat RPAR          { Endpoint.strict $1 }
-| rat RBRA          { Endpoint.nonstrict $1 }
-;
 
 termlist:             { [] }
 | term                { [$1] }
@@ -341,7 +307,6 @@ command:
 | ASSERT optname atom       { Result.Process(Istate.process $2 $3) }
 | DEF name ASSIGN term      { Result.Unit(Istate.def $2 $4) }
 | SIG name COLON signature  { Result.Unit(Istate.sgn $2 $4) }
-| TYPE name ASSIGN cnstrnt  { Result.Unit(Istate.typ $2 $4) }
 | RESET                     { Result.Unit(Istate.reset ()) }
 | SAVE name                 { Result.Name(Istate.save(Some($2))) }
 | SAVE                      { Result.Name(Istate.save(None)) }        
@@ -365,14 +330,13 @@ command:
 		 	      with Not_found -> Result.Optterm(None) }
 | USE optname th term       { Result.Terms(Istate.use $2 $3 $4) }
 | SOLUTION optname th       { Result.Solution(Istate.solution $2 $3) }
-| CNSTRNT optname term      { match Istate.cnstrnt $2 $3 with
-				| Some(c) -> Result.Cnstrnt(Some(c))
-				| None -> Result.Cnstrnt(None) }
+| CNSTRNT optname term      { Result.Cnstrnt(Istate.cnstrnt $2 $3) }
 | DISEQ optname term        { Result.Terms(Istate.diseq $2 $3) }
 | SPLIT optname             { Result.Atoms(Istate.split()) }
 | SOLVE th term EQUAL term  { Result.Solution(Istate.solve $2 ($3, $5)) }		
 | TRACE identlist           { Result.Unit(List.iter Trace.add $2) }
 | UNTRACE                   { Result.Unit(Trace.reset ()) }
+| SAT prop                  { Result.Sat(Istate.sat $2) }
 | help                      { Result.Unit($1) }
 ;
 

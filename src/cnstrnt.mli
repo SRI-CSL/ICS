@@ -27,15 +27,26 @@
 
 type t
 
-module Diseqs: (Set.S with type elt = Mpa.Q.t)
-  (** Exception sets are sets of rationals. *)
+module Low : sig 
+  
+  type t = 
+    | Neginf 
+    | Bound of bool * Term.t
 
+end
+
+module High : sig
+
+  type t =
+    | Posinf
+    | Bound of Term.t * bool
+
+end
 
 (** {6 Constructors} *)
 
-val make : Interval.t * Diseqs.t -> t
-  (** [make (i, qs)] constructs a constraint with interval [i]
-    and exception set [qs]. *)
+val mk_empty : t
+  (** Constraint with empty denotation. *)
 
 val mk_real : t
   (** Constraint with the real number line as its denotation. *)
@@ -46,6 +57,9 @@ val mk_int : t
 val mk_nonint : t
   (** Constraint whose denotation are all non-integer reals. *)
 
+val mk_dom : Dom.t -> t
+  (** constraint with domain denotation. *)
+
 val mk_nat : t
   (** Constraint whose denotation are all nonnegative integers
     (that is, including [0]). *)
@@ -54,99 +68,39 @@ val mk_singleton : Mpa.Q.t -> t
   (** [mk_singleton q] constructs a constraint with a singleton
     denotation containing [q]. *)
 
+val mk_equal : Term.t -> t
+  (** [mk_equal x] constructs a constraint with a singleton interpretation. *)
+
 val mk_zero : t
   (** [C(mk_zero)] contains only [0]. *)
 
 val mk_one : t
   (** [C(mk_zero)] contains only [1]. *)
 
-val mk_diseq : Mpa.Q.t -> t
-  (** [C(mk_diseq q)] contains all reals except for [q]. *)
+val mk_less : Dom.t -> (Term.t * bool) -> t
 
-val mk_oo : Dom.t -> Mpa.Q.t -> Mpa.Q.t -> t
- (** [C(mk_oo d q p)] is [{x in d | q < x < p}]. *)
-  
-val mk_oc : Dom.t -> Mpa.Q.t -> Mpa.Q.t -> t
-  (** [C(mk_oc d q p)] is [{x in d | q < x <= p}]. *)
-
-val mk_co : Dom.t -> Mpa.Q.t -> Mpa.Q.t -> t
- (** [C(mk_co d q p)] is [{x in d | q <= x < p}]. *)
-  
-val mk_cc : Dom.t -> Mpa.Q.t -> Mpa.Q.t -> t
-  (** [C(mk_cc d q p)] is [{x in d | q <= x <= p}]. *)
-
-val mk_lower : Dom.t -> Mpa.Q.t * bool -> t
-  (** Lower constraint
-    - [C(mk_lower d (q, false))] is [{x in d | x < q}] and
-    - [C(mk_lower d (q, true))] is [{x in d | x <= q}] *)
-
-val mk_upper : Dom.t -> bool * Mpa.Q.t -> t
- (** Upper constraint
-   - [C(mk_upper d (false, q))] is [{x in d | x > q}] and
-   - [C(mk_upper d (true, q))] is [{x in d | x >= q}] *)
-
-val mk_lt : Dom.t -> Mpa.Q.t -> t
-  (** [C(mk_lt d q)] is [{x in d | x < q}] *)
-
-val mk_le : Dom.t -> Mpa.Q.t -> t
-  (** [C(mk_le d q)] is [{x in d | x <= q}] *)
-
-val mk_gt : Dom.t -> Mpa.Q.t -> t
- (** [C(mk_gt d q)] is [{x in d | x > q}] *)
-
-val mk_ge : Dom.t -> Mpa.Q.t -> t
-  (** [C(mk_ge d q)] is [{x in d | x >= q}] *)
-
-val mk_pos : Dom.t -> t
-  (** [C(mk_pos d)] is [{x in d | x > 0}] *)
-
-val mk_neg : Dom.t -> t
-  (** [C(mk_pos d)] is [{x in d | x < 0}] *)
-
-val mk_nonneg : Dom.t -> t
-  (** [C(mk_nonneg d)] is [{x in d | x >= 0}] *)
-  
-val mk_nonpos : Dom.t -> t
-  (** [C(mk_nonpos d)] is [{x in d | x <= 0}] *)
-
-val of_interval : Interval.t -> t
-  (** Construct a constraint [c] from an interval [i]
-    with [C(c) = D(i)] *)
-
+val mk_greater : Dom.t -> (bool * Term.t) -> t
 
 (** {6 Accessors} *)
-
-val destruct : t -> Interval.t * Diseqs.t
-  (** Destructure constraint into [(i, qs)]. *)
 
 val dom_of : t -> Dom.t
   (** Get interpretation domain of a constraint. *)
 
-val endpoints_of : t -> Endpoint.t * Endpoint.t
-  (** [endpoints_of c] yields the pair [(lo, hi)]
-    of the lower endpoint [lo] and the upper endpoint [hi]
-    of the interval part of [c]. *)
+val high_of : t -> Mpa.Q.t * bool
 
-val d_singleton : t -> Mpa.Q.t option
-  (** If [C(c)] is the singleton set with element [q],
-    [d_singleton c] yields [Some(q)], and [None] otherwise. *)
+val low_of : t -> bool * Mpa.Q.t
 
-type bounds = 
-  | Lower of Dom.t * bool * Mpa.Q.t
-  | Upper of Dom.t * Mpa.Q.t * bool
-  | LowerUpper of Dom.t * bool * Mpa.Q.t * Mpa.Q.t * bool
-  | Unbounded of Dom.t
+val numeric_of : t -> t
 
-val bounds : t -> bounds
-  (** Let [c] be a constraint with lower bound [lo]
-     and upper bound [hi]; then [bounds c] yields:
-    - [Lower(d, alpha, q)] if ... *)
+val d_equalities : t -> Term.Set.t * t
+  (** [d_equalities c] destructs [c] into a pair [(es, d)]
+    consisting of the implied equalities in [es] and the 
+    remaining nonequality constraints [d]. *)
 
+val implied : t -> Arith.ineq list
+  (** [implied c] returns a list of all nontrivially implied inequalities of [c]. *)
 
-val d_lower : t -> (Dom.t * bool * Mpa.Q.t) option
-
-val d_upper : t -> (Dom.t * Mpa.Q.t * bool) option
-
+val equal : Term.t -> t -> Arith.ineq list
 
 
 (** {6 Recognizers} *)
@@ -155,7 +109,7 @@ val is_empty : t -> bool
   (** [is_empty c] holds iff [C(c)] is the empty set. *)
 
 val is_full : t -> bool
-  (** [is_full c] holds iff [C(c)] is the real number line *)
+  (** [is_real c] holds iff [C(c)] is the real number line *)
 
 val is_unbounded : t -> bool
   (** [is_unbounded c] holds if both the lower and the upper
@@ -163,15 +117,6 @@ val is_unbounded : t -> bool
 
 val is_finite : t -> bool
   (** [is_finite c] holds if [C(c)] is finite. *)
-
-val is_pos : t -> bool
-  (** [is_pos c] holds iff all elements in [C(c)] are positive. *) 
-
-val is_neg : t -> bool
-  (** [is_neg c] holds iff all elements in [C(c)] are negative. *) 
-
-val mem : Mpa.Q.t -> t -> bool
-  (** [mem q c] holds iff [q] is in [C(c)]. *)
 
 
 (** {6 Relations} *)
@@ -182,26 +127,27 @@ val eq : t -> t -> bool
 val sub : t -> t -> bool
   (** [sub c d] holds iff [C(c)] is a subset of [C(d)]. *)
 
-val is_disjoint : t -> t -> bool
-  (** [is_disjoint c d] holds iff [C(c)] and [C(d)] are disjoint. *)
+val disjoint : t -> t -> bool
+  (** [disjoint c d] holds iff [C(c)] and [C(d)] are disjoint. *)
 
-val cmp : t -> t -> t Binrel.t
+
+type rel = 
+  | Disjoint
+  | Same
+  | Sub
+  | Super
+  | Overlap
+
+val cmp : t -> t -> rel
   (** [cmp c d] returns 
     - [Sub] if [sub c d] holds and [eq c d] does not hold
     - [Equal] if [eq c d] holds
     - [Super] if [sub d c] holds and [eq d c] does not hold
-    - [Disjoint] if [is_disjoint c d] holds
+    - [Disjoint] if [disjoint c d] holds
     - [Singleton(q)] if the intersection [inter c d] denotes a singleton
                      set with element [q].
     - [Overlap(e)] if none of the above holds, and [e] is the intersection
                      of [c] and [d]. *)
-
-val status : t -> Mpa.Q.t Status.t
-  (** [status c] returns
-    - [Empty] if [C(c)] is empty,
-    - [Full] if [C(c)] is the real number line,
-    - [Singleton(q)] if [q] is the only member in [C(c)], and
-    - [Other] if none of the above holds. *)
 
 
 (** {6 Connectives} *)
@@ -210,52 +156,54 @@ val inter : t -> t -> t
   (** [C(inter c d)] equals [C(c)] intersected with [C(d)]. *)
 
 
-(** {6 Abstract interpretation} *)
-
-val addq : Mpa.Q.t -> t -> t
-  (** [C(addq q c)] equals [q + C(c)]. *)
-
-val add : t -> t -> t
-  (** [C(add c d)] equals [C(c) + C(d)]. *)
-
-val addl : t list -> t
-  (** - [C(addl [])] equals the singleton set with element [0],
-    - [C(addl [c])] equals [C(c)], and
-    - [C(addl [c0;...;cn])] equals [C(c0) + ... + C(cn)]. *)
-
-val subtract : t -> t -> t
-  (** [C(subtract c d)] equals [C(c) - C(d)]. *)
-
-val multq : Mpa.Q.t -> t -> t
-  (** [C(addq q c)] equals [q * C(c)]. *)
-
-val linear : Mpa.Q.t * t -> Mpa.Q.t * t -> t
-
-val mult : t -> t -> t
-  (** [C(mult c d)] is a superset of [C(c) * C(d)]. *)
-
-val multl : t list -> t
-  (** - [C(multl [])] equals the singleton set with element [1],
-    - [C(multl [c])] equals [C(c)], and
-    - [C(multl [c0;...;cn])] equals [C(c0) * ... * C(cn)]. *)
-
-val expt : int -> t -> t
-   (** [C(expt n c)] is a superset of [C(c)^n]. *)
-
-val div : t -> t -> t
- (** [C(div c d)] is a superset of the set of rationals [z] such that
-    there exists [x in C(c)], [y in C(d)] with [y /= 0], [z = x / y]. *)
-
-
-(** {Iterators} *)
-
-val foldq : (Mpa.Q.t -> 'a -> 'a) -> t -> 'a -> 'a
-  (** Folding over all rationals in constraint; this includes rational
-    endpoints and all members of the disequality set.*)
-
-
 (** {6 Pretty-printing constraints} *)
 
 val pp : t Pretty.printer
 
 
+(** {6 Iterators} *)
+
+val fold : (Low.t * High.t -> 'a -> 'a) -> t -> 'a -> 'a
+  (** Fold over all intervals *)
+
+val varfold : (Term.t -> 'a -> 'a) -> t -> 'a -> 'a
+  (** Folding over all variables. *)
+
+val replace : Term.t -> Term.t -> t -> t
+  (** [replace x a c] replaces all occurrences of [x] in [c] by [a]. *)
+
+(** {6 Constraint abstraction} *)
+
+val add : t -> t -> t
+val addq : Mpa.Q.t -> t -> t
+val multq : Mpa.Q.t -> t -> t
+val subtract : t -> t -> t
+val mult : t -> t -> t
+val multl : t list -> t
+val expt : int -> t -> t
+val div : t -> t -> t
+
+val of_term : (Term.t -> t) -> Term.t -> t
+
+val of_addl : (Term.t -> t) -> Term.t list -> t
+
+
+(** {6 Tests} *)
+
+val occurs : Term.t -> t -> bool
+  (** [occurs x c] holds iff variable [x] is a subterm of some bound in [c]. *)
+  
+val is_int : (Term.t -> t) -> Term.t -> bool
+  (** Test if arithmetic term is integer. *)
+
+val notin : Term.t -> t -> bool
+  (** [notin a c] returns [false] when [a] is known to be not in [c]. *)
+  
+val is_diophantine : (Term.t -> t) -> Term.t -> bool
+  (** [is_diophantine c a] holds if all variables in the linear 
+    arithmetic term [a] are interpreted over the integers, that is,
+    if [c(x)] yields a subconstraint of {!Cnstrnt.int}. *)
+  
+val lower_is_subsumed : bool * Term.t -> t -> bool
+
+val upper_is_subsumed : Term.t * bool -> t -> bool

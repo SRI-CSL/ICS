@@ -113,6 +113,8 @@ and makeint lo hi =
   else
     {dom = Dom.Int; lo = lo'; hi = hi'}
 
+let mk_dom d = make (d, Endpoint.neginf, Endpoint.posinf)
+
 let mk_real = make (Dom.Real, Endpoint.neginf, Endpoint.posinf)
 let mk_int = make (Dom.Int, Endpoint.neginf, Endpoint.posinf)
 let mk_nonint = make (Dom.Nonint, Endpoint.neginf, Endpoint.posinf)
@@ -123,6 +125,18 @@ let mk_singleton q =
   make (Dom.of_q q, bnd, bnd)
 
 let mk_zero = mk_singleton Q.zero
+
+let mk_inf d (alpha, q) = 
+  make (d, Endpoint.make (Extq.of_q q, alpha), Endpoint.posinf)
+
+let mk_sup d (p, beta) = 
+  make (d, Endpoint.neginf, Endpoint.make (Extq.of_q p, beta))
+ 
+let mk_supinf d (alpha, q) (p, beta) = 
+  make (d, Endpoint.make (Extq.of_q q, alpha), 
+	   Endpoint.make (Extq.of_q p, beta))
+ 
+
 
 
 (** {6 Recognizers} *)
@@ -304,8 +318,6 @@ let addq q i =
 	| _ -> i.hi
     in
       make (d', lo', hi')
-
-  
 
 
 

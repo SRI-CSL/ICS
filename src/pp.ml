@@ -36,6 +36,17 @@ and is_mult = function
       (List.for_all (fun x -> is_expt x || is_var x) xl)
   | _ -> false
 
+(** {6 Iterators} *)
+
+let rec fold f a e =
+  match a with
+    | App(Pp(Mult), xl) ->
+	List.fold_right (fold f) xl e
+    | App(Pp(Expt(n)), [x]) ->
+	f x n e
+    | _ ->
+	f a 1 e
+
 
 (** {6 Constructors.} *)
 
@@ -166,21 +177,6 @@ let rec map f a =
     | _ ->
 	f a
 
-(** {6 Constraint}. *)
-
-let tau ctxt op l =
-  try
-    match op, l with
-      | Expt(n), [x] -> 
-	  Cnstrnt.expt n (ctxt x)
-      | Mult, [] -> 
-	  Cnstrnt.mk_one
-      | Mult, _ -> 
-	  Cnstrnt.multl (List.map ctxt l)
-      | _ ->
-	  assert false
-    with
-	Not_found -> Cnstrnt.mk_real
 
 (** Normalize a power product to a list. *)
 
@@ -336,3 +332,8 @@ let div (pp, qq) =
       Some(loop mk_one (to_list pp) (to_list qq))
   with
       Not_found -> None
+
+
+(** {6 Constraint } *)
+
+let cnstrnt f a = Cnstrnt.mk_real

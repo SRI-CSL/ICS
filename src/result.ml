@@ -16,7 +16,7 @@
 type t = 
   | Term of Term.t
   | Atom of Atom.t
-  | Cnstrnt of Cnstrnt.t option 
+  | Cnstrnt of Cnstrnt.t
   | Optterm of Term.t option
   | Name of Name.t
   | Terms of Term.Set.t
@@ -25,17 +25,17 @@ type t =
   | Bool of bool
   | Solution of (Term.t * Term.t) list
   | Context of Context.t
-  | Process of Name.t Process.status
+  | Process of Name.t Context.Status.t
   | Symtab of Symtab.t
   | Entry of Symtab.entry
+  | Sat of Atom.Set.t option
   | Int of int
   | String of string
 
 let output fmt = function
   | Term(t) -> Term.pp fmt t
   | Atom(a) -> Atom.pp fmt a
-  | Cnstrnt(Some(c)) -> Cnstrnt.pp fmt c
-  | Cnstrnt(None) -> Format.fprintf fmt "None"
+  | Cnstrnt(c) -> Cnstrnt.pp fmt c
   | Optterm(Some(t)) -> Term.pp fmt t
   | Optterm(None) -> Format.fprintf fmt "None"
   | Name(n) -> Name.pp fmt n
@@ -45,7 +45,9 @@ let output fmt = function
   | Bool(x) -> Format.fprintf fmt "%s" (if x then "true" else "false")
   | Solution(sl) -> Pretty.list (Pretty.eqn Term.pp) fmt sl
   | Context(c) -> Context.pp fmt c
-  | Process(status) -> Process.pp Name.pp fmt status
+  | Process(status) -> Context.Status.pp Name.pp fmt status
+  | Sat(None) -> Pretty.string fmt ":unsat"
+  | Sat(Some(xs)) -> Pretty.set Atom.pp fmt (Atom.Set.elements xs)
   | Symtab(sym) -> Symtab.pp fmt sym
   | Entry(e) -> Symtab.pp_entry fmt e
   | Int(i) -> Format.fprintf fmt "%d" i

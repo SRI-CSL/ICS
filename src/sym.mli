@@ -67,7 +67,7 @@ type pprod =
 	- [Expt(n)] for exponentiation with integer [n]. *)
 
 type apply = 
-  | Apply of Cnstrnt.t option
+  | Apply of Dom.t option
   | Abs
       (** Function symbols of the theory of functions
 	- [Apply(r)] of function application
@@ -103,6 +103,9 @@ val eq : t -> t -> bool
 
 val cmp : t -> t -> int
   (** Comparison. *)
+
+val hash : t -> int
+  (** nonnegative hash value *)
 
 
 val pp : Format.formatter -> t -> unit

@@ -40,13 +40,14 @@ let keyword =
       "set", SET; "toggle", TOGGLE; "trace", TRACE;  "untrace", UNTRACE; 
       "find", FIND; "inv", INV; "use", USE; "solution", SOLUTION; "partition", PARTITION;
       "syntax", SYNTAX; "commands", COMMANDS; "ctxt", CTXT; "diseq", DISEQ; 
-      "show", SHOW; "symtab", SYMTAB; "cnstrnt", CNSTRNT; "split", SPLIT;
+      "show", SHOW; "symtab", SYMTAB; "cnstrnt", CNSTRNT; "split", SPLIT; "sat", SAT;
       "true", TRUE; "false", FALSE;
       "inr", INR; "inl", INL; "outr", OUTR; "outl", OUTL;
       "inj", INJ; "out", OUT;
       "hd", HEAD; "tl", TAIL;
       "unsigned", UNSIGNED; "apply", APPLY;
-      "lambda", LAMBDA
+      "lambda", LAMBDA;
+      "if", IF; "then", THEN; "else", ELSE; "end", END
     ];
   fun s ->
     try Hashtbl.find kw_table s with Not_found -> IDENT s
@@ -107,7 +108,6 @@ rule token = parse
   | ':'        { COLON }
   | '^'        { EXPT }
   | ".."       { DDOT }
-  | "+++"      { UNION }
   | "++"       { BVCONC }
   | "&&"       { BWAND }
   | "||"       { BWOR }
@@ -115,6 +115,8 @@ rule token = parse
   | '&'        { CONJ }
   | '|'        { DISJ }
   | '#'        { XOR }
+  | "<=>"      { BIIMPL }
+  | "=>"       { IMPL }
   | '~'        { NEG }
   | '_'        { UNDERSCORE } 
   | "<<"       { CMP }

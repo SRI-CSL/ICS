@@ -19,7 +19,7 @@
 type t = 
   | Term of Term.t
   | Atom of Atom.t
-  | Cnstrnt of Cnstrnt.t option
+  | Cnstrnt of Cnstrnt.t
   | Optterm of Term.t option
   | Name of Name.t
   | Terms of Term.Set.t
@@ -28,9 +28,10 @@ type t =
   | Bool of bool
   | Solution of (Term.t * Term.t) list
   | Context of Context.t
-  | Process of Name.t Process.status
+  | Process of Name.t Context.Status.t
   | Symtab of Symtab.t
   | Entry of Symtab.entry
+  | Sat of Atom.Set.t option
   | Int of int
   | String of string
 

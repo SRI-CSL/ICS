@@ -139,91 +139,8 @@ val name_eq : name -> name -> bool
 
 type cnstrnt
 
-val cnstrnt_of_string : string -> cnstrnt
-  (** [cnstrnt_of_string str] parses the string [str] according to
-    the parsing function {!Parser.cnstrnteof} (see specification of
-    the nonterminal [cnstrnteof] in file [parser.mly]) and produces 
-    the corresponding constraint representation. *)
 
-val cnstrnt_input : inchannel -> cnstrnt
-  (** In contrast, [cnstrnt_input in] parses the concrete 
-    syntax of constraints from the input channel [in].  *)
-
-val cnstrnt_output : outchannel -> cnstrnt -> unit
-  (** Constraints [c] are printed to the output channel [out] 
-    using [cnstrnt_output out c] *)
-
-val cnstrnt_pp : cnstrnt -> unit
-  (** [cnstrnt_pp c] prints [c] on {!Ics.channel_stdout}. *)
-
-val cnstrnt_mk_int : unit -> cnstrnt
-  (** [cnstrnt_mk_int()] is the constraint for representing
-    all integers. *)
-
-val cnstrnt_mk_nonint : unit -> cnstrnt
-  (** [cnstrnt_mk_int()] is the constraint for representing
-    all non-integer reals. *)
-
-val cnstrnt_mk_nat : unit -> cnstrnt
-  (** [cnstrnt_mk_nat()] represents the set of all natural numbers. *)
-
-val cnstrnt_mk_singleton : q -> cnstrnt
-  (** [cnstrnt_mk_singleton q] represents the singleton set with member [q]. *)
-  
-val cnstrnt_mk_diseq : q -> cnstrnt
-  (** [cnstrnt_mk_diseq q] represents the set of reals exluding [q]. *)
-
-val cnstrnt_mk_oo : q -> q -> cnstrnt
-  (** [cnstrnt_mk_oo p q] represents the subset [{x | p < x < q}] of the reals. *)
-
-val cnstrnt_mk_oc : q -> q -> cnstrnt
- (** [cnstrnt_mk_oc p q] represents the subset [{x | p < x <= q}] of the reals. *)
-
-val cnstrnt_mk_co : q -> q -> cnstrnt
-  (** [cnstrnt_mk_co p q] represents the subset [{x | p <= x < q}] of the reals. *)
-
-val cnstrnt_mk_cc : q -> q -> cnstrnt
-  (** [cnstrnt_mk_cc p q] represents the subset [{x | p <= x <= q}] of the reals. *)
-
-val cnstrnt_mk_lt : q -> cnstrnt
-  (** [cnstrnt_mk_lt q] represents the subset [{x | x < q}] of the reals. *)
-
-val cnstrnt_mk_le : q -> cnstrnt
-  (** [cnstrnt_mk_le q] represents the subset [{x | x <= q}] of the reals. *)
-
-val cnstrnt_mk_gt : q -> cnstrnt
-  (** [cnstrnt_mk_gt q] represents the subset [{x | x > q}] of the reals. *)
-
-val cnstrnt_mk_ge : q -> cnstrnt
-  (** [cnstrnt_mk_ge q] represents the subset [{x | x >= q}] of the reals. *)
-
-val cnstrnt_inter : cnstrnt -> cnstrnt -> cnstrnt
-  (** The intersection of two constraints [c], [d] is computed 
-    by [cnstrnt_inter c d], that is, a real [q] is in both [c] 
-    and [d] iff it is in  [cnstrnt_inter c d]. *)
-
-val cnstrnt_add : cnstrnt -> cnstrnt -> cnstrnt
-  (** Abstract interval interpretation of addition. A real number 
-    [x] is in [cnstrnt_add c d] iff there are real numbers [y] in 
-    [c] and [z] in [d] such that [x = y + x]. *)
-
-val cnstrnt_multq : q -> cnstrnt -> cnstrnt
-  (** Abstract interval interpretation of linear arithmetic.
-    A real number [x] is in [cnstrnt_multq q c] iff there 
-    exists [y] in [c] such that [x = q * y]. *) 
-
-val cnstrnt_mult : cnstrnt -> cnstrnt -> cnstrnt
-  (** Abstract interval interpretation of multiplication.
-    [cnstrnt_mult] computes an overapproximation of the
-    this interpretation, that is, if [x] in [c] and [y] in [d] then there exists
-    a [z] in [cnstrnt_mult c d] such that [z = x * y]. *)
-
-val cnstrnt_div : cnstrnt -> cnstrnt -> cnstrnt
-  (** If [x] in [c] and [y] in [d] then there exists
-    a [z] in [cnstrnt_div c d] such that [z = x/y]. *)
-
-
-(** {6 Eqeuality theories} *)
+(** {6 Equality theories} *)
 
 (** An {b equality theory} is associated with each function symbol.
  These theories are indexed by naturals between [0] and [maxtheories = 8] according
@@ -284,6 +201,10 @@ val sym_d_uninterp : sym -> name
   rational of type {!Ics.q}. 
 *)
 
+
+val sym_mk_num : q -> sym
+  (** [sym_mk_num q] constructs a numeral symbol for representing [q]. *)
+
 val sym_is_num : sym -> bool
   (** [sym_is_num f] holds iff [f] represents a numeral. *)
 
@@ -291,8 +212,15 @@ val sym_d_num : sym -> q
   (** [sym_d_num f] returns the rational [q] if [f] represents [q].
     This accessor is undefined if {!Ics.sym_is_num} does not hold. *)
 
+val sym_mk_add : unit -> sym
+  (** [sym_mk_add()] constructs the addition symbol. *)
+
 val sym_is_add : sym -> bool
   (** [sym_is_add f] holds iff [f] represents the addition symbol. *)
+
+val sym_mk_multq : q -> sym
+  (** [sym_mk_multq q] constructs the symbol for linear multiplication
+    by a rational [q]. *)
 
 val sym_is_multq : sym -> bool
   (** [sym_is_multq f] holds iff [f] represents a linear 
@@ -309,11 +237,18 @@ val sym_d_multq : sym -> q
   - projections of the [i]-th component in a tuple of length [n]. 
 *)
 
+val sym_mk_tuple : unit -> sym
+  (** [sym_mk_tuple ()] constructs the symbol for tupling. *)
+
 val sym_is_tuple : sym -> bool
   (** [sym_is_tuple f] holds iff [f] represents tupling. *)
 
 val sym_is_proj : sym -> bool
   (** [sym_is_proj f] holds iff [f] represents a projection. *)
+
+val sym_mk_proj : int -> int -> sym
+  (** [sym_mk_proj i n] constructs the symbol for the [i]-th projection 
+    of a tuple of length [n]. *)
 
 val sym_d_proj : sym -> int * int
   (** If {!Ics.sym_is_proj}[(f)] holds, [sym_d_proj f]
@@ -326,14 +261,26 @@ val sym_d_proj : sym -> int * int
   - left and right coinjections
 *)
 
+val sym_mk_inl : unit -> sym
+  (** [sym_mk_inl ()] constructs symbol for left injection. *)
+
 val sym_is_inl : sym -> bool
   (** [sym_is_inl f] holds iff [f] represents left injection. *)
+
+val sym_mk_inr : unit -> sym
+  (** [sym_mk_inr ()] constructs symbol for right injection. *)
 
 val sym_is_inr : sym -> bool
   (** [sym_is_inr f] holds iff [f] represents right injection. *)
 
+val sym_mk_outl : unit -> sym
+  (** [sym_mk_outl ()] constructs symbol for left injection. *)
+
 val sym_is_outl : sym -> bool
   (** [sym_is_outl f] holds iff [f] represents left coinjection. *)
+
+val sym_mk_outr : unit -> sym
+  (** [sym_mk_outr ()] constructs symbol for right coinjection. *)
 
 val sym_is_outr : sym -> bool
   (** [sym_is_outr f] holds iff [f] represents right coinjection. *)
@@ -347,8 +294,18 @@ val sym_is_outr : sym -> bool
   - bitwise conditionals for bitvectors of length [n]. 
 *)
 
+val sym_mk_bv_const : string -> sym
+  (** [sym_mk_bv_const str] constructs, say, a bitvector constant [01001]
+    from a string of the form ["01001"]. The result is undefined if characters
+    other than ['0'] or ['1'] appear in the string. *)
+
 val sym_is_bv_const : sym -> bool
   (** [sym_is_bv_const f] holds iff [f] represents a bitvector constant symbol. *)
+
+val sym_mk_bv_conc : int -> int -> sym
+  (** [sym_mk_bv_conc n m] constructs a concatenation symbol with indices [n]
+    and [m], for [n, m >= 0], for concatenating a bitvector of width [n] with a 
+    bitvector of length [m]. *)
 
 val sym_is_bv_conc : sym -> bool
   (** [sym_is_bv_conc f] holds iff [f] represents a concatenation symbol. *)
@@ -358,12 +315,20 @@ val sym_d_bv_conc : sym -> int * int
     represents a concatenation symbol for bitvectors of width [n] with a
     bitvector of width [m]. *)
 
+val sym_mk_bv_sub : int -> int -> int -> sym
+  (** [sym_mk_bv_sub i j n] constructs a bitvector extraction symbol for the
+    indices [0 <= i <= j < n]. *)
+
 val sym_is_bv_sub : sym -> bool
   (** [sym_is_bv_sub f] holds iff [f] represents a bitvector extraction symbol. *)
 
 val sym_d_bv_sub : sym -> int * int * int
   (** [sym_d_bv_sub f] returns [(i, j, n)] iff [f] represents a bitvector
     extraction of bits [i] through [j] of a bitvector of width [n]. *)
+
+val sym_mk_bv_bitwise : int -> sym
+  (** [sym_mk_bv_bitwise n] constructs a symbol for bitwise logical conditionals
+    for bitvectors of width [n >= 0]. *)
 
 val sym_is_bv_bitwise : sym -> bool
   (** [sym_is_bv_bitwise f] holds iff [f] represents a logical bitwise operation
@@ -374,32 +339,137 @@ val sym_d_bv_bitwise : sym -> int
    operation of width [n]. *)
 
 
-(** Symbols from the theory of {b power products}. *)
+(** Symbols from the theory of {b power products} include
+  - Multi-ary nonlinear multiplication symbol
+  - Exponentiation with an integer.
+*)
+
+val sym_mk_mult : unit -> sym
+  (** [sym_mk_mult()] constructs the nonlinear multiplication symbol. *)
 
 val sym_is_mult : sym -> bool
+  (** [sym_is_mult f] holds iff [f] represents the nonlinear multiplication symbol. *)
+
+val sym_mk_expt : int -> sym
+  (** [sym_mk_expt n] constructs the 'exponentiation by [n]' symbol. *)
 
 val sym_is_expt : sym -> bool
+  (** [sym_is_expt f] holds iff [f] represents an exponentiation symbol. *)
+
+val sym_d_expt : sym -> int
+  (** [sym_d_expt f] returns [n] if [f] represents the 'exponentiation by [n]' symbol. *)
 
 
-(** Symbols from the theory of {b function abstraction and application}. *)
+(** Symbols from the theory of {b function abstraction and application} include
+  - function abstraction
+  - function application
+
+  A function application symbol may have a constraint of type {!Ics.cnstrnt} associated
+  with it.
+*)
+
+val sym_mk_apply : cnstrnt option -> sym
+ (** [sym_mk_apply co] constructs a symbol for function application with associated
+   constraint [co]. *)
 
 val sym_is_apply : sym -> bool
+  (** [sym_is_apply f] holds iff [f] represents the function application symbol. *)
 
 val sym_d_apply : sym -> cnstrnt option
+ (** [sym_d_apply f] returns the constraint associated with a function application
+   symbol. *)
+
+val sym_mk_abs : unit -> sym
+  (** [sym_mk_abs()] constructs the symbol for function abstraction. *)
 
 val sym_is_abs : sym -> bool
+  (** [sym_is_abs f] holds iff [f] represents the function abstraction symbol. *)
 
 
-(** Symbols from the theory of {b arrays}. *)
+(** Symbols from the theory of {b arrays} include
+  - array updates (write)
+  - array selection (read)
+*)
+
+val sym_mk_select : unit -> sym
+  (** The array select symbol. *)
 
 val sym_is_select : sym -> bool
+  (** [sym_is_select f] holds iff [f] represents the array selection symbol. *)
+
+val sym_mk_update : unit -> sym
+  (** The array update symbol. *)
 
 val sym_is_update : sym -> bool
+ (** [sym_is_update f] holds iff [f] represents the array update symbol. *)
 
 
-(** Symbols from the theory of {b arithmetic interpretations of bitvectors}. *)
+(** Symbols from the theory of {b arithmetic interpretations of bitvectors} include
+  - the {i unsigned} interpretation symbol. 
+*)
+
+val sym_mk_unsigned : unit -> sym
+  (** Constructing the unsigned interpretation symbol. *)
 
 val sym_is_unsigned : sym -> bool
+  (** [sym_is_unsigned f] holds iff [f] represents the unsigned interpretation symbol. *)
+  
+
+(** {6 Variables} *)
+
+(** The set of all variables is partitioned into different {b kinds} of variables, namely
+  - {i external},
+  - {i fresh}, and 
+  - {b bound} variables.  
+  
+  There is a name of type {!Name.t} associated with each variable. Names for 
+  fresh variables are always of the form ["x!i"], where [x] is an arbitrary string 
+  and [i] is an integer string. The name associated with a bound variable is of the 
+  form ["!i"] for an integer [i].
+*)
+
+type var
+
+val var_name_of : var -> name
+  (** [name_of x] returns the name associated with a variable [x]. *)
+
+val var_eq : var -> var -> bool
+  (** [eq x y] holds iff [x] and [y] are in the same category (that is,
+    external, fresh, and bound) of variables and if their names are identical. *)
+
+val var_cmp :var -> var -> int
+  (** [cmp x y] realizes a total ordering on variables. The result is [0]
+    if [eq x y] holds, it is less than [0] we say, '[x] is less than [y]',
+    and, otherwise, '[x] is greater than [y]'. An external variable [x] is always
+    less than a nonexternal (that is, a fresh or a free) variable [y]. Otherwise, 
+    the outcome of [cmp x y] is unspecified. *)
+
+val var_mk_external : name -> var
+  (** [var_mk_external x] creates an external variable with associated name [x]. *)
+
+val var_mk_fresh : name -> int option -> var
+  (** [mk_fresh n None] constructs a fresh variable with associated name
+    ["n!i"], where [i] is the current value of the variable {!Var.k} above. As
+    as side-effect, {!Var.k} is incremented by one.  [mk_fresh n Some(i)]
+    constructs a fresh variable with associated name ["n!i"]; there are no
+    side effects on {!Var.k}. *)
+
+val var_mk_bound : int -> var
+  (** [var_mk_bound i] constructs a bound variable with associated name [!i]. *)
+
+val var_is_external : var -> bool
+  (** [is_var x] holds iff [x] is an external variable. *)
+
+val var_is_fresh : var -> bool
+  (** [is_fresh x] holds iff [x] is a fresh variable. *)
+
+val var_is_bound : var -> bool
+  (** [is_bound x] holds iff [x] is a bound variable. *)
+
+val var_d_bound : var -> int
+  (** For a free variable [x], [var_d_bound x] returns [i], if ["!i"] is
+    the name associated with [x].  The result is undefined for non-bound
+    variables. *)
 
 
 (** {6 Terms} *)
@@ -412,21 +482,24 @@ val sym_is_unsigned : sym -> bool
 type term
 
 val term_of_string : string -> term
-  (** [term_of_string] parses a string according to the grammar for the nonterminal
-    [termeof] in module [Parser] (see its specification in file [parser.mly]) and
-    builds a corresponding term. *)
+  (** [term_of_string] parses a string according to the grammar 
+    for the nonterminal {!Parser.termeof} (see its specification in 
+    file [parser.mly]) and builds a corresponding term. *)
 
 val term_input : inchannel -> term
-  (** Similary, [term_input] builds a term by reading from an input channel. *)
-
-val term_to_string : term -> string
+  (** [term_input inch] is similar to {!Ics.term_of_string} but builds a 
+    term by reading from input channel [inch]. *)
 
 val term_output : outchannel -> term -> unit
-  (** [term_output out a] prints term [a] on the output channel [out], 
-    and [term_pp a] is equivalent to [term_output stdout a]. *)
+  (** [term_output outch a] prints term [a] on the output channel [out]. *)
+
+val term_to_string : term -> string
+  (** [term_to_string a] prints a term to a string. This string
+    is parsable by {!Ics.term_of_string}. *)
 
 val term_pp : term -> unit
-
+  (** [term_pp a] is equivalent to [term_output (Ics.stdout()) a]. *)
+  
 val term_eq : term -> term -> bool
   (** [term_eq a b] holds iff [a] and [b] are syntactically
     equal, that is, either
@@ -440,18 +513,35 @@ val term_eq : term -> term -> bool
 val term_cmp : term -> term -> int
   (** Comparison [term_cmp a b] returns either
     [-1], [0], or [1] depending on whether [a] is less than [b],
-    the arguments are equal, or [a] is greater than [b]. *)
+    the arguments are equal, or [a] is greater than [b]. 
+    - Variables are always greater than applications, 
+    - variables are ordered according to {!Ics.var_cmp}, and 
+    - applications are ordered lexicographically using {!Ics.sym_cmp} 
+      on the function symbols and comparing respective term arguments. *)
 
 val term_mk_var : string -> term
-  (** Given a string [s], [term_mk_var s] constructs a 
-    variable with name [s] and [term_mk_uninterp s al]
-    constructs an application of an uninterpreted function
-    symbol [s] to a list of argument terms. *)
+  (** Given a string [s], [term_mk_var s] constructs an 
+    {i external} variable with name [s]. *)
 
 val term_mk_uninterp : string -> term list -> term
+  (** [term_mk_uninterp s al] constructs an application of an 
+    uninterpreted function symbol [s] to a list [al] of argument 
+    terms. *)
 
+(** {b Linear arithmetic terms} are built-up from rational constants,
+  linear multiplication of a rational with a variable, and n-ary
+  addition. 
 
-(** {b Arithmetic terms} include rational constants built from
+  Linear arithmetic terms are always normalized as a {b sum-of-product}
+  [q0 + q1*x1+...+qn*xn] where the [qi] are rational constants and the
+  [xi] are variables (or any other term not interpreted in this
+  theory), which are ordered such that {!Ics.term_cmp}[xi xj] is
+  greater than zero for [i < j]. This implies that any such variable
+  occurs at most once. In addition, [qi], for [i > 0], is never zero.
+  If [qi] is one, we just write [xi] instead of [qi * xi], and if [q0]
+  is zero, it is simply omitted in the sum-of-product above.
+
+include rational constants built from
  [term_mk_num q], linear multiplication [term_mk_multq q a],
  addition [term_mk_add a b] of two terms, n-ary 
  addition [term_mk_addl al] of a list of terms [al],
@@ -462,50 +552,124 @@ val term_mk_uninterp : string -> term list -> term
  form as defined in module [Arith]. [term_is_arith a] holds
  iff the toplevel function symbol of [a] is any of the 
  function symbols interpreted in the theory of arithmetic. *)
- 
-
-val term_mk_num : q -> term
-val term_mk_multq : q -> term -> term
-val term_mk_add : term -> term -> term 
-val term_mk_addl : term list -> term   
-val term_mk_sub : term -> term -> term
-val term_mk_unary_minus : term -> term
 
 
 val term_is_arith : term -> bool
+  (** [term_is_arith a] holds if the toplevel symbol of [a]
+    is interpreted in linear arithmetic. *)
+
+val term_mk_num : q -> term
+  (** [term_mk_num q] constructs a numeral term for representing
+    the rational [q]. *)
+
+val term_mk_multq : q -> term -> term
+  (** [term_mk_multq q a] constructs a term for representing
+    the term [a] multiplied by [q]. If [a] is in sum-of-product
+    form, then so is [term_mk_multq q a]. *)
+  
+val term_mk_add : term -> term -> term 
+  (** [term_mk_add a b] constructs a term for representing the
+    sum of [a] and [b]. If both [a] and [b] are in sum-of-product
+    form, then so is  [term_mk_add a b]. *)
+
+val term_mk_addl : term list -> term  
+   (** Iteration of binary addition
+     - [term_mk_addl []] is {!Ics.term_mk_num()},
+     - [term_mk_addl [a]] is [a], and
+     - [term_mk_addl (a :: al)] is [term_mk_add a (term_mk_addl al)]. *)
+
+val term_mk_sub : term -> term -> term
+  (** [term_mk_sub a b] represents the difference [a - b]. If
+    both [a] and [b] are in sum-of-product form, then so is the result. *)
+
+val term_mk_unary_minus : term -> term
+  (** [term_mk_unary_minus a] represents the negation of [a].
+    If [a] is in sum-of-product form, then so is the result. *)
 
 
-(** Tuples are built using the [mk_tuple] constructor, and
-  projection of the [i]-th component of a tuple [t] of
-  length [n] is realized using [mk_proj i n t]. *)
-    
+(** Tuple terms. Tuple terms in normal form do not contain 
+  (applicable) projections on tuples. *)
+   
 val term_mk_tuple : term list -> term
+  (** [term_mk_tuple [a1;...;an]] constructs tuple
+    term for respresenting the tuple [(a1,...,an)]. The
+    result is in tuple normal form, when all [ai] are in tuple normal
+    form  *)
+
 val term_mk_proj : int -> int -> term -> term
+  (** [term_mk_proj i n a] constructs, for [0 <= i < n], a term 
+    for representing the [i]-th projection of an [n]-tuple. If [a]
+    is in tuple normal form, then so is the result. *)
+
+
+(** {b Bitvector terms} are built up from bitvector constants, concatenation
+  of two bitvectors, extraction of a contiguous subrange from a bitvector,
+  and logical bitwise operations.  Each bitvector term has a nonnegative
+  {i width} associated with it, and bits in a bitvector of width [n] are
+  addressed from [0] to [n-1] in increasing order from left-to-right. All bitvector 
+  terms are in {i concatenation normal form}, that is, a left-associative 
+  concatenation of 
+  - terms uninterpreted in the bitvector theory
+  - bitvector constants (with adjacent constants merged)
+  - single extractions from uninterpreted terms in this theory
+  - bitvector BDDs, which are BDDs with nodes consisting of one
+    of the above classes of terms. 
+
+  The constructors below all construct concatenation normal forms,
+  whenever their arguments are in this form.
+*)
+
+val term_mk_bvconst : string -> term
+  (** [term_mk_bvconst str] constructs a bitvector constant. *)
+
+val term_mk_bvsub : (int * int * int) -> term -> term
+  (** [term_mk_bvsub i j n a] constructs, for [0 <= i <= j < n] a term 
+    for representing the extraction of the [j-i+1] bits from 
+    position [i] through [j] in a term of width [n]. *)
+
+val term_mk_bvconc : int * int -> term -> term -> term
+  (** [term_mk_bvconc n m a b] constructs the concatenation [a ++ b]
+    of bitvector terms [a] of width [n] with [b] of width [m]. *)
+
+val term_mk_bwite : int -> term * term * term -> term
+  (** [term_mk_bwite n (a, b, c)] constructs a bitwise logical
+    [ITE(a, b, c)]; the argument bitvector terms are assumed to
+    have width [n]. *)
+
+val term_mk_bwand : int -> term -> term -> term
+  (** [term_mk_bwand n a b] constructs a bitwise conjunction term
+    for bitvectors [a], [b] of width [n]. *)
+
+val term_mk_bwor : int -> term -> term -> term
+  (** [term_mk_bwor n a b] constructs a bitwise disjunction term
+    for bitvectors [a], [b] of width [n]. *)
+
+val term_mk_bwnot : int -> term -> term
+  (** [term_mk_bwnot n a] constructs a bitwise negation term
+    for a bitvectors [a] of width [n]. *)
+
 
 (** Boolean constants. *)
     
 val term_mk_true  : unit -> term
+  (** The propositional constant [term_mk_true()] is encoded
+    as the bitvector constant of width [1] with a [1] at position [0]. *)
+
 val term_mk_false : unit -> term
+  (** The propositional constant [term_mk_false()] is encoded
+    as the bitvector constant of width [1] with a [0] at position [0]. *)
 
 val term_is_true : term -> bool
+  (** [term_is_true a] holds iff [a] is term equal to [term_mk_true()]. *)
+
 val term_is_false : term -> bool
- 
+  (** [term_is_false a] holds iff [a] is term equal to [term_mk_false()]. *)
 
-(** {b Bitvector terms} *)
-
-val term_mk_bvconst : string -> term
-val term_mk_bvsub : (int * int * int) -> term -> term
-val term_mk_bvconc : int * int -> term -> term -> term
-val term_mk_bwite : int -> term * term * term -> term
-val term_mk_bwand : int -> term -> term -> term
-val term_mk_bwor : int -> term -> term -> term
-val term_mk_bwnot : int -> term -> term
 
 (** {b Coproducts} *)
 
 val term_mk_inj : int -> term -> term
 val term_mk_out : int -> term -> term
-
 
 
 (** Builtin simplifying constructors. *)
@@ -524,12 +688,13 @@ val term_mk_expt : int -> term -> term
 
 val term_mk_apply : term -> term list -> term
 
-val term_mk_arith_apply : cnstrnt -> term -> term list -> term
-
-
 (** Set of terms. *)
 
 type terms
+
+(** {6 Interpretation Domains} *)
+
+type dom
 
 
 (** {6 Atoms} *)
@@ -551,17 +716,27 @@ val atom_to_string : atom -> string
       
 val atom_mk_equal  : term -> term -> atom
 val atom_mk_diseq  : term -> term -> atom
-val atom_mk_in  : cnstrnt -> term -> atom
+val atom_mk_in  : term -> dom -> atom
 val atom_mk_true : unit -> atom
 val atom_mk_false : unit -> atom
 
+val atom_is_negatable : atom -> bool
+val atom_negate : atom -> atom
+
+type atoms
+
+val atoms_empty : unit -> atoms
+val atoms_singleton : atom -> atoms
+val atoms_add : atom -> atoms -> atoms
+val atoms_to_list : atoms -> atom list
+
 
 (** Derived atomic constraints. [atom_mk_int t] restricts the domain of 
- interpretations of term [t] to the integers. Similarly, [atom_mk_real] 
- restricts its argument to the real numbers. [atom_mk_lt a b] generates
- the constraint ['a' < 'b'],  [atom_mk_le a b] yields ['a' <= 'b'], 
- [atom_mk_gt a b] yields ['a' > 'b'], and [atom_mk_ge a b] yields ['a' >= 'b'].
- *)
+  interpretations of term [t] to the integers. Similarly, [atom_mk_real] 
+  restricts its argument to the real numbers. [atom_mk_lt a b] generates
+  the constraint ['a' < 'b'],  [atom_mk_le a b] yields ['a' <= 'b'], 
+  [atom_mk_gt a b] yields ['a' > 'b'], and [atom_mk_ge a b] yields ['a' >= 'b'].
+*)
 
 val atom_mk_real : term -> atom
 val atom_mk_int : term -> atom
@@ -571,6 +746,38 @@ val atom_mk_lt : term -> term -> atom
 val atom_mk_le : term -> term -> atom
 val atom_mk_gt : term -> term -> atom
 val atom_mk_ge : term -> term -> atom
+
+
+(** {6 Propositions} *)
+
+type prop
+ 
+val prop_mk_true : unit -> prop
+val prop_mk_false : unit -> prop
+val prop_mk_var : name -> prop
+val prop_mk_poslit : Atom.t -> prop
+val prop_mk_neglit : Atom.t -> prop
+val prop_mk_ite : prop -> prop -> prop -> prop
+val prop_mk_conj : prop list -> prop
+val prop_mk_disj : prop list -> prop
+val prop_mk_iff : prop -> prop ->prop
+val prop_mk_neg : prop -> prop
+
+val prop_is_true : prop -> bool
+val prop_is_false : prop -> bool
+val prop_is_var : prop -> bool
+val prop_is_atom : prop -> bool
+val prop_is_ite : prop -> bool
+val prop_is_disj : prop -> bool
+val prop_is_iff : prop -> bool
+val prop_is_neg : prop -> bool
+
+val prop_d_var : prop -> name
+val prop_d_atom : prop -> atom
+val prop_d_ite : prop -> prop * prop * prop
+val prop_d_disj : prop -> prop list
+val prop_d_iff : prop -> prop * prop
+val prop_d_neg : prop -> prop
 
 
 (** {6 Solutions sets} *)
@@ -656,6 +863,9 @@ val process : context -> atom -> status
     the responsibility of the application programmer to perform these splits;
     see also {!Ics.split}. *)
 
+val sat : context -> prop -> atoms option
+  (** Satisfiability check. *)
+
 val split : context -> atom list
   (** Suggesting case splits. *)
 
@@ -668,7 +878,7 @@ val can : context -> atom -> atom
     - an equivalent normalized atom built up only from variables is returned. *)
 
 
-val cnstrnt : context -> term -> cnstrnt option
+val cnstrnt : context -> term -> cnstrnt
   (** Given a logical context [s] and a term [a], [cnstrnt s a]
     computes an arithmetic constraint for [a] in [s] using constraint 
     information in [s] and abstraction interval interpretation.
@@ -702,13 +912,12 @@ val cmd_batch : unit -> unit
 val flush : unit -> unit
 
 
-
 (** {6 Controls}. *)
 
 val reset : unit -> unit
   (** [reset()] clears all the global tables. This does not only 
-    include the current context but also internal tables used  for hash-consing 
-    and memoization purposes. *)
+    include the current context but also internal tables used for 
+    hash-consing and memoization purposes. *)
     
 val gc : unit -> unit
   (** [gc()] triggers a full major collection of ocaml's garbage collector. *)
@@ -722,8 +931,7 @@ val sleep : int -> unit
 
 (** {6 Tracing} *)
 
-(**
-  Rudimentary control on trace messages, which are 
+(** Rudimentary control on trace messages, which are 
  sent to [stderr]. These functions are mainly included
  for debugging purposes, and are usually not being used
  by the application programmer. *)
@@ -749,15 +957,17 @@ val head : 'a list -> 'a
 val tail : 'a list -> 'a list
 
 
-(** {6 Pairs} 
-
-  Pairs. [pair a b] builds a pair [(a,b)] and
- [fst (pair a b)] returns [a] and [snd (pair b a)]
- returns [b]. *)
+(** {6 Pairs} *)
 
 val pair : 'a -> 'b -> 'a * 'b
+  (** [pair a b] builds a pair [(a,b)]. *)
+  
 val fst : 'a * 'b -> 'a
+  (** [fst p] returns [b] if [p] is equal to some [pair a _]. *)
+  
 val snd : 'a * 'b -> 'b
+  (** [snd p] returns [b] if [p] is equal to some [pair _ b]. *)
+
 
 (** {6 Triples}  *)
 
@@ -767,14 +977,15 @@ val snd_of_triple : 'a * 'b *'c -> 'b
 val third_of_triple : 'a * 'b *'c -> 'c
 
 
-(** Quadruples. Accessors for quadruples [(a,b,c,d)]. *)
+(** {6 Quadruples} *)
   
 val fst_of_quadruple : 'a * 'b * 'c *'d -> 'a
 val snd_of_quadruple : 'a * 'b * 'c *'d -> 'b
 val third_of_quadruple : 'a * 'b * 'c *'d -> 'c
 val fourth_of_quadruple : 'a * 'b * 'c *'d -> 'd
 
-(** {6 Options} *)
+
+(** {6 Option types} *)
       
 (** Options. An element of type ['a option] either satisfies
  the recognizer [is_some] or [is_none].  In case, [is_some]
@@ -784,3 +995,4 @@ val is_some : 'a option -> bool
 val is_none : 'a option -> bool
 
 val value_of : 'a option -> 'a
+

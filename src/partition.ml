@@ -18,60 +18,47 @@ open Three
 
 type t = {
   mutable v : V.t;              (* Variable equalities. *)
-  mutable d : D.t;              (* Variables disequalities. *)
-  mutable c : C.t               (* Constraints. *)
+  mutable d : D.t               (* Variables disequalities. *)
 }
 
 
 let empty = {
   v = V.empty;
-  d = D.empty;
-  c = C.empty 
+  d = D.empty
 }
 
-let copy p = {v = p.v; d = p.d; c = p.c}
+let copy p = {v = p.v; d = p.d}
 
 (** Accessors. *)
 
 let v_of s = s.v
 let d_of s = s.d
-let c_of s = s.c
 
 
 (** Destructive Updates. *)
 
 let update_v p v = (p.v <- v; p)
 let update_d p d = (p.d <- d; p)
-let update_c p c = (p.c <- c; p)
-
 
 (** Canonical variables module [s]. *)
 
 let v s = V.find s.v
 
-(** Constraint for a variable. *)
-
-let c s = C.apply s.c
-
-
 (** All disequalities of some variable [x]. *)
 
 let deq s = D.deq s.d
-
 
 (** Pretty-printing. *)
   
 let pp fmt s =
   V.pp fmt s.v;
-  D.pp fmt s.d;
-  C.pp fmt s.c
+  D.pp fmt s.d
 
 (** Test if states are unchanged. *)
 
 let eq s t =
   V.eq s.v t.v &&
-  D.eq s.d t.d &&
-  C.eq s.c t.c
+  D.eq s.d t.d
  
 
 (** Equality test. *)
@@ -84,50 +71,23 @@ let is_equal s x y =
   else if D.is_diseq s.d x' y' then 
     Three.No
   else
-    try
-      let i = C.apply s.c x in
-      let j = C.apply s.c y in
-      if Cnstrnt.is_disjoint i j then
-	Three.No 
-      else 
-	Three.X
-    with
-	Not_found -> Three.X
-
-
-(** Test for integerness. *)
-
-let is_int s x = 
-  try 
-    let i = C.apply s.c x in
-    Cnstrnt.dom_of i = Dom.Int 
-  with 
-      Not_found -> false
-
+    Three.X
 
 (* Merge a variable equality. *)
 
 let merge e s =
   let (x, y, _) = Fact.d_equal e in
   match is_equal s x y with
-    | Three.Yes -> s
-    | Three.No -> raise Exc.Inconsistent
+    | Three.Yes -> 
+	s
+    | Three.No -> 
+	raise Exc.Inconsistent
     | Three.X ->
 	Trace.msg "p" "Merge" e Fact.pp_equal;
 	let v' = V.merge e s.v in
 	let d' = D.merge e s.d in
-	let c' = C.merge e s.c in
-	  update_v (update_d (update_c s c') d') v'
+	  update_v (update_d s d') v'
 
-(** Add a constraint. *)
-
-let add c s =
-  let c' = C.add c s.c in  
-    if C.eq s.c c' then s else 
-      begin
-	Trace.msg "p" "Add" c Fact.pp_cnstrnt;
-	  update_c s c'
-      end 
 
 (** Add a disequality. *)
 
@@ -140,9 +100,8 @@ let diseq d s =
 	s
     | Three.X -> 
 	let d' = D.add d s.d in
-	let c' = C.diseq d s.c in
 	  Trace.msg "p" "Diseq" d Fact.pp_diseq;
-	  update_d (update_c s c') d'
+	  update_d s d'
 
 let restrict xs s = 
   let v' = Set.fold V.restrict xs s.v in
@@ -152,28 +111,3 @@ let restrict xs s =
 
 let equality p = V.equality p.v
 let disequalities p = D.disequalities p.d
-let cnstrnt p = C.to_fact p.c
-
-
-(** Management of changed sets. *)
-
-module Changed = struct
-
-  let reset () =
-    V.changed := Set.empty;
-    D.changed := Set.empty;
-    C.changed := Set.empty
-
-  let save () = (!V.changed, !D.changed, !C.changed)
-
-  let restore (v, d, c) =
-    V.changed := v;
-    D.changed := d;
-    C.changed := c
-  
-  let stable () =
-    !V.changed = Set.empty &&
-    !D.changed = Set.empty &&
-    !C.changed = Set.empty
-
-end

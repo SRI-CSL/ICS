@@ -49,5 +49,3 @@ let rec map f a =
 	    mk_unsigned x'
     | _ -> 
 	f a
-
-let tau _ _ _ = Cnstrnt.mk_nat

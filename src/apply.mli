@@ -32,7 +32,7 @@
 
 (** {6 Signature} *)
 
-val apply : Cnstrnt.t option -> Sym.t
+val apply : Dom.t option -> Sym.t
   (** Family of function symbols for representing function application. *)
 
 val abs : Sym.t
@@ -42,7 +42,7 @@ val abs : Sym.t
 (** {6 Constructors} *)
 
 val mk_apply : (Sym.t -> Term.t list -> Term.t)
-                   -> Cnstrnt.t option -> Term.t -> Term.t list -> Term.t
+                   -> Dom.t option -> Term.t -> Term.t list -> Term.t
   (** [mk_apply sigma c a al] builds an application with range type [c] by
     applying term [a] to a list of argument terms [al].  In addition, it performs
     beta-reduction. The [sigma] argument is used to further simplify beta redeces. *)
@@ -67,10 +67,3 @@ val map: (Term.t -> Term.t) -> Term.t -> Term.t
     subterm of [a] and rebuilds the term [a] by using the simplifying constructors
     [mk_apply] and [mk_abs]. *)
 
-
-(** {6 Constraints} *)
-
-val tau : (Term.t -> Cnstrnt.t) -> Sym.apply -> Term.t list -> Cnstrnt.t
-  (** [tau c f al] computes the constraint [i] if [f] is of the form [apply(Some(i))]
-    and [al] is a unary list. *)
-  

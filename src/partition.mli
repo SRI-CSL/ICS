@@ -18,7 +18,7 @@
   - set of variable equalities [x = y], 
   - a set of variable disequalities [x <> y], and
   - a set of variable constraints [x in i],
-  where [i] is an arithmetic constraint of type {!Cnstrnt.t}.
+  where [i] is an arithmetic constraint of type {!Supinf.t}.
 
   @author Harald Ruess
 *)
@@ -31,17 +31,10 @@ type t
 
 val v_of : t -> V.t
 val d_of : t -> D.t
-val c_of : t -> C.t
 
 val v : t -> Term.t -> Term.t
   (** [v s x] returns the canonical representative of the equivalence
     class in the partitioning [s] containing the variable [x]. *)
-
-val c : t -> Term.t -> Cnstrnt.t
-  (** [c s x] returns, for a canonical variable [x], an associatiatede
-    arithmetic constraint, if there is one. Otherwise, [Not_found] is
-    raised. *)
-
 
 val deq : t -> Term.t -> Term.Set.t
   (** [deq s x] returns the set of all variable [y] disequal to [x] as stored
@@ -52,8 +45,6 @@ val equality : t -> Term.t -> Fact.equal
 
 val disequalities : t -> Term.t -> Fact.diseq list
 
-val cnstrnt : t -> Term.t -> Fact.cnstrnt
-
 
 (** {6 Destructive Updates} *)
 
@@ -62,7 +53,6 @@ val update_v : t -> V.t -> t
     is different from [s.v]. *)
 
 val update_d : t -> D.t -> t
-val update_c : t -> C.t -> t
 
 val copy : t -> t
   (** [copy p] does a shallow copying of [p]. Should be called before
@@ -79,10 +69,6 @@ val is_equal : t -> Term.t -> Term.t -> Three.t
     [y] is in [deq x], or [x in i] and [y in j] are constraints in [s] and [i],
     [j] are disjoint. Otherwise, [Three.X] is returned. *)
  
-
-val is_int : t -> Term.t -> bool
-  (** [is_int s a] tests if the constraint [cnstrnt s a] is included in [Cnstrnt.mk_int]. *)
-
 
 (** {6 Pretty-printing} *)
   
@@ -103,13 +89,8 @@ val merge : Fact.equal -> t -> t
 
 val restrict : Term.Set.t -> t -> t
   (** [remove s] removes all internal variables which are not canonical. *)
-
-
-val add : Fact.cnstrnt -> t -> t
-  (** [add c s] adds a constraint of the form [x in i] to the constraint part [c]
-    of the partition [s]. May raise [Exc.Inconsistent] if the resulting constraint
-    for [x] is the empty constraint (see [C.add]). *)
  
+
 val diseq : Fact.diseq -> t -> t
   (** [diseq d s] adds a disequality of the form [x <> y] to [s]. If [x = y] is
     already known in [s], that is, if [is_equal s x y] yields [Three.Yes], then
@@ -120,15 +101,3 @@ val diseq : Fact.diseq -> t -> t
 val eq : t -> t -> bool
   (** [eq s t] holds if the respective equality, disequality, and constraint parts
     are identical, that is, stored in the same memory location. *)
-
-
-(** Management of changed variables. *)
-
-module Changed : sig
-
-  val reset : unit -> unit
-  val save : unit -> Term.Set.t * Term.Set.t * Term.Set.t
-  val restore : Term.Set.t * Term.Set.t * Term.Set.t -> unit
-  val stable : unit -> bool
-
-end

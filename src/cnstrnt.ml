@@ -11,367 +11,921 @@
  * benefit corporation.
  *)
 
-open Mpa         
+open Mpa  
+open Sym    
 
-(** Set of rational numbers. *)
-module Diseqs = Set.Make(
-  struct
-    type t = Q.t
-    let compare = Q.compare
-  end)
+(** {6 Term comparison} *)
 
+let le a b =
+  let (q, ml) = Arith.poly_of a 
+  and (p, nl) = Arith.poly_of b in
+    Term.eql ml nl && Q.le q p
 
-(** A constraint consists an interval and a set of rational numbers. *)
-type t = Interval.t * Diseqs.t
+let lt a b =
+  let (q, ml) = Arith.poly_of a 
+  and (p, nl) = Arith.poly_of b in
+    Term.eql ml nl && Q.lt q p
 
-let destruct c = c
-
-let eq (i, qs) (j, ps) = 
-  Interval.eq i j && Diseqs.equal qs ps
-
-let dom_of (i,_) =
-  let (d,_,_) = Interval.destructure i in
-  d
-
-let endpoints_of (i, _) =
-  let (_, lo, hi) = Interval.destructure i in
-    (lo, hi)
+let less (a, alpha, b) =
+  if alpha then le a b else lt a b
 
 
-let is_unbounded (i, _) =
-  let (_, lo, hi) = Interval.destructure i in
-    Endpoint.eq Endpoint.neginf lo && 
-    Endpoint.eq Endpoint.posinf hi
+(** {6 Relations between constraint sets} *)
+
+type rel = 
+  | Disjoint
+  | Same
+  | Sub
+  | Super
+  | Overlap
+
+let relpp fmt rel =
+  Pretty.string fmt
+    (match rel with
+       | Disjoint -> "disjoint"
+       | Same -> "same"
+       | Sub -> "sub"
+       | Super -> "super"
+       | Overlap -> "overlap")
 
 
-(** Printing constraints. *)
-let pp fmt c =
-  let (i,qs) = destruct c in
-  Format.fprintf fmt "@[";
-  Interval.pp fmt i;
-  if not(Diseqs.is_empty qs) then
-    begin
-      Format.fprintf fmt "\\";
-      Pretty.set Mpa.Q.pp fmt (Diseqs.elements qs)
-    end
+(** {6 Lower bounds} *) 
 
+module Low = struct
 
-(** Empty constraint. *)
-let mk_empty = (Interval.mk_empty, Diseqs.empty)
+  type t = 
+    | Neginf 
+    | Bound of bool * Term.t
 
-let is_empty (i,_) = Interval.is_empty i
+  let mk_neginf = Neginf
 
-let is_full (i,qs) = 
-  Interval.is_full i && Diseqs.is_empty qs
+  let mk_strict a = Bound(false, a)
 
-let is_finite (i,_) =
-  let (d,l,h) = Interval.destructure i in
-  d = Dom.Int && Endpoint.is_q l && Endpoint.is_q h
+  let mk_nonstrict a = Bound(true, a)
 
-let is_pos (i, _) =
-  let (eq, alpha) = Endpoint.destruct (Interval.lo i) in
-    match Extq.destruct eq with
-      | Extq.Posinf -> true
-      | Extq.Inject(q) -> 
-	  if alpha then
-	    Mpa.Q.gt q Mpa.Q.zero
-	  else 
-	    Mpa.Q.ge q Mpa.Q.zero
+  let d_num = function
+    | Bound(alpha, Term.App(Arith(Num(q)), [])) -> 
+	(alpha, q)
+    | _ -> 
+	raise Not_found
+
+  let mk_low d l =   (* normalize according to domain [d] *)
+    try
+      let (alpha, q) = d_num l in
+	if d = Dom.Int && not alpha then
+	  let q' = Q.of_z(Q.floor(Q.add q Q.one)) in
+	    mk_nonstrict (Arith.mk_num q')
+	else if d = Dom.Nonint && alpha && Q.is_integer q then
+	  mk_strict (Arith.mk_num q)
+	else 
+	  l
+    with
+	Not_found -> l
+
+  let eq l m =
+    match l, m with
+      | Neginf, Neginf -> 
+	  true
+      | Bound(alpha, a), Bound(beta, b) -> 
+	  alpha = beta && Term.eq a b
+      | _ -> 
+	  false
+
+  let le l m =
+    match l, m with
+      | Neginf, _ -> 
+	  true
+      | Bound _, Neginf -> 
+	  false
+      | Bound(false, a), Bound(true, b) -> 
+	  lt a b
+      | Bound(_, a), Bound(_, b) -> 
+	  le a b
+
+  let ge l m = le m l
+
+  let pp fmt = function
+    | Neginf -> 
+	Pretty.string fmt "(-inf"
+    | Bound(alpha, a) -> 
+	Pretty.string fmt (if alpha then "[" else "(");
+	Term.pp fmt a
+
+end
+
+module High = struct
+
+  type t = 
+    | Posinf
+    | Bound of Term.t * bool
+
+  let mk_posinf = Posinf
+
+  let mk_strict a = Bound(a, false)
+
+  let mk_nonstrict a = Bound(a, true)
+
+  let d_num = function
+    | Bound(Term.App(Arith(Num(p)), []), beta) -> (p, beta)
+    | _ -> raise Not_found
+
+  let mk_high d u =
+    try
+      let (p, beta) = d_num u in
+	if d = Dom.Int && not beta then
+	  let p' = Q.of_z(Q.ceil(Q.sub p Q.one)) in
+	    mk_nonstrict (Arith.mk_num p')
+	else if d = Dom.Nonint && beta && Q.is_integer p then
+	  mk_strict (Arith.mk_num p)
+	else 
+	  u
+    with
+	Not_found -> u
+
+  let eq l m =
+    match l, m with
+      | Posinf, Posinf -> true
+      | Bound(a, alpha), Bound(b, beta) -> alpha = beta && Term.eq a b
       | _ -> false
 
-let is_neg (i, _) =
-  let (eq, beta) = Endpoint.destruct (Interval.hi i) in
-    match Extq.destruct eq with
-      | Extq.Neginf -> true
-      | Extq.Inject(q) -> 
-	  if beta then
-	    Mpa.Q.lt q Mpa.Q.zero
-	  else 
-	    Mpa.Q.le q Mpa.Q.zero
-      | _ -> false
+  let le u v =
+    match u, v with
+      | _, Posinf -> true
+      | Posinf, Bound _ -> false
+      | Bound(a, true), Bound (b, false) -> lt a b
+      | Bound(a, _), Bound(b, _) -> le a b
+
+  let ge u v = le v u
+
+  let pp fmt = function
+    | Posinf -> Pretty.string fmt "inf)"
+    | Bound(b, beta) -> 
+	Term.pp fmt b;
+	Pretty.string fmt (if beta then "]" else ")")
+
+end
+
+(** {6 Comparisons between lower and upper bounds} *)
+
+module Supinf = struct
+
+  let lt u l = 
+    match u, l with
+      | High.Posinf, _ -> 
+	  false
+      | _, Low.Neginf -> 
+	  false
+      | High.Bound(b, true), Low.Bound(true, a) -> 
+	  lt b a
+      | High.Bound(b, _), Low.Bound(_, a) -> 
+	  le b a
+  
+end 
 
 
+(** {6 Intervals} *)
 
-(** Membership. *)
-let mem q (i,qs) =
-  Interval.mem q i && not(Diseqs.mem q qs)
+module Interval = struct
 
+  type t = Low.t * High.t
 
-(** Constructing a constraint from components *)
-let of_interval i = (i, Diseqs.empty)
+  let mk_empty = 
+    let zero = Arith.mk_zero in
+    (Low.mk_strict zero, High.mk_strict zero)
 
-exception Found of Mpa.Q.t
+  let is_empty i = (i == mk_empty)
 
-let rec make (i, qs) =
-  if Interval.is_empty i then
-    mk_empty
-  else if Diseqs.is_empty qs then
-    (i, Diseqs.empty)
-  else 
-    let (dom, lo, hi) = Interval.destructure i in
-    let lo' = 
-      match Endpoint.destruct lo with
-	| (a, true) ->
-	    (match Extq.to_q a with
-	       | Some(q) when Diseqs.mem q qs -> Endpoint.make (a, false)
-	       | _ -> lo)
-	| _ -> lo
-    and hi' = 
-      match Endpoint.destruct hi with
-	| (b, true) ->
-	    (match Extq.to_q b with
-	       | Some(p) when Diseqs.mem p qs -> Endpoint.make (b, false)
-	       | _ -> hi)
-	| _ -> hi
-    in
-    let i' = Interval.make (dom, lo', hi') in
-    let qs' = Diseqs.filter (fun q -> Interval.mem q i') qs in
-      (i', qs')
+  let mk_full = (Low.mk_neginf, High.mk_posinf)
 
+  let mk_singleton q =
+    let n = Arith.mk_num q in
+      (Low.mk_nonstrict n, High.mk_nonstrict n)
 
-let make =
-  Trace.func "bar" "Cnstrnt.make" pp pp make
+  let mk_equal a =
+    match Arith.d_num a with
+      | Some(q) -> mk_singleton q 
+      | None -> (Low.mk_nonstrict a, High.mk_nonstrict a)
 
+  let mk_zero = mk_singleton Q.zero
+  let mk_one = mk_singleton Q.one
 
-(** Constraint for the real number line, the integers, and the
- natural numbers. *)
+  let mk_less d u = (Low.Neginf, High.mk_high d u)
 
-let mk_real = 
-  of_interval Interval.mk_real
+  let mk_greater d l = (Low.mk_low d l, High.Posinf)
 
-let mk_int = 
-  of_interval Interval.mk_int
-
-let mk_nonint =
-  of_interval Interval.mk_nonint
-
-let mk_nat = 
-  let i = Interval.make (Dom.Int, Endpoint.nonstrict Q.zero, Endpoint.posinf) in
-  of_interval i
-
-(** Constructing singleton constraints. *)
-
-let mk_singleton q = 
-  of_interval (Interval.mk_singleton q)
-
-let mk_zero = mk_singleton Mpa.Q.zero
-let mk_one = mk_singleton Mpa.Q.one
-
-let d_singleton (i, qs) =
-  match Interval.d_singleton i with
-    | (Some(q) as res) 
-	when not(Diseqs.mem q qs) -> 
-	res
-    | _ ->
-	None
-
-let d_lower (i, qs) =
-  if not(Diseqs.is_empty qs) then None else
-    let (dom, lo, hi) = Interval.destructure i in
-    let (a, alpha) =  Endpoint.destruct lo in
-    let (b, _) =  Endpoint.destruct hi in
-      match Extq.destruct a, Extq.destruct b with
-	| Extq.Inject(q), Extq.Posinf ->
-	    Some(dom, alpha, q)
-	| _ ->
-	    None
-
-let d_upper (i, qs) =
-  if not(Diseqs.is_empty qs) then None else
-    let (dom, lo, hi) = Interval.destructure i in
-    let (a, _) =  Endpoint.destruct lo in
-    let (b, beta) =  Endpoint.destruct hi in
-      match Extq.destruct a, Extq.destruct b with
-	| Extq.Neginf, Extq.Inject(p)->
-	    Some(dom, p, beta)
-	| _ ->
-	    None
-
-type bounds = 
-  | Lower of Dom.t * bool * Mpa.Q.t
-  | Upper of Dom.t * Mpa.Q.t * bool
-  | LowerUpper of Dom.t * bool * Mpa.Q.t * Mpa.Q.t * bool
-  | Unbounded of Dom.t
-
-let bounds (i, _) = 
-  let (dom, lo, hi) = Interval.destructure i in
-  let (a, alpha) =  Endpoint.destruct lo in
-  let (b, beta) =  Endpoint.destruct hi in
-    match Extq.destruct a, Extq.destruct b with
-      | Extq.Neginf, Extq.Posinf ->
-	  Unbounded(dom)
-      | Extq.Neginf, Extq.Inject(p)->
-	  Upper(dom, p, beta)
-      | Extq.Inject(q), Extq.Posinf ->
-	  Lower(dom, alpha, q)
-      | Extq.Inject(q),  Extq.Inject(p) ->
-	  LowerUpper(dom, alpha, q, p, beta)
+  let d_singleton (l, u) =
+    match l, u with
+      | Low.Bound(true, a), High.Bound(b, true)
+	  when Term.eq a b ->
+	  a
       | _ ->
-	  assert false
+	  raise Not_found
+
+  let pp fmt (l, u) =
+    Low.pp fmt l;
+    Pretty.string fmt "..";
+    High.pp fmt u
+
+  let occurs x (l, u) =
+    match l, u with
+      | Low.Neginf, High.Posinf -> 
+	  false
+      | Low.Bound(_, a), High.Posinf -> 
+	  Term.occurs x a
+      | Low.Neginf, High.Bound(b, _) -> 
+	  Term.occurs x b
+      | Low.Bound(_, a), High.Bound(b, _) ->
+	  Term.occurs x a || Term.occurs x b
+
+  let notin a (l, u) =
+    match l, u with
+      | Low.Neginf, High.Posinf -> 
+	  false
+      | Low.Bound(alpha, b), High.Posinf -> 
+	  if alpha then lt a b else le a b
+      | Low.Neginf, High.Bound(c, beta) ->
+	  if beta then lt c a else le c a
+      | Low.Bound(alpha, b), High.Bound(c, beta) -> 
+	  (if alpha then lt a b else le a b) ||
+	  (if beta then lt c a else le c a)
+	  
+  let eq (l1, u1) (l2, u2) =
+    Low.eq l1 l2 && High.eq u1 u2
+
+  let sub (l1, u1) (l2, u2) = 
+    Low.ge l1 l2 && High.le u1 u2
+
+  let disjoint (l1, u2) (l2, u2) =
+    Supinf.lt u2 l2 || Supinf.lt u2 l1
+    
+  let cmp i j =
+    if disjoint i j then Disjoint
+    else if eq i j then Same
+    else if sub i j then Sub
+    else if sub j i then Super
+    else Overlap
+
+  let cmp i j =
+    Trace.call "foo" "Cmp" (i, j) (Pretty.pair pp pp);
+    let k = cmp i j in
+      Trace.exit "foo" "Cmp" k relpp;
+      k
+
+  let varfold f (l, u) e =
+    match l, u with
+      | Low.Neginf, High.Posinf -> 
+	  e
+      | Low.Neginf, High.Bound(b, _) -> 
+	  Term.fold f b e
+      | Low.Bound(_, a), High.Posinf -> 
+	  Term.fold f a e
+      | Low.Bound(_, a), High.Bound(b, _) -> 
+	  Term.fold f a (Term.fold f b e)
+	
+  let inconsistent l u =
+    match l, u with
+      | Low.Neginf, _ -> false
+      | _, High.Posinf -> false
+      | Low.Bound(alpha, a), High.Bound(b, beta) ->
+	  if alpha && beta then lt b a else le b a
+    
+  let rec make d l u =
+    if inconsistent l u then 
+      mk_empty 
+    else if d = Dom.Real then
+      (l, u)
+    else 
+      let l' = Low.mk_low d l 
+      and u' = High.mk_high d u in
+	if inconsistent l' u' then 
+	  mk_empty 
+	else 
+	  (l', u')
+
+  let addq d q ((l, u) as i) = 
+    if Mpa.Q.is_zero q then
+      i
+    else
+      match l, u with
+	| Low.Bound(alpha, a), High.Bound(b, beta) ->
+	    let l' = Low.Bound(alpha, Arith.mk_addq q a)
+	    and u' = High.Bound(Arith.mk_addq q b, beta) in
+	    make d l' u'
+	| Low.Bound(alpha, a), High.Posinf ->
+	    make d (Low.Bound(alpha, Arith.mk_addq q a)) High.Posinf
+	| Low.Neginf, High.Bound(b, beta) ->
+	    make d Low.Neginf (High.Bound(Arith.mk_addq q b, beta))
+	| _ ->
+	    i
+
+  let multq d q ((l, u) as i) =
+    if Q.is_zero q then mk_zero
+    else if Q.is_one q then i 
+    else if Q.is_pos q then
+      let l' = match l with
+	| Low.Neginf -> Low.Neginf
+	| Low.Bound(alpha, a) -> Low.mk_low d (Low.Bound(alpha, Arith.mk_multq q a))
+      and u' = match u with
+	| High.Posinf -> High.Posinf
+	| High.Bound(b, beta) -> High.mk_high d (High.Bound(Arith.mk_multq q b, beta))
+      in
+	(l', u')
+    else (* [Q.is_neg q] *)
+      let u' = match l with
+	| Low.Neginf -> High.Posinf
+	| Low.Bound(alpha, a) -> High.mk_high d (High.Bound(Arith.mk_multq q a, alpha))
+      and l' = match u with
+	| High.Posinf -> Low.Neginf
+	| High.Bound(b, beta) -> Low.mk_low d (Low.Bound(beta, Arith.mk_multq q b))
+      in
+	(l', u')
+	
+ let add d (l1, u1) (l2, u2) =
+   let l = match l1, l2 with
+     | Low.Neginf, _ -> Low.Neginf
+     | _, Low.Neginf -> Low.Neginf
+     | Low.Bound(alpha1, a1), Low.Bound(alpha2, a2) ->
+	 Low.Bound(alpha1 && alpha2, Arith.mk_add a1 a2)
+   and u = match u1, u2 with
+     | High.Posinf, _ -> High.Posinf
+     | _, High.Posinf -> High.Posinf
+     | High.Bound(b1, beta1), High.Bound(b2, beta2) ->
+	 High.Bound(Arith.mk_add b1 b2, beta1 && beta2)
+   in
+     make d l u
+   
+
+ let mult d c1 c2 = mk_full
+		      
+ let expt d n c =
+   if n = 0 then
+     mk_one
+   else if n < 0 then
+     mk_full
+   else
+     mk_full
+
+ let div c1 c2 = mk_full
+
+ let replace d x y ((l, u) as i) =
+   match l, u with
+     | Low.Neginf, High.Posinf -> i
+     | Low.Neginf, High.Bound(b, beta) ->
+	 let b' = Arith.replace x y b in
+	   if b == b' then i else 
+	     make d Low.Neginf (High.Bound(b', beta))
+     | Low.Bound(alpha, a), High.Posinf ->
+	 let a' = Arith.replace x y a in
+	   if a == a' then i else 
+	     make d (Low.Bound(alpha,a')) High.Posinf
+     | Low.Bound(alpha, a), High.Bound(b, beta) ->
+	 let a' = Arith.replace x y a 
+	 and b' = Arith.replace x y b in
+	   if a' == a && b' == b then i else
+	     let l' = Low.Bound(alpha, a') 
+	     and u' = High.Bound(b', beta) in
+	       make d l' u'
+
+ let is_numeric (l, h) =
+   match l, h with
+      | Low.Neginf, High.Posinf -> 
+	  true
+      | Low.Neginf, High.Bound(b, _) ->
+	  Arith.is_num b
+      | Low.Bound(_, a), High.Posinf ->
+	  Arith.is_num a
+      | Low.Bound(_, a), High.Bound(b, _) ->
+	  Arith.is_num a && Arith.is_num b
+
+end 
+
+(** {6 Intersection of intervals} *)
+
+module Intervals = struct
+
+  module Inter = Set.Make(
+    struct
+      type t = Interval.t
+      let compare i j = 
+	if Interval.eq i j then 0 else Pervasives.compare i j
+    end)
+
+  type t = Inter.t
+
+  let mk_empty = Inter.singleton (Interval.mk_empty)
+
+  let is_empty is = (is == mk_empty)
+
+  let inject = Inter.singleton
+
+  let mk_full = Inter.empty
+
+  let mk_singleton q = inject (Interval.mk_singleton q)
+
+  let mk_zero = mk_singleton Q.zero
+  let mk_one = mk_singleton Q.one
+
+  let to_list = Inter.elements
+
+  let eq = Inter.equal
+
+  let sub is js = (* empty intervals interpreted as unconstrained. *)
+    match Inter.is_empty is, Inter.is_empty js with
+      | true, true -> true
+      | true, false -> false
+      | false, true -> true
+      | false, false ->
+	  (Inter.for_all
+	     (fun i -> Inter.exists (Interval.sub i) js) is)
+
+
+  exception Found
+
+  let choose p is =
+    let result = ref (Obj.magic 1) in
+      try
+	Inter.iter
+	  (fun i ->
+	     if p i then 
+	       begin
+		 result := i;
+		 raise Found
+	       end)
+	  is;
+	raise Not_found
+      with
+	  Found -> !result
  
+  (** [[l1, u1] inter [l2, u2]] reduces to [[l2, u1]] if [l1 <= l2] and [u1 <= u2]. *)
+  let inter1 dom ((l1, u1) as i) js = 
+    if Interval.is_empty i then 
+      mk_empty
+    else if Inter.exists (fun j -> Interval.sub j i) js then
+      js
+    else 
+      try
+	let ((l2, u2) as j) = 
+	  choose 
+	    (fun (l2, u2) -> 
+	       Low.le l1 l2 && High.le u1 u2)
+	    js
+	in
+	let js' = Inter.remove j js in
+	  Inter.add (Interval.make dom l2 u1) js'
+      with
+	  Not_found ->
+	    (try
+	       let ((l2, u2) as j) = 
+		 choose 
+		   (fun (l2, u2) -> 
+		      Low.le l2 l1 && High.le u2 u1)
+		   js
+	       in
+	       let js' = Inter.remove j js in
+		 Inter.add (Interval.make dom l1 u2) js'  
+	     with
+		 Not_found ->
+		   Inter.add i js)
 
-let mk_zero = mk_singleton Mpa.Q.zero
-let mk_one = mk_singleton Mpa.Q.one
+  let inter dom = 
+    Inter.fold (inter1 dom)
+
+  let pp fmt is =
+    Pretty.list Interval.pp fmt (Inter.elements is)
+
+  let map d f is = 
+    Inter.fold 
+      (fun i acc -> 
+	 let j = f i in
+	   if Interval.eq i j then 
+	     acc
+	   else
+	     inter1 d j (Inter.remove i acc))
+      is is
+
+  let fold = Inter.fold
+  let exists = Inter.exists
+  let for_all = Inter.for_all
+
+  let notin a = Inter.exists (Interval.notin a) 
+
+  let addq d q = map d (Interval.addq d q)
+
+  let multq d q = map d (Interval.multq d q)
+
+  let add d is js =
+    fold 
+      (fun i ->
+	 fold 
+	 (fun j -> inter1 d (Interval.add d i j))
+	 js)
+      is
+      mk_full
+
+  let disjoint is js =
+    exists (fun i -> exists (Interval.disjoint i) js) is
+   
+  let mult d c1 c2 = mk_full
+		      
+  let expt d n c =
+    if n = 0 then
+      mk_one
+    else if n < 0 then
+      mk_full
+    else
+      mk_full
+	
+  let div c1 c2 = mk_full
+
+  let replace d x a is =
+    map d (Interval.replace d x a) is 
+
+  exception High of Mpa.Q.t * bool
+
+  let high_of is =
+    try
+      Inter.iter
+	(fun (_, u) ->
+	   try 
+	     let (p, beta) = High.d_num u in
+	       raise (High(p, beta))
+	   with
+	       Not_found -> ())
+	is;
+      raise Not_found
+    with
+	High(p, beta) -> (p, beta)
 
 
-(** Disequality constraint. *)
-let mk_diseq q = (Interval.mk_real, Diseqs.singleton q)
+  exception Low of bool * Mpa.Q.t 
+
+  let low_of is =
+    try
+      Inter.iter
+	(fun (l, _) ->
+	   try 
+	     let (alpha, q) = Low.d_num l in
+	     raise (Low(alpha, q))
+	   with
+	       Not_found -> ())
+	is;
+      raise Not_found
+    with
+	Low(alpha, q) -> (alpha, q)
+
+  let d_equalities is =
+    fold
+      (fun ((l, h) as i) ((es, is) as acc) ->
+	 match l, h with
+	   | Low.Bound(true, a), High.Bound(b, true)
+	       when Term.eq a b ->
+	       (Term.Set.add a es, Inter.remove i is)
+	   | _ ->
+	       acc)
+      is
+      (Term.Set.empty, is)
+
+  let occurs x =
+    Inter.exists (Interval.occurs x)
+
+  let numeric_of is =
+    Inter.fold
+      (fun i is ->
+	 if Interval.is_numeric i then is else Inter.remove i is)
+      is is
+	 
+end 
 
 
-(** Checks wether [c] is a subconstraint of [d]. *)
-let sub (i,qs) (j,ps) =
-  Interval.sub i j &&
-  Diseqs.subset ps qs
+type t = {
+  dom : Dom.t;
+  intervals : Intervals.t
+}
+
+let dom_of c = c.dom
+
+let high_of c =
+  Intervals.high_of c.intervals
+
+let low_of c =
+  Intervals.low_of c.intervals
+
+let is_unbounded c = 
+  Intervals.is_empty (c.intervals)
+
+let pp fmt c = 
+  let il = Intervals.to_list c.intervals in
+    if c.dom <> Dom.Real || il = [] then
+      Dom.pp fmt c.dom;
+    Pretty.infixl Interval.pp " inter" fmt il
+
+
+let mk_empty = {
+  dom = Dom.Real;
+  intervals = Intervals.inject (Interval.mk_empty)
+}
+let is_empty c = (c == mk_empty)
+
+let mk_dom d = {dom = d; intervals = Intervals.mk_full}
+
+let mk_real = mk_dom Dom.Real
+let mk_int = mk_dom Dom.Int
+let mk_nonint = mk_dom Dom.Nonint
+
+let mk_nat = {
+  dom = Dom.Int;
+  intervals = Intervals.inject (Interval.make Dom.Int (Low.Bound(true, Arith.mk_zero)) High.Posinf)
+}
+
+let make d is =
+  {dom = d; intervals = is}
+
+let mk_singleton q =
+  let d = if Q.is_integer q then Dom.Int else Dom.Nonint in
+    {dom = d; 
+     intervals = Intervals.inject (Interval.mk_singleton q)}
+
+let mk_equal a =
+  match Arith.d_num a with
+    | Some(q) -> 
+	mk_singleton q
+    | None ->
+	{dom = Dom.Real;
+	 intervals = Intervals.inject (Interval.mk_equal a)}
   
 
-(** Intersection of two constraints *)
-let inter (i, qs) (j, ps) =
-  make (Interval.inter i j, Diseqs.union qs ps)
+let mk_zero = mk_singleton Q.zero
+let mk_one = mk_singleton Q.one
 
+let mk_less dom (b, beta) =
+  { dom = dom;
+    intervals = Intervals.inject (Interval.mk_less dom (High.Bound(b, beta))) }
 
-(** Comparison. *)
-let rec cmp c d =
-  let (i, qs) = destruct c in
-  let (j, ps) = destruct d in
-  match Interval.cmp i j with 
-    | Binrel.Disjoint -> 
-	Binrel.Disjoint
-    | Binrel.Overlap(k) -> 
-	analyze (make (k, Diseqs.union qs ps))
-    | Binrel.Same when Diseqs.equal qs ps -> 
-	Binrel.Same
-    | Binrel.Same when Diseqs.subset qs ps -> 
-	Binrel.Super
-    | Binrel.Same when Diseqs.subset ps qs -> 
-	Binrel.Sub
-    | Binrel.Same -> 
-	analyze (make (i, Diseqs.union qs ps))
-    | Binrel.Singleton(q) when Diseqs.mem q qs || Diseqs.mem q ps -> 
-	Binrel.Disjoint
-    | Binrel.Singleton(q) ->
-	Binrel.Singleton(q)
-    | Binrel.Sub when Diseqs.subset ps qs ->
-	Binrel.Sub
-    | Binrel.Sub -> 
-	analyze (make (i, Diseqs.union qs ps))
-    | Binrel.Super when Diseqs.subset qs ps ->
-	Binrel.Super
-    | Binrel.Super ->
-	analyze (make (j, Diseqs.union qs ps))
+let mk_greater dom (alpha, a) =
+  { dom = dom;
+    intervals = Intervals.inject (Interval.mk_greater dom (Low.Bound(alpha, a))) }
 
-and analyze c =
-  if is_empty c then
-    Binrel.Disjoint
-  else 
-    match d_singleton c with
-      | Some(q) -> Binrel.Singleton(q)
-      | None -> Binrel.Overlap(c)
+let numeric_of c =
+  let is' = Intervals.numeric_of c.intervals in
+    if is' == c.intervals then c else
+      {dom = c.dom; intervals = is'}
 
-(** Status. *)
-let status c =
-  if is_empty c then
-    Status.Empty
-  else 
-    match d_singleton c with
-      | Some(q) -> Status.Singleton(q)
-      | None -> Status.Other
+let eq c d =
+  Dom.eq c.dom d.dom &&
+  Intervals.eq c.intervals d.intervals
+  
+let sub c d =
+  Dom.sub c.dom d.dom &&
+  Intervals.sub c.intervals d.intervals
+ 
+let disjoint c d = 
+  Intervals.disjoint c.intervals d.intervals
+  
+let inter c d = 
+  try
+    let dom = Dom.inter c.dom d.dom in
+    let is = Intervals.inter dom c.intervals d.intervals in
+      make dom is
+  with
+      Dom.Empty -> mk_empty
 
+let cmp c d =
+  if disjoint c d then Disjoint
+  else if eq c d then Same
+  else if sub c d then Sub
+  else if sub d c then Super
+  else Overlap
 
-(** Are [c] and [d] disjoint. *)
-let is_disjoint c d =
-  is_empty (inter c d)
+let d_equalities c =
+  let (es, d) = Intervals.d_equalities c.intervals in
+    (es, make c.dom d)
+    
 
+(** {6 Abstract interpretation} *)
 
-(** Additional constructors. *)
-let of_endpoints (dom, lo, hi) = 
-  of_interval (Interval.make (dom, lo, hi))
+let add c d =
+  let dom = match c.dom, d.dom with
+    | Dom.Real, _ -> Dom.Real
+    | _, Dom.Real -> Dom.Real
+    | Dom.Int, Dom.Int -> Dom.Int
+    | Dom.Int, Dom.Nonint -> Dom.Nonint
+    | Dom.Nonint, Dom.Nonint -> Dom.Real  (* overapproximation. *)
+    | Dom.Nonint, Dom.Int -> Dom.Nonint
+  in
+    make dom (Intervals.add dom c.intervals d.intervals)
 
-let mk_oo dom u v = of_endpoints (dom, Endpoint.strict u, Endpoint.strict v)
-let mk_oc dom u v = of_endpoints (dom, Endpoint.strict u, Endpoint.nonstrict v)
-let mk_co dom u v = of_endpoints (dom, Endpoint.nonstrict u, Endpoint.strict v)
-let mk_cc dom u v = of_endpoints (dom, Endpoint.nonstrict u, Endpoint.nonstrict v)
-
-let mk_lower dom (u, beta) = 
-  of_endpoints (dom, Endpoint.neginf, Endpoint.make (Extq.of_q u, beta))
-
-let mk_upper dom (alpha, u) = 
-  of_endpoints (dom, Endpoint.make (Extq.of_q u, alpha), Endpoint.posinf)
-
-let mk_lt dom u = of_endpoints (dom, Endpoint.neginf, Endpoint.strict u)
-let mk_le dom u = of_endpoints (dom, Endpoint.neginf, Endpoint.nonstrict u)
-let mk_gt dom u = of_endpoints (dom, Endpoint.strict u, Endpoint.posinf)
-let mk_ge dom u = of_endpoints (dom, Endpoint.nonstrict u, Endpoint.posinf)
-
-let mk_neg dom = mk_lt dom Q.zero
-let mk_pos dom = mk_gt dom Q.zero
-let mk_nonneg dom = mk_ge dom Q.zero
-let mk_nonpos dom = mk_le dom Q.zero
-
-
-(** Abstract interpretation. *)
-let addq q (j, ps) = 
-  if Mpa.Q.is_zero q then
-    make (j, ps)
-  else 
-    let i' = Interval.addq q j in
-    let ps' = Diseqs.fold (fun p -> Diseqs.add (Q.add q p)) ps Diseqs.empty in
-      make (i', ps')
-
-let add (i, _) (j, _) = 
-  of_interval (Interval.add i j)
-
-let linear (p, (i, _)) (q, (j, _)) = 
-  of_interval (Interval.add (Interval.multq p i) (Interval.multq q j))
-
-let subtract (i,_) (j,_) =
-  of_interval (Interval.subtract i j)
-
+let addq q c =
+  let dom = if Dom.eq c.dom Dom.Int && Q.is_integer q then Dom.Int else Dom.Real in
+    make dom (Intervals.addq dom q c.intervals)
+  
 let rec addl = function
   | [] -> mk_zero
   | [c] -> c
   | [c; d] -> add c d
   | c :: cl -> add c (addl cl)
 
-let multq q ((i,qs) as c) =
-  if Mpa.Q.equal Mpa.Q.one q then 
-    make (i, qs)
-  else if Mpa.Q.equal Mpa.Q.zero q then
+let multq q c =
+  if Q.is_zero q then
     mk_zero
-  else if Interval.is_full i then
-    if Diseqs.is_empty qs then
-      c
-    else 
-      let qs' =  Diseqs.fold (fun p -> Diseqs.add (Mpa.Q.mult q p)) qs Diseqs.empty in
-      make (i, qs')
+  else if Q.is_one q then
+    c
   else 
-    let j' = Interval.multq q i in
-    let qs' = Diseqs.fold (fun p -> Diseqs.add (Mpa.Q.mult q p)) qs Diseqs.empty in
-      make (j', qs')
+    let dom = if Q.is_integer q && c.dom = Dom.Int then Dom.Int else Dom.Real in
+      make dom (Intervals.multq dom q c.intervals)
 
-let mult (i,_) (j,_) =
-  of_interval (Interval.mult i j)
-
+let subtract c d =
+  add c (multq Q.negone d)
+	
+let mult c d =
+  let dom = match c.dom, d.dom with
+    | Dom.Int, Dom.Int -> Dom.Int
+    | _ -> Dom.Real
+  in
+    make dom (Intervals.mult dom c.intervals d.intervals)
 
 let rec multl = function
-  | [] -> mk_singleton Q.one
+  | [] -> mk_one
   | [c] -> c
   | c :: cl -> mult c (multl cl)
 
-let expt n (i,_) =
+let expt n c =
   if n = 0 then
     mk_one
   else if n < 0 then
     mk_real
   else
-    of_interval (Interval.expt n i)
+    mk_real
 
-let div (i,_) (j,_) = mk_real
+let div c d = mk_real
 
-(** Folding over all rationals in constraint. *)
 
-let foldq f (i, qs) e =
-  let (_, lo, hi) = Interval.destructure i in
-  let e' = try f (Endpoint.q_of lo) e with Not_found -> e in
-  let e'' = try f (Endpoint.q_of hi) e' with Not_found -> e' in
-    Diseqs.fold f qs e''
+(** {6 Miscellaneous} *)
+
+let is_finite c = 
+  Dom.eq c.dom Dom.Int &&
+  Intervals.exists
+    (function
+       | (Low.Bound(_,Term.App(Arith(Num _), [])), 
+	  High.Bound(Term.App(Arith(Num _), []), _)) -> true
+       | _ -> false)
+    c.intervals
+
+let is_full c =
+  Dom.eq c.dom Dom.Real &&
+  Intervals.is_empty c.intervals
+
+let notin a c = 
+  (Intervals.notin a c.intervals) ||
+  (match Arith.d_num a with
+     | Some(q) -> not(Dom.mem q c.dom)
+     | None -> false)
+
+let fold f c =
+  Intervals.fold f c.intervals
+
+(** Fold over all variables. *)
+let varfold f c =
+  Intervals.fold (Interval.varfold f) c.intervals
+  
+  
+let replace x a c =
+  make c.dom (Intervals.replace c.dom x a c.intervals)
       
+	 
+  
+(** {6 Constraint of a term.} *)
+
+let of_term f a =
+  let rec term a =
+    match a with
+      | Term.App(Arith(op), xl) -> arith op xl
+      | Term.App(Pp(op), xl) -> pprod op xl
+      | Term.App(Bvarith(op), [x]) -> bvarith op x
+      | Term.App(Fun(Apply(Some(d))), [_]) ->
+	  mk_dom d
+      | _ -> 
+	  f a
+
+  and arith op al = 
+    match op, al with
+      | Num(q), [] ->
+	  mk_singleton q
+      | Multq(q), [x] ->
+	  multq q (term x)
+      | Add, [x; y] ->
+	  add (term x) (term y)
+      | Add, xl ->
+	  addl (List.map term xl)
+      | _ ->
+	  assert false
+
+  and bvarith op a =
+    match op with
+      | Unsigned -> mk_nat
+
+  and pprod op al =
+    match op, al with
+      | Expt(n), [x] -> 
+	  expt n (term x)
+      | Mult, [] -> 
+	  mk_one
+      | Mult, [x] ->
+	  term x
+      | Mult, [x; y] ->
+	  mult (term x) (term y)
+      | Mult, xl -> 
+	  multl (List.map term xl)
+      | _ ->
+	  assert false
+
+  in 
+    term a
+
+let rec of_addl f = function
+  | [] -> mk_zero
+  | [x] -> of_term f x
+  | [x; y] -> add (of_term f x) (of_term f y)
+  | x :: xl -> add (of_term f x) (of_addl f xl)
+
+
+(** Integer test. Incomplete. *)
+let rec is_int f a = 
+  let is_int_var x = 
+    try 
+      let c = f x in
+	Dom.eq c.dom Dom.Int
+    with 
+	Not_found -> false
+  in
+    match a with
+      | Term.App(Arith(Num(q)), []) ->
+	  Q.is_integer q
+      | Term.App(Arith(Multq(q)), [x]) ->
+	  Q.is_integer q &&
+	  is_int f x
+      | Term.App(Arith(Add), xl) ->
+	  List.for_all (is_int f) xl
+      | _ ->
+	  false
+
+(** Test if all variables are interpreted in the integers. *)
+let rec is_diophantine f a =
+  try
+    let rec loop = function
+      | Term.App(Arith(Num(_)), []) -> 
+	  true
+      | Term.App(Arith(Multq(_)), [x]) -> 
+	  loop x
+      | Term.App(Arith(Add), xl) -> 
+	  List.for_all loop xl
+      | a -> 
+	  Dom.eq (f a).dom Dom.Int
+    in 
+      loop a
+  with
+      Not_found -> false
+
+
+(** Subsumption *)
+
+let lower_is_subsumed (alpha, a) c =
+  false
+
+let upper_is_subsumed (b, beta) c =
+  false
+
+(** Derived constraints *)
+
+let implied c =
+  Intervals.fold
+    (fun (l, u) acc ->
+       match l, u with
+	 | Low.Neginf, _ -> 
+	     acc
+	 | _, High.Posinf -> 
+	     acc
+	 | Low.Bound(true, a), High.Bound(b, true) ->
+	     if le a b then acc else Arith.mk_le a b :: acc
+	 | Low.Bound(_, a), High.Bound(b, _) ->
+	     if lt a b then acc else Arith.mk_lt a b :: acc)
+    c.intervals []
+
+let equal x c =
+  Intervals.fold
+    (fun (l, u) acc ->
+       match l, u with
+	 | Low.Neginf, High.Posinf -> 
+	     acc
+	 | Low.Bound(alpha, a), High.Posinf -> 
+	     Arith.mk_greater (x, alpha, a) :: acc
+	 | Low.Neginf, High.Bound(b, beta) -> 
+	     Arith.mk_less (x, beta, b) :: acc
+	 |  Low.Bound(alpha, a), High.Bound(b, beta) ->
+	       Arith.mk_greater (x, alpha, a) ::  Arith.mk_less (x, beta, b) :: acc)
+    c.intervals []
+
+
+let occurs x c =
+  Intervals.occurs x c.intervals
+
+

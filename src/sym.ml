@@ -37,7 +37,7 @@ type pprod =
   | Expt of int
 
 type apply = 
-  | Apply of Cnstrnt.t option
+  | Apply of Dom.t option
   | Abs
 
 type arrays = 
@@ -62,6 +62,16 @@ type t =
 
 let cmp = Pervasives.compare
 
+let hash = function
+  | Uninterp(x) -> (2 + Hashtbl.hash x) land 0x3FFFFFFF
+  | Arith(f) -> (3 + Hashtbl.hash f) land 0x3FFFFFFF
+  | Product(f) -> (5 + Hashtbl.hash f) land 0x3FFFFFFF
+  | Coproduct(f) -> (7 + Hashtbl.hash f) land 0x3FFFFFFF
+  | Bv(f) -> (11 + Hashtbl.hash f) land 0x3FFFFFFF
+  | Pp(f) -> (17 + Hashtbl.hash f) land 0x3FFFFFFF
+  | Fun(f) -> (23 + Hashtbl.hash f) land 0x3FFFFFFF
+  | Bvarith(f) -> (29 + Hashtbl.hash f) land 0x3FFFFFFF
+  | Arrays(f) ->(31 + Hashtbl.hash f) land 0x3FFFFFFF
 
 let rec eq s t =
   match s, t with  
@@ -174,7 +184,7 @@ let pp fmt s =
   and apply op =
     match op with
       | Apply(Some(c)) -> 
-	  Pretty.string fmt ("apply[" ^ Pretty.to_string Cnstrnt.pp c ^ "]")
+	  Pretty.string fmt ("apply[" ^ Pretty.to_string Dom.pp c ^ "]")
       | Apply(None) ->
 	  Pretty.string fmt "apply"
       | Abs -> 

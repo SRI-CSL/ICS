@@ -13,7 +13,18 @@
 
 type t = string
 
-let of_string s = s
+
+let of_string =
+  let ht = Hashtbl.create 107 in
+    fun s ->
+      try
+	Hashtbl.find ht s
+      with
+	  Not_found ->
+            Hashtbl.add ht s s; s
+
+let eq = (==)
+
 let to_string s = s
 
 let eq = (=)

@@ -36,6 +36,9 @@ val mk_const : Sym.t -> t
   (** [mk_const c] constructs a function application 
     of symbol [c] to the empty argument list. *)
 
+val mk_num : Mpa.Q.t -> t
+  (** [mk_num q] constructs a constant for representing the rational [q]. *)
+
 val mk_app : Sym.t -> t list -> t
   (* [mk_app f l] constructs a function application of symbol [f]
      to a list [l]. *)
@@ -87,8 +90,18 @@ val args_of : t -> t list
   (** [sym_of a] returns the argument list [l] of an application
     [a] of the form [App(_,l)]. *)
 
+val poly_of : t -> Mpa.Q.t * t list
+  (** [poly_of a] yields (q, ml) such that [q + mk_addl ml] equals [a]
+    and [ml] does not contain numeral addition anymore (if [a] is in
+    the normal form of linear arithmetic terms as described in module {!Arith}). *)
+
 val to_var : t -> Var.t
   (** [to_var a] returns [x] if [a] is of the form [Var(x)]. *)
+
+
+(** {6 Hash value} *)
+
+val hash : t -> int
 
 
 (** {6 Comparisons} *)
@@ -171,7 +184,6 @@ val to_string : t -> string
 
 val pp_equal : (t * t) Pretty.printer
 val pp_diseq : (t * t) Pretty.printer
-val pp_in : (t * Cnstrnt.t) Pretty.printer
 
 
 (** {6 Sets and maps of terms} *)

@@ -55,6 +55,14 @@ let cmp x y =
 
 let (<<<) x y = (cmp x y <= 0)
 
+let hash = function
+  | External(n) ->
+      (3 + Hashtbl.hash n) land 0x3FFFFFFF
+  | Fresh(n, i) ->
+      (5 + Hashtbl.hash n + i) land 0x3FFFFFFF
+  | Bound(i) ->
+      (7 + i) land 0x3FFFFFFF
+     
 
 (** {6 Sets and maps of terms} *)
 

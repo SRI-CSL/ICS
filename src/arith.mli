@@ -157,6 +157,15 @@ val leading : Term.t -> Term.t
     in the theory of linear arithmetic) in [a] according to the term ordering
     {!Term.cmp}. *)
 
+type linear = 
+  | Const of Mpa.Q.t
+  | Linear of Mpa.Q.t * Mpa.Q.t * Term.t * Term.t
+
+val linearize : Term.t -> linear
+  (** [decompose a] returns [Num(q)] is [a] represents the numeral [q]
+    and for all other linear arithmetic it returns [Linear(p, q, x, al)]
+    with [a = p + q*x + al], with [x] uninterpreted. *)
+
 
 (** {6 Iterators} *)
 
@@ -166,6 +175,13 @@ val map: (Term.t -> Term.t) -> Term.t -> Term.t
     - [map f (mk_multq q x)] equals [mk_multq q (map f x)]
     - [map f (mk_addl al)] equals [mk_addl (List.map f al)]
     - Otherwise, [map f x] equals [f x] *)
+
+val replace : Term.t -> Term.t -> Term.t -> Term.t
+  (** [replace x a b] replaces occurrences of [x] in [a] by [b].
+    The result is normalized. *)
+
+val foldq : (Mpa.Q.t -> 'a -> 'a) -> Term.t -> 'a -> 'a
+  (** Folding over all coefficients (including constant) *)
 
 
 (** {6 Canonization} *)
@@ -181,7 +197,7 @@ val sigma : Sym.arith -> Term.t list -> Term.t
 
 (** {6 Solver} *)
 
-val qsolve : Fact.equal -> Fact.equal option
+val qsolve : Term.t * Term.t -> (Term.t * Term.t) option
   (**  [solve e] solves the equation [e] of the form [a = b] over the 
     rationals. If [e] is inconsistent, then {!Exc.Inconsistent} is
     raised. In case the equation holds trivially it returns the 
@@ -190,7 +206,7 @@ val qsolve : Fact.equal -> Fact.equal option
     already contained in [e], and [t] is a linear arithmetic term 
     not containing [x]. *)
   
-val zsolve : Fact.equal -> Fact.equal list
+val zsolve : Term.t * Term.t  -> (Term.t * Term.t) list
   (** Solution for a linear diophantine equation. The result is
     a list of equalities of the form [x = t], where [x] is a variable
     contained in [e], and [t] does not contain any variable in [e].
@@ -198,36 +214,28 @@ val zsolve : Fact.equal -> Fact.equal list
     if raised if the given equation [e] is unsatisfiable in the integers. *)
 
 
-(** {6 Constraints} *)
+val isolate : Term.t -> (Term.t * Term.t) -> Term.t
+  (** [isolate y (x, a)] isolates [y] in a solved equality [x = a];
+    that is, if there is a [b] such that [y = b] iff [x = a], then
+    [b] is returned. In case [y] does not occur in [a], [Not_found]
+    is raised. *)
 
-val tau : (Term.t -> Cnstrnt.t) -> Sym.arith -> Term.t list -> Cnstrnt.t
-  (** Abstract interpretation in the domain {!Cnstrnt.t} of 
-    arithmetic constraints. Given a context [f], which associates 
-    uninterpreted subterms of [a]
-    with constraints, [cnstrnt f a] recurses over the interpreted
-    structure of [a] and accumulates constraints by calling [f] at
-    uninterpreted positions and abstractly interpreting the 
-    interpreted arithmetic operators in the domain of constraints.
-    May raise the exception [Not_found], when some uninterpreted 
-    subterm of [a] is not in the domain of [f]. *) 
-  
-val is_int : (Term.t -> Cnstrnt.t) -> Term.t -> bool
-  (** Test if arithmetic term is integer. *)
-  
-val is_diophantine : (Term.t -> Cnstrnt.t) -> Term.t -> bool
-  (** [is_diophantine c a] holds if all variables in the linear 
-    arithmetic term [a] are interpreted over the integers, that is,
-    if [c(x)] yields a subconstraint of {!Cnstrnt.int}. *)
-  
-val cnstrnt : (Term.t -> Cnstrnt.t) -> Term.t -> Cnstrnt.t
-  (** Compute a subconstraint of {!Cnstrnt.mk_real} for an arithmetic term. *)
 
-val cnstrnt_of_addl :  (Term.t -> Cnstrnt.t) -> Term.t list -> Cnstrnt.t
-  (** Compute a subconstraint of {!Cnstrnt.mk_real} for a list of terms,
-    which are either linear multiplications or uninterpreted terms, interpreted
-    as addition. *)
+(** {6 Inequalities} *)
 
-val normalize : Term.t * Cnstrnt.t -> Term.t * Cnstrnt.t
-  (** [normalize (a, i)] returns [(b, j)] such that [a in i] iff
-    [b in j]. In addition, [b] is neither of the form [p + q * x]
-    nor of the form [q * x], and all coefficients are integer. *)
+type ineq = 
+  | True
+  | False
+  | Less of Term.t * bool * Term.t
+  | Greater of Term.t * bool * Term.t
+
+val mk_less : Term.t * bool * Term.t -> ineq
+
+val mk_greater: Term.t * bool * Term.t -> ineq
+
+val mk_lt : Term.t -> Term.t -> ineq
+val mk_le : Term.t -> Term.t -> ineq
+val mk_gt : Term.t -> Term.t -> ineq
+val mk_ge : Term.t -> Term.t -> ineq
+
+val pp_ineq : ineq Pretty.printer

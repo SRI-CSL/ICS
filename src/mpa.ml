@@ -69,6 +69,7 @@ module Q = struct
   let div = Q.div
   let inv = Q.inv
 
+
   let rec expt a n =
     if Q.equal a zero then zero
     else if n < 0 then
@@ -96,6 +97,10 @@ module Q = struct
 
   let is_pos x = gt x zero
   let is_neg x = lt x zero
+
+
+  let abs q = 
+    if is_neg q then mult negone q else q
 
   type cmp = Equal | Greater | Less
 

@@ -36,7 +36,7 @@ val disjoint : t -> t -> bool
   (** [disjoint d e] holds iff the denotations of [d] and [e] 
     are disjoint. *)
 
-val cmp : t -> t -> unit Binrel.t
+val cmp : t -> t -> (unit, Mpa.Q.t) Binrel.t
   (** [cmp d e] returns 
     - [Sub] if [sub d e] holds and [eq d e] does not hold
     - [Equal] if [eq d e] holds

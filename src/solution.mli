@@ -103,12 +103,11 @@ val union : Th.t -> Fact.equal -> t -> t
 
 
 val name : Th.t -> Term.t * t -> Term.t * t
-  (** [name s a] returns the variable [x] if there is
+  (** [name i s a] returns the variable [x] if there is
     an equation [x = a] in [s].  Otherwise, it creates a 
     fresh variable [x'] and installs a solution [x' = a] in [s]. *)
 
-
-val fuse : Th.t -> Partition.t * t -> Fact.equal list -> Partition.t * t
+val fuse : Th.t -> (Fact.equal -> bool) -> Partition.t * t -> Fact.equal list -> Partition.t * t
   (** [fuse norm (p, s) r] propagates the equalities in [r] on 
     the right-hand side of equalities in [s]. The return value [(p', s')] consists 
     vi  of an extension of the partition [p] with newly generated variable equalities
@@ -126,7 +125,7 @@ val fuse : Th.t -> Partition.t * t -> Fact.equal list -> Partition.t * t
     partitioning [p] and only one of [x = b'], [y = b'] is retained in the
     resulting solution set. *)
 
-val compose : Th.t -> Partition.t * t -> Fact.equal list -> Partition.t * t
+val compose : Th.t -> (Fact.equal -> bool) -> Partition.t * t -> Fact.equal list -> Partition.t * t
   (** [compose norm (p,s) r] is a [fuse] step followed by
     extending (and possibly overwriting [x = ...]) 
     the resulting [s'] with all [x = b], for [b]

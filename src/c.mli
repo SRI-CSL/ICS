@@ -16,7 +16,7 @@
   @author Harald Ruess
 *)
 
-type t 
+type t
   (** A constraint context consists of a conjunction of constraints
     of the form [x in i], where [x] is a term variable and [i] is
     a constraint of type {!Cnstrnt.t}. *)
@@ -25,14 +25,18 @@ type t
 (** {6 Accessors} *)
 
 val cnstrnts : t -> (Cnstrnt.t * Fact.justification option) Var.Map.t
-  (** [cnstrnts s] returns a map with bindings [x |-> (i, j)] iff
-    [x in i] is stored in [s] with justification [j]. *)
+  (** [cnstrnts s] returns a map with bindings [x |-> (i, prf)] iff
+    [x in i] is stored in [s] with justification [prf]. *)
 
-val apply : t -> Term.t -> Cnstrnt.t
+val apply : t -> Term.t -> Cnstrnt.t * Fact.justification option
   (** [apply s x] returns [i] if [x in i] is in [s]. Otherwise,
     [Not_found] is raised. *)
 
-val to_fact : t -> Term.t -> Fact.cnstrnt
+val use : t -> Term.t -> Term.Set.t
+  (** [y] is in [use s x] iff [apply s y] is a constraint [c] such
+    that variable [x] occurs in one of the term bounds of [c]. *)
+
+val cnstrnt : t -> Term.t -> Fact.cnstrnt
   (** [to_fact s x] returns a constraint fact [c] for [x in i]
     if [apply s x] equals [i]; otherwise, [Not_found] is raised. *)
 
@@ -51,9 +55,9 @@ val eq : t -> t -> bool
 val empty : t 
   (** Empty constraint context. *)
 
-val add : Fact.cnstrnt -> t -> t
+val add : (Term.t -> Term.t) -> (Term.t -> Cnstrnt.t -> bool) -> Fact.cnstrnt -> t -> Fact.Equalset.t * t
 
-val merge : Fact.equal -> t -> t
+val merge :  (Term.t -> Term.t) -> (Term.t -> Cnstrnt.t -> bool) ->  Fact.equal list -> t -> Fact.Equalset.t * t
   (** Merge a variable equality [x = y] in the constraint map by
     adding [x in ij] for the canonical variable [x], where [x in i],
     [y in j] are in the constraint map and [ij] is the intersection of
@@ -69,9 +73,11 @@ val changed : Term.Set.t ref
   (** This global variable contains all variables [x] for which
     a constraint has been assigned. *)
 
-(** Split. *)
+
+(** {6 Split predicates} *)
 
 val split : t -> Atom.Set.t
+
 
 (** {6 Pretty-printing} *)
 

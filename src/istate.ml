@@ -141,10 +141,10 @@ let ctxt_of = function
 (** Canonization w.r.t current state. *)
 
 let can a =
-  Can.atom s.current a
+  Context.Can.atom s.current a
     
 let cant a = 
-  Can.term s.current a
+  Context.Can.term s.current a
 
 let sigma f l =
   Context.sigma s.current f l
@@ -193,30 +193,30 @@ let forget () =
 let process n =
   let t = (get_context n) in
     (fun a -> 
-       let status = Process.atom t a in
+       let status = Context.add t a in
 	 match status with  (* Update state and install new name in symbol table *)
-	   | Process.Ok(t') -> 
+	   | Context.Status.Ok(t') -> 
 	       s.current <- t';
 	       let n = save None in
-		 Process.Ok(n)
-	   | Process.Valid -> Process.Valid
-	   | Process.Inconsistent -> Process.Inconsistent)
+		 Context.Status.Ok(n)
+	   | Context.Status.Valid -> Context.Status.Valid
+	   | Context.Status.Inconsistent -> Context.Status.Inconsistent)
 
 let valid n a =
-  match Process.atom (get_context n) a with 
-    | Process.Valid -> true
+  match Context.add (get_context n) a with 
+    | Context.Status.Valid -> true
     | _ -> false
 
 let unsat n a =
-  match Process.atom (get_context n) a with 
-    | Process.Inconsistent -> true
+  match Context.add (get_context n) a with 
+    | Context.Status.Inconsistent -> true
     | _ -> false
 
 (** Accessors. *)
 
 let diseq n a =
   let s = get_context n in
-  let a' = Can.term s a in
+  let a' = Context.Can.term s a in
   try
     Context.d s a'
   with
@@ -224,12 +224,8 @@ let diseq n a =
 
 let cnstrnt n a =
   let s = get_context n in
-  let a' = Can.term s a in
-  try
-    Some(Context.cnstrnt s a')
-  with
-      Not_found -> None
-
+  let a' = Context.Can.term s a in
+  Context.cnstrnt s a'
 
 (** Applying maps. *)
 
@@ -271,15 +267,18 @@ let solve i (a, b) =
 (** Equality/disequality test. *)
 
 let is_equal a b =
-  Can.eq s.current a b
+  Context.Can.eq s.current a b
 
 let is_int a =
   try
-    let c = Context.cnstrnt s.current a in
-     Cnstrnt.dom_of c = Dom.Int
+   Context.is_int s.current a
   with
       Not_found -> false
-	
+
+(** Sat solver *)
+
+let sat p =
+  Prop.sat s.current p
 
 (** Splitting. *)
 

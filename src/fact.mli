@@ -30,9 +30,9 @@ type equal
 
 type diseq
   (** The type of disequality facts. *)
-  
+
 type cnstrnt
-  (** The type of constraint facts. *)
+  (** The type of cnstrnt constraints. *)
 
 
 (** {6 Injections} *)
@@ -79,9 +79,10 @@ val mk_diseq : Term.t -> Term.t -> justification option -> diseq
   (** [mk_diseq a b j] constructs a fact for the disequality [a <> b]
    with justification [j]. *)
 
+
 val mk_cnstrnt : Term.t -> Cnstrnt.t -> justification option -> cnstrnt
- (** [mk_cnstrnt a b j] constructs a fact for the disequality [a <> b]
-   with justification [j]. *)
+  (** [mk_cnstrnt a c j] constructs a fact for the membership [a in c]
+    with justification [j]. *)
 
 
 (** {6 Accessors} *)
@@ -91,12 +92,12 @@ val d_equal : equal -> Term.t * Term.t * justification option
     if [e] had been constructed using [mk_equal a b j]. *)
 
 val d_diseq : diseq -> Term.t * Term.t * justification option
-  (** [d_diseq e] deconstructs equality fact [d] into [(a, b, j)]
+  (** [d_diseq e] deconstructs disequality fact [d] into [(a, b, j)]
     if [d] had been constructed using [mk_diseq a b j]. *)
 
 val d_cnstrnt : cnstrnt -> Term.t * Cnstrnt.t * justification option
-  (** [d_cnstrnt c] deconstructs equality fact [c] into [(a, b, j)]
-    if [c] had been constructed using [mk_cnstrnt a b j]. *)
+  (** [d_cnstrnt c] deconstructs constraint fact [c] into [(a, c, j)]
+    if [c] had been constructed using [mk_cnstrnt a c j]. *)
 
 
 (** {6 Pretty-printing} *)
