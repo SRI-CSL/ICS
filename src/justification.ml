@@ -200,16 +200,22 @@ let mk_dependency0 = Dependency(Atom.Set.empty)
 
 let mk_dependency1 j =
   match j with
-    | Unjustified -> mk_none()
+    | Unjustified -> j
     | Dependency _ -> j
     | Proof(prf) -> Dependency(Proof.axioms_of prf)
 
 let mk_dependency2 j1 j2 =
-  try
-    let axms1 = axioms_of j1 and axms2 = axioms_of j2 in
-      Dependency(Atom.Set.union axms1 axms2)
-  with
-      Not_found -> mk_none()
+  if j1 == mk_dependency0 then j2
+  else if j2 = mk_dependency0 then j1
+  else 
+    try
+      let axms1 = axioms_of j1 and axms2 = axioms_of j2 in
+      let axms = Atom.Set.union axms1 axms2 in
+	if axms == axms1 then j1
+	else if axms == axms2 then j2 
+	else Dependency(axms)
+    with
+	Not_found -> mk_none()
 
 let mk_dependency jl =
   try
@@ -327,7 +333,7 @@ let sigma ((f, al), b) jl =
     | No -> mk_none()
     | Dep -> mk_dependency jl
     | Yes -> 
-	let a = Term.App(f, al) in
+	let a = Term.App.mk_app f al in
 	  if Term.eq a b then refl a else 
 	    mk_apply (Rule.Sigma(a, b)) jl
   
@@ -444,6 +450,22 @@ let dependencies jl =
 	mk_dependency jl
 
 let dependencies0 = mk_dependency []
+
+let dependencies1 j1 = 
+  match !proofmode with
+    | No -> mk_none()
+    | Dep -> mk_dependency1 j1
+    | Yes -> 
+	Format.eprintf "Warning: constructing dependencies only@?";
+	mk_dependency1 j1
+
+let dependencies2 j1 j2 = 
+  match !proofmode with
+    | No -> mk_none()
+    | Dep -> mk_dependency2 j1 j2
+    | Yes -> 
+	Format.eprintf "Warning: constructing dependencies only@?";
+	mk_dependency2 j1 j2
 	
 
 (** {6 Derived Rules} *)

@@ -131,6 +131,10 @@ val abstract : Term.t * Term.t -> t list -> t
 val dependencies : t list -> t
 
 val dependencies0 : t
+
+val dependencies1 : t -> t
+
+val dependencies2 : t -> t -> t
   
 
 (** {6 Derived Rules} *)
