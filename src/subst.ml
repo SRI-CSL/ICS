@@ -58,7 +58,7 @@ module Make(Th: INTERP) = struct
 
 
   let is_empty s =
-    s.find == Map.empty
+    s.find = Map.empty
 
   let apply s x =
     Map.find x s.find
@@ -72,7 +72,13 @@ module Make(Th: INTERP) = struct
     Map.mem x s.find
    
   let use s = Use.find s.use
- 
+
+(*s [setuse s x ys] sets the [use] of [x] to [ys]. *)
+
+  let adduse x ys s =
+    {s with use = Use.set x ys s.use}
+    
+    
 
 (*s Does a variable occur in [s]. *)
 
@@ -83,9 +89,8 @@ module Make(Th: INTERP) = struct
 (*s [union a b s] sets the find of [a] to [b]. *)
 
   let union =
-    let msg = "Union("^Th.name^")" in
     fun a b s ->
-      Trace.msg 2 msg (a,b) pp_equal;
+      Trace.msg Th.name "Subst.Union" (a,b) pp_equal;
       let use' = 
 	try 
 	  Use.remove Th.fold a (Map.find a s.find) s.use 
@@ -97,7 +102,17 @@ module Make(Th: INTERP) = struct
        use = Use.add Th.fold a b use'}
 
 
+(*s [union'] is the version internal to this module
+ for accumulating the change set of the domain of [find].
+ This is called only within [propagate] and [compose]. *)
 
+  let changed = ref Term.Set.empty
+
+  let union' a b s =
+    changed := Term.Set.add a !changed;
+    union a b s
+
+    
 (*s Normalization function applied to logical context. *)
 
   let norm s = 
@@ -124,72 +139,66 @@ module Make(Th: INTERP) = struct
 (*s Restrict domain. *)
 
   let restrict =
-    let msg = "Restrict("^Th.name^")" in
     fun x s ->
       try
 	let b = Map.find x s.find in 
-	Trace.msg 2 msg x Term.pp;
+	Trace.msg Th.name "Subst.Restrict" x Term.pp;
 	{find = Map.remove x s.find;
 	 inv = Map.remove b s.inv;
 	 use = Use.remove Th.fold x b s.use}
       with
 	  Not_found -> 
-	    Trace.msg 10 msg (Term.to_string x ^ " not found ") Pretty.string;
             s
-
 
 (*s Extend with binding [x = b], where [x] is fresh *)
 
- let extend = 
-   let msg = "Extend("^Th.name^")" in
-   fun b s ->
-     let x = Term.mk_fresh_var (Name.of_string "v") None in
-     (x, union x b s)
-
+ let extend b s = 
+   let x = Term.mk_fresh_var (Name.of_string "v") None in
+   Trace.msg Th.name "Subst.Extend" (x, b) Term.pp_equal;
+   Atom.footprint "def" [] [Atom.mk_equal x b];
+   (x, union x b s)
 
 (*s Merging in a list of solved form [sl]. *)
 
  let rec compose s sl = 
-   let rec compose1 (a, b) ((s, veqs) as acc) =
-     if eq a b then
+   let rec compose1 (x, b) ((s, veqs) as acc) =
+     if eq x b then
        acc
      else 
        Set.fold                        
-	 (fun x ((s,_) as acc) -> 
-	    compose1 (x, norml sl (find s x)) acc)
-	 (use s a)
-	 (step1 (a, b) acc)
+	 (fun y ((s,_) as acc) -> 
+	    let e = (y, norml sl (find s y)) in
+	    compose1 e acc)
+	 (use s x)
+	 (step1 (x, b) acc)
    in
-   List.fold_right compose1 sl (s, Veqs.empty)
+   changed := Set.empty;
+   let (s', veqs') = List.fold_right compose1 sl (s, Veqs.empty) in
+   (s', veqs', !changed)
 
  and step1 (a, b) ((s, veqs) as acc) =
    assert(is_var a);
-   if is_var b then               (* External equality. *)
-     external1 (a, b) (s, veqs)
-   else 
-     try 
-       let a' = inv s b in     
-       if eq a a' then 
-	 (s, veqs)
-       else if Term.(<<<) a' a then 
-	 (restrict a s, Veqs.add a a' veqs)
-       else 
-	 (union a b (restrict a' s), Veqs.add a a' veqs)
-     with
-	 Not_found ->
-	   (union a b s, veqs)
+   if eq a b then acc else
+     if is_var b then               (* External equality. *)
+       external1 (a, b) (s, veqs)
+     else 
+       try 
+	 let a' = inv s b in    
+	 let s' = 
+	   if Term.(<<<) a' a then 
+	     restrict a s
+	   else 
+	     union' a b (restrict a' s)
+	 in
+	 (s', Veqs.add (Veq.make a a') veqs)
+       with
+	   Not_found ->
+	     (union' a b s, veqs)
 
  and external1 (x, y) (s, veqs) =
-   let (x, y) = Term.orient (x, y) in   (* now: keep binding for [x]. *)
-   let s' = 
-     match mem s x, mem s y with
-       | true, true -> restrict y s
-       | true, false -> s
-       | false, true -> union x (apply s y) (restrict y s)
-       | false, false -> s
-   and veqs' =  veqs in 
-(* the following is looping
-   and veqs' = Veqs.add x y veqs in *)
+   let (x, y) = Term.orient (x, y) in   (* eliminate binding for [x]. *)
+   let s' = restrict x s in
+   let veqs' = Veqs.add (Veq.make x y) veqs in
    (s', veqs')
 
 
@@ -197,7 +206,6 @@ module Make(Th: INTERP) = struct
 
  let rec propagate s sl = 
    let propagate1 (x, b) acc =
-     Trace.msg 4 ("Prop(" ^ Th.name ^ ")") (x,b) pp_equal;
      if eq x b then
        acc
      else 
@@ -206,25 +214,31 @@ module Make(Th: INTERP) = struct
 	    try 
 	      let a' = norml [(x,b)] (apply s y) in
 	      if is_var a' then
-		(restrict y s, Veqs.add y a' veqs)
+		let e' = Veq.make y a' in
+		(restrict y s, Veqs.add e' veqs)
 	      else
 		try
-		  let y' = inv s a' in  
-		  let veqs' = Veqs.add y y' veqs in
-		  if Term.(<<<) y y' then
-		    (union y a' (restrict y' s), veqs')
+		  let y' = inv s a' in
+		  let e' = Veq.make y y' in
+		  let veqs' = Veqs.add e' veqs in
+                  if eq y y' then
+		    (s, veqs)
+		  else if Term.(<<<) y y' then      (* eliminate [y'] *)
+		    (union' y a' (restrict y' s), veqs')
 		  else
 		    (restrict y s, veqs')
 		with
 		    Not_found ->
-		      (union y a' s, veqs)
+		      (union' y a' s, veqs)
 	    with
 		Not_found ->
 		  (s, veqs))
 	 (use s x)
 	 acc
    in
-   List.fold_right propagate1 sl (s, Veqs.empty)
+   changed := Set.empty;
+   let (s', veqs') = List.fold_right propagate1 sl (s, Veqs.empty) in
+   (s', veqs', !changed)
 
 (*s Instantiation of variables [x] in [s] with [f x]. *)
 
@@ -236,13 +250,8 @@ module Make(Th: INTERP) = struct
       s.find
       empty
 
- (*s Fold. *)
+ (*s Fold over the [find] structure. *)
 
-  let fold s f a e =
-    Term.Set.fold
-      (fun x acc ->
-	 f x (find s x) acc)
-      (use s a)
-      e
+  let fold f s = Term.Map.fold f s.find
 
 end
