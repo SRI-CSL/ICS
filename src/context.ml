@@ -518,10 +518,13 @@ let rec equality e s =
   let extend_i i (x, b) s =  
     let x = v s x 
     and b = replace i s b in
-    let (s, y) = name i (s, b) in
-      if Term.eq x y then s else
-	let e' = Fact.mk_equal x y None in
-	  merge_v e' s
+      if not(mem i s x) && Arith.is_num b then 
+	extend i (Fact.mk_equal x b None) s
+      else 
+	let (s, y) = name i (s, b) in
+	  if Term.eq x y then s else
+	    let e' = Fact.mk_equal x y None in
+	      merge_v e' s
   in
     match a, b with
       | Var _, Var _ -> 
@@ -682,17 +685,30 @@ and slack e s =
       let sl' = Sl.update e s.sl in
 	s.sl <- sl';
 	try      (* Keep [cnstrnt s k] stronger than [cnstrnt s (sl s a)] *)
-	  refine (Fact.mk_cnstrnt k (c s a) None) s
+	  let i = c s a in
+	  refine (Fact.mk_cnstrnt k i None) s
 	with
 	    Not_found -> s
     else 
       s
 
-and refine c s =
+and refine c s = 
+  Trace.msg "rule" "Refine" c Fact.pp_cnstrnt;
   let (ch', p') = Partition.add c s.p in
     s.p <- p'; 
-    close ch' s 
-
+    let (k, _, _) = Fact.d_cnstrnt c in
+    let s = 
+      try
+	let i = cnstrnt s k in
+	  if i = Sign.Zero then 
+	    let e = Fact.mk_equal k Arith.mk_zero None in
+	      equality e s
+	  else 
+	    s
+      with
+	  Not_found -> s
+    in
+      close ch' s
 
 
 (** Deduce new constraints from an equality *)
