@@ -123,8 +123,6 @@ module Q : sig
 
   val to_string : t -> string
 
-  exception ZeroDivision
-
   val of_string : string -> t
 
   val pp : Format.formatter -> t -> unit
