@@ -337,3 +337,9 @@ module Subst : sig
 end
 
 type solve = t * t -> Subst.t
+
+
+type three = 
+    Yes 
+  | No
+  | X of t

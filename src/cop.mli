@@ -91,4 +91,3 @@ val merge : Partition.t * t -> Fact.Equal.t -> unit
     the partitioning [p]. *)
   
 val dismerge : Partition.t * t -> Fact.Diseq.t -> unit
-  (** Does nothing at the moment. *)

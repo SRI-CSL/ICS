@@ -72,21 +72,20 @@ let multiplicity x =
   if input term is not a multiplication. *)
 let decompose a =
   try
-    let (x, b) = d_mult a in
-    let rec scan acc b =
+    let (x, _) = d_mult a in  
+    let rec scan acc post =
       try
-	let (y, c) = d_mult b in
-	  if Term.eq x y then 
-	    (scan (1 + acc) c) 
+	let (y, b) = d_mult post in
+	  if Term.eq x y then
+	    scan (acc + 1) b
 	  else 
-	    (acc, Some(c))
+	    (acc, Some(post))
       with
 	  Not_found -> 
-	    let acc' = if Term.eq x b then 1 + acc else acc in
-	      (acc', None)
+	    if Term.eq x post then (acc + 1, None) else  (acc, None)  
     in
-    let (n, c) = scan 0 b in
-      ((x, n), c)
+    let (n, b) = scan 0 a in
+      ((x, n), b)
   with
       Not_found -> ((a, 1), None)
 
@@ -141,7 +140,7 @@ let rec of_list = function
   | [(a, n)] -> mk_expt a n
   | (a, n) :: al -> mk_mult (mk_expt a n) (of_list al)
   | [] -> invalid_arg "Pprod.of_list: empty list"
-  
+ 
 
 (** Sigma normal forms. *)
 let sigma _ = function

@@ -446,80 +446,97 @@ and abstract_term ((p, s) as cfg) a =
 
 type config = Partition.t * t
 
-let rec merge th (p, s) e = 
+
+(** Processing a fact. *)
+let rec process (p, s) ((atm, rho) as fct) =
+  match Atom.atom_of atm with
+    | Atom.TT -> 
+	() (* skip *)
+    | Atom.FF -> 
+	raise(Jst.Inconsistent(rho))
+    | Atom.Equal(a, b) -> 
+	let e = Fact.Equal.make (a, b, rho) in
+	  process_equal (p, s) e
+    | Atom.Diseq(a, b) -> 
+	let d = Fact.Diseq.make (a, b, rho) in
+	  process_diseq (p, s) d
+    | Atom.Nonneg(a) -> 
+	let nn = Fact.Nonneg.make (a, rho) in
+	  process_nonneg (p, s) nn
+    | Atom.Pos(a) -> 
+	let nn = Fact.Nonneg.make (a, rho) 
+	and dd = Fact.Diseq.make (a, Arith.mk_zero(), rho) in
+	  process_nonneg (p, s) nn;
+	  process_diseq (p, s) dd
+
+and merge (p, s) e = 
+  assert(Fact.Equal.is_var e);
   let (x, y, rho) = Fact.Equal.destruct e in
-  match is_diseq (p, s) x y with
-    | Some(tau) ->
-	raise(Jst.Inconsistent(Jst.dep2 rho tau))
-    | None ->
-	(match th with 
-	   | Some(i) -> 
-	       assert(Fact.Equal.is_pure i e);
-	       process_equal i (p, s) e
-	   | None ->
-	       assert(Fact.Equal.is_var e);
-	       Partition.merge p e;
-	       let x = Fact.Equal.lhs_of e in
-		 Th.iter
-		   (fun i -> 
-		      if not(is_empty s i) && occurs s i x then
-			process_equal i (p, s) e))
-	    
-and process_equal th (p, s) e =
- let (a, b, rho) = Fact.Equal.destruct e in
-  match is_diseq (p, s) a b with
-    | Some(tau) ->
-	raise(Jst.Inconsistent(Jst.dep2 rho tau))
+    match is_diseq (p, s) x y with
+      | Some(tau) ->
+	  raise(Jst.Inconsistent(Jst.dep2 rho tau))
+      | None ->
+	  Partition.merge p e;
+	  process_equal (p, s) e
+
+and process_equal (p, s) e =
+  match Fact.Equal.theory_of e with
+    | Some(i) ->  
+	assert(Fact.Equal.is_pure i e);
+	process_equal1 i (p, s) e
     | None -> 
-	(match th with
-	   | Uninterpreted -> 
-	       U.merge  (p, s.u) e
-	   | Shostak(i)->  
-	       (match i with
-		  | LA -> La.process_equal (p, s.a) e
-		  | BV -> Bv.merge (p, s.bv) e
-		  | P -> P.merge (p, s.p) e
-		  | COP -> Cop.merge (p, s.cop) e  
-		  | APP -> L.merge  (p, s.app) e
-		  | SET -> Pset.merge (p, s.pset) e)
-	   | Can(i) ->
-	       (match i with
-		  | ARR -> Arr.process_equal (p, s.arr) e
-		  | NL ->  Nl.merge (p, s.nl) e))
+	assert(Fact.Equal.is_var e);
+	Partition.merge p e;
+	let x = Fact.Equal.lhs_of e in
+	  Th.iter
+	    (fun i -> 
+	       if not(is_empty s i) && occurs s i x then
+		 process_equal1 i (p, s) e)
+	    
+and process_equal1 th (p, s) e =
+   match th with
+     | Uninterpreted -> 
+	 U.merge  (p, s.u) e
+     | Shostak(i)->  
+	 (match i with
+	    | LA -> La.process_equal (p, s.a) e
+	    | BV -> Bv.merge (p, s.bv) e
+	    | P -> P.merge (p, s.p) e
+	    | COP -> Cop.merge (p, s.cop) e  
+	    | APP -> L.merge  (p, s.app) e
+	    | SET -> Pset.merge (p, s.pset) e)
+     | Can(i) ->
+	 (match i with
+	    | ARR -> Arr.process_equal (p, s.arr) e
+	    | NL ->  Nl.merge (p, s.nl) e)
 
 
-let process_diseq (p, s) d =
-  if Fact.Diseq.is_diophantine d then
-    La.process_diseq (p, s.a) d
-  else 
-    let d = Fact.Diseq.to_var (name (p, s)) d in
-      Partition.dismerge p d;
-      Arr.dismerge (p, s.arr) d;
-      Bv.dismerge (p, s.bv) d
-
-let process_nonneg (p, s) =
-  La.process_nonneg (p, s.a) 
-  
-
-let dismerge (p, s) d =
-  Trace.msg "foobar" "Dismerge" d Fact.Diseq.pp;
-  if Fact.Diseq.is_diophantine d then
-    La.process_diseq (p, s.a) d
-  else 
-    let d = Fact.Diseq.to_var (name (p, s)) d in
-      Trace.msg "foobar" "Named" d Fact.Diseq.pp;
-      Partition.dismerge p d;
-      Arr.dismerge (p, s.arr) d;
-      Bv.dismerge (p, s.bv) d
+and dismerge (p, s) d =
+  assert(Fact.Diseq.is_var d); 
+  Partition.dismerge p d;
+  La.process_diseq (p, s.a) d;
+  P.dismerge (p, s.p) d;
+  Cop.dismerge (p, s.cop) d;
+  Pset.dismerge (p, s.pset) d;
+  L.dismerge (p, s.app) d;
+  Arr.dismerge (p, s.arr) d;
+  Bv.dismerge (p, s.bv) d
 	
+and process_diseq (p, s) d =
+  let d = Fact.Diseq.to_var (name (p, s)) d in
+    dismerge (p, s) d
+
+and process_nonneg (p, s) =
+  La.process_nonneg (p, s.a) 
 
 let propagate_equal ((p, s) as cfg) e =
   if Fact.Equal.is_var e then
-    merge None cfg e
-  else if Fact.Equal.is_pure Th.bv e then
-    merge (Th.inj Th.bv) cfg e
+    merge cfg e
   else if Fact.Equal.is_pure Th.la e then
     Nl.propagate (p, s.a, s.nl) e
+  else 
+    ()
+
 
 let propagate_diseq cfg d =
   let (a, b, rho) = Fact.Diseq.destruct d in
@@ -527,7 +544,8 @@ let propagate_diseq cfg d =
       | Some(tau) -> 
 	  raise(Jst.Inconsistent(Jst.dep2 rho tau))
       | None ->
-	  dismerge cfg d
+	  process_diseq cfg d
+
 
 let propagate_nonneg cfg nn =
   let nn' = Fact.Nonneg.map (can cfg) nn in
@@ -584,6 +602,6 @@ let split (p, s) =
       Split.Equal(i, j)
   with
       Not_found ->
-	let (x, fin) = La.Finite.split (p, s.a) in
+	let (x, fin) = La.Finite.disjunction (p, s.a) in
 	  Trace.msg "spl" "Split" fin La.Finite.pp;
 	  Split.Finint(x, fin)

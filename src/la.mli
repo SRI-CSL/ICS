@@ -189,7 +189,7 @@ module Finite : sig
     interpretation [fin] for [x] such that [x] is
     interpreted in [D(fin)] or raises [Unbounded]. *)
 
-  val split : config -> Term.t * t
+  val disjunction : config -> Term.t * t
   (** [of_config (p, s)] returns a finite domain
     interpretations for one of the variables in [s] with a 
     finite interpretation. *)

@@ -89,26 +89,28 @@ val empty : t
 val is_empty : t -> bool
   (** [is_empty s] holds iff [s] represents the empty context. *)
 
-val replace : Partition.t * t -> Jst.Eqtrans.t
+type config =  Partition.t * t 
+
+val replace : config -> Jst.Eqtrans.t
   (** For a pure {!Th.nl} term [a], [replace (p, s) a] returns 
     a pure term with all variables equal to a dependent variables 
     in [s] expanded. *)
 
-val abstract : Partition.t * t -> Jst.Eqtrans.t
+val abstract : config -> Jst.Eqtrans.t
   (** [abstract (p, s) a] recursively replaces subterms [x * v] of [a]
     with [y'] if [y = x * v] in [s] with [y] and [y'] equal modulo [p]. *)
 
-val can : Partition.t * t -> Jst.Eqtrans.t
+val can : config -> Jst.Eqtrans.t
   (** For {!Th.nl}-pure terms [a], [b], the {i canonical} 
     form [can (p, s) a] is equal to [can(p, s) b] 
     iff [a = b] is {!Th.nl}-valid in [(p, s)]. *)
 
-val name : Partition.t * t -> Jst.Eqtrans.t
+val name : config -> Jst.Eqtrans.t
   (** For a {!Th.nl}-pure term [a], [name (p, s) a] returns
     a variable [y] equal to [a] in the (destructively) updated 
     configuration [(p, s)]. *)
 
-val merge : Partition.t * t -> Fact.Equal.t -> unit
+val merge : config -> Fact.Equal.t -> unit
   (** For an equality [e] of the form [x = y] with
     variables [x], [y], [merge (p, s) e] destructively
     updates the configuration [(p, s)] to propagate this
@@ -117,7 +119,7 @@ val merge : Partition.t * t -> Fact.Equal.t -> unit
     As another side effect, nonnegativity constraints might be deduced
     and added to {!Fact.Nonnegs}. *)
 
-val process : Partition.t * t -> Fact.Equal.t -> unit
+val process : config -> Fact.Equal.t -> unit
   (** For an equality [e] of the form [a = b] with
     [a], [b] {!Th.nl}-pure, [merge (p, s) e] destructively
     updates the configuration [(p, s)] to propagate [e].
@@ -141,4 +143,9 @@ val copy : t -> t
    updates. For example, {i let s' = Nl.copy s in ...} protects [s]
    against updates in [s']. *)
   
+val disjunction : config -> Term.Equal.t * Term.Equal.t
+  (** [disjunction (p, s)] generates an implied disjunction
+    of the form [(x, 0); (y, 1)] for representing the 
+    disjunction [x = 0] OR [y = 1]. *)
+
 

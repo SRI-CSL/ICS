@@ -74,10 +74,9 @@ let merge ((p, s) as cfg) e =
     let sl = solve e' in
       S.compose (p, s) sl
 
-
-
-
-
-
-
-
+let dismerge (p, s) d =
+  if not(is_empty s) then
+    let d = Fact.Diseq.map (replace s) d in
+    let (a, b, rho) = Fact.Diseq.destruct d in
+      if Product.solve (a, b) = [] then 
+	raise(Jst.Inconsistent(rho))

@@ -43,11 +43,6 @@ let mk_zero () = mk_num Q.zero
 let mk_one () = mk_num Q.one
 let mk_two () = mk_num (Q.of_int 2)
 
-let mk_posinf () = mk_num (Q.of_int 123456789)                 (* hack *)
-let mk_neginf () = mk_num (Q.of_int (-123456789))
-let mk_eps () = mk_num (Q.div Q.one (Q.of_int 123456789))
-
-
 
 (** {6 Destructors} *)
 
@@ -109,6 +104,13 @@ let is_one = is_q Q.one
 
 let is_nonneg_num a =
   try let q = d_num a in Mpa.Q.is_nonneg q with Not_found -> false
+
+let is_pos_num a =
+  try let q = d_num a in Mpa.Q.is_pos q with Not_found -> false
+
+let is_nonpos_num a =
+  try let q = d_num a in Mpa.Q.is_nonpos q with Not_found -> false
+
 
 let rec is_diophantine a =
   try
@@ -184,6 +186,17 @@ let rec iter f a =
        | _ -> f a)
   with
       Not_found -> f a
+
+let rec fold f a acc = 
+ try
+    (match d_interp a with
+       | Sym.Num _, [] -> acc
+       | Sym.Multq _, [b] -> fold f b acc
+       | Sym.Add, bl -> List.fold_right (fold f) bl acc
+       | _ -> f a acc)
+  with
+      Not_found -> f a acc
+
 
 module Monomials = struct
 

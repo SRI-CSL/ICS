@@ -93,8 +93,10 @@ let merge ((p, s) as cfg) e =
     let sl = Fact.Equal.equivn Coproduct.solve e' in
       S.compose (p, s) sl
 
-(** [x <> y] implies [inl(x) = inl(y)],  [inr(x) = inr(y)]. *) 
-let rec dismerge ((p, s) as cfg) d = 
-  assert(Fact.Diseq.is_var d);
-  Trace.msg "cop" "Process" d Fact.Diseq.pp;
-  () (* to do *)
+let dismerge (p, s) d =
+  if not(is_empty s) then
+    let d = Fact.Diseq.map (replace s) d in
+    let (a, b, rho) = Fact.Diseq.destruct d in
+      if Coproduct.solve (a, b) = [] then 
+	raise(Jst.Inconsistent(rho))
+	  

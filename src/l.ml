@@ -88,4 +88,31 @@ let merge ((p, s) as cfg) e =
 	Exc.Incomplete ->
 	  let e'' = Fact.Equal.map_lhs (S.name cfg) e' in
 	    S.compose cfg [e'']
-		
+
+
+let dismerge (p, s) d =
+  if not(is_empty s) then
+    let d = Fact.Diseq.map (replace (p, s)) d in
+    let (a, b, rho) = Fact.Diseq.destruct d in
+      if Apply.solve (a, b) = [] then 
+	raise(Jst.Inconsistent(rho))
+
+
+exception Found	of Term.t * Term.t
+ 
+let rec split (p, s) =
+  try
+    S.iter
+      (fun x (a, _) -> 
+	 try split_in_term a with Not_found -> ())
+      s;
+    raise Not_found
+  with
+      Found(b, c) -> (b, c)
+
+and split_in_term a =
+  match Apply.d_interp a with
+    | Sym.C, [b; c; _; _] -> 
+	raise(Found(b, c))
+    | _, al ->
+	List.iter split_in_term al

@@ -57,15 +57,9 @@ val fold : (Term.t -> Term.t * Jst.t -> 'a -> 'a) -> t -> Th.t -> 'a -> 'a
 
 val copy : t -> t
 
-val name : config -> Th.t -> Jst.Eqtrans.t
-
 val abstract : config -> Atom.t -> Fact.t
 
-val process_nonneg : config -> Fact.Nonneg.t -> unit
-
-val merge :  Th.t option -> config -> Fact.Equal.t -> unit
-
-val dismerge :  config -> Fact.Diseq.t -> unit
+val process : config -> Fact.t -> unit
 
 val propagate_equal : config -> Fact.Equal.t -> unit
   (** [propagate_equal s e (i, j)] propagates an equality over

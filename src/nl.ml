@@ -79,6 +79,8 @@ module Eqs = Eqs.Make(
 
 type t = Eqs.t
 
+type config = Partition.t * t
+
 let eq = Eqs.eq
 let empty = Eqs.empty
 let is_empty = Eqs.is_empty
@@ -87,6 +89,16 @@ let apply = Eqs.apply
 let find = Eqs.find
 let inv = Eqs.inv
 let dep = Eqs.dep
+
+let iter f = 
+  Eqs.iter 
+    (fun x (a, rho) ->
+       try
+	 let (y, z) = Pprod.d_mult a in
+	   f x (y, z) rho
+       with
+	   Not_found -> ())
+
 
 let copy = Eqs.copy
 
@@ -381,3 +393,40 @@ and linearize (p, la, nl) a =
       a (Arith.mk_num q)
   in
     (b', !hyps)
+
+
+exception Found of Term.Equal.t * Term.Equal.t
+
+(** {i Implied disjunctions.} From equality [z' = x*y] in [s] deduce the disjunction 
+  - [x = 0] or [y = 1] if  [z' = x] modulo [p]
+  - [y = 0] or [x = 1] if [z' = y] modulo [p]. *)
+let disjunction (p, s) =
+  try
+    (iter 
+      (fun z' (x, y) _ ->
+	 let (z, _) = Partition.find p z' in
+	   match Partition.is_equal p z x with
+	     | Some(_) -> 
+		 let d1 = Term.Equal.make (x, Arith.mk_zero())
+		 and d2 = Term.Equal.make (y, Arith.mk_one()) in
+		   raise(Found(d1, d2))
+	     | None -> 
+		 (match Partition.is_equal p z y with
+		    | Some(_) -> 
+			let d1 = Term.Equal.make (y, Arith.mk_zero())
+			and d2 = Term.Equal.make (x, Arith.mk_one()) in
+			  raise(Found(d1, d2))
+		    | None -> 
+			()))
+      s);
+    raise Not_found;
+  with
+      Found(d1, d2) -> (d1, d2)
+    
+	 
+
+
+
+
+
+

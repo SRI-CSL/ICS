@@ -130,31 +130,23 @@ module Nonneg = struct
   let valid () = Arith.mk_zero ()
   let invalid () = Arith.mk_num (Mpa.Q.negone)
   let make a =
-    let nonneg a =
-      let al = 
-	Pprod.fold
-	  (fun x n acc ->     
-	     if n mod 2 == 0 || Term.Var.is_slack x then 
-	       acc 
-	     else
-	       (x, 1) :: acc)
-	  a []
-      in
-	if Pprod.is_interp a then
-	  Pprod.of_list (List.rev al)
-	else 
-	  a
-    in
-      try
-	(match Arith.d_interp a with
-	   | Sym.Num(q), [] -> 
-	       if Mpa.Q.is_nonneg q then valid() else invalid()
-	   | Sym.Multq(q), [x] ->  
-	       if Mpa.Q.is_pos q then x else nonneg a
-	   | _ -> 
-	       nonneg a)
-      with
-	  Not_found -> nonneg a
+    match Arith.is_nonneg a with
+      | Three.Yes -> valid()
+      | Three.No -> invalid()
+      | Three.X -> 
+	  if Pprod.is_interp a then
+	    match Pprod.decompose a with
+	      | ((x, n), None) -> 
+		  if n mod 2 = 0 || Term.Var.is_slack x then 
+		    valid ()
+		  else
+		    x 
+	      | _ -> 
+		  a
+	  else 
+	    a
+
+  let make = Trace.func "atom" "Atom.Nonneg.make" pp pp make
 
   let destruct c = c
 
@@ -180,19 +172,29 @@ module Pos = struct
 
   let holds = Arith.is_pos
 
-  let make a =    
-    let pos a =
-      match Pprod.decompose a with 
-	| ((y, n), None) when not(n mod 2 == 0) -> y
-	| _ -> a
-    in
+  let valid = Arith.mk_one
+  let unsat = Arith.mk_zero
+
+  let make a = 
+    let a =  
       try
 	let (q, x) = Arith.d_multq a in
-	  if Mpa.Q.is_pos q then x else
-	    if Pprod.is_interp a then pos a else a
+	  if Mpa.Q.is_pos q then x else a
       with
-	  Not_found ->
-	    if Pprod.is_interp a then pos a else a
+	  Not_found -> a
+    in
+      match Arith.is_pos a with
+	| Three.Yes -> valid()
+	| Three.No -> unsat()
+	| Three.X -> 
+	    if Pprod.is_interp a then
+	      match Pprod.decompose a with 
+		| ((y, n), None) when not(n mod 2 = 0) -> y
+		| _ -> a
+	    else 
+	      a
+
+  let make = Trace.func "atom" "Atom.Pos.make" pp pp make
 
   let map (id, h) f a =
     let (a', rho') = f a in            

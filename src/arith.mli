@@ -1,4 +1,3 @@
-
 (*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
@@ -46,10 +45,6 @@ val mk_one  : unit -> Term.t
     
 val mk_two  : unit -> Term.t
   (** [mk_one] is [mk_num Mpa.Q.one] *)
-
-val mk_posinf : unit -> Term.t
-val mk_neginf : unit -> Term.t
-val mk_eps : unit -> Term.t
   
 val mk_add  : Term.t -> Term.t -> Term.t
   (** [mk_add a b] constructs the normalized linear arithmetic term for the sum 
@@ -127,6 +122,12 @@ val is_one : Term.t -> bool
 val is_nonneg_num : Term.t -> bool
   (** [is_nonneg_num a] holds iff [a] represents a nonnegative number. *)
 
+val is_pos_num : Term.t -> bool
+  (** [is_pos_num a] holds iff [a] represents a positive number. *)
+
+val is_nonpos_num : Term.t -> bool
+  (** [is_nonpos_num a] holds iff [a] represents a nonpositive number. *)
+
 val is_diophantine : Term.t -> bool
   (** [is_diophantine a] holds iff all variables in [a] are integer. *)
 
@@ -172,6 +173,12 @@ val lcm_of_denominators : Term.t -> Mpa.Z.t
 (** {6 Iterators} *)
 
 val iter : (Term.t -> unit) -> Term.t -> unit
+  (** [iter f a] applies [f] at uninterpreted positions of [a]. *)
+
+val fold : (Term.t -> 'a -> 'a) -> Term.t -> 'a -> 'a
+ (** [fold f a e] applies [f] at uninterpreted positions of [a]
+   and accumulates results starting with [e]. *)
+
 
 val map: (Term.t -> Term.t) -> Term.t -> Term.t
   (** Applying a term transformer [f] at uninterpreted positions.

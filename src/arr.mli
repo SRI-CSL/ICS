@@ -142,9 +142,9 @@ val dismerge : config -> Fact.Diseq.t -> unit
 
 val split : config -> Term.t * Term.t
   (** [split (p, s)] generates a case splits necessary
-    to make the procedure complete for the theory of arrays. 
-    Here, a pair of variables [(i, j)] represents a case split
-    on [i = j] or [i <> j]. *)
+    to make the procedure complete for the theory of power products
+    The result is a pair of equalities of the form [(x, 0); (y, 1)]
+    for representing the disjunction [x = 0] OR [y = 1]. *)
 
 
 

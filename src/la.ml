@@ -360,6 +360,10 @@ let equality tag =
 let replace s =
   Jst.Eqtrans.replace Arith.map (find s)
 
+let is_replaced s a =
+  let (b, _) = replace s a in
+    Term.eq a b
+
 (** Either return a fully interpreted term or a canonical variable. *)
 let interp (p, s) =
   Jst.Eqtrans.replace Arith.map
@@ -479,6 +483,8 @@ let name ((p, s) as cfg) a =
 	    let e = Fact.Equal.make (v, b, tau) in
 	      S.update r cfg e;
 	      (v, tau)
+
+let name cfg = Jst.Eqtrans.trace "la" "Name" (name cfg)
 		  
 
 (** Fusing a list of solved equalities into solution set for mode [m]. *)
@@ -500,34 +506,7 @@ let rec compose1 tag cfg e =
 	S.compose t cfg [e]
 
 and lazy_fuse cfg e =
-  let (k, a, _) = Fact.Equal.destruct e in
-    if Arith.is_num a || Term.is_var a then   (* eagerly fuse numeric constants and variables. *)
-      S.fuse r cfg [e]
-    else 
-      fuse_in_r := Term.Var.Map.add k e !fuse_in_r
-
-and complete_fuse_in_r ((_, s) as cfg) =  
-  Term.Var.Map.iter
-    (fun k e ->
-       Trace.msg "la" "Lazy Fuse" e Fact.Equal.pp;
-       S.fuse r cfg [e])
-    !fuse_in_r
-
-let initialize () = 
-  fuse_in_r := Term.Var.Map.empty
-
-let finalize c =
-  complete_fuse_in_r c
-
-let unwind_protect f c a =
-  initialize ();
-  try
-    f c a;
-    finalize c
-  with
-      exc -> 
-	finalize c;
-	raise exc
+  S.fuse r cfg [e]        (* lazy fusion to be added *)
 	
 
 (** Process an equality [e].
@@ -561,13 +540,9 @@ let unwind_protect f c a =
      in [T] and repeat with [k = a''].  Eventually, all the negative variables will have been
      eliminated or we are back to one of the previous cases.  Note that [|a'|] will never 
      go below [0] in this process. *)
-let rec process_equal cfg e =  
-  unwind_protect 
-    merge1 cfg e
-
-and merge1 ((p, s) as cfg) e =
+let rec process_equal ((_, s) as cfg) e =  
+  Trace.msg "la" "Process" e Fact.Equal.pp;
   let e = Fact.Equal.map (replace s) e in
-    Trace.msg "la" "Process" e Fact.Equal.pp;
     process_solved_list cfg (solve e)
 
 and process_solved_list cfg = 
@@ -714,7 +689,6 @@ and process_nonneg cfg nn =
     let nn = Fact.Nonneg.map (replace s) nn in
       process_nonneg1 cfg nn
   in
-    unwind_protect 
       process cfg nn
 
 and process_nonneg1 ((_, s) as cfg) nn =
@@ -920,18 +894,31 @@ let rec is_neg cfg a =
     with
 	Jst.Inconsistent(rho) -> Some(rho)
 
-(** [a <> b] if [solve(S[a] = S[b])] is inconsistent. *)
-and is_diseq ((_, s) as cfg) a b =
-  if is_empty s || not(Term.is_pure Th.la a) || not(Term.is_pure Th.la b) then
+(** [is_diseq (p, s) a b] iff adding [a = b] to [(p, s)] yields
+  inconsistency. *)
+and is_diseq1 ((p, s) as cfg) a b =
+  if is_empty s || 
+    not(Term.is_pure Th.la a) || 
+    not(Term.is_pure Th.la b) 
+  then
     None
   else 
-    let (a', rho) = replace s a
-    and (b', tau) = replace s b in
-      try
-	let _ = Arith.solve (a', b') in
-	  None
-      with
-	  Exc.Inconsistent -> Some(Jst.dep2 rho tau)
+    try
+      let e = Fact.Equal.make (a, b, Jst.dep0) in
+	protect cfg process_equal e;
+	None
+    with
+	Jst.Inconsistent(rho) -> Some(rho)
+  
+and is_diseq cfg = Jst.Pred2.trace "foo3" "La.is_diseq" (is_diseq1 cfg)
+
+and is_equal ((p, s) as cfg) a b =
+  let (a', rho) = replace s a
+  and (b', tau) = replace s b in
+    if Term.eq a' b' then
+      Some(Jst.dep2 rho tau)
+    else 
+      None
     
 (** [a > 0] iff [-a < 0]. *)
 and is_pos cfg a =  
@@ -955,21 +942,9 @@ and is_nonpos cfg a =
     | res -> res
 
 
-(** [a = 0] in iff [a == 0] or [x = 0] in [s] with [x = a]. *)
+(** Test if [a = 0] *)
 and is_zero (p, s) a =
-  if Arith.is_zero a then
-    Some(Jst.dep0)
-  else if Term.is_var a then
-    try
-      let (x, rho) = inv s (Arith.mk_zero()) in
-	(match Partition.is_equal p x a with
-	  | Some(tau) -> Some(Jst.dep2 rho tau)
-	  | None -> None)
-    with
-	Not_found -> None
-  else 
-    None
-
+  is_equal (p, s) a (Arith.mk_zero())
 
 (** Test if [a <= b]. *)
 and is_le cfg (a, b) =
@@ -994,21 +969,21 @@ and is_gt cfg (a, b) =
 (** Processing disequalities only deals with integer disequalities,
   which are maintained in the form [e <> n] where [n] is a natural 
   number. *) 
-and process_diseq cfg d = 
+and process_diseq ((_, s) as cfg) d = 
   Trace.msg "la" "Process" d Fact.Diseq.pp;
-  unwind_protect
+  assert(Fact.Diseq.both_sides (Term.is_pure Th.la) d);
+  let d = Fact.Diseq.map (replace s) d in    (* replace dependent variables. *)
     dismerge1 cfg d
 
 and dismerge1 ((p, s) as cfg) d =
-  let d = Fact.Diseq.map (replace s) d in    (* replace dependent variables. *)
-    match is_inconsistent_diseq cfg d with
-      | Some(rho) -> 
-	  raise(Jst.Inconsistent(rho))
-      | None -> 
-	  if !Arith.integer_solve && Fact.Diseq.is_diophantine d then
-	    process_diophantine_diseq cfg d
-	  else 
-	    process_nondiophantine_diseq cfg d 
+  match is_inconsistent_diseq cfg d with
+    | Some(rho) -> 
+	raise(Jst.Inconsistent(rho))
+    | None -> 
+	if !Arith.integer_solve && 
+	  Fact.Diseq.is_diophantine d 
+	then
+	  process_diophantine_diseq cfg d
 
 (** A disequality [a <> b] with [a], [b] not containing any dependent
   variables is inconsistent if [solve(a = b)] yields an inconsistency. *)
@@ -1023,18 +998,6 @@ and is_inconsistent_diseq cfg d =
 	Exc.Inconsistent -> None
  
 
-(** Nondiophantine disequalities are variable-abstracted
-  and added to the disequalities in the variable partitioning. *)
-and process_nondiophantine_diseq ((p, s) as cfg) d =
-    let d' = Fact.Diseq.map (name cfg) d in
-      assert(Fact.Diseq.is_var d');
-      Partition.dismerge p d';                     (* now, add -x <> 0 for x <> 0 *)
-      let (x, y, rho) = Fact.Diseq.destruct d' in  (* [rho |- x <> y] *)
-	match is_zero cfg x with
-	  | Some(tau) ->                           (* [tau |- x = 0] *)
-	      ()
-	  | None -> 
-	      ()   (* to do *)
 	
 (** Whenever we add [e<>n], we calculate the largest contiguous segment [N] 
   containing [n] such that [e<>m] for [m] in [N], then with 
@@ -1048,6 +1011,7 @@ and process_nondiophantine_diseq ((p, s) as cfg) d =
   the original state and continue processing inputs. *)
 and process_diophantine_diseq cfg d =
   assert(Fact.Diseq.is_diophantine d);
+  Trace.msg "la" "Diophantine" d Fact.Diseq.pp;
   let (e, n, rho) = Fact.Diseq.d_diophantine d in
     try
       let m = Arith.d_num e in
@@ -1065,8 +1029,7 @@ and process_diophantine_diseq cfg d =
 	    try
 	      case_process_le cfg (e, l);           (* try [e <= l] *)
 	      (try
-		 case_process_ge cfg (e, h);        (* try [e >= h] *)
-		 process_nondiophantine_diseq cfg d
+		 case_process_ge cfg (e, h)         (* try [e >= h] *)
 	       with
 		   Jst.Inconsistent(tau) -> (* [tau |- e < h] *)
 		     let sigma = Jst.dep (tau :: taus) in
@@ -1133,25 +1096,11 @@ and contiguous_diseq_segment ((p, s) as cfg) (e, n) =
 
     
 (** Test if [a] and [q] are known to be disequal, where all variables in [a]
-  are independent. This is the case if either
-  - [a] is a rational disequal from [q]
-  - [x = q] is in [s] and [y] is [uninterp a] and [x <> y] in [p]. *) 
-and is_num_diseq ((p, s) as cfg) a q =
-  try
-    let p = Arith.d_num a in
-      if Mpa.Q.equal q p then None else Some(Jst.dep0)
-  with
-      Not_found -> 
-	(try
-	   let (x, rho) = inv s (Arith.mk_num q)
-	   and (y, tau) = uninterp cfg a in
-	     (match Partition.is_diseq p x y with
-		| Some(sigma) -> Some(Jst.dep3 rho tau sigma)
-		| None -> None)
-	 with
-	     Not_found -> None)
+  are independent. *)
+and is_num_diseq cfg a q =
+  is_diseq cfg a (Arith.mk_num q)
 
-  
+
 (** {6 Extremal Values} *)    
 
 (** Maximize [a] in [s] by systematically eliminating positive 
@@ -1312,7 +1261,7 @@ module Finite = struct
     with
 	Found(x, fin) -> (x, fin)
 
-  let split ((_, s) as cfg) =
+  let disjunction ((_, s) as cfg) =
     let of_equal (x, a) = 
       try
 	let fin = of_var cfg x in
@@ -1363,72 +1312,28 @@ type mode = Max | Min
 
 
 let rec model ((_, s) as cfg) xl =
-  failwith "to do"
+  Format.eprintf "\nWarning: model generation is work in progress...@.";
+  let s0 = ground s in
+    s0
 
-(*
-  try
-    Format.eprintf "\nWarning: model generation is work in progress...@?";
-    let s = S.copy s in             (* protect state against updates. *)
-    let m = ref Term.Map.empty in
-      List.iter
-	(fun (x, mode) -> 
-	   let a = interpretation_of cfg (x, mode) in
-	     m := Term.Map.add x a !m;
-	     let e = Fact.Equal.make (x, a, Jst.dep0) in 
-	       merge cfg e)
-	xl;
-      !m
-  with
-      Jst.Inconsistent _ ->
-	failwith "Inconsistency detected in model generation"
+and ground s =
+  fold 
+    (fun x (a, rho) s0 -> 
+       let (q, ml) = Arith.poly_of a in
+       let s0' = 
+	 Term.Map.add x (Arith.mk_num q) s0 
+       in
+       let s0'' = 
+	 Arith.fold
+	   (fun y acc -> 
+	      if not(Term.Map.mem y acc) then
+		Term.Map.add y (Arith.mk_zero()) acc
+	      else 
+		acc)
+	   a s0'
+       in
+	 s0'')
+    s Term.Map.empty
 
-and interpretation_of ((p, _) as cfg) (x, mode) =
-  let q = interpretation cfg (x, mode) in
-      q                                        (* disequalities: to do *)
-
-and interpretation cfg (x, mode) =
-  if is_restricted x then
-    interp_of_restricted cfg (x, mode)
-  else 
-    interp_of_unrestricted cfg (x, mode)
-      
-and interp_of_restricted ((_, s) as cfg) (k, mode) =
-  make_dependent cfg k;           (* make [k] a dependent variable. *)
-  let (b, _) = S.find t s k in
-    match mode with
-      | None -> 
-	  Arith.mk_num (Arith.constant_of b)
-      | Some(Max) -> 
-	  (try
-	     let (b', _) = upper cfg b in
-	       Arith.mk_num (Arith.constant_of b')
-	   with
-	       Not_found -> Arith.mk_posinf())
-      | Some(Min) -> 
-	  (try
-	     let (b', _) =  lower cfg b in
-	       Arith.mk_num (Arith.constant_of b')
-	   with
-	       Not_found -> Arith.mk_neginf())
-
-and interp_of_unrestricted ((_, s) as cfg) (x, mode) = 
-  let is_restricted_monomial (_, y) = is_restricted_var y in
-    make_dependent cfg x;              (* make [x] a dependent variable. *)
-    let (b, _) = S.find r s x in       (* [x = b] *)
-    let (n, w, u) = Arith.Monomials.partition is_restricted_monomial b in
-      match mode with
-	| None -> 
-	    Arith.mk_num (Q.add n (Arith.constant_of w))
-	| Some(Max) ->
-	    (try 
-	       let (w', _) = upper cfg w in
-		 Arith.mk_num (Q.add n (Arith.constant_of w'))
-	     with
-		 Not_found -> Arith.mk_posinf())
-      | Some(Min) -> 
-	  (try
-	     let (w', _) = lower cfg w in
-	     Arith.mk_num (Q.add n (Arith.constant_of w'))
-	   with
-	       Not_found -> Arith.mk_neginf())
-*)
+and diseqs (p, s) =
+  ()

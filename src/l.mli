@@ -58,3 +58,7 @@ val copy : t -> t
 val name : Partition.t * t -> Jst.Eqtrans.t
 
 val merge : Partition.t * t -> Fact.Equal.t -> unit
+
+val dismerge : Partition.t * t -> Fact.Diseq.t -> unit
+
+val split : Partition.t * t -> Term.t * Term.t

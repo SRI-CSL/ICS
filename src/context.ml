@@ -116,28 +116,6 @@ let upper_of s = s.upper
 let config_of s = (s.p, s.eqs)
 
 
-(** Processing a fact. *)
-let rec process s ((atm, rho) as fct) =
-  match Atom.atom_of atm with
-    | Atom.TT -> 
-	() (* skip *)
-    | Atom.FF -> 
-	raise(Jst.Inconsistent(rho))
-    | Atom.Equal(a, b) -> 
-	let e = Fact.Equal.make (a, b, rho) in
-	let th = Fact.Equal.theory_of e in
-	  Combine.merge th (s.p, s.eqs) e
-    | Atom.Diseq(a, b) -> 
-	let d = Fact.Diseq.make (a, b, rho) in
-	  Combine.dismerge (s.p, s.eqs) d
-    | Atom.Nonneg(a) -> 
-	let nn = Fact.Nonneg.make (a, rho) in
-	  Combine.process_nonneg (s.p, s.eqs) nn
-    | Atom.Pos(a) -> 
-	let nn = Fact.Nonneg.make (a, rho) 
-	and dd = Fact.Diseq.make (a, Arith.mk_zero(), rho) in
-	  Combine.process_nonneg (s.p, s.eqs) nn;
-	  Combine.dismerge (s.p, s.eqs) dd
 	    
 
 (** Propagate newly deduced facts. *)   
@@ -165,7 +143,7 @@ and close_e s (_, e) =
 
 and close_d s (i, d) = 
   Trace.msg "rule" "Close" d Fact.Diseq.pp;
-  Combine.dismerge (s.p, s.eqs) d
+  Combine.propagate_diseq (s.p, s.eqs) d
 
 and close_nn s (i, nn) = 
   Trace.msg "rule" "Close" nn Fact.Nonneg.pp;
@@ -211,7 +189,7 @@ let simplify s =
     (Combine.simplify (s.p, s.eqs))
 
 let process s = 
-  Trace.proc "rule" "Process" Fact.pp (process s)
+  Trace.proc "rule" "Process" Fact.pp (Combine.process (s.p, s.eqs))
 
 let abstract s =
   Trace.func "rule" "Abstract" Atom.pp Fact.pp
