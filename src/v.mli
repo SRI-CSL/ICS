@@ -14,7 +14,7 @@
  * Author: Harald Ruess, N. Shankar
 i*)
 
-(*s Module [V]: Equalities over variables. *)
+(*s Module [V]: Equivalence classes for variables. *)
 
 type t
 
@@ -24,10 +24,6 @@ type t
  the codomain. *)
 
 val partition : t -> Term.Set.t Term.Map.t
-
-(*s Remove all internal variables. *)
-
-val external_of : t -> t
 
 (*s [find s x] returns the canonical representative of [x]
  with respect ot the partitioning of the variables in [s].
@@ -46,11 +42,11 @@ val changed : t -> Term.Set.t
 
 val reset : t -> t
 
-val unchanged : t -> t -> bool
+val eq : t -> t -> bool
 
 (*s Variable equality modulo [s]. *)
 
-val eq : t -> Term.t -> Term.t -> bool
+val is_equal : t -> Term.t -> Term.t -> bool
 
 (*s The empty context. *)
 
@@ -88,3 +84,8 @@ val for_all : t -> (Term.t -> bool) -> Term.t -> bool
   is raised. *)
 
 val choose : t -> (Term.t -> bool) -> Term.t -> Term.t
+
+
+(*s Remove all internal variables. *)
+
+val external_of : t -> t
