@@ -26,8 +26,6 @@ val cmp : t -> t -> int
 
 val (<<<) : t -> t -> bool
 
-val orient: t * t -> t * t
-
 (*s Constructors. *)
 
 val mk_var : Name.t -> t

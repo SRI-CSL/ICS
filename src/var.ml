@@ -23,11 +23,11 @@ open Format
 
 type t = 
   | External of Name.t
-  | Fresh of Name.t * int
+  | Internal of Name.t * int
 
 let name_of = function
   | External(n) -> n
-  | Fresh(n,i) ->  
+  | Internal(n,i) ->  
       let str = Format.sprintf "%s!%d" (Name.to_string n) i in
       Name.of_string str
 
@@ -35,23 +35,21 @@ let eq x y =
   match x, y with
     | External(n), External(m) -> 
 	Name.eq n m
-    | Fresh(n,i), Fresh(m,j) -> 
+    | Internal(n,i), Internal(m,j) -> 
 	Name.eq n m && i = j
     | _ -> false
 
 let cmp x y =
   match x, y with
-    | External _, Fresh _ -> -1
-    | Fresh _, External _ -> 1
-    | External(n), External(m) -> Name.cmp n m
-    | Fresh(n,i), Fresh(m,j) -> 
+    | External _, Internal _ -> -1
+    | Internal _, External _ -> 1
+    | External(n), External(m) -> 
+	Name.cmp n m
+    | Internal(n, i), Internal(m, j) -> 
 	let c1 = Name.cmp n m in
 	if c1 != 0 then c1 else Pervasives.compare i j
 
 let (<<<) x y = (cmp x y <= 0)
-
-let orient ((x,y) as e) =
-  if x <<< y then (x,y) else (y,x)
 
 
 (*s Sets and maps of terms. *)
@@ -78,19 +76,19 @@ let k = ref 0
 let _ = Tools.add_at_reset (fun () -> k := 0)
 
 let mk_fresh x = function
-  | Some(k) ->
-      Fresh(x, k)
+  | Some(k) -> 
+      Internal(x, k)
   | None ->
       incr(k);
-      Fresh(x, !k)
+      Internal(x, !k)
 
 (*s Recognizers. *)
 
 let is_var = function External _ -> true | _ -> false
-let is_fresh = function Fresh _ -> true | _ -> false
+let is_fresh = function Internal _ -> true | _ -> false
 
 (*s Printer. *)
 
 let pp fmt = function
   | External(n) -> Name.pp fmt n
-  | Fresh(n,i) -> Format.fprintf fmt "%s!%d" (Name.to_string n) i
+  | Internal(n,i) -> Format.fprintf fmt "%s!%d" (Name.to_string n) i
