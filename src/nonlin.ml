@@ -22,13 +22,16 @@ let rec mk_mult a b =
   else if Pprod.is_one b then
     a
   else 
-    match a, b with
-      | App(Sym.Arith(op), xl), _ ->
-	  mk_mult_arith op xl b
-      | _, App(Sym.Arith(op), yl) ->
-	  mk_mult_arith op yl a
-      | _ ->
-	  mk_inj (Pprod.mk_mult a b)
+    try
+      let op, xl = Arith.d_interp a in
+	mk_mult_arith op xl b
+    with
+	Not_found -> 
+	  (try
+	     let op, yl = Arith.d_interp b in
+	       mk_mult_arith op yl a
+	   with
+	       Not_found -> mk_inj (Pprod.mk_mult a b))
 
 and mk_inj pp =
   if Pprod.is_one pp then Arith.mk_one else pp
@@ -61,11 +64,12 @@ and mk_expt n a =
     Arith.mk_one
   else if n = 1 then
     a
-  else match a with
-    | App(Sym.Arith(op), xl) ->
+  else
+    try
+      let op, xl = Arith.d_interp a in
 	mk_expt_arith n op xl
-    | _ ->
-	mk_inj (Pprod.mk_expt n a)
+    with
+	Not_found -> mk_inj (Pprod.mk_expt n a)
 
 and mk_expt_arith n op xl =
   match op, xl with
@@ -107,43 +111,12 @@ let mk_inv a =
 
 (** Mapping a term transformer [f] over [a]. *)
 let rec map f a = 
-  match a with
-    | App(Sym.Arith(op), l) ->
-	(match op, l with
-	   | Sym.Num _, [] -> 
-	       a
-	   | Sym.Multq(q), [x] ->
-	       let x' = map f x in
-		 if x == x' then a else 
-		   Arith.mk_multq q x'
-	   | Sym.Add, [x; y] -> 
-	       let x' = map f x and y' = map f y in
-		 if x == x' && y == y' then a else 
-		   Arith.mk_add x' y'
-	   | Sym.Add, xl -> 
-	       let xl' = Term.mapl (map f) xl in
-		 if xl == xl' then a else
-		   Arith.mk_addl xl'
-	   | _ -> 
-	       assert false)
-    | App(Sym.Pp(op), l) ->
-	(match op, l with
-	   | Sym.Mult, [x; y] -> 
-	       let x' = map f x and y' = map f y in
-		 if x == x' && y == y' then a else 
-		   mk_mult x' y'
-	   | Sym.Mult, xl -> 
-	       let xl' = Term.mapl (map f) xl in
-		 if xl == xl' then a else
-		   mk_multl xl'
-	   | Sym.Expt(n), [x] -> 
-	       let x' = map f x in
-		 if x == x' then a else
-		   mk_expt n x'
-	   | _ ->
-	       assert false)
-    | _ ->
-	f a
+  if Arith.is_interp a then
+    Arith.map (Pprod.map f) a
+  else if Pprod.is_interp a then
+    Pprod.map (Arith.map f) a
+  else 
+    f a
 
 
 (** Replace [x] by [b] in [a]. *)
