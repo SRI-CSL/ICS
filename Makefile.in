@@ -17,7 +17,7 @@ HEVEA = @HEVEA@
 OCAMLWEB = @OCAMLWEB@
 OCAMLWEBSTY = $$HOME/tex/ocamlweb.sty
 
-WEBHOME = /homes/web/www.icansolve.com
+WEBHOME = /homes/web
 
 ### end of configuration part ################################################
 
