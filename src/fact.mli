@@ -80,6 +80,8 @@ module Equal : sig
 
   val is_pure : Th.t -> t -> bool
 
+  val is_diophantine : t -> bool
+
   val map : Justification.Eqtrans.t -> t -> t
 
   val map_lhs : Justification.Eqtrans.t -> t -> t
