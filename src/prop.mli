@@ -26,9 +26,6 @@ type t =
   | Ite of t * t * t
   | Neg of t
 
-val reset : unit -> unit
-  (** Resettting translation to external satisfiability solver. *)
-
 (** {6 Constructors} *)
  
 val mk_true : t

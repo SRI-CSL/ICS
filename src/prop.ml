@@ -91,12 +91,7 @@ let id = ref 0
 let atomtbl = Atomtbl.create 17
 let inttbl = Inttbl.create 17
 
-let reset () =
-  id := 0; 
-  Atomtbl.clear atomtbl;
-  Inttbl.clear inttbl
 
-let _ =  Tools.add_at_reset reset
 
 let atom_to_id a =
   try
