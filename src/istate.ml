@@ -142,10 +142,10 @@ let ctxt_of = function
 (*s Canonization w.r.t current state. *)
 
 let can p = 
-  Shostak.can s.current p
+  Can.atom s.current p
 
 let cant a = 
-  Shostak.can_t s.current a
+  Can.term s.current a
 
 let sigma f l =
   Context.sigma s.current f l
@@ -231,7 +231,7 @@ let unsat n a =
 
 let diseq n a =
   let s = get_context n in
-  let a' = Shostak.can_t s a in
+  let a' = Can.term s a in
   try
     Context.d s a'
   with
@@ -239,7 +239,7 @@ let diseq n a =
 
 let cnstrnt n a =
   let s = get_context n in
-  let a' = Shostak.can_t s a in
+  let a' = Can.term s a in
   try
     Some(Context.cnstrnt s a')
   with
@@ -273,7 +273,11 @@ let partition () =
 (*s Solver. *)
 
 let solve i (a, b) = 
-  failwith "to do"
+  let e = Fact.mk_equal a b None in
+  List.map (fun e' -> 
+	      let (x, b, _) = Fact.d_equal e' in
+		(x, b))
+    (Th.solve i e)
 
 (*
   try
@@ -286,7 +290,7 @@ let solve i (a, b) =
 (*s Equality/disequality test. *)
 
 let is_equal a b =
-  Shostak.eq s.current a b
+  Can.eq s.current a b
 
 let is_int a =
   try
