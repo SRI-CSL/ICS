@@ -469,6 +469,9 @@ val cmd_forget : unit -> unit
 
 val cmd_eval : unit -> unit
 
+(*s Sleeping for a number of seconds. *)
+
+val sleep : int -> unit
 
 (*s Lists. *)
 
