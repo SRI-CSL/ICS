@@ -74,7 +74,7 @@ module Make(R: Rat) = struct
   Solving a linear diophantine equation with nonzero, rational coefficients
   $c_i$, for $i = 1,\ldots,n$ with $n \geq 1$.
   \begin{eqnarray}
-  c_0*x_0 + \ldots c_n * x_n & = & b \label{eqn:lin.diophantine.orig}
+  c_0*x_0 + \ldots c_n * x_n & = & b
   \end{eqnarray}
   The algorithm proceeds by recursion on $n$. The case $n = 1$ is
   trivial. Let $n \geq 2$. Find, with the Euclidean algorithm
@@ -82,14 +82,14 @@ module Make(R: Rat) = struct
   $$a' = (c_0, c_1) = c_0 * d + c_1 * e\mbox{.}$$
   Next solve the linear diophantine equation (in $n$ variables)
   \begin{eqnarray}
-  c'*x + c_2 * x_2 + \ldots + c_n * x_n & = & b \label{eqn:lin.diophantine.rec}
+  c'*x + c_2 * x_2 + \ldots + c_n * x_n & = & b
   \end{eqnarray}
-  If equation~\ref{eqn:lin.diophantine.rec} has no integral solution,
-  then neither has \ref{eqn:lin.diophantine.orig}.
+  If equation has no integral solution,
+  then neither has.
   Otherwise, if $x,x_2,\ldots, x_n$ is an integral solution
-  of~\ref{eqn:lin.diophantine.rec}, then
+  of, then
   $d*x, e*x,x_2,\ldots,x_n$
-  gives an integral solution of~\ref{eqn:lin.diophantine.orig}.
+  gives an integral solution of.
 *)
 
   let solve cl b =

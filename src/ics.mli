@@ -224,10 +224,6 @@ val mk_diseq  : term -> term -> term
       the set of integers (see below). 
   *)
     
-val mk_pos    : term -> term
-val mk_neg    : term -> term
-val mk_nonpos : term -> term
-val mk_nonneg : term -> term
 val mk_in : term -> term -> term
 val mk_notin: term -> term -> term
 val mk_int : term -> term
@@ -352,35 +348,12 @@ val interval_domain_is_real : interval_domain -> bool
 val interval_domain_is_int : interval_domain -> bool
 val interval_domain_is_nonintreal : interval_domain -> bool
 
-    (*s A singleton constraint is either a Boolean constraint, a predicate constraint,
-      a cartesian constraint, a bitvector constraint, any other nonaritmetic constraint,
-      or an arithmetic constraint. Exactly one of the accessors below holds for each
-      singleton constraints. Whenever [cnstrnt1_is_arith c1] holds, the corresponding
-      interval can be obtained using [cnstrnt1_d_arith]. *)
-   
-type cnstrnt1
-
-val cnstrnt1_boolean : unit -> cnstrnt1
-val cnstrnt1_predicate : unit -> cnstrnt1
-val cnstrnt1_cartesian : unit -> cnstrnt1
-val cnstrnt1_bitvector : unit -> cnstrnt1
-val cnstrnt1_other : unit -> cnstrnt1
-val cnstrnt1_arith : interval_domain * low_bound * high_bound -> cnstrnt1
-
-  
-val cnstrnt1_is_boolean : cnstrnt1 -> bool
-val cnstrnt1_is_predicate : cnstrnt1 -> bool   
-val cnstrnt1_is_cartesian : cnstrnt1 -> bool   
-val cnstrnt1_is_bitvector : cnstrnt1 -> bool   
-val cnstrnt1_is_other : cnstrnt1 -> bool
-val cnstrnt1_is_arith : cnstrnt1 -> bool
-
-val cnstrnt1_d_arith : cnstrnt1 -> interval_domain * low_bound * high_bound
-
       (*s Listify constraints as the disjunction of singleton constraints. *)
 
-val cnstrnt_to_list : cnstrnt -> cnstrnt1 list
-val cnstrnt_of_list : cnstrnt1 list -> cnstrnt
+type interval
+
+val cnstrnt_to_list : cnstrnt -> interval list
+val cnstrnt_of_list : interval list -> cnstrnt
 
     (*s Constraint constructors. *)
         
@@ -389,13 +362,9 @@ val cnstrnt_le : interval_domain -> q -> cnstrnt
 val cnstrnt_ge : interval_domain -> q -> cnstrnt
 val cnstrnt_gt : interval_domain -> q -> cnstrnt
 
+val cnstrnt_domain : interval_domain -> cnstrnt
 val cnstrnt_int : cnstrnt
 val cnstrnt_real : cnstrnt
-val cnstrnt_boolean : cnstrnt
-val cnstrnt_predicate : cnstrnt
-val cnstrnt_bitvector : cnstrnt
-val cnstrnt_cartesian : cnstrnt
-val cnstrnt_other : cnstrnt
 
 val cnstrnt_openopen : interval_domain -> q -> q -> cnstrnt
 val cnstrnt_openclosed : interval_domain -> q -> q -> cnstrnt
@@ -515,6 +484,8 @@ val find_of : state -> subst
 val ext_of : state -> terms map
 val cnstrnt_of : state -> cnstrnt map
 val use_of : state -> terms map
+
+val state_pp : state -> unit
  
   
 (*s The operation [process] adds a new proposition to a state.

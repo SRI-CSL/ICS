@@ -28,7 +28,7 @@ let rec disj a b =
 	disj_equal_app (x2,y2) (c1,x1)
     | App({node=Set(Cnstrnt(c1))},[x1]),
       App({node=Set(Cnstrnt(c2))},[x2]) when x1 === x2 ->
-	Some(Term.mem x1 (Cnstrnt.union c1 c2))
+	Some(Cnstrnt.app (Interval.union c1 c2) x1)
     | _ ->
 	None
 
@@ -57,8 +57,8 @@ and disj_diseq_equal (x1,y1) (x2,y2) =
     None
 
 and disj_equal_app (x1,y1) (c2,x2) =
-  if x1 === x2 && is_tt(Term.mem y1 c2) then
-    Some(hc(Bool(True)))
+  if x1 === x2  then
+    Some(Cnstrnt.app c2 y1)
   else
     None
 
@@ -127,7 +127,7 @@ let conj a b =                   (* conjunction of [a] and [b] *)
 	  conj_bool_bool x y
       | App({node=Set(Cnstrnt(c1))},[x1]),
 	App({node=Set(Cnstrnt(c2))},[x2]) when x1 === x2 ->
-	  Some(Term.mem x1 (Cnstrnt.inter c1 c2))
+	  Some(Cnstrnt.app (Interval.inter c1 c2) x1)
       | Bool(Equal(x1,y1)),
 	App({node=Set(Cnstrnt(c2))},[x2]) ->
 	  conj_equal_app (x1,y1) (c2,x2)
@@ -143,7 +143,7 @@ let rec neg a =
     | Bool(x) ->
 	bool_neg x
     | App({node=Set(Cnstrnt(c))},[x]) ->
-	Some(Term.mem x (Cnstrnt.compl c))
+	Some(Cnstrnt.app (Interval.compl c) x)
     | _ ->
 	None
 

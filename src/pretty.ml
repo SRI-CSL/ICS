@@ -47,7 +47,11 @@ let pp_high fmt = function
   | Interval.High(k,q) -> Q.pp fmt q; Format.fprintf fmt "%s" (if k = Interval.Strict then ")" else "]")
 
 let pp_interval fmt (dom,i,j) =
-  let domstr = match dom with Interval.Real -> "" | Interval.Int -> "int" | Interval.NonintReal -> "nonintreal" in
+  let domstr = match dom with
+    | Interval.Real -> ""
+    | Interval.Int -> "int"
+    | Interval.NonintReal -> "nonintreal"
+  in
   Format.fprintf fmt "@[%s" domstr; 
   pp_low fmt i;
   Format.fprintf fmt "..";
@@ -55,24 +59,17 @@ let pp_interval fmt (dom,i,j) =
   Format.fprintf fmt "@]"
 	
 let rec pp_cnstrnt prec fmt c =
-  if Cnstrnt.is_top c then
+  if Interval.is_top c then
     Format.fprintf fmt "top"
-  else if Cnstrnt.is_bot c then
+  else if Interval.is_bot c then
     Format.fprintf fmt "bot"
   else
-    let l = Cnstrnt.to_list c in
+    let l = Interval.to_list c in
     list_sep
-      (fun () -> Format.fprintf fmt "@ union@ ")
-      (function
-	 | Cnstrnt.Nonarith s ->
-	     (match s with
-		| Boolean -> Format.fprintf fmt "boolean"
-		| Predicate -> Format.fprintf fmt "predicate"
-		| Cartesian -> Format.fprintf fmt "cartesian"
-		| Bitvector -> Format.fprintf fmt "bitvector"
-		| Other -> Format.fprintf fmt "other")
-	 | Cnstrnt.Arith(d,l,h) ->
-	     pp_interval fmt (d,l,h))
+      (fun () ->
+	 Format.fprintf fmt "@ union@ ")
+      (fun (d,l,h) -> 
+	 pp_interval fmt (d,l,h))
       l
    
 
@@ -113,6 +110,8 @@ let pp fmt t =
 	  pr "@["; pp_term prec f; pr "("; pp_terml l; pr ")@]"
       | Update (a,i,v) ->
 	  pp_update prec (a,i,v)
+      | Cond(x,y,z) ->
+	  pp_ite "if" (pp_term 0) (x,y,z)
       | Arith a -> 
 	  pp_arith prec a
       | Tuple t ->

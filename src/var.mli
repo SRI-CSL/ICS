@@ -40,4 +40,10 @@ val d_var : Term.t -> Term.variable
 val create : Term.variable -> Term.t
 
 val fresh : Term.variable  -> Term.t list -> Term.t
+
+val is_fresh : Term.t -> bool
+
+    (*s Set of fresh variables occuring in a term. *)
+    
+val fresh_of : Term.t -> Term.terms 
     

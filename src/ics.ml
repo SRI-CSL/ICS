@@ -29,7 +29,7 @@ let _ = Callback.register "is_var" is_var
 (*s Function application and function update. *)
          
 let mk_app = App.app
-let mk_update = App.update
+let mk_update a b c = App.update (a,b,c)
    
 let is_app t = match t.node with App _ -> true | _ -> false
 let is_update t = match t.node with Update _ -> true | _ -> false
@@ -110,7 +110,7 @@ let _ = Callback.register "mk_proj" mk_proj
 
 let mk_true () = Bool.tt ()
 let mk_false () = Bool.ff ()
-let mk_ite = Bool.ite
+let mk_ite a b c = Bool.ite(a,b,c)
 let mk_not = Bool.neg
 let mk_and = Bool.conj
 let mk_or = Bool.disj
@@ -137,7 +137,7 @@ let d_imp = Bool.d_imp
 let d_iff = Bool.d_iff
 
 
-let mk_equal = Bool.equal
+let mk_equal a b = Bool.equal(a,b)
 let mk_diseq = Bool.diseq
 
 let mk_in a b = App.app b [a]
@@ -234,32 +234,33 @@ let _ = Callback.register "subst_norm" subst_norm
 
 (*s Constraints *)
 		     
-type cnstrnt = Cnstrnt.t
+type cnstrnt = Interval.t
 		     
-let cnstrnt_lt d q = Cnstrnt.lt d q
-let cnstrnt_le d q = Cnstrnt.le d q
-let cnstrnt_ge d q = Cnstrnt.ge d q
-let cnstrnt_gt d q = Cnstrnt.gt d q
+let cnstrnt_lt d q = Interval.lt d q
+let cnstrnt_le d q = Interval.le d q
+let cnstrnt_ge d q = Interval.ge d q
+let cnstrnt_gt d q = Interval.gt d q
 
-let cnstrnt_int = Cnstrnt.int
-let cnstrnt_real = Cnstrnt.real
+let cnstrnt_domain d =
+  match d with
+    | Interval.Real -> Interval.real
+    | Interval.Int -> Interval.int
+    | Interval.NonintReal -> Interval.nonint
+	  
+let cnstrnt_int = Interval.int
+let cnstrnt_real = Interval.real
    
 
-let cnstrnt_openopen d p q = Cnstrnt.oo d p q
-let cnstrnt_openclosed d p q = Cnstrnt.oc d p q
-let cnstrnt_closedopen d p q = Cnstrnt.co d p q
-let cnstrnt_closedclosed d p q = Cnstrnt.cc d p q
+let cnstrnt_openopen d p q = Interval.oo d p q
+let cnstrnt_openclosed d p q = Interval.oc d p q
+let cnstrnt_closedopen d p q = Interval.co d p q
+let cnstrnt_closedclosed d p q = Interval.cc d p q
 
-let cnstrnt_app c a = Term.mem a c
+let cnstrnt_app = Cnstrnt.app
 
 let cnstrnt_pp c =
   Pretty.cnstrnt Format.std_formatter c;
   Format.pp_print_flush Format.std_formatter ()
-  		 
-let mk_pos a = Term.mem a (Cnstrnt.gt Interval.Real Mpa.Q.zero)
-let mk_neg a = Term.mem a (Cnstrnt.lt Interval.Real Mpa.Q.zero)
-let mk_nonneg a = Term.mem a (Cnstrnt.ge Interval.Real Mpa.Q.zero)
-let mk_nonpos a = Term.mem a (Cnstrnt.le Interval.Real Mpa.Q.zero)
 
 let _ = Callback.register "cnstrnt_lt" cnstrnt_lt
 let _ = Callback.register "cnstrnt_le" cnstrnt_le
@@ -271,10 +272,6 @@ let _ = Callback.register "cnstrnt_openclosed" cnstrnt_openclosed
 let _ = Callback.register "cnstrnt_closedclosed" cnstrnt_closedclosed
 
 let _ = Callback.register "cnstrnt_app" cnstrnt_app
-let _ = Callback.register "mk_pos" mk_pos
-let _ = Callback.register "mk_neg" mk_neg
-let _ = Callback.register "mk_nonneg" mk_nonneg
-let _ = Callback.register "mk_nonpos" mk_nonpos
 
 	 (*s [low_bound] is the type of lower bounds in intervals and they are
       either negative infinity, or a rational number together with a strictness attribute.
@@ -375,89 +372,23 @@ let _ = Callback.register "interval_domain_is_real" interval_domain_is_real
 let _ = Callback.register "interval_domain_is_int" interval_domain_is_int
 let _ = Callback.register "interval_domain_is_nonintreal" interval_domain_is_nonintreal
 
-    (*s A singleton constraint is either a Boolean constraint, a predicate constraint,
-      a cartesian constraint, a bitvector constraint, any other nonaritmetic constraint,
-      or an arithmetic constraint. Exactly one of the accessors below holds for each
-      singleton constraints. Whenever [cnstrnt1_is_arith c1] holds, the corresponding
-      interval can be obtained using [cnstrnt1_d_arith]. *)
-   
-type cnstrnt1 = Cnstrnt.cnstrnt
-
-let cnstrnt1_boolean () = Cnstrnt.Nonarith(Boolean)
-let cnstrnt1_predicate () = Cnstrnt.Nonarith(Predicate)
-let cnstrnt1_cartesian () = Cnstrnt.Nonarith(Cartesian)
-let cnstrnt1_bitvector () = Cnstrnt.Nonarith(Bitvector)
-let cnstrnt1_other () = Cnstrnt.Nonarith(Other)
-let cnstrnt1_arith (d,l,h) = Cnstrnt.Arith(d,l,h)
-			    
-let cnstrnt1_is_boolean = function
-  | Cnstrnt.Nonarith(Boolean) -> true
-  | _ -> false
-	
-let cnstrnt1_is_predicate = function
-  | Cnstrnt.Nonarith(Predicate) -> true
-  | _ -> false
-
-let cnstrnt1_is_cartesian = function
-  | Cnstrnt.Nonarith(Cartesian) -> true
-  | _ -> false
-	
-let cnstrnt1_is_bitvector = function
-  | Cnstrnt.Nonarith(Bitvector) -> true
-  | _ -> false
-
-let cnstrnt1_is_other = function
-  | Cnstrnt.Nonarith(Other) -> true
-  | _ -> false
-
-let cnstrnt1_is_arith = function
-  | Cnstrnt.Arith _ -> true
-  | _ -> false
-
-let cnstrnt1_d_arith = function
-  | Cnstrnt.Arith(d,l,h) -> (d,l,h)
-  | _ -> assert false
-
-let _ = Callback.register "cnstrnt1_boolean" cnstrnt1_boolean
-let _ = Callback.register "cnstrnt1_predicate" cnstrnt1_predicate
-let _ = Callback.register "cnstrnt1_cartesian" cnstrnt1_cartesian
-let _ = Callback.register "cnstrnt1_bitvector" cnstrnt1_bitvector
-let _ = Callback.register "cnstrnt1_other" cnstrnt1_other
-let _ = Callback.register "cnstrnt1_arith" cnstrnt1_arith
-let _ = Callback.register "cnstrnt1_is_boolean" cnstrnt1_is_boolean
-let _ = Callback.register "cnstrnt1_is_predicate" cnstrnt1_is_predicate
-let _ = Callback.register "cnstrnt1_is_cartesian" cnstrnt1_is_cartesian
-let _ = Callback.register "cnstrnt1_is_bitvector" cnstrnt1_is_bitvector
-let _ = Callback.register "cnstrnt1_is_other" cnstrnt1_is_other
-let _ = Callback.register "cnstrnt1_is_arith" cnstrnt1_is_arith
-let _ = Callback.register "cnstrnt1_d_arith" cnstrnt1_d_arith
   
 	  
       (*s Listify constraints as the disjunction of singleton constraints. *)
 
-let cnstrnt_to_list = Cnstrnt.to_list
-let cnstrnt_of_list = Cnstrnt.of_list
+type interval = Interval.interval
+	  
+let cnstrnt_to_list = Interval.to_list
+let cnstrnt_of_list = Interval.of_list
 
 let _ = Callback.register "cnstrnt_to_list" cnstrnt_to_list
 let _ = Callback.register "cnstrnt_of_list" cnstrnt_of_list
 
-let cnstrnt_boolean = Cnstrnt.sort Boolean
-let cnstrnt_predicate = Cnstrnt.sort Predicate
-let cnstrnt_bitvector = Cnstrnt.sort Bitvector
-let cnstrnt_cartesian = Cnstrnt.sort Cartesian
-let cnstrnt_other = Cnstrnt.sort Other
-
-let _ = Callback.register "cnstrnt_boolean" cnstrnt_boolean
-let _ = Callback.register "cnstrnt_predicate" cnstrnt_predicate
-let _ = Callback.register "cnstrnt_bitvector" cnstrnt_bitvector
-let _ = Callback.register "cnstrnt_cartesian" cnstrnt_cartesian
-let _ = Callback.register "cnstrnt_other" cnstrnt_other  
-      
 (*s Sets. *)
 
 let mk_empty = Sets.empty
 let mk_full = Sets.full
-let mk_setite a b c = Sets.ite 0 a b c
+let mk_setite a b c = Sets.ite 0 (a,b,c)
 let mk_compl = Sets.compl
 let mk_inter = Sets.inter
 let mk_union = Sets.union
@@ -768,7 +699,7 @@ let ext st a =
   Set.to_list ts
 
 let use st a =
-  assert (Term.is_uninterpreted a);
+  (* assert (Term.is_uninterpreted a); *)
   let ts = State.use st a in
   Set.to_list ts
  
@@ -779,6 +710,53 @@ let uninterp st a =
 	Set.to_list ts
     | _ -> assert false
 
+let state_pp s =
+  let find = find_of s in
+  let cnstrnt = cnstrnt_of s in
+  let freshvars = ref Term.Set.empty in
+  let printed = ref Term.Set.empty in (* which constraints have already been printed. *)
+  Format.printf "@[";
+  Subst.iter
+    (fun (a,b) ->
+       freshvars :=
+		  Term.Set.union
+		    (Term.Set.union
+		       (Var.fresh_of a)
+		       (Var.fresh_of b))
+	           !freshvars;
+       Format.printf "@[";
+       term_pp a;
+       Format.printf " |-> ";
+       term_pp b;
+       if not(is_num b) then                  (*i don't print the trivial constraints. i*)
+	 begin
+	   let c = Term.Map.find b cnstrnt in
+	   printed := Term.Set.add b !printed;
+	   begin
+	     if not(Interval.is_top c) then
+	       begin     
+		 Format.printf "@ with ";
+		 cnstrnt_pp c
+	       end
+	   end
+	 end;
+	 Format.printf "@.@]")
+    find;
+  let cnstrnt' = Term.Set.fold Term.Map.remove !printed cnstrnt in
+  if not(Term.Map.is_empty cnstrnt') then
+    begin
+      Format.printf "@[@.With additional constraints:@.";
+      Pretty.tmap Pretty.cnstrnt Format.std_formatter cnstrnt';
+      Format.printf "@.@]"
+    end;
+  if not(Term.Set.is_empty !freshvars) then
+    begin
+    Format.printf "@[@.With fresh variables:@.";
+    Pretty.tset Format.std_formatter !freshvars;
+    Format.printf "@.@]"
+    end;
+  Format.printf "@]"
+  
 let _ = Callback.register "state_eq" state_eq  
 let _ = Callback.register "ctxt_of" ctxt_of
 let _ = Callback.register "ext_of" ext_of
@@ -788,6 +766,7 @@ let _ = Callback.register "init" init
 let _ = Callback.register "find" find
 let _ = Callback.register "use" use
 let _ = Callback.register "uninterp" uninterp
+let _ = Callback.register "state_pp" state_pp
 
 	  
 (*s Processing of new equalities. *)
@@ -818,7 +797,7 @@ let process st t =
       | _ ->
 	  Consistent (Process.process None (t', Bool.tt ()) st)
   with
-    | Exc.Inconsistent _ -> Inconsistent
+    | Exc.Inconsistent -> Inconsistent
     | Exc.Valid -> Valid
 
 	  

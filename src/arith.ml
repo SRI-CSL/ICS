@@ -52,7 +52,7 @@ let rec mk_multq q a =
   else
     match a.node with
       | Bool(Ite(x,y,z)) ->
-	  Bool.ite x (mk_multq q y) (mk_multq q z)
+	  Bool.cond(x, mk_multq q y, mk_multq q z)
       | _ ->
 	  hc(Arith(Multq(q,a)))
       
@@ -88,7 +88,7 @@ let pproduct l =
       pproduct ::= t0 * ... * tn      where n >= 0
   *)
    
-module PolyCache = Hasht.Make(
+module PolyCache = Hashtbl.Make(
   struct 
     type t = Term.t
     let equal = (===) 
@@ -127,7 +127,7 @@ let of_mono m =
 let of_poly p =
   let t =
     let l = Poly.to_list p in
-    mk_add (List.map of_mono l)
+    mk_add(List.map of_mono l)
   in
   PolyCache.add table t p; t
 	    
@@ -147,31 +147,60 @@ let addq q  = mapq (Q.add q)
 		
 (*s Adding Polynomials *)
 
-let add2 =
-  Bool.binary_lift_ite
-    (fun (t1,t2) -> of_poly(Poly.add2 (to_poly t1) (to_poly t2)))
-
-let addl tl =
-  of_poly(Poly.add(List.map to_poly tl))
+let add2 (a,b) =
+  of_poly(Poly.add2 (to_poly a) (to_poly b))
+	
+let addl l =
+  let plus l =
+    of_poly(Poly.add(List.map to_poly l))
+  in
+  match l with
+    | [] -> zero
+    | [a] -> a
+    | [a1;a2] ->
+	add2(a1,a2)
+    | _ ->
+	cachel 107 plus l
   
-let add = (* Tools.profile "Add" (cachel 107 addl) *)
-  Bool.nary_lift_ite addl
+let add =           (* Tools.profile "Add" (cachel 107 addl) *)
+  Tools.profile "Add" (Bool.nary_lift_ite addl)
 
 let incr t = add2(t,one)
+
+let sub2 (a,b) =
+   of_poly(Poly.sub (to_poly a) (to_poly b))
   
 let sub =
-  Bool.binary_lift_ite
-    (fun (t1,t2) ->  of_poly (Poly.sub (to_poly t1) (to_poly t2)))
+  cache2 107 (Bool.binary_lift_ite sub2)
 
-let mult2 =
-  Bool.binary_lift_ite
-    (fun (t1,t2) -> of_poly(Poly.mult2 (to_poly t1) (to_poly t2)))
+let mult2 (a,b) =
+  let times (a,b) =
+     of_poly(Poly.mult2 (to_poly a) (to_poly b))
+  in
+  match a.node, b.node with
+    | Arith(Num(q1)), Arith(Num(q2)) ->
+	num(Q.mult q1 q2)
+    | Arith(Num(q1)), _ ->
+	multq q1 b
+    | _, Arith(Num(q2)) ->
+	multq q2 a
+    | _ ->
+	Bool.binary_lift_ite times (a,b)
 
-let multl tl =
-  of_poly (Poly.mult (List.map to_poly tl))
+let multl l =
+  let times l =
+    of_poly(Poly.mult(List.map to_poly l))
+  in
+  match l with
+    | [] -> one
+    | [x] -> x
+    | [a1;a2] ->
+	mult2(a1,a2)
+    | _ ->
+	cachel 107 times l
 
 let mult = (* Tools.profile "Mult" (cachel 107 multl) *)
-  Bool.nary_lift_ite multl
+  Tools.profile "Mult" (Bool.nary_lift_ite multl)
 
 	     
 (*s Division of polynomials. Rather incomplete. *)
@@ -185,6 +214,13 @@ let div2 =
 	       divq q t1
 	 | _ ->
 	     hc(Arith(Div(t1,t2))))
+
+(*s Test if argument is an arithmetic expression. *)
+
+let is_arith a =
+  match a.node with
+    | Arith _ -> true
+    | _ -> false
 	  
 (*s Test for arithmetic constant. *)
 
@@ -201,10 +237,11 @@ let num_of a =
 (*s Integer test for power products of a polynomial. *)
 
 let is_diophantine is_int a =
-  Poly.for_all (fun m ->
-		  let (q,pp) = Poly.of_monomial m in
-		  let xl = Poly.of_pproduct pp in
-		  List.for_all is_int xl)
+  Poly.for_all
+    (fun m ->
+       let (q,pp) = Poly.of_monomial m in
+       let xl = Poly.of_pproduct pp in
+       List.for_all is_int xl)
     (to_poly a)
 	
 
@@ -215,15 +252,15 @@ let is_diophantine is_int a =
 let qsolve x e =
   match Poly.qsolve x (to_poly (sub e)) with
     | Poly.Valid -> []
-    | Poly.Inconsistent -> raise(Exc.Inconsistent "Rational solver")
+    | Poly.Inconsistent -> raise Exc.Inconsistent
     | Poly.Solution (x,p) -> [of_pproduct x, of_poly p]
 
 
 let zsolve e =
-  let fresh () = Var.fresh "k" [] in
+  let fresh () = Var.fresh "_k" [] in
   match Poly.zsolve fresh (to_poly (sub e)) with
     | Poly.Valid -> ([],[])
-    | Poly.Inconsistent -> raise(Exc.Inconsistent "Integer solver")
+    | Poly.Inconsistent -> raise Exc.Inconsistent
     | Poly.Solution (ks, rho) ->
 	(ks, List.map (fun (x,p) -> (of_pproduct x, of_poly p)) rho)
 
@@ -246,7 +283,7 @@ let rec is_integer t =
 let d_poly t =
   let (p,q) = Poly.destructure (to_poly t) in
   (of_poly p, q)
-  
+
 
 (*s Normalized inequalities. First we make all the coefficients integer,
     then we make the [gcd] of these new coefficients equal to 1. *)
@@ -270,11 +307,11 @@ let lt (x,y) =
   else
     let (p',q') = normalize p in
     if Q.ge (Poly.leading p') Q.zero then
-      Term.mem (of_poly p')
-	(Cnstrnt.lt Interval.Real (Q.minus q'))
+      let c = Interval.lt Interval.Real (Q.minus q') in
+      Cnstrnt.app c (of_poly p')
     else
-      Term.mem (of_poly (Poly.neg p'))
-	(Cnstrnt.gt Interval.Real q')
+      let c = Interval.gt Interval.Real q' in
+      Cnstrnt.app c (of_poly (Poly.neg p'))
 
 let le (x,y) =
   let p = Poly.sub (to_poly x) (to_poly y) in
@@ -286,18 +323,22 @@ let le (x,y) =
   else
     let (p',q') = normalize p in
     if Q.ge (Poly.leading p') Q.zero then
-      Term.mem (of_poly p')
-	(Cnstrnt.le Interval.Real (Q.minus q'))
+      let c = Interval.le Interval.Real (Q.minus q') in
+      Cnstrnt.app c (of_poly p')
     else
-      Term.mem (of_poly (Poly.neg p'))
-	(Cnstrnt.ge Interval.Real q')
-      
+      let c = Interval.ge Interval.Real q' in
+      Cnstrnt.app c  (of_poly (Poly.neg p'))
+
+ (*s Computes the gcd of two ordered power products. *)
+
+let gcd l1 l2 =
+  failwith "to do"
       
 (*s Constructor for domain constraints *)
 
-let int a = Term.mem a Cnstrnt.int
+let int = Cnstrnt.app Interval.int
     
-let real a = Term.mem a Cnstrnt.real
+let real = Cnstrnt.app Interval.real
 
 
 

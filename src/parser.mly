@@ -1,3 +1,4 @@
+
 /*
  * ICS - Integrated Canonizer and Solver
  * Copyright (C) 2001-2004 SRI International
@@ -40,10 +41,11 @@
 
 %}
 
-%token CAN SIMP SOLVE FOR ASSERT FIND CHECK LIFT USE EXT UNINTERP SIGMA VERBOSE RESET DROP NORM CMP CTXT
+%token CAN SIMP SOLVE FOR ASSERT FIND CHECK LIFT USE EXT UNINTERP SIGMA VERBOSE
+%token CURRENT RESET DROP NORM CMP CTXT
 %token CNSTRNT HELP COMMANDS SYNTAX
 
-%token INT REAL NONINTREAL BOOLEAN PREDICATE CARTESIAN BITVECTOR OTHER POS NEG NONNEG NONPOS
+%token INT REAL NONINTREAL POS NEG NONNEG NONPOS NEGINF POSINF
 
 %token <string> IDENT
 %token <int> INTCONST
@@ -152,30 +154,19 @@ terms:                { Ics.terms_empty() }
 ;
 
 cnstrnt:
-  INT                               { Ics.cnstrnt_int }
-| REAL                              { Ics.cnstrnt_real }
-| BOOLEAN                           { Ics.cnstrnt_boolean }
-| PREDICATE                         { Ics.cnstrnt_predicate }
-| CARTESIAN                         { Ics.cnstrnt_cartesian }
-| BITVECTOR                         { Ics.cnstrnt_bitvector}
-| OTHER                             { Ics.cnstrnt_other }
-| interval                          { $1 }
-;
-
-
-interval:
-  domain LPAR DOTDOT const RBRA          { Ics.cnstrnt_le $1 $4 }
-| domain LPAR DOTDOT const RPAR          { Ics.cnstrnt_lt $1 $4 }
+| domain                                 { Ics.cnstrnt_domain $1 }
+| domain LPAR NEGINF DOTDOT const RBRA   { Ics.cnstrnt_le $1 $5 }
+| domain LPAR NEGINF DOTDOT const RPAR   { Ics.cnstrnt_lt $1 $5 }
 | domain LPAR const DOTDOT const RPAR    { Ics.cnstrnt_openopen $1 $3 $5 }
 | domain LPAR const DOTDOT const RBRA    { Ics.cnstrnt_openclosed $1 $3 $5 }
 | domain LBRA const DOTDOT const RBRA    { Ics.cnstrnt_closedclosed $1 $3 $5 }
 | domain LBRA const DOTDOT const RPAR    { Ics.cnstrnt_closedopen $1 $3 $5 }
-| domain LBRA const DOTDOT  RPAR         { Ics.cnstrnt_ge $1 $3 }
-| domain LPAR const DOTDOT  RPAR         { Ics.cnstrnt_gt $1 $3 }
+| domain LBRA const DOTDOT POSINF RPAR   { Ics.cnstrnt_ge $1 $3 }
+| domain LPAR const DOTDOT POSINF RPAR   { Ics.cnstrnt_gt $1 $3 }
 ;
 
-domain:
-| REAL            { Ics.interval_domain_real() }
+domain:       
+  REAL            { Ics.interval_domain_real() }
 | INT             { Ics.interval_domain_int() }
 | NONINTREAL      { Ics.interval_domain_nonintreal() }
 ;  
@@ -248,6 +239,7 @@ command:
 | SOLVE equation DOT   { Cmd.solve None $2 }
 | SOLVE equation FOR term DOT { Cmd.solve (Some $4) $2 }
 | ASSERT term    DOT   { Cmd.process $2 }
+| CURRENT DOT          { Cmd.curr() }
 | FIND optterm   DOT   { Cmd.find $2 }
 | CHECK term     DOT   { Cmd.check $2 }
 | EXT optterm DOT      { Cmd.ext $2 }

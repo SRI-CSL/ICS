@@ -50,6 +50,10 @@ val less : Ics.term * Ics.term -> unit
     
 val verbose : int -> unit
 
+    (*s Print current state. *)
+
+val curr : unit -> unit
+
     (*s Canonical representative of the equivalence class of argument term as stored in the context.
         If argument term is omitted, the complete find structure is displayed *)
     

@@ -72,7 +72,7 @@ val uninterp : t -> Funsym.t -> Term.terms
     (*s Given an arbitrary term [a], [cnstrnt s a] yields the currently best
       known constraint of the [find] of [a]. *)
        
-val cnstrnt: t -> Term.t -> Term.Cnstrnt.t
+val cnstrnt: t -> Term.t -> Interval.t
 
     (*s Computing a substitution from the [find] structure of a state.
       This translation does not consider the constraint part of a state. *)
@@ -88,7 +88,7 @@ val mem : t -> Term.t -> bool
 val ctxt_of : t -> Term.eqn list
 val find_of : t -> Subst.t
 val ext_of : t -> Term.terms Term.Map.t
-val cnstrnt_of : t -> Term.Cnstrnt.t Term.Map.t
+val cnstrnt_of : t -> Interval.t Term.Map.t
 val use_of : t -> Term.terms Term.Map.t
 val uninterp_of : t -> Term.terms Funsym.Map.t
 
@@ -102,12 +102,12 @@ val add_ctxt : t -> Term.eqn -> unit
       correspondingly. It also refines the constraint information of new finds using
       the constraint [c]. [add_eqn] destructively updates [s]. *)
     
-val add_eqn : t -> Term.Cnstrnt.t -> Term.eqn -> unit
+val add_eqn : t -> Interval.t -> Term.eqn -> unit
 
     (*s [add_cnstrnt s c a] refines the cnstrnt of the find of [a].
       [add_cnstrnt] destructively updates [s]. *)
     
-val add_cnstrnt : t -> Term.Cnstrnt.t -> Term.t -> unit
+val add_cnstrnt : t -> Interval.t -> Term.t -> unit
 
 
 

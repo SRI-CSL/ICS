@@ -68,7 +68,7 @@ let batch files =
     List.iter process_file files; 
     exit 0
   with 
-    | Exc.Inconsistent _   -> inconsistent (); exit 3
+    | Exc.Inconsistent   -> inconsistent (); exit 3
     | Parsing.Parse_error -> parse_error  (); exit 4
 
 	
@@ -88,7 +88,7 @@ let repl () =
 	Parser.command Lexer.token lb
       with 
 	| Parsing.Parse_error -> parse_error  ()
-	| Exc.Inconsistent _   -> inconsistent ()
+	| Exc.Inconsistent   -> inconsistent ()
       end;
       print_newline(); print_flush ()
     done

@@ -5,7 +5,7 @@ val full : Term.tag -> Term.t
     (*s Finite set and arithmetic set constraints. *)
     
 val finite : Term.tnode Ptset.t -> Term.t       
-val cnstrnt : Term.Cnstrnt.t -> Term.t
+val cnstrnt : Interval.t -> Term.t
 
     
     (*s Set inclusion and set equality. *)
@@ -16,7 +16,7 @@ val equal : Term.tag -> Term.t -> Term.t -> Term.t
     
     (*s Set connective, including recognizers and destructors. *)
       
-val ite : Term.tag -> Term.t -> Term.t -> Term.t -> Term.t
+val ite : Term.tag -> Term.t * Term.t * Term.t -> Term.t
 
 val inter : Term.tag -> Term.t -> Term.t -> Term.t
 val union : Term.tag -> Term.t -> Term.t -> Term.t

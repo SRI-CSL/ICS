@@ -27,7 +27,7 @@ let keyword =
   List.iter 
     (fun (s,tk) -> Hashtbl.add kw_table s tk)
     [ "can", CAN; "simp", SIMP; "sigma", SIGMA; "solve", SOLVE; "reset", RESET;
-      "for", FOR; "drop", DROP; "assert", ASSERT; "find", FIND; "ext", EXT;
+      "for", FOR; "drop", DROP; "assert", ASSERT; "find", FIND; "ext", EXT; "current", CURRENT;
       "use", USE;
       "uninterp", UNINTERP;
       "check", CHECK; "verbose", VERBOSE; "norm", NORM; "ctxt", CTXT;
@@ -35,8 +35,6 @@ let keyword =
       "cnstrnt", CNSTRNT; "help", HELP;
       "proj", PROJ; "floor", FLOOR;
       "int", INT; "real", REAL; "nonintreal", NONINTREAL;
-      "boolean", BOOLEAN; "predicate", PREDICATE; "cartesian", CARTESIAN;
-      "bitvector", BITVECTOR; "other", OTHER;
       "neg", NEG; "nonneg", NONNEG; "pos", POS;
       "nonpos", NONPOS;
       "in", IN; "notin", NOTIN; "compl", COMPL; "inter", INTER; "union", UNION; "sub", SUB;
@@ -57,13 +55,15 @@ let keyword =
 
 (*s The lexer it-self is quite simple. *)
 
-let ident = ['A'-'Z' 'a'-'z'] ['A'-'Z' 'a'-'z' '_' '\'' '0'-'9']*
+let ident = ['A'-'Z' 'a'-'z'] ['A'-'Z' 'a'-'z' '\'' '0'-'9']*
 
 let space = [' ' '\t' '\r' '\n']
 
 rule token = parse
   | space+     { token lexbuf }
   | '%' [^ '\n']* {token lexbuf }
+  | "-inf"     { NEGINF }
+  | "inf"      { POSINF }
   | ident      { keyword (lexeme lexbuf) }
   | ['0'-'9']+ { INTCONST (int_of_string (lexeme lexbuf)) }
   | ['0'-'9']+ '/' ['0'-'9']+ { RATCONST (Ics.num_of_string (lexeme lexbuf)) }

@@ -7,28 +7,8 @@ open Format
 (*i*)
 
 (*s Constraints. *)
-  
-type sort =        (* nonarithmetic sorts. *)
-  | Boolean
-  | Predicate
-  | Cartesian
-  | Bitvector
-  | Other
-      
-module Nonreals = Set.Make(
-  struct
-    type t = sort
-    let compare = compare
-  end)
 
-module Cnstrnt = Cnstrnt.Make(
-  struct
-    type t = sort
-    let eq = (=)
-    let enum = [Boolean; Predicate; Cartesian; Bitvector; Other]
-  end)
-
-type cnstrnt = Cnstrnt.t
+type cnstrnt = Interval.t
 		 
 
 (*s Implementation of terms and functions over terms. *)
@@ -43,6 +23,7 @@ and tnode =
   | Var of variable
   | App of t * t list
   | Update of t * t * t
+  | Cond of t * t * t
   | Arith of arith
   | Tuple of tuple
   | Bool of prop
@@ -89,6 +70,25 @@ and terms = tnode Ptset.t
 	      
 type term = t
 type eqn = t * t
+
+
+(*s Equality on list of terms. *)
+	     
+let eql l1 l2 =
+  try
+    List.for_all2 (===) l1 l2
+  with
+      Invalid_argument _ -> false
+
+(*s Mapping over list of terms. Avoids unnecessary consing. *)
+
+let rec mapl f l =
+  match l with
+    | [] -> []
+    | a :: l1 ->
+	let a' = f a and l1' = mapl f l1 in
+	if a' === a && l1 == l1' then l else a' :: l1'
+          
      
 (*s {\bf Hash-consing.} In order to save space and to provide an efficient
     comparison of terms, we choose to perform full hash-consing over terms.
@@ -99,6 +99,7 @@ type eqn = t * t
     each time we apply a constructor. 
     We use our own version of hash tables, which provides a [stat] function
     to look at the distribution of values inside a given table. *)
+
     
 (*s Hash-consing of terms. *)
 
@@ -110,9 +111,11 @@ module HashTerm = Hashcons.Make(
 	| Var(x1), Var(x2) -> 
 	    x1 == x2
 	| App(s1,l1), App(s2,l2)  ->
-            s1 === s2 && (try List.for_all2 (===) l1 l2 with Invalid_argument _ -> false)
+            s1 === s2 && eql l1 l2
 	| Update(s1,t1,u1), Update(s2,t2,u2) ->
 	    s1 === s2 && t1 === t2 && u1 === u2
+	| Cond(s1,t1,u1), Cond(s2,t2,u2) ->
+	    s1 === s2 && t1 === t2 && u1 === u2			    
 	| Arith a1, Arith a2 ->
 	    (match a1, a2 with
 	       | Num(q1), Num(q2) ->
@@ -120,16 +123,16 @@ module HashTerm = Hashcons.Make(
 	       | Multq(q1,x1), Multq(q2,x2) ->
 		   Q.equal q1 q2 && x1 === x2
 	       | Add l1, Add l2 ->
-		   (try List.for_all2 (===) l1 l2 with Invalid_argument _ -> false)
+		   eql l1 l2
 	       | Mult l1, Mult l2 ->
-		   (try List.for_all2 (===) l1 l2 with Invalid_argument _ -> false)
+		   eql l1 l2
 	       | Div(s1,t1), Div(s2,t2) ->
 		   s1 === s2 && t1 === t2
 	       | _ -> false)
 	| Tuple t1, Tuple t2 ->
 	    (match t1,t2 with
 	       | Tup l1, Tup l2 ->
-		   (try List.for_all2 (===) l1 l2 with Invalid_argument _ -> false)
+		   eql l1 l2
 	       | Proj (i1,n1,t1), Proj (i2,n2,t2) ->
 		   i1 = i2 && n1 = n2 && t1 === t2
 	       | _ -> false)
@@ -142,7 +145,7 @@ module HashTerm = Hashcons.Make(
 	       | Full t1, Full t2 ->
 		   t1 = t2
 	       | Cnstrnt (c1), Cnstrnt (c2) ->
-		   Cnstrnt.eq c1 c2  
+		   Interval.eq c1 c2  
 	       | Finite s1, Finite s2 ->
 		   Ptset.equal s1 s2
 	       | _ -> false)	    
@@ -155,9 +158,9 @@ module HashTerm = Hashcons.Make(
 	       | Ite (a1,b1,c1), Ite (a2,b2,c2) ->
 		   a1 === a2 && b1 === b2 && c1 === c2
 	       | Forall (xl,p), Forall (yl,q) ->
-		   p === q && (try List.for_all2 (=) xl yl with Invalid_argument _ -> false)
+		   p === q && (try List.for_all2 (==) xl yl with Invalid_argument _ -> false)
 	       | Exists (xl,p), Exists (yl,q) ->
-		   p === q && (try List.for_all2 (=) xl yl with Invalid_argument _ -> false) 
+		   p === q && (try List.for_all2 (==) xl yl with Invalid_argument _ -> false) 
 	       | _ -> false) 
 	| Bv t1, Bv t2 ->
 	    (match t1,t2 with
@@ -181,6 +184,8 @@ module HashTerm = Hashcons.Make(
 	  s.tag + (List.fold_left (fun h a -> h + a.tag) 1 l) land 0x3FFFFFFF
       | Update(x,y,z) ->
 	  (x.tag + y.tag + z.tag) land 0x3FFFFFFF
+      | Cond(x,y,z) ->
+	  (x.tag + y.tag + z.tag + 2) land 0x3FFFFFFF  
       | Arith a ->
 	  (match a with
 	     | Num q -> Q.hash q
@@ -391,10 +396,12 @@ let is_const t =
     | Bv (Const _) -> true
     | _ -> false
 
-(*s Some constants. *)
+(*s Some constants *)
 
 let tt () = hc(Bool(True))
 let ff () = hc(Bool(False))
+
+	      
 
 (*s Some recognizers for constants. *)
 
@@ -407,6 +414,17 @@ let is_ff a =
   match a.node with
     | Bool(False)-> true
     | _ -> false
+
+(*s Constructing conditionsl. *)
+
+let ite a b c =
+  if b === c then
+    b
+  else
+    match a.node with
+      | Bool(True) -> b
+      | Bool(False) -> c
+      | _ -> hc(Bool(Ite(a,b,c)))      (* should probably separate... *)
 
 (*s Sets of terms *)
 	
@@ -491,7 +509,7 @@ let occurs_interpreted a b =
   let rec occ x =
     a === x ||
        (match x.node with
-	  | Var _ | App _ | Update _ -> false
+	  | Var _ | App _ | Update _ | Cond _ -> false
 	  | Tuple x ->
 	      (match x with
 		 | Tup xl -> List.exists occ xl
@@ -526,8 +544,12 @@ let occurs_interpreted a b =
 
 let rec is_ground a = 
     match a.node with
-      | Var _ | App _ -> false
-      | Update(x,y,z) -> is_ground x && is_ground y && is_ground z
+      | Var _ | App _ ->
+	  false
+      | Update(x,y,z) ->
+	  is_ground x && is_ground y && is_ground z
+      | Cond(x,y,z) ->
+	  is_ground x && is_ground y && is_ground z
       | Tuple x ->
 	  (match x with
 	     | Tup xl -> List.for_all is_ground xl
@@ -570,97 +592,7 @@ let is_uninterpreted a =
     | Set(Cnstrnt _) -> true
     | _ -> false
 
-	  
-	  
-    (*s Computing the best constraint, given a context of constraint declarations. *)
-
-let is_predicate c =
-  Cnstrnt.is_sort Predicate c
-
-let cnstrnt ctxt a =
-  let rec cnstrnt_of_term a =
-    try
-      ctxt a
-    with
-	Not_found ->
-	  (match a.node with
-	     | Arith x ->
-		 (match x with
-		   | Num q -> cnstrnt_of_num q
-		   | Multq(q,x) -> Cnstrnt.mult (cnstrnt_of_num q) (cnstrnt_of_term x)
-		   | Mult l -> cnstrnt_of_mult l
-		   | Add l -> cnstrnt_of_add l
-		   | Div(x,y) -> cnstrnt_of_div x y)
-	     | App(f,_) when is_predicate(cnstrnt_of_term f) ->
-		 Cnstrnt.sort Boolean
-	     | Bool _ ->
-		 Cnstrnt.sort Boolean
-	     | Set _  ->
-	         Cnstrnt.sort Predicate
-	     | Tuple _ ->
-	         Cnstrnt.sort Cartesian
-	     | Bv(BvToNat _) ->
-		 Cnstrnt.int
-	     | Bv _  ->
-		 Cnstrnt.sort Bitvector
-	     | _ ->
-		 Cnstrnt.top)
-
-  and cnstrnt_of_num q =
-    Cnstrnt.singleton q
-
-  and cnstrnt_of_mult l =
-    match l with
-      | [] -> Cnstrnt.singleton Q.one
-      | [x] -> cnstrnt_of_term x
-      | x :: l -> Cnstrnt.mult (cnstrnt_of_term x) (cnstrnt_of_mult l)
-
-  and cnstrnt_of_add l =
-    match l with
-      | [] -> Cnstrnt.singleton Q.zero
-      | [x] -> cnstrnt_of_term x
-      | x :: l -> Cnstrnt.add (cnstrnt_of_term x) (cnstrnt_of_add l)
-
-  and cnstrnt_of_div a b =
-    Cnstrnt.real
-  in
-  cnstrnt_of_term a
-
-
-  (*s [mem a c] holds iff term [a] is known to be a member of constraint [c]. *)
-
-let sort_of a =
-  match a.node with
-    | Bool _ -> Some(Boolean)
-    | Tuple _ -> Some(Cartesian)
-    | Set _ -> Some(Predicate)
-    | Bv _ -> Some(Bitvector)
-    | _ -> None
-
-let num_of a =
-  match a.node with
-    | Arith(Num q) -> Some(q)
-    | _ -> None
-  
-let mem_of =
-  Cnstrnt.mem sort_of num_of
-
-	    
-   (*s Applying a constraint to a term. *)
-
-let mem a c =
-  if Cnstrnt.is_bot c then
-    ff()
-  else if Cnstrnt.is_top c then
-    tt()
-  else if mem_of a c then
-    tt()
-  else if is_ground a then
-    ff()
-  else
-    hc(App(hc(Set(Cnstrnt(c))),[a]))
-
-      
+	
   (*s Homomorphismus on terms. [f] is applied to arguments [bi],
     if [bi] equals [f(bi)] for all [i], then the original term [a]
     is returned, otherwise a new term is constructed using [op]. *)
@@ -684,7 +616,7 @@ let list_eq l1 l2 =
       Invalid_argument _ -> false
 
 let homl a op f l =
-  let l' = List.map f l in
+  let l' = mapl f l in
   if list_eq l l' then a else op l'
     
 let homs a op f s =
@@ -693,8 +625,104 @@ let homs a op f s =
    
        
 
+(*s Fold operator over terms. *)
+
+let fold f t v0 =
+  let rec fold_tuple x acc =
+    match x with
+      | Tup l -> List.fold_right fold_term l acc
+      | Proj (_,_,x) -> f t (fold_term x acc)
+  and fold_prop x acc =
+    match x with
+      | True
+      | False -> acc
+      | Equal (x,y)   -> f t (fold_term x (fold_term y acc))
+      | Ite(p,q,r)  -> f t (fold_term p (fold_term q (fold_term r acc)))
+      | Forall _ | Exists _ -> assert false
+  and fold_arith x acc =
+    match x with
+      | Num _ -> acc
+      | Multq(_,x) -> f t (fold_term x acc)
+      | Mult l -> f t (fold_term_list l acc)
+      | Add l -> f t (fold_term_list l acc)
+      | Div(x,y) -> f t (fold_term x (fold_term y acc))
+  and fold_set x acc =
+    match x with
+      | Empty _ | Full _ -> f t acc
+      | Cnstrnt _    -> f t acc
+      | Finite(s) -> f t (fold_term_list (Set.to_list s) acc)
+      | SetIte (_,a,b,c) -> f t (fold_term a (fold_term b (fold_term c acc)))
+  and fold_bv x acc =
+    match x with
+      | Const _ -> f t acc
+      | Extr (b,_,_) -> f t (fold_fixed b acc)
+      | Conc l -> f t (fold_fixed_list l acc)
+      | BvIte (b1,b2,b3) -> f t (fold_fixed b1 (fold_fixed b2 (fold_fixed b3 acc)))
+      | BvToNat(x) -> f t (fold_term x acc)
+  and fold_fixed (_,x) acc =
+    fold_term x acc
+  and fold_fixed_list l acc =
+    List.fold_right fold_fixed l acc   
+  and fold_term_list l acc =
+    List.fold_right fold_term l acc
+  and fold_term t acc =
+    match t.node with
+      | Var _     -> f t acc
+      | App (x,l) -> f t (fold_term x (fold_term_list l acc))
+      | Update(x,y,z) -> f t (fold_term x (fold_term y (fold_term z acc)))
+      | Cond(x,y,z) -> f t (fold_term x (fold_term y (fold_term z acc)))    
+      | Tuple x   -> fold_tuple x acc
+      | Bool x    -> fold_prop x acc
+      | Set x     -> fold_set x acc
+      | Bv l      -> fold_bv l acc
+      | Arith x   -> fold_arith x acc
+  in
+  fold_term t v0
 
 
+
+(*s Iteration over terms. *)
+
+let iter f a  =
+  let rec loop a =
+    f a;
+    match a.node with
+      | Var _ -> ()
+      | App(x,l) -> List.iter loop l
+      | Update(x,y,z) -> loop x; loop y; loop z
+      | Cond(x,y,z) -> loop x; loop y; loop z
+      | Arith(Mult(l)) -> List.iter loop l
+      | Arith(Div(x,y)) -> loop x; loop y
+      | Bool(Equal(x,y)) -> loop x; loop y
+      | Set s ->
+	  (match s with
+	     | SetIte(_,x,y,z) -> loop x; loop y; loop z
+	     | Finite(s) -> Set.iter loop s
+	     | _ -> ())
+      | Bool b ->
+	  (match b with
+	     | Ite(x,y,z) -> loop x; loop y; loop z
+	     | _ -> ())
+      | Arith a ->
+	  (match a with
+	     | Add l -> List.iter loop l
+	     | Multq(_,x) -> loop x
+             | Num _ -> ()
+	     | _ -> assert false)
+      | Bv b ->
+	  (match b with
+	     | Const _ -> ()
+	     | Extr((_,x),_,_) -> loop x
+	     | Conc l -> List.iter (fun (_,x) -> loop x) l
+	     | BvIte((n,x),(_,y),(_,z)) -> loop x; loop y; loop z
+	     | BvToNat(x) -> loop x)
+      | Tuple tp ->
+	  (match tp with
+	     | Proj(_,_,x) -> loop x
+	     | Tup l -> List.iter loop l)
+  in
+  loop a
+ 
 
 
 

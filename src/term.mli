@@ -19,15 +19,6 @@ open Hashcons
 open Bitv
 (*i*)
 
-type sort =        (* nonarithmetic sorts. *)
-  | Boolean
-  | Predicate
-  | Cartesian
-  | Bitvector
-  | Other
-
-module Cnstrnt: (Cnstrnt.C with type sort = sort)
-
       (*s Terms.  A term is either a variable [Var(s)], where the name [s] is a string, an
 	application [App(f,l)] of a `function symbol' to a list of arguments, an update
 	expression [Update(a,i,v)], or a term interpreted in one of the theories of linear
@@ -47,6 +38,7 @@ and tnode =
   | Var of variable
   | App of t * t list
   | Update of t * t * t
+  | Cond of t * t * t
   | Arith of arith
   | Tuple of tuple
   | Bool of prop
@@ -96,7 +88,7 @@ and set =
   | Empty of tag
   | Full of tag
   | Finite of terms
-  | Cnstrnt of Cnstrnt.t
+  | Cnstrnt of Interval.t
   | SetIte of tag * t * t * t
 
       (*s A tuple term is either a tuple [Tup(l)] or the [i]-th projection [Proj(i,n,_)]
@@ -193,7 +185,8 @@ module Set : sig
     
     (*s [mem a s] tests whether [a] belongs to the set [s]. *)
     
-  val mem : t -> terms -> bool      
+  val mem : t -> terms -> bool
+
       (*s [add a s] returns a set containing all elements of [s],
         plus [a]. If [a] was already in [s], [s] is returned unchanged. *)    
   val add : t -> terms -> terms
@@ -324,27 +317,22 @@ val ff : unit -> t
 val is_tt : t -> bool
 val is_ff : t -> bool
 
+   (*s Constructing conditional terms. *)
     
-     
-  (*s Abstract interpretation of an arithmetic term with [Cnstrnts.t] as
-    abstract domain. [cnstrnt f a] first checks if the context [f]
-    contains a declaration or not not. In the first case, this
-    constraint is returned. Otherwise, when [f] throws the exception
-    [Not_found] then it computes a most refined constrained by traversing
-    arithmetic terms *)
+val ite : t -> t -> t -> t
 
-val cnstrnt : (t -> Cnstrnt.t) -> t -> Cnstrnt.t
+  (*s Fold operator on terms. *)
 
-  (*s Application of a constraints to a term. The following simplifications
-    are used.\\
-    \begin{tabular}{lcll}
-    [app c a] & = & ff() & if [is_empty c] \\
-    [app c a] & = & ff() & if [is_ground c] and not [mem a c] \\
-    [app c a] & = & tt() & if [is_full c] \\
-    [app c a] & = & tt() & if [mem a c] \\
-    \end{tabular} *)
-   
-val mem : t -> Cnstrnt.t -> t
+val fold : (t -> 'a -> 'a) -> t -> 'a -> 'a
+
+  (*s Iteration operator on terms. *)
+
+val iter : (t -> unit) -> t -> unit
+
+    
+(*s Mapping over list of terms. Avoids unnecessary consing. *)
+
+val mapl : (t -> t) -> t list -> t list
 
 
 (*s Homomorphism [hom a op f (b1,b2,...)] on terms. [f] is applied to arguments [bi],

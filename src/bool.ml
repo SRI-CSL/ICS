@@ -18,6 +18,11 @@ open Term
 open Hashcons
 (*i*)
 
+let is_bool a =
+  match a.node with
+    | Bool _ -> true
+    | App({node=Set _}, _) -> true
+    | _ -> false
 
 (* Propositional constants *)
 
@@ -80,13 +85,17 @@ module BDD = Bdd.Make(
     let fresh _ = (Var.fresh "z" [])    
   end)
 
-let ite p q r = BDD.build () (p,q,r)  
+	
+
+	    
+let ite = BDD.build ()     
 let neg = BDD.neg ()
 let conj = BDD.conj ()
 let disj = BDD.disj ()
 let xor = BDD.xor ()
 let imp = BDD.imp ()
 let iff = BDD.iff ()
+
 
 let rec conjl = function
   | [] -> tt()
@@ -112,11 +121,29 @@ let d_xor = BDD.d_xor
 let d_imp = BDD.d_imp
 let d_iff = BDD.d_iff
 
-	    
 
 let forall xl p = hc (Bool(Forall (xl, p)))
 let exists xl p = hc (Bool(Exists (xl, p)))
 
+
+(*s Constructor for conditionals. *)
+
+let rec cond (a,b,c) =
+  if b === c then b
+  else
+    match a.node with
+      | Bool(True) ->
+	  b
+      | Bool(False) ->
+	  c
+      | Bool(Ite(x,y,z)) ->
+	  ite(x, cond(y,b,c), cond(z,b,c))
+      | _ ->
+	  if is_bool b || is_bool c then
+	    ite(a,b,c)
+	  else
+	    hc(Cond(a,b,c))
+	      
 (*s Solving propositional equations and disequalities (xor) *)
 
 let solve_eqn (s1,s2) = BDD.solve () (iff s1 s2)
@@ -138,7 +165,7 @@ let rec infer ((a,b) as e) =
  
 (*s Equalities *)
 
-let rec equal a b =
+let rec equal (a,b) =
   if a === b then
     tt()
   else if is_const a && is_const b then
@@ -146,17 +173,13 @@ let rec equal a b =
   else
     match a.node, b.node with
       | Bool(Ite(x,y,z)), _ ->
-	  ite x (equal y b) (equal z b)
+	  ite(x, equal(y,b), equal(z,b))
       | _, Bool(Ite(x,y,z)) ->
-	  ite x (equal a y) (equal a z)
+	  ite(x, equal(a,y), equal(a,z))
       | Bool(Equal(x,y)), Bool(True) ->
-	  equal x y
+	  equal(x,y)
       | Bool(True), Bool(Equal(x,y)) ->
-	  equal x y
-      | App({node=Update(x,i,u)},[j]), _ ->
-	  ite (equal i j) (equal u b) (equal (hc(App(x,[j]))) b)
-      | _, App({node=Update(x,i,u)},[j]) ->
-	  ite (equal i j) (equal a u) (equal a (hc(App(x,[j]))))  
+	  equal(x,y)
       | _ ->
 	  if Term.cmp a b <= 0 then
 	    hc(Bool(Equal(a,b)))
@@ -177,7 +200,7 @@ let d_equal a =
 (*s Disequalities [a <> b] are encoded as [~(a = b)]. *)
 
 let diseq a b =
-  neg(equal a b)
+  neg(equal(a,b))
  
 let is_diseq a =
   match a.node with
@@ -200,27 +223,27 @@ let d_diseq a =
 let rec unary_lift_ite f a =
   match a.node with
     | Bool(Ite(x,y,z)) ->
-	ite x (unary_lift_ite f y) (unary_lift_ite f z)
+	cond(x, unary_lift_ite f y, unary_lift_ite f z)
     | _ ->
 	f a
 
 let rec binary_lift_ite f (a,b) =
   match a.node, b.node with
     | Bool(Ite(x1,y1,z1)), _ ->
-	ite x1 (binary_lift_ite f (y1,b)) (binary_lift_ite f (z1,b))
+	cond(x1, binary_lift_ite f (y1,b), binary_lift_ite f (z1,b))
     | _, Bool(Ite(x2,y2,z2)) ->
-	ite x2 (binary_lift_ite f (a,y2)) (binary_lift_ite f (a,z2))  
+	cond(x2,binary_lift_ite f (a,y2),binary_lift_ite f (a,z2)) 
     | _ ->
 	f (a,b)  
 
 let rec ternary_lift_ite f (a,b,c) =
   match a.node, b.node, c.node with
     | Bool(Ite(x1,y1,z1)), _, _ ->
-	ite x1 (ternary_lift_ite f (y1,b,c)) (ternary_lift_ite f (z1,b,c))
+	cond(x1,ternary_lift_ite f (y1,b,c),ternary_lift_ite f (z1,b,c))
     | _, Bool(Ite(x2,y2,z2)), _ ->
-	ite x2 (ternary_lift_ite f (a,y2,c)) (ternary_lift_ite f (a,z2,c))
+	cond(x2,ternary_lift_ite f (a,y2,c),ternary_lift_ite f (a,z2,c))
     | _, _, Bool(Ite(x3,y3,z3)) ->
-	ite x3 (ternary_lift_ite f (a,b,y3)) (ternary_lift_ite f (a,b,z3))
+	cond(x3,ternary_lift_ite f (a,b,y3),ternary_lift_ite f (a,b,z3))
     | _ ->
 	f (a,b,c)  
 
@@ -239,7 +262,7 @@ let d_list_ite l =
 let rec nary_lift_ite f l =
   match d_list_ite l with
     | Some(l1,(x,y,z),l2) ->
-	ite x (nary_lift_ite f (l1 @ [y] @ l2)) (nary_lift_ite f (l1 @ [z] @ l2))
+	cond(x,nary_lift_ite f (l1 @ [y] @ l2),nary_lift_ite f (l1 @ [z] @ l2))
     | None ->
 	f l
 

@@ -29,6 +29,8 @@ let finite s x =
   else
     hc(App(Sets.finite s,[x]))
 
+
+
    (*s Function application. *)
 
 let rec appl a l =
@@ -44,8 +46,7 @@ let rec appl a l =
 	  else if deriv_diseq i j then
 	    appl b l
 	  else    
-	    (* Bool.ite (Bool.equal i j) v (appl b l) *)
-	    hc(App(a,l))
+	    Bool.cond(Bool.equal(i,j), v, appl b l)
       | Set s ->
 	  (match s with
 	     | Empty _ ->
@@ -53,26 +54,26 @@ let rec appl a l =
 	     | Full _ ->
 		 Bool.tt()
 	     | Cnstrnt(c) ->
-		 Term.mem (Tuple.tuple l) c
+		 Cnstrnt.app c (Tuple.tuple l)
 	     | Finite(s) ->
 		 finite s (Tuple.tuple l)
 	     | SetIte(_,s1,s2,s3) ->
-		 Bool.ite (appl a [s1]) (appl a [s2]) (appl a [s3]))
+		 Bool.ite(appl a [s1], appl a [s2], appl a [s3]))
       | _ ->
 	  hc(App(a,l))
 
 let app a l =
   Bool.nary_lift_ite (appl a) l
 
-let rec update3 (a,i,u) =
-  match a.node with
-    | Update(b,j,v) when i === j  ->
-	update3 (b,i,u)
-    | _ ->
-	hc(Update(a,i,u))
-
-let update a b c =
-  Bool.ternary_lift_ite update3 (a,b,c)
+let update =
+  let rec upd (a,i,u) =
+    match a.node with
+      | Update(b,j,v) when i === j  ->
+	  upd (b,i,u)
+      | _ ->
+	  hc(Update(a,i,u))
+    in
+    Bool.ternary_lift_ite upd
 	 
 
 

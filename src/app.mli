@@ -46,7 +46,7 @@ val app: Term.t -> Term.t list -> Term.t
         [update (update b j v) j u] & = & update b i u \\
         \end{tabular} *)
 	 
-val update : Term.t -> Term.t -> Term.t -> Term.t
+val update : Term.t * Term.t * Term.t -> Term.t
 
     (*s [finite s a] builds the set membership test [app a (Finite s)] with the
       additional simplifications that
@@ -56,3 +56,7 @@ val update : Term.t -> Term.t -> Term.t -> Term.t
      \end{tabular} *) 
 
 val finite : Term.terms -> Term.t -> Term.t
+
+
+
+

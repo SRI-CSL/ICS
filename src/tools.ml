@@ -74,3 +74,14 @@ let pp_to_string pp x =
 (*s Type for comparison. *)
 
 type cmp = Less | Equal | Greater
+
+    
+(*s Mapping over list of terms. Avoids unnecessary consing. *)
+
+let rec mapl f l =
+  match l with
+    | [] -> []
+    | a :: l1 ->
+	let a' = f a and l1' = mapl f l1 in
+	if a' == a && l1 == l1' then l else a' :: l1'
+        

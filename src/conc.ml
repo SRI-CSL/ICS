@@ -287,7 +287,7 @@ and solveb b1 b2 =
 	if compare c d = 0 then
 	  []
 	else
-	  raise (Exc.Inconsistent "Bitvector solver")
+	  raise Exc.Inconsistent
     | Sub(x,n,i,j), Sub(y,m,k,l) when x === y ->
 	assert(n = m);
         if i < k then
@@ -328,7 +328,7 @@ and solve_ite b1 b2 =
     | Some(bbl) -> 
 	List.fold_right (fun (b1,b2) acc -> solveb b1 b2 @ acc) bbl []
     | None ->
-	raise (Exc.Inconsistent "Bitvector solver")
+	raise Exc.Inconsistent
 
 
 	  (*s Derived constructors, recognizers, and destructors. *)

@@ -16,6 +16,7 @@
   for for propositional connectives and for first-order quantifications. In
   addition, there is a solver for equalities over propositional connectives. *)
 
+val is_bool : Term.t -> bool
 
     (*s The true [tt()] and false [ff()] constants. [is_tt a]
      tests if the argument [a] is the true constant; similarly for [is_ff]. *)
@@ -38,7 +39,7 @@ val is_ff : Term.t -> bool
       for these terms [d_equal a] is defined and returns the pair [(x,y)]
       consisting of the lhs and the rhs. *)   
 
-val equal : Term.t -> Term.t -> Term.t
+val equal : Term.t * Term.t -> Term.t
 val is_equal : Term.t -> bool
 val d_equal : Term.t -> Term.t * Term.t
 
@@ -79,9 +80,11 @@ val d_diseq : Term.t -> Term.t * Term.t
       the destructor [d_ite a] returns the triple [(x,y,z)].
     *)
       
-val ite : Term.t -> Term.t -> Term.t -> Term.t
+val ite : Term.t * Term.t * Term.t -> Term.t
 val is_ite : Term.t -> bool
 val d_ite : Term.t -> Term.t * Term.t * Term.t
+
+val cond : Term.t * Term.t * Term.t -> Term.t
 
     (*s Constructors for negation [neg], conjunction [conj], disjunction [disj],
         exclusive or [xor], implication [imp], and equivalence [iff]

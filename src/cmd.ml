@@ -52,7 +52,12 @@ let check t =
 	Format.printf "Inconsistent.@."
     | Ics.Consistent _ ->
 	Format.printf "No inconsistency detected.@.")
-  		 
+
+  (*s Print current state on standard output. *)
+
+let curr () =
+  Ics.state_pp !current
+  
   
     (*s Querying the state. *)
     
@@ -124,7 +129,7 @@ let solve x (a,b) =
   try
     Ics.subst_pp (Ics.solve x st e')
   with
-      Exc.Inconsistent _ -> printf "Inconsistent.@."
+      Exc.Inconsistent -> printf "Inconsistent.@."
 
     
     (*s Order of terms. *)

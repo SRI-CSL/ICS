@@ -21,7 +21,7 @@ open Subst
 type t = {
   mutable ctxt: Term.eqn list;
   mutable find: Subst.t;
-  mutable inv: (Term.terms * Cnstrnt.t) Term.Map.t;    (* extension and constraint for each find. *)
+  mutable inv: (Term.terms * Interval.t) Term.Map.t;    (* extension and constraint for each find. *)
   mutable use: Term.terms Term.Map.t;
   mutable uninterp: Term.terms Funsym.Map.t
 }  
@@ -94,10 +94,9 @@ let inv s a =
   try
     Term.Map.find a s.inv
   with
-      Not_found -> (Term.Set.empty,Cnstrnt.top)
+      Not_found -> (Term.Set.empty,Interval.top)
     
 let ext s a =
- (* assert (find s a === a); *)
   try
     let (el,_) = Term.Map.find a s.inv in
     el
@@ -108,7 +107,7 @@ let cnstrnt s a =
   let from_ctxt x =
     let (_,c) = Term.Map.find (find s x) s.inv in c
   in
-  Term.cnstrnt from_ctxt a  
+  Cnstrnt.cnstrnt from_ctxt a  
       
 let use s a =
   try
@@ -132,7 +131,7 @@ let add_ctxt s e =
   s.ctxt <- e :: s.ctxt
  
 let add_cnstrnt s c a =
-  assert(a === find s a);
+ (* assert(a === find s a); *)
   let ext =
     try
       fst(Term.Map.find a s.inv)
@@ -143,7 +142,10 @@ let add_cnstrnt s c a =
 
 let rec add_eqn s c (a,b) =
   update_old s c a;
-  s.inv <- Term.Map.add b (Term.Set.add a (ext s b), c) s.inv;
+  let extb = ext s b in
+  let extb' = Term.Set.add a extb in
+  if not(extb == extb') then
+    s.inv <- Term.Map.add b (extb', c) s.inv;
   s.find <- Subst.add a b s.find;
   add_use s b;
   add_funsym s a;
@@ -220,6 +222,7 @@ and use_iter_uninterpreted f a =
       | Var _ | App _ | Set(Cnstrnt _) ->
 	  f t
       | Update(x,y,z) -> loop x; loop y; loop z
+      | Cond(x,y,z) -> loop x; loop y; loop z
       | Arith(Mult l) -> List.iter loop l
       | Arith(Div(x,y))  -> loop x; loop y
       | Bv(BvToNat x) -> loop x;
@@ -256,16 +259,24 @@ and funsym_iter_uninterpreted f a =
    let rec loop t =
     match t.node with
       | Var _ -> ()
-      | App(x,_) ->
-	  f (Funsym.uninterp x) t
-      | Update _ ->
-	  f (Funsym.update()) t 
-      | Arith(Mult _) ->
-	  f (Funsym.mult()) t
-      | Arith(Div _) ->
-	  f (Funsym.div()) t
-      | Bool(Equal _) ->
-	  f (Funsym.equal()) t
+      | App(x,l) ->
+	  f (Funsym.uninterp x) t;
+	  List.iter loop l;
+      | Update(x,y,z) ->
+	  f (Funsym.update()) t;
+	  loop x; loop y; loop z;
+      | Cond(x,y,z) ->
+	  f (Funsym.update()) t;
+	  loop x; loop y; loop z;  
+      | Arith(Mult(l)) ->
+	  f (Funsym.mult()) t;
+	  List.iter loop l
+      | Arith(Div(x,y)) ->
+	  f (Funsym.div()) t;
+	  loop x; loop y
+      | Bool(Equal(x,y)) ->
+	  f (Funsym.equal()) t;
+	  loop x; loop y
       | Set s ->
 	  (match s with
 	     | SetIte(_,x,y,z) -> loop x; loop y; loop z
@@ -294,4 +305,8 @@ and funsym_iter_uninterpreted f a =
 	     | Proj(_,_,x) -> loop x
 	     | Tup l -> List.iter loop l)
    in   loop a  
+
+
+
+
 

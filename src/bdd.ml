@@ -241,7 +241,7 @@ module Make(Ite : ITE) = struct
 	      let e' = add tg x t' e in
 	      let s' = disj tg p n in
 	      if is_low s' then
-		raise (Exc.Inconsistent "Bdd solver")
+		raise Exc.Inconsistent
 	      else if is_high s' then
 		e'
 	      else if is_ite s' then
@@ -259,7 +259,7 @@ module Make(Ite : ITE) = struct
       try
 	Some(triangular_solve s [])
       with
-	  Exc.Inconsistent _ -> None
+	  Exc.Inconsistent -> None
 
 end
 

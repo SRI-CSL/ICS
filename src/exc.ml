@@ -13,6 +13,6 @@
  i*)
 
     
-exception Inconsistent of string
+exception Inconsistent
   
 exception Valid

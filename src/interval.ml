@@ -94,7 +94,7 @@ let low_high_cmp i j =
 
 type interval = domain * low * high
 
-let is_empty_interval (dom,l,h) =
+let is_bot_interval (dom,l,h) =
   match l,h with
     | Neginf, _ -> false
     | _, Posinf -> false
@@ -197,14 +197,12 @@ and nonintreal_interval_compl l h =
 
 type t = interval list
 
-let to_list l = l
-
 	   (*s Constructing Intervals. *)
 			    
-let empty = []
-let full  = [Real,Neginf,Posinf]
+let bot = []
+let top  = [Real,Neginf,Posinf]
 let int   = [Int,Neginf,Posinf]
-let real  = full
+let real  = top
 let nonint =  ([NonintReal,Neginf,Posinf])
 
 let inj i = [i]
@@ -212,19 +210,19 @@ let inj i = [i]
 			      
 let oo dom p q =
   let i = interval dom (Low(Strict,p)) (High(Strict,q)) in
-  if is_empty_interval i then empty else [i]
+  if is_bot_interval i then bot else [i]
     
 let oc dom p q =
   let i = interval dom (Low(Strict,p)) (High(Nonstrict,q)) in
-  if is_empty_interval i then empty else [i]
+  if is_bot_interval i then bot else [i]
   
 let co dom p q =
   let i = interval dom (Low(Nonstrict,p)) (High(Strict,q)) in
-  if is_empty_interval i then empty else [i]
+  if is_bot_interval i then bot else [i]
   
 let cc dom p q =
   let i = interval dom (Low(Nonstrict,p)) (High(Nonstrict,q)) in
-  if is_empty_interval i then empty else [i]
+  if is_bot_interval i then bot else [i]
         
 let lt dom p = [interval dom Neginf (High(Strict,p))]
 let le dom p = [interval dom Neginf (High(Nonstrict,p))]
@@ -252,9 +250,9 @@ let eq l1 l2 =
     
       (*s Some useful recognizers. *)
 
-let is_empty l = (l = [])
+let is_bot l = (l = [])
 		   
-let is_full = function
+let is_top = function
   | [Real,Neginf,Posinf] -> true
   | _ -> false
 
@@ -280,12 +278,12 @@ let value_of = function
 
 	(*s Fold function *)
 
-let fold flt fle fgt fge foo fco foc fcc ffull fempty l  =
+let fold flt fle fgt fge foo fco foc fcc ftop fbot l  =
   List.fold_right (fun (d,l,h) acc ->
 		     match l, h with
 		       | Neginf, High(Strict,q) -> flt d q acc
 		       | Neginf, High(Nonstrict,q) -> fle d q acc
-		       | Neginf, Posinf -> ffull d acc
+		       | Neginf, Posinf -> ftop d acc
 		       | Low(Strict,q), Posinf -> fgt d q acc
 		       | Low(Nonstrict,q), Posinf -> fge d q acc
 		       | Low(Strict,q1), High(Strict,q2) -> foo d (q1,q2) acc
@@ -293,7 +291,7 @@ let fold flt fle fgt fge foo fco foc fcc ffull fempty l  =
 		       | Low(Nonstrict,q1), High(Strict,q2) -> fco d (q1,q2) acc     
 		       | Low(Nonstrict,q1), High(Nonstrict,q2) -> fcc d (q1,q2) acc)
     l
-    fempty		     
+    fbot		     
 
 	
 	(*s Pretty printing *)
@@ -349,14 +347,16 @@ let upper dom j1 j2 =
 
 let add (dom,i,j) l =
   let rho = interval dom i j in
-  if is_empty_interval rho then l else rho :: l
+  if is_bot_interval rho then l else rho :: l
 
 let single dom i j =
   let rho = interval dom i j in
-  if is_empty_interval rho then empty else [rho]
+  if is_bot_interval rho then bot else [rho]
 
 let rec inter l1 l2 =
   match l1,l2 with
+    | [Real,Neginf,Posinf], _ -> l2
+    | _, [Real,Neginf,Posinf] -> l1
     | [], _ -> []
     | _, [] -> []
     | (dom1,i1,j1) :: l1', (dom2,i2,j2) :: l2' ->
@@ -406,6 +406,8 @@ let high_to_low = function
 	
 let rec union l1 l2 =
   match l1, l2 with
+    | [Real,Neginf,Posinf], _ -> top
+    | _, [Real,Neginf,Posinf] -> top
     | [], _ -> l2
     | _, [] -> l1
     | rho1 :: l1', rho2 :: l2' ->
@@ -453,76 +455,177 @@ and interval_union ((dom1,i1,j1) as rho1) ((dom2,i2,j2) as rho2) =
   
 let rec compl l =
   match l with
-    | [] -> full
+    | [] -> top
     | [rho] -> interval_compl rho
     | rho :: l ->
-	inter (interval_compl rho) (compl l) 
+	inter (interval_compl rho) (compl l)
 
+let ite l1 l2 l3 =
+  union (inter l1 l2)
+    (inter (compl l1) l3)
+
+	  
      (*s Comparison between two constraints. *)
 	  
 type rel = Binrel.t
 
 let cmp l1 l2 =
-  let l = inter l1 l2 in
-  if is_empty l then
-    Disjoint
-  else
-    (match eq l1 l, eq l2 l with
-       | true, true -> Same
-       | true, _ -> Sub
-       | _, true -> Super
-       | _ -> Overlap)
-  
+  match inter l1 l2 with
+    | [] ->
+	Disjoint
+    | l ->
+	(match eq l1 l, eq l2 l with
+	   | true, true -> Same
+	   | true, _ -> Sub
+	   | _, true -> Super
+	   | _ -> Overlap)
+
+let is_disjoint l1 l2 =
+  inter l1 l2 = []
 
     (*s Abstract interpretation of addition and multiplication. *)
-
-let low_op f  i1 i2 =
-  match i1,i2 with
-    | Neginf, _ -> Neginf
-    | _, Neginf -> Neginf
-    | Low(Nonstrict,q1),Low(Nonstrict,q2) -> Low(Nonstrict, f q1 q2)
-    | Low(_,q1),Low(_,q2) -> Low(Strict, f q1 q2)
-
-let high_op f j1 j2 =
-  match j1,j2 with
-    | Posinf, _ -> Posinf
-    | _, Posinf -> Posinf
-    | High(Nonstrict,q1),High(Nonstrict,q2) -> High(Nonstrict, f q1 q2)
-    | High(_,q1),High(_,q2) -> High(Strict, f q1 q2)
-
-
+  
 let mult1 (dom1,i1,j1) (dom2,i2,j2) =
+  let kind k1 k2 =
+    match k1, k2 with
+      | Nonstrict, Nonstrict -> Nonstrict
+      | _ -> Strict
+  in
+  let mult_bound (k1,q1) (k2,q2) =
+    (kind k1 k2, Q.mult q1 q2)
+  in
+  let gt ((k1,q1) as v1) ((k2,q2) as v2) =
+    Q.gt q1 q2 || (Q.equal q1 q2 && k1 = Strict && k2 = Nonstrict)
+  in
+  let min v1 v2 =
+    if gt v1 v2 then v2 else v1
+  in
+  let max v1 v2 =
+    if gt v1 v2 then v1 else v2
+  in
   let dom = domain_union dom1 dom2 in
-  let i = low_op Q.mult i1 i2 in
-  let j = high_op Q.mult j1 j2 in
-  match i,j with
-    | Low(k1,q1), High(k2,q2) when Q.gt q1 q2 ->   (* orient interval *)
-	interval dom (Low(k2,q2)) (High(k1,q1))
-    | _ ->
-	interval dom i j
-	 
+  match i1,j1,i2,j2 with
+    | Neginf, Posinf, _, _
+    | _, _, Neginf, Posinf ->
+	interval dom Neginf Posinf
+    | Low(k1,i1), Posinf, Low(k2,i2), Posinf ->
+	if Q.ge i1 Q.zero && Q.ge i2 Q.zero then
+	  interval dom (Low(kind k1 k2, Q.mult i1 i2)) Posinf
+	else
+	  interval dom Neginf Posinf
+    | Low(k1,i1), Posinf, Neginf, High(k2,j2) ->
+	interval dom Neginf Posinf (*i to do i*)
+    | Low(k1,i1), Posinf, Low(k3,i2), High(k4,j2) ->
+	interval dom Neginf Posinf (*i to do*)
+    | Low(k1,i1), High(k2,j1), Neginf, High(k4,j2) ->
+	interval dom Neginf Posinf (*i to do i*)
+    | Low(k1,i1), High(k2,j1), Low(k3,i2), Posinf ->
+	interval dom Neginf Posinf (*i to do i*)
+    | Neginf, High(k2,j1), Low(k3,i2), Posinf ->
+	interval dom Neginf Posinf (*i to do i*)
+    | Neginf, High(k2,j1), Low(k3,i2), High(k4,j2) ->
+	interval dom Neginf Posinf (*i to do i*)
+    | Neginf, High(k2,j1), Neginf, High(k4,j2) ->
+	if Q.le j1 Q.zero && Q.le j2 Q.zero then
+	  interval dom (Low(kind k2 k4, Q.mult j1 j2)) Posinf
+	else
+	  interval dom Neginf Posinf
+    | Low(k1l,i1), High(k1h,j1), Low(k2l,i2), High(k2h,j2) ->
+	let i1i2 = mult_bound (k1l,i1) (k2l,i2) in
+	let i1j2 = mult_bound (k1l,i1) (k2h,j2) in
+	let i2j1 = mult_bound (k2l,i2) (k1h,j1) in
+	let j1j2 = mult_bound (k1h,j1) (k2h,j2) in
+	let (k,i) = min i1i2 (min i1j2 (min i2j1 j1j2)) in
+	let (l,j) = max i1i2 (max i1j2 (max i2j1 j1j2)) in
+	interval dom (Low(k,i)) (High(l,j))
+		 
 let mult l1 l2 =
   List.fold_right
     (fun rho1 acc1 ->
        (List.fold_right
 	  (fun rho2 acc2 ->
 	     let rho = mult1 rho1 rho2 in
-	     if is_empty_interval rho then acc2 else union [rho] acc2)
+	     interval_pp Format.std_formatter rho;
+	     if is_bot_interval rho then acc2 else union [rho] acc2)
 	  l2 acc1))
     l1 []
 
-let add1 (dom1,i1,j1) (dom2,i2,j2) =
-  interval (domain_union dom1 dom2) (low_op Q.add i1 i2) (high_op Q.add j1 j2)
+
+let multq q l =
+  let rec revmap acc = function
+    | [] -> acc
+    | (dom,i,j) :: l ->
+	let j' = match i with
+	  | Neginf -> Posinf
+	  | Low(k1,q1) -> High(k1,Q.mult q q1)
+	in
+	let i' = match j with
+	  | Posinf -> Neginf
+	  | High(k2,q2) -> Low(k2,Q.mult q q2)
+	in
+	revmap (interval dom i' j' :: acc) l
+  in
+  match l with
+    | [_,Neginf,Posinf] ->
+	l  
+    | _ ->
+	(match Q.cmp q Q.zero with
+	   | Q.Equal ->
+	       singleton Q.zero
+	   | Q.Greater ->
+	       List.map
+		 (fun (dom,i,j) ->
+		    let i' = match i with
+		      | Neginf -> Neginf
+		      | Low(k1,q1) -> Low(k1,Q.mult q q1)
+		    in
+		    let j' = match j with
+		      | Posinf -> Posinf
+		      | High(k2,q2) -> High(k2,Q.mult q q2)
+		    in
+		    interval dom i' j')
+		 l
+	   | Q.Less ->
+	       revmap [] l)
+
     
+let add1 (dom1,i1,j1) (dom2,i2,j2) =
+  let dom = domain_union dom1 dom2 in
+  let i = match i1,i2 with
+    | Neginf, _ ->
+	Neginf
+    | _, Neginf ->
+	Neginf
+    | Low(Nonstrict,q1),Low(Nonstrict,q2) ->
+	Low(Nonstrict, Q.add q1 q2)
+    | Low(_,q1),Low(_,q2) ->
+	Low(Strict, Q.add q1 q2)
+  in
+  let j = match j1,j2 with
+    | Posinf, _ ->
+	Posinf
+    | _, Posinf ->
+	Posinf
+    | High(Nonstrict,q1),High(Nonstrict,q2) ->
+	High(Nonstrict, Q.add q1 q2)
+    | High(_,q1),High(_,q2) ->
+	High(Strict, Q.add q1 q2)
+  in
+  interval dom i j
+ 
 let add l1 l2 =
   List.fold_right
     (fun rho1 acc1 ->
        (List.fold_right
 	  (fun rho2 acc2 ->
 	     let rho = add1 rho1 rho2 in
-	     if is_empty_interval rho then acc2 else union [rho] acc2)
+	     if is_bot_interval rho then acc2 else union [rho] acc2)
 	  l2 acc1))
     l1 []
 
 
+let to_list l = l
 
+let rec of_list = function
+  | [] -> bot
+  | i :: l -> union [i] (of_list l)

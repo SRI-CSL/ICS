@@ -57,3 +57,7 @@ val pp_to_string : (Format.formatter -> 'a -> unit) -> 'a -> string
     (*s Type for comparison. More readable than the convential [-1], [0], and [1]
       results of comparisons. *)
 type cmp = Less | Equal | Greater
+
+   (*s Mapping over list of terms. Avoids unnecessary consing. *)
+
+val mapl : ('a -> 'a) -> 'a list -> 'a list

@@ -50,6 +50,10 @@ val div2 : Term.t * Term.t -> Term.t
 val divq : Mpa.Q.t -> Term.t  -> Term.t
 val multq : Mpa.Q.t -> Term.t -> Term.t
 
+    (*s Test if a term is an arithmetic expression. *)
+
+val is_arith: Term.t -> bool
+
     (*s Test for arithmetic constant. *)
 
 val is_num : Term.t -> bool
@@ -89,6 +93,10 @@ val zsolve : Term.eqn -> (Term.t list * Term.eqn list)
     (*s Test if some term is trivially an integer. *)
 
 val is_integer: Term.t -> bool
+
+    (*s Computes the gcd of two ordered power products. *)
+
+val gcd : Term.t list -> Term.t list -> Term.t list
 
     (*s Destructure an arithmetic polynomial in constant and nonconstant part. *)
 

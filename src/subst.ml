@@ -23,7 +23,9 @@ type t = Term.t Term.Map.t
 let empty = Term.Map.empty
 
 let add x t rho =
-  if x === t then rho else Term.Map.add x t rho
+  if x === t then
+    rho
+  else Term.Map.add x t rho
 
 let mem s x =
   Term.Map.mem x s
@@ -32,22 +34,32 @@ let apply s a =
   Term.Map.find a s
     
 let find s a =
-  try Term.Map.find a s with Not_found -> a
+  try
+    Term.Map.find a s
+  with
+      Not_found -> a
 
 let of_list l =
   List.fold_right (fun (x,a) -> add x a) l empty
 
 let to_list l =
-  Map.fold (fun x a acc -> (x,a) :: acc) l [] 
+  let cons x a acc =
+    (x,a) :: acc
+  in
+  Map.fold cons l [] 
 
 let iter f =
   Map.iter (fun x y -> f(x,y))
 
 let fold f =
-  Map.fold (fun x y -> f(x,y))
+  let fu x y = f(x,y) in
+  Map.fold fu
     
 let dom s =
-  Map.fold (fun x _ acc -> Term.Set.add x acc) s Term.Set.empty
+  let add x _ acc =
+    Term.Set.add x acc
+  in
+  Map.fold add s Term.Set.empty
     
 let pp fmt rho =
   let pp_binding (x,a) =
@@ -82,10 +94,19 @@ let pp fmt rho =
 let norm s a =
   let rec repl t =
     (match t.node with
-      | Var _ | App _ ->                   (* "completely uninterpreted" *)
+      | Var _ ->
+	  find s t
+      | App({node=Set(Cnstrnt(c))},[x]) ->
+	  hom1 t (Cnstrnt.app c) repl x
+      | App({node=Update(x,y,z)} as f,l) ->
+	  let f' = hom3 f App.update repl (x,y,z) in
+	  homl t (App.app f') repl l
+      | App _ ->
 	  find s t
       | Update(x,y,z) ->
-	  hom3 t (fun (x,y,z) -> App.update x y z) repl (x,y,z)
+	  hom3 t App.update repl (x,y,z)
+      | Cond(x,y,z) ->
+	  hom3 t Bool.cond repl (x,y,z)
       | Set s ->
 	  (match s with
 	     | Full _ | Empty _ | Cnstrnt _ ->
@@ -93,15 +114,15 @@ let norm s a =
 	     | Finite s ->
 		 homs t Sets.finite repl s 
 	     | SetIte(tg,x,y,z) ->
-		 hom3 t (fun (x,y,z) -> Sets.ite tg x y z) repl (x,y,z))
+		 hom3 t (Sets.ite tg) repl (x,y,z))
       | Bool b ->
 	  (match b with
 	     | True | False ->
 		 t
 	     | Equal(x,y) ->
-		 hom2 t (fun (x,y) -> Bool.equal x y) repl (x,y)
+		 hom2 t Bool.equal repl (x,y)
 	     | Ite(x,y,z) ->
-		 hom3 t (fun (x,y,z) -> Bool.ite x y z) repl (x,y,z)
+		 hom3 t Bool.ite repl (x,y,z)
 	     | _ ->
 		 assert false)
       | Arith a ->
@@ -127,7 +148,7 @@ let norm s a =
 	     | Conc l ->
 		 Bv.conc (List.map (fun (n,t) -> (n, repl t)) l)
 	     | BvIte((n,x),(_,y),(_,z)) ->
-		 hom3 t (fun (x,y,z) -> Bv.ite n x y z) repl (x,y,z))
+		 hom3 t (Bv.ite n) repl (x,y,z))
       | Tuple tp ->
 	  (match tp with
 	     | Proj(i,j,x) ->
@@ -136,9 +157,6 @@ let norm s a =
 		 homl t Tuple.tuple repl l))
   in
   repl a
-
-
-
 
 
 

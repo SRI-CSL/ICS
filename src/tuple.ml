@@ -31,7 +31,7 @@ let rec proj i n a =
     | Tuple(Tup l) ->
 	List.nth l i
     | Bool(Ite(x,y,z)) ->
-	Bool.ite x (proj i n y) (proj i n z)
+	Bool.cond(x, proj i n y, proj i n z)
     | _ ->
 	hc(Tuple(Proj(i,n,a)))     
 
@@ -42,7 +42,7 @@ let add ((a,b) as e) el =
   if a === b then el
   else match b.node with
     | Tuple(Tup l) when List.exists (fun y -> a === y) l ->
-	raise (Exc.Inconsistent "Tuple solver")
+	raise Exc.Inconsistent
     | _ -> e :: el
 
 (*s [solve (s, (t0,...,tn)) = \list{(proj s 0, t0),...,(proj s n, tn)}] *)
@@ -84,4 +84,4 @@ let solve ((a,b) as e) =
     in
     Some l
   with
-      Exc.Inconsistent _ -> None
+      Exc.Inconsistent -> None

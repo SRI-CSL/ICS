@@ -30,11 +30,11 @@ type domain = Int | Real | NonintReal
 
 type t
 
-     (*s The empty set. *)
-val empty : t
+     (*s The empty constraint. *)
+val bot : t
 
      (*s The set of all real numbers. *)
-val full : t
+val top : t
 
     (*s [oo d q1 q2] constructs a single open interval [(q1..q2)] interpreted over the domain [d].
         If [q1 >= q2], then [empty] is returned. Similarly, [oc] constructs a left-open
@@ -75,8 +75,8 @@ val diseq : Q.t -> t
         integers, and [is_singleton s] holds iff the denotation of [s] is
         singleton. *)
     
-val is_empty : t -> bool
-val is_full : t -> bool
+val is_bot : t -> bool
+val is_top : t -> bool
 val is_int : t -> bool
 val is_real : t -> bool
 val is_nonintreal : t -> bool
@@ -87,9 +87,11 @@ val is_singleton : t -> bool
 val value_of : t -> Q.t
 
     (* [mem q s] tests if [q] is a member of the set denoted by [s]. *)
+    
 val mem : Q.t -> t -> bool
 
     (*s [eq s1 s2] tests if [s1] and [s2] have the same denotations. *)
+    
 val eq : t -> t -> bool
 
   (*s [cmp s1 s2] yields [Same] iff [s1] and [s2] have the same denotations,
@@ -98,7 +100,9 @@ val eq : t -> t -> bool
       [Super] if the denotation of [s2] is a strict subset of [s1], and [Overlap]
       otherwise. *)
     
-val cmp : t -> t -> Binrel.t   
+val cmp : t -> t -> Binrel.t
+
+val is_disjoint : t -> t -> bool
 
     (*s Pretty printing set constraints. *)
 val pp : Format.formatter -> t -> unit
@@ -107,11 +111,13 @@ val pp : Format.formatter -> t -> unit
 val inter : t -> t -> t
 val union : t -> t -> t
 val compl : t -> t
+val ite : t -> t -> t -> t
     
     (*s Abstract interpretation of arithmetic addition and multiplication in terms
       of intervals. *)
 val add : t -> t -> t
 val mult : t -> t -> t
+val multq : Q.t -> t -> t
 
     (*s [to_list l] returns a list of intervals. Hereby, an interval is
       represented by a triple [(d,l,h)] where [d] is the domain over which the interval
@@ -136,7 +142,8 @@ type high =
 
 type interval = domain * low * high
   
-val to_list: t -> interval list
+val to_list : t -> interval list
+val of_list : interval list -> t
 
 val inj : interval -> t
 
