@@ -675,8 +675,9 @@ void LPSolver::setup_ics(unsigned int f_idx)
 {
 	queue<unsigned int> & to_setup = tmp_queue;
 	to_setup.reset();
+	assert(check_marks());
 	
-	to_setup.push(f_idx);
+	queue_push(to_setup, f_idx);
 	
 	while (!to_setup.is_empty()) {
 		unsigned int curr_idx = to_setup.pop();
@@ -686,24 +687,24 @@ void LPSolver::setup_ics(unsigned int f_idx)
 			unsigned int n = formula->get_num_arguments();
 			for (unsigned int i = 0; i < n; i++) {
 				LPFormulaId child = formula->get_argument(i);
-					to_setup.push(abs(child));
+				queue_push(to_setup, abs(child));
 			}
 			break;
 		}
 		case LP_IFF: {
 			LPFormulaId lhs = formula->get_iff_lhs();
 			LPFormulaId rhs = formula->get_iff_rhs();
-			to_setup.push(abs(lhs));
-			to_setup.push(abs(rhs));
+			queue_push(to_setup, abs(lhs));
+			queue_push(to_setup, abs(rhs));
 			break;
 		}
 		case LP_ITE: {
 			LPFormulaId c = formula->get_cond();
 			LPFormulaId t = formula->get_then();
 			LPFormulaId e = formula->get_else();
-			to_setup.push(abs(c));
-			to_setup.push(abs(t));
-			to_setup.push(abs(e));
+			queue_push(to_setup, abs(c));
+			queue_push(to_setup, abs(t));
+			queue_push(to_setup, abs(e));
 			break;
 		}
 		case LP_EXISTS:
@@ -718,6 +719,7 @@ void LPSolver::setup_ics(unsigned int f_idx)
 			assert(false);
 		}
 	}
+	remove_marks_from_tmp_queue();
 
 	ics_interface.compute_associated_formulas_info();
 }
