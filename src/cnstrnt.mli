@@ -44,6 +44,10 @@ val mk_one : t
 
 val mk_diseq : Mpa.Q.t -> t
 
+(*s Membership. *)
+
+val mem : Mpa.Q.t -> t -> bool
+
 (*s Recognizers and Accessors. *)
 
 val is_empty : t -> bool
@@ -96,6 +100,7 @@ val mk_nonpos : Dom.t -> t
 
 (*s Abstract interpretation. *)
 
+val addq : Q.t -> t -> t
 val add : t -> t -> t
 val addl : t list -> t
 val mult : t -> t -> t
