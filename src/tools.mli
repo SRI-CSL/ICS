@@ -34,18 +34,17 @@ val add_at_reset : (unit -> unit) -> unit
 val do_at_reset : unit -> unit
 
 
-
-
 (*s [utime f a] returns not only the result of applying [f] to [a]
   but also the time required to compute the function. *)
 
 val utime : ('a -> 'b) -> 'a -> 'b * float
     
 
-    (*s [profile str f] profiles function [f], and
-      registers an exit function which outputs the number of calls
-      of this function, and the total time spent in this function;
-      the argument [str] is usually just the name of the function.*)
+(*s [profile str f] profiles function [f], and
+ registers an exit function which outputs the number of calls
+ of this function, and the total time spent in this function;
+ the argument [str] is usually just the name of the function. *)
+
 val profile : string -> ('a -> 'b) -> ('a -> 'b)
 
 

@@ -37,8 +37,7 @@
 
 type decided = { 
   pos : Atom.Set.t; 
-  neg : Atom.Set.t;
-  undec : Atom.Set.t 
+  neg : Atom.Set.t
 }
 
 let pp fmt dec =
@@ -46,9 +45,12 @@ let pp fmt dec =
   Pretty.atoms fmt dec.pos;
   Format.fprintf fmt "; neg = ";
   Pretty.atoms fmt dec.neg;
-  Format.fprintf fmt "; undec = ";
-  Pretty.atoms fmt dec.undec;
-  Format.fprintf fmt "]@]";
+  Format.fprintf fmt "]@]"
+
+let empty = { 
+  pos = Atom.Set.empty; 
+  neg = Atom.Set.empty
+}
 
 type status = Pos | Neg | Undec
 
@@ -57,29 +59,12 @@ let lookup x dec =
   else if Atom.Set.mem x dec.neg then Neg
   else Undec
 
-let add s dec =
-  Atom.Set.fold 
-    (fun x acc ->
-       let (s,y) = Dp.can_a s x in
-       match y with
-	 | Atom.True ->
-	     {acc with pos = Atom.Set.add x acc.pos; 
-                       undec = Atom.Set.remove x acc.undec}
-	 | Atom.False ->
-	     {acc with neg = Atom.Set.add x acc.neg;
-                       undec = Atom.Set.remove x acc.undec}
-	 | _ ->
-	     acc)
-    dec.undec
-    dec
+let addpos x dec = {dec with pos = Atom.Set.add x dec.pos}
+let addneg x dec = {dec with neg = Atom.Set.add x dec.neg}
+
 
 let rec prop s b =
-  let dec = 
-    add s { pos = Atom.Set.empty; 
-	    neg = Atom.Set.empty; 
-	    undec = Prop.literals_of b}
-  in
-  build s dec b
+  build s empty b
 
 and build s dec b =
   match Prop.destruct b with
@@ -91,34 +76,30 @@ and build s dec b =
           | Neg -> build s dec n
           | Undec -> 
 	      let y = Atom.mk_neg x in
-	      match Dp.process_a s x, Dp.process_a s y with
-		| Dp.Satisfiable(ps), Dp.Satisfiable(ns) ->
-		    let pdec = add ps dec in
-		    let ndec = add ns dec in
+	      match Shostak.process_a s x, Shostak.process_a s y with
+		| Shostak.Satisfiable(ps), Shostak.Satisfiable(ns) ->
+		    let pdec = addpos x dec in
+		    let ndec = addneg x dec in
 		    let p = build ps pdec p in
 		    let n = build ns ndec n in
 		    if Prop.eq p n then p else Prop.mk_ite x p n
-		| Dp.Valid, _           (* Following cases can only happen *)
-		| _, Dp.Inconsistent -> (* for possible incompletenesses of [can]. *)
+		| Shostak.Valid, _           (* Following cases can only happen *)
+		| _, Shostak.Inconsistent -> (* for possible incompletenesses of [can]. *)
 		    build s dec p
-		| _, Dp.Valid
-		| Dp.Inconsistent, _ ->
+		| _, Shostak.Valid
+		| Shostak.Inconsistent, _ ->
 		    build s dec n
 
 
 (*s Check for Satisfiability. *)
 
 let rec sat s p =
-  let dec = 
-    add s { pos = Atom.Set.empty; 
-	    neg = Atom.Set.empty; 
-	    undec = Prop.literals_of p }
-  in
-  sat1 s dec p
+  sat1 s empty p
 
-and sat1 s dec b =
+and sat1 s dec b = 
   match Prop.destruct b with
-    | Prop.True -> Some(s)
+    | Prop.True -> 
+        Some(s)
     | Prop.False -> None
     | Prop.Ite(x,p,n) ->
 	match lookup x dec with
@@ -126,16 +107,16 @@ and sat1 s dec b =
           | Neg -> sat1 s dec n
           | Undec -> 
 	      let y = Atom.mk_neg x in
-	      match Dp.process_a s x, Dp.process_a s y with
-		| Dp.Satisfiable(ps), Dp.Satisfiable(ns) ->
-		    (match sat1 ps (add ps dec) p with
-		       | None -> sat1 ns (add ns dec) n
+	      match Shostak.process_a s x, Shostak.process_a s y with
+		| Shostak.Satisfiable(ps), Shostak.Satisfiable(ns) ->
+		    (match sat1 ps (addpos x dec) p with
+		       | None -> sat1 ns (addneg x dec) n
 		       | res -> res)
-		| Dp.Valid, _           (* Following cases can only happen *)
-		| _, Dp.Inconsistent -> (* for possible incompletenesses of [can]. *)
+		| Shostak.Valid, _           (* Following cases can only happen *)
+		| _, Shostak.Inconsistent -> (* for possible incompletenesses of [can]. *)
 		    sat1 s dec p
-		| _, Dp.Valid
-		| Dp.Inconsistent, _ ->
+		| _, Shostak.Valid
+		| Shostak.Inconsistent, _ ->
 		    sat1 s dec n
 
 

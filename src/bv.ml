@@ -369,13 +369,13 @@ let mk_fresh n =
   if n = 0 then 
     mk_eps 
   else 
-    let f = Sym.make(Sym.Internal(Sym.FreshBv(!k))) in
+    let f = Sym.mk_internal(Sym.FreshBv(!k)) in
     incr(k);
     Term.mk_const f
 
 let is_fresh a =
   match Sym.destruct(Term.sym_of a) with
-    | Sym.Internal(Sym.FreshBv _) -> true
+    | Sym.Uninterp(Sym.Internal(Sym.FreshBv _)) -> true
     | _ -> false
 
 (* Flattening out concatenations. The result is a list of equivalent

@@ -1,15 +1,17 @@
 
 (*i
- * ICS - Integrated Canonizer and Solver
- * Copyright (C) 2001-2004 SRI International
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the ICS license as published at www.icansolve.com
+ * The contents of this file are subject to the ICS(TM) Community Research
+ * License Version 1.0 (the ``License''); you may not use this file except in
+ * compliance with the License. You may obtain a copy of the License at
+ * http://www.icansolve.com/license.html.  Software distributed under the
+ * License is distributed on an ``AS IS'' basis, WITHOUT WARRANTY OF ANY
+ * KIND, either express or implied. See the License for the specific language
+ * governing rights and limitations under the License.  The Licensed Software
+ * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
+ * ``ICS'' is a trademark of SRI International, a California nonprofit public
+ * benefit corporation.
  * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * ICS License for more details.
+ * Author: Harald Ruess
  i*)
 
 (*s Terms are the basic data structures of ICS. *)
@@ -69,9 +71,20 @@ val (<<<): t -> t -> bool
 val order : t -> t -> t * t
 
 
+(*s Boolean constants. *)
+
+val mk_tt : t
+val mk_ff : t
+
+val is_tt : t -> bool
+val is_ff : t -> bool
+
+
 (*s Test if term is a constant. *)
 
 val is_const : t -> bool
+
+val is_var : t -> bool
 
 val is_label : t -> bool
 

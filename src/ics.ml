@@ -32,13 +32,6 @@ let _ = Callback.register "do_at_exit" do_at_exit
 
 let _ = Callback.register "init" init
 
-(* Three-valued logic. *)
-
-type three = Three.t
-
-let three_yes = Three.Yes
-let three_no = Three.No
-let three_x = Three.X
 
 (*s Channels. *)
 
@@ -61,35 +54,6 @@ let out_of_string str =
   Format.formatter_of_out_channel (Pervasives.open_out str)
 let _ = Callback.register "out_of_string" out_of_string
 
-(*s Interval. *)
-
-type dom = Dom.t
-
-let dom_int = Dom.Int
-let _ = Callback.register "dom_int" dom_int
-
-let dom_real = Dom.Real
-let _ = Callback.register "dom_real" dom_real
-
-type endpoint = Interval.endpoint
-
-let endpoint_posinf = Interval.posinf
-let _ = Callback.register "endpoint_posinf" endpoint_posinf
-
-let endpoint_neginf = Interval.neginf
-let _ = Callback.register "endpoint_neginf" endpoint_neginf
-
-let endpoint_open = Interval.strict
-let _ = Callback.register "endpoint_open" endpoint_open
-
-let endpoint_closed = Interval.nonstrict
-let _ = Callback.register "endpoint_closed" endpoint_closed
-
-type interval = Interval.t
-type intervals = Intervals.t
-
-let interval_make = Interval.make Dom.Real
-let _ = Callback.register "interval_make" interval_make
 
 (* Names. *)
 
@@ -101,20 +65,82 @@ let _ = Callback.register "name_of_string" name_of_string
 let name_to_string = Name.to_string
 let _ = Callback.register "name_to_string" name_to_string
 
-type names = Name.Set.t
-
-let names_singleton s =  Name.Set.singleton (Name.of_string s)
-let _ = Callback.register "names_singleton" names_singleton
-
-let names_add s =  Name.Set.add (Name.of_string s)
-let _ = Callback.register "names_add" names_add
-
-type 'a namemap = 'a Name.Map.t
+let name_eq = Name.eq
+let _ = Callback.register "name_eq" name_eq
 
 
 (*s Constrains. *)
 
 type cnstrnt = Number.t
+
+let cnstrnt_of_string s = 
+  let lb = Lexing.from_string s in 
+  Parser.cnstrnteof Lexer.token lb
+let _ = Callback.register "cnstrnt_of_string" cnstrnt_of_string
+
+let cnstrnt_input ch =
+ let lb = Lexing.from_channel ch in 
+  Parser.cnstrnteof Lexer.token lb
+let _ = Callback.register "cnstrnt_input" cnstrnt_input
+
+let cnstrnt_output = Pretty.number
+let _ = Callback.register "cnstrnt_output" cnstrnt_output
+
+let cnstrnt_pp = Pretty.number Format.std_formatter
+let _ = Callback.register "cnstrnt_pp" cnstrnt_pp
+
+
+let cnstrnt_mk_int () = Number.mk_int
+let _ = Callback.register "cnstrnt_mk_int" cnstrnt_mk_int
+
+let cnstrnt_mk_nat () = Number.mk_nat
+let _ = Callback.register "cnstrnt_mk_nat" cnstrnt_mk_nat
+
+let cnstrnt_mk_singleton = Number.mk_singleton
+let _ = Callback.register "cnstrnt_mk_singleton" cnstrnt_mk_singleton
+
+let cnstrnt_mk_diseq = Number.mk_diseq
+let _ = Callback.register "cnstrnt_mk_diseq" cnstrnt_mk_diseq
+
+let cnstrnt_mk_oo = Number.mk_oo Dom.Real
+let _ = Callback.register "cnstrnt_mk_oo" cnstrnt_mk_oo
+
+let cnstrnt_mk_oc = Number.mk_oc Dom.Real
+let _ = Callback.register "cnstrnt_mk_oc" cnstrnt_mk_oc
+
+let cnstrnt_mk_co = Number.mk_co Dom.Real
+let _ = Callback.register "cnstrnt_mk_co" cnstrnt_mk_co
+
+let cnstrnt_mk_cc = Number.mk_cc Dom.Real
+let _ = Callback.register "cnstrnt_mk_cc" cnstrnt_mk_cc
+
+let cnstrnt_mk_lt = Number.mk_lt Dom.Real
+let _ = Callback.register "cnstrnt_mk_lt" cnstrnt_mk_lt
+
+let cnstrnt_mk_le = Number.mk_le Dom.Real
+let _ = Callback.register "cnstrnt_mk_le" cnstrnt_mk_le
+
+let cnstrnt_union = Number.union
+let _ = Callback.register "cnstrnt_union" cnstrnt_union
+
+let cnstrnt_inter = Number.inter
+let _ = Callback.register "cnstrnt_inter" cnstrnt_inter
+
+let cnstrnt_compl = Number.compl
+let _ = Callback.register "cnstrnt_compl" cnstrnt_compl
+
+let cnstrnt_add = Number.add
+let _ = Callback.register "cnstrnt_add" cnstrnt_add
+
+let cnstrnt_multq = Number.multq
+let _ = Callback.register "cnstrnt_multq" cnstrnt_multq
+
+let cnstrnt_mult = Number.mult
+let _ = Callback.register "cnstrnt_mult" cnstrnt_mult
+
+let cnstrnt_div = Number.div
+let _ = Callback.register "cnstrnt_div" cnstrnt_div
+
 
 
 (*s Terms ar either variables, uninterpreted applications,
@@ -135,132 +161,214 @@ let _ = Callback.register "term_input" term_input
 let term_output = Pretty.term
 let _ = Callback.register "term_output" term_output
 
+let term_pp a = Pretty.term Format.std_formatter a; Format.print_flush ()
+let _ = Callback.register "term_pp" term_pp
+
+
+(*s Construct a variable. *)
+
+let term_mk_var str =
+  let x = Name.of_string str in
+  Term.mk_var x
+let _ = Callback.register "term_mk_var" term_mk_var
+
+
 (*s Uninterpred function application and function update. *)
          
-let mk_uninterp x =
+let term_mk_uninterp x =
   let str = Name.of_string x in
-  Uninterp.mk_uninterp str
-let _ = Callback.register "mk_uninterp" mk_uninterp
+  App.sigma (Sym.mk_uninterp str)
+let _ = Callback.register "term_mk_uninterp" term_mk_uninterp
 
   
 (*s Constructing arithmetic expressions. *)
 
-let mk_num = Linarith.mk_num
-let _ = Callback.register "mk_num" mk_num
+let term_mk_num = Arith.mk_num
+let _ = Callback.register "term_mk_num" term_mk_num
 
-let mk_multq q = Linarith.mk_multq q
-let _ = Callback.register "mk_multq" mk_multq
+let term_mk_multq q = Arith.mk_multq q
+let _ = Callback.register "term_mk_multq" term_mk_multq
 
-let mk_add = Linarith.mk_add
-let _ = Callback.register "mk_add" mk_add
+let term_mk_add = Arith.mk_add
+let _ = Callback.register "term_mk_add" term_mk_add
 
-let mk_sub  = Linarith.mk_sub
-let _ = Callback.register "mk_sub" mk_sub
+let term_mk_addl = Arith.mk_addl
+let _ = Callback.register "term_mk_addl" term_mk_addl
 
-let mk_unary_minus  = Linarith.mk_neg
-let _ = Callback.register "mk_unary_minus" mk_unary_minus
+let term_mk_sub  = Arith.mk_sub
+let _ = Callback.register "term_mk_sub" term_mk_sub
 
-let is_arith = Linarith.is_interp
-let _ = Callback.register "is_arith" is_arith
+let term_mk_unary_minus  = Arith.mk_neg
+let _ = Callback.register "term_mk_unary_minus" term_mk_unary_minus
+
+let term_is_arith = Arith.is_interp
+let _ = Callback.register "iterm_s_arith" term_is_arith
 
 
 
 
 (*s Constructing tuples and projections. *)
 
-let mk_tuple = Tuple.mk_tuple
-let _ = Callback.register "mk_tuple" mk_tuple
+let term_mk_tuple = Tuple.mk_tuple
+let _ = Callback.register "term_mk_tuple" term_mk_tuple
 
-let mk_proj i j = Tuple.mk_proj i j
-let _ = Callback.register "mk_proj" mk_proj
+let term_mk_proj i j = Tuple.mk_proj i j
+let _ = Callback.register "term_mk_proj" term_mk_proj
 
 
 (*s Bitvector terms. *)
 
-let mk_bvconst s = Bv.mk_const (Bitv.from_string s)
-let _ = Callback.register "mk_bvconst" mk_bvconst
+let term_mk_bvconst s = Bv.mk_const (Bitv.from_string s)
+let _ = Callback.register "term_mk_bvconst" term_mk_bvconst
 
-let mk_bvsub = Bv.mk_sub
-let _ = Callback.register "mk_bvsub" mk_bvsub
+let term_mk_bvsub (n,i,j) = Bv.mk_sub n i j
+let _ = Callback.register "term_mk_bvsub" term_mk_bvsub
 
-let mk_bvconc = Bv.mk_conc
-let _ = Callback.register "mk_bvconc" mk_bvconc
+let term_mk_bvconc (n,m) = Bv.mk_conc n m
+let _ = Callback.register "term_mk_bvconc" term_mk_bvconc
 
-let mk_bwite = Bv.mk_bitwise
-let _ = Callback.register "mk_bwite" mk_bwite
+let term_mk_bwite n (a,b,c) = Bv.mk_bitwise n a b c
+let _ = Callback.register "term_mk_bwite" term_mk_bwite
 
-let mk_bwand n a b =
+let term_mk_bwand n a b =
   Bv.mk_bitwise n a b (Bv.mk_zero n)
-let _ = Callback.register "mk_bwand" mk_bwand
+let _ = Callback.register "term_mk_bwand" term_mk_bwand
 
-let mk_bwor n a b =
+let term_mk_bwor n a b =
   Bv.mk_bitwise n a (Bv.mk_one n) b
-let _ = Callback.register "mk_bwor" mk_bwor
+let _ = Callback.register "term_mk_bwor" term_mk_bwor
 
-let mk_bwxor n a b = failwith "mk_bwxor: to do"
-let _ = Callback.register "mk_bwxor" mk_bwxor
+let term_mk_bwxor n a b = failwith "mk_bwxor: to do"
+let _ = Callback.register "term_mk_bwxor" term_mk_bwxor
 
-let mk_bwnot n a =
+let term_mk_bwnot n a =
   Bv.mk_bitwise n a (Bv.mk_zero n) (Bv.mk_one n)
-let _ = Callback.register "mk_bwnot" mk_bwnot
+let _ = Callback.register "term_mk_bwnot" term_mk_bwnot
 
 	  
 (*s Boolean terms. *)
 
-let mk_true () = Bool.mk_tt
-let _ = Callback.register "mk_true" mk_true
+let term_mk_true () = Term.mk_tt
+let _ = Callback.register "term_mk_true" term_mk_true
 
-let mk_false () = Bool.mk_ff
-let _ = Callback.register "mk_false" mk_false
+let term_mk_false () = Term.mk_ff
+let _ = Callback.register "term_mk_false" term_mk_false
 
 type atom = Atom.t
 type atoms = Atom.Set.t
 
-let mk_equal = Atom.mk_equal
-let _ = Callback.register "mk_equal" mk_equal  
+let atom_pp a = 
+  Pretty.atom Format.std_formatter a;
+  Format.print_flush ()
+let _ = Callback.register "atom_pp" atom_pp
 
-let mk_diseq = Atom.mk_diseq
-let _ = Callback.register "mk_diseq" mk_diseq
 
-let mk_in c a = failwith "mk_in: to do"
-let _ = Callback.register "mk_in" mk_in
+let atom_mk_equal = Atom.mk_equal
+let _ = Callback.register "atom_mk_equal" atom_mk_equal  
 
-let mk_real = Atom.mk_in Number.mk_real
-let _ = Callback.register "mk_real" mk_real
+let atom_mk_diseq = Atom.mk_diseq
+let _ = Callback.register "atom_mk_diseq" atom_mk_diseq
 
-let mk_lt = Atom.mk_lt
-let _ = Callback.register "mk_lt" mk_lt
+let atom_mk_in = Atom.mk_in 
+let _ = Callback.register "atom_mk_in" atom_mk_in
 
-let mk_le = Atom.mk_le
-let _ = Callback.register "mk_le" mk_le
+let atom_mk_true () = Atom.mk_true
+let _ = Callback.register "atom_mk_true" atom_mk_true
 
-let mk_gt a b = Atom.mk_lt b a
-let _ = Callback.register "mk_gt" mk_gt
+let atom_mk_false () = Atom.mk_false
+let _ = Callback.register "atom_mk_false" atom_mk_false
 
-let mk_ge a b = Atom.mk_le b a
-let _ = Callback.register "mk_ge" mk_ge
- 
-let is_true a =
-  match Term.destruct a with 
-    | f, [] -> Sym.eq f Sym.mk_tt 
-    | _ -> false
-let _ = Callback.register "is_true" is_true
+let atom_mk_real = Atom.mk_in Number.mk_real
+let _ = Callback.register "atom_mk_real" atom_mk_real
 
-let is_false a =
-  match Term.destruct a with 
-    | f, [] -> Sym.eq f Sym.mk_ff
-    | _ -> false
-let _ = Callback.register "is_false" is_false
+let atom_mk_int = Atom.mk_in Number.mk_int
+let _ = Callback.register "atom_mk_int" atom_mk_int
+
+let atom_mk_lt = Atom.mk_lt
+let _ = Callback.register "atom_mk_lt"  atom_mk_lt
+
+let atom_mk_le = Atom.mk_le
+let _ = Callback.register "atom_mk_le"  atom_mk_le
+
+let atom_mk_gt a b = Atom.mk_lt b a
+let _ = Callback.register "atom_mk_gt" atom_mk_gt
+
+let atom_mk_ge a b = Atom.mk_le b a
+let _ = Callback.register "atom_mk_ge" atom_mk_ge
+
+let atom_neg = Atom.mk_neg
+let _ = Callback.register "atom_neg" atom_neg
+
+let term_is_true = Term.is_tt
+let _ = Callback.register "term_is_true" term_is_true
+
+let term_is_false = Term.is_ff
+let _ = Callback.register "term_is_false" term_is_false
 
 
 (*s Propositions. *)
 
 type prop = Prop.t
 
+let prop_mk_true = Prop.mk_tt
+let _ = Callback.register "prop_mk_true" prop_mk_true
+
+let prop_mk_false = Prop.mk_ff
+let _ = Callback.register "prop_mk_false" prop_mk_false
+
+let prop_mk_poslit = Prop.mk_poslit
+let _ = Callback.register "prop_mk_poslit" prop_mk_poslit
+
+let prop_mk_neglit = Prop.mk_neglit
+let _ = Callback.register "prop_mk_neglit" prop_mk_neglit
+ 
+let prop_mk_ite = Prop.mk_ite
+let _ = Callback.register "prop_mk_ite" prop_mk_ite
+
+let prop_mk_neg = Prop.mk_neg
+let _ = Callback.register "prop_mk_neg" prop_mk_neg
+
+let prop_mk_conj = Prop.mk_conj
+let _ = Callback.register "prop_mk_conj" prop_mk_conj
+
+let prop_mk_disj = Prop.mk_disj
+let _ = Callback.register "prop_mk_disj" prop_mk_disj
+
+let prop_mk_xor = Prop.mk_xor
+let _ = Callback.register "prop_mk_xor" prop_mk_xor
+
+let prop_mk_imp = Prop.mk_imp
+let _ = Callback.register "prop_mk_imp" prop_mk_imp
+
+let prop_mk_iff = Prop.mk_iff
+let _ = Callback.register "prop_mk_iff" prop_mk_iff
+
+
+(*s Nonlinear terms. *)
+
+
+let term_mk_mult a b = Nonlin.mk_mult (a,b)
+let _ = Callback.register "term_mk_mult" term_mk_mult
+
+let term_mk_multl = Nonlin.mk_multl 
+let _ = Callback.register "term_mk_multl" term_mk_multl
+
+let term_mk_expt = Nonlin.mk_expt
+let _ = Callback.register "term_mk_expt" term_mk_expt
+
+
 (*s Builtin applications. *)
 
-let mk_unsigned = Builtin.mk_unsigned
-let _ = Callback.register "mk_unsigned" mk_unsigned
+let term_mk_unsigned = Builtin.mk_unsigned
+let _ = Callback.register "term_mk_unsigned" term_mk_unsigned
+
+let term_mk_update = Builtin.mk_update
+let _ = Callback.register "term_mk_update" term_mk_update
+
+let term_mk_select = Builtin.mk_select
+let _ = Callback.register "term_mk_select" term_mk_select
+
+
 
 (*s Set of terms. *)
 
@@ -287,123 +395,131 @@ let _ = Callback.register "set_verbose" set_verbose
 
 (*s States. *)
 
-open Dp
+open Shostak
 
-type state = Dp.t
+type state = Shostak.t
 
 let state_eq = (==)
 let _ = Callback.register "state_eq" state_eq  
 
-let state_init () = Dp.empty
-let _ = Callback.register "state_init" state_init
+let state_empty () = Shostak.empty
+let _ = Callback.register "state_empty" state_empty
 
-let state_ctxt_of s = failwith "tstate_ctxt_of o do" (* s.Dp.ctxt *)
+let state_ctxt_of s = s.Shostak.ctxt
 let _ = Callback.register "state_ctxt_of" state_ctxt_of
 
-
-let state_diseqs_of s = failwith "state_diseqs_of: to do"
+let state_diseqs_of s = D.deq_of s.Shostak.d
 let _ = Callback.register "state_diseqs_of" state_diseqs_of
 
-
-let state_cnstrnts_of s = failwith "state_cnstrnts_of: to do"
+let state_cnstrnts_of s = C.cnstrnt_of s.Shostak.c
 let _ = Callback.register "state_cnstrnts_of" state_cnstrnts_of
 
-let state_diseqs s = failwith "state_diseqs: to do"
-let _ = Callback.register "state_diseqs" state_diseqs
+let state_pp s = Shostak.pp Format.std_formatter s; Format.print_flush()
+let _ = Callback.register "state_pp" state_pp
 	  
+
 (*s Processing of new equalities. *)
 
-type status = Dp.t Dp.status
+type status = Shostak.t Shostak.status
 
-let is_consistent = function Dp.Satisfiable _ -> true | _ -> false
+let is_consistent = function Shostak.Satisfiable _ -> true | _ -> false
 let _ = Callback.register "is_consistent" is_consistent
 
-let is_redundant r = 
-  failwith "is_redundant: to do"
-   (* (r = Process.Valid) *)
+let is_redundant r = (r = Shostak.Valid)
 let _ = Callback.register "is_redundant" is_redundant
 
 let is_inconsistent r =
-  failwith "is_inconsistent: to do"
-   (* (r = Process.Inconsistent) *)
+   (r = Shostak.Inconsistent)
 let _ = Callback.register "is_inconsistent" is_inconsistent  
 
-let d_consistent foo = failwith "d_consistent: to do"
-(* function
-  | Process.Satisfiable s -> s
+let d_consistent = function
+  | Shostak.Satisfiable s -> s
   | _ -> failwith "Ics.d_consistent: fatal error"
- *)
 	
 let _ = Callback.register "d_consistent" d_consistent  
 
-let process s a = failwith "process: to do"
+let process s a = Shostak.process_a s a
 let _ = Callback.register "process" process   
 
 
 
 (*s Normalization functions *)
 
-let can = Dp.can_a
+let can = Shostak.can_a
 let _ = Callback.register "can" can
 
 (*s Command interface. *)
 
-type istate = State.t
+type istate = Istate.t
 
-let istate_current = State.current
+let istate_current = Istate.current
 let _ = Callback.register "istate_current" istate_current
-let istate_symtab = State.symtab
+
+let istate_symtab = Istate.symtab
 (* let _ = Callback.register "istate_symtab" istate_symtab *)
-let istate_def = State.def
+
+let istate_def = Istate.def
 let _ = Callback.register "istate_def" istate_def
-let istate_sig = State.sgn
+
+let istate_sig = Istate.sgn
 let _ = Callback.register "istate_sig" istate_sig
-let istate_set_in_channel = State.set_inchannel 
+
+let istate_set_in_channel = Istate.set_inchannel 
 let _ = Callback.register "istate_set_in_channel" istate_set_in_channel
-let istate_set_out_channel = State.set_outchannel 
+
+let istate_set_out_channel = Istate.set_outchannel 
 let _ = Callback.register "istate_set_out_channel" istate_set_out_channel
-let istate_type = State.typ
+
+let istate_type = Istate.typ
 let _ = Callback.register "istate_type" istate_type
-let istate_flush = State.flush
+
+let istate_flush = Istate.flush
 let _ = Callback.register "istate_flush" istate_flush
-let istate_nl = State.nl
+
+let istate_nl = Istate.nl
 let _ = Callback.register "istate_nl" istate_nl
-let istate_can  _ = failwith "istate_can: to do"
+
+let istate_can  = Istate.can_t
 let _ = Callback.register "istate_can" istate_can
-let istate_process _ = failwith "istate_process: to do" (* State.process *)
+
+let istate_process = Istate.process_p
 let _ = Callback.register "istate_process" istate_process
+
 let istate_check ns a = failwith "istate_check: to do"
 (* let _ = Callback.register "istate_check" istate_check *)
-let istate_reset = State.reset
+
+let istate_reset = Istate.reset
 let _ = Callback.register "istate_reset" istate_reset
-let istate_save = State.save
+
+let istate_save = Istate.save
 let _ = Callback.register "istate_save" istate_save
-let istate_restore = State.restore
+
+let istate_restore = Istate.restore
 let _ = Callback.register "istate_restore" istate_restore
-let istate_remove = State.remove
+
+let istate_remove = Istate.remove
 let _ = Callback.register "istate_remove" istate_remove
-let istate_forget = State.forget
+
+let istate_forget = Istate.forget
 let _ = Callback.register "istate_forget" istate_forget
 
 let istate_eval () =
   try 
-    Parser.commands Lexer.token (Lexing.from_channel (State.inchannel()))
+    Parser.commands Lexer.token (Lexing.from_channel (Istate.inchannel()))
   with 
     | Invalid_argument str -> Format.eprintf "Error(%s).@." str
     | Parsing.Parse_error -> Format.eprintf "Error(Syntax).@."
     | End_of_file -> raise End_of_file
     | Sys.Break -> raise Sys.Break
-  (*  | _ -> Format.eprintf "Internal error.@." *)
+    | exc -> Format.eprintf "Internal error.@."; raise exc
 
 let _ = Callback.register "istate_eval" istate_eval
 
+
 (*s Abstract sign interpretation. *)
 
-let cnstrnt s a = 
-  failwith "cnstrnt: to do"
-(*
-  Dp.cnstrnt s a
- *)
+let cnstrnt s a = Shostak.cnstrnt s a
+ 
 
 (*s Tools *)
 
@@ -416,8 +532,6 @@ let _ = Callback.register "gc" gc
 let flush = print_flush
 let _ = Callback.register "flush" flush
 
-
-(*s Callbacks for some basic Caml data structures. *)
 
 (*s Lists. *)
 
@@ -433,6 +547,7 @@ let _ = Callback.register "head" head
 let tail = List.tl
 let _ = Callback.register "tail" tail
 
+
 (*s Pairs. *)
 
 let pair x y = (x,y)
@@ -443,6 +558,7 @@ let _ = Callback.register "fst" fst
 
 let snd = snd
 let _ = Callback.register "snd" snd
+
 
 (*s Triples. *)
 
@@ -499,8 +615,7 @@ open Mpa
 
 type q = Q.t
 
-let ints_of_num q =
-  (Z.to_string (Q.numerator q), Z.to_string (Q.denominator q))
+let ints_of_num q = (Z.to_string (Q.numerator q), Z.to_string (Q.denominator q))
 let _ = Callback.register "ints_of_num" ints_of_num
 
 let num_of_int = Q.of_int
@@ -514,7 +629,4 @@ let _ = Callback.register "string_of_num" string_of_num
 
 let num_of_string = Q.of_string
 let _ = Callback.register "num_of_string" num_of_string
-
-let mk_string s = s
-
 

@@ -25,6 +25,10 @@ type t
   
 val empty : t
 
+(*s Pretty-print. *)
+
+val pp : Format.formatter -> t -> unit
+
 
 (*s [cnstrnt_of s] returns a finite map of bindings [x |-> c]
  from the representation [s]. *)
@@ -58,4 +62,4 @@ val add : Number.t -> Term.t -> t -> (t * Atom.t list)
 
 (*s Replace all [x |-> c] with [y |-> c] where [y] is [find x]. *)
 
-val inst : find:(Term.t -> Term.t) -> t -> t
+val inst : (Term.t -> Term.t) -> t -> t

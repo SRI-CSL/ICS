@@ -43,9 +43,6 @@ val call : int -> string -> 'a -> 'a pp -> unit
       As a side effect, the current intendation is decreased by one. *)
 val exit : int -> string -> 'a -> 'a pp -> unit
 
-    (*s [ok] behaves like exit in case there is no return argument. *)
-val ok: int -> string -> unit
-
     (*s [exc n str a p] is used to indicate that an exception [str] has
       been raised, whenever [n] is greater than the current verbose level. *)
 val exc : int -> string -> 'a -> 'a pp -> unit

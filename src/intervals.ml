@@ -209,27 +209,41 @@ let inter dom l m =
 
 type rel = Binrel.t
 
-let cmp l m =
-  let rec loop l m =
-    (match l, m with
-      | [], [] -> 
-	  Binrel.Same
-      | [], _ ->
-	  Binrel.Sub
-      | _, [] ->
-	  Binrel.Super
-      | i :: l', j :: m' ->
-	  let s1 = match Interval.cmp i j with
-	    | Equals -> Same
-	    | Sub | Starts | Finishes -> Binrel.Sub
-	    | Before | Meets | After | MetBy -> Binrel.Disjoint
-	    | Overlaps | OverlappedBy -> Binrel.Overlap
-	    | Super | StartedBy | FinishedBy -> Binrel.Super
-	  and s2 = loop l' m' 
-	  in
-	  Binrel.union s1 s2)
-  in
-  loop l m
+let rec cmp l m =
+  match l, m with
+    | [], [] -> Binrel.Same
+    | [], _ -> Binrel.Sub
+    | _, [] -> Binrel.Super
+    | [i], [j] -> cmp1 i j
+    | i :: l', j :: m' -> combine (cmp1 i j) (cmp l' m')
+
+and cmp1 i j = 
+  match Interval.cmp i j with
+    | Equals -> Same
+    | Sub | Starts | Finishes -> Binrel.Sub
+    | Before | Meets | After | MetBy -> Binrel.Disjoint
+    | Overlaps | OverlappedBy -> Binrel.Overlap
+    | Super | StartedBy | FinishedBy -> Binrel.Super
+
+and combine r1 r2 =  (* needs to be rechecked. *)
+ if r1 = r2 then
+    r1
+ else
+   match r1, r2 with
+     | Binrel.Overlap, _ -> Binrel.Overlap
+     | _, Binrel.Overlap -> Binrel.Overlap
+     | Binrel.Same, Binrel.Sub -> Binrel.Sub
+     | Binrel.Same, Binrel.Super -> Binrel.Super
+     | Binrel.Same, _ -> Binrel.Overlap
+     | Disjoint, _ -> Binrel.Overlap
+     | Binrel.Sub, Binrel.Same -> Binrel.Sub
+     | Binrel.Sub, Disjoint -> Binrel.Overlap
+     | Binrel.Sub, Binrel.Super -> Binrel.Overlap
+     | Binrel.Super, Binrel.Same -> Binrel.Super
+     | Binrel.Super, Disjoint -> Binrel.Overlap
+     | Binrel.Super, Binrel.Sub -> Binrel.Overlap
+     | _ -> assert false
+
 
 (*s Analyze a constraint. *)
 

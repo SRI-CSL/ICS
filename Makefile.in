@@ -3,8 +3,8 @@
 
 OCAMLSTDLIB = `ocamlc -v | tail -1 | cut -f 4 -d " "`
 
-LIBGMPA = /usr/lib/libgmp.a
-GMPINCLUDE = -I /usr/include
+LIBGMPA = @GMPPATH@/lib/libgmp.a
+GMPINCLUDE = -I @GMPPATH@/include
 
 OCAMLC   = @OCAMLC@
 OCAMLLINK= @OCAMLMKTOP@
@@ -43,8 +43,8 @@ endif
 
 INCLUDE =
 CFLAGS = 
-BFLAGS = -g $(INCLUDE) # -noassert
-OFLAGS = $(INCLUDE) # -noassert
+BFLAGS = -g $(INCLUDE) -noassert
+OFLAGS = $(INCLUDE) -noassert
 LIBS = -cclib "-lunix $(LIBGMPA)"
 
 # Object files
@@ -64,26 +64,24 @@ CMO = sign.cmo binrel.cmo three.cmo \
       sym.cmo \
       term.cmo \
       rename.cmo \
-      linarith.cmo \
-      bool.cmo \
+      arith.cmo \
       tuple.cmo \
       bv.cmo \
       nonlin.cmo \
       builtin.cmo \
-      uninterp.cmo \
+      app.cmo \
       cnstrnt.cmo \
       atom.cmo \
       prop.cmo \
       pretty.cmo \
-      pending.cmo \
       v.cmo \
       c.cmo \
       d.cmo \
       cc.cmo \
       th.cmo \
-      dp.cmo \
+      shostak.cmo \
       check.cmo \
-      symtab.cmo state.cmo \
+      symtab.cmo istate.cmo \
       parser.cmo lexer.cmo \
       ics.cmo
 
@@ -129,7 +127,7 @@ ics.byte: $(OBJDIR)
 	make -C $(OBJDIR) -f ../../Makefile ics.byte
 endif
 
-OBJS = ics_all.o ics_stub.o ics_error.o mlgmp.o
+OBJS = ics_all.o ics_stub.o mlgmp.o
 
 ifneq ("@ALLEGRO@","no")
 LISPOBJS = ics.fasl
@@ -180,7 +178,6 @@ $(LIBDIR):
 
 .PRECIOUS : $(OBJDIR)/%.ml $(OBJDIR)/%.mli $(OBJDIR)/%.mly 
 .PRECIOUS : $(OBJDIR)/%.mll $(OBJDIR)/mlgmp.c
-.PRECIOUS : $(OBJDIR)/ics_error.c
 
 
 $(OBJDIR)/%.ml: $(SRCDIR)/%.ml
@@ -196,9 +193,6 @@ $(OBJDIR)/%.mll: $(SRCDIR)/%.mll
 	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
 
 $(OBJDIR)/mlgmp.c: $(SRCDIR)/mlgmp.c
-	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
-
-$(OBJDIR)/ics_error.c: $(SRCDIR)/ics_error.c
 	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
 
 
@@ -399,4 +393,3 @@ parser.mli parser.ml: parser.mly
 ifeq ($(MAKELEVEL),1)
 include .depend
 endif
-

@@ -20,7 +20,7 @@
   open Mpa
   open Tools
 
-let out = State.outchannel
+let out = Istate.outchannel
 
 let pr str =  Format.fprintf (out()) str
 
@@ -33,41 +33,28 @@ let bverror a =
   raise (Invalid_argument ("Term " ^ term_to_string a ^ " not a bitvector"))
 
 let pr_cnstrnt str =
-  let cnstrnt = State.cnstrnt_of () in
+  let cnstrnt = Istate.cnstrnt_of () in
   if not(Term.Map.empty == cnstrnt) then
     begin
       Format.fprintf (out()) "%s" str;
-      Pretty.map Number.pp (out()) (State.cnstrnt_of ())
+      Pretty.map Number.pp (out()) (Istate.cnstrnt_of ())
     end
 
 let pr_diseq str =
-  let dm = State.diseq_of () in
+  let dm = Istate.diseq_of () in
   if not(Term.Map.empty == dm) then
     begin
       Format.fprintf (out()) "%s" str;
       Pretty.map Pretty.tset (out()) dm
     end
 
-let find = function
-  | "u" -> State.u()
-  | "v" -> State.v()
-  | "a" -> State.a()
-  | "t" -> State.t()
-  | "bv" -> State.bv()
-  | "nla" -> State.nla()
-  | str -> raise (Invalid_argument ("No find for " ^ str))
-
-let pr_find str =
-  let m = find str in
-  if not(m == Term.Map.empty) then
-    (pr "\n%s: " str; Pretty.map Pretty.term (out()) m)
-
-let pr_find_all () =
-  pr_find "u"; pr_find "v"; pr_find "a"; pr_find "t";
-  pr_find "bv"; pr_find "nla"
+let pr_solution i =
+  let m = Istate.solution i in
+  if m <> [] then
+    (pr "\n%s: " (Shostak.name_of i); Pretty.solution (out()) m)
 
 let pr_prop str = 
-  let p = State.prop_of () in
+  let p = Istate.prop_of () in
   if not(Prop.eq p Prop.mk_tt) then
     begin
       Format.fprintf (out()) "%s" str;
@@ -77,7 +64,7 @@ let pr_prop str =
 (*s Type from the symbol table. *)
 
 let type_of n =
-  match Symtab.lookup n (State.symtab()) with
+  match Symtab.lookup n (Istate.symtab()) with
     | Symtab.Type(c) -> c
     | _ -> 
 	let str = Tools.pp_to_string Name.pp n in
@@ -90,13 +77,13 @@ let helppath = "/homes/ruess/ics/help/"
 
 let help filename =
   let inch = open_in (helppath ^ filename ^ ".help") in
-  let outch = State.outchannel () in
+  let outch = Istate.outchannel () in
   try
     while true do
       Format.pp_print_char outch (input_char inch)
     done
   with
-      End_of_file -> State.flush ()
+      End_of_file -> Istate.flush ()
 
 
 (*s Getting the width of bitvector terms from the signature. *)
@@ -107,9 +94,9 @@ let length_of a =
     | None -> 
 	let f, l = Term.destruct a in
 	(match Sym.destruct f, l with
-	   | Sym.Uninterp(x), [] ->
+	   | Sym.Uninterp(Sym.External(x)), [] ->
 	       (try
-		 (match Symtab.lookup x (State.symtab()) with
+		 (match Symtab.lookup x (Istate.symtab()) with
 		    | Symtab.Arity(n) -> Some(n)
 		    | _ -> None)
 	       with
@@ -131,7 +118,8 @@ let equal_length_of a b =
 
 %token DROP CAN ASSERT EXIT SAVE RESTORE REMOVE FORGET RESET SYMTAB SIG
 %token TYPE SIGMA
-%token SOLVE HELP DEF TOGGLE SET VERBOSE PRETTY CMP FIND PROP SHOW CNSTRNT 
+%token SOLVE HELP DEF TOGGLE SET VERBOSE PRETTY CMP FIND USE INV SOLUTION PARTITION
+%token PROP SHOW CNSTRNT 
 %token DISEQ CTXT SAT CHECK COMPRESS
 %token EOF
 
@@ -150,6 +138,9 @@ let equal_length_of a b =
 %token COLON COMMA DOT DDOT ASSIGN UNION TO ENDMARKER
 
 %token <string> BVCONST 
+%token <int> LABEL
+%token <int> SLACK
+
 %token CONC SUB BWITE BWAND BWOR BWXOR BWNOT
 %token BVCONCI BWANDI BWORI BWXORI
 %token EQUAL DISEQ
@@ -213,34 +204,37 @@ term:
 | app              { $1 }
 | arith            { $1 }
 | tuple            { $1 }
-| boolean          { $1 }
+| array            { $1 }
 | sexpr            { $1 }
 | bv               { $1 }
-| builtin          { $1 }
 | LPAR term RPAR   { $2 }
 ;
 
+array: 
+  term LBRA term ASSIGN term RBRA { Builtin.mk_update $1 $3 $5 }
+| term LBRA term RBRA { Builtin.mk_select $1 $3 }  
+
 const: name  { try
-		 match Symtab.lookup $1 (State.symtab()) with
+		 match Symtab.lookup $1 (Istate.symtab()) with
 		   | Symtab.Def(a) -> a
-		   | _ -> Uninterp.mk_uninterp $1 []
+		   | _ -> Term.mk_const (Sym.mk_uninterp $1)
 	       with
-		   Not_found -> 
-		     Uninterp.mk_uninterp $1 [] }
-
-app: name LPAR termlist RPAR       { Uninterp.mk_uninterp $1 $3 }
-
-builtin: 
-  UNSIGNED LPAR term RPAR          { Builtin.mk_unsigned $3 }
+		   Not_found -> Term.mk_const (Sym.mk_uninterp $1) }
+| LABEL      { Term.mk_const (Sym.mk_label $1) }
+| SLACK LCUR cnstrnt RCUR
+             { Term.mk_const (Sym.mk_slack $1 $3) }
 ;
+
+
+app: name LPAR termlist RPAR       { App.sigma (Sym.mk_uninterp $1) $3 }
      
 arith: 
-  rat                              { Linarith.mk_num $1 }
-| term PLUS term                   { Linarith.mk_add $1 $3 }
-| term MINUS term                  { Linarith.mk_sub $1 $3 }
+  rat                              { Arith.mk_num $1 }
+| term PLUS term                   { Arith.mk_add $1 $3 }
+| term MINUS term                  { Arith.mk_sub $1 $3 }
 | term TIMES term                  { Nonlin.mk_mult ($1,$3) }
-| MINUS term %prec prec_unary      { Linarith.mk_neg $2 }
-| term EXPT INTCONST               { Nonlin.mk_expt $3 $1 }
+| MINUS term %prec prec_unary      { Arith.mk_neg $2 }
+| term EXPT term                   { Nonlin.mk_expt $3 $1 }
 ;
 
 tuple:
@@ -288,11 +282,6 @@ bv:
 		       Bv.mk_bitwise n $1 (Bv.mk_bitwise n $3 (Bv.mk_zero n) (Bv.mk_one n)) $1}
 ;
 
-boolean:  
-  TRUE               { Bool.mk_tt }
-| FALSE              { Bool.mk_ff }
-;
-
 
 atom:
   term EQUAL term                   { Atom.mk_equal $1 $3 }
@@ -326,7 +315,7 @@ cnstrnt:
 | INT intervals     { Number.make (Dom.Int, Intervals.of_list Dom.Int $2) }
 | NONINT intervals  { Number.make (Dom.Nonint, Intervals.of_list Dom.Int $2) }
 | intervals    { Number.make (Dom.Real, Intervals.of_list Dom.Real $1) }
-| name              { match Symtab.lookup $1 (State.symtab()) with
+| name              { match Symtab.lookup $1 (Istate.symtab()) with
 			| Symtab.Type(c) -> c
 			| _ -> 
 			    let str = Tools.pp_to_string Name.pp $1 in
@@ -359,96 +348,96 @@ termlist:
 | termlist COMMA term { $3 :: $1 }
 ;
 
-optterm:      { None }
-| term        { Some($1) }
-;
-
 signature:
   BV LBRA INTCONST RBRA     { $3 }
 
 command: 
-  CAN term                  { Pretty.term (out()) (State.can_t $2) }
-| CAN atom                  { Pretty.atom (out()) (State.can_a $2) }
-| ASSERT prop               { match State.process_p $2 with
-				| Dp.Valid -> pr "Valid."
-				| Dp.Inconsistent -> pr "Unsat."
-				| Dp.Satisfiable _ -> () }
-| DEF name ASSIGN term      { State.def $2 $4 }
-| SIG name COLON signature  { State.sgn $2 $4 }
-| TYPE name ASSIGN cnstrnt  { State.typ $2 $4 }
-| RESET                     { State.reset (); }
-| SAVE name                 { State.save $2 }         
-| RESTORE name              { State.restore $2 }
-| REMOVE name               { State.remove $2 }
-| FORGET                    { State.forget () }
+  CAN term                  { Pretty.term (out()) (Istate.can_t $2) }
+| CAN atom                  { Pretty.atom (out()) (Istate.can_a $2) }
+| ASSERT prop               { match Istate.process_p $2 with
+				| Shostak.Valid -> pr "Valid."
+				| Shostak.Inconsistent -> pr "Unsat."
+				| Shostak.Satisfiable _ -> () }
+| DEF name ASSIGN term      { Istate.def $2 $4 }
+| SIG name COLON signature  { Istate.sgn $2 $4 }
+| TYPE name ASSIGN cnstrnt  { Istate.typ $2 $4 }
+| RESET                     { Istate.reset (); }
+| SAVE name                 { Istate.save $2 }         
+| RESTORE name              { Istate.restore $2 }
+| REMOVE name               { Istate.remove $2 }
+| FORGET                    { Istate.forget () }
 | EXIT                      { raise End_of_file }
 | DROP                      { failwith "drop" }
 | symtab                    { $1 }
-| CTXT                      { Pretty.list Pretty.atom (out()) (Atom.Set.elements (State.ctxt_of ())) }
+| CTXT                      { Pretty.list Pretty.atom (out()) (Atom.Set.elements (Istate.ctxt_of ())) }
 | SIGMA term                { pr "val: "; Pretty.term (out()) $2 }
-| SAT prop                  { match Check.sat (State.current ()) $2 with
+| SIGMA prop                { pr "val: "; Pretty.prop (out()) $2 }
+| SAT prop                  { match Check.sat (Istate.current ()) $2 with
 				| None -> pr "Unsat."
-				| Some(s) -> Dp.pp (out()) s }
-| CHECK prop                { Pretty.prop (out()) (Check.prop (State.current ()) $2) }
-| CHECK                     { Pretty.prop (out()) (Check.prop (State.current ()) Prop.mk_ff) }
-| COMPRESS                  { State.compress () }
+				| Some(s) -> Shostak.pp (out()) s }
+| CHECK prop                { Pretty.prop (out()) (Check.prop (Istate.current ()) $2) }
+| CHECK                     { Pretty.prop (out()) (Check.prop (Istate.current ()) Prop.mk_ff) }
+| COMPRESS                  { Istate.compress () }
 | term CMP term             { if Term.(<<<) $1 $3 then pr "Yes." else pr "No." }
-| find                      { $1 }
-| diseq                     { $1 }
+| FIND th term              { Pretty.term (out()) (Istate.find $2 $3) }
+| INV th term               { try Pretty.term (out()) (Istate.inv $2 $3)
+		 	      with Not_found -> pr "Undef." }
+| USE th term               { Pretty.tset (out()) (Istate.use $2 $3) }
+| PARTITION                 { Pretty.tmap (out()) (Istate.partition ()) }
+| SOLUTION th               { Pretty.solution (out()) (Istate.solution $2) }
+| DISEQ term                { Pretty.tset (out()) (Istate.diseq $2) }
 | PROP                      { pr_prop "" }
-| SHOW                      { pr_find_all();
+| SHOW                      { let v = Istate.partition () in
+			      if not(v == Term.Map.empty) then
+				(pr "v: "; Pretty.tmap (out()) v);
+                              pr_solution Shostak.Uninterp; 
+			      pr_solution (Shostak.Interp(Th.A)); 
+			      pr_solution (Shostak.Interp(Th.T)); 
+			      pr_solution (Shostak.Interp(Th.BV));
                               pr_cnstrnt "\nc: ";  
                               pr_diseq "\nd: ";
                               pr_prop "\np: " }
-| CNSTRNT term              { match State.cnstrnt $2 with
+| CNSTRNT term              { match Istate.cnstrnt $2 with
 				| Some(c) -> Pretty.number (out()) c
 				| None -> Format.fprintf (out()) "None." }
-| CNSTRNT                   { pr_cnstrnt "" }
-| SOLVE LPAR eqth RPAR term EQUAL term
+| SOLVE LPAR ith RPAR term EQUAL term
                             { try
 				let el = Th.solve $3 ($5, $7) in
 				Pretty.list Pretty.eqn (out()) el
                               with
 			        Exc.Inconsistent -> Format.fprintf (out()) "Unsat." }
 | VERBOSE INTCONST          { Trace.set_verbose $2 }
-| TOGGLE togglevars         { State.toggle $2 }
+| TOGGLE togglevars         { Istate.toggle $2 }
 | help                      { $1 }
 ;
 
-eqth: IDENT                 { match $1 with
-				| "a" -> Th.LA
+ith: IDENT                 { match $1 with
+				| "a" -> Th.A
 				| "bv" -> Th.BV
-				| "nla" -> Th.NLA
 				| "t" -> Th.T
 				| name -> raise (Invalid_argument (name ^ "not an interpreted theory name.")) }
 
 togglevars: IDENT           { match $1 with
-				| "printall" -> State.Printall
-				| var -> raise (Invalid_argument (var ^ " not a toggle variable.")) }
-find:
- FIND LPAR IDENT RPAR optterm
-			    { match $5 with
-				| None -> pr_find $3
-				| Some(x) -> 
-				    try
-				      Pretty.term (out()) (Term.Map.find x (find $3))
-				    with
-					Not_found -> pr "Not found" }
-| FIND                      { pr_find_all () }
+				| "printall" -> Istate.Printall
+				| _ -> raise (Invalid_argument ($1 ^ " not a toggle variable.")) }
 
-diseq:
-  DISEQ term                { Pretty.tset (out()) (State.diseq $2) }
-| DISEQ                     { pr_diseq "" }
-;
+
+th: IDENT       { match $1 with
+                    | "u" -> Shostak.Uninterp
+		    | "a" -> Shostak.Interp(Th.A)
+		    | "t" -> Shostak.Interp(Th.T)
+		    | "bv" -> Shostak.Interp(Th.BV)
+		    | _ -> raise (Invalid_argument ("No find for " ^ $1)) }
+
 
 symtab:      
-  SYMTAB                    { Symtab.pp (out()) (State.symtab()) }
-| SYMTAB SIG                { Symtab.pp (out()) (Symtab.arity (State.symtab())) }
-| SYMTAB DEF                { Symtab.pp (out()) (Symtab.def (State.symtab())) }
-| SYMTAB TYPE               { Symtab.pp (out()) (Symtab.typ (State.symtab())) }
-| SYMTAB SAVE               { Symtab.pp (out()) (Symtab.state (State.symtab())) }
+  SYMTAB                    { Symtab.pp (out()) (Istate.symtab()) }
+| SYMTAB SIG                { Symtab.pp (out()) (Symtab.arity (Istate.symtab())) }
+| SYMTAB DEF                { Symtab.pp (out()) (Symtab.def (Istate.symtab())) }
+| SYMTAB TYPE               { Symtab.pp (out()) (Symtab.typ (Istate.symtab())) }
+| SYMTAB SAVE               { Symtab.pp (out()) (Symtab.state (Istate.symtab())) }
 | SYMTAB name               { try
-				Symtab.pp_entry (out()) (Symtab.lookup $2 (State.symtab()))
+				Symtab.pp_entry (out()) (Symtab.lookup $2 (Istate.symtab()))
 			      with 
 				  Not_found ->
 				    let str = Name.to_string $2 in
@@ -457,4 +446,4 @@ symtab:
 
 help:
   HELP                      { help "help" }
-| HELP IDENT                { help $2 }  
+| HELP IDENT                { help $2 }

@@ -41,3 +41,5 @@ val list : 'a printer -> 'a list printer
 val atom : Atom.t printer
 val atoms : Atom.Set.t printer
 val prop : Prop.t printer
+val infer : ((Term.t * Term.t) list * Atom.t list) printer
+val solution : (Term.t * Term.t) list printer

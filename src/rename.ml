@@ -20,11 +20,11 @@ let k = ref 0
 let _ = Tools.add_at_reset (fun () -> k := 0)
 
 let mk_fresh () =
-  let f = Sym.make(Sym.Internal(Sym.Label(!k))) in
+  let f = Sym.make(Sym.Uninterp(Sym.Internal(Sym.Label(!k)))) in
   incr(k);
   Term.mk_const f
 
 let is_fresh a =
   match Sym.destruct (Term.sym_of a) with
-    | Sym.Internal(Sym.Label _) -> true
+    | Sym.Uninterp(Sym.Internal(Sym.Label _)) -> true
     | _ -> false

@@ -63,7 +63,7 @@ let mk_in c a =
   else 
     match Number.d_singleton c with
     | Some(q) ->
-	mk_equal a (Linarith.mk_num q)
+	mk_equal a (Arith.mk_num q)
     | None -> 
 	In(c, a)
 
@@ -72,16 +72,16 @@ let rec mk_diseq a b =
     mk_false
   else if Term.is_interp_const a && Term.is_interp_const b then
     mk_true
-  else if Term.eq a Bool.mk_tt then
-    mk_equal b Bool.mk_ff
-  else if Term.eq a Bool.mk_ff then
-    mk_equal b Bool.mk_tt
-  else if Term.eq b Bool.mk_tt then
-    mk_equal a Bool.mk_ff
-  else if Term.eq b Bool.mk_ff then
-    mk_equal a Bool.mk_tt
+  else if Term.eq a Term.mk_tt then
+    mk_equal b Term.mk_ff
+  else if Term.eq a Term.mk_ff then
+    mk_equal b Term.mk_tt
+  else if Term.eq b Term.mk_tt then
+    mk_equal a Term.mk_ff
+  else if Term.eq b Term.mk_ff then
+    mk_equal a Term.mk_tt
   else
-    match Linarith.d_num a, Linarith.d_num b with
+    match Arith.d_num a, Arith.d_num b with
       | Some(q), _ -> 
 	  mk_in (Number.mk_diseq q) b
       | _, Some(p) -> 
@@ -109,18 +109,18 @@ and mk_le a b =
   lower (Q.le, Number.mk_le Dom.Real, Number.mk_ge Dom.Real) (a,b)
 
 and lower (f,less,greater) (a,b) =
-  let (q, ml) = Linarith.poly_of (Linarith.mk_sub a b) in 
+  let (q, ml) = Arith.poly_of (Arith.mk_sub a b) in 
   match ml with
     | [] ->                                  
-	if f Q.zero q then mk_true else mk_false
+	if f q Q.zero then mk_true else mk_false
     | m :: ml ->                                   (*s case [p * x + ml < q'] *)
-	let (p,x) = Linarith.mono_of m in          (*s case [q + p * x + ml < 0] *)
+	let (p,x) = Arith.mono_of m in          (*s case [q + p * x + ml < 0] *)
 	assert(not(Q.is_zero p));        
 	let rel = (if Q.gt p Q.zero then less else greater) in
 	let c = rel (Q.minus (Q.div q p)) in
-	let ml' = List.map (Linarith.mk_multq (Q.inv p)) ml in
-	let a = Linarith.of_poly Q.zero ml' in
-	mk_in c (Linarith.mk_add x a)
+	let ml' = List.map (Arith.mk_multq (Q.inv p)) ml in
+	let a = Arith.of_poly Q.zero ml' in
+	mk_in c (Arith.mk_add x a)
 
 
 (*s Comparison  of atoms. *)

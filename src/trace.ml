@@ -58,9 +58,6 @@ let exit trace_level op res pp =
        pp fmt res;
        Format.fprintf fmt "@."
     end
-
-let ok trace_level op =
-  exit trace_level op "ok" (fun fmt s -> Format.fprintf fmt s)
     
 let exc trace_level op res pp =
   let str = Tools.pp_to_string (fun fmt e ->

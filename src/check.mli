@@ -17,6 +17,6 @@
 
 (*s Module [Simplify]: simplification of propositional structures. *)
 
-val prop : Dp.t -> Prop.t -> Prop.t
+val prop : Shostak.t -> Prop.t -> Prop.t
 
-val sat : Dp.t -> Prop.t -> Dp.t option
+val sat : Shostak.t -> Prop.t -> Shostak.t option

@@ -27,15 +27,13 @@ let keyword =
   let kw_table = Hashtbl.create 31 in
   List.iter 
     (fun (s,tk) -> Hashtbl.add kw_table s tk)
-    [  "arith", ARITH; "tuple", TUPLE;
+    [ "arith", ARITH; "tuple", TUPLE;
       "in", IN; "inf", INF;
       "bot", BOT; "int", INT; "nonint", NONINT; "real", REAL; "top", TOP;
       "bv", BV; "with", WITH;
       "proj", PROJ;
       "cons", CONS; "car", CAR; "cdr", CDR; "nil", NIL;
-      "true", TRUE; "false", FALSE;
       "if", IF; "then", THEN; "else", ELSE; "end", END; "tt", TT; "ff", FF;
-      "unsigned", UNSIGNED;
       "conc", CONC; "sub", SUB; 
       "bwite", BWITE; "bwand", BWAND; "bwor", BWOR;
       "bwxor", BWXOR; "bwnot", BWNOT;
@@ -44,7 +42,8 @@ let keyword =
       "reset", RESET; "sig", SIG; "type", TYPE; "def", DEF;
       "sigma", SIGMA; "solve", SOLVE; "help", HELP;
       "set", SET; "toggle", TOGGLE; "pretty", PRETTY; "verbose", VERBOSE; 
-      "find", FIND; "prop", PROP; "ctxt", CTXT; "diseq", DISEQ; "show", SHOW;
+      "find", FIND; "inv", INV; "use", USE; "solution", SOLUTION;
+      "prop", PROP; "ctxt", CTXT; "diseq", DISEQ; "show", SHOW;
       "symtab", SYMTAB; "cnstrnt", CNSTRNT; "sat", SAT; "check", CHECK; 
       "compress", COMPRESS
     ];
@@ -59,6 +58,8 @@ let ident = ['A'-'Z' 'a'-'z'] ['A'-'Z' 'a'-'z' '\'' '0'-'9']*
 
 let space = [' ' '\t' '\r' '\n']
 
+let int =  ['0'-'9']+  
+
 rule token = parse
   | space+     { token lexbuf }
   | '%' [^ '\n']* {token lexbuf }
@@ -70,6 +71,10 @@ rule token = parse
   | "0b" ['0'-'1']*
                { let s = Lexing.lexeme lexbuf in 
 		 BVCONST (String.sub s 2 (String.length s - 2)) }
+  | "v!" int   { let s = Lexing.lexeme lexbuf in
+		 LABEL (int_of_string (String.sub s 2 (String.length s - 2))) }
+  | "k!" int   { let s = Lexing.lexeme lexbuf in
+		 SLACK (int_of_string (String.sub s 2 (String.length s - 2))) }
   | ','        { COMMA }
   | '('        { LPAR }
   | ')'        { RPAR }

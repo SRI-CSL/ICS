@@ -18,6 +18,7 @@ i*)
 
 type t
 
+val pp : Format.formatter -> t -> unit
 
 (*s Return disequalities as bindings of the form [x |-> {y1,...,yn}].
  The interpretation of such a binding is the conjunction 
@@ -52,4 +53,4 @@ val add : Term.t * Term.t -> t -> t
 
 (*s Replace all [x |-> {x1,...,xn}] with [y |-> {y1,...,yn}] where [yi] is [find xi]. *)
 
-val inst : find:(Term.t -> Term.t) -> t -> t
+val inst : (Term.t -> Term.t) -> t -> t

@@ -16,7 +16,7 @@
 
 (*s Best type from both static and dynamic information. *)
 
-val arith : ctxt:(Term.t -> Number.t) -> Term.t -> Number.t option
+val arith : (Term.t -> Number.t) -> Term.t -> Number.t option
 
 (*s Type from static information only. *)
 

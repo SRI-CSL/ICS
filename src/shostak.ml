@@ -56,7 +56,17 @@ let deq s = D.deq_of s.d
 (*s Pretty-printing. *)
   
 let pp fmt s =
-  Pretty.list Pretty.atom fmt (Atom.Set.elements s.ctxt)
+  let v = Cc.v_of s.u in
+  let u = Cc.u_of s.u in
+  if not(Term.Map.empty == v) then
+    (Format.fprintf fmt "v: "; Pretty.tmap fmt v);
+  if not(Term.Map.empty == u) then
+    (Format.fprintf fmt "u: "; Pretty.tmap fmt u);
+  Th.pp fmt s.i;
+  if not(C.empty == s.c) then
+    (Format.fprintf fmt "c: "; C.pp fmt s.c);
+  if not(D.empty == s.d) then
+    (Format.fprintf fmt "d: "; D.pp fmt s.d)
 
 
 (*s [is_diseq s a b] holds iff if [a] and [b] are known to be
@@ -167,7 +177,7 @@ and can_l i s l =
   List.fold_right 
     (fun x (s,l) ->
        let (s',x') = can_t s x in
-       let x'' = find i s x' in
+       let x'' = find i s x' in        (* not [s'] *)
        let (s'',x''') = abs i s' x'' in
        (s'', x''' :: l))
     l
@@ -186,16 +196,16 @@ let rec can_a s a =
 	  
 and can_e s (a,b) =
   let (s', a) = can_t s a in
-  let (s, b) = can_t s' b in
+  let (s'', b) = can_t s' b in
   let p = 
     if Term.eq a b then
       Atom.mk_true
-    else if is_diseq s a b then
+    else if is_diseq s'' a b then
       Atom.mk_false
     else
       Atom.mk_equal a b
   in
-  (s, p)
+  (s'', p)
 
 and can_d  s (a,b) =
   let (s', a) = topabs (can_t s a) in    (* Arguments of *)
@@ -227,26 +237,15 @@ and can_c s c a =
 	       (s, Atom.mk_in (Number.inter c d) a))
 
 
-(*s Introduce slack variables. *)
-
-and slackify s c a =
-  if Arith.is_interp a then
-    let k = mk_const(Sym.mk_fresh_slack c) in
-    let (i',xl,al) = Th.merge Th.LA (cnstrnt s) (k,a) s.i in
-    let s' = {s with i = i'}  in (* to do *)
-    (s', Atom.mk_true)
-  else 
-    (s, Atom.mk_in c a)
-
 
 (*s Canonization of propositions. *)
 
 let rec can_p s p =
   match Prop.destruct p with
-    | Prop.True | Prop.False -> p
+    | Prop.True | Prop.False -> (s,p)
     | Prop.Ite(a,x,y) ->
-	let (_, a') = can_a s a in
-	Prop.mk_ite a' (can_p s x) (can_p s y)
+	let (s', a') = can_a s a in
+	(s', Prop.mk_ite a' x y)
 
 
 (*s Processing an atom *)
@@ -263,9 +262,9 @@ let rec process_a s a =
     | Atom.False -> Inconsistent
     | _ -> 
 	(try 
-	   let t = processl s [a] in
-	   match process_p {t with p = Prop.mk_tt} t.p with  (* Reprocess propositions. *)
-	      | Valid -> Satisfiable t
+	   let s'' = processl s' [a'] in
+	   match process_p {s'' with p = Prop.mk_tt} s'.p with (* Reprocess *)
+	      | Valid -> Satisfiable s''
 	      | res -> res
 	 with 
 	     Exc.Inconsistent -> Inconsistent)
@@ -290,13 +289,24 @@ and process1 s a =
 and equal s ((x,y) as e) = 
   match pure e with
     | Some(i) ->
-	let (i',xl',al') = Th.merge i (cnstrnt s) e s.i in
-	mergel {s with i = i'} xl' al'
+	let (c',al') = 
+	  match d_numequal e with
+	    | Some(x,q) -> C.add (Number.mk_singleton q) x s.c
+	    | None -> (s.c, [])
+	in
+	let (i'',xl'',al'') = Th.merge i (cnstrnt s) e s.i in
+	mergel {s with i = i''; c = c'} xl'' (al' @ al'')
     | _ -> 
 	let (s', x') = topabs (s, x) in
 	let (s'', y') = topabs (s', y) in
 	mergel s'' [(x', y')] []
 
+and d_numequal (x,y) =
+  match Arith.d_num x, Arith.d_num y with
+    | Some(q), _ when V.is y -> Some(y,q)
+    | _, Some(p) when V.is x -> Some(x,p)
+    | _ -> None
+  
 and mergel s xl al =
   match xl with
     | [] -> (s, al)
@@ -323,16 +333,13 @@ and diseq s (x,y) =
 and inn s c a =
   if Arith.is_interp a then                 (*s Slackify *)
     let k = Term.mk_const(Sym.mk_fresh_slack c) in
-    let (i', xl, al) = Th.merge Th.LA (cnstrnt s) (k,a) s.i in
-    let _ = Trace.msg 3 "Deriv(la)" (xl, al) pp_infer in
+    let (i', xl, al) = Th.merge Th.A (cnstrnt s) (k,a) s.i in
     let s' = {s with i = i'} in
     mergel s' xl al
   else 
     let (c',al) = C.add c a s.c in
-    let _ = Trace.msg 3 "Deriv(c)" ([], al) pp_infer in
     let s' = {s with c = c'} in
     let al' = Th.propagate (cnstrnt s') (a,c) s.i in 
-    let _ = Trace.msg 3 "Deriv(i)" ([], al') pp_infer in
     (s', al @ al')
 
 and pure (x,y) =
@@ -353,8 +360,9 @@ and pp_infer fmt (xl,al) =
     branch. Otherwise we delay the case split by adding the proposition
     to the field [p]. *)
 
-and process_p s p =
-  let p = can_p s p in
+and process_p s p = 
+  Trace.msg 1 "Process" p Pretty.prop;
+  let (s,p) = can_p s p in
   match Prop.destruct p with
     | Prop.True ->
 	Valid

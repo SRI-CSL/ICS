@@ -21,6 +21,9 @@ open Binrel
 (*i*)
 
 type t = Number.t Map.t
+
+let pp fmt s = 
+  Pretty.map Number.pp fmt s
  
 let cnstrnt_of s = s
 
@@ -30,7 +33,13 @@ let apply s a = Map.find a s
 
 let mem s a = Map.mem a s
 
-let merge (a,b) s = 
+let rec merge (a,b) s = 
+  Trace.call 5 "Merge(c)" (a,b) Pretty.eqn;
+  let (s',al') = merge1 (a,b) s in
+  Trace.exit 5 "Merge(c)" al' (Pretty.list Pretty.atom);
+  (s', al')
+
+and merge1 (a,b) s =
   let (a,b) = V.orient (a,b) in
   try
     let ca = match Cnstrnt.of_term a with
@@ -53,8 +62,8 @@ let merge (a,b) s =
 	    let cab = Number.inter ca cb in
 	    match Number.d_singleton cab with
 	      | Some(u) ->
-		  let e' = Atom.mk_equal b (Linarith.mk_num u) in
-		  let s' = Map.remove a (Map.remove b s) in
+		  let e' = Atom.mk_equal b (Arith.mk_num u) in
+		  let s' = Map.remove a s in
 		  (s', [e'])
 	      | None ->
 		  let s' = Map.add b cab (Map.remove a s) in
@@ -74,7 +83,7 @@ let merge (a,b) s =
 			let cab = Number.inter ca cb in
 			match Number.d_singleton cab with
 			  | Some(u) ->
-			      let e' = Atom.mk_equal b (Linarith.mk_num u) in
+			      let e' = Atom.mk_equal b (Arith.mk_num u) in
 			      let s' = Map.remove a s in
 			      (s', [e'])
 			  | None -> 
@@ -97,7 +106,7 @@ let merge (a,b) s =
 		      let cab = Number.inter ca cb in
 		      match Number.d_singleton cab with
 			| Some(u) ->
-			    (s, [Atom.mk_equal b (Linarith.mk_num u)])
+			    (s, [Atom.mk_equal b (Arith.mk_num u)])
 			| None ->
 			    (Map.add b cab s, []))
 	   | None, Some _ ->
@@ -109,7 +118,7 @@ let merge (a,b) s =
 
 (*s Adding a positive constraint [x in c] *)
 
-let add c a s =
+let add1 c a s =
   try
     let d = Map.find a s in
     match Number.cmp c d with 
@@ -122,15 +131,21 @@ let add c a s =
       | Overlap ->
 	  let cd = Number.inter c d in
 	  (match Number.d_singleton cd with
-	     | Some(u) ->    
-		 let e' = Atom.mk_equal a (Linarith.mk_num u) in
-		 let s' = Map.remove a s in
+	     | Some(u) ->                 (* do not remove constraint. *)
+		 let e' = Atom.mk_equal a (Arith.mk_num u) in
+		 let s' = Map.add a cd s in
 		 (s', [e'])
 	     | _ -> 
 		 (Map.add a cd s, []))
   with
       Not_found ->
 	(Map.add a c s, [])
+
+let add c a s =
+  Trace.call 5 "Add(c)" (a,c) Pretty.inn;
+  let (s',al') = add1 c a s in
+  Trace.exit 5 "Add(c)" al' (Pretty.list Pretty.atom);
+  (s', al')
 
 
 (*s Instantiation. *)

@@ -18,3 +18,13 @@
  functions. *)
 
 val mk_unsigned : Term.t -> Term.t
+
+
+val mk_select : Term.t -> Term.t -> Term.t
+val mk_update : Term.t -> Term.t -> Term.t -> Term.t
+
+val mk_sin : Term.t -> Term.t
+val mk_cos : Term.t -> Term.t
+
+
+

@@ -21,13 +21,9 @@ let arith ctxt a =
   let rec of_term a =
     let f,l = Term.destruct a in
     match Sym.destruct f with
-      | Sym.Internal(Sym.FreshNla(_,c)) ->
-          (try Number.inter (ctxt a) c with Not_found -> c)
       | Sym.Interp(Sym.Arith(op)) -> 
 	  of_linarith op l
-      | Sym.Interp(Sym.Nonlin(op)) -> 
-	  of_nonlin op l
-      | Sym.Internal(Sym.Slack(_, c)) ->
+      | Sym.Uninterp(Sym.Internal(Sym.Slack(_, c))) ->
 	  (try Number.inter (ctxt a) c with Not_found -> c)
       | _ ->
 	  ctxt a
@@ -45,6 +41,8 @@ let arith ctxt a =
       | _ -> assert false
 
   and of_nonlin op l =
+    Number.mk_real
+    (*
     match op, l with
       | Sym.Expt(n), [x] -> 
 	  Number.expt n (of_term x)
@@ -53,6 +51,7 @@ let arith ctxt a =
 	    (fun x -> Number.mult (of_term x)) 
 	    l Number.mk_one
       | _ -> assert false
+     *)
   in
   try 
     Some(of_term a) 

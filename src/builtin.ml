@@ -22,6 +22,10 @@ open Mpa
 
 (*s Unsigned interpretation. *)
 
+
+let sym_unsigned = Sym.mk_uninterp (Name.of_string "unsigned")
+
+
 let rec mk_unsigned a =
   let f,l = Term.destruct a in
   match Sym.destruct f, l with
@@ -32,21 +36,48 @@ let rec mk_unsigned a =
 	   | Sym.Conc(n,m), [x;y] -> mk_unsigned_conc n m x y
 	   | _ -> failwith "Bv.mk_unsigned: ill-formed expression")
     | _ ->
-	Term.mk_app Sym.mk_unsigned [a]
+	Term.mk_app sym_unsigned [a]
 
 and mk_unsigned_const b =
   let n = Bitv.fold_right 
 	    (fun x acc -> if x then 2 * acc + 1 else 2 * acc) 
 	    b 0
   in
-  Linarith.mk_num (Q.of_int n)
+  Arith.mk_num (Q.of_int n)
 
 and mk_unsigned_sub n i j x =
-  Term.mk_app Sym.mk_unsigned [Bv.mk_sub n i j x]
+  Term.mk_app sym_unsigned [Bv.mk_sub n i j x]
 
 and mk_unsigned_conc n m x y =
   let ux = mk_unsigned x in
   let uy = mk_unsigned y in
   let two_expt_m = Q.of_z (Z.expt (Z.of_int 2) m) in
-  Linarith.mk_add (Linarith.mk_multq two_expt_m ux) uy
+  Arith.mk_add (Arith.mk_multq two_expt_m ux) uy
   
+(*s Update/Select *)
+
+let sym_update = Sym.mk_uninterp (Name.of_string "update")
+let sym_select = Sym.mk_uninterp (Name.of_string "select")
+
+let mk_update a i e =
+  Term.mk_app sym_update [a;i;e]
+
+let mk_select a x =
+  match Term.destruct a with
+    | f, [b;y;e] when Sym.eq f sym_update && Term.eq x y -> e
+    | _ -> Term.mk_app sym_select [a;x]
+	
+
+(* Sine and Cosine *)
+
+let rec mk_sin a =
+  match Arith.d_add a with
+    | Some([x;y]) ->
+	Arith.mk_add (Nonlin.mk_mult (mk_sin x, mk_cos y))
+	             (Nonlin.mk_mult (mk_cos x, mk_sin y))
+    | _ ->
+	Term.mk_app Sym.mk_sin [a]
+
+and mk_cos a = 
+  Term.mk_app Sym.mk_cos [a]
+

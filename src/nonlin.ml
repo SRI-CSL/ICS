@@ -23,10 +23,13 @@ open Sym
 (*i*)
 
 
-(*s Theory-specific recognizers *)
+(*s Symbols. *)
 
-let is_interp a =
-  Sym.is_nonlin (Term.sym_of a)
+(*s Recognizers. *)
+
+let is_mult a = Sym.eq Sym.mk_mult (Term.sym_of a)
+
+let is_expt a = Sym.eq Sym.mk_expt (Term.sym_of a)
 
 
 (*s Destructors. *)
@@ -39,71 +42,41 @@ let d_mult a =
 
 let d_expt a =
   let f,l = Term.destruct a in
-  match Sym.destruct f, l with
-    | Interp(Nonlin(Expt(n))), [x] -> Some(n,x)
-    | _ -> None
-
-(*s Apply [f] at uninterpreted positions. *)
-
-let rec iter f a =
-  match d_mult a with
-    | Some(l) -> 
-	List.iter (iter f) l
-    | None -> 
-	(match d_expt a with
-	   | Some(_,x) -> iter f x
-	   | None -> f a)
-
-(*s Fold functional. *)
-
-let rec fold f a e =
-  match d_mult a with
-    | Some(l) -> 
-	List.fold_right (fold f) l e
-    | None -> 
-	(match d_expt a with
-	   | Some(_,x) -> fold f x e
-	   | None -> f a e)
+  if Sym.eq Sym.mk_expt (Term.sym_of a) then
+    (match Term.args_of a with 
+       | [x;y] -> Some(x,y)
+       | _ -> None)
+  else 
+    None
 
 
-(*s [occurs a b] iff [a] occurs interpreted in [b].. *)
+(*s Normalize. *)
 
-let rec occurs a b =    
-  (Term.eq a b) ||
-  (match d_mult b with
-     | Some(l) -> List.exists (occurs a) l
-     | None -> 
-	 (match d_expt b with
-	    | Some(_,x) -> occurs a x
-	    | None -> false))
-
-
-(* [normal_of a] returns a normalized representation of a nonlinear
- multiplication; e.g. [x^3 * y * z^2] is represented as [(3,x),(1,y),(2,z)] *)
 
 let expt_of a =
   match d_expt a with
     | Some(n,x) -> (n,x)
-    | None -> (1,a)
+    | None -> (Arith.mk_one, a)
 
 
 (*s Constructors. *)
 
 let rec mk_mult (a,b) =
-  if Term.eq a b then mk_expt 2 a else
+  if Term.eq a b then 
+    mk_expt (Arith.mk_num (Q.of_int 2)) a else
   match d_expt a, d_expt b with
     | Some(n,x), Some(m,y) when Term.eq x y ->
-	mk_expt (n + m) x
+	mk_expt (Arith.mk_add n m) x
     | Some(n,x), _ when Term.eq x b ->
-	mk_expt (n + 1) x
+	mk_expt (Arith.mk_incr n) x
     | _, Some(m,y) when Term.eq y a ->
-	mk_expt (m + 1) y
+	mk_expt (Arith.mk_incr m) y
     | _ ->
-	(match Linarith.d_interp a with
+	(match Arith.d_interp a with
 	   | Some(f,xl) ->
 	       mk_linmult f xl b
 	   | None ->
-	       (match Linarith.d_interp b with
+	       (match Arith.d_interp b with
 		  | Some(g,yl) ->
 		      mk_linmult g yl a
 		  | None ->
@@ -120,19 +93,19 @@ let rec mk_mult (a,b) =
 
 and mk_multl al = 
   match al with
-    | [] -> Linarith.mk_num Q.one
+    | [] -> Arith.mk_num Q.one
     | [x] -> x
     | x :: xl -> mk_mult (x, mk_multl xl)
 
 and mk_linmult f al b =
   match f, al with
     | Sym.Num(q),[] ->
-	Linarith.mk_multq q b
+	Arith.mk_multq q b
     | Sym.Multq(q), [x] ->
-	Linarith.mk_multq q (mk_mult (x,b))
+	Arith.mk_multq q (mk_mult (x,b))
     | Sym.Add, xl ->
 	let yl = List.map (fun x -> mk_mult (b,x)) xl in
-	Linarith.mk_addl yl
+	Arith.mk_addl yl
     | _ ->
 	failwith "Ill-formed expression"
 
@@ -145,8 +118,8 @@ and multl l1 l2 =
 	let n2,x2 = expt_of m2 in
 	let cmp = Term.cmp x1 x2 in
 	if cmp = 0 then
-	  let n = n1 + n2 in
-	  if n = 0 then 
+	  let n = Arith.mk_add n1 n2 in
+	  if Arith.is_zero n then
 	    multl l1' l2'
 	  else 
 	    (mk_expt n x1) :: (multl l1' l2')
@@ -157,98 +130,60 @@ and multl l1 l2 =
 
 and of_list l =
   match l with
-    | [] -> Linarith.mk_one
+    | [] -> Arith.mk_one
     | [x] -> x
     | _ -> Term.mk_app Sym.mk_mult l
 
 and mk_expt n a =
-  if n = 0 then
-    Linarith.mk_one
-  else if n = 1 then
-    a
-  else 
-    (match Linarith.d_interp a with
-       | Some(f,xl) ->
-	   (match f, xl with
-	     | Sym.Num(q),[] ->
-		 Linarith.mk_num (Mpa.Q.expt q n)
-	     | Sym.Multq(q), [x] ->
-		 Linarith.mk_multq (Mpa.Q.expt q n) (mk_expt n x)
-	     | Sym.Add, [x;y] ->
-		 mk_mult (mk_expt (n - 2) a,
-			  Linarith.mk_addl [mk_expt 2 x;
-					    Linarith.mk_multq (Mpa.Q.of_int 2) (mk_mult (x,y));
-					    mk_expt 2 y])		
-	     | _ ->
-		 Term.mk_app (Sym.mk_expt(n)) [a])
-       | None ->
-	   (match d_expt a with
-	      | Some(m, x) when Term.eq x a ->
-		  mk_expt (n + m) a
-	      | _ ->
-		  (match d_mult a with
-		     | Some(xl) ->
-			 of_list (List.map (mk_expt n) xl)
-		     | None ->
-			 Term.mk_app (Sym.mk_expt(n)) [a])))
+  match Arith.d_num n with
+    | Some(q) -> mk_linexpt q a
+    | _ -> Term.mk_app Sym.mk_expt [n; a]
+
+and mk_linexpt n a =
+   if Q.is_zero n then
+     Arith.mk_one
+   else if Q.is_one n then
+     a
+   else 
+     (match d_expt a with
+	| Some(m, x) when Term.eq x a ->
+	    mk_expt (Arith.mk_add (Arith.mk_num n) m) a
+	| _ ->
+	    (match d_mult a with
+	       | Some(xl) ->
+		   of_list (List.map (mk_expt (Arith.mk_num n)) xl)
+	       | None ->
+		   Term.mk_app Sym.mk_expt [Arith.mk_num n; a]))
 
 
-(*s Apply term transformer [f] at uninterpreted positions. *)
+(*
 
-let rec norm f =
-  let rec loop a =
-    match d_mult a with
-      | Some([x;y]) -> 
-	  mk_mult (loop x, loop y)
-      | Some(l) -> 
-	  mk_multl (Term.mapl loop l)
-      | None ->
-	  (match d_expt a with
-	     | Some(n,x) ->
-		 mk_expt n (loop x)
-	     | None ->
-		 f a)
-  in 
-  loop
+val mk_sin : t
+val mk_cos : t
+val mk_unsigned : t
+val mk_floor : t
+val mk_ceiling : t
 
 
-(*s Interface for sigmatizing arithmetic terms. *)
+let mk_sin = 
+  let x = Name.of_string "sin" in
+  make(Uninterp(x))
 
-let rec sigma op l =
-  match op, l with
-    | Mult, [x; y] -> mk_mult (x,y)
-    | Mult, _::_::_ -> mk_multl l
-    | Expt(n), [x] -> mk_expt n x
-    | _ -> failwith("Nonlin.sigma: ill-formed argument")
+let mk_cos =
+  let x = Name.of_string "cos" in
+  make(Uninterp(x))
 
-(*s Fresh variables *)
+let mk_unsigned =
+  make(Uninterp(Name.of_string "unsigned"))
 
-let k = ref 0 
-let _ = Tools.add_at_reset (fun () -> k := 0)
+let mk_floor = 
+  make(Uninterp(Name.of_string "floor"))
 
-let rename () =
-  incr(k);
-  Term.mk_const (Sym.make(Sym.Internal(Sym.FreshNla(!k, Number.mk_real))))
+let mk_ceiling = 
+  let name = Name.of_string "ceiling" in
+  make(Uninterp(name))
 
-(*s Solving of nonlinear equations. *)
 
-let rec solve (a,b) =
-  match is_interp a, is_interp b with
-    | true, true ->                    (* case: [x^2*y = x*y^2] *)
-	let x = rename () in
-	let y = rename () in
-	[(order x y); (x,a); (y,b)]
-    | false, true ->                   (* case: [x^2*y = z] *)      
-        if occurs a b then
-	  let x = rename () in
-	  [(order x a); (x, b)]
-	else 
-	  [a,b]
-    | true, false ->                          (* case: [x^2*y = z] *)
-	if occurs b a then
-	  let x = rename () in
-	  [(order x b); (x, a)]
-	else
-	  [b,a]
-    | false, false ->
-	[order a b]
+*)
+
+

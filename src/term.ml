@@ -90,27 +90,44 @@ let (<<<) a b = (cmp a b <= 0)
 let order a b =
   if a <<< b then (b,a) else (a,b)
 
+
+(*s Boolean constants. *)
+
+let ttsym = Sym.mk_uninterp (Name.of_string "true")
+let ffsym = Sym.mk_uninterp (Name.of_string "false")
+
+let mk_tt = mk_app ttsym [] 
+let mk_ff = mk_app ffsym []
+
+let is_tt a = a.args = [] && Sym.eq a.sym ttsym
+let is_ff a = a.args = [] && Sym.eq a.sym ffsym
+
 (*s Some recognizers. *)
 
 let is_const a =
   a.args = []
 
+let is_var a =
+  a.args = [] && 
+  (Sym.is_uninterp a.sym || Sym.is_internal a.sym)
+
+
 let is_label a =
   (a.args = []) &&
   (match Sym.destruct a.sym with
-     | Sym.Internal(Sym.Label _) -> true
+     | Sym.Uninterp(Sym.Internal(Sym.Label _)) -> true
      | _ -> false)
 
 let is_slack a =
   (a.args = []) &&
   (match Sym.destruct a.sym with
-     | Sym.Internal(Sym.Slack _) -> true
+     | Sym.Uninterp(Sym.Internal(Sym.Slack _)) -> true
      | _ -> false)
 
 let d_slack a = 
   assert(a.args = []);
   match Sym.destruct a.sym with
-    | Sym.Internal(Sym.Slack(_,c)) -> Some(c)
+    | Sym.Uninterp(Sym.Internal(Sym.Slack(_,c))) -> Some(c)
     | _ -> None
 
 let is_interp_const a =

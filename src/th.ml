@@ -21,7 +21,7 @@ open Term
 module type INTERP = sig
   val name : string  
   val is_dom : Term.t -> bool
-  val norm : rho:(Term.t -> Term.t) -> Term.t -> Term.t
+  val norm : (Term.t -> Term.t) -> Term.t -> Term.t
   val solve : Term.t * Term.t -> (Term.t * Term.t) list
   val fold : (Term.t -> 'a -> 'a) -> Term.t -> 'a -> 'a 
 end
@@ -85,7 +85,8 @@ module Make(Th: INTERP) = struct
 
 (*s [update a b s] sets the find of [a] to [b]. *)
 
-  let union a b s =
+  let union a b s = 
+    Trace.msg 6 ("Union("^Th.name^")") (a,b) Pretty.eqn;
     let use' = 
       try 
 	del_use (Map.find a s.find) s.use 
@@ -99,7 +100,8 @@ module Make(Th: INTERP) = struct
 
 (*s Restrict. *)
 
- let restrict a s = 
+ let restrict a s =  
+   Trace.msg 6 ("Restrict("^Th.name^")") a Pretty.term;
    try
      let b = Map.find a s.find in
      {find = Map.remove a s.find;
@@ -136,10 +138,20 @@ module Make(Th: INTERP) = struct
   let is_external b =
     Th.is_dom b 
 
+(*s Adding a new equality and infer new facts. *)
+
+  let add infer (a,b) (s, al) = 
+    let s' = union a b s in
+    let al' = match infer (a,b) with
+      | Some(x) -> x :: al
+      | None -> al
+    in
+    (s', al')
+
 
 (*s Merging in a list of solved forms [el]. *)
 
-  let compose infer vareq el =
+  let compose infer vareq el = 
     let rec compose1 (a, b) ((s, xl, al) as acc) =
       if eq a b then
 	acc
@@ -152,17 +164,16 @@ module Make(Th: INTERP) = struct
 	      let a' = inv s b in     
 	      if eq a a' then
 		acc
-	      else 
-		let xl' = vareq (a,a') xl in  (* [a'] not necessarily canonical. *)
-		(s, xl', al)
+	      else
+                 let xl' = vareq (a,a') xl in
+                 if V.(<<<) a' a then
+		   (s, xl', al)
+		 else 
+		   let (s',al') = add infer (a,b) (s,al) in
+		   (s', xl', al')
 	    with
 		Not_found ->
-		  let al' = match infer (a,b) with
-		    | Some(x) -> 
-			x :: al
-		    | None -> al
-		  in
-		  let s' = union a b s in
+		  let (s',al') = add infer (a,b) (s,al) in
 		  (s', xl, al')
 	in
 	Set.fold                        
@@ -186,8 +197,9 @@ module Make(Th: INTERP) = struct
 
 
   let extend b s = 
-    let c = mk_const(Sym.mk_label()) in
-    (c, union c (norm s b) s)
+    let c = mk_const(Sym.mk_fresh_label()) in
+    let s' = union c (norm s b) s in
+    (c, s')
 
   let inst f s =
     Map.fold
@@ -197,6 +209,13 @@ module Make(Th: INTERP) = struct
       s.find
       empty
 
+  let solution s =
+    Map.fold
+      (fun x b acc ->
+	 (x, b) :: acc)
+      s.find
+      []
+
 end
 
 
@@ -205,12 +224,12 @@ end
 module A = Make(
   struct
     let name = "a"
-    let is_dom a = not(Linarith.is_interp a)
-    let norm = Linarith.norm
+    let is_dom a = not(Arith.is_interp a)
+    let norm = Arith.norm
     let solve = 
       let not_is_slack x = not (is_slack x) in
-      Linarith.solve_for not_is_slack
-    let fold = Linarith.fold
+      Arith.solve_for not_is_slack
+    let fold = Arith.fold
   end)
 
 (*s Tuple context. *)
@@ -235,22 +254,10 @@ module BV = Make(
     let fold = Bv.fold
   end)
 
-(*s Nonlinear arithmetic *)
-
-module NLA = Make(
-  struct
-    let name = "nla"
-    let is_dom a = not(Nonlin.is_interp a)
-    let norm = Nonlin.norm    
-    let solve = Nonlin.solve
-    let fold = Nonlin.fold
-  end)
-
 type t = {
   la : A.t;
   t : T.t;
-  bv : BV.t;
-  nla : NLA.t
+  bv : BV.t
 }
 
 
@@ -259,69 +266,91 @@ type t = {
 let la_of s = s.la.A.find
 let t_of s = s.t.T.find
 let bv_of s = s.bv.BV.find
-let nla_of s = s.nla.NLA.find
+
+let pp fmt s =
+  Pretty.solution fmt (A.solution s.la);
+  Pretty.solution fmt (T.solution s.t);
+  Pretty.solution fmt (BV.solution s.bv)
 
 
 let empty = {
   la = A.empty;
   t = T.empty;
-  bv = BV.empty;
-  nla = NLA.empty
+  bv = BV.empty
 }
 
+type i = A | T | BV
 
-type i = LA | T | BV | NLA
+let name_of = function
+  | A -> "a"
+  | T -> "t"
+  | BV -> "bv"
 
 let index op =
   match op with
-    | Sym.Arith _ -> LA
-    | Sym.Nonlin _ -> NLA
+    | Sym.Arith _ -> A
     | Sym.Tuple _ -> T
     | Sym.Bv _ -> BV
-    | _ -> assert false
 
-let sigma f =
-  match f with
-    | Sym.Arith(op) -> Linarith.sigma op
-    | Sym.Nonlin(op) -> Nonlin.sigma op
-    | Sym.Tuple(op) -> Tuple.sigma op
-    | Sym.Bv(op) -> Bv.sigma op
-    | _ -> assert false
+let sigma i f l = 
+  match Sym.destruct f with
+    | Sym.Interp(Sym.Arith(op)) when i = A -> Arith.sigma op l
+    | Sym.Interp(Sym.Tuple(op)) when i = T -> Tuple.sigma op l
+    | Sym.Interp(Sym.Bv(op)) when i = BV -> Bv.sigma op l
+    | _ -> App.sigma f l
 
 let solve i =
   match i with
-    | LA -> Linarith.solve 
+    | A -> Arith.solve 
     | T -> Tuple.solve
     | BV -> Bv.solve
-    | NLA -> Nonlin.solve
 
-let find i s =
+let find i s a =
   match i with
-    | LA -> A.find s.la
-    | T -> T.find s.t
-    | BV -> BV.find s.bv
-    | NLA -> NLA.find s.nla
+    | A -> Map.find a s.la.A.find 
+    | T -> Map.find a s.t.T.find 
+    | BV -> Map.find a s.bv.BV.find 
 
 let inv i s =
   match i with
-    | LA -> A.inv s.la
+    | A -> A.inv s.la
     | T -> T.inv s.t
     | BV -> BV.inv s.bv
-    | NLA -> NLA.inv s.nla
 
 let use i s =
   match i with
-    | LA -> A.use s.la
+    | A -> A.use s.la
     | T -> T.use s.t
     | BV -> BV.use s.bv
-    | NLA -> NLA.use s.nla
+
+let solution i s =
+  match i with
+    | A -> A.solution s.la
+    | T -> T.solution s.t
+    | BV -> BV.solution s.bv
+
+(*s Tracing. *)
+
+let call funname i = 
+  Trace.call 5 (funname ^ "(" ^ (name_of i) ^ ")")
+
+let exit funname i = 
+  Trace.exit 5 (funname ^ "(" ^ (name_of i) ^ ")")
+
+
+(*s Extending the state. *)
 
 let extend i b s =
-  match i with
-    | LA -> let (x,la') = A.extend b s.la in (x, {s with la = la'})
-    | T -> let (x,t') = T.extend b s.t in (x, {s with t = t'})
-    | BV -> let (x,bv') = BV.extend b s.bv in (x, {s with bv = bv'})
-    | NLA -> let (x,nla') = NLA.extend b s.nla in (x, {s with nla = nla'})
+  call "Extend" i b Pretty.term;
+  let (x,s') = 
+    match i with
+      | A -> let (x,la') = A.extend b s.la in (x, {s with la = la'})
+      | T -> let (x,t') = T.extend b s.t in (x, {s with t = t'})
+      | BV -> let (x,bv') = BV.extend b s.bv in (x, {s with bv = bv'})
+  in
+  exit "Extend" i x Pretty.term;
+  (x, s')
+  
 
 
 (*s Infer constaint from equality. *)
@@ -343,44 +372,65 @@ let infera f (x,y) =
 		      raise Exc.Inconsistent
 		  | Binrel.Overlap ->
 		      (match Number.d_singleton cxy with
-			 | None -> None
+			 | None ->
+			     None
 			 | Some(q) ->
-			     Some(Atom.mk_equal x (Linarith.mk_num q))))
-	   | None -> None)
-    | _ -> None
+			     Some(Atom.mk_equal x (Arith.mk_num q))))
+	   | None -> 
+	       (match Arith.d_add y with        (* hack for special case. *)
+		  | Some([y1;y2]) ->            (* needs to be extended. *)
+		      (match Arith.d_num y1 with
+			 | Some(q) ->
+			     let d = Number.add cx (Number.mk_singleton (Mpa.Q.minus q)) in
+			     Some(Atom.mk_in d y2)
+			 | None ->
+			     None)
+		  | _ -> 
+		      None))
+    | _ ->
+	(match Arith.d_num y with
+	   | Some(q) ->
+	       Some(Atom.mk_in (Number.mk_singleton q) x)
+	   | None ->
+	       (match f y with
+		  | Some(cy) ->
+		      Some(Atom.mk_in cy x)
+		  | None -> None))
+
 
 (*s Merging. *)
 
 let merge i f e s = 
+  call "Merge" i e Pretty.eqn;
   let noinfer _ = None in
-  match i with
-    | LA -> 
-	let (la',xl,al) = A.merge (infera f) e s.la in
-	({s with la = la'}, xl, al)
-    | T ->
-	let (t',xl,al) = T.merge noinfer e s.t in
-	({s with t = t'}, xl, al)
-    | BV ->
-	let (bv',xl,al) = BV.merge noinfer e s.bv in
-	({s with bv = bv'}, xl, al)
-    | NLA ->
-	let (nla',xl,al) = NLA.merge noinfer e s.nla in
-	({s with nla = nla'}, xl, al)
+  let (s',xl',al') = 
+    match i with
+      | A -> 
+	  let (la',xl,al) = A.merge (infera f) e s.la in
+	  ({s with la = la'}, xl, al)
+      | T ->
+	  let (t',xl,al) = T.merge noinfer e s.t in
+	  ({s with t = t'}, xl, al)
+      | BV ->
+	  let (bv',xl,al) = BV.merge noinfer e s.bv in
+	  ({s with bv = bv'}, xl, al)
+  in
+  exit "Merge" i (xl',al') Pretty.infer;
+  (s',xl',al')
 
 let merge_all f e s =
   let noinfer _ = None in
   let (la',xl1,al1) = A.merge (infera f) e s.la in
   let (t',xl2,al2) = T.merge noinfer e s.t in
   let (bv',xl3,al3) = BV.merge noinfer e s.bv in
-  let (nla',xl4,al4) = NLA.merge noinfer e s.nla in
-  ({la = la'; t = t'; bv = bv'; nla = nla'},
-   xl1 @ xl2 @ xl3 @ xl4,
-   al1 @ al2 @ al3 @ al4)
+  ({la = la'; t = t'; bv = bv'},
+   xl1 @ xl2 @ xl3,
+   al1 @ al2 @ al3)
 
 
 (*s Propagating a new constraint [c] for a variable [x]. *)
 
-let propagate cnstrnt (x,c) s =
+let propagate1 cnstrnt (x,c) s =
   try
     let y = A.apply s.la x in
     (match  cnstrnt y with
@@ -417,12 +467,18 @@ let propagate cnstrnt (x,c) s =
 	  (A.use s.la x)
 	  []
 
-(*s Build new context by replacing all variables with "canonical" 
- variables. *)
+let propagate cnstrnt (x,c) s =
+  call "Prop" A (x,c) Pretty.inn;
+  let al = propagate1 cnstrnt (x,c) s in
+  exit "Prop" A al (Pretty.list Pretty.atom);
+  al
+
+
+(*s Build canonical context by replacing all variables [x] with "canonical" 
+ variables [f x]. *)
 
 let inst f s =
   let la' = A.inst f s.la in
   let t' = T.inst f s.t in
   let bv' = BV.inst f s.bv in
-  let nla' = NLA.inst f s.nla in
-  {s with la = la'; t = t'; bv = bv'; nla = nla'}
+  {s with la = la'; t = t'; bv = bv'}

@@ -8,6 +8,7 @@ AC_PREFIX_DEFAULT(/usr)
 dnl optionally give path, otherwise use cwd
 AC_MSG_CHECKING(icspath)
 AC_ARG_WITH(icspath, [ --with-icspath=/path/to/ics ])
+AC_ARG_WITH(gmp, [ --with-gmp=/path/to/gmp ])
 if test "x$with_icspath" = "x"; then
   ICSPATH=`pwd`
 else
@@ -59,7 +60,14 @@ if test "$OCAMLWEB" = true ; then
 fi
 
 dnl Check for library
-AC_CHECK_LIB(gmp,mpz_cmp, , AC_MSG_WARN(Cannot find the GMP library - please set manually in the Makefile.))
+if test -z "$with_gmp"; then
+  GMPPATH=/usr
+else
+  GMPPATH=$with_gmp
+fi
+
+AC_CHECK_LIB(gmp,__gmpz_cmp, , AC_MSG_WARN(Cannot find the GMP library.))
+
 
 AC_CHECK_PROG(ALLEGRO,allegro6.0,allegro6.0,no)
 if test "$ALLEGRO" = no ; then
@@ -67,6 +75,7 @@ if test "$ALLEGRO" = no ; then
 fi
 
 dnl Finally create all the generated files
+AC_SUBST(GMPPATH)
 AC_OUTPUT(Makefile chameleon/Makefile ics)
 
 chmod a+x ics

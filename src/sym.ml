@@ -24,17 +24,9 @@ type linarith =
   | Multq of Q.t
   | Add
 
-type nonlin = 
-  | Mult
-  | Expt of int
-
 type tuple = 
   | Product 
   | Proj of int * int
-
-type boolean = 
-  | True 
-  | False
 
 type bv =
   | Const of Bitv.t
@@ -42,30 +34,23 @@ type bv =
   | Sub of int * int * int
   | Bitwise of int
 
-type enum = {
-  elems: Name.Set.t;
-  idx : Name.t
-}
-
 type interp = 
   | Arith of linarith
-  | Nonlin of nonlin
   | Tuple of tuple
-  | Bool of boolean
   | Bv of bv
-
-type uninterp = Name.t
 
 type internal =
   | Label of int
   | Slack of int * Number.t
-  | FreshNla of int * Number.t
   | FreshBv of int
   | FreshT of int
 
+type uninterp = 
+  | External of Name.t
+  | Internal of internal
+
 type sym = 
   | Uninterp of uninterp
-  | Internal of internal
   | Interp of interp
 
 type t = sym Hashcons.hashed
@@ -84,29 +69,22 @@ let cmp f g =
 
 let rec equal s t =
   match s, t with
-    | Interp(sym1), Interp(sym2) -> 
-	interp_equal sym1 sym2
-    | Internal(sym1), Internal(sym2) ->
-	fresh_equal sym1 sym2
-    | Uninterp(x), Uninterp(y) ->
+    | Interp(f), Interp(g) -> 
+	interp_equal f g
+    | Uninterp(Internal(f)), Uninterp(Internal(g)) ->
+	fresh_equal f g
+    | Uninterp(External(x)), Uninterp(External(y)) ->
 	Name.eq x y
     | _ ->
 	false
 
 and fresh_equal sym1 sym2 =
   match sym1, sym2 with
-    | Label(n), Label(m) ->
-	n = m
-    | Slack(n,c), Slack(m,d) ->
-	n = m && Number.eq c d
-    | FreshNla(n,c), FreshNla(m,d) ->
-	n = m && Number.eq c d
-    | FreshBv(n), FreshBv(m) ->
-	n = m
-    | FreshT(n), FreshT(m) ->
-	n = m
-    | _ ->
-	false
+    | Label(n), Label(m) -> n = m
+    | Slack(n,c), Slack(m,d) -> n = m && Number.eq c d
+    | FreshBv(n), FreshBv(m) -> n = m
+    | FreshT(n), FreshT(m) -> n = m
+    | _ -> false
   
 
 and interp_equal sym1 sym2 =
@@ -116,11 +94,6 @@ and interp_equal sym1 sym2 =
 	   | Num(q1), Num(q2) -> Q.equal q1 q2
 	   | Multq(q1), Multq(q2) -> Q.equal q1 q2
 	   | Add, Add -> true
-	   | _ -> false)
-    | Nonlin(op1), Nonlin(op2) ->
-	(match op1, op2 with
-	   | Mult, Mult -> true
-	   | Expt(n1), Expt(n2) -> n1 = n2
 	   | _ -> false)
     | Tuple(op1), Tuple(op2) ->
 	(match op1, op2 with
@@ -138,14 +111,11 @@ and interp_equal sym1 sym2 =
 	   | Bitwise(n1), Bitwise n2 ->
 	       n1 = n2
 	   | _ -> false)
-    | Bool(op1), Bool(op2) ->
-	op1 = op2
     | _ -> false
 
 (*s Initial size of hashconsing tables. *)
 
 let tablesize = 31
-
 
 (*s Hashconsing Symbols. *)
 
@@ -154,10 +124,7 @@ module Sym = Hashcons.Make(        (*s Hashconsing of symbols *)
   struct 
     type t = sym
     let equal = equal
-    let hash = function
-      | Uninterp(f) -> Hashtbl.hash f
-      | Internal(op) -> Hashtbl.hash op
-      | Interp(op) -> Hashtbl.hash op
+    let hash = Hashtbl.hash
   end)
 
 let ht = Sym.create tablesize
@@ -168,11 +135,9 @@ let make = Sym.hashcons ht
 let pp full fmt s = 
   let rec sym s =
     match s.node with 
-      | Uninterp(f) -> Name.pp fmt f
-      | Internal(x) -> fresh x
+      | Uninterp(External(f)) -> Name.pp fmt f
+      | Uninterp(Internal(x)) -> fresh x
       | Interp(Arith(op)) -> arith op
-      | Interp(Nonlin(op)) -> nonlin op
-      | Interp(Bool(op)) -> boolean op
       | Interp(Tuple(op)) -> tuple op
       | Interp(Bv(op)) -> bv op
 
@@ -181,16 +146,6 @@ let pp full fmt s =
       | Num(q) -> Mpa.Q.pp fmt q
       | Multq(q) -> Mpa.Q.pp fmt q; Format.fprintf fmt "*";
       | Add -> Format.fprintf fmt "+"
-
-  and nonlin op =
-    match op with
-      | Expt(n) -> Format.printf "expt[%d]" n;
-      | Mult -> Format.printf "*"
-
-  and boolean op =
-    match op with
-      | True -> Format.printf "true"
-      | False -> Format.printf "false"
 
   and tuple op =
     match op with
@@ -212,7 +167,6 @@ let pp full fmt s =
 	  Format.printf "@[k!%d{%s}@]" n str
       | Slack(n,_) ->
 	  Format.printf "@[k!%d@]" n
-      | FreshNla(n,_) -> Format.printf "nla!%d" n
       | FreshBv(n) -> Format.printf "bv!%d" n
       | FreshT(n) -> Format.printf "t!%d" n
   in
@@ -220,7 +174,8 @@ let pp full fmt s =
 
 (*s Building symbols. *)
 
-let mk_uninterp a = make(Uninterp(a))
+let mk_uninterp a = make(Uninterp(External(a)))
+let mk_internal a = make(Uninterp(Internal(a)))
 let mk_interp f = make(Interp(f))
 
 (*s Interpreted symbols. *)
@@ -228,12 +183,6 @@ let mk_interp f = make(Interp(f))
 let mk_num q = make(Interp(Arith(Num(q))))
 let mk_multq q = make(Interp(Arith(Multq(q))))
 let mk_add = make(Interp(Arith(Add)))
-
-let mk_mult = make(Interp(Nonlin(Mult)))
-let mk_expt n = make(Interp(Nonlin(Expt(n))))
-
-let mk_tt = make(Interp(Bool(True)))
-let mk_ff = make(Interp(Bool(False)))
 
 let mk_tuple = make(Interp(Tuple(Product)))
 let mk_proj i n = make(Interp(Tuple(Proj(i,n))))
@@ -245,21 +194,30 @@ let mk_bv_bitwise n = make(Interp(Bv(Bitwise(n))))
 
 let mk_sin = 
   let x = Name.of_string "sin" in
-  make(Uninterp(x))
+  make(Uninterp(External(x)))
 
 let mk_cos =
   let x = Name.of_string "cos" in
-  make(Uninterp(x))
+  make(Uninterp(External(x)))
 
 let mk_unsigned =
-  make(Uninterp(Name.of_string "unsigned"))
+  make(Uninterp(External(Name.of_string "unsigned")))
+
+let mk_update =
+  make(Uninterp(External(Name.of_string "update")))
+
+let mk_select =
+  make(Uninterp(External(Name.of_string "select")))
 
 let mk_floor = 
-  make(Uninterp(Name.of_string "floor"))
+  make(Uninterp(External(Name.of_string "floor")))
 
 let mk_ceiling = 
   let name = Name.of_string "ceiling" in
-  make(Uninterp(name))
+  make(Uninterp(External(name)))
+
+let mk_expt = make(Uninterp(External(Name.of_string "expt")))
+let mk_mult = make(Uninterp(External(Name.of_string "mult")))
 
 
 (*s Some recognizers. *)
@@ -272,16 +230,6 @@ let is_interp f =
 let is_arith f =
   match f.node with
     | Interp(Arith _) -> true
-    | _ -> false
-
-let is_nonlin f =
-  match f.node with
-    | Interp(Nonlin _) -> true
-    | _ -> false
-
-let is_bool f =
-  match f.node with
-    | Interp(Bool _) -> true
     | _ -> false
 
 let is_tuple f =
@@ -306,11 +254,15 @@ let d_interp f =
     | _ -> None
 
 
+let is_internal f =
+  match f.node with
+    | Uninterp(Internal _) -> true
+    | _ -> false
+
 (*s Test if [f] is an interpreted constant. *)
 
 let is_interpreted_const f =
   match f.node with
-    | Interp(Bool(True | False)) -> true
     | Interp(Arith(Num _)) -> true
     | _ -> false
 
@@ -320,13 +272,29 @@ let is_interpreted_const f =
 let k = ref 0
 let _ = Tools.add_at_reset (fun () -> k := 0)
 
-let mk_label () = 
+let mk_fresh_label () = 
   incr(k);
-  make(Internal(Label(!k)))
+  make(Uninterp(Internal(Label(!k))))
 
-let mk_slack c =
+let mk_fresh_slack c =
   incr(k);
-  make(Internal(Slack(!k,c)))
+  make(Uninterp(Internal(Slack(!k,c))))
+
+let mk_label k =
+  make(Uninterp(Internal(Label(k))))
+
+let mk_slack k c =
+  make(Uninterp(Internal(Slack(k,c))))
+
+let is_slack f =
+  match f.node with
+    | Uninterp(Internal(Slack _)) -> true
+    | _ -> false
+
+let is_label f =
+  match f.node with
+    | Uninterp(Internal(Label _)) -> true
+    | _ -> false
 
 
 (*s Width of bitvector function symbols. *)
@@ -334,7 +302,7 @@ let mk_slack c =
 let rec width f =
   match f.node with
     | Interp(Bv(b)) -> Some(width_bv b)
-    | Internal(FreshBv(n)) -> Some(n)
+    | Uninterp(Internal(FreshBv(n))) -> Some(n)
     | _ -> None
 
 and width_bv b =

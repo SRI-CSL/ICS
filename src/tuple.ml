@@ -104,13 +104,13 @@ let _ = Tools.add_at_reset (fun () -> k := 0)
 
 let mk_fresh () =
   incr(k);
-  let f = Sym.make(Sym.Internal(Sym.FreshT(!k))) in
+  let f = Sym.mk_internal (Sym.FreshT(!k)) in
   Term.mk_const f
 
 let is_fresh a =
   let f,l = Term.destruct a in
   match Sym.destruct f, l with
-    | Sym.Internal(Sym.FreshT _), [] -> true
+    | Sym.Uninterp(Sym.Internal(Sym.FreshT _)), [] -> true
     | _ -> false
 
 (*s Solving tuples. *) 

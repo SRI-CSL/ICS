@@ -16,7 +16,7 @@ type entry =
   | Def of Term.t
   | Arity of int
   | Type of Number.t
-  | State of Dp.t
+  | State of Shostak.t
 
 and t = entry Name.Map.t
 
@@ -54,4 +54,4 @@ and pp_entry fmt e =
     | Arity(a) -> pr "@[sig("; Format.fprintf fmt "%d" a; pr ")@]"
     | Type(c) -> pr "@[type("; Number.pp fmt c; pr ")@]"
 
-    | State(s) -> pr "@[state("; Dp.pp fmt s; pr ")@]"
+    | State(s) -> pr "@[state("; Shostak.pp fmt s; pr ")@]"

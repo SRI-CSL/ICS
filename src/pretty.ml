@@ -53,16 +53,12 @@ let rec term fmt a =
     prefix fmt (f,l)
   else 
     match Sym.destruct f, l with
-      | Sym.Interp(Sym.Nonlin(Sym.Expt(n))), [x] -> 
-	  (term fmt x; pr fmt "^%d" n)
       | Sym.Interp(Sym.Arith(Sym.Multq(q))), [x] -> 
 	  (Mpa.Q.pp fmt q; pr fmt "*"; term fmt x)
       | Sym.Interp(Sym.Bv(Sym.Sub(n,i,j))), [x] -> 
 	  (term fmt x; Format.fprintf fmt "[%d:%d]" i j)
       | Sym.Interp(Sym.Bv(Sym.Conc(n,m))), [x;y] -> 
 	  (term fmt x; pr fmt " ++ "; term fmt y)
-      | _ when Sym.eq f Sym.mk_mult ->
-	  infixl "**" fmt l
       | _ when Sym.eq f Sym.mk_add ->
 	  infixl "+" fmt l
       | _ when Sym.eq f Sym.mk_tuple ->
@@ -146,9 +142,6 @@ let rec prop fmt b =
 	Format.fprintf fmt "tt"
     | Prop.False -> 
 	Format.fprintf fmt "ff"
-    | Prop.Ite(x,t,f) 
-	when Prop.is_tt t && Prop.is_ff f ->
-	atom fmt x
     | Prop.Ite(x,p,n) -> 
 	Format.fprintf fmt "@[if ";
 	atom fmt x;
@@ -158,5 +151,11 @@ let rec prop fmt b =
 	prop fmt n;
 	Format.fprintf fmt " end@]"
 
+let infer fmt (xl,al) = 
+  Format.fprintf fmt "@[eqs: ";
+  list eqn fmt xl;  
+  Format.fprintf fmt " atoms: ";
+  list atom fmt al;
+  Format.fprintf fmt "@]"
 
-
+let solution = list eqn

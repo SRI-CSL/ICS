@@ -21,7 +21,9 @@
 (*s The interpreted theories are linear arithmetic [LA], tuples [T],
  bitvectors [BV], and nonlinear arithmetic [NLA]. *)
 
-type i = LA | T | BV | NLA
+type i = A | T | BV
+
+val name_of : i -> string
 
 
 (*s For an interpreted function symbol [op], [index op] returns the 
@@ -32,7 +34,7 @@ val index : Sym.interp -> i
 
 (*s [sigma op l] is the combined sigmatizer for the interpreted theories. *)
 
-val sigma : Sym.interp -> Term.t list -> Term.t
+val sigma : i -> Sym.t -> Term.t list -> Term.t
 
 (*s Component solvers. *)
 
@@ -48,12 +50,18 @@ type t
 val la_of : t -> Term.t Term.Map.t
 val t_of : t -> Term.t Term.Map.t
 val bv_of : t -> Term.t Term.Map.t
-val nla_of : t -> Term.t Term.Map.t
 
 (*s Empty state. *)
 
 val empty : t
 
+(*s Return the solution set for a theory. *)
+
+val solution : i -> t -> (Term.t * Term.t) list
+
+(*s Pretty-printing. *)
+
+val pp : Format.formatter -> t -> unit
 
 (*s [apply s a] returns [b] if there is a binding [a |-> b] in [s], and raises
   [Not_found] otherwise. [find s a] is like [apply] but returns [a] if there
@@ -85,17 +93,22 @@ val extend : i -> Term.t -> t -> Term.t * t
 
 type cnstrnt = Term.t -> Number.t option
 
-val merge : i -> cnstrnt -> eq:(Term.t * Term.t) -> state: t 
+val merge : i -> cnstrnt -> (Term.t * Term.t) -> t 
                -> (t * V.eqs * Atom.t list)
 
-val merge_all : cnstrnt -> eq:(Term.t * Term.t) -> state: t 
+val merge_all : cnstrnt -> (Term.t * Term.t) -> t 
                    -> (t * V.eqs * Atom.t list)
 
 (*s Generate new constraints. *)
 
-val propagate : cnstrnt -> (Term.t * Number.t) -> state: t -> Atom.t list
+val propagate : cnstrnt -> (Term.t * Number.t) -> t -> Atom.t list
 
 (*s Build new context by replacing all variables with "canonical" 
  variables. *)
 
-val inst : can:(Term.t -> Term.t) -> t -> t
+val inst : (Term.t -> Term.t) -> t -> t
+
+
+
+
+
