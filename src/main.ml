@@ -21,6 +21,8 @@ open Parser
 open Tools
 open Format
 (*i*)
+
+let _ = Sys.catch_break true
  
 (*s Options. *)
 
@@ -94,6 +96,7 @@ let repl () =
     done
   with 
     | End_of_file    -> printf "\n@?"; exit 0
+    | Sys.Break -> printf "\nExit...\n"; exit 1
     | Failure "drop" ->	()
 
 let args () =
