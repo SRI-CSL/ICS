@@ -64,7 +64,8 @@ let cmp d e =
     | _, Real -> -1
     | Int, Int -> 0
     | Nonint, Nonint -> 0
-    | _ -> Pervasives.compare d e
+    | Int, Nonint -> 1  (* arbitrary nonzero *)
+    | Nonint, Int -> -1
 
 
 (** Testing for subdomains. *)
