@@ -284,11 +284,7 @@ bv:
 | term BWIFF term     { Bitvector.mk_bwiff (equal_width_of $1 $3) $1 $3 }
 ;
 
-prop:  topprop { $1 }
-
-propnegatable: negatable { $1 }
-
-topprop:
+prop:
   LPAR prop RPAR                { $2 } 
 | LBRA prop RBRA                { $2 } 
 | name                            { try
@@ -297,7 +293,7 @@ topprop:
 					| _ -> Prop.mk_var $1
 				      with
 					  Not_found -> Prop.mk_var $1 }
-| propnegatable                   { Prop.mk_poslit $1 }
+| atom                            { Prop.mk_poslit $1 }
 | prop CONJ prop                  { Prop.mk_conj [$1; $3] }
 | prop DISJ prop                  { Prop.mk_disj [$1; $3] }
 | prop BIIMPL prop                { Prop.mk_iff $1 $3 }
@@ -307,7 +303,7 @@ topprop:
 | IF prop THEN prop ELSE prop END { Prop.mk_ite $2 $4 $6 }
 ;
 
-negatable:  
+atom: 
   FF                       { Atom.mk_false }
 | TT                       { Atom.mk_true }
 | term EQUAL term          { Atom.mk_equal($1, $3)}
@@ -317,9 +313,6 @@ negatable:
 | term LESSOREQUAL term    { Atom.mk_le ($1, $3) }
 | term GREATEROREQUAL term { Atom.mk_ge ($1, $3) }
 
-atom:
-  negatable          { $1 }
-;
 
 dom:
   INT          { Dom.Int }
@@ -337,7 +330,7 @@ signature:
 ;
 
 command: 
-| CAN term                  { Result.Term(Istate.can $2) }
+  CAN term                  { Result.Term(Istate.can $2) }
 | ASSERT optname atom       { Result.Process(Istate.process $2 $3) }
 | DEF name ASSIGN term      { Result.Unit(Istate.def $2 (Symtab.Term($4))) }
 | PROP name ASSIGN prop     { Result.Unit(Istate.def $2 (Symtab.Prop($4))) }
@@ -365,7 +358,6 @@ command:
 | INV optname th term       { try Result.Optterm(Some(Istate.inv $2 $3 $4))
 		 	      with Not_found -> Result.Optterm(None) }
 | USE optname th term       { Result.Terms(Istate.use $2 $3 $4) }
-| SOLUTION optname th       { Result.Solution(Istate.solution $2 $3) }
 | SIGN optname term         { Result.Cnstrnt(Istate.sign $2 $3) }
 | DOM optname term          { Result.Dom(Istate.dom $2 $3) }
 | DISEQ optname term        { Result.Terms(Istate.diseq $2 $3) }

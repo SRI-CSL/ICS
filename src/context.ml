@@ -146,23 +146,29 @@ let dom s a =
     | App(Bvarith(op), xl) -> of_bvarith op xl
     | a -> if is_intvar a then Dom.Int else if is_realvar a then Dom.Real else raise Not_found
   and of_arith op xl =
-    match op, xl with
-      | Num(q), [] ->
-	  if Q.is_integer q then Dom.Int else Dom.Real
-      | Multq(q), [x] -> 
-	  if Q.is_integer q && of_term x = Dom.Int then Dom.Int else Dom.Real
-      | Add, xl -> 
-	  if List.for_all (fun x -> Dom.eq (of_term x) Dom.Int) xl then Dom.Int else Dom.Real
-      | _ -> 
-	  Dom.Real
+    try
+      match op, xl with
+	| Num(q), [] ->
+	    if Q.is_integer q then Dom.Int else Dom.Real
+	| Multq(q), [x] -> 
+	    if Q.is_integer q && of_term x = Dom.Int then Dom.Int else Dom.Real
+	| Add, xl -> 
+	    if List.for_all (fun x -> Dom.eq (of_term x) Dom.Int) xl then Dom.Int else Dom.Real
+	| _ -> 
+	    Dom.Real
+      with
+	  Not_found -> Dom.Real
   and of_pprod op xl = 
-    match op, xl with
-      | Mult, _ -> 
-	  if List.for_all (fun x -> Dom.eq (of_term x) Dom.Int) xl then Dom.Int else Dom.Real
-      | Expt(n), [x] ->
-	  if n >= 0 && of_term x = Dom.Int then Dom.Int else Dom.Real
-      | _ ->
-	  Dom.Real
+    try
+      match op, xl with
+	| Mult, _ -> 
+	    if List.for_all (fun x -> Dom.eq (of_term x) Dom.Int) xl then Dom.Int else Dom.Real
+	| Expt(n), [x] ->
+	    if n >= 0 && of_term x = Dom.Int then Dom.Int else Dom.Real
+	| _ ->
+	    Dom.Real
+      with
+	  Not_found -> Dom.Real
   and of_bvarith op xl =
     match op, xl with
       | Unsigned, [_] -> Dom.Int
@@ -969,7 +975,7 @@ let rec split s =
 
 and split_cnstrnt s = 
   (* C.split (c_of s) *)
-  failwith "to do"
+  Atom.Set.empty
 
 and split_arrays s = 
   Solution.fold
