@@ -98,6 +98,7 @@ CMO = sign.cmo three.cmo \
       use.cmo \
       d.cmo \
       v.cmo \
+      ineq.cmo \
       c.cmo \
       partition.cmo \
       solution.cmo \
