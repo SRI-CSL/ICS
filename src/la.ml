@@ -87,11 +87,10 @@ let choose_neg_least a = snd(Arith.Monomials.Neg.least a)
 let choose_pos_least a = snd(Arith.Monomials.Pos.least a)
 
 (** Replace the zero slack [k0] with [0] in the argument term. *)
-let replace_zero_slack k0 = 
-  assert(Term.Var.is_zero_slack k0);
+let replace_zero_slacks = 
   let lookup x = 
-    if Term.eq x k0 then
-      Arith.mk_zero
+    if Term.Var.is_zero_slack x then
+      Arith.mk_zero()
     else 
       x 
   in
@@ -517,16 +516,12 @@ and process_solved ((p, s) as cfg) e =
   Trace.msg "la'" "Process_solved" e Fact.Equal.pp;
   let (x, a, rho) = Fact.Equal.destruct e in
     assert(Term.is_var x);
+    assert(if is_restricted x then not(is_unrestricted_var a) else true);
     if is_unrestricted_var x then 
       if Term.Var.is_fresh Th.la x then
 	fuse1 r cfg e
       else 
 	compose1 r cfg e
-    else if is_unrestricted_var a then   (* variable equalities [k = x]. *)
-      begin                              (* note: this case can be deleted. *)
-	Partition.merge p e;
-	fuse1 r cfg e
-      end 
     else
       process_solved_restricted cfg e
 
@@ -558,7 +553,7 @@ and process_solved_restricted ((p, s) as cfg) e =
 			compose1 t cfg 
 			  (isolate (choose a') e');
 			let sigma = Jst.dep3 rho rho' tau in
-			let e0 = Fact.Equal.make(k, Arith.mk_zero, sigma) in
+			let e0 = Fact.Equal.make(k, Arith.mk_zero(), sigma) in
 			  compose1 t cfg e0
 		    with 
 			Not_found -> ())  (* skip *)
@@ -571,7 +566,7 @@ and process_solved_restricted ((p, s) as cfg) e =
 			    pivot cfg y;
 			    let sigma = Jst.dep3 rho rho' tau in
 			      compose1 t cfg 
-				(Fact.Equal.make (k, Arith.mk_zero, sigma))
+				(Fact.Equal.make (k, Arith.mk_zero(), sigma))
 			with
 			    Not_found -> 
 			      assert(not(Arith.Monomials.Neg.is_empty a'));
@@ -581,7 +576,7 @@ and process_solved_restricted ((p, s) as cfg) e =
 	       with           
 		   Not_found ->  (* [k] is not a dependent variable *)
 		     let sigma = Jst.dep2 rho tau in
-		     let e0 = Fact.Equal.make (k, Arith.mk_zero, sigma) in
+		     let e0 = Fact.Equal.make (k, Arith.mk_zero(), sigma) in
 		       compose1 t cfg e0)
 
 (* If [a'] contains negative variables, then we see 
@@ -663,7 +658,7 @@ and add_to_t ((_, s) as cfg) e =
 	  let e' = try_isolate_rhs_unbounded s e in         (* k = a == y = b *)   
 	  let (y, b, _) = Fact.Equal.destruct e' in
 	    if Term.Var.is_zero_slack k then
-	      let b' = replace_zero_slack k b in
+	      let b' = replace_zero_slacks b in
 	      let e'' = Fact.Equal.make (y, b', rho) in     (* [rho |-y=b[k:=0]] *) 
 		compose1 t cfg e''
 	    else 
@@ -760,7 +755,7 @@ and set_to_zero cfg (x, a, rho) =
   Arith.Monomials.Neg.iter
     (fun (_, y) ->
        let tau = Jst.dep1 rho in             (* [tau |- y = 0] *)
-       let e = Fact.Equal.make (y, Arith.mk_zero, tau) in
+       let e = Fact.Equal.make (y, Arith.mk_zero(), tau) in
 	 compose1 t cfg e)
     a
 
@@ -832,7 +827,7 @@ and process_pos ((_, s) as cfg) c =
   let c = Fact.Pos.map (replace s) c in 
     Trace.msg "la'" "Process" c Fact.Pos.pp;
     let (a, rho) = Fact.Pos.destruct c in           (* [rho |- a >= 0] *)
-      dismerge cfg (Fact.Diseq.make (a, Arith.mk_zero, Jst.dep1 rho));
+      dismerge cfg (Fact.Diseq.make (a, Arith.mk_zero(), Jst.dep1 rho));
       process_nonneg cfg (Fact.Nonneg.make (a, Jst.dep1 rho))
 
 
@@ -1198,13 +1193,13 @@ and interp_of_restricted ((_, s) as cfg) (k, mode) =
 	     let (b', _) = upper cfg b in
 	       Arith.mk_num (Arith.constant_of b')
 	   with
-	       Not_found -> Arith.mk_posinf)
+	       Not_found -> Arith.mk_posinf())
       | Some(Min) -> 
 	  (try
 	     let (b', _) =  lower cfg b in
 	       Arith.mk_num (Arith.constant_of b')
 	   with
-	       Not_found -> Arith.mk_neginf)
+	       Not_found -> Arith.mk_neginf())
 
 and interp_of_unrestricted ((_, s) as cfg) (x, mode) = 
   let is_restricted_monomial (_, y) = is_restricted_var y in
@@ -1219,13 +1214,13 @@ and interp_of_unrestricted ((_, s) as cfg) (x, mode) =
 	       let (w', _) = upper cfg w in
 		 Arith.mk_num (Q.add n (Arith.constant_of w'))
 	     with
-		 Not_found -> Arith.mk_posinf)
+		 Not_found -> Arith.mk_posinf())
       | Some(Min) -> 
 	  (try
 	     let (w', _) = lower cfg w in
 	     Arith.mk_num (Q.add n (Arith.constant_of w'))
 	   with
-	       Not_found -> Arith.mk_neginf)
+	       Not_found -> Arith.mk_neginf())
   
 
 

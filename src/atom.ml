@@ -169,6 +169,22 @@ let atom_of (a, _) = a
 let index_of (_, i) = i
 
 
+(** {6 Pretty-printing} *)
+
+let pp fmt (atm, _) =   (* this causes an occasional segmentation fault (why???) *)
+  match atm with 
+    | True -> Pretty.string fmt "True"
+    | False -> () (* Pretty.string fmt "False" *)
+    | Equal(a, b) -> Equal.pp fmt (a, b)
+    | Diseq(a, b) -> Diseq.pp fmt (a, b)
+    | Nonneg(a) -> Nonneg.pp fmt a
+    | Pos(a) ->  Pos.pp fmt a
+
+
+let to_string a =
+  Pretty.to_string pp a
+
+
 (** Bindings [a |-> (a, i)] with [a] an atom and [i] a {i unique} index.
   That is, for  [a |-> (a, i)] and [b |-> (b, j)],  [i = j] iff [equal a b]. *)
 module AtomTbl = Hashtbl.Make(
@@ -197,6 +213,8 @@ let index = Array.make 20000 (Obj.magic 0)
 let max = ref 0
   
 let genidx () =
+  if !max >= 20000 then
+    invalid_arg "Atom table: memory bound reached";
   let idx  = !max in
     assert(!max < max_int);
     incr max;
@@ -254,14 +272,14 @@ let mk_equal (a, b) =
 
 let mk_diseq (a, b) =
   if Term.eq a b then mk_false else
-    if Term.eq a Boolean.mk_true then
-      mk_equal (b, Boolean.mk_false)
-    else if Term.eq a Boolean.mk_false then
-      mk_equal (b, Boolean.mk_true)
-    else if Term.eq b Boolean.mk_true then
-      mk_equal (a, Boolean.mk_false)
-    else if Term.eq b Boolean.mk_false then
-      mk_equal (a, Boolean.mk_true)
+    if Boolean.is_true a then
+      mk_equal (b, (Boolean.mk_false()))
+    else if Boolean.is_false a then
+      mk_equal (b, (Boolean.mk_true()))
+    else if Boolean.is_true b then
+      mk_equal (a, (Boolean.mk_false()))
+    else if Boolean.is_false b then
+      mk_equal (a, (Boolean.mk_true()))
     else
       of_diseq(Diseq.make (a, b))
 
@@ -302,21 +320,6 @@ let is_pure i (a, _) =
     | False -> true
 
 
-let apply rho = failwith "atom.apply: to do" 
-
-(** {6 Pretty-printing} *)
-
-let pp fmt (a, _) =
-  match a with
-    | True -> Pretty.string fmt "True"
-    | False -> Pretty.string fmt "False"
-    | Equal(a, b) -> Equal.pp fmt (a, b)
-    | Diseq(a, b) -> Diseq.pp fmt (a, b)
-    | Nonneg(a) -> Nonneg.pp fmt a
-    | Pos(a) ->  Pos.pp fmt a
-
-let to_string a = Pretty.to_string pp a
-      
 
 (** {6 Negations of atoms} *)
 
@@ -331,7 +334,6 @@ let negate (a, _) =
     | Nonneg(a) -> mk_pos (Arith.mk_neg a)  (* [not(a >= 0)] iff [-a > 0] *)
     | Pos(a) -> mk_nonneg (Arith.mk_neg a)  (* [not(a > 0)] iff [-a >= 0] *)
 
-let _ = Callback.register "atom_negate" negate
 
 
 (** {6 Miscellaneous} *)

@@ -74,6 +74,11 @@ let theory_of (sym, _) =
     | Fun _ -> Th.app
     | Propset _ -> Th.set
 
+let genidx =
+  let idx = ref 100 in  (* indices below [100] for nonparametric symbols. *)
+  let _ = Tools.add_at_reset (fun () -> idx := 100) in
+    fun () -> incr(idx); !idx
+
 
 module Uninterp = struct
 
@@ -89,9 +94,11 @@ module Uninterp = struct
 	  Name.Hash.find table n
 	with
 	    Not_found ->
-	      let hsh = (2 + Name.hash n) land 0x3FFFFFFF in
+	      let hsh = genidx() in
 	      let f = (Uninterp(n), hsh) in
 		Name.Hash.add table n f; f
+
+  let equal = Name.eq
 
   let is (sym, _) = 
     match sym with
@@ -109,6 +116,13 @@ module Arith = struct
     | Arith(op), _ -> op
     | _ -> raise Not_found
 
+  let equal f g =
+    match f, g with
+      | Num(q), Num(p) -> Mpa.Q.equal q p
+      | Multq(q), Multq(p) -> Mpa.Q.equal q p
+      | Add, Add -> true
+      | _ -> false
+
   let mk_num = 
     let table = Mpa.Q.Hash.create 17 in
     let _ =  Tools.add_at_reset (fun () -> Mpa.Q.Hash.clear table) in
@@ -117,10 +131,9 @@ module Arith = struct
 	  Mpa.Q.Hash.find table q 
 	with
 	    Not_found ->
-	      let hsh = (3 + Mpa.Q.hash q) land 0x3FFFFFFF in
-	      let c = (Arith(Num(q)), hsh) in
+	      let c = (Arith(Num(q)), genidx()) in
 		Mpa.Q.Hash.add table q c; c
-
+		  
   let mk_multq =
     let table = Mpa.Q.Hash.create 17 in
     let _ =  Tools.add_at_reset (fun () -> Mpa.Q.Hash.clear table) in
@@ -129,11 +142,11 @@ module Arith = struct
 	  Mpa.Q.Hash.find table q 
 	with
 	    Not_found ->
-	      let hsh = (5 + Mpa.Q.hash q) land 0x3FFFFFFF in
+	      let hsh = genidx() in
 	      let c = (Arith(Multq(q)), hsh) in
 		Mpa.Q.Hash.add table q c; c
 
-  let mk_add = (Arith(Add), 77)
+  let mk_add = (Arith(Add), 0)
 
   let is_num = function Arith(Num _), _ -> true | _ -> false
   let is_multq = function Arith(Multq _), _ -> true | _ -> false
@@ -167,9 +180,16 @@ module Product = struct
     | Product(op), _ -> op
     | _ -> raise Not_found
 
-  let mk_cons = (Product(Cons), 371)
-  let mk_car = (Product(Car), 379)
-  let mk_cdr = (Product(Cdr), 381)
+  let equal f g =
+    match f, g with
+      | Cons, Cons -> true
+      | Car, Car -> true
+      | Cdr, Cdr -> true
+      | _ -> false
+
+  let mk_cons = (Product(Cons), 1)
+  let mk_car = (Product(Car), 2)
+  let mk_cdr = (Product(Cdr), 3)
 
   let is_cons = function Product(Cons), _ -> true | _ -> false
   let is_car = function Product(Car), _ -> true | _ -> false
@@ -192,10 +212,16 @@ module Coproduct = struct
     | Coproduct(op), _ -> op
     | _ -> raise Not_found
 
-  let mk_inl = (Coproduct(In(Left)), 177)
-  let mk_inr = (Coproduct(In(Right)), 183)
-  let mk_outl = (Coproduct(Out(Left)), 191)
-  let mk_outr = (Coproduct(Out(Right)), 193)
+  let equal f g =
+    match f, g with
+      | In(x), In(y) -> x = y
+      | Out(x), Out(y) -> x = y
+      | _ -> true
+
+  let mk_inl = (Coproduct(In(Left)), 4)
+  let mk_inr = (Coproduct(In(Right)), 5)
+  let mk_outl = (Coproduct(Out(Left)), 6)
+  let mk_outr = (Coproduct(Out(Right)), 7)
 
   let is = function Coproduct _, _ -> true | _ -> false
   let is_inl = function Coproduct(In(Left)), _ -> true | _ -> false
@@ -222,8 +248,14 @@ module Pprod = struct
   let get = function
     | Pp(op), _ -> op
     | _ -> raise Not_found
+
+  let equal f g =
+    match f, g with
+      | Expt(n), Expt(m) -> n = m
+      | Mult, Mult -> true
+      | _ -> false
   
-  let mk_mult = (Pp(Mult), 731)
+  let mk_mult = (Pp(Mult), 8)
 
   let mk_expt = 
     let table = Hashtbl.create 17 in
@@ -233,7 +265,7 @@ module Pprod = struct
 	  Hashtbl.find table n
 	with
 	    Not_found ->
-	      let hsh = (17 + n) land 0x3FFFFFFF in
+	      let hsh = genidx() in
 	      let op = (Pp(Expt(n)), hsh) in
 		Hashtbl.add table n op; op
 
@@ -266,6 +298,13 @@ module Bv = struct
     | Bv(op), _ -> op
     | _ -> raise Not_found
 
+  let equal f g =
+    match f, g with
+      | Const(b1), Const(b2) -> Bitv.equal b1 b2
+      | Conc(n1, m1), Conc(n2, m2) -> n1 = n2 && m1 = m2
+      | Sub(n1, i1, j1), Sub(n2, i2, j2) -> n1 = n2 && i1 = i2 && j1 = j2
+      | _ -> false
+
   let mk_const =
     let module BitvHash = Hashtbl.Make(
       struct
@@ -294,7 +333,7 @@ module Bv = struct
 	  Hashtbl.find table (n, m)
 	with
 	    Not_found ->
-	      let hsh = (542 + n + m) land 0x3FFFFFFF in
+	      let hsh = genidx() in
 	      let op = (Bv(Conc(n, m)), hsh) in
 		Hashtbl.add table (n, m) op; op
 
@@ -307,7 +346,7 @@ module Bv = struct
 	  Hashtbl.find table (n, i, j)
 	with
 	    Not_found ->
-	      let hsh = (97 + n + i + j) land 0x3FFFFFFF in
+	      let hsh = genidx() in
 	      let op = (Bv(Sub(n, i, j)), hsh) in
 		Hashtbl.add table (n, i, j) op; op
 
@@ -356,9 +395,16 @@ module Array = struct
     | Arrays(op), _ -> op
     | _ -> raise Not_found
 
-  let mk_create = (Arrays(Create), 27)
-  let mk_update = (Arrays(Update), 47)
-  let mk_select = (Arrays(Select), 65)
+  let equal f g =
+    match f, g with
+      | Create, Create -> true
+      | Update, Update -> true
+      | Select, Select -> true
+      | _ -> false
+
+  let mk_create = (Arrays(Create), 9)
+  let mk_update = (Arrays(Update), 10)
+  let mk_select = (Arrays(Select), 11)
 
   let is = function Arrays _, _ -> true | _ -> false
   let is_create = function Arrays(Create), _ -> true | _ -> false
@@ -393,13 +439,19 @@ module Fun = struct
     | Fun(op), _ -> op
     | _ -> raise Not_found
 
+  let equal f g =
+    match f, g with
+      | Apply(d1), Apply(d2) -> d1 = d2
+      | Abs, Abs -> true
+      | _ -> false
+
   let abs = (Fun(Abs), 111)
 
   let apply = 
-    let apply0 = (Fun(Apply(None)), 115) 
-    and apply_int = (Fun(Apply(Some(Dom.Int))), 117)
-    and apply_nonint = (Fun(Apply(Some(Dom.Nonint))), 119)
-    and apply_real = (Fun(Apply(Some(Dom.Real))), 123) in
+    let apply0 = (Fun(Apply(None)), 12) 
+    and apply_int = (Fun(Apply(Some(Dom.Int))), 13)
+    and apply_nonint = (Fun(Apply(Some(Dom.Nonint))), 14)
+    and apply_real = (Fun(Apply(Some(Dom.Real))), 15) in
       function
 	| None -> apply0
 	| Some(d) ->
@@ -437,9 +489,16 @@ module Propset = struct
     | Propset(op), _ -> op
     | _ -> raise Not_found
 
-  let mk_empty = (Propset(Empty), 123)
-  let mk_full = (Propset(Full), 321)
-  let mk_ite = (Propset(Ite), 231)
+  let equal f g =
+    match f, g with
+      | Empty, Empty -> true
+      | Full, Full -> true
+      | Ite, Ite -> true
+      | _ -> false
+
+  let mk_empty = (Propset(Empty), 16)
+  let mk_full = (Propset(Full), 17)
+  let mk_ite = (Propset(Ite), 18)
 
   let is = function Propset _, _ -> true | _ -> false
   let is_empty = function Propset(Empty), _ -> true | _ -> false
@@ -459,15 +518,19 @@ module Propset = struct
 	    invalid_arg "Ill-formed application in theory of propositional sets"    
 end
 
-
-
-(** Function symbols are hash-consed, therefore equality coincides
-  with identity. *)
-let eq = (==)
-
-(** Use hashed hash value for comparison. *)
-let cmp f g =
-  if f == g then 0 else if hash f < hash g then -1 else 1
+let equal (f, _) (g, _) =
+ match f, g with
+   | Uninterp(op1), Uninterp(op2) -> Uninterp.equal op1 op2
+   | Arith(op1), Arith(op2) -> Arith.equal op1 op2
+   | Product(op1), Product(op2) -> Product.equal op1 op2
+   | Bv(op1), Bv(op2) -> Bv.equal op1 op2
+   | Coproduct(op1), Coproduct(op2) -> Coproduct.equal op1 op2
+   | Arrays(op1), Arrays(op2) -> Array.equal op1 op2
+   | Pp(op1), Pp(op2) -> Pprod.equal op1 op2
+   | Fun(op1), Fun(op2) -> Fun.equal op1 op2
+   | Propset(op1), Propset(op2) -> Propset.equal op1 op2
+   | _ -> false
+  
 
 (** Combined pretty-printer. *)
 let pp p fmt ((sym, _),  al) = 
@@ -481,3 +544,18 @@ let pp p fmt ((sym, _),  al) =
     | Pp(op) -> Pprod.pp p fmt (op, al)
     | Fun(op) -> Fun.pp p fmt (op, al)
     | Propset(op) -> Propset.pp p fmt (op, al)
+
+
+(** Function symbols are hash-consed, therefore equality coincides
+  with identity. *)
+let eq f g =
+  assert(if f == g then equal f g else not(equal f g));
+  f == g
+
+(** Use hashed hash value for comparison. *)
+let cmp f g =
+  if f == g then 0 else 
+    begin
+      assert(not(equal f g) && hash f <> hash g);
+      if hash f < hash g then -1 else 1
+    end 

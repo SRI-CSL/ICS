@@ -188,7 +188,7 @@ list:
   term LISTCONS term            { Coproduct.mk_inj 1 (Product.mk_cons $1 $3) }
 | HEAD LPAR term RPAR           { Product.mk_car (Coproduct.mk_out 1 $3) }
 | TAIL LPAR term RPAR           { Product.mk_cdr (Coproduct.mk_out 1 $3) }
-| NIL                           { Coproduct.mk_inj 0 (Bitvector.mk_eps) }
+| NIL                           { Coproduct.mk_inj 0 (Bitvector.mk_eps()) }
 ;
 
 apply: 
@@ -197,8 +197,8 @@ apply:
 ;
 
 boolean: 
-  TRUE                          { Boolean.mk_true }
-| FALSE                         { Boolean.mk_false }
+  TRUE                          { Boolean.mk_true() }
+| FALSE                         { Boolean.mk_false() }
 ;
      
 arith:

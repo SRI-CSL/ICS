@@ -26,7 +26,7 @@ struct
   let do_at_add (p, ()) (x, a, rho) =      (* [rho |- x = a] *)
     let (y, tau) = Partition.find p x in   (* [tau |- x = y] *)
       if Pprod.is_one a then
-	let e = Fact.Equal.make (y, Arith.mk_one, Jst.dep2 rho tau) in
+	let e = Fact.Equal.make (y, Arith.mk_one(), Jst.dep2 rho tau) in
 	  Fact.Eqs.push nl e
       else if Term.Var.is_slack y then
 	let (b, c) = Pprod.split a in

@@ -218,7 +218,7 @@ let add s atm =
     else if Atom.is_false atm' then
       Status.Inconsistent(Jst.dep2 rho' (Jst.axiom atm))
     else 
-      (try 
+      (try
 	 Fact.Eqs.clear();                  (* Clearing out stacks. *)
 	 Fact.Diseqs.clear();
 	 Fact.Nonnegs.clear();
@@ -226,9 +226,9 @@ let add s atm =
 	 let s = copy s in                  (* Protect state against updates *)
 	 let (atm'', rho'') = abstract s atm' in
 	 let fct'' = (atm'', Jst.dep3 rho' rho'' (Jst.axiom atm)) in
-	   process s fct'';
+	   process s fct''; 
            close_star s;
-	   normalize s;
+	   normalize s;   
 	   s.ctxt <- atm :: s.ctxt;         (* Update context. *)
 	   s.upper <- !Term.Var.k;          (* Install variable counter in state. *)
 	   Status.Ok(s)

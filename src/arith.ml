@@ -36,14 +36,16 @@ let mk_num =
 	 Not_found ->
 	   let c = Term.App.mk_const (Sym.Arith.mk_num q) in
 	     Mpa.Q.Hash.add table q c; c
-		      
-let mk_zero = mk_num Q.zero
-let mk_one = mk_num Q.one
-let mk_two = mk_num (Q.of_int 2)
+		
+(** Following constants need a parameter, since hashtables in
+  module {!Sym} are resettable. *)
+let mk_zero () = mk_num Q.zero
+let mk_one () = mk_num Q.one
+let mk_two () = mk_num (Q.of_int 2)
 
-let mk_posinf = mk_num (Q.of_int 123456789)                 (* hack *)
-let mk_neginf = mk_num (Q.of_int (-123456789))
-let mk_eps = mk_num (Q.div Q.one (Q.of_int 123456789))
+let mk_posinf () = mk_num (Q.of_int 123456789)                 (* hack *)
+let mk_neginf () = mk_num (Q.of_int (-123456789))
+let mk_eps () = mk_num (Q.div Q.one (Q.of_int 123456789))
 
 
 
@@ -72,13 +74,13 @@ let destruct a =
   try
     (match d_interp a with
        | Sym.Num(q), [] -> 
-	   (q, mk_zero)
+	   (q, mk_zero())
        | Sym.Multq(_), [_] -> 
 	   (Mpa.Q.zero, a)
        | Sym.Add, [] -> 
-	   (Mpa.Q.one, mk_zero)
+	   (Mpa.Q.one, mk_zero())
        | Sym.Add, [b] ->
-	   (try (d_num b, mk_zero) with Not_found -> (Mpa.Q.zero, a))
+	   (try (d_num b, mk_zero()) with Not_found -> (Mpa.Q.zero, a))
        | Sym.Add, [b1; b2] ->
 	   (try (d_num b1, b2) with Not_found -> (Mpa.Q.zero, a))
        | Sym.Add, b :: bl ->   (* now [bl] contains at least two elements *)
@@ -148,7 +150,7 @@ let monomials_of a =
 let of_poly q l =
   let m = if  Q.is_zero q then l else mk_num q :: l in
     match m with 
-      | [] -> mk_zero
+      | [] -> mk_zero()
       | [x] -> x
       | _ -> Term.App.mk_app Sym.Arith.mk_add m
 
@@ -157,7 +159,7 @@ let mono_of a =
 
 let of_mono q x =
   if Q.is_zero q then
-    mk_zero
+    mk_zero()
   else if Q.is_one q then 
     x
   else 
@@ -336,7 +338,7 @@ let rec mk_multq q a =
 	  (of_mono (Q.mult q p) x) :: (multq q ml)
   in
     if Q.is_zero q then 
-      mk_zero
+      mk_zero()
     else if Q.is_one q then 
       a
     else 
@@ -395,7 +397,7 @@ and mk_add a b =
 
 and mk_addl l =
   match l with
-    | [] -> mk_zero
+    | [] -> mk_zero()
     | [x] -> x
     | [x; y] -> mk_add x y
     | [x; y; z] -> mk_add x (mk_add y z)

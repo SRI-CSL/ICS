@@ -14,7 +14,6 @@
 (** Context for handling equivalence classes of variables.
 
   @author Harald Ruess
-  @author N. Shankar
 *)
 
 type t

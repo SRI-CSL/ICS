@@ -95,7 +95,7 @@ let mk_const c = Term.App.mk_const(Sym.Bv.mk_const c)
 
 let mk_zero n = mk_const(Bitv.create n false)
 let mk_one n = mk_const(Bitv.create n true)
-let mk_eps = mk_const(Bitv.from_string "")
+let mk_eps () = mk_const(Bitv.from_string "")
 
 let is_const c a =
   try Bitv.equal (d_const a) c with Not_found -> false
@@ -116,7 +116,7 @@ let is_one a =
 
 let mk_fresh n =
   assert (n >= 0);
-  if n = 0 then mk_eps else 
+  if n = 0 then mk_eps () else 
     Term.Var.mk_fresh Th.bv None (Var.Cnstrnt.Bitvector(n))
 
 
@@ -159,7 +159,7 @@ let rec mk_sub n i j a =
   if i = 0 && j = n - 1 then 
     a 
   else if j < i then
-    mk_eps
+    mk_eps()
   else 
     try
       (match d_interp a with
@@ -186,7 +186,7 @@ let rec mk_sub n i j a =
 and mk_conc n m a b =
   assert (0 <= n && 0 <= m);
   match n = 0, m = 0 with
-    | true, true -> mk_eps
+    | true, true -> mk_eps()
     | true, false -> b
     | false, true -> a
     | false, false ->
@@ -259,7 +259,7 @@ let sigma op l =
 (* n-ary concatenation of some concatenation normal form *)
 
 let rec mk_iterate n b = function
-  | 0 -> mk_eps 
+  | 0 -> mk_eps ()
   | 1 -> b
   | k -> mk_conc n (n * (k-1)) b (mk_iterate n b (k-1))
 

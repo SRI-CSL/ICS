@@ -176,7 +176,7 @@ let to_equalities s =
        Fact.Equal.make (x, y, rho) :: acc)
     s.post []
 
-let pp_as_equalities = ref true
+let pp_as_equalities = ref false
        
 let pp fmt s =
   if not(is_empty s) then

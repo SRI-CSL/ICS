@@ -54,7 +54,7 @@ val mk_const : Bitv.t -> Term.t
   (** [mk_const c] is the constructor for building constant bitvectors,
     in which all bits are known to be either [0] or [1]. *)
     
-val mk_eps : Term.t
+val mk_eps : unit -> Term.t
  (** [mk_eps] is the constant bitvector of length [0]. *)
 
 val mk_one : int -> Term.t

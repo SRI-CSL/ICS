@@ -49,7 +49,9 @@ let axioms_of j = j
 let pp fmt j =
   match !proofmode with
     | No -> Pretty.string fmt "Unjustified"
-    | Dep -> Pretty.set Atom.pp fmt (Atom.Set.elements j)
+    | Dep -> 
+	let al = Atom.Set.elements j in
+	  Pretty.set Atom.pp fmt al
 
 let to_string = Pretty.to_string pp 
  

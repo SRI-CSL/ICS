@@ -149,11 +149,6 @@ val is_false : t -> bool
 val is_pure : Th.t -> t -> bool
 
 
-(** {6 Mapping over atoms} *)
-
-val apply : (Term.t * Term.t) list -> t -> t
-
-
 (** {6 Negations of atoms} *)
 
 val is_negatable : t -> bool

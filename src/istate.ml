@@ -227,12 +227,9 @@ module Out = struct
 
   let unsat j =
     let fmt = !outchannel in
-      Format.fprintf fmt ":unsat ";
-      if not(Jst.Mode.is_none()) then
-	begin
-	  Jst.pp fmt j
-	end;
-      Format.fprintf fmt "@?"
+      Format.fprintf fmt ":unsat @."; 
+      if Jst.Mode.is_none() then () else Jst.pp fmt j;
+      Format.fprintf fmt "@?" 
 
   let valid j =
     let fmt = !outchannel in
@@ -893,9 +890,10 @@ let do_process =
 	       let n = save_state None in Out.ok n
 	   | Context.Status.Valid(rho) ->  Out.valid rho
 	   | Context.Status.Inconsistent(rho) ->
-	       Out.unsat rho;
-	       if !batch then (* Exit in batch mode when inconsistency is detected *)
-		 raise(End_of_file))
+	       begin
+		 Out.unsat rho;
+		 if !batch then raise End_of_file else ()
+	       end)
     {args = "[@<ident>]  <atom>";
      short = "Add an atom to a context"; 
      description = "

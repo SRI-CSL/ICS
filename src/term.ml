@@ -45,9 +45,16 @@ let is_const = function App(_,[], _) -> true | _ -> false
 let rec pp fmt a =
   match a with
     | Var(x, hsh) -> 
-	Var.pp fmt x
-    | App(f, l, _) ->
-	Sym.pp pp fmt (f, l)
+	Var.pp fmt x;
+	pp_hash fmt hsh
+    | App(f, l, hsh) ->
+	Sym.pp pp fmt (f, l);
+	pp_hash fmt hsh
+
+and pp_hash fmt hsh =
+  if !debug then Format.fprintf fmt "{%d}" hsh
+
+and debug = ref false
 
 let to_string = Pretty.to_string pp
 
@@ -313,6 +320,9 @@ and eq1 a b =
 
 and eql al bl =
   try List.for_all2 eq al bl with Invalid_argument _ -> false
+
+let eq =
+  Trace.func2 "foo" "Term.eq" pp pp Pretty.bool eq
 
 
 

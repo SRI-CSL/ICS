@@ -157,6 +157,7 @@ let merge e s =
 		   Set.fold 
 		     (fun (z, tau) ->                       (* [tau |- x <> z] *)
 			let sigma = Jst.dep2 tau rho in     (* ==> [sigma |- y <> z]. *)
+			  Fact.Diseqs.push None (Fact.Diseq.make (y, z, sigma));
 			  Set.add (z, sigma))
 		     dx Set.empty
 		 in
@@ -173,6 +174,7 @@ let merge e s =
 			      let sigma = Jst.dep2 tau rho in  (* [sigma|- z <> y] *)
 			      let dz'' = Set.add (y, sigma) dz' in 
 			      let dy' = Set.add (z, sigma) dy in
+				Fact.Diseqs.push None (Fact.Diseq.make (y, z, sigma));
 				(Term.Map.add z dz'' s, dy')
 			  with
 			      Not_found -> (s, dy))

@@ -11,7 +11,7 @@
  * benefit corporation.
  *)
 
-(** Decision procedure for functional arrays
+(** Functional arrays decision procedure
 
   @author Harald Ruess
   @author N. Shankar
@@ -86,7 +86,7 @@ type config = Partition.t * t
 val name : config -> Jst.Eqtrans.t
   (** [name (p, s) a] returns a canonical variable [x] 
     with [x = a] in [s].  If there is no such variable,
-    it creates such a variable [v] and updates [s] to 
+    it creates a fresh variable [v] and updates [s] to 
     include the equality [v = a]. *)
 
 

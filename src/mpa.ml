@@ -123,7 +123,9 @@ module Q = struct
   let to_z = Q.get_num
   let of_z = Q.from_z
 
-  let hash = Hashtbl.hash
+  let hash q =
+     Z.to_int (Z.add (Q.get_den q) (Q.get_num q)) land 0x3FFFFFF
+  
 
   let to_string q = 
     let d = Q.get_den q in

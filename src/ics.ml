@@ -415,10 +415,10 @@ let _ = Callback.register "term_mk_bvconc" term_mk_bvconc
 
 	  
 (** Boolean terms. *)
-let term_mk_true () = Boolean.mk_true
+let term_mk_true = Boolean.mk_true
 let _ = Callback.register "term_mk_true" term_mk_true
 
-let term_mk_false () = Boolean.mk_false
+let term_mk_false = Boolean.mk_false
 let _ = Callback.register "term_mk_false" term_mk_false
 
 (** Coproducts. *)
@@ -594,7 +594,7 @@ let term_mk_mult = Nonlin.mk_mult
 let _ = Callback.register "term_mk_mult" term_mk_mult
 
 let rec term_mk_multl = function
-  | [] -> Arith.mk_one
+  | [] -> Arith.mk_one()
   | [a] -> a
   | a :: b :: l -> term_mk_multl (term_mk_mult a b :: l)
 let _ = Callback.register "term_mk_multl" term_mk_multl
@@ -784,7 +784,7 @@ let rec cmd_rep () =
     | Sys.Break -> 
 	Istate.do_quit 1
     | Failure("drop") -> 
-	raise (Failure "drop")
+	()
     | exc -> 
 	Istate.do_error ("Exception " ^ (Printexc.to_string exc));
 	cmd_rep ()

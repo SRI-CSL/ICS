@@ -11,12 +11,15 @@
  * benefit corporation.
  *)
 
-(** Decision procedure for arrays based on canonization.
+(** Decision procedure for the theory of arrays [Arr] as defined in 
+  module {!Funarr}. This procedure works by canonization of array terms
+  and forward chaining on configurations.
 
   A configuration [C] consists of a triple [(V, D, S)] with 
   - [V] a set of variable equalities,
   - [D] a set of variable disequalities,
-  - [S] a set of array equalities [x = a] with [x] a variable and [a] a pure array term.
+  - [S] a set of array equalities [x = a] with [x] a variable 
+  and [a] a pure array term.
 
   The pair [(V, D)] is passed around as a partitioning [P].
 
@@ -35,7 +38,7 @@ module A: Eqs.SET =
     struct
       let th = Th.arr
       let nickname = Th.to_string Th.arr
-      let map = Funarr.map Term.is_equal
+      let map _ = failwith "Array map not used"
       let is_infeasible _ = false
     end)
 
@@ -56,6 +59,7 @@ let find = A.find
 let inv = A.inv
 let dep = A.dep
 
+
 (** Return canonical name for an array term [a]. *)
 let name (p, s) =
   Jst.Eqtrans.compose
@@ -63,25 +67,34 @@ let name (p, s) =
     (A.name (p, s))
 
 
-(** Normalizing the application [op(a1,...,an)] of the array 
-  operator [op] w.r.t. to the partition [p]. *)
-let norm p op al =
-  let hyps = ref [] in
-  let is_equal' = 
-    Jst.Three.to_three hyps 
-      (Partition.is_equal_or_diseq p)
-  in
-  let b = Funarr.sigma is_equal' op al in
-    (b, Jst.dep !hyps)
-
 
 type config = Partition.t * t
+    (** A {i configuration} consists of 
+      - variable equalities [v]
+      - variable disequalities [d]
+      - equalities of the form [x = a], [x] not necessarily
+      canonical, and [a] a pure array term in canonical form,
+      that is, all variables in [a] are canonical and all 
+      dependent variables have been ``plugged'' in. *)
+
+
+(** Return interpreted term for a dependent variable.
+  The result is always canonical w.r.t. to the configuration [(p, s)]. *)
+let interp (p, s) a =
+  if Term.is_var a then
+    try
+      Partition.choose p (apply s) a
+    with
+	Not_found -> Partition.find p a
+  else 
+    Jst.Eqtrans.id a
+
 
 (** Inverse find: plugs in variables for interpreted terms
-  - [C^-1[x] = find(V)(x)]
-  - [C^-1[a] = y]  if [y' = a] in [E] and [y = find(V)(y')]
-  - [C^-1[a] = a]  otherwise. *)
-let invfind ((p, s) as c) a =
+  - [C^-1(x) = find(V)(x)]
+  - [C^-1(a) = y]  if [y' = a] in [E] and [y = find(V)(y')]
+  - [C^-1(a) = a]  otherwise. *)
+let uninterp ((p, s) as c) a =
   if Term.is_var a then
     Partition.find p a
   else 
@@ -89,99 +102,150 @@ let invfind ((p, s) as c) a =
       Jst.Eqtrans.compose (Partition.find p) (A.inv s) a
     with
 	Not_found -> Jst.Eqtrans.id a
-	
-(** Canonization. *)
-let rec can ((p, _) as c) a =
-  try
-    (match Funarr.d_interp a with
-       | Sym.Create, [b] -> 
-	   let (b', sigma) = can c b in
-	     if b == b' then Jst.Eqtrans.id a else
-	       let (a', rho) = norm p Sym.Create [b'] in
-	       let (a'', tau) = invfind c a' in
-		 (a'', Jst.dep3 rho tau sigma)
-       | Sym.Update, [b; i; x] ->
-	   let (b', sigma') = can c b
-	   and (i', sigma'') = can c i 
-	   and (x', sigma''') = can c x in
-	     if b == b' && i == i' && x == x' then Jst.Eqtrans.id a else
-	       let (a', rho) = norm p Sym.Update [b'; i'; x'] in
-	       let (a'', tau) = invfind c a' in
-		 (a'', Jst.dep5 rho tau sigma' sigma'' sigma''')
-       | Sym.Select, [b; j] ->
-	   let (b', sigma') = can c b 
-	   and (j', sigma'') = can c j in
-	     if b == b' && j == j' then Jst.Eqtrans.id a else
-	       let (a', rho) = norm p Sym.Select [b'; j'] in
-	       let (a'', tau) = invfind c a' in
-		 (a'', Jst.dep4 rho tau sigma' sigma'')
-       | _ -> 
-	   Partition.find p a)
-  with
-      Not_found -> Partition.find p a
 
 
-(** {6 Updates} *)
+(** Normalizing the application [op(a1,...,an)] of the array 
+  operator [op] w.r.t. to the partition [p]. Justifications
+  for these equalities and disequalities are collected in [hyps]. *)
+let rec norm c op al =
+  let hyps = ref [] in
+  let is_equal' = 
+    Jst.Three.to_three hyps 
+      (is_equal_or_diseq c)
+  in
+  let b = Funarr.sigma is_equal' op al in
+    (b, Jst.dep !hyps)
 
-let rec merge ((p, s) as c) e =
-  assert(Fact.Equal.is_pure Th.arr e);
-  let e = Fact.Equal.map (Jst.Eqtrans.compose (A.name c) (can c)) e in
-  let (x, y, rho) = Fact.Equal.destruct e in        (* [rho |- x = y]. *)
-    match Partition.is_equal_or_diseq p x y with 
-      | Jst.Three.Yes _ ->
-	  ()   (* skip *)
-      | Jst.Three.No(tau) ->                        (* [tau |- x <> y]. *)
-	  raise(Jst.Inconsistent(Jst.dep2 rho tau))
-      | Jst.Three.X -> 
-	  merge_v c e
+(** Two canonical terms [a], [b] are disequal if [x = a], [y = b] holds in 
+  configuration [c] with [x], [y] variables and [x <> y] a known variable disequality. *)
+and is_diseq ((p, s) as c) =
+  Jst.Pred2.apply
+    (uninterp c)
+    (Partition.is_diseq p)
 
-
-and dismerge ((p, s) as c) d = 
-  let d = Fact.Diseq.map (Jst.Eqtrans.compose (A.name c) (can c)) d in
-  let (x, y, rho) = Fact.Diseq.destruct d in        (* [rho |- x <> y]. *)
-    match Partition.is_equal_or_diseq p x y with 
-      | Jst.Three.No _ ->
-	  ()    (* skip *)
-      | Jst.Three.Yes(tau) ->                       (* [tau |- x = y]. *)
-	  raise(Jst.Inconsistent(Jst.dep2 rho tau))
-      | Jst.Three.X -> 
-	  dismerge_v c d
+and is_equal_or_diseq (p, _) a b =
+  if Term.eq a b then Jst.Three.Yes(Jst.dep0) else
+    Partition.is_equal_or_diseq p a b
 
 
-and merge_v ((p, s) as c) e =
-  assert(Fact.Equal.is_var e);
-  Partition.merge p e;
-  fuse c e;
-  close_merge c e
+(** Canonization by plugging in dependent variables. *)
+let rec can ((p, _) as c) a = 
+  let interp_can = Jst.Eqtrans.compose (interp c) (can c)
+  in 
+    try
+      (match Funarr.d_interp a with
+	 | Sym.Create, [b] -> 
+	     let (b', tau) = interp_can b in
+	     let (a', rho) = norm c Sym.Create [b'] in
+	       (a', Jst.dep2 rho tau)
+	 | Sym.Update, [b; i; x] ->
+	     let (b', tau') = interp_can b
+	     and (i', tau'') = interp_can i 
+	     and (x', tau''') = interp_can x in
+	     let (a', rho) = norm c Sym.Update [b'; i'; x'] in
+	       (a', Jst.dep4 rho tau' tau'' tau''')
+	 | Sym.Select, [b; j] ->
+	     let (b', tau') = interp_can b 
+	     and (j', tau'') = interp_can j in
+	     let (a', rho) = norm c Sym.Select [b'; j'] in
+	       (a', Jst.dep3 rho tau' tau'')
+	 | _ -> 
+	     Partition.find p a)
+    with
+	Not_found -> Partition.find p a
 
 
 (** Fuse an equality [e] of the form [x = b] on rhs [a] of the
   array equalities [u = a] and normalize the resulting [a'] according
   to the variable equalities and disequalities in [p]. Assumes that
   the equality [e] is already merged in [p].*)
-and fuse ((p, s) as c) e =
+let fuse ((p, s) as c) e =
   A.Dep.iter s
     (fun e -> 
        let e' = Fact.Equal.map_rhs (can c) e in
 	 if not(e == e') then A.update c e')
     (Fact.Equal.lhs_of e)
 
-    
-and dismerge_v ((p, s) as c) d =
-  assert(Fact.Diseq.is_var d);
-  Partition.dismerge p d;
-  fission c d;
-  close_dismerge c d
 
 (** Propagate a disequality [x <> y] on rhs [a] of the array 
-  equalities [u = a']. Assumes the disequalities is already dismerged in [p]. *)
-and fission ((p, s) as c) d =
+  equalities [u = a']. Assumes the disequalities is already
+  dismerged in [p]. *)
+let fission ((p, s) as c) d =
   A.Dep.iter s
     (fun e -> 
        let e' = Fact.Equal.map_rhs (can c) e in
 	 if not(e == e') then A.update c e')
     (Fact.Diseq.lhs_of d)
 
+
+(** {6 Updates} *)
+
+let arr = Th.to_string Th.arr
+
+(** Propagating an equality [a = b] between pure array terms [a], [b] by
+  first canonizing these terms and then merging the variable equality
+  [x = y] with [x = a], [y = b] in [s] ([x], [y] may be fresh terms).
+  Merging of such a variable equality [x = y] is done by 
+  - merging [x = y] in the variable partitioning [p],
+  - fusing [x = y] on rhs of equalities in [s] in order to recanonize rhs of [s] w.r.t
+    to the extended partitioning, and
+  - forward chaining on the rules that get activated by the new equality [x = y]. *)
+let rec merge ((p, s) as c) e =
+  assert(Fact.Equal.is_pure Th.arr e);
+  let e = Fact.Equal.map (Jst.Eqtrans.compose (A.name c) (can c)) e in 
+    assert(Fact.Equal.is_var e);
+    let (x, y, rho) = Fact.Equal.destruct e in        (* [rho |- x = y]. *)
+      match Partition.is_diseq p x y with 
+	| Some(tau) ->                               (* [tau |- x <> y]. *)
+	    raise(Jst.Inconsistent(Jst.dep2 rho tau))
+	| None ->  
+	    Trace.msg arr "Merge" e Fact.Equal.pp;
+	    merge_v c e
+
+and merge_v ((p, _) as c) e =
+  assert(Fact.Equal.is_var e);
+  Partition.merge p e;
+  fuse c e;
+  close_merge c e
+
+(** Progagating a disequality [a <> b] between pure array terms [a], [b] by
+  first canonizing these terms and then merging the variable disequality
+  [x <> y] with [x = a], [y = b] in [s] ([x], [y] may be fresh terms). 
+  Dismerging of such a variable disequality [x <> y] is done by 
+  - dismerging [x <> y] in the variable partitioning [p],
+  - fissioning [x <> y] on rhs of equalities in [s] in order to recanonize rhs of [s]
+    w.r.t to the extended partitioning, and
+  - forward chaining on the rules that get activated by the new equality [x = y]. *)
+and dismerge ((p, s) as c) d =  
+  let d = Fact.Diseq.map (Jst.Eqtrans.compose (A.name c) (can c)) d in
+  let (x, y, rho) = Fact.Diseq.destruct d in        (* [rho |- x <> y]. *)
+    match Partition.is_equal p x y with 
+      | Some(tau) ->                                (* [tau |- x = y]. *)
+	  raise(Jst.Inconsistent(Jst.dep2 rho tau))
+      | None ->  
+	  Trace.msg arr "Dismerge" d Fact.Diseq.pp;
+	  dismerge_v c d
+
+and dismerge_v ((p, s) as c) d =
+  assert(Fact.Diseq.is_var d);
+  Partition.dismerge p d;
+  fission c d;
+  close_dismerge c d
+
+(** Deduce is similar to {!Arr.merge} with the notable exception of trace messages.
+  It is used to merge variable equalities deduced by forward chaining. *)
+and deduce ((p, _) as c) e =
+  let e = Fact.Equal.map (Jst.Eqtrans.compose (A.name c) (can c)) e in
+  let (x, y, rho) = Fact.Equal.destruct e in
+  match Partition.is_equal_or_diseq p x y with
+    | Jst.Three.Yes _ ->
+	()
+    | Jst.Three.No(tau) ->
+	raise(Jst.Inconsistent(Jst.dep2 rho tau))
+    | Jst.Three.X -> 
+	Trace.msg arr "Deduce" e Fact.Equal.pp;
+	let e = Fact.Equal.map (name c) e in
+	  merge_v c e
 
 (** Forward chaining on 
   - if [a[i:=x] = b[i:=y]], then [x = y]
@@ -228,9 +292,9 @@ and close_dismerge_3b ((p, s) as c) d =
 		 | Some(ups) ->                                (* [ups |- u = v] *)
 		     let sigma = Jst.dep4 rho' rho tau ups in  (* ==> [sigma |- a[j] = y, b[i] = x]. *)
 		     let e1 = Fact.Equal.make (mk_select a j, u, sigma) (* by Rule (3b). *)
-		     and e2 = Fact.Equal.make (mk_select b i, x, sigma) in
-		       merge c e1;
-		       merge c e2))
+		     and e2 = Fact.Equal.make (mk_select b i, x, sigma) in 
+		       deduce c e1;
+		       deduce c e2))
 
 and close_dismerge_2b ((p, s) as c) d =
   let (i, j, rho') = Fact.Diseq.destruct d in  
@@ -247,7 +311,7 @@ and close_dismerge_2b ((p, s) as c) d =
 		     | Some(ups) ->                            (* [ups |- u = v] *)
 			 let theta' = Jst.dep5 rho' rho tau sigma ups in
 			 let e' = Fact.Equal.make (mk_select a j, mk_select b j, theta') in
-			   merge c e'))
+			   deduce c e'))
 	   (Partition.diseqs p j))
 
  
@@ -257,25 +321,26 @@ and close_merge ((p, s) as c) e =
       (fun (_, (a, i, x), rho) ->                              (* [rho |- u' = a[i:=x]] *)
          update_iter c v'
             (fun (_, (b, k, y), tau) ->                        (* [tau |- v' = b[i:=y]] *)  
-	       match Partition.is_equal_or_diseq p i k with 
+	       match is_equal_or_diseq c i k with 
 		 | Jst.Three.Yes(ups) ->                       (* Rule (1): *)
 		     let sigma = Jst.dep4 rho' rho tau ups in  (* ==> [sigma |- x = y]  *)
 		     let e' = Fact.Equal.make (x, y, sigma) in
-		       merge c e'
+		       deduce c e'
 		 | Jst.Three.X ->                              (* Rule (2a): *)
 		     D.Set.iter                           
 			(fun (j, ups1) ->                      (* [ups1 |- i <> j] *)
-			   match Partition.is_diseq p k j with
+			   match is_diseq c k j with
 			     | None -> ()
 			     | Some(ups2) ->                   (* [ups2 |- k <> j]. *)
 				 let sigma = Jst.dep5 rho' rho tau ups1 ups2 in
 				 let e' = Fact.Equal.make (mk_select a j, mk_select b j, sigma) in
-				   merge c e')         (* ==> [sigma |- a[j] = bj]. *)
+				   deduce c e')                (* ==> [sigma |- a[j] = bj]. *)
 			(Partition.diseqs p i)
 	         | Jst.Three.No(ups) ->                        (* Rule (3a) *)
 		      let sigma = Jst.dep4 rho' rho tau ups in (* ==> [sigma |- a[k] = y]. *)
 		      let e' = Fact.Equal.make (mk_select a k, y, sigma) in
-			merge c e'))            
+			deduce c e'))     
+
 	       
 		 
  (** Apply [f (v, (a, i, x), rho)] such that [rho |- u = v = a[i:=x]] *)

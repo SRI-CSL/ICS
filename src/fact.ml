@@ -36,6 +36,7 @@ module Equal = struct
       (a, b, rho)
 
   let of_equal (e, rho) = (e, rho)
+
   let make (a, b, rho) = (Atom.Equal.make (a, b), rho)
 
   let map2 (f, g) ((e, rho) as fct) = 

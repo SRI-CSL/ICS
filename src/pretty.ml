@@ -95,18 +95,23 @@ let option pp fmt =
 let break = ref true
 	
 let list (pre, sep, post) pp fmt l =
-  let rec iter = function
-    | [] -> ()
-    | [x] -> pp fmt x
-    | x :: l -> 
-	pp fmt x; 
-	string fmt sep; 
-	if !break then fprintf fmt "@, "; 
-	iter l
+  let rec iter l =
+    match l with
+      | [] -> ()
+      | [x] -> 
+	  pp fmt x;
+      | x :: l -> 
+	  pp fmt x; 
+	  string fmt sep; 
+	  if !break then fprintf fmt "@, " else (); 
+	  iter l
   in
     match !flag with
       | Sexpr -> sexpr pp fmt (":list", l)
-      | _ -> fprintf fmt "%s" pre; iter l; fprintf fmt "%s@?" post
+      | _ -> 
+         fprintf fmt "%s" pre; 
+	 iter l;
+	 fprintf fmt "%s@?" post
 
 let pair pp1 pp2 fmt (a, b) =
   match !flag with
@@ -121,7 +126,8 @@ let triple pp1 pp2 pp3 fmt (a, b, c) =
 let set pp fmt al = 
   match !flag with
     | Sexpr -> sexpr pp fmt (":set", al)
-    | _ -> list ("{", ", ", "}") pp fmt al
+    | _ -> 
+	list ("{", ", ", "}") pp fmt al
 
 let assign pp1 pp2 fmt (x, a) =
   match !flag with

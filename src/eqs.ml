@@ -283,9 +283,16 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
 
   let inv s a =
     let x = Term.Map.find a s.inv in
+      assert(Term.is_var x);
       assert(Term.Var.Map.mem x s.find);
 	let (b, rho) = apply s x in
-	  assert(Term.eq a b);
+	  assert(if Term.eq a b then true else
+                   begin
+		     Format.eprintf "\nFatal Error: Inv is inconsistent with Find\n@.";
+		     Format.eprintf "\nInv: %s" (Pretty.to_string (Pretty.pair Term.pp Term.pp) (x, a));
+                     Format.eprintf "\nFind: %s@." (Pretty.to_string (Pretty.pair Term.pp Term.pp) (x, b));
+		     false
+		   end);
 	  (x, rho)
     
   let ext s = s.ext
@@ -313,7 +320,7 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
        in
 	 f e
                                           
-     let fold s f y = Term.Var.Set.fold (apply_to_e s f) (dep s y) 
+     let fold s f y = Term.Var.Set.fold (apply_to_e s f) (dep s y)
      let for_all s p y = Term.Var.Set.for_all (apply_to_e s p) (dep s y)
      let exists s p y = Term.Var.Set.exists (apply_to_e s p) (dep s y)
 

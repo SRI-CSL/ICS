@@ -11,7 +11,7 @@
  * benefit corporation.
  *)
 
-let version = "ICS 2.0 (Experimental, August 10 2003)" 
+let version = "ICS 2.0 (Experimental, August 20 2003)" 
 
 (** ICS command line interpreter. *)
 
@@ -94,7 +94,7 @@ let args () =
 
 let rec repl () =
   usage ();
-  try Ics.cmd_rep () with Failure "drop" -> ()
+  Ics.cmd_rep ()
 
 and usage () =
   begin

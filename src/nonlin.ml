@@ -31,7 +31,7 @@ let rec mk_mult a b =
 	       Not_found -> mk_inj (Pprod.mk_mult a b))
 
 and mk_inj pp =
-  if Pprod.is_one pp then Arith.mk_one else pp
+  if Pprod.is_one pp then Arith.mk_one() else pp
 	   
 and mk_mult_arith op yl b =
   match op, yl with
@@ -51,10 +51,10 @@ and mk_mult_add a yl =
   Arith.mk_addl (mapl (mk_mult a) yl)
 
 and mk_multl al =
-  List.fold_left mk_mult Arith.mk_one al
+  List.fold_left mk_mult (Arith.mk_one()) al
 
 and mk_expt n a =
-  if n = 0 then Arith.mk_one
+  if n = 0 then Arith.mk_one()
   else if n = 1 then a
   else
     try
@@ -86,7 +86,7 @@ and mk_expt_arith n op xl =
 
 and mk_expt_add n xl =
   if n = 0 then
-    Arith.mk_one
+    Arith.mk_one()
   else if n = 1 then 
     Arith.mk_addl xl
   else if n > 1 then
