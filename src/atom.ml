@@ -37,13 +37,14 @@ let index_of (_, i) = i
 let is_false = function FF, _ -> true | _ -> false
 
 let pp fmt (atm, _) =
-  match atm with 
+  (match atm with 
     | TT -> Pretty.string fmt "tt"
     | FF -> Pretty.string fmt "ff"
     | Equal(a, b) -> Pretty.infix Term.pp "=" Term.pp fmt (a, b)
     | Diseq(a, b) -> Pretty.infix Term.pp "<>" Term.pp fmt (a, b)
     | Nonneg(a) -> Pretty.post Term.pp fmt (a, ">=0")
-    | Pos(a) -> Pretty.post Term.pp fmt (a, ">0")
+    | Pos(a) -> Pretty.post Term.pp fmt (a, ">0"));
+  Format.pp_print_flush fmt ()
 
 
 let to_string a =
@@ -167,8 +168,8 @@ let rec mk_diseq (a, b) =
       mk_equal (a, (Boolean.mk_false()))
     else if Boolean.is_false b then
       mk_equal (a, (Boolean.mk_true()))
-    else if is_equal_num a b then
-      mk_false
+    else if is_diseq_num a b then
+      mk_true
     else
       of_diseq (Term.orient (a, b))
 
@@ -183,6 +184,27 @@ and is_equal_num a b =
 let mk_nonneg a = of_atom(Nonneg(a))
 
 let mk_pos a = of_atom(Pos(a))
+
+let map f atm =
+  match atom_of atm with
+    | TT -> atm
+    | FF -> atm
+    | Equal(a, b) -> 
+	let a' = f a and b' = f b in
+	  if a == a' && b == b' then atm else
+	    mk_equal (a', b')
+    | Diseq(a, b) -> 
+	let a' = f a and b' = f b in
+	  if a == a' && b == b' then atm else
+	    mk_diseq (a', b')
+    | Nonneg(a) -> 
+	let a' = f a in
+	  if a == a' then atm else mk_nonneg a'
+    | Pos(a) -> 
+	let a' = f a in
+	  if a == a' then atm else mk_pos a'
+	    
+	      
 
 let is_pure i (a, _) =
   match a with 
@@ -208,6 +230,7 @@ let negate mk_neg (a, _) =
     | Nonneg(a) -> mk_pos (mk_neg a)  (* [not(a >= 0)] iff [-a > 0] *)
     | Pos(a) -> mk_nonneg (mk_neg a)  (* [not(a > 0)] iff [-a >= 0] *)
 
+open Arith
 
 
 (** {6 Miscellaneous} *)
