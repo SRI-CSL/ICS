@@ -1,22 +1,33 @@
 ICS: Integrated Canonizer and Solver
+====================================
+
+
+License:
+--------
+
+Please, carefully read and sign the license 
+at www.icansolve.com before starting to use ICS.
+
 
 Requirements:
 -------------
 
 To compile ICS, you need to install first:
  
- - Objective Caml version 3.00 or later
-   Freely available at http://caml.inria.fr
+ - Objective Caml version 3.04 or later
+   Available at http://caml.inria.fr
 
  - GNU MP version 3.0 or later
-   Freely available at http://www.swox.com/gmp/
+   Is part of the distribution of at least some Unix systems
+   Available at http://www.swox.com/gmp/
+
 
 
 Installation:
 -------------
 
-autoconf  				[to create configure from configure.in]
-./configure     	                [creates the Makefile etc from XXX.in]
+autoconf 	                        [to create configure from configure.in]
+./configure [--with-gmp=/path/to/gmp]   [creates the Makefile etc from XXX.in]
 make			                [builds ICS]
 make doc		                [generates documentation (optional)]
 
@@ -25,13 +36,16 @@ Libraries in ./lib/$(ARCH)/
 
 Build directory is ./obj/$(ARCH)/
 
+Documentation is in ./doc
+
+
 
 Credits:
 --------
 
-Main ocaml code is by Jean-Christophe Filli‚tre and Harald Rueﬂ.
-
-Lisp code is by Sam Owre, Harald Rueﬂ and Jean-Christophe Filli‚tre.
+Main code by Harald Ruess with help from Jean-Christophe Filli‚tre,
+Sam Owre, and N. Shankar.
 
 GMP ocaml interface was originally written by David Monniaux, 
 and patched for ocaml 3.00 by Jean-Christophe Filli‚tre.
+
