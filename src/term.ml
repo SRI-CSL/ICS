@@ -49,6 +49,7 @@ and cmpl l m =
   loop 0 l m
 
 
+
 let (<<<) a b = (cmp a b <= 0)
 
 let orient ((a, b) as e) =
@@ -170,22 +171,22 @@ module Var = struct
   let mk_slack =
     let module SlackHash = Hashtbl.Make(
       struct
-	type t = int * Dom.t * Var.slack
-	let equal (k1, d1, m1) (k2, d2, m2) = 
-	  k1 = k2 && Dom.eq d1 d2 && m1 = m2
+	type t = int * Var.slack
+	let equal (k1, m1) (k2, m2) = 
+	  k1 = k2 && m1 = m2
 	let hash  = Hashtbl.hash
       end)
     in
     let table = SlackHash.create 17 in
     let _ =  Tools.add_at_reset (fun () -> SlackHash.clear table) in 
-      fun i d m -> 
+      fun i sl -> 
 	let k = index i in 
 	  try
-	    SlackHash.find table (k, d, m)
+	    SlackHash.find table (k, sl)
 	  with
 	      Not_found ->
-		let x = Var(Var.mk_slack k d m) in
-		  SlackHash.add table (k, d, m) x; x
+		let x = Var(Var.mk_slack k sl) in
+		  SlackHash.add table (k, sl) x; x
 
 
   (** Construct hashconsed fresh variables local to some theory. *)
@@ -212,8 +213,8 @@ module Var = struct
 
   (** {7 Recognizers} *)
 
-  let is_zero_slack = function Var(x) -> Var.is_slack Var.Zero x | _ -> false
-  let is_nonneg_slack = function Var(x) -> Var.is_slack Var.Nonneg x | _ -> false
+  let is_zero_slack = function Var(x) -> Var.is_zero_slack x | _ -> false
+  let is_nonneg_slack = function Var(x) -> Var.is_nonneg_slack x | _ -> false
   let is_slack x = is_zero_slack x || is_nonneg_slack x
   let is_external = function Var(x) -> Var.is_var x | _ -> false
   let is_rename = function Var(x) -> Var.is_rename x | _ -> false
@@ -248,7 +249,7 @@ module Var = struct
   let of_var = function
     | Var.External(n, d) -> mk_var n d
     | Var.Rename(n, i, d) ->  mk_rename n (Some(i)) d
-    | Var.Slack(i, d, m) -> mk_slack (Some(i)) d m
+    | Var.Slack(i, m) -> mk_slack (Some(i)) m
     | Var.Fresh(th, i, d) -> mk_fresh th (Some(i)) d
     | Var.Bound(n) -> mk_free n
 
@@ -339,6 +340,16 @@ let rec eq a b =
 
 and eql al bl =
   try List.for_all2 eq al bl with Invalid_argument _ -> false
+
+let eq a b =
+  Trace.func "foo11" "eq" (Pretty.pair pp pp) Pretty.bool
+    (fun (a, b) -> eq a b) (a, b)
+
+
+let cmp a b =
+  Trace.func "foo11" "cmp" (Pretty.pair pp pp) Pretty.number
+    (fun (a, b) -> cmp a b) (a, b)
+
 
 
 (** Some recognizers. *)
