@@ -63,6 +63,9 @@ val func : level -> string ->
     an exception.  Except for the outputting of trace messages on
     [stderr], the functional behavior of [f] is unchanged. *)
 
+val func2 : level -> string -> 'a Pretty.printer -> 'b Pretty.printer -> 'c Pretty.printer 
+                -> ('a -> 'b -> 'c) -> 'a -> 'b -> 'c
+
 val proc : level -> string -> 'a Pretty.printer
              -> ('a -> unit) -> 'a -> unit
   (** [proc l name pp f] is just [func l name pp Pretty.unit f]. *)

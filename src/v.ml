@@ -115,7 +115,8 @@ end
   expensive. *)
 type t = {
   post : (Term.t * Jst.t) Term.Var.Map.t; 
-  pre : Pre.t Term.Var.Map.t;      
+  pre : Pre.t Term.Var.Map.t; 
+  cnstrnt : (Var.Cnstrnt.t * Jst.t) Term.Var.Map.t;
   removable: Term.Var.Set.t
 }
 
@@ -124,6 +125,7 @@ let eq s t = s.post == t.post
 let empty = {
   post = Term.Var.Map.empty;
   pre = Term.Var.Map.empty;
+  cnstrnt = Term.Var.Map.empty;
   removable = Term.Var.Set.empty;
 }
 
@@ -149,14 +151,22 @@ let inv s x =
   assert(Term.is_var x);
   try pre s x with Not_found -> Pre.empty
 
+(** Constraint associated with equivalence class [x]. *)
+let cnstrnt s x =
+  try
+    Term.Var.Map.find x s.cnstrnt
+  with
+      Not_found -> (Term.Var.cnstrnt_of x, Jst.dep0)
+
+
 (** Set of removable variables. *)
 let removable s = s.removable
 
 let to_list s =
   Term.Var.Map.fold
-    (fun _ (y, _) acc ->
-       (y, (Pre.elements (inv s y))) :: acc) 
-    s.post []
+    (fun y xs acc ->
+       (y, (Pre.elements xs)) :: acc) 
+    s.pre []
 
 let to_equalities s =
   Term.Var.Map.fold 
@@ -173,7 +183,13 @@ let pp fmt s =
       if !pp_as_equalities then
 	Pretty.set Fact.Equal.pp fmt (to_equalities s)
       else 
-	Pretty.map Term.pp (Pretty.set Term.pp) fmt (to_list s)
+	Pretty.map Term.pp (Pretty.set Term.pp) fmt (to_list s);
+      if not(s.cnstrnt == Term.Var.Map.empty) then
+	begin
+	  Pretty.string fmt "\nwith:";
+	  let l = Term.Var.Map.fold (fun x (c, _) acc -> (x, c) :: acc) s.cnstrnt [] in
+	    Pretty.map Term.pp Var.Cnstrnt.pp fmt l
+	end 
     end  
 
 (** A variable [x] is {i canonical} iff it is not in the domain
@@ -185,7 +201,7 @@ let is_canonical s x =
 
 (** Merging of two different canonical variables [x] and [y] *)
 let rec merge e s =            
-  assert (Fact.Equal.is_var e);
+  assert (Fact.Equal.both_sides (is_canonical s) e);
   let ((x, y, _) as eql) = Fact.Equal.destruct e in
     if Term.eq x y then s else
       begin 
@@ -199,8 +215,6 @@ let rec merge e s =
   - replacing all links [z |-> x] with [z |-> y]. *)
 and union s (x, y, rho) = 
   assert(not(Term.eq x y));            (* [rho |- x = y] *)
-  assert(is_canonical s x);
-  assert(is_canonical s y);
   let removable' = 
     if !garbage_collection_enabled &&
       Term.Var.is_internal x 
@@ -208,13 +222,13 @@ and union s (x, y, rho) =
       Term.Var.Set.add x s.removable
     else 
       s.removable
-  in   
+  in 
   let pre_of_x = inv s x in 
   let post' = 
     Pre.fold
       (fun z ->                         (* [tau |- z = x] *)
 	 let (_, tau) = find s z in
-	 let sigma = Jst.trans z x y tau rho in
+	 let sigma = Jst.dep2 tau rho in
 	   Term.Var.Map.add z (y, sigma))
       pre_of_x
       (Term.Var.Map.add x (y, rho) s.post)
@@ -230,8 +244,31 @@ and union s (x, y, rho) =
 	  Term.Var.Map.add y (Pre.add x (inv s x))
 	  (Term.Var.Map.remove x s.pre)
   in
+  let cnstrnt' =
+    try
+      let (cx, tau) = cnstrnt s x in
+	(try
+	   let (cy, sigma) = cnstrnt s y in
+	     if Var.Cnstrnt.sub cy cx then
+	       Term.Var.Map.remove x s.cnstrnt
+	     else 
+	       (try
+		  let c = Var.Cnstrnt.inter cx cy  in
+		    Term.Var.Map.add y (c, Jst.dep3 rho tau sigma) 
+		      (Term.Var.Map.remove x s.cnstrnt)
+		with
+		    Var.Cnstrnt.Empty -> 
+		      raise(Jst.Inconsistent(Jst.dep3 rho tau sigma)))   
+	 with
+	     Not_found -> 
+	       Term.Var.Map.add y (cx, Jst.dep2 rho tau) 
+	            (Term.Var.Map.remove x s.cnstrnt))
+    with
+	Not_found -> s.cnstrnt
+  in
     {post = post'; 
      pre = pre'; 
+     cnstrnt = cnstrnt';
      removable = removable'}
       
       
@@ -257,6 +294,7 @@ let restrict s x =
       in
 	{post = post'; 
 	 pre = pre'; 
+	 cnstrnt = s.cnstrnt;
 	 removable = removable'}
   with
       Not_found -> s
@@ -268,7 +306,7 @@ let is_equal s x y =
   let (x', rho) = find s x         (* [rho |- x = x'] *)
   and (y', sigma) = find s y in 
     if Term.eq x' y' then          (* [sigma |- y = y'] *)
-      Some(Jst.trans x x' y rho sigma)
+      Some(Jst.dep2 rho sigma)
     else 
       None
 

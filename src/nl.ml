@@ -13,16 +13,41 @@
 
 open Mpa
 
-let nl = Some(Th.nl)
+let nl = Th.inj Th.nl
 
-module Eqs = Eqs.Make0(
+(** Deducing constraints from equalities [x = a], with [a] a power 
+  product, as a side effect on updates in the equality set. *)
+module Deduce: (Eqs.EXT with type t = unit) =
+struct
+  type t = unit
+  let empty = ()
+  let pp _ _ = ()
+  let do_at_restrict _ _ = ()
+  let do_at_add (p, ()) (x, a, rho) =      (* [rho |- x = a] *)
+    let (y, tau) = Partition.find p x in   (* [tau |- x = y] *)
+      if Pprod.is_one a then
+	let e = Fact.Equal.make (y, Arith.mk_one, Jst.dep2 rho tau) in
+	  Fact.Eqs.push nl e
+      else if Term.Var.is_slack y then
+	let (b, c) = Pprod.split a in
+	  assert(Pprod.is_nonneg b);
+	  if Pprod.is_one c then () else     (* deduce [c >= 0]. *)
+	    let nn =  Fact.Nonneg.make (c, Jst.dep2 rho tau) in
+	      Fact.Nonnegs.push nl nn
+      else                                   
+	if Pprod.is_nonneg a then            (* deduce [y >= 0]. *)
+	  let nn = Fact.Nonneg.make (y, Jst.dep2 rho tau) in
+	    Fact.Nonnegs.push nl nn
+end
+
+module Eqs = Eqs.Make(
   struct
     let th = Th.nl
     let nickname = Th.to_string Th.nl
-    let apply = Pprod.apply
-    let disapply _ a = a
+    let map = Pprod.map
     let is_infeasible _ = false
   end)
+  (Deduce)
 
 type t = Eqs.t
 
@@ -45,93 +70,142 @@ let rec inv s a =
     try 
       let (c, sigma) = inv1 s b in    (* [sigma |- y = z] *)
 	assert(not(Term.eq b c));
-	let tau = Jst.trans a b c rho sigma in
+	let tau = Jst.dep2 rho sigma in
 	  inv_plus (c, tau)
     with 
 	Not_found -> (b, rho)
   in
     inv_plus (inv1 s a)
 
-and inv1 s a =
-  let lookup = ref None in
-    Pprod.iter
-      (fun x _ ->
-	 let (b, rho) =  find s x in
-	   match !lookup with
-	     | None ->          (* [lcm = p * a = q * b = q * x] *)
-		 let (p, q, lcm) = Pprod.lcm (a, b) in
-		   if Pprod.is_one p then 
-		     lookup := Some(q, x, b, rho)
-	     | Some(_, _, b', _) when Pprod.cmp b b' <= 0 ->
-		 ()
-	     | _ ->
-		 let (p, q, lcm) = Pprod.lcm (a, b) in
-		   if Pprod.is_one p then
-		     lookup := Some(q, x, b, rho))
-      a;
-      match !lookup with
-      | Some(q, x, _, rho) -> 
-	  let a' = Pprod.mk_mult q x in
-	    if Term.eq a a' then 
-	      raise Not_found
-	    else 
-	      let rho' = Jst.groebner (a', a) rho in
-		(a', rho')
-      | None ->
-	  raise Not_found
-
+and inv1 s pp =
+  try
+    let x = Pprod.choose pp in  (* arbitrary variable. *)
+    let lookup = ref None in
+      Eqs.Dep.iter s
+	(fun e ->
+	   let (u, qq, rho) = Fact.Equal.destruct e in  (* [rho |- u = qq] *)
+	     match Pprod.div (qq, pp) with
+	       | None -> ()
+	       | Some(mm) ->                            (* [qq * mm = pp] *)
+		   (match !lookup with                  (* thus: [rho |- u * mm = pp]. *)
+		      | Some(_, _, mm') when Pprod.cmp mm mm' < 0 -> ()
+		      | _ -> lookup := Some(rho, u, mm)))
+	x;
+      (match !lookup with
+	| Some(rho, u, mm) -> 
+	    let pp' = Pprod.mk_mult u mm in
+	      if Term.eq pp pp' then raise Not_found else (pp', rho)
+	| None ->
+	    raise Not_found)
+  with
+      Not_found ->  (* [pp] a representation of [1]. *)
+	Eqs.inv s pp
 
 let is_dependent = Eqs.is_dependent
 let is_independent = Eqs.is_independent
 
 let copy = Eqs.copy
 
-let name (p, s) = Eqs.name (p, s)
+let name ((p, _) as cfg) = 
+  Jst.Eqtrans.compose (Partition.find p) (Eqs.name cfg) 
 
-let merge s e = 
+(** Canonization by interpreting dependent variables
+  followed by a reduction using Groebner-like cuts. *)
+let rec can cfg =
+  Jst.Eqtrans.compose
+    (Jst.Eqtrans.totalize (uninterp cfg))
+    (Jst.Eqtrans.totalize (interp cfg))
+
+and interp (p, s) a = 
+  if Term.is_var a then
+    Partition.choose p (apply s) a
+  else 
+    Jst.Eqtrans.id a
+
+and uninterp (p, s) a =
+  try
+    Jst.Eqtrans.compose (Partition.find p) (inv s) a
+  with
+      Not_found -> Partition.find p a
+
+
+(** [replace s a] substitutes dependent variables [x]
+  in [a] with their right hand side [b] if [x = b] in [s].
+  The result is canonized using {!Pprod.map}. *)
+let replace cfg =
+  Jst.Eqtrans.replace Pprod.map (interp cfg)
+
+
+(** Processing an equality. *)
+let merge cfg e = 
+  assert(Fact.Equal.is_pure Th.nl e);
   Trace.msg "nl" "Merge" e Fact.Equal.pp;
-  Eqs.fuse  s [e]
+  let e = Fact.Equal.map (replace cfg) e in
+  let e = Fact.Equal.map_lhs (Eqs.name cfg) e in  (* not necessarily canonical name. *)
+    Eqs.compose cfg [e]
+
 
 (** Propagate an equality [x = a], where [a] is a linear
   arithmetic term by instantiating rhs with this equality.
   This may introduce linear arithmetic subterms, which need
   to be renamed. *)
-let rec propagate (p, la, nl) e =                
-  Trace.msg "nl" "Merge" e Fact.Equal.pp;
-  let (x, a, rho) = Fact.Equal.destruct e in    (* [rho |- x = a] *)
-    assert(Term.is_var x && Term.is_pure Th.a a);
+let rec propagate (p, la, nl) e =     
+  Trace.msg "nl" "Propagate" e Fact.Equal.pp; 
+  let (x, a, _) = Fact.Equal.destruct e in
+    if is_independent nl x then
+      propagate1 (p, la, nl) e;
+    let isolate y = Fact.Equal.equiv (Arith.isolate y) in
+      Arith.iter
+	(fun y -> 
+	   let e' = isolate y e in
+	   let (x', _, _) = Fact.Equal.destruct e' in
+	     if is_independent nl x' then
+	       propagate1 (p, la, nl) e')
+	a
+
+and propagate1 (p, la, nl) e =                
+  let (x, a, rho) = Fact.Equal.destruct e in        (* [rho |- x = a] *)
+    assert(Term.is_var x && Term.is_pure Th.la a);
     let instantiate e =
-      let (y, b, tau) = Fact.Equal.destruct e in  (* [tau |- y = b] *)
-      let c = Nonlin.apply (x, a) b in
-	if not(b == c) then                       (* [sigma |- b = c] *)
-	  let sigma = Jst.dependencies1 rho in 
-	  let (d, upsilon) = purify (p, la, nl) c in (* [upsilon |- c = d] *)
-	  let omega' = Jst.trans y b c tau sigma in
-	  let e' = Fact.Equal.make (y, c, omega') in  (* [omega' |- y = c] *)
+      let (y, b, tau) = Fact.Equal.destruct e in    (* [tau |- y = b] *)
+      let (c, sigma) = apply_subst e b in           (* [sigma |- b=c], with [c==b[x:=a]]*)
+	if not(b == c) then                     
+	  let (d, upsilon) = abstract (p, la, nl) c in (* [upsilon |- c = d] *)
+	  let omega' = Jst.dep2 tau sigma in
+	  let e' = Fact.Equal.make (y, c, omega') in (* [omega' |- y = c] *)
 	    if Pprod.is_interp d then
 	      Eqs.update (p, nl) e'
 	    else 
 	      begin
 		Eqs.restrict (p, nl) y;
-		Fact.Eqs.push (Some(Th.nl)) e';
-		let omega'' = Jst.trans y c d omega' upsilon in
+		Fact.Eqs.push (Th.inj Th.nl) e';
+		let omega'' = Jst.dep2 omega' upsilon in
 		let e'' = Fact.Equal.make (y, d, omega'') in
-		  Fact.Eqs.push (Some(Th.nl)) e''
+		  Fact.Eqs.push (Th.inj Th.nl) e''
 	      end 
   in
     Eqs.Dep.iter nl instantiate x
 
+
+(** [apply e a], for [e] is of the form [x = b], applies the
+  substition [x := b] to [a]  *)
+and apply_subst e = 
+  let (x, a, rho) = Fact.Equal.destruct e in
+  let lookup y = if Term.eq x y then (a, rho) else (y, Jst.dep0) in
+    Jst.Eqtrans.replace Pprod.map lookup
+
+
 (** Replace linear arithmetic subterms by variables.
   The result is either a nonarithmetic term or a power product. *) 
-and purify (p, la, nl) a = 
-  let hyps = ref [] in
+and abstract (p, la, nl) a = 
+  let hyps = ref Jst.dep0 in
   let name_la a =
     let (x, rho) = La.name (p, la) a in
-      if not(x == a) then hyps := rho :: !hyps;
+      hyps := Jst.dep2 rho !hyps;
       x
   and name_nl a =
     let (x, rho) = Eqs.name (p, nl) a in
-      if not(x == a) then hyps := rho :: !hyps;
+      hyps := Jst.dep2 rho !hyps;
       x
   in  
   let b = 
@@ -151,39 +225,4 @@ and purify (p, la, nl) a =
     with
 	Not_found -> a
   in
-  let rho = Jst.dependencies !hyps in
-    (b, rho)
-	     
-			      
-
-
-(* {6 Constructing models} *)
-     
-let models (is_num, lookup) (p, s) =
-  failwith "to do"
-       
-
-
-(*
-
-(** Deduce new constraints from nonlinear equalities. *)
-and deduce s e =
-  let e' = Fact.Equal.map (v s) e in
-  let (a, b, rho) = Fact.Equal.destruct e' in
-  let sign = to_option (sign s) in
-    match sign a, sign b with
-      | None, None -> ()
-      | None, Some(d, sigma) ->
-	  let omega = Jst.dependencies [rho; sigma] in
-	    process_sign s ((a, d), omega)   (* [omega |- a in d] *)
-      | Some(c, tau), None ->
-	  let omega = Jst.dependencies [rho; tau] in
-	    process_sign s ((b, c), omega)   (* [omega |- b in c] *)
-      | Some(c, tau), Some(d, sigma) -> 
-	  let cd = Sign.inter c d in
-	    (let omega1 = Jst.dependencies [rho; tau; sigma] in
-	       process_sign s ((a, cd), omega1));
-	    (let omega2 = Jst.dependencies  [rho; tau; sigma] in
-	       process_sign s ((b, cd), omega2))
-
-*)
+    (b, !hyps)

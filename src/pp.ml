@@ -16,10 +16,6 @@
 open Sym
 open Term
 
-(** {6 Symbols.} *)
-
-let mult = Sym.Pp(Sym.Mult)
-let expt n = Sym.Pp(Sym.Expt(n))
 
 
 (** {6 Recognizers.} *)

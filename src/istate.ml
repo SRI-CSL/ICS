@@ -1,4 +1,3 @@
-
 (*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
@@ -19,7 +18,7 @@ open Name.Map
 (** Global state. *)
 
 let current = ref Context.empty
-let symtab = ref Symtab.empty
+let symtab = ref (Symtab.empty())
 let inchannel = ref Pervasives.stdin
 let outchannel = ref Format.std_formatter
 let eot = ref "" 
@@ -63,7 +62,7 @@ end
 (** Initialize. *)
 
 let initialize pp ch inch outch =
-  Pretty.flag := Pretty.Mixfix;
+  Pretty.flag := Pretty.Mode.Mixfix;
   Var.pretty := pp;
   eot := ch;
   inchannel := inch;
@@ -179,7 +178,7 @@ module Out = struct
     if !batch then nothing () else 
       let fmt = !outchannel in
 	Format.fprintf fmt ":term "; Term.pp fmt a;
-	if not(Jst.is_none rho) then
+	if not(Jst.Mode.is_none()) then
 	  begin
 	    Format.fprintf fmt "\n:justification ";
 	    Jst.pp fmt rho
@@ -202,7 +201,7 @@ module Out = struct
     if !batch then nothing () else 
       let fmt = !outchannel in
 	Format.fprintf fmt ":dom "; Dom.pp fmt d;
-	if not(Jst.is_none rho) then
+	if not(Jst.Mode.is_none()) then
 	  begin
 	    Format.fprintf fmt "\n:justification ";
 	    Jst.pp fmt rho
@@ -214,7 +213,7 @@ module Out = struct
       let fmt = !outchannel in
 	Format.fprintf fmt "\n:atom "; 
 	Atom.pp fmt a;
-	if not(Jst.is_none j) then
+	if not(Jst.Mode.is_none()) then
 	  begin
 	    Format.fprintf fmt "\n:justification ";
 	    Jst.pp fmt j
@@ -232,7 +231,7 @@ module Out = struct
   let unsat j =
     let fmt = !outchannel in
       Format.fprintf fmt ":unsat ";
-      if not(Jst.is_none j) then
+      if not(Jst.Mode.is_none()) then
 	begin
 	  Jst.pp fmt j
 	end;
@@ -242,7 +241,7 @@ module Out = struct
     if !batch then nothing () else 
       let fmt = !outchannel in
 	Format.fprintf fmt ":valid ";
-	if not(Jst.is_none j) then
+	if not(Jst.Mode.is_none()) then
 	  begin
 	    Jst.pp fmt j
 	  end;
@@ -297,12 +296,12 @@ module Out = struct
 	    Format.fprintf !outchannel ":unknown@?"
 	| Jst.Three.Yes(rho) ->
 	    Format.fprintf !outchannel ":yes ";
-	    if not(Jst.is_none rho) then
+	    if not(Jst.Mode.is_none()) then
 	      Jst.pp !outchannel rho;
 	    Format.fprintf !outchannel "@?"
 	| Jst.Three.No(rho) ->
 	    Format.fprintf !outchannel ":no ";
-	    if not(Jst.is_none rho) then
+	    if not(Jst.Mode.is_none()) then
 	      Jst.pp !outchannel rho;
 	    Format.fprintf !outchannel "@?"
 
@@ -344,11 +343,27 @@ module Out = struct
 	Format.fprintf !outchannel "@?"
       end 
 
+  let cnstrnt0 c =
+    if !batch then nothing () else
+      begin
+	Format.fprintf !outchannel "cnstrnt ";
+	Var.Cnstrnt.pp !outchannel c;
+	Format.fprintf !outchannel "@?"
+      end
+
   let context ctxt =
      if !batch then nothing () else
        begin
 	 Format.fprintf !outchannel ":state ";
 	 Context.pp !outchannel ctxt;
+	 Format.fprintf !outchannel "@?"
+       end 
+
+  let partition p =
+     if !batch then nothing () else
+       begin
+	 Format.fprintf !outchannel ":partition ";
+	 Partition.pp !outchannel p;
 	 Format.fprintf !outchannel "@?"
        end 
 
@@ -553,7 +568,7 @@ let symtab1 n =
        | Symtab.Def(Symtab.Term(a)) -> Out.term0 a
        | Symtab.Def(Symtab.Prop(p)) -> Out.prop p
        | Symtab.Arity(n) -> Out.int n
-       | Symtab.Type(d) -> Out.dom0 d
+       | Symtab.Type(c) -> Out.cnstrnt0 c
        | Symtab.State(s) -> Out.context s)
   with
       Not_found -> Out.none ()
@@ -691,10 +706,18 @@ let do_ctxt =
 
 let do_show = 
   Command.register "show"
-    (function
-       | None -> Out.context !current
-       | Some(n) -> Out.context (context_of n))
-    {args = "[<ident>]";
+    (fun n th ->
+       let s = match n with
+	 | None -> !current
+	 | Some(n) -> (context_of n) 
+       in
+	 match th with
+	   | None -> Out.context s
+	   | Some(th) -> 
+	       (match th with
+		  | None -> Partition.pp !outchannel (Context.partition_of s)
+		  | Some(i) -> Combine.pp i !outchannel (Context.eqs_of s)))
+    {args = "[@<ident>] [<th>]'";
      short = "Output partition and theory-specific equality sets."; 
      description = "" ; 
      examples = []; 
@@ -735,7 +758,7 @@ let do_sigma =
 let do_simplify =
   Command.register "simplify"
     (fun a ->
-       Out.fact (Context.simplify !current (Fact.mk_axiom a)))
+       Out.fact (Combine.simplify (Context.config_of !current) a))
     {args = "<atom>";
      short = "Simplification of atoms."; 
      description = 
@@ -884,7 +907,7 @@ let do_process =
 		    raise(Jst.Inconsistent(rho))
 		  else 
 		    Out.unsat rho))
-    {args = "[<ident>]  <atom>";
+    {args = "[@<ident>]  <atom>";
      short = "Add an atom to a context"; 
      description = "
          An <atom> is asserted to the specified context. If <ident> 
@@ -917,7 +940,7 @@ let do_valid =
      match Context.add (get_context n) a with 
        | Context.Status.Valid _ -> Out.tt ()
        | _ -> Out.ff ())
-  {args = "[<ident>]  <atom>";
+  {args = "[@<ident>]  <atom>";
    short = "Test if <atom> is valid in context <ident>."; 
    description = "" ; 
    examples = []; 
@@ -930,7 +953,7 @@ let do_unsat =
        match Context.add (get_context n) a with 
 	 | Context.Status.Inconsistent _ -> Out.tt ()
 	 | _ -> Out.ff ())
-    {args = "[<ident>]  <atom>";
+    {args = "[@<ident>]  <atom>";
      short = "Test if <atom> is unsatisfiable in context <ident>."; 
      description = "" ; 
      examples = []; 
@@ -946,7 +969,7 @@ let do_model =
 	   Out.assignment l
        with
 	   Not_found -> Out.none ())
-    {args = "[<ident>]  <nameset>";
+    {args = "[@<ident>]  <nameset>";
      short = "Assignment with domain <nameset>, extendable to a model."; 
      description = "" ; 
      examples = []; 
@@ -964,12 +987,12 @@ let do_diseq =
 	   let ds = Partition.diseqs (Context.partition_of s) b in
 	     D.Set.iter
 	       (fun (x, rho2) ->        (* [rho2 |- x <> b] *)
-		  let rho = Jst.subst_diseq (x, a) rho2 [rho1] in
+		  let rho = Jst.dep2 rho2 rho1 in
 		    Out.term (x, rho))
 	       ds
 	 with
 	     Not_found -> Out.none ())
-    {args = "[<ident>]  <term>";
+    {args = "[@<ident>]  <term>";
      short = "Return known disequalities."; 
      description = 
        "Returns a list of variables known to be disequal to <term> in
@@ -985,11 +1008,11 @@ let do_dom =
     (fun (n, a) ->
        let s = get_context n in
 	 try
-	   let (d, rho) = Partition.dom (Context.partition_of s) a in
+	   let (d, rho) = Combine.dom (Context.config_of s) a in
 	     Out.dom (d, rho)
 	 with
 	     Not_found -> Out.none ())
-  {args = "[<ident>]  <term>";
+  {args = "[@<ident>]  <term>";
    short = "Return domain constraint for <term>."; 
    description = "" ; 
    examples = []; 
@@ -1005,7 +1028,7 @@ let do_sup =
 	   Out.term (b, rho)
        with
 	   La.Unbounded -> Out.none ())
-  {args = "[<ident>]  <term>";
+  {args = "[@<ident>]  <term>";
    short = "Maximize term"; 
    description = 
        "[sup a] returns a term [b] of the form [c0 - d1*x1 - ... - dn*xn] with
@@ -1026,7 +1049,7 @@ let do_inf =
 	     Out.term (b, rho)
 	 with
 	     La.Unbounded -> Out.none ())
-  {args = "[<ident>] <term>";
+  {args = "[@<ident>] <term>";
    short = "Minimize term"; 
    description =
        "[inf a] returns a term [b] of the form [c0 + d1*x1 + ... + dn*xn] with
@@ -1043,7 +1066,7 @@ let do_split =
     (fun n ->
        let s = get_context n in
 	 Out.split (Combine.split (Context.config_of s)))
-    {args = "[<ident>]";
+    {args = "[@<ident>]";
      short = "Suggested case splits."; 
      description = "" ; 
      examples = []; 
@@ -1061,7 +1084,7 @@ let do_find =
 	 | None -> Partition.find (Context.partition_of s) x
        in
 	 Out.term (b, rho))
-    {args = "[<ident>] <th> <term> ";
+    {args = "[@<ident>] <th> <term> ";
      short = "Return theory-specific interpretation for a variable."; 
      description = 
         "If the equality [x = t] is in the solution set [<th>] , say [a], 
@@ -1076,10 +1099,10 @@ let do_inv =
   Command.register "inv"
     (fun (n, i, b) -> 
        try
-	 Out.term (Context.inv (get_context n) b)
+	 Out.term (Combine.inv (Context.config_of (get_context n)) b)
        with
 	   Not_found -> Out.none ())
-    {args = "[<ident>] <th> <term> ";
+    {args = "[@<ident>] <th> <term> ";
      short = "Returns a variable for interpreted terms."; 
      description = "
         If the equality [x = t] is in the solution set <th>, say,
@@ -1094,8 +1117,8 @@ let do_inv =
 let do_dep =
   Command.register "dep"
     (fun (n, i, a) -> 
-       Out.terms (Context.dep i (get_context n) a))
-    {args = "[<ident>] <th> <term> ";
+       Out.terms (Combine.dep (Context.eqs_of (get_context n)) i a))
+    {args = "[@<ident>] <th> <term> ";
      short = "Return the lhs dependencies for variable <term> in solution set <th>."; 
      description = "" ; 
      examples = []; 
@@ -1151,10 +1174,11 @@ let do_is_equal =
 
 let do_sat =
   Command.register "sat"
-    (fun p ->
-       match Prop.sat !current p with
+    (fun (n, p) ->
+       let s = get_context n in
+       match Prop.sat s p with
 	 | None -> 
-	     let rho = Jst.oracle "SAT" [] in
+	     let rho = Jst.dep0 in
 	       if !batch then (* Exit in batch mode when inconsistency is detected *)
 		 raise(Jst.Inconsistent(rho))
 	       else
@@ -1164,7 +1188,7 @@ let do_sat =
 	       let n = fresh_state_name () in
 		 symtab := Symtab.add n (Symtab.State(s')) !symtab;
 		 Out.sat (n, rho))
-    {args = "<prop> ";
+    {args = "[@<ident>] <prop> ";
      short = "SAT Solver for propositional constraints."; 
      description = 
         "A satisfiability solver for propositional formulas over atoms.
@@ -1174,8 +1198,8 @@ let do_sat =
          is added in the symbol table for the state corresponding to the conjunction of 
          the atoms in a satisfying assignment, but the current logical state is unchanged.";
      examples = 
-       ["sat x | y | (z & ~x) # y", "Boolean SAT problem";
-	"sat x > y & (y = 2 # ~(x <> 3))", "Boolean constraint SAT problem"];
+       ["sat x | y | [z & ~x] # y", "Boolean SAT problem";
+	"sat x > y & [y = 2 # ~[x <> 3]]", "Boolean constraint SAT problem"];
      seealso = ""}
       
 
@@ -1198,7 +1222,6 @@ module Parameters = struct
 
   type t = 
     | Compactify
-    | Footprint
     | Pretty
     | Statistics
     | Proofmode
@@ -1208,12 +1231,12 @@ module Parameters = struct
     | Eot
     | Prompt
     | IntegerSolve
+    | Crossmultiply
     | Index
     | Clock
 
   let to_string = function
     | Compactify -> "compactify"
-    | Footprint -> "footprint"
     | Pretty -> "pretty"
     | Statistics -> "statistics"
     | Proofmode -> "proofmode"
@@ -1223,12 +1246,12 @@ module Parameters = struct
     | Eot -> "eot"
     | Prompt -> "prompt"
     | IntegerSolve -> "integersolve"
+    | Crossmultiply -> "crossmultiply"
     | Index -> "index"
     | Clock -> "clock"
 
   let of_string = function
     | "compactify" -> Compactify
-    | "footprint" -> Footprint
     | "pretty" -> Pretty
     | "statistics" -> Statistics
     | "proofmode" -> Proofmode
@@ -1238,17 +1261,17 @@ module Parameters = struct
     | "eot" -> Eot
     | "prompt" -> Prompt
     | "integersolve" -> IntegerSolve
+    | "crossmultiply" -> Crossmultiply
     | "index" -> Index
     | "clock" -> Clock
     | str -> raise(Invalid_argument (str ^ " : no such variable"))
 
   let get var =
     match var with
-      | Compactify -> string_of_bool !Context.compactify
-      | Footprint -> string_of_bool !Fact.footprint
-      | Pretty ->  string_of_bool (not(!Pretty.flag = Pretty.Sexpr))
+      | Compactify -> string_of_bool !V.garbage_collection_enabled
+      | Pretty ->  Pretty.Mode.to_string !Pretty.flag
       | Statistics ->  string_of_bool !Prop.statistics
-      | Proofmode ->  Jst.Mode.to_string !Jst.proofmode
+      | Proofmode ->  Jst.Mode.to_string (Jst.Mode.get())
       | Justifications -> string_of_bool !Fact.print_justification
       | Inchannel -> Inchannel.to_string !inchannel
       | Outchannel -> Outchannel.to_string !outchannel
@@ -1256,6 +1279,7 @@ module Parameters = struct
       | Prompt -> !prompt
       | Index -> string_of_bool !Eqs.pp_index
       | IntegerSolve -> string_of_bool !Arith.integer_solve
+      | Crossmultiply -> string_of_bool !Atom.crossmultiply
       | Clock -> 
 	  let times =  Unix.times() in
 	  let utime =  times.Unix.tms_utime in
@@ -1264,44 +1288,40 @@ module Parameters = struct
 	
   let set var value =
     match var with
-      | Compactify -> Context.compactify := bool_of_string value
+      | Compactify -> V.garbage_collection_enabled := bool_of_string value
       | Index -> Eqs.pp_index := bool_of_string value
-      | Footprint ->  Fact.footprint := bool_of_string value
       | Statistics -> Prop.statistics := bool_of_string value
-      | Proofmode -> Jst.proofmode := Jst.Mode.of_string value
+      | Proofmode -> Jst.Mode.set (Jst.Mode.of_string value)
       | Justifications -> Fact.print_justification :=  bool_of_string value
       | Inchannel -> inchannel := Inchannel.of_string value
       | Outchannel -> outchannel := Outchannel.of_string value
       | Eot -> eot := value
       | Prompt -> prompt := value 
       | IntegerSolve -> Arith.integer_solve := bool_of_string value
-      | Pretty -> 
-	  Pretty.flag := if bool_of_string value then Pretty.Mixfix else Pretty.Prefix;
-	  Var.pretty := bool_of_string value
-      | Clock -> 
-	  raise(Invalid_argument "Can not reset clock")
+      | Crossmultiply -> Atom.crossmultiply := bool_of_string value
+      | Pretty -> Pretty.flag := Pretty.Mode.of_string value
+      | Clock -> invalid_arg "Can not reset clock"
 	
 
   let reset () = 
     set Compactify "true";
-    set Footprint "false";
     set Statistics "false";
-    set Proofmode "no";
+    set Proofmode "dep";
     set Justifications "false";
     set Inchannel "stdin";
     set Outchannel "stdout";
     set Eot "";
     set Prompt "ics> ";
     set IntegerSolve "true";
+    set Crossmultiply "false";
     set Index "false";
-    set Pretty "true"
+    set Pretty "mixfix"
 
   let show fmt var =
     Format.fprintf fmt "\n%s = %s" (to_string var) (get var)
 
   let iter f =
     f Compactify;
-    f Footprint;
     f Pretty;
     f Statistics;
     f Proofmode;
@@ -1311,11 +1331,12 @@ module Parameters = struct
     f Eot;
     f Prompt;
     f Index;
-    f IntegerSolve
+    f IntegerSolve;
+    f Crossmultiply
+
 
   let description = function
     | Compactify -> "Enables garbage collection of noncanonical, internal variables"
-    | Footprint -> "Displays a footprint of all generated facts"
     | Pretty -> "Enables infix/mixfix printing and suppression of domain restrictions"
     | Statistics -> "Print statistics of propositional SAT solver"
     | Proofmode -> "Setting level of proofmode (No = no proofs, Yes = proofs, Dep = only dependencies"
@@ -1327,6 +1348,7 @@ module Parameters = struct
     | IntegerSolve -> "Enable integer solver"
     | Index -> "Enable printing of indices"
     | Clock -> "Current user and system time"
+    | Crossmultiply -> "Enable crossmultiplication"
       
 end
 
@@ -1339,6 +1361,7 @@ let do_get =
 	 Out.nl();
 	 Out.unit()
        with
+
 	   exc -> Out.error(Printexc.to_string exc))
     {args = "[<parameter>] ";
      short = "Get current value for <parameter>. "; 
@@ -1373,7 +1396,7 @@ let do_reset =
     (fun () -> 
        Tools.do_at_reset ();
        current := Context.empty;
-       symtab := Symtab.empty;
+       symtab := Symtab.empty();
        Parameters.reset ();
        counter := 0;
        Out.unit ())
@@ -1428,7 +1451,8 @@ let _ =
      "<array>";
      "<bv>";
      "<list>";
-     "<apply>"]
+     "<apply>";
+     "<propset>"]
     "A <term> is either a variable <var> or an application <app>,
      and an application is of the form 'f(a1,...,an)' with 'f' a
      function symbol and [ai] terms. Besides application in prefix notation,
@@ -1436,7 +1460,8 @@ let _ =
      function symbols of various builtin theories such as
      linear arithmetic terms (<arith>), functional arrays (<array>),
      bitvectors (<bv>), coproducts (<coproduct>), lists (<list>), and
-     functional abstraction and application (<apply>)."
+     functional abstraction and application (<apply>), and propositional
+     sets (<propset>)."
 
 let _ = 
   Nonterminal.register "var"
@@ -1521,6 +1546,15 @@ let _ =
     ""
 
 let _ = 
+  Nonterminal.register "propset"
+    ["empty";
+     "full";
+      "<term> union <term>";
+     "<term> inter <term>";
+     "compl <term>"]
+    ""
+
+let _ = 
   Nonterminal.register "array"
     ["create(<term>";
      "<term>[<term> := <term>]";
@@ -1579,9 +1613,10 @@ let _ =
      "<term> < <term>";
      "<term> > <term>";
      "<term> <= <term>";
-     "<term> >= <term>"]
+     "<term> >= <term>";
+     "<term> sub <term>"]
    "An atom is either a constant atom, an equality, a disequality,
-    or one of the arithmetic inequality constraints"
+    one of the arithmetic inequality constraints, or a subset constraint."
 
 let _ = 
   Nonterminal.register "dom"
@@ -1592,7 +1627,6 @@ let _ =
   Nonterminal.register "th"
     (Th.fold (fun i acc -> Th.to_string i :: acc) [])
     "Builtin equality theories"
-
 
 
 let _ =
@@ -1616,5 +1650,3 @@ let _ =
 	   let entry = "     " ^ name ^ "\t" ^ descr ^ "\n" in
 	     entry ^ acc)
 	!Trace.registered "")
-	   
-	 

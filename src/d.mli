@@ -11,7 +11,7 @@
  * benefit corporation.
  *)
 
-(** Context for handling disequalities
+(** Disequalities
 
   @author Harald Ruess
 *)
@@ -24,13 +24,9 @@ val pp : t Pretty.printer
   (** Pretty-printing. *)
 
 val eq : t -> t -> bool
-  (** [eq s t] holds iff [s] and [t] are physically equal.
+  (** [eq s t] holds iff [s] and [t] are 'physically' equal.
     If [eq s t] equals [false], then it is not necessarily
     true that [s] and [t] are not logically equivalent. *)
-
-
-(** {6 Accessors} *)
-
 
 module Set : (Set.S with type elt = Term.t * Jst.t)
 
@@ -38,18 +34,16 @@ val diseqs : t -> Term.t -> Set.t
  (** [diseqs s x] returns set of  disequalites of the form [x <> y] 
    such that [x <> y] is represented in [s]. *)
 
-
 val map_diseqs : t -> Jst.Eqtrans.t -> Term.t -> Set.t
+
+val fold : (Term.t -> Set.t -> 'a -> 'a) -> t -> 'a -> 'a 
  
-
-
-(** {6 Recognizers} *)
+val iter : (Term.t -> Set.t -> unit) -> t -> unit
+ 
 
 val is_diseq: t -> Term.t -> Term.t -> Jst.t option
   (** Check if two terms are known to be disequal. *)
 
-
-(** {6 Constructors} *)
 
 val empty : t
   (** The empty disequality context. *)

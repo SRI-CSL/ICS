@@ -16,9 +16,13 @@
   @author Harald Ruess
 *)
 
-type mode = Mixfix | Prefix | Sexpr
+module Mode : sig
+  type t = Mixfix | Prefix | Sexpr
+  val to_string : t -> string
+  val of_string : string -> t
+end
 
-val flag : mode ref
+val flag : Mode.t ref
 
 type 'a printer = Format.formatter -> 'a -> unit
 
@@ -36,15 +40,7 @@ val three : Three.t printer
 
 val list : 'a printer -> 'a list printer
 
-val list' : 'a printer -> 'a list printer
-
-val final_sep : bool ref
-
 val pair : 'a printer -> 'b printer -> ('a * 'b) printer
-
-val triple : 'a printer -> 'b printer -> 'c printer -> ('a * 'b * 'c) printer
-
-val tuple : 'a printer -> 'a list printer
 
 val infix : 'a printer -> string -> 'b printer -> ('a * 'b) printer
   (** [infix p str q (a, b)] prints [a] using printer [p], then it prints
@@ -55,11 +51,7 @@ val mixfix : string -> 'a printer ->
              string -> 'c printer -> string
                -> ('a * 'b * 'c) printer
 
-val eqn : 'a printer -> ('a * 'a) printer
-  (** Print a pair as an equality. *)
-
-val solution : 'a printer -> ('a * 'a) list printer
-  (** Printing of a solution set as a set of equalities. *)
+val post : 'a printer -> ('a * string) printer
 
 val infixl : 'a printer -> string -> 'a list printer
   (** [infixl pp op] prints a list [[a1;...;an]] in the
@@ -67,11 +59,8 @@ val infixl : 'a printer -> string -> 'a list printer
 
 val apply : 'b printer -> (string * 'b list) printer
 
-
 val set : 'a printer -> 'a list printer
   (** Printing of a list as a set. *)
-
-val assign : 'a printer -> 'b printer -> ('a * 'b) printer
 
 val map : 'a printer -> 'b printer -> ('a * 'b) list printer
   (** Printing of a list of pairs as a finite map. *)

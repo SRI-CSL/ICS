@@ -89,7 +89,7 @@ end
 module type TH = sig
   val th : Th.t
   val nickname : string
-  val apply : Term.Equal.t -> Term.t -> Term.t
+  val map : Term.map
   val is_infeasible : Term.Equal.t -> bool
 end
 
@@ -215,7 +215,7 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
       if not(el = []) then
 	begin
 	  Format.fprintf fmt "\n%s: " Th.nickname;
-	  Pretty.set (Pretty.eqn Term.pp) fmt (to_list s);
+	  Pretty.set (Pretty.infix Term.pp "=" Term.pp) fmt (to_list s);
 	  if !pp_index then
 	    begin
 	      Format.fprintf fmt "\nuse: ";
@@ -224,7 +224,38 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
 	    end 
 	end
 
+  let synchronized s =
+    let res1 = 
+      Term.Var.Map.fold
+	(fun x (a, _) acc -> 
+	   acc &&  
+	   let res = Term.Map.mem a s.inv in
+	     if not res then
+	       Format.eprintf "\n%s not in inv@." (Pretty.to_string Term.Equal.pp (x, a));
+	     res)
+	s.find true
+    and res2 = 
+      Term.Map.fold
+	(fun a x acc -> 
+	   acc && 
+	   let res = Term.Var.Map.mem x s.find in
+	     if not res then
+	       begin
+		 Format.eprintf "\n%s not in find@." (Pretty.to_string Term.Equal.pp (x, a));
+		 Format.eprintf "\n IN FIND \n";
+		 pp Format.err_formatter s;
+		 Format.eprintf "\n AND INV \n";
+		 let l = Term.Map.fold (fun a x acc -> (a, x) :: acc) s.inv [] in
+		   Pretty.set (Pretty.infix Term.pp "=" Term.pp) Format.err_formatter l
+	       end;
+	     res)
+	s.inv true
+    in
+      res1 && res2
+
+
   let apply s a =
+    assert(synchronized s);
     match a with
       | Term.App _ -> raise Not_found  (* Invariant: only vars in domain of [s]. *)
       | _ -> Term.Var.Map.find a s.find
@@ -233,7 +264,8 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
     let (b, rho) = apply s a in
       Fact.Equal.make (a, b, rho)
 
-  let find s a =
+  let find s a = 
+    assert(synchronized s);
     match a with
       | Term.App _ -> 
 	  Jst.Eqtrans.id a
@@ -245,9 +277,18 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
 
   let inv s a =
     let x = Term.Map.find a s.inv in
-      assert(Term.Var.Map.mem x s.find);
+      (* assert(Term.Var.Map.mem x s.find); *)
+    try
       let (_, rho) = apply s x in
 	(x, rho)
+    with
+	Not_found -> 
+	  Format.eprintf "\nFATAL ERROR for: %s" (Pretty.to_string Term.Equal.pp (x, a));
+	  Format.eprintf "\n IN FIND \n";
+	  pp Format.err_formatter s;
+          Format.eprintf "\n AND INV \n";
+	  exit 1
+	  
 
   let ext s = s.ext
 
@@ -294,18 +335,19 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
 	 
    let add (p, s) e =   
      Trace.msg Th.nickname "Update" e Fact.Equal.pp; 
-     let (x, b, rho) = Fact.Equal.destruct e in
+     assert(synchronized s);
+     (let (x, b, rho) = Fact.Equal.destruct e in
        assert(Term.is_var x);
-       assert(Term.is_pure Th.th b);
        if Th.is_infeasible (x, b) then
-	 Jst.inconsistent rho
+	 raise(Jst.Inconsistent rho)
        else 
 	 (try                  (* restrict, then update. *)
 	    let (b', rho') = apply s x in 
 	      s.dep <- Use.remove_but b x b' s.dep; 
 	      s.dep <- Use.add x b s.dep; 
 	      s.ext <- Ext.do_at_restrict (p, s.ext) (x, b, rho');
-	      s.find <- Term.Var.Map.add x (b, rho) s.find;
+	      s.find <- Term.Var.Map.add x (b, rho) s.find; 
+	      s.inv <- Term.Map.remove b' s.inv; (* don't forget to remove this. *)
 	      s.inv <- Term.Map.add b x s.inv;
 	      s.ext <- Ext.do_at_add (p, s.ext) (x, b, rho)
 	  with 
@@ -315,19 +357,26 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
 		  s.find <- Term.Var.Map.add x (b, rho) s.find;
 		  s.inv <- Term.Map.add b x s.inv;
 		  s.ext <- Ext.do_at_add (p, s.ext) (x, b, rho)
-		end)
+		end));
+       assert(synchronized s)
 	    
 	 
    let restrict (p, s) x =
+     assert(synchronized s);
      try
        let (b, rho) = Term.Var.Map.find x s.find in
 	 Trace.msg Th.nickname "Restrict" x Term.pp;
-	 s.find <- Term.Var.Map.remove x s.find;
+	 assert(Term.Var.Map.mem x s.find); 
+	 assert(Term.Map.mem b s.inv);
+	 s.find <- Term.Var.Map.remove x s.find; 
 	 s.inv <- Term.Map.remove b s.inv;
+	 assert(not(Term.Var.Map.mem x s.find));
+	 assert(not(Term.Map.mem b s.inv));
 	 s.dep <- Use.remove x b s.dep; 
-	 s.ext <- Ext.do_at_restrict (p, s.ext) (x, b, rho)
+	 s.ext <- Ext.do_at_restrict (p, s.ext) (x, b, rho);  
+	 assert(synchronized s)
      with
-	 Not_found -> () 
+	 Not_found -> ()
 	   
    
    let rec update (p, s) e =
@@ -341,9 +390,9 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
 	 end 
        else
 	 try
-	   let (y, rho2) = inv s b in                  (* [rho2 |- y = b]. *)
+	   let (y, rho2) = inv s b in             (* [rho2 |- y = b]. *)
 	     if not(Term.eq x y) then
-	       let tau = Jst.trans x b y rho1 rho2 in  (* [tau |- x = y]. *)          
+	       let tau = Jst.dep2 rho1 rho2 in    (* [tau |- x = y]. *)          
 		 publish p (Fact.Equal.make (x, y, tau));
 		 if Term.(<<<) y x then 
 		   restrict (p, s) x 
@@ -370,7 +419,7 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
 	   if Term.(<<<) y x then 
 	     restrict (p, s) x 
 	   else 
-	     let rho = Jst.trans x y a rho1 rho2 in
+	     let rho = Jst.dep2 rho1 rho2 in
 	       begin                               (* [rho |- x = a]. *)
 		 restrict (p, s) y;
 		 add (p, s) (Fact.Equal.make (x, a, rho))
@@ -388,9 +437,9 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
 	 inv s b 
        with 
 	   Not_found ->
-	     let dom = try Dom.inj (Arith.dom_of b) with Not_found -> None in
+	     let dom = try Var.Cnstrnt.Real(Arith.dom_of b) with Not_found -> Var.Cnstrnt.Unconstrained in
 	     let x = Term.Var.mk_rename (Name.of_string "v") None dom in 
-	     let rho = Jst.extend (x, b) in
+	     let rho = Jst.dep0 in
 	       update (p, s) (Fact.Equal.make (x, b, rho));
 	       (x, rho)
 	       
@@ -400,16 +449,27 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
      fuse_star (p, s) el
        
    and fuse_star (p, s) el =   
-     let norm = Fact.Equal.Inj.norm Th.apply in
-       List.iter
-	 (fun e ->
-	    (Dep.iter s
-	       (fun e -> 
-		  let e' = Fact.Equal.map_rhs (norm el) e in
-		    update (p, s) e')
-	       (Fact.Equal.lhs_of e)))
-	 el
-     
+     List.iter
+       (fun e ->
+	  (Dep.iter s
+	     (fun e -> 
+		let e' = Fact.Equal.map_rhs (norm el) e in
+		  update (p, s) e')
+	     (Fact.Equal.lhs_of e)))
+       el
+
+   and norm el =
+     let lookup x =
+       let rec loop = function
+	 | [] -> (x, Jst.dep0)
+	 | e :: el -> 
+	     let (y, b, rho) = Fact.Equal.destruct e in
+	       if Term.eq x y then (b, rho) else loop el
+       in
+	 loop el
+     in
+       Jst.Eqtrans.replace Th.map lookup
+
    (** Fuse a list of solved equalities [el] on rhs 
      followed by updates of [el]. *)
    let compose (p, s) el =
@@ -480,7 +540,7 @@ module Cnstnt2Ext(Cnstnt: CNSTNT): (EXT with type t = cnstnt) =
       Term.Var.Map.iter                     (* [rho |- x = a] *)
 	(fun y (b, tau) ->                  (* [tau |- y = b] *)
 	   if Cnstnt.is_diseq a b then      (* [sigma |- x <> y] *)
-	     let sigma = Jst.const (x, y) rho tau in
+	     let sigma = Jst.dep2 rho tau in
 	     let d = Fact.Diseq.make (x, y, sigma) in
 	       Fact.Diseqs.push th d)
       s;
@@ -613,12 +673,12 @@ struct
 	(match tag with
 	   | Right ->
 	       let (y, tau) = Left.inv s.left a in        (* [tau |- y = a] *)
-	       let  sigma = Jst.trans x a y tau rho in
+	       let  sigma = Jst.dep2 tau rho in
 		 Partition.merge p (Fact.Equal.make (x, y, sigma));
 		 Left.restrict (p, s.left) y              (* restrict [y = a] in [Left]. *)
 	   | Left ->
 	       let (y, tau) = Right.inv s.right a in      (* [tau |- y = a] *)
-	       let  sigma = Jst.trans x a y tau rho in
+	       let  sigma = Jst.dep2 tau rho in
 		 Partition.merge p (Fact.Equal.make (x, y, sigma));
 		 Left.restrict (p, s.left) x)             (* restrict [x = a] in [Left] *)
       with

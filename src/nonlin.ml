@@ -15,12 +15,9 @@ open Term
 open Mpa
 
 let rec mk_mult a b =
-  if Term.eq a b then        (* [ a * a --> a^2] *)
-    mk_expt 2 a
-  else if Pprod.is_one a then
-    b
-  else if Pprod.is_one b then
-    a
+  if Term.eq a b then mk_expt 2 a
+  else if Pprod.is_one a then b
+  else if Pprod.is_one b then a
   else 
     try
       let op, xl = Arith.d_interp a in
@@ -36,7 +33,6 @@ let rec mk_mult a b =
 and mk_inj pp =
   if Pprod.is_one pp then Arith.mk_one else pp
 	   
-
 and mk_mult_arith op yl b =
   match op, yl with
     | Sym.Num(q), [] -> 
@@ -54,16 +50,12 @@ and mk_mult_arith op yl b =
 and mk_mult_add a yl =
   Arith.mk_addl (mapl (mk_mult a) yl)
 
-
 and mk_multl al =
   List.fold_left mk_mult Arith.mk_one al
 
-
 and mk_expt n a =
-  if n = 0 then 
-    Arith.mk_one
-  else if n = 1 then
-    a
+  if n = 0 then Arith.mk_one
+  else if n = 1 then a
   else
     try
       let op, xl = Arith.d_interp a in
@@ -118,23 +110,44 @@ let rec map f a =
   else 
     f a
 
-
 (** Replace [x] by [b] in [a]. *)
 let apply (x, b) a = 
   map (fun y -> if Term.eq x y then b else y) a
 
-(** {6 Cross multiplication} *)
 
+(** Cross multiplication pair representing equalities, disequalities, etc. *)
 let rec crossmultiply (a, b) =
-  let (a', b') = crossmultiply1 (a, b) in
-    if Term.eq a a' && Term.eq b b' then 
-      (a, b) 
-    else 
-      crossmultiply (a', b')
-
-and crossmultiply1 (a, b) =
-  let da = Pprod.denumerator a in
-  let db = Pprod.denumerator b in
+  let lcm_of_denumerators a =  (* least common multiple of denumerators. *)
+    Arith.Monomials.fold 
+      Arith.Monomials.is_true
+      (fun (_, pp) acc ->
+	 let qq = Pprod.denumerator pp in
+	   if Pprod.is_one qq then acc else 
+	     let (_, _, d) = Pprod.lcm (acc, qq) in
+	       d)
+      a Pprod.mk_one
+  in
+  let da = lcm_of_denumerators a
+  and db = lcm_of_denumerators b in
   let (_, _, d) = Pprod.lcm (da, db) in
     if Pprod.is_one d then (a, b) else
-      (mk_mult a d, mk_mult b d)
+	(mk_mult a d, mk_mult b d)
+
+      
+(** Crossmultiply with nonnegative denumerators. *)
+let crossmultiply_nonneg a =
+  let is_nonneg_denum (x, n) =
+    n < 0 && Term.Var.is_slack x 
+  in
+  let plcm = 
+    Arith.Monomials.fold 
+      Arith.Monomials.is_true
+      (fun (_, pp) acc -> 
+	 let qq = Pprod.nonneg_denumerator pp in
+	   if Pprod.is_one qq then acc else 
+	     let (_, _, d) = Pprod.lcm (acc, qq) in
+	       d)
+      a Pprod.mk_one
+  in
+    if Pprod.is_one plcm then a else mk_mult a plcm
+

@@ -25,6 +25,15 @@
 *)
 
 
+val bitv2nat : Bitv.t -> int
+  (** Unsigned interpretation of a bitvector constant. *)
+
+val nat2bitv : int -> int -> Bitv.t
+  (** [nat2bitv n i] returns the a bitvector of length [n]
+    representing the unsigned interpretation of the nonnegative 
+    integer [i]. It is assumed that [n] is large enough for 
+    representing [i]. *)
+    
 
 (** {6 Width of a bitvector} *)
 
@@ -32,17 +41,18 @@ val width : Term.t -> int option
   (** Computes the width of a bitvector term, and returns [None] if
     the argument is not an application of a bitvector symbol *)
 
+
 (** {6 Destructors} *)
 
 val d_const : Term.t -> Bitv.t
   (** Accessor for bitvector constants. *)
 
+
 (** {6 Constructors} *)
 
 val mk_const : Bitv.t -> Term.t
   (** [mk_const c] is the constructor for building constant bitvectors,
-    in which all bits are known to be either [0] or [1].  *)
-  
+    in which all bits are known to be either [0] or [1]. *)
     
 val mk_eps : Term.t
  (** [mk_eps] is the constant bitvector of length [0]. *)

@@ -13,6 +13,148 @@
 
 open Mpa
 
+let crossmultiply = ref false
+
+module Equal = struct
+   type t = Term.t * Term.t
+   let lhs (a, _) = a
+   let rhs (_, b) = b
+   let pp = Pretty.infix Term.pp "=" Term.pp
+   let make (a, b) =   
+     let cm e = if !crossmultiply then Nonlin.crossmultiply e else e in
+       Term.orient (cm (a, b))
+   let destruct e = e
+   let both_sides p (a, b) = p a && p b
+   let is_var = both_sides Term.is_var
+   let is_pure i = both_sides (Term.is_pure i)
+   let is_diophantine = both_sides Arith.is_diophantine
+   let eq (a1, b1) (a2, b2) = a1 == a2 && b1 == b2
+   let vars_of (a, b) = Term.Var.Set.union (Term.vars_of a) (Term.vars_of b)
+   let holds (a, b) = if Term.eq a b then Three.Yes else Three.X
+
+   let map2 (id, h) (f, g) ((a, b) as e) =
+   let (a', alpha) = f a in               
+   let (b', beta) = g b in
+     if a == a' && b == b' then (e, id e) else 
+       let e' = make (a', b') in
+	 (e', h e' alpha beta)
+
+   let map (id, h) f = map2 (id, h) (f, f)
+
+   type solve = t -> t list
+   type trans = t -> t
+   type apply = t -> Term.t -> Term.t
+
+end
+
+
+module Diseq = struct
+   type t = Term.t * Term.t
+   let lhs (a, _) = a
+   let rhs (_, b) = b
+   let pp = Pretty.infix Term.pp "<>" Term.pp
+   let destruct d = d
+   let both_sides p (a, b) = p a && p b
+   let eq (a1, b1) (a2, b2) = Term.eq a1 a2 && Term.eq b1 b2
+   let compare (a1, b1) (a2, b2) = 
+     let cmp = Term.compare a1 a2 in
+       if cmp <> 0 then cmp else Term.compare b1 b2
+   let is_diophantine (a, b) = Arith.is_diophantine a && Arith.is_num b
+   let d_diophantine ((a, b) as d) = 
+     assert(is_diophantine d);
+     (a, Arith.d_num b)
+   let is_var (a, b) = Term.is_var a && Term.is_var b
+   let vars_of (a, b) = Term.Var.Set.union (Term.vars_of a) (Term.vars_of b)
+   let make ((a, b) as d) =
+     let cm d = if !crossmultiply then Nonlin.crossmultiply d else d in
+     let build d = Term.orient (cm d) in
+     if is_var d then
+       build d
+     else if is_diophantine d then
+       let lcm =                     (* least common multiple of denominators *)
+	 Mpa.Q.abs                   (* of the coefficients in [a] and [b]. *)
+	   (Mpa.Q.of_z
+	      (Mpa.Z.lcm 
+		 (Arith.lcm_of_denominators a)
+		 (Arith.lcm_of_denominators b)))
+       in
+       let (a', b') =                (* all coefficients are integer now. *)
+	 if Mpa.Q.is_one lcm then Term.orient (a, b) else 
+	   (Arith.mk_multq lcm a, Arith.mk_multq lcm b)
+	 in
+       let q', c' = Arith.destruct (Arith.mk_sub a' b') in  (* [q' + c' <> 0] *)
+	 if Mpa.Q.is_nonneg q' then
+	   (Arith.mk_neg c', Arith.mk_num q')               (* ==> [-c' <> q'] *)
+	 else 
+	   (c', Arith.mk_num (Mpa.Q.minus q'))              (* ==> [c' <> -q'] *)
+     else 
+       build d
+   let map2 (id, h) (f, g) ((a, b) as d) =
+   let (a', alpha) = f a in               
+   let (b', beta) = g b in
+     if a == a' && b == b' then d, id d else 
+       let d' = make (a', b') in (d', h d' alpha beta)
+   let map h f = map2 h (f, f)
+   let holds (a, b) =
+     if Term.eq a b then Three.No else Three.X
+end
+
+module Nonneg = struct
+  type t = Term.t
+  let pp fmt a = Pretty.post Term.pp fmt (a, ">= 0")
+  let make a =
+    let nonneg a =   
+      let b = if Pprod.is_interp a then Pprod.nonneg a else a in
+	if !crossmultiply then Nonlin.crossmultiply_nonneg b else b
+    in
+      try
+	let (q, x) = Arith.d_multq a in
+	  if Mpa.Q.is_pos q then x else nonneg a
+      with
+	  Not_found -> nonneg a
+
+  let destruct c = c
+
+  let holds a = 
+    match Arith.is_nonneg a with
+      | Three.X -> 
+	  if Pprod.is_nonneg a then Three.Yes else Three.X
+      | res -> res
+
+  let map (id, h) f a =
+    let (a', rho') = f a in            
+      if a == a' then (a, id a) else 
+	let a'' = make a' in
+	  (a'', h a'' rho')
+end
+
+module Pos = struct
+
+  type t = Term.t
+  let pp fmt a = Pretty.post Term.pp fmt (a, "> 0")
+
+  let destruct c = c
+
+  let holds = Arith.is_pos
+
+  let make a =            
+    try
+      let (q, x) = Arith.d_multq a in
+	if Mpa.Q.is_pos q then x 
+	else 
+	  if Pprod.is_interp a then Pprod.pos a else a
+    with
+	Not_found ->
+	  if Pprod.is_interp a then Pprod.pos a else a
+
+  let map (id, h) f a =
+    let (a', rho') = f a in            
+      if a == a' then (a, id a) else 
+	let a'' = make a' in
+	  (a'', h a'' rho')
+end
+
+
 type atom =
   | True
   | Equal of Term.t * Term.t
@@ -91,18 +233,24 @@ let _ = Tools.add_at_reset initialize
 let equal (_, i) (_, j) = (i == j)
 
 let compare (_, i) (_, j) = 
-  if i < j then -1 else if i = j then 0 else 1
+  if i < j then -1 else if i == j then 0 else 1
   
 let is_true = function True, _ -> true | _ -> false
 
 let is_false = function False, _ -> true | _ -> false
 
+let of_equal (a, b) = of_atom(Equal(a, b))
+let of_diseq (a, b) = of_atom(Diseq(a, b))
+let of_nonneg a = of_atom(Nonneg(a))
+let of_pos a = of_atom(Pos(a))
+
 
 (* Construct an equality atom. *)
 let mk_equal (a, b) =
-  if Term.eq a b then mk_true else 
-    let (a', b') = Term.orient(Nonlin.crossmultiply (a, b)) in
-      of_atom(Equal(a', b'))
+  match Equal.holds (a, b) with
+    | Three.Yes -> mk_true
+    | Three.No -> mk_false
+    | Three.X -> of_equal(Equal.make(a, b))
 
 let mk_diseq (a, b) =
   if Term.eq a b then mk_false else
@@ -115,34 +263,25 @@ let mk_diseq (a, b) =
     else if Term.eq b Boolean.mk_false then
       mk_equal (a, Boolean.mk_true)
     else
-      let (a', b') = Term.orient(Nonlin.crossmultiply (a, b)) in
-	of_atom (Diseq(a', b'))
+      of_diseq(Diseq.make (a, b))
 
-let mk_nonneg a =
-  try
-    let q = Arith.d_num a in
-      if Mpa.Q.is_nonneg q then mk_true else mk_false
-  with
-      Not_found -> 
-	(try
-	   let (q, x) = Arith.d_multq a in
-	     if Mpa.Q.is_nonneg q then 
-	       of_atom(Nonneg(x))
-	     else 
-	       of_atom(Nonneg(a))
-	 with
-	     Not_found -> of_atom(Nonneg(a)))
+let mk_nonneg a = 
+  let b = Nonneg.make a in
+    match Nonneg.holds b with
+      | Three.Yes -> mk_true
+      | Three.No -> mk_false
+      | Three.X -> of_nonneg b
 
 let mk_pos a =
-  try
-    let q = Arith.d_num a in
-      if Mpa.Q.is_pos q then mk_true else mk_false
-  with
-      Not_found ->
-	if Arith.is_int a then       (* [a > 0] iff [a - 1 >= 0] for [a] an integer. *)
-	  mk_nonneg (Arith.mk_decr a)
-	else 
-	  of_atom(Pos(a))
+  let b = Pos.make a in
+    match Pos.holds b with
+      | Three.Yes -> mk_true
+      | Three.No -> mk_false
+      | Three.X ->
+	  if Arith.is_int b then       (* [a > 0] iff [a - 1 >= 0] for [a] an integer. *)
+	    mk_nonneg (Arith.mk_decr b)
+	  else 
+	    of_pos b
 
 let mk_neg a = mk_pos (Arith.mk_neg a)
 let mk_nonpos a = mk_nonneg (Arith.mk_neg a)
@@ -153,6 +292,16 @@ let mk_le (a, b) = mk_nonneg (Arith.mk_sub b a)  (* [a <= b] iff [b - a >= 0] *)
 let mk_lt (a, b) = mk_pos (Arith.mk_sub b a)     (* [a < b] iff [b - a > 0] *)
 
 
+let is_pure i (a, _) =
+  match a with 
+    | True -> true
+    | Equal(a, b) -> Term.is_pure i a && Term.is_pure i b 
+    | Diseq(a, b) -> Term.is_pure i a && Term.is_pure i b 
+    | Nonneg(a) -> Term.is_pure i a
+    | Pos(a) -> Term.is_pure i a
+    | False -> true
+
+
 let apply rho = failwith "atom.apply: to do" 
 
 (** {6 Pretty-printing} *)
@@ -161,10 +310,10 @@ let pp fmt (a, _) =
   match a with
     | True -> Pretty.string fmt "True"
     | False -> Pretty.string fmt "False"
-    | Equal(a, b) -> Pretty.infix Term.pp "=" Term.pp fmt (a, b)
-    | Diseq(a, b) -> Pretty.infix Term.pp "<>" Term.pp fmt (a, b)
-    | Nonneg(a) -> Term.pp fmt a; Pretty.string fmt " >= 0"
-    | Pos(a) ->  Term.pp fmt a; Pretty.string fmt " > 0"
+    | Equal(a, b) -> Equal.pp fmt (a, b)
+    | Diseq(a, b) -> Diseq.pp fmt (a, b)
+    | Nonneg(a) -> Nonneg.pp fmt a
+    | Pos(a) ->  Pos.pp fmt a
 
 let to_string a = Pretty.to_string pp a
       
@@ -191,8 +340,8 @@ let vars_of (a, _) =
   match a with 
     | True -> Term.Var.Set.empty
     | False -> Term.Var.Set.empty
-    | Equal(a, b) -> Term.Var.Set.union (Term.vars_of a) (Term.vars_of b)
-    | Diseq(a, b) -> Term.Var.Set.union (Term.vars_of a) (Term.vars_of b)
+    | Equal(a, b) -> Equal.vars_of (a, b)
+    | Diseq(a, b) -> Diseq.vars_of (a, b)
     | Nonneg(a) -> Term.vars_of a
     | Pos(a) -> Term.vars_of a
 
@@ -255,6 +404,7 @@ module Set = struct
   let max_elt s = of_index (Ptset.max_elt s)
   let min_elt s = of_index (Ptset.max_elt s)
 end
+
 
 module Map = struct
   type (+'a) t = 'a Ptmap.t

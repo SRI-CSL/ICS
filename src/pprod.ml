@@ -54,6 +54,21 @@ let rec is_diophantine a =
     with
 	Not_found -> Term.Var.is_int a
 
+let rec is_nonneg a =
+  try
+    match d_interp a with
+      | Mult, [] -> 
+	  true
+      | Mult, al ->
+	  List.for_all is_nonneg al
+      | Expt(n), [x] ->
+	  n mod 2 == 0 || Term.Var.is_slack x
+      | _ ->
+	  Term.Var.is_slack a
+    with
+	Not_found -> Term.Var.is_slack a
+
+
 (** {6 Iterators} *)
 
 let rec fold f a e =
@@ -80,7 +95,15 @@ let rec iter f a =
     with
 	Not_found -> f a 1
 
-
+let rec choose a =
+  match d_interp a with
+    | Expt _, [x] ->
+	assert(Term.is_var x);
+	x
+    | Mult, a :: _ ->
+	if Term.is_var a then a else
+	  choose a
+    | _ -> raise Not_found
 
 (** {6 Constructors.} *)
 
@@ -306,6 +329,23 @@ let gcd a b =
   let (pl, ql, gcd) = gcdloop ([], [], []) (to_list a, to_list b) in
     (mk_multl pl, mk_multl ql, mk_multl gcd)
 
+let filter p a =
+  let bl =
+    List.fold_right
+      (fun m acc  -> if p (destruct m) then m :: acc else acc)
+      (to_list a) []
+  in
+    mk_multl bl
+
+let split_nonneg a =
+  let (nonneg, other) = 
+    List.partition
+      (fun m ->
+	 let (x, n) = destruct m in
+	   n mod 2 == 0 || Term.Var.is_slack x)
+      (to_list a)
+  in
+    (mk_multl nonneg, mk_multl other)
 
 let split a =
   let (numerator, denumerator) =
@@ -320,7 +360,32 @@ let split a =
 
 let numerator a = fst(split a)
 
-let denumerator a = snd(split a)
+let denumerator a = 
+ let bl =
+    List.fold_right
+      (fun m acc ->
+	 let (x, n) = destruct m in
+	   if n >= 0 then acc else
+	     mk_expt (-n) x :: acc)
+      (to_list a) []
+  in
+    (mk_multl bl)
+
+let nonneg_denumerator a = 
+  let bl =
+    List.fold_right
+      (fun m acc ->
+	 let (x, n) = destruct m in
+	   if n < 0 && Term.Var.is_slack x then
+	     mk_expt (-n) x :: acc
+	   else 
+	     acc)
+      (to_list a) []
+  in
+    (mk_multl bl)
+
+
+
 
 
 (** {6 Least common multiple.} *)
@@ -405,6 +470,31 @@ let partition p a =
       ([], [])
   in
     (of_list nonneg, of_list uncnstrnt)
+
+let nonneg a =
+  let rec loop = function
+    | [] -> []
+    | a :: al ->
+	let (y, n) = destruct a in
+	  if n mod 2 == 0 || Term.Var.is_slack y then 
+	    loop al
+	  else 
+	    (y, n) :: loop al
+  in
+    match loop (to_list a) with
+      | [(x, n)] -> 
+	  assert(Term.is_var x && not(n mod 2 == 0));
+	  x
+      | bl -> 
+	  of_list bl
+
+let pos a =
+  try
+    let (n, x) = d_expt a in
+      assert(Term.is_var x);
+      if not(n mod 2 == 0) then x else a
+  with
+      Not_found -> a
 
 
 (** {6 Abstract constraint interpretatiosn} *)

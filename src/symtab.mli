@@ -21,7 +21,7 @@
 type entry = 
   | Def of defn
   | Arity of int
-  | Type of Dom.t
+  | Type of Var.Cnstrnt.t
   | State of Context.t
 
 and defn = 
@@ -34,7 +34,7 @@ val lookup : Name.t -> t -> entry
   (** [lookup n s] lookup value [e] if binding [n |-> e] is in the table [s];
     otherwise exception [Not_found] is raised. *)
 
-val empty : t
+val empty : unit -> t
   (** Empty symbol table. *)
 
 val add : Name.t -> entry -> t -> t

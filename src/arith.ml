@@ -18,16 +18,25 @@ open Mpa
 
 let is_interp a =
   match a with
-    | Term.App(sym, _, _) -> Sym.theory_of sym = Th.a
+    | Term.App(sym, _, _) -> Sym.theory_of sym = Th.la
     | _ -> false
 
-let is_pure = Term.is_pure Th.a
+let is_pure = Term.is_pure Th.la
 
 
 (** {6 Constants} *)
 
-let mk_num q = Term.App.mk_const (Sym.Arith.mk_num q)
-
+let mk_num = 
+ let table = Mpa.Q.Hash.create 17 in
+ let _ =  Tools.add_at_reset (fun () -> Mpa.Q.Hash.clear table) in
+   fun q ->
+     try
+       Mpa.Q.Hash.find table q 
+     with
+	 Not_found ->
+	   let c = Term.App.mk_const (Sym.Arith.mk_num q) in
+	     Mpa.Q.Hash.add table q c; c
+		      
 let mk_zero = mk_num Q.zero
 let mk_one = mk_num Q.one
 let mk_two = mk_num (Q.of_int 2)
@@ -160,6 +169,16 @@ let of_mono q x =
 
 
 (** {6 Iterators} *)
+
+let rec iter f a =
+  try
+    (match d_interp a with
+       | Sym.Num _, [] -> ()
+       | Sym.Multq _, [b] -> iter f b
+       | Sym.Add, bl -> List.iter (iter f) bl
+       | _ -> f a)
+  with
+      Not_found -> f a
 
 module Monomials = struct
 
@@ -421,7 +440,6 @@ let rec map f a =
        Not_found -> f a
 
 (** Replacing a variable with a term. *)
-
 let apply (x, b) =
   let lookup y = if Term.eq x y then b else y in
     map lookup
@@ -484,7 +502,7 @@ let is_infeasible (a, b) =
 
 (** {6 Rational Solvers} *)
 
-let qsolve ((a, b) as e) =
+let rec qsolve ((a, b) as e) =
   let p, ml = poly_of (mk_sub a b) in
     match ml with
       | [] -> 
@@ -495,13 +513,20 @@ let qsolve ((a, b) as e) =
 		    (mk_multq (Q.minus (Q.inv q))
 		       (mk_addl ml))
 	  in
+	  let (x, b) = orient (x, b) in
 	    Some(x, b)
+
+and orient (x, b) =
+  if Term.is_var b then
+    Term.orient (x, b)
+  else 
+    (x, b)
 
 (** {6 Integer solver} *)
 
 let mk_fresh =
-  let d = Some(Dom.Int) in
-    fun () -> Term.Var.mk_fresh Th.a None d
+  let d = Var.Cnstrnt.Real(Dom.Int) in
+    fun () -> Term.Var.mk_fresh Th.la None d
 
 
 module Euclid = Euclid.Make(
@@ -525,15 +550,23 @@ let rec zsolve (a, b) =
       [Term.orient(a, b)]
     else 
       let (q, ml) = poly_of (mk_sub a b) in   (* [q + ml = 0] *)
-	if ml = [] then
-	  if Q.is_zero q then [] else raise(Exc.Inconsistent)
-	else
-	  let (cl, xl) = vectorize ml in     (* [cl * xl = ml] in vector notation *)
-	    match Euclid.solve cl (Q.minus q) with
-	      | None -> raise Exc.Inconsistent
-	      | Some(d, pl) -> 
-		  let gl = general cl (d, pl) in
-		    List.combine xl gl
+	match ml with
+	  | [] -> 
+	      if Q.is_zero q then [] else raise(Exc.Inconsistent)
+	  | [m] -> 
+	      let (p, x) = mono_of m in       (* [q + p*x = 0] *)
+	      let q_div_p = Q.div q p in
+		if Q.is_integer q_div_p then 
+		  [(x, mk_num (Q.minus q_div_p))]
+		else 
+		  raise Exc.Inconsistent
+	  | _ ->
+	      let (cl, xl) = vectorize ml in     (* [cl * xl = ml] in vector notation *)
+		(match Euclid.solve cl (Q.minus q) with
+		   | None -> raise Exc.Inconsistent
+		   | Some(d, pl) -> 
+		       let gl = general cl (d, pl) in
+			 combine xl gl)
 	     
 and vectorize ml =
   let rec loop (ql, xl) = function
@@ -544,6 +577,24 @@ and vectorize ml =
 	  loop (q :: ql, x :: xl) ml
   in
     loop ([], []) ml
+
+and combine xl bl =
+  let renames = ref [] in
+  let rec merge l m =
+    match l, m with 
+      | [], [] -> []
+      | x :: l', b :: m' ->
+	  assert(Term.is_var x && not(Term.Var.is_fresh Th.la x));
+	  if Term.Var.is_fresh Th.la b then
+	    (renames := (b, x) :: !renames;
+	     merge l' m')
+	  else 
+	    (x, b) :: merge l' m'
+      | _ -> invalid_arg "Arith.combine_merge"
+  in
+  let sl = merge xl bl in
+    List.fold_right (Term.Subst.fuse apply) !renames sl
+    
 
 
 (** Compute the general solution of a linear Diophantine
@@ -562,7 +613,8 @@ and general al (d, pl) =
           let k = mk_fresh () in
           let e0 = mk_add z0 (mk_multq (Q.div a1 d) k) in
           let e1 = mk_add z1 (mk_multq (Q.div (Q.minus a0) d) k) in
-            e0 :: loop al' (e1 :: zl'')
+	  let sl' =  loop al' (e1 :: zl'') in
+            e0 :: sl'
       | _ -> assert false
   in
     loop al (List.map mk_num pl)

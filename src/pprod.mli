@@ -49,6 +49,9 @@ val is_one : Term.t -> bool
 val is_diophantine : Term.t -> bool
   (** Are all variables interpreted over the integers. *)
 
+val is_nonneg : Term.t -> bool
+  (** [is_nonneg a] holds iff [a >= 0] holds. *)
+
 
 (** {6 Constructors.} *)
 
@@ -95,6 +98,18 @@ val iter : (Term.t -> int -> unit) -> Term.t -> unit
 
 val fold : (Term.t -> int -> 'a -> 'a) -> Term.t -> 'a -> 'a
 
+val choose : Term.t -> Term.t
+  (** Choose an arbitrary variable. May raise [Not_found]. *)
+
+val nonneg : Term.t -> Term.t
+  (** [nonneg a] returns a simplified power product [b] such 
+    that [a >= 0] iff [b >= 0]. For example, [x^2 >= 0] is reduced
+    to [1 >= 0]. *)
+
+val pos : Term.t -> Term.t
+  (** [pos a] returns a simplified power product [b] such 
+    that [a > 0] iff [b > 0]. For example, [x^3 > 0] is reduced
+    to [x > 0]. *)
 
 (** {6 Comparisons} *)
 
@@ -124,7 +139,12 @@ val numerator : Term.t -> Term.t
 
 val denumerator : Term.t -> Term.t
 
+val nonneg_denumerator : Term.t -> Term.t
+
 val destruct : Term.t -> Term.t * int
+
+val split_nonneg : Term.t -> Term.t * Term.t
+  (** [split a] splits [a] into [b], [c] such that [a = b * c] and [b >= 0]. *)
 
 
 (** {7 Partitions} *)

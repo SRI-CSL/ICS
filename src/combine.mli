@@ -11,7 +11,7 @@
  * benefit corporation.
  *)
 
-(** {b Shostak theories}.
+(** {b Equality theories}.
 
   @author Harald Ruess
   @author N. Shankar
@@ -25,7 +25,6 @@ val eq : t -> t -> bool
 
 val empty : t
 
-
 val is_empty : t -> Th.t -> bool
 
 val is_dependent : t -> Th.t -> Term.t -> bool
@@ -36,15 +35,17 @@ val is_dependent : t -> Th.t -> Term.t -> bool
 type config = Partition.t * t
 
 
-val apply : t -> Th.t -> Jst.Eqtrans.t
-
 val find : t -> Th.t -> Jst.Eqtrans.t
-
-val interp :  config -> Th.t -> Jst.Eqtrans.t
+  (** [find th s x] is [a] if [x = a] is in the solution set for theory [th]
+    in [s]; otherwise, the result is just [x]. *)
 
 val inv : config -> Jst.Eqtrans.t
+  (** [inv s a] is [x] if there is [x = a] in the solution set for
+    theory [th]; otherwise [Not_found] is raised. *)
 
 val dep : t -> Th.t -> Term.t -> Term.Var.Set.t
+  (** [use th s x] consists of the set of all term variables [y] such
+    that [y = a] in [s], and [x] is a variable [a]. *)
 
 
 (** {6 Process} *)
@@ -53,32 +54,48 @@ val copy : t -> t
 
 val name : config -> Th.t -> Jst.Eqtrans.t
 
-val process_equal :  config -> Th.t -> Fact.Equal.t -> unit
+val abstract : config -> Atom.t -> Fact.t
 
 val process_nonneg : config -> Fact.Nonneg.t -> unit
 
 val process_pos : config -> Fact.Pos.t -> unit
 
-val process_diseq : config -> Fact.Diseq.t -> unit
+val merge :  Th.t option -> config -> Fact.Equal.t -> unit
 
-val merge :  config -> Th.t -> Fact.Equal.t -> unit
+val dismerge :  config -> Fact.Diseq.t -> unit
 
-val dismerge :  config -> Th.t -> Fact.Diseq.t -> unit
-
-val propagate : config -> Fact.Equal.t -> Th.t * Th.t -> unit
-  (** [propagate s e (i, j)] propagates an equality over
+val propagate_equal : config -> Fact.Equal.t -> unit
+  (** [propagate_equal s e (i, j)] propagates an equality over
     [i] terms to the solution set for theory [j]. *)
+
+val propagate_diseq : config -> Fact.Diseq.t -> unit
+
+val propagate_nonneg : config -> Fact.Nonneg.t -> unit
+
 
 
 (** {6 Theory-specific operations} *)
 
+
+val dom : config -> Term.t -> Dom.t * Jst.t
+(** [dom p a] returns a domain [d] for a term [a] together with
+  a justification [rho] such that [rho |- a in d].  This function
+  is extended to arithmetic constraints using an abstract domain
+  interpretation. Raises [Not_found] if no domain constraint is found. *)
+  
 val sigma : config -> Sym.t -> Term.t list -> Term.t * Jst.t
 
 val can : config -> Jst.Eqtrans.t
 
+val cheap : bool ref
+
+val simplify : config -> Atom.t -> Fact.t
+
 val solve : Th.t -> Term.Equal.t -> Term.Subst.t
 
 (** {6 Predicates} *)
+
+val cheap : bool ref
 
 val is_equal : config -> Jst.Rel2.t
 
@@ -91,6 +108,10 @@ val is_pos : config -> Jst.Rel1.t
 val is_nonneg : config -> Jst.Rel1.t
 
 val is_neg : config -> Jst.Rel1.t
+
+(** {6 Garbage collection} *)
+
+val gc : config -> unit
 
 
 val maximize : config -> Jst.Eqtrans.t

@@ -18,7 +18,7 @@ module Cop = Eqs.Make0(
   struct
     let th = Th.cop
     let nickname = Th.to_string Th.cop
-    let apply = Coproduct.apply
+    let map = Coproduct.map
     let is_infeasible _ = false
   end)
 
@@ -58,7 +58,7 @@ let find = S.find
 let inv = S.inv
 let dep = S.dep
 
-let is_dependent = S.is_independent
+let is_dependent = S.is_dependent
 let is_independent = S.is_independent
 
 
@@ -69,20 +69,27 @@ let name = S.name
   in [a] with their right hand side [b] if [x = b] in [s].
   The result is canonized. *)
 let replace s =
-  Fact.Equal.Inj.replace Coproduct.map
-    (find s)
+  Jst.Eqtrans.replace Coproduct.map (find s)
+
+let is_diseq s a b =
+  let (a', rho') = replace s a
+  and (b', tau') = replace s b in
+    if Coproduct.is_diseq a' b' then
+      Some(Jst.dep2 rho' tau')
+    else 
+      None
 
 let solve = 
-  Fact.Equal.Inj.solver Th.cop Bitvector.solve
+  Fact.Equal.equivn Coproduct.solve
 
 
-let process_equal ((p, s) as cfg) e =  
+let merge ((p, s) as cfg) e =  
   let e' = Fact.Equal.map (replace s) e in
     Trace.msg "cop" "Process" e' Fact.Equal.pp;
     let sl = solve e' in
       S.compose (p, s) sl
 
-let rec process_diseq ((p, s) as cfg) d = 
+let rec dismerge ((p, s) as cfg) d = 
   assert(Fact.Diseq.is_var d);
   Trace.msg "cop" "Process" d Fact.Diseq.pp;
   ()

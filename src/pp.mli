@@ -24,11 +24,6 @@
   every [xi] occurs only one in a power product.
 *)
 
-(** {6 Symbols.} *)
-
-val mult : Sym.t
-val expt : int -> Sym.t
-
 
 (** {6 Ordering.} *)
 

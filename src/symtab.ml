@@ -14,7 +14,7 @@
 type entry = 
   | Def of defn
   | Arity of int
-  | Type of Dom.t
+  | Type of Var.Cnstrnt.t
   | State of Context.t
 
 and defn = 
@@ -25,11 +25,13 @@ and t = entry Name.Map.t
 
 let lookup = Name.Map.find
 
-let empty_name = Name.of_string "empty"
+	      
+let empty_name () = Name.of_string "empty"
+		      (* needs to be recreated after resets. *)
 
-let empty = 
+let empty () = 
   Name.Map.add
-    empty_name
+    (empty_name())
     (State (Context.empty))
     Name.Map.empty
 
@@ -41,7 +43,7 @@ let add n e s =
     Name.Map.add n e s
 
 let remove n s = 
-  if Name.eq n empty_name then s else Name.Map.remove n s
+  if Name.eq n (empty_name()) then s else Name.Map.remove n s
 
 let filter p s = 
   Name.Map.fold 
@@ -67,7 +69,7 @@ and pp_entry fmt e =
       | Def(Term(x)) -> pr "@[def("; Term.pp fmt x; pr ")@]"
       | Def(Prop(x)) -> pr "@[def("; Prop.pp fmt x; pr ")@]"
       | Arity(a) -> pr "@[sig("; Format.fprintf fmt "%d" a; pr ")@]"
-      | Type(c) -> pr "@[type("; Dom.pp fmt c; pr ")@]"
+      | Type(c) -> pr "@[type("; Var.Cnstrnt.pp fmt c; pr ")@]"
       | State(s) -> 
 	  pr "@[state(";
 	  Pretty.list Atom.pp fmt (Context.ctxt_of s);

@@ -13,14 +13,93 @@
 
 (** Atomic predicates.
 
-  An atomic predicate is either the 
-  - constant [True] or [False] predicate,
-  - an equality, 
-  - disequality, or 
-  - an arithmetic constraint.
-
   @author Harald Ruess
+
+  An atomic predicate is either 
+  - one of the constants [True], [False],
+  - an equality, 
+  - a disequality, or 
+  - an arithmetic inequality.
+
+  For each of these kinds of atoms there is a module for constructing,
+  destructing, displaying, and manipulating constraints.
+
+  For each atom, a {i unique index} is maintained. That is, {!Atom.eq}[ a b]
+  holds iff [i = j] with [i], [j] the indices associated with [a], [b], respectively.
 *)
+
+val crossmultiply : bool ref
+  (** Enable/Disable crossmultiplication. *)
+
+(** {6 Equalities} *)
+
+module Equal : sig
+  type t
+    (** Representation of ordered equalities [a = b]; that is, [a <<< b] according
+      to the term ordering {!Term.(<<<)}. *)
+  val lhs : t -> Term.t
+    (** [lhs e] returns [a] if [e] represents [a = b]. *)
+  val rhs : t -> Term.t
+    (** [rhs e] returns [b] if [e] represents [a = b]. *)
+  val pp : t Pretty.printer
+    (** Pretty-printing equality constaints. *)
+  val make : Term.t * Term.t -> t
+  val destruct : t -> Term.t * Term.t
+  val both_sides : (Term.t -> bool) -> t -> bool
+  val is_var : t -> bool
+  val is_pure : Th.t -> t -> bool
+  val is_diophantine : t -> bool
+  val holds : t -> Three.t
+  val eq : t -> t -> bool
+  val map2 : (t -> 'c) * (t -> 'a -> 'b -> 'c) -> 'a Term.transformer * 'b Term.transformer -> t -> t * 'c
+  val map : (t -> 'b) * (t -> 'a -> 'a -> 'b) -> 'a Term.transformer -> t -> t * 'b
+end 
+              
+
+(** {6 Disequalities} *)
+
+module Diseq : sig
+  type t
+  val lhs : t -> Term.t
+  val rhs : t -> Term.t
+  val make : Term.t * Term.t -> t
+  val destruct : t -> Term.t * Term.t
+  val pp : t Pretty.printer
+  val both_sides : (Term.t -> bool) -> t -> bool
+  val is_var : t -> bool
+  val is_diophantine : t -> bool
+  val d_diophantine : t -> Term.t * Mpa.Q.t
+  val holds : t -> Three.t
+  val map : (t -> 'b) * (t -> 'a -> 'a -> 'b) -> 'a Term.transformer -> t -> t * 'b
+  val compare : t -> t -> int
+end 
+      
+  
+(** {6 Nonnegativity Constrains} *)
+
+module Nonneg : sig
+  type t
+  val pp : t Pretty.printer
+  val make : Term.t -> t
+  val destruct : t -> Term.t
+  val holds : Term.t -> Three.t
+  val map : (t -> 'b) * (t -> 'a -> 'b) -> 'a Term.transformer -> t  -> t * 'b
+end 
+
+
+(** {6 Positive Constraints} *)
+
+module Pos : sig
+  type t
+  val pp : t Pretty.printer
+  val make : Term.t -> t
+  val destruct : t -> Term.t
+  val holds : Term.t -> Three.t
+  val map : (t -> 'b) * (t -> 'a -> 'b) -> 'a Term.transformer -> t -> t * 'b
+end 
+
+
+(** {6 Atoms} *)
 
 type atom =
   | True
@@ -31,7 +110,6 @@ type atom =
   | False
 
 type t
-
 
 val atom_of : t -> atom
 val index_of : t -> int
@@ -50,17 +128,25 @@ val mk_equal : Term.t * Term.t -> t
 val mk_diseq : Term.t * Term.t -> t
 val mk_nonneg : Term.t -> t
 val mk_pos : Term.t -> t
+val mk_neg : Term.t -> t
+val mk_nonpos : Term.t -> t
 val mk_le : Term.t * Term.t -> t
 val mk_lt : Term.t * Term.t -> t
 val mk_ge : Term.t * Term.t -> t
 val mk_gt : Term.t * Term.t -> t
 
 
+val of_equal : Equal.t -> t
+val of_diseq : Diseq.t -> t
+val of_nonneg : Nonneg.t -> t
+val of_pos : Pos.t -> t
 
 (** {6 Recognizers} *)
 
 val is_true : t -> bool
 val is_false : t -> bool
+
+val is_pure : Th.t -> t -> bool
 
 
 (** {6 Mapping over atoms} *)
@@ -73,6 +159,7 @@ val apply : (Term.t * Term.t) list -> t -> t
 val is_negatable : t -> bool
 
 val negate : t -> t
+
 
 (** {6 Accessors} *)
 

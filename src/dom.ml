@@ -19,16 +19,7 @@ let eq d1 d2 = (d1 = d2)
 
 exception Empty
 
-(** Domain complement *)
-let compl =
-  function
-    | Int -> Nonint
-    | Real -> raise Empty
-    | Nonint -> Int
-
-
 (** Intersection of two domains *)
-
 let inter d1 d2 =
   match d1, d2 with
     | Real, _ -> d2

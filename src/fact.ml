@@ -11,448 +11,258 @@
  * benefit corporation.
  *)
 
-(** {6 Global variables} *)
-
-let footprint = ref false
-
-let fmt = ref Format.err_formatter
-
-let print_justification = ref false
-
-
-(** {6 Facts} *)
-
-type t = Atom.t * Jst.t
-    (** A {i fact} is just an atom together with a justification. *)
-
-type fct = t
-
-let rec pp fmt (a, j) =
+let rec pp_justification fmt j =
   if !print_justification then
     begin
-      Format.fprintf fmt "\n";
       Jst.pp fmt j;
-      Format.fprintf fmt "\n|---------\n"
+      Format.fprintf fmt " @,|-@, "
     end;
-  Atom.pp fmt a;
   Format.fprintf fmt "@?"
- 
-let atom_of (a, _) = a
-
-let justification_of (_, j) = j
+    
+and print_justification = ref false
 
 
-
-(** {6 Equality Facts} *)
-
+(** {6 Equality facts} *)
 
 module Equal = struct
 
-  type t = Term.t * Term.t * Jst.t
+  type t = Atom.Equal.t * Jst.t
 
-  let lhs_of (a, _, _) = a
-  let rhs_of (_, b, _) = b
+  let lhs_of (e, _) = Atom.Equal.lhs e
+  let rhs_of (e, _) = Atom.Equal.rhs e
 
-  let destruct e = e
-
-  (** Inject an equality fact into a fact. *)
-  let inj (a, b, rho) = (Atom.mk_equal(a, b), rho)
-
-  let pp fmt e = pp fmt (inj e)
-
-  let both p (a, b, _) = p a && p b
-    
-
-  let make (a, b, rho) =                    (* [rho |- a = b] *)
-    let (a, b) = Term.orient (a, b) in
+  let destruct (e, rho) =
+    let (a, b) = Atom.Equal.destruct e in
       (a, b, rho)
 
-  let map2 (f, g) ((a, b, rho) as e) =      (* [rho |- a = b] *)
-    let (a', alpha) = f a in                (* [alpha |- a = a'] *)
-    let (b', beta) = g b in                 (* [beta |- b = b'] *)
-      match a == a', b == b' with
-	| true, true ->
-	    e
-	| true, false ->
-	    let rho' = Jst.subst_equal1 a' b' rho beta in
-	      make (a', b', rho')
-	| false, true ->
-	    let rho' = Jst.subst_equal1 a' b' rho alpha in
-	      make (a', b', rho')
-	| _ -> 
-	    let rho' = Jst.subst_equal2 a' b' rho alpha beta in
-	      make (a', b', rho')
+  let of_equal (e, rho) = (e, rho)
+  let make (a, b, rho) = (Atom.Equal.make (a, b), rho)
+
+  let map2 (f, g) ((e, rho) as fct) = 
+    let (a, b) = Atom.Equal.destruct e in
+    let (a', alpha') = f a 
+    and (b', beta') = g b in
+      if a == a' && b == b' then fct else
+	(Atom.Equal.make (a', b'), Jst.dep3 rho alpha' beta')
 
   let map f = map2 (f, f)
-
   let map_lhs f = map2 (f, Jst.Eqtrans.id)
   let map_rhs f = map2 (Jst.Eqtrans.id, f)
 
+  let pp fmt (e, rho) = 
+    pp_justification fmt rho;
+    Atom.Equal.pp fmt e
 
-  let is_var (a, b, _) =
-    Term.is_var a && Term.is_var b
+  let both_sides p (e, _) = Atom.Equal.both_sides p e
+  let is_var = both_sides Term.is_var
+  let is_pure i = both_sides (Term.is_pure i)
+  let is_diophantine  = both_sides Arith.is_diophantine
 
-  let is_pure i (a, b, _) =
-    Term.is_pure i a && Term.is_pure i b
+  let theory_of (e, _) =
+    let (a, b) = Atom.Equal.destruct e in
+      match a, b with
+	| Term.Var _, Term.Var _ -> None
+	| Term.Var _, Term.App(g, _, _) -> Th.inj (Sym.theory_of g)
+	| Term.App(f, _, _), Term.Var _  -> Th.inj (Sym.theory_of f)
+	| Term.App(f, _, _), Term.App _  -> Th.inj (Sym.theory_of f)
 
-  let is_diophantine (a, b, _) =
-    Arith.is_diophantine a && Arith.is_diophantine b
 
-  module Inj = struct
+  let equiv f ((e, rho) as eqn) =
+    let (a, b) = Atom.Equal.destruct e in
+      try
+	let (a', b') = f (a, b) in
+	  if a == a' && b == b' then eqn else
+	    let e' = Atom.Equal.make (a', b') in
+	      (e', rho)
+      with
+	  Exc.Inconsistent -> 
+	    raise(Jst.Inconsistent rho)
+	    
+  let equivn f (e, rho) =
+    let (a, b) = Atom.Equal.destruct e in
+      try
+	let el = f (a, b) in
+	let inj e = (Atom.Equal.make e, rho) in
+	  List.map inj el
+      with
+	  Exc.Inconsistent -> 
+	    raise(Jst.Inconsistent rho)
 
-    let solver th f (a, b, rho) =         (* [rho |- a = b] *)
-      let tau = Jst.solve th (a, b) rho in  
-	try
-	  let sl = f (a, b) in
-	  let justify (a, b) = (a, b, tau) in  (* [tau |- e] if [e] in [solve(a, b)] *)
-	    List.map justify sl
-	with
-	    Exc.Inconsistent -> 
-	      raise(Jst.Inconsistent(tau))
-
-    let trans f e =
-      let (a, b, rho) = destruct e in
-      let (a', b') = f (a, b) in
-      let rho' = Jst.dependencies1 rho in
-	make (a', b', rho')
-
-    let apply1 f (x, b, rho) a =
-      let a' = f (x, b) a in
-	if a == a' then Jst.Eqtrans.id a else
-	  let rho' = Jst.apply1 (a', a) rho in
-	    (a', rho')
-
-    let norm apply el a = 
-      let hyps = ref [] in
-      let rec apply_star acc = function
-	| [] -> acc
-	| (x, b, rho) :: el ->
-	    let acc' = apply (x, b) acc in
-	      if not(Term.eq acc acc') then
-		hyps := rho :: !hyps;
-	      apply_star acc' el
-      in
-      let b = apply_star a el in
-      let rho = Jst.apply (a, b) !hyps in
-	(b, rho)
-
-      
-    let replace map apply a =
-      let hyps = ref [] in
-      let lookup y = 
-	try
-	  let (b, rho) = apply y in
-	    hyps := rho :: !hyps;
-	    b
-	with
-	    Not_found -> y
-      in
-      let b = map lookup a in
-      let rho = Jst.apply (a, b) !hyps in
-	(b, rho)
-
-    let mapargs mk_app f a =
-      let (op, al) = Term.App.destruct a in
-	match al with
-	  | [] -> 
-	      Jst.Eqtrans.id a
-	  | [a1] ->
-	      let (b1, rho1) = f op a1 in
-		if a1 == b1 then Jst.Eqtrans.id a else 
-		  let (b, tau) = mk_app op [b1] in
-		  let sigma = Jst.subst_equal1 a b tau rho1 in
-		    (b, sigma)
-	  | _ ->
-	      let rhol = ref [] in                    (* [rhoi |- bi = ai] *)
-	      let f' = Jst.Eqtrans.acc rhol (f op) in
-	      let bl = Term.mapl f' al in                                
-		if al == bl then Jst.Eqtrans.id a else 
-		  let (b, tau) = mk_app op bl in      (* [tau |- b = op(bl)] *)
-		  let sigma = Jst.subst_equal (a, b) tau !rhol in 
-		    (b, sigma)                        (* [sigma |- a = b] *)
-
-    let mapl f al =
-      let rhol = ref [] in      
-      let f' = Jst.Eqtrans.acc rhol f in
-      let bl = Term.mapl f' al in 
-        (bl, !rhol)
-		 
-  end 
+  let holds (e, rho) =
+    match Atom.Equal.holds e with
+      | Three.Yes -> Jst.Three.Yes(rho)
+      | Three.No -> Jst.Three.No(rho)
+      | Three.X -> Jst.Three.X
+	          
+    let trace lvl name = Trace.func lvl name pp pp
 
 end
 
 
-(** {6 Disequality Facts} *)
+(** {6 Disequality facts} *)
 
 module Diseq = struct
 
-  type t = Term.t * Term.t * Jst.t
+  type t = Atom.Diseq.t * Jst.t
 
-  let destruct d = d
+  let destruct (d, rho) =
+    let (a, b) = Atom.Diseq.destruct d in
+      (a, b, rho)
+      
+  let lhs_of (d, _) = Atom.Diseq.lhs d
+  let rhs_of (d, _) = Atom.Diseq.rhs d
+			
+  let pp fmt (d, rho) =   
+    pp_justification fmt rho;
+    Atom.Diseq.pp fmt d
+			
+  let is_diophantine (d, _) = Atom.Diseq.is_diophantine d
+  let is_var (d, _) = Atom.Diseq.is_var d
+			
+  let of_diseq (d, rho) = (d, rho)
+  let make (a, b, rho) = (Atom.Diseq.make (a, b), rho)
+			   
+  let map f ((d, rho) as deq) =  
+    let (a, b) = Atom.Diseq.destruct d in
+    let (a', alpha') = f a 
+    and (b', beta') = f b in
+      if a == a' && b == b' then deq else
+	(Atom.Diseq.make (a', b'), Jst.dep3 rho alpha' beta')
 
-  let lhs_of (a, _, _) = a
-  let rhs_of (_, b, _) = b
-
-  let inj (a, b, j) = (Atom.mk_diseq(a, b), j)
-
-  let pp fmt d = pp fmt (inj d)
-
-  let is_diophantine (a, b, _) =
-    Arith.is_diophantine a && Arith.is_num b
-
-  let is_var (a, b, _) =
-    Term.is_var a && Term.is_var b
-
-  let make ((a, b, rho) as d) =     (* [rho |- a <> b] *)
-    if is_var d then
-      let (a, b) = Term.orient (a, b) in
-	(a, b, rho)
-    else 
-      if is_diophantine d then
-	let lcm =                     (* least common multiple of denominators *)
-	  Mpa.Q.abs                   (* of the coefficients in [a] and [b]. *)
-	    (Mpa.Q.of_z
-	       (Mpa.Z.lcm 
-		  (Arith.lcm_of_denominators a)
-		  (Arith.lcm_of_denominators b)))
-	in
-	let (a', b') =                (* all coefficients are integer now. *)
-	  if Mpa.Q.is_one lcm then Term.orient (a, b) else 
-	    (Arith.mk_multq lcm a, Arith.mk_multq lcm b)
-	in
-	let q', c' = Arith.destruct (Arith.mk_sub a' b') in  (* [q' + c' <> 0] *)
-	  if Mpa.Q.is_nonneg q' then
-	    (Arith.mk_neg c', Arith.mk_num q', rho)          (* ==> [-c' <> q'] *)
-	  else 
-	    (c', Arith.mk_num (Mpa.Q.minus q'), rho)         (* ==> [c' <> -q'] *)
-      else 
-	let (a, b) = Term.orient (a, b) in
-	  (a, b, rho)
-
-  let map f ((a, b, rho) as d) =
-    let (a', alpha') = f a                       (* [alpha' |- a = a'] *)
-    and (b', beta') = f b in                     (* [beta' |- b = b'] *)
-      match a == a', b == b' with
-	| true, true -> d
-	| _ ->
-	    let rho' = Jst.subst_diseq (a', b') rho [alpha'; beta'] in
-	      make (a', b', rho')
-
-  let d_diophantine ((a, b, rho) as d) = 
-    assert(is_diophantine d);
+  let to_var term_to_var  ((d, rho) as deq) =
+    let (a, b) = Atom.Diseq.destruct d in
+      match a, b with
+	| Term.Var _, Term.Var _ -> deq
+	| Term.Var _, Term.App(g, _, _) ->
+	    let j = Sym.theory_of g in
+	    let (y, beta) = term_to_var j b in
+	      (Atom.Diseq.make (a, y), Jst.dep2 rho beta)
+	| Term.App(f, _, _), Term.Var _ ->
+	    let i = Sym.theory_of f in
+	    let (x, alpha) = term_to_var i a in
+	      (Atom.Diseq.make (x, b), Jst.dep2 rho alpha)
+	| Term.App(f, _, _), Term.App(g, _, _) ->
+	    let i = Sym.theory_of f in
+	    let j = Sym.theory_of g in
+	    let (x, alpha) = term_to_var i a in
+	    let (y, beta) = term_to_var j b in
+	      (Atom.Diseq.make (x, y), Jst.dep3 rho alpha beta)
+		
+  let d_diophantine (d, rho) =  
+    let (a, b) = Atom.Diseq.destruct d in
     let q = Arith.d_num b in
       (a, q, rho)
 
-  type diseq = t
-
   module Set = Set.Make(
     struct
-      type t = diseq
-      let compare (a1, b1, _) (a2, b2, _) =
-	let cmp = Term.cmp a1 a2 in
-	  if cmp <> 0 then cmp else Term.cmp b1 b2
+      type t = Atom.Diseq.t * Jst.t
+      let compare (d1, _) (d2, _) = Atom.Diseq.compare d1 d2
     end)
 
 end
 
 
-
-
-(** {6 Nonnegative Constraint Facts} *)
+(** {6 Nonnegativity facts} *)
 
 module Nonneg = struct
 
-  type t = Term.t * Jst.t
+  type t = Atom.Nonneg.t * Jst.t
 
-  let inj (a, rho) = (Atom.mk_nonneg(a), rho)
-
-  let pp fmt c = pp fmt (inj c)
-
-  let make (a, rho) =
-    try
-      let (q, x) = Arith.d_multq a in
-	if Mpa.Q.is_pos q then 
-	  (x, rho)
-	else 
-	  (a, rho)
-    with
-	Not_found -> (a, rho)
-     
-  let destruct c = c
-	  
-  let map f ((a, rho) as c) =
-    let (a', alpha') = f a in                    (* [alpha' |- a = a'] *)
-      if a == a' then c else
-	let rho' = Jst.subst_nonneg a' rho [alpha'] in
-	  make (a', rho')
-
-  let holds (a, rho) =
-    match Arith.is_nonneg  a with
-      | Three.No -> Jst.Three.No(rho)
-      | Three.Yes -> Jst.Three.Yes(rho)
-      | Three.X -> Jst.Three.X
-   
+  let pp fmt (nn, rho) =  pp_justification fmt rho; Atom.Nonneg.pp fmt nn
+  let make (a, rho) = (Atom.Nonneg.make a, rho)
+  let of_nonneg (nn, rho) = (nn, rho)
+  let destruct (nn, rho) = (Atom.Nonneg.destruct nn, rho)
+      
+  let map f ((nn, rho) as nonneg) =
+    let a = Atom.Nonneg.destruct nn in
+    let (a', alpha') = f a in
+      if a == a' then nonneg else
+	let nn' = Atom.Nonneg.make a' in
+	  (nn', Jst.dep2 rho alpha')
+    
 end
 
 
-(** {6 Nonnegative Constraint Facts} *)
+(** {6 Positivity constraints} *)
 
 module Pos = struct
 
-  type t = Term.t * Jst.t
-
-  let inj (a, rho) = (Atom.mk_pos(a), rho)
-
-  let pp fmt c = pp fmt (inj c)
-
-  let destruct c = c
-
-  let is_int a = Three.X
-
-  let make (a, rho) =               (* [rho |- a > 0] *)
-    try
-      let (q, x) = Arith.d_multq a in
-	if Mpa.Q.is_pos q then 
-	  (x, rho)
-	else 
-	  (a, rho)
-    with
-	Not_found -> (a, rho)
-	  
-  let map f ((a, rho) as c) =
-    let (a', alpha') = f a in                    (* [alpha' |- a = a'] *)
-      if a == a' then c else
-	let rho' = Jst.subst_pos a' rho [alpha'] in
-	  make (a', rho')
-
+  type t = Atom.Pos.t * Jst.t
+      
+  let pp fmt (p, rho) =   pp_justification fmt rho; Atom.Pos.pp fmt p
+  let destruct (p, rho) = (Atom.Pos.destruct p, rho)
+  let of_pos (p, rho) = (p, rho)
+  let make (a, rho) = (Atom.Pos.make a, rho)  
+			
+  let map f ((p, rho) as pos) =
+    let a = Atom.Pos.destruct p in
+    let (a', alpha') = f a in
+      if a == a' then pos else
+	(Atom.Pos.make a', Jst.dep2 rho alpha')
 end
 
 
+(** {6 Facts} *)
 
-(** {6 Exceptions} *)
+type t = Atom.t * Jst.t
 
-exception Inconsistent of t
+let rec pp fmt (atm, j) =
+  pp_justification fmt j;
+  Atom.pp fmt atm;
+  Format.fprintf fmt "@?"
+    
+let atom_of (a, _) = a
+		       
+let justification_of (_, j) = j
+						
+let mk_axiom atm = (atm, Jst.axiom atm)
 
-
-(** {6 Recognizers} *)
-
-let is_true (a, _) = Atom.is_true a
-let is_false (a, _) = Atom.is_false a
-
-
-(** {6 Constructors} *)
-
-let make fct = 
-  if !footprint then
-    begin
-      Format.fprintf !fmt "\nFact: ";
-      pp !fmt fct;
-      Format.fprintf !fmt "@?"
-    end;
-  fct
-
-let mk_true rho = make (Atom.mk_true, rho)
-let mk_false rho = make (Atom.mk_false, rho)
-
-let mk_axiom a = make (a, Jst.axiom a)
-
-open Jst.Three
-
-let mk_equal is_equal (a, b, rho) =  
-  match is_equal a b with
-    | Yes(tau) -> 
-	mk_true (Jst.valid rho tau)
-    | No(tau) -> 
-	mk_false (Jst.contradiction rho tau)
-    | X -> 
-	make (Atom.mk_equal(a, b), rho)
-
-let mk_diseq is_equal (a, b, rho) =  
-  match is_equal a b with
-    | Yes(tau) -> 
-	mk_false (Jst.contradiction rho tau)
-    | No(tau) ->
-	mk_true (Jst.valid rho tau)
-    | X -> 
-	make (Atom.mk_diseq(a, b), rho)
-
-let mk_nonneg is_nonneg (a, rho) =
-  match is_nonneg a with
-    | Yes(tau) ->
-	mk_true (Jst.valid rho tau)
-    | No(tau) -> 
-	mk_false (Jst.contradiction rho tau)
-    | X -> 
-	make (Atom.mk_nonneg(a), rho)
-
-let mk_pos is_pos (a, rho) = 
-  match is_pos a with
-    | Yes(tau) -> 
-	mk_true (Jst.valid rho tau)
-    | No(tau) -> 
-	mk_false (Jst.contradiction rho tau)
-    | X -> 
-	make (Atom.mk_pos(a), rho)
-
-let map (is_equal, is_nonneg, is_pos) f ((atm, rho) as fct) =
+let mk_holds atm = (atm, Jst.dep0)
+      
+let rec map (is_equal, is_nonneg, is_pos) f atm =
   match Atom.atom_of atm with
     | Atom.True -> 
-	fct
+	mk_holds atm
     | Atom.False -> 
-	fct
-    | Atom.Equal(a, b) ->
-	let (a', b', rho') = Equal.map f (a, b, rho) in
-	  if a == a' && b == b' then fct else
-	    (match is_equal a' b' with
-	       | Jst.Three.Yes(tau') ->  
-		   mk_true (Jst.valid rho' tau')
-	       | Jst.Three.No(tau') -> 
-		   mk_false (Jst.contradiction rho' tau')
-	       | Jst.Three.X -> 
-		   mk_equal is_equal (a', b', rho'))
+	mk_holds atm
+    | Atom.Equal(a, b) -> 
+	let (a', alpha) = f a and (b', beta) = f b in
+	  if a == a' && b == b' then mk_holds atm else
+	    let rho = Jst.dep2 alpha beta in
+	      (match is_equal a' b' with
+		 | Jst.Three.Yes(tau) -> (Atom.mk_true, Jst.dep2 rho tau)
+		 | Jst.Three.No(tau) -> (Atom.mk_false, Jst.dep2 rho tau)
+		 | Jst.Three.X -> (Atom.mk_equal (a', b'), rho))
     | Atom.Diseq(a, b) ->
-	let (a', b', rho') = Diseq.map f (a, b, rho) in
-	  if a == a' && b == b' then fct else 
-	    (match is_equal a' b' with
-	       | Jst.Three.Yes(tau') -> 
-		   mk_false(Jst.contradiction rho' tau')
-	       | Jst.Three.No(tau') -> 
-		   mk_true (Jst.valid rho' tau')
-	       | Jst.Three.X -> 
-		   mk_diseq is_equal (a', b', rho'))
-    | Atom.Nonneg(a) ->
-	let (a', rho') = Nonneg.map f (a, rho) in
-	  if a == a' then fct else
+	let (a', alpha) = f a and (b', beta) = f b in
+	  if a == a' && b == b' then mk_holds atm else
+	    let rho = Jst.dep2 alpha beta in
+	      (match is_equal a' b' with
+		   | Jst.Three.No(tau) -> (Atom.mk_true, Jst.dep2 rho tau)
+		   | Jst.Three.Yes(tau) -> (Atom.mk_false, Jst.dep2 rho tau)
+		   | Jst.Three.X -> (Atom.mk_diseq (a', b'), rho))
+    | Atom.Nonneg(a) -> 
+	let (a', alpha) = f a in
+	  if a == a' then mk_holds atm else
 	    (match is_nonneg a' with
-	      | Jst.Three.Yes(tau') ->  
-		  mk_true (Jst.valid rho' tau')
-	      | Jst.Three.No(tau') -> 
-		  mk_false (Jst.contradiction rho' tau')
-	      | Jst.Three.X -> 
-		  mk_nonneg is_nonneg (a', rho'))
-    | Atom.Pos(a) ->
-	let (a', rho') = Pos.map f (a, rho) in
-	  if a == a' then fct else
+	       | Jst.Three.Yes(tau) -> (Atom.mk_true, Jst.dep2 alpha tau)
+	       | Jst.Three.No(tau) -> (Atom.mk_false, Jst.dep2 alpha tau)
+	       | Jst.Three.X -> (Atom.mk_nonneg a', alpha))
+    | Atom.Pos(a) -> 
+	let (a', alpha) = f a in
+	  if a == a' then mk_holds atm else
 	    (match is_pos a' with
-	       | Jst.Three.Yes(tau') -> 
-		   mk_true (Jst.valid rho' tau')
-	       | Jst.Three.No(tau') -> 
-		   mk_false (Jst.contradiction rho' tau')
-	       | Jst.Three.X -> 
-		   mk_pos is_pos (a', rho'))
-	    
+	       | Jst.Three.Yes(tau) -> (Atom.mk_true, Jst.dep2 alpha tau)
+	       | Jst.Three.No(tau) -> (Atom.mk_false, Jst.dep2 alpha tau)
+	       | Jst.Three.X -> (Atom.mk_pos a', alpha))  
 
-(** {6 Set of facts} *)
-
-module Set = Set.Make(
-  struct
-    type t = fct
-    let compare (a, _) (b, _) = Pervasives.compare a b
-  end)
+let map preds f = 
+  Trace.func "foo" "Map" Atom.pp (Pretty.pair Atom.pp Jst.pp) (map preds f)
 
 
-(** {6 Stacks of facts} *)
+(** {6 Stacks} *)
 
+  
 module type STACK = sig
   type t
   val clear : unit -> unit
@@ -484,45 +294,51 @@ module Stack(Arg: T) = struct
 		   
   let push i e =
     if !enabled then
-      let pushmsg = Format.sprintf "Push(%s): " (th_to_string i) in
-	Trace.msg "stack" pushmsg e Arg.pp;
-	Stack.push (i, e) stack
-  
+      Stack.push (i, e) stack
+	
   let pop () =
     if !enabled then
       Stack.pop stack
     else 
       failwith "Fatal error: popping a disabled stack"
- 
+	
   let is_empty () = 
     Stack.is_empty stack
-
+      
 end
-
+  
 module Eqs = Stack(
   struct
     type t = Equal.t
     let pp = Equal.pp
   end)
-
+  
 module Diseqs = Stack(
   struct
     type t = Diseq.t
     let pp = Diseq.pp
   end)
 
-
+module Nonnegs = Stack(
+  struct
+    type t = Nonneg.t
+    let pp = Nonneg.pp
+  end)
+  
 let with_disabled_stacks f a =
   try
     Eqs.enabled := false;
     Diseqs.enabled := false;
+    Nonnegs.enabled := false;
     let b = f a in
       Eqs.enabled := true;
       Diseqs.enabled := true;
+      Nonnegs.enabled := true;
       b
   with
       exc ->
 	Eqs.enabled := true;
-	Diseqs.enabled := true;
+	Diseqs.enabled := true;  
+	Nonnegs.enabled := true;
 	raise exc
     

@@ -1,4 +1,4 @@
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -9,7 +9,7 @@
  * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
- i*)
+ *)
 
 (** Equality set for arrays *)
 module A: Eqs.SET = 
@@ -17,7 +17,7 @@ module A: Eqs.SET =
     struct
       let th = Th.arr
       let nickname = Th.to_string Th.arr
-      let apply = Funarr.apply Term.is_equal
+      let map = Funarr.map Term.is_equal
       let is_infeasible _ = false
     end)
 
@@ -97,8 +97,11 @@ module Iter = struct
 end 
 
 
-let interp (p, s) = Partition.choose p (apply s)
-
+let interp (p, s) a = 
+  if Term.is_var a then 
+    Partition.choose p (apply s) a
+  else 
+    Jst.Eqtrans.id a
 
 let uninterp (p, s) a =
   try
@@ -144,7 +147,7 @@ type config = Partition.t * t
 
 let arr = Th.to_string Th.arr
 
-let merge p e =
+let mergevars p e =
   Trace.msg arr "Merge" e Fact.Equal.pp;
   Partition.merge p e
 
@@ -159,16 +162,16 @@ let name cfg a =
 let rec abstract cfg a =
   try
     let op, al = Funarr.d_interp a in
-    let (bl, rhol) = Fact.Equal.Inj.mapl (abstract cfg) al in 
+    let (bl, rhol) = Jst.Eqtrans.pointwise (abstract cfg) al in 
     let b = Funarr.sigma Term.is_equal op bl in         (* [rho |- a = b] *)
-    let rho = Jst.abstract (a, b) rhol in
+    let rho = Jst.dep1 rhol in
     let (x, tau) = name cfg b in
-      (x, Jst.trans x b a tau rho)
+      (x, Jst.dep2 tau rho)
   with
       Not_found -> Jst.Eqtrans.id a
 
   
-let rec process_equal cfg e =
+let rec merge cfg e =
   assert(Fact.Equal.is_pure Th.arr e);
   Trace.msg arr "Process" e Fact.Equal.pp;
   let e = Fact.Equal.map (abstract cfg) e in
@@ -178,7 +181,7 @@ let rec process_equal cfg e =
     arr4_eq cfg e
 
 
-and process_diseq cfg d =
+and dismerge cfg d =
   assert(Fact.Diseq.is_var d);
   Trace.msg arr "Process" d Fact.Diseq.pp;
   let d = Fact.Diseq.map (abstract cfg) d in
@@ -197,9 +200,9 @@ and arr1_eq ((p, s) as cfg) e =
 	 Iter.update cfg v  
 	 (fun (v, (a, i', x), sigma) ->       (* [sigma |- v = a[i:=x]] *)
 	    if Term.eq i i' then              (* ==> [phi |- u = x] *)
-	      let phi = Jst.array 1 u x [rho; tau; sigma] in
+	      let phi = Jst.dep3 rho tau sigma in
 	      let e' = Fact.Equal.make (u, x, phi) in
-		merge p e';
+		mergevars p e';
 		A.restrict cfg u))
   in
     propagate (i, j);
@@ -217,7 +220,7 @@ and arr2_deq ((_, s) as cfg) d =
 	   (fun (u, (a, i, x), tau) ->        (* [tau |- u = a[i:=x]] *)
 	      if Term.eq i i' then            (* ==> [phi |- v = a[j]] *)
 		let aj = mk_select a j in    
-		let phi = Jst.array 2 v aj [rho'; rho; tau] in
+		let phi = Jst.dep3 rho' rho tau in
 		let e = Fact.Equal.make (v, aj, phi) in
 		  A.update cfg e))
   in
@@ -233,9 +236,9 @@ and arr3_eq ((p, _) as cfg) e =
 	 (Iter.update cfg v 
 	    (fun (v, (b, j', y), sigma) ->      (* [sigma |- v = b[j':= y]] *)
 	       if Term.eq j j' then             (* ==> [phi' |- x = y] *)
-		 let phi' = Jst.array 3 x y [rho; tau; sigma] in
+		 let phi' = Jst.dep3 rho tau sigma in
 		 let e' = Fact.Equal.make (x, y, phi') in
-		   merge p e')))          
+		   mergevars p e')))          
 	  
 
 (** IV. [a[j:=x] = b[k:=y]], [i<>j], [i<>k] implies [a[i] = b[i]] *)
@@ -251,9 +254,9 @@ and arr4_eq ((p, _) as cfg) e =
 			(fun (i', theta) ->    (* [theta |- i <> k] *)
 			   if Term.eq i i' then  
 			     let ai = mk_select a i and bi = mk_select b i in
-			     let phi'' = Jst.array 4 ai bi [rho; tau; sigma; phi; theta] in
+			     let phi'' = Jst.dep [rho; tau; sigma; phi; theta] in
 			     let e'' = Fact.Equal.make (ai, bi, phi'') in
-			       merge p (Fact.Equal.map (name cfg) e''))
+			       mergevars p (Fact.Equal.map (name cfg) e''))
 			(diseqs cfg k)))
 	           (diseqs cfg j)))
       
@@ -271,9 +274,9 @@ and arr4_deq ((p, s) as cfg) d =
 		        (fun (v, (b, k, y), phi) -> (* [phi |- v = b[k:=y]] *)
 			   if not(Term.eq a b) then  
 			     let ai = mk_select a i and bi = mk_select b i in
-			     let theta = Jst.array 4 ai bi [rho; tau; sigma; ups; phi] in
+			     let theta = Jst.dep [rho; tau; sigma; ups; phi] in
 			     let e = Fact.Equal.make (ai, bi, theta) in
-			       merge p (Fact.Equal.map (name cfg) e))))
+			       mergevars p (Fact.Equal.map (name cfg) e))))
 		  (diseqs cfg i)))
 	    (diseqs cfg j)))
   in 
@@ -299,9 +302,9 @@ and arr5_deq ((p, s) as cfg) d =
 		           (fun (v2, (a', k, y), theta) -> 
 			      if Term.eq a a' then  (* [theta |- w2 = a[k:=y]] *)
 			        let phil = [rho; rho1; rho2; tau; sigma; theta] in
-			        let phi = Jst.array 5 v1 v2 phil in
+			        let phi = Jst.dep phil in
 			        let e = Fact.Equal.make (v1, v2, phi) in
-				  merge p e))
+				  mergevars p e))
 	                 (diseqs cfg i)))
   in
     propagate (i, j);
@@ -321,8 +324,8 @@ and arr6_deq ((p, s) as cfg) d =
 		   Iter.update cfg v'
 		     (fun (v', (a', j', y'),sigma2) -> (* [sigma2 |- v' = a[i:=x]] *)
 		 if Term.eq a a' && Term.eq j j' && Term.eq y y' then
-		   let phi = Jst.array 6 u v [rho; tau1; sigma1; tau2; sigma2] in
-		     merge p (Fact.Equal.make (u, v, phi))))))
+		   let phi = Jst.dep [rho; tau1; sigma1; tau2; sigma2] in
+		     mergevars p (Fact.Equal.make (u, v, phi))))))
 	
 
 

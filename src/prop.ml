@@ -22,6 +22,10 @@ type t =
   | Neg of t
   | Let of Name.t * t * t
 
+type dt
+
+let get p = p
+
 let rec pp fmt = function
   | True -> Pretty.string fmt "tt"
   | False -> Pretty.string fmt "ff"
@@ -51,6 +55,24 @@ let mk_ite p q r = Ite(p, q, r)
 let mk_neg p = Neg(p)
 let mk_conj pl = mk_neg (mk_disj (List.map mk_neg pl))
 let mk_let x p q = Let(x, p, q)
+
+let is_true = function True -> true | _ -> false
+let is_false = function False -> true | _ -> false
+let is_var = function Var _ -> true | _ -> false
+let is_atom = function Atom _ -> true | _ -> false
+let is_disj = function Disj _ -> true | _ -> false
+let is_iff = function Iff _ -> true | _ -> false
+let is_ite = function Ite _ -> true | _ -> false
+let is_neg = function Neg _ -> true | _ -> false
+let is_let = function Let _ -> true | _ -> false
+
+let d_var = function Var(x) -> x | _ -> invalid_arg "wrong propositional argument"
+let d_atom = function Atom(a) -> a | _ -> invalid_arg "wrong propositional argument"
+let d_disj = function Disj(dl) -> dl | _ -> invalid_arg "wrong propositional argument"
+let d_iff = function Iff(p, q) -> (p, q) | _ -> invalid_arg "wrong propositional argument"
+let d_ite = function Ite(p, q, r) -> (p, q, r) | _ -> invalid_arg "wrong propositional argument"
+let d_neg = function Neg(p) -> p | _ -> invalid_arg "wrong propositional argument"
+let d_let = function Let(x, p, q) -> (x, p, q) | _ -> invalid_arg "wrong propositional argument"
 
 
 (** {6 Translations to/from ICSAT propositions} *)
@@ -182,7 +204,7 @@ let rec of_prop p =
   else if icsat_is_not p then
     mk_neg (of_prop p)
   else if icsat_is_or p then
-    mk_disj (List.map of_prop (d_disj p))
+    mk_disj (List.map of_prop (d_disj_prop p))
   else if icsat_is_ite p then
     mk_ite (of_prop (icsat_get_argument p 0))
            (of_prop (icsat_get_argument p 1))
@@ -193,7 +215,7 @@ let rec of_prop p =
   else 
     failwith "Fatal error: unknown ICSAT proposition"
 
-and d_disj p = 
+and d_disj_prop p = 
   let n = icsat_num_arguments p in
   let args = ref [] in
     for i = 0 to n - 1 do
@@ -262,7 +284,7 @@ let stackpp () =
 let _ = Callback.register "prop_stackpp" stackpp
 
 
-(* Interface for shipping explanations to SAT solver *)
+(** Interface for shipping explanations to SAT solver *)
 module Explanation = struct
 
   let explained = ref false
@@ -371,9 +393,9 @@ module Assignment = struct
 
   let pp fmt rho =
     if rho.valuation <> [] then
-	Pretty.list' (Pretty.assign Name.pp Pretty.bool) fmt rho.valuation;
+	Pretty.map Name.pp Pretty.bool fmt rho.valuation;
     if rho.literals <> [] then
-      Pretty.list' Atom.pp fmt rho.literals
+      Pretty.list Atom.pp fmt rho.literals
 
 end
 
@@ -381,7 +403,7 @@ let rec sat s p =
   try
     initialize s;
     let result = 
-      let mode = !Jst.proofmode != Jst.Mode.No in
+      let mode = Jst.Mode.get() != Jst.Mode.No in
 	if icsat_sat (to_prop p) mode then
 	  begin
 	    debug();
@@ -410,7 +432,7 @@ and debug () =
 	(fun a -> 
 	   Pretty.string fmt "\nassert ";
            Atom.pp fmt a; 
-	   Pretty.string fmt ".@.")
+	   Pretty.string fmt ".")
 	!bl
 
         
@@ -436,4 +458,3 @@ and assignment () =
       !atom_to_id_tbl []
   in
     { Assignment.valuation = valuation; Assignment.literals = literals }
-	

@@ -1,4 +1,4 @@
-(*i
+(*
  * The contents of this file are subject to the ICS(TM) Community Research
  * License Version 1.0 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -9,9 +9,7 @@
  * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
- * 
- * Author: Harald Ruess, N. Shankar
- i*)
+ *)
 
 (** Decision procedure for functional arrays
 
@@ -20,7 +18,7 @@
 *)
 
 type t
-  (** Representating sets of equalities of the form [x = a]
+  (** Representing sets of equalities of the form [x = a]
     with [a] restricted to {i flat} array terms, that is [a]
     is an term application of the form [f(x1,...,xn)] with [f]
     a function symbol in the theory {!Th.arr} of arrays and
@@ -68,8 +66,8 @@ val is_independent : t -> Term.t -> bool
 (** {6 Processing} *)
 
 val copy : t -> t
-  (** The update functions {!Arr.name}, {!Arr.process_equal},
-    and {!Arr.process_diseq} {b destructively} update equality
+  (** The update functions {!Arr.name}, {!Arr.merge},
+    and {!Arr.dismerge} {b destructively} update equality
     sets. The function [copy s] can be used to protect state [s]
     against these updates. *)
 
@@ -84,8 +82,8 @@ val name : config -> Jst.Eqtrans.t
     include the equality [v = a]. *)
 
 
-val process_equal : config -> Fact.Equal.t -> unit
-  (** [process_equal (p, s) e] conjoins an array solution
+val merge : config -> Fact.Equal.t -> unit
+  (** [merge (p, s) e] conjoins an array solution
     set [s] with an equality [e] over {i flat} array terms.
     If [e] conjoined with [s] and [p] is {i inconsistent},
     then {!Jst.Inconsistent} is raised.  Besides 
@@ -98,8 +96,8 @@ val process_equal : config -> Fact.Equal.t -> unit
     in general to detect every inconsistency. *)
 
     
-val process_diseq : config -> Fact.Diseq.t -> unit
- (** [process_diseq (p, s) d] conjoins an array solution
+val dismerge : config -> Fact.Diseq.t -> unit
+ (** [dismerge (p, s) d] conjoins an array solution
    set [s] with a disequality [d] over variables.
    If [d] conjoined with [s] and [p] is {i inconsistent},
    then {!Jst.Inconsistent} is raised.  Besides 

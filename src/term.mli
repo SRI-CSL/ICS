@@ -51,7 +51,7 @@ val to_string : t -> string
  
 module Var : sig
  
-  val mk_var : Name.t -> Dom.t option -> t
+  val mk_var : Name.t -> Var.Cnstrnt.t -> t
     (** [mk_var n d] constructs an {i external} variable (see {!Var.mk_external})
       of name [n] and optional domain constraint [d]. *)
       
@@ -62,7 +62,7 @@ module Var : sig
       The counter [k] is incremented by the {!Var.mk_rename} variable constructors below.  
       Calls to {!Tools.do_at_reset} are resetting this variable to its default value [0]. *)
     
-  val mk_rename : Name.t -> int option -> Dom.t option -> t
+  val mk_rename : Name.t -> int option -> Var.Cnstrnt.t -> t
     (** [mk_rename n None] constructs a fresh variable, where
       'fresh' means that the index part of this fresh variable
       (see Module {!Term.Var}) is larger than {!Term.Var.k}; as a side-effect,
@@ -77,7 +77,7 @@ module Var : sig
       if [sl] is of the form [Var.Nonneg(d)], then a {i nonnegative slack}
       variable with domain restriction [d] is generated. See also {!Var.mk_slack}. *)
 
-  val mk_fresh : Th.t -> int option -> Dom.t option -> t
+  val mk_fresh : Th.t -> int option -> Var.Cnstrnt.t -> t
     (** [mk_fresh th None d] creates a theory-specific fresh variable with optional
       domain restriction [d], and  [mk_fresh th Some(i) d] creates the theory-specific
       fresh variable of index [i] with optional domain restriction [d]. See also {!Var.mk_fresh}. *)
@@ -136,6 +136,14 @@ module Var : sig
     (** [dom_of x] returns the domain restriction associated with [x] (see {!Var.dom_of}).
       If there is no such restriction, [Not_found] is raised. *)
 
+  val width_of : t -> int
+    (** [with_of x] returns the length of the bitvector interpretation of [x],
+      or raises [Not_found]. *)
+
+ val cnstrnt_of : t -> Var.Cnstrnt.t
+    (** [cnstrnt_of x] returns the domain constraint associated with [x].
+      If there is no such restriction, [Not_found] is raised. *)
+   
 end 
 
 (** {6 Applications} *)
@@ -296,6 +304,8 @@ module Diseq : sig
   val compare : t -> t -> int
 end
 
+type 'a transformer = t -> t * 'a
+
 
 (** {6 Term Substitutions} *)
 
@@ -322,3 +332,5 @@ module Subst : sig
   val fold : (trm * trm -> 'a -> 'a) -> t -> 'a -> 'a
 
 end
+
+type solve = t * t -> Subst.t

@@ -36,10 +36,32 @@ val mk_neg : t -> t
 val mk_let : Name.t -> t -> t -> t
 
 
+(** {6 Recognizers} *)
+ 
+val is_true : t -> bool
+val is_false : t -> bool
+val is_var : t -> bool
+val is_atom : t -> bool
+val is_ite : t -> bool
+val is_disj : t -> bool
+val is_iff : t -> bool
+val is_neg : t -> bool
+val is_let : t -> bool
+
+(** {6 Destructors} *)
+
+val d_var : t -> Name.t
+val d_atom : t -> Atom.t
+val d_disj : t -> t list
+val d_iff : t -> t * t
+val d_ite : t -> t * t * t
+val d_neg : t -> t
+val d_let : t -> Name.t * t * t
+
+
 (** {6 Satisfiability checker} *)
 
 (** Parameter settings for SAT solver *)
-
 val set_verbose : bool -> unit
 val set_remove_subsumed_clauses : bool -> unit
 val set_validate_counter_example : bool -> unit

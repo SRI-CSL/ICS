@@ -34,7 +34,7 @@ let pp fmt s =
   let l = to_list s in
     if l <> [] then
       begin
-	Format.fprintf fmt "\nc:";
+	Pretty.string fmt "\nc:";
 	Pretty.list (fun fmt (a, i) -> Term.pp fmt a; Sign.pp fmt i) fmt l
       end
 

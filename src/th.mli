@@ -45,13 +45,13 @@ type t =
   | Can of can
   | Uninterpreted
 
-and shostak = A | P | BV | COP
+and shostak = LA | P | BV | COP | SET
 
 and can = NL | APP | ARR
 
 
 (** Theory identifiers. *)
-val a : t 
+val la : t 
 val p : t
 val bv : t
 val cop : t
@@ -59,6 +59,7 @@ val nl : t
 val app : t
 val arr : t
 val u : t
+val set : t
 
 val to_string : t -> string
   (** [to_string i] returns a name for theory [i]. *)

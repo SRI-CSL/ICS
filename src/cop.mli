@@ -40,12 +40,17 @@ val is_dependent : t -> Term.t -> bool
 val is_independent : t -> Term.t -> bool
 
 
+(** {6 Predicates} *)
+
+val is_diseq : t -> Jst.Pred2.t
+
+
 (** {6 Updates} *)
 
 val copy : t -> t
 
 val name : Partition.t * t -> Jst.Eqtrans.t
 
-val process_equal : Partition.t * t -> Fact.Equal.t -> unit
+val merge : Partition.t * t -> Fact.Equal.t -> unit
 
-val process_diseq : Partition.t * t -> Fact.Diseq.t -> unit
+val dismerge : Partition.t * t -> Fact.Diseq.t -> unit

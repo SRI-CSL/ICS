@@ -11,7 +11,6 @@
  * benefit corporation.
  *)
 
-
 (** Logical contexts
 
   @author Harald Ruess
@@ -52,27 +51,6 @@ val upper_of : t -> int
   (** [upper_of s] returns an upper bound on the indices of all fresh
     variables in [s]. *)
 
-val apply : Th.t -> t -> Jst.Eqtrans.t
-  (** [apply th s x] is [a] when [x = a] is in the solution set for theory [th]
-    in [s]; otherwise [Not_found] is raised. *)
-
-val find : Th.t -> t -> Jst.Eqtrans.t
-  (** [find th s x] is [a] if [x = a] is in the solution set for theory [th]
-    in [s]; otherwise, the result is just [x]. *)
-
-val inv : t -> Jst.Eqtrans.t
-  (** [inv s a] is [x] if there is [x = a] in the solution set for
-    theory [th]; otherwise [Not_found] is raised. *)
-
-val dep : Th.t -> t -> Term.t -> Term.Var.Set.t
-  (** [use th s x] consists of the set of all term variables [y] such
-    that [y = a] in [s], and [x] is a variable [a]. *)
-
-val cheap : bool ref
-
-val simplify : t -> Fact.t -> Fact.t
-
-
 module Status : sig
 
   type 'a t = 
@@ -89,10 +67,5 @@ val add : t -> Atom.t -> t Status.t
     The return value is 
     - [Valid] if [a] can be shown to be valid in [s],
     - [Inconsistent] if [s] conjoined with [a] can be shown to be inconsistent, and 
-    - [Satisfiable(s')] otherwise. 
-    
-    In the latter case, [s'] is a logical state equivalent to [s] conjoined with [a]. *)
-
-val compactify : bool ref
-
-val is_invalid : t -> Atom.t list -> Jst.t option
+    - [Ok(s')] otherwise.  In this case, [s'] is a logical state equivalent 
+    to [s] conjoined with [a]. *)

@@ -23,17 +23,6 @@
 *)
 
 
-(** {6 Global variables} *)
-
-val footprint : bool ref
-  (** If [footprint] is set to [true], then instantiations of [S.make s] have the
-    side effect of printing [s] on {!Fact.fmt} (default {!Format.err_formatter}) 
-    using [S.pp]. *)
-
-val fmt : Format.formatter ref
-  (** Output channel for footprints (see also {!Fact.footprint}); it is initialized
-    with {!Format.err_formatter}. *)
-
 val print_justification : bool ref
   (** {!Fact.pp} prints justification only if this flag is set to [true]. *)
 
@@ -41,163 +30,89 @@ val print_justification : bool ref
 (** {6 Facts} *)
 
 type t = Atom.t * Jst.t
- 
-val pp : t Pretty.printer
-
-val atom_of : t -> Atom.t
-
-
-
-(** {6 Recognizers} *)
-
-val is_true : t -> bool
-
-val is_false : t -> bool
-
-
-(** {6 Constructors} *)
 
 val mk_axiom : Atom.t -> t
-  (** [mk_axiom a] justifies atom [a]. *)
+
+val mk_holds : Atom.t -> t
+
+val pp : t Pretty.printer
+
+val map : Jst.Rel2.t * Jst.Rel1.t * Jst.Rel1.t -> Jst.Eqtrans.t -> Atom.t -> t
+  (** [map (is_equal , is_nonneg, is_pos) f atm] replaces terms [a]
+   in atom [atm] with [f a] to obtain a simplified atom [atm'].
+    The predicates [is_equal], [is_nonneg], [is_pos] are used to
+      simplify the result. The second result is a justification [rho]
+     with [rho |- atm <=> atm']. *)
 
 
 (** {6 Equality Facts} *)
 
 module Equal : sig
-
   type t
-
   val lhs_of : t -> Term.t
   val rhs_of : t -> Term.t
-
   val pp : t Pretty.printer
-
   val make : Term.t * Term.t * Jst.t -> t
-
+  val of_equal : Atom.Equal.t * Jst.t -> t
   val destruct : t -> Term.t * Term.t * Jst.t
-
-  val both : (Term.t -> bool) -> t -> bool
-
+  val both_sides : (Term.t -> bool) -> t -> bool
   val is_var : t -> bool
-
   val is_pure : Th.t -> t -> bool
-
+  val theory_of : t -> Th.t option
   val is_diophantine : t -> bool
-
-  val map : Jst.Eqtrans.t -> t -> t
-
-  val map_lhs : Jst.Eqtrans.t -> t -> t
-
-  val map_rhs : Jst.Eqtrans.t -> t -> t
-
   val map2 : Jst.Eqtrans.t * Jst.Eqtrans.t -> t -> t
-
-  module Inj : sig
-
-    val apply1 : Term.apply -> t -> Jst.Eqtrans.t
-
-    val trans : (Term.Equal.t -> Term.Equal.t) -> t -> t
-
-    val solver : Th.t -> (Term.Equal.t -> Term.Equal.t list) -> t -> t list 
-
-    val norm : Term.apply -> t list -> Jst.Eqtrans.t
-
-    val replace : Term.map -> Jst.Eqtrans.t -> Jst.Eqtrans.t
-
-    val mapargs : (Sym.t -> Term.t list -> Term.t * Jst.t) 
-                     -> (Sym.t -> Jst.Eqtrans.t) -> Jst.Eqtrans.t
-      (* [mapargs app f a] maps [f op] over the arguments [al] of
-	 an application [a] of the form [op(al)]. If [a] is not
-	 an application, [Not_found] is raised. *)
-
-    val mapl : Jst.Eqtrans.t -> Term.t list -> Term.t list * Jst.t list
-  end
-
-end 
+  val map : Jst.Eqtrans.t -> t -> t
+  val map_lhs : Jst.Eqtrans.t -> t -> t
+  val map_rhs : Jst.Eqtrans.t -> t -> t
+  val holds : t -> Jst.Three.t
+  val equiv : (Term.t * Term.t -> Term.t * Term.t) -> t -> t
+    (** If [f] transforms equalities [a = b] to equivalent 
+      equalities [a' = b'] in theory [th], then [inj th f]
+      is the corresponding equality constraint transformer. *)
+  val equivn : (Term.t * Term.t -> (Term.t * Term.t) list) -> t -> t list
+end
               
 
 (** {6 Disequality Facts} *)
 
 module Diseq : sig
-
   type t
-
   val make : Term.t * Term.t * Jst.t -> t
-
+  val of_diseq : Atom.Diseq.t * Jst.t -> t
   val destruct : t -> Term.t * Term.t * Jst.t
-
   val pp : t Pretty.printer
-
   val map : Jst.Eqtrans.t -> t -> t
-
+  val to_var : (Th.t -> Jst.Eqtrans.t) -> t -> t
   val is_var : t -> bool
-
   val is_diophantine : t -> bool
-
   val d_diophantine : t -> Term.t * Mpa.Q.t * Jst.t
-
-
-  module Set : (Set.S with type elt = t)
-              
+  module Set : (Set.S with type elt = t)            
 end 
       
   
-
 (** {6 Nonnegative Constraint Facts} *)
 
 module Nonneg : sig
-
   type t
-
   val pp : t Pretty.printer
-
   val make : Term.t * Jst.t -> t
   val destruct : t -> Term.t * Jst.t
-
-  val holds : t -> Jst.Three.t
-
-  val map : Jst.Eqtrans.t -> t -> t
-              
+  val map : Jst.Eqtrans.t -> t -> t        
 end 
 
 
 (** {6 Positive Constraint Facts} *)
 
 module Pos : sig
-
   type t
-
   val pp : t Pretty.printer
-
   val make : Term.t * Jst.t -> t
   val destruct : t -> Term.t * Jst.t
-
-  val map : Jst.Eqtrans.t -> t -> t
-              
+  val map : Jst.Eqtrans.t -> t -> t          
 end 
               
 
-(** {6 Constructors} *)
 
-val mk_true : Jst.t -> t
-val mk_false : Jst.t -> t
-val mk_equal : Jst.Rel2.t -> Term.t * Term.t * Jst.t -> t
-val mk_diseq : Jst.Rel2.t -> Term.t * Term.t * Jst.t -> t
-val mk_nonneg : Jst.Rel1.t -> Term.t * Jst.t -> t
-val mk_pos : Jst.Rel1.t ->  Term.t * Jst.t -> t
-
-
-val map : (Jst.Rel2.t *                      (* [is_equal] *)
-           Jst.Rel1.t *                      (* [is_nonneg] *)
-           Jst.Rel1.t)                       (* [is_pos] *)
-             -> Jst.Eqtrans.t -> t -> t
-
-
-(** {6 Set of facts} *)
-
-module Set : (Set.S with type elt = t)
-
- 
 (** {6 Stack of facts} *)
 
 module type STACK = sig
@@ -210,6 +125,8 @@ end
 
 module Eqs : (STACK with type t = Equal.t)
 module Diseqs : (STACK with type t = Diseq.t)
+module Nonnegs : (STACK with type t = Nonneg.t)
+
 
 val with_disabled_stacks : ('a -> 'b) -> 'a -> 'b
   (** [with_disabled_stacks f a] applies [f] to [a] in

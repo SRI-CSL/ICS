@@ -35,5 +35,5 @@ val apply : Term.Equal.t -> Term.t -> Term.t
 
 val crossmultiply : Term.Equal.t -> Term.Equal.t
 
-
+val crossmultiply_nonneg : Term.t -> Term.t
 

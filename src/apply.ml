@@ -166,10 +166,10 @@ and lift a k =
 and liftl al k =
   Term.mapl (fun a -> lift a k) al
 
-let sigma op al =
+let sigma sgm op al =
   match op, al with
     | Apply(r), [x; y] -> 
-	mk_apply Term.App.mk_app r x y   (* no simplifications *)
+	mk_apply sgm r x y
     | Abs, [x] -> 
 	mk_abs x
     | _ -> 
@@ -184,8 +184,7 @@ let rec map f a =
 	       mk_apply Term.App.mk_app r x' y'
        | Abs, [x] ->
 	   let x' = map f x in
-	     if x == x' then a else 
-	       mk_abs x'
+	     if x == x' then a else mk_abs x'
        | _ ->
 	   f a)
   with

@@ -75,8 +75,8 @@ val is_independent : t -> Term.t -> bool
 
 
 val copy : t -> t
-  (** The update functions {!La.name}, {!La.process_equal},
-    and {!La.process_diseq}, {!La.process_nonneg}, {!La.process_pos}, 
+  (** The update functions {!La.name}, {!La.merge},
+    and {!La.dismerge}, {!La.process_nonneg}, {!La.process_pos}, 
     and {b destructively} update equality sets. The function [copy s] 
     can be used to protect state [s] against these updates. *)
 
@@ -93,10 +93,10 @@ val name : config -> Jst.Eqtrans.t
     variable, it creates such a variable [v] and updates [s] to 
     include the equality [v = a]. *)
 
-val process_equal : config -> Fact.Equal.t -> unit
+val merge : config -> Fact.Equal.t -> unit
   (** Given a configuration [(p, s)] and an equality [e]
     over {i pure}, linear arithmetic terms
-    [process_equal (p, s) e] adds [e] to [(p, s)]. 
+    [merge (p, s) e] adds [e] to [(p, s)]. 
     If [e] conjoined with [s] and [p] is {i inconsistent},
     then {!Jst.Inconsistent} is raised.  Besides 
     {i destructively} updating [s], all generated variable 
@@ -123,11 +123,11 @@ val process_pos : config -> Fact.Pos.t -> unit
     generated variable equalities and disequalities are propagated
     into the partitioning [p].  *)
 
-val process_diseq : config -> Fact.Diseq.t -> unit
+val dismerge : config -> Fact.Diseq.t -> unit
   (** Given a configuration [(p, s)] and an disequality
     constraint [a <> b] with [a], [b] either variables or
     [a] a linear term and [b] a rational constant, 
-    [process_diseq (p, s) d] adds 
+    [dismerge (p, s) d] adds 
     [d] to [(p, s)]. If [d] conjoined with [s] and [p] is 
     {i inconsistent}, then {!Jst.Inconsistent} is 
     raised.  Besides {i destructively} updating [s], all 

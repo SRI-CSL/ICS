@@ -9,22 +9,17 @@
  * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
-*)
-
-
-
-open Sym
-open Mpa
-
-(** Known disequalities; [x |-> {y, z}] is interpreted as [x <> y & x <> z].
-  The function is closed in that forall [x], [y] such that [x |-> {..., y,...}]
-  then also [y |-> {...., x,....}] *)
+ *)
+ 
+       
 
 module Set = Set.Make(
   struct
     type t = Term.t * Jst.t
     let compare (x, _) (y, _) = Term.Var.compare x y
   end)
+
+let mem x = Set.exists (fun (y, _) -> Term.eq x y)
 
 exception Found of Set.elt
 
@@ -47,6 +42,26 @@ type t =  Set.t Term.Map.t
 let empty = Term.Map.empty
 
 let eq s t = (s == t)
+
+let fold = Term.Map.fold
+let iter = Term.Map.iter
+
+
+(** All terms known to be disequal to [a]. *)
+let diseqs s x =
+  try Term.Map.find x s with Not_found -> Set.empty
+
+
+(** Known disequalities; [x |-> {y, z}] is interpreted as [x <> y & x <> z].
+  The function is closed in that forall [x], [y] such that [x |-> {..., y,...}]
+  then also [y |-> {...., x,....}] *)
+let closed s =
+  Term.Map.fold
+    (fun x ys acc -> acc && 
+       (Set.for_all (fun (y, _) -> mem x (diseqs s y)) ys))
+    s true
+
+let occurs s x = Term.Map.mem x s
 
 
 (** List all disequalities. *)
@@ -71,14 +86,11 @@ let rec pp fmt s =
   let ds = to_set s in
   if not(Fact.Diseq.Set.is_empty ds) then
     begin
-      Format.fprintf fmt "\nd:";
+      Pretty.string fmt "\nd:";
       Pretty.list Fact.Diseq.pp fmt (Fact.Diseq.Set.elements ds)
     end
     
 
-(** All terms known to be disequal to [a]. *)
-let diseqs s x =
-  try Term.Map.find x s with Not_found -> Set.empty
 
 let map_diseqs s f a =
   let (x, rho) = f a in
@@ -86,7 +98,7 @@ let map_diseqs s f a =
     if Term.eq a x then ds else
       Set.fold 
 	(fun (z, tau) ->                       (* [tau |- y <> z] *)
-	   let sigma = Jst.subst_diseq (x, z) tau [rho] in
+	   let sigma = Jst.dep2 tau rho in
 	     Set.add (z, sigma))
 	ds Set.empty
 
@@ -106,7 +118,9 @@ let is_diseq s x y =
 
 
 (** Adding a disequality over variables *)
-let add d s =
+let add d s = 
+  assert(Fact.Diseq.is_var d);
+  assert(closed s);
   let (x, y, rho) = Fact.Diseq.destruct d in
     match is_diseq s x y with
       | Some _ -> s
@@ -115,38 +129,64 @@ let add d s =
 	  Fact.Diseqs.push None d;      (* new disequality *)
 	  let dx' = Set.add (y, rho) (diseqs s x)
 	  and dy' = Set.add (x, rho) (diseqs s y) in
+	  let s' = 
 	    Term.Map.add x dx'
 	      (Term.Map.add y dy' s)
+	  in
+	    assert(closed s');
+	    s'
 	    
 	
 (** Propagating an equality between variables. *)
-let rec merge e s =                 
+let merge e s =
   Trace.msg "d" "Merge(d)" e Fact.Equal.pp;
+  assert(Fact.Equal.is_var e);
+  assert(closed s);
   let (x, y, rho) = Fact.Equal.destruct e in         (* [rho |- x = y] *)
-    match is_diseq s x y with
-      | Some(tau) ->                                 (* [tau |- x <> y] *)
-	  let sigma = Jst.contradiction rho tau in
-	    raise(Jst.Inconsistent(sigma))
-      | None -> 
-	  let dx = diseqs s x 
-	  and dy = diseqs s y in
-	  let s' = 
-	    let dxy = Set.union dx dy in
-	      if dy == dxy then
-		Term.Map.remove x s
-	      else 
-		Term.Map.add y dxy (Term.Map.remove x s)
-	  in
-	    Set.fold
-	      (fun (z, tau) s ->                      (* [tau |- z <> x] *)
-		 let dz = diseqs s z in
-		   try
-		     let dz' = Set.remove (assoc x dz) dz in
-		     let sigma = Jst.subst_diseq (z, y) tau [rho] in
-		     let dz'' = Set.add (y, sigma) dz' in  (* [sigma|-z<>y] *)
-		       Term.Map.add z dz'' s
-		   with
-		       Not_found -> s)
-	      dx
-	      s'
-  
+    if Term.eq x y then s else
+      match is_diseq s x y with
+	| Some(tau) ->                                 (* [tau |- x <> y] *)
+	    raise(Jst.Inconsistent(Jst.dep2 rho tau))
+	| None -> 
+	    (try
+	       let dx = Term.Map.find x s
+	       and dy = diseqs s y in
+		 assert(not(mem x dy));
+		 assert(not(mem y dx));
+		 let (s', dy') = 
+		   (Term.Map.remove x s, Set.union dx dy) 
+		 in
+		 let (s'', dy'') = 
+		   Set.fold
+		     (fun (z, tau) (s, dy) ->                  (* [tau |- z <> x] *)
+			let dz = diseqs s z in
+			  try
+			    let dz' = Set.remove (assoc x dz) dz in
+			      assert(not(mem x dz'));
+			      let sigma = Jst.dep2 tau rho in  (* [sigma|- z <> y] *)
+			      let dz'' = Set.add (y, sigma) dz' in 
+			      let dy' = Set.add (z, sigma) dy in
+				(Term.Map.add z dz'' s, dy')
+			  with
+			      Not_found -> (s, dy))
+		     dx
+		     (s', dy')
+		 in
+		 let s''' = 
+		   if dy'' == dy then s'' else
+		     Term.Map.add y dy'' s''
+		 in
+		   assert(closed s''');
+		   assert(not(occurs s''' x));
+		   s'''
+	     with      
+		 Not_found -> 
+		   assert(not(occurs s x));
+		   s)
+ 
+
+
+
+
+
+

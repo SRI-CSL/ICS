@@ -45,6 +45,8 @@ module Z = struct
   let ge x y = Z.cmp x y >= 0
 		  
   let to_string z = Z.string_from z
+
+  let to_int = Z.int_from
  
   let pp fmt x = 
     Format.fprintf fmt "%s" (Z.string_from x)

@@ -19,8 +19,7 @@ let registered =
     "all", "Enable all trace levels"; 
     "rule", "Trace top-level integration methods";
     "v", "Tracing modifications of variable equalities";
-    "d", "Tracing modifications of variable diesequalities";
-    "la", "Tracing methods of simplex algorithm"
+    "d", "Tracing modifications of variable diesequalities"
   ]
 
 let _ =
@@ -52,8 +51,6 @@ let _ = Tools.add_at_reset (fun () -> levels := Levels.empty)
 let reset () = (levels := Levels.empty)
 
 let add l = (levels := Levels.add l !levels)
-
-let _ = add "foo"
 
 let remove l = (levels := Levels.remove l !levels)
 
@@ -123,6 +120,10 @@ let func level name pp qq f a =
     end
   else
     f a
+
+let func2 level name pp1 pp2 pp3 f a b =
+  func level name (Pretty.pair pp1 pp2) pp3
+    (fun (a, b) -> f a b) (a, b)
 
 let proc level = 
   let qq fmt () = Format.fprintf fmt "()" in 

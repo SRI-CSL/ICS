@@ -94,8 +94,7 @@ let rec map f a =
 	| Sym.Cons, [b1; b2] ->
 	    let b1' = map f b1
 	    and b2' = map f b2 in
-	      if b1 == b1' && b2 == b2' then a else
-		mk_cons b1' b2'
+	      if b1 == b1' && b2 == b2' then a else mk_cons b1' b2'
 	| Sym.Car, [b] ->
 	    let b' = map f b in
 	      if b == b' then a else mk_car b'
@@ -122,7 +121,7 @@ let sigma op l =
 
 (** Fresh variables. *)
 let mk_fresh () =
-  Term.Var.mk_fresh Th.p None None
+  Term.Var.mk_fresh Th.p None Var.Cnstrnt.Unconstrained
 
 let is_fresh = Term.Var.is_fresh Th.p 
 
@@ -193,13 +192,8 @@ module Symtab = struct
       in
 	search rho
     in
-    let lookup rho = 
-      Trace.func "p'" "Lookup" Term.pp Term.pp (lookup rho)
-    in
       map (lookup rho)
 
-  let concretize rho =
-    Trace.func "p'" "Concretize" Term.pp Term.pp (concretize rho)
   
 end 
 
@@ -208,12 +202,9 @@ end
   solved as [y |-> cdr(x)]. *) 
 let rec solve e =
   let e0, sl0, (rho: Symtab.t) = pre e in 
-  Trace.msg "p'" "Pre" (e0, sl0, rho) (Pretty.triple Term.Equal.pp Term.Subst.pp Symtab.pp);
   let sl1 = solvel ([e0], sl0) in
-  Trace.msg "p'" "Solve" sl1 Term.Subst.pp;
   let sl2 = (post rho) sl1 in
-  Trace.msg "p'" "Post" sl1 Term.Subst.pp;
-  sl2
+    sl2
 
 
 (** Preprocess the input equality [e] to replace ach term of the
@@ -289,10 +280,10 @@ and apply_to_eqs rho a =
   List.map (apply_to_eq rho) a
        
 and compose (x, a) sl =
-  assert(Term.is_var x);
+  assert(not(is_interp x));
   let (x, a) =       (* ensure external variables in renamings are on lhs. *)
     if  is_fresh x   (* otherwise, 'information' is lost. *)
-      && Term.is_var a 
+      && not(is_interp a)
       && not(is_fresh a) 
     then
       (a, x)

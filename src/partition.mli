@@ -45,31 +45,28 @@ val pp : t Pretty.printer
 
 
 val find : t -> Jst.Eqtrans.t
-(** [v s x] returns the canonical representative of the equivalence
+(** [find s x] returns the canonical representative of the equivalence
   class in the partitioning [s] containing the variable [x]. *)
 
 val diseqs : t -> Term.t -> D.Set.t
-(** [d s x] returns the set of all variable [y] disequal to [x] as stored
+(** [diseqs s x] returns the set of all variable [y] disequal to [x] as stored
   in the variable disequality part [d] of the partitioning [s].  Disequalities as
   obtained from the constraint part [c] are not necessarily included. *)
 
-val dom : t -> Term.t -> Dom.t * Jst.t
-(** [dom p a] returns a domain [d] for a term [a] together with
-  a justification [rho] such that [rho |- a in d].  This function
-  is extended to arithmetic constraints using an abstract domain
-  interpretation. Raises [Not_found] if no domain constraint is found. *)
-  
+val cnstrnt : t -> Term.t -> Var.Cnstrnt.t * Jst.t
+  (** [cnstrnt s x] returns a domain constraint on [x], or raises [Not_found]
+    if the interpretation of [x] is unconstrained. *)
+
 
 (** {6 Predicates} *)
+
+val is_int : t -> Jst.Pred.t
 
 val is_equal : t -> Jst.Pred2.t
 
 val is_diseq : t -> Jst.Pred2.t
 
 val is_equal_or_diseq : t -> Jst.Rel2.t
-
-val is_in : t -> Dom.t -> Jst.Rel1.t
-
 
 (** {6 Choose in equivalence class} *)
 

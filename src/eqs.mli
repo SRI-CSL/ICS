@@ -47,7 +47,7 @@ val pp_index : bool ref
 module type TH = sig
   val th : Th.t
   val nickname : string
-  val apply : Term.Equal.t -> Term.t -> Term.t
+  val map : Term.map
   val is_infeasible : Term.Equal.t -> bool
 end
 

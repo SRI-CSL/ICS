@@ -71,7 +71,7 @@ module Var = struct
   let mk_var =
     let module ExternalHash = Hashtbl.Make(
     struct
-      type t = Name.t * Dom.t option
+      type t = Name.t * Var.Cnstrnt.t
       let equal (n1, d1) (n2, d2) = Name.eq n1 n2 && d1 = d2
       let hash (n, _) = Name.hash n
     end)
@@ -115,7 +115,7 @@ module Var = struct
   let mk_rename =
     let module RenameHash = Hashtbl.Make(
       struct
-	type t = Name.t * int * Dom.t option
+	type t = Name.t * int * Var.Cnstrnt.t
 	let equal (x1, k1, d1) (x2, k2, d2) = 
 	  Name.eq x1 x2 && k1 = k2 && d1 = d2
 	let hash (_, k, _) = k
@@ -161,7 +161,7 @@ module Var = struct
   let mk_fresh =
     let module FreshHash = Hashtbl.Make(
       struct
-	type t = Th.t * int * Dom.t option
+	type t = Th.t * int * Var.Cnstrnt.t
 	let equal (th1, k1, d1) (th2, k2, d2) = 
 	  k1 = k2 && th1 = th2 && d1 = d2
 	let hash (_, k, _) = k
@@ -229,9 +229,16 @@ module Var = struct
     | Var(x, _) -> Var.dom_of x
     | _ -> raise Not_found
 
+ let width_of = function
+    | Var(x, _) -> Var.width_of x
+    | _ -> raise Not_found
        
   let name_of = function 
     | Var(x, _) -> Var.name_of x 
+    | _ -> raise Not_found
+
+  let cnstrnt_of = function 
+    | Var(x, _) -> Var.cnstrnt_of x 
     | _ -> raise Not_found
 
   let is_dom d a =
@@ -430,6 +437,7 @@ let is_pure i =
     loop
 
 
+
 (** {6 Sets and maps of terms.} *)
 
 
@@ -467,6 +475,8 @@ let rec vars_of a =
 	al
 
 
+type 'a transformer = t -> t * 'a
+
 (** {6 Encoding of equalities} *)
 
 module Equal = struct
@@ -478,8 +488,9 @@ module Equal = struct
    let destruct e = e
    let compare (a1, b1) (a2, b2) =
      let res = cmp a1 a2 in if res = 0 then cmp b1 b2 else res
-   let is_var (a, b) = is_var a && is_var b
+   let is_var (a, b) = is_var a && is_var b       
    let is_pure i (a, b) = is_pure i a && is_pure i b
+ 
 end
 
 
@@ -550,3 +561,6 @@ module Subst = struct
   let fold = List.fold_right  
 
 end
+
+
+type solve = t * t -> Subst.t

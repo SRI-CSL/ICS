@@ -16,17 +16,18 @@ type t =
   | Can of can
   | Uninterpreted
 
-and shostak =  A | P | BV | COP
+and shostak =  LA | P | BV | COP | SET
 
 and can = NL | APP | ARR
 
 
 (** {6 Names} *)
 
-let a = Shostak(A)
+let la = Shostak(LA)
 let p = Shostak(P)
 let bv = Shostak(BV)
 let cop = Shostak(COP)
+let set = Shostak(SET)
 
 let nl = Can(NL)
 let app = Can(APP)
@@ -54,41 +55,43 @@ let rec to_string th =
 
 and shostak_to_string i =
   match i with
-    | A -> "a"
+    | LA -> "la"
     | P -> "p"
     | BV -> "bv"
     | COP -> "cop"
+    | SET -> "pset"
 
 and can_to_string i =
   match i with
     | NL -> "nl"
-    | APP -> "app"
+    | APP -> "l"
     | ARR -> "arr"
 
 
 let of_string = function
   | "u" -> u
-  | "a" -> a
+  | "la" -> la
   | "p" -> p
   | "bv" -> bv
   | "cop" -> cop
   | "nl" -> nl
-  | "app" -> app
+  | "l" -> app
   | "arr" -> arr
+  | "pset" -> set
   | str -> raise (Invalid_argument (str ^ ": no such theory"))
 
 
 let fold f e =
-  f u (f a (f p (f bv (f cop (f nl (f app (f arr e)))))))
+  f u (f la (f p (f bv (f cop (f nl (f app (f arr (f set e))))))))
 
 let iter f =
-  f u; f a; f p; f bv; f cop; f nl; f app; f arr
+  f u; f la; f p; f bv; f cop; f nl; f app; f arr; f set
 
 let for_all f =
-  f u && f a && f p && f bv && f cop && f nl && f app && f arr
+  f u && f la && f p && f bv && f cop && f nl && f app && f arr && f set
 
 let exists f =
-  f u || f a || f p || f bv || f cop || f nl || f app || f arr
+  f u || f la || f p || f bv || f cop || f nl || f app || f arr || f set
 
 let for_all_but i p =
   let p' j = if i <> j then p j else true in
@@ -100,16 +103,17 @@ let exists_but i p =
 
 
 let inj =
-  let a = Some(a)
+  let la = Some(la)
   and p = Some(p)
   and bv = Some(bv)
   and cop = Some(cop)
   and nl = Some(nl)
   and app = Some(app)
   and arr = Some(arr)
-  and u = Some(u) in
+  and u = Some(u)
+  and set = Some(set) in
     function
-      | Shostak(i) -> (match i with A -> a | P -> p | BV -> bv | COP -> cop)
+      | Shostak(i) -> (match i with LA -> la | P -> p | BV -> bv | COP -> cop | SET -> set)
       | Can(i) -> (match i with APP -> app | ARR -> arr | NL -> nl)
       | Uninterpreted -> u
     

@@ -35,20 +35,22 @@ let of_string str =
 	  incr current;
           StringHash.add table str n; n
 
-let eq (s, i) (t, j) =   (*  s = t *)
+let eq (s, i) (t, j) =
   assert(if s == t then s = t else not(s = t));
   (s == t)
 
 let to_string (s, _) = s
 
-let compare (s, i) (t, j) =    (* Pervasives.compare s t *)
+
+let pp fmt (s, _) =
+  Format.fprintf fmt "%s" s
+
+let compare (s, i) (t, j) =
   assert(if i == j then s = t else not(s = t));
   if i < j then -1
   else if i == j then 0
   else 1
 
-let pp fmt (s, _) =
-  Format.fprintf fmt "%s" s
 
 let hash (_, i) = i
 

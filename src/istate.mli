@@ -30,7 +30,6 @@ module Parameters : sig
 
   type t = 
     | Compactify
-    | Footprint
     | Pretty
     | Statistics
     | Proofmode
@@ -40,6 +39,7 @@ module Parameters : sig
     | Eot
     | Prompt
     | IntegerSolve
+    | Crossmultiply
     | Index
     | Clock
 
@@ -86,7 +86,7 @@ val prop_of : Name.t -> Prop.t
 
 val entry_of : Name.t -> Symtab.entry
 
-val type_of : Name.t -> Dom.t
+val type_of : Name.t -> Var.Cnstrnt.t
   (** [type_of n] returns the corresponding type for the
     type definition [n] in the current symbol table. *)
 
@@ -110,7 +110,7 @@ val do_help : help -> unit
 
 val do_ctxt : Name.t option -> unit
 
-val do_show : Name.t option -> unit
+val do_show : Name.t option -> Th.t option option -> unit
 
 val do_show_vars : unit -> unit
 
@@ -187,7 +187,7 @@ val do_sgn : Name.t * int -> unit
     current symbol table. Raises [Invalid_argument], if [n] is already in 
     the domain of the table. *)
 
-val do_typ : Name.t list * Dom.t -> unit
+val do_typ : Name.t list * Var.Cnstrnt.t -> unit
   (** [typ n i] adds a {i type definition} [n] for type [i] to the
     current symbol table. Raises [Invalid_argument], if [n] is already in 
     the domain of the table. *)
@@ -242,7 +242,7 @@ val do_is_equal : Term.t * Term.t -> unit
 
 (** {6 Sat solver} *)
 
-val do_sat : Prop.t -> unit
+val do_sat :  Name.t option * Prop.t -> unit
 
 val do_error : string -> unit
 

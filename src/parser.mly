@@ -48,7 +48,8 @@ let name_of_rename = Name.of_string "v"
 %token ALBRA ACLBRA CLBRA
 
 %token LPAR RPAR LBRA RBRA LCUR RCUR PROPLPAR PROPRPAR UNDERSCORE KLAMMERAFFE
-%token COLON COMMA DOT DDOT ASSIGN UNION TO ENDMARKER BACKSLASH
+%token COLON COMMA DOT DDOT ASSIGN TO ENDMARKER BACKSLASH
+%token EMPTY FULL UNION INTER COMPL DIFF
 
 %token <string> BVCONST 
 %token <string * int> FRESH
@@ -56,7 +57,7 @@ let name_of_rename = Name.of_string "v"
 
 %token CONC SUB BWITE BWAND BWOR BWXOR BWIMP BWIFF BWNOT
 %token BVCONC 
-%token EQUAL DISEQ
+%token EQUAL DISEQ SUBSET
 %token TRUE FALSE
 %token PLUS MINUS TIMES DIVIDE EXPT
 %token LESS GREATER LESSOREQUAL GREATEROREQUAL  
@@ -73,9 +74,11 @@ let name_of_rename = Name.of_string "v"
 
 %right DISJ XOR IMPL
 %left BIIMPL CONJ
-%nonassoc EQUAL DISEQ LESS GREATER LESSOREQUAL GREATEROREQUAL
+%nonassoc EQUAL DISEQ SUBSET LESS GREATER LESSOREQUAL GREATEROREQUAL
 %left APPLY
-%left UNION
+%right UNION
+%right INTER, DIFF
+%nonassoc COMPL
 %left MINUS PLUS 
 %left DIVIDE
 %left TIMES
@@ -160,27 +163,19 @@ term:
 | coproduct        { $1 }
 | list             { $1 }
 | apply            { $1 }
+| propset          { $1 }
 ;
 
 var:
   name  { try
 	    match Istate.entry_of $1 with
 	      | Symtab.Def(Symtab.Term(a)) -> a
-	      | Symtab.Type(d)  -> Term.Var.mk_var $1 (Some(d))
-	      | _ -> Term.Var.mk_var $1 None
+	      | Symtab.Type(c)  -> Term.Var.mk_var $1 c
+	      | _ -> Term.Var.mk_var $1 Var.Cnstrnt.Unconstrained
 	  with
-	      Not_found -> Term.Var.mk_var $1 None }
-| name LCUR dom RCUR 
-         { Term.Var.mk_var $1 (Some($3)) }
-| FRESH
-	 { let (x, k) = $1 in 
-	   let n = Name.of_string x in
-	     if Name.eq n name_of_slack then
-	       Term.Var.mk_slack (Some(k)) (Var.Nonneg(Dom.Real))
-	     else if  Name.eq n name_of_zero_slack then
-	       Term.Var.mk_slack (Some(k)) Var.Zero
-	     else 
-	       Term.Var.mk_rename n (Some(k)) None }
+	      Not_found -> Term.Var.mk_var $1 Var.Cnstrnt.Unconstrained }
+| name LCUR cnstrnt RCUR 
+         { Term.Var.mk_var $1 $3 }
 | FREE   { Term.Var.mk_free $1 }
 ;
 
@@ -238,6 +233,14 @@ array:
 ;
 
 
+propset:
+  EMPTY                          { Propset.mk_empty }
+| FULL                           { Propset.mk_full }
+| term UNION term                { Propset.mk_union $1 $3 }
+| term INTER term                { Propset.mk_inter $1 $3 }
+| COMPL term %prec prec_unary    { Propset.mk_compl $2 }
+
+
 bv: 
   BVCONST                     { Bitvector.mk_const (Bitv.from_string $1)  }
 | CONC LBRA INTCONST COMMA INTCONST RBRA LPAR term COMMA term RPAR  
@@ -274,17 +277,23 @@ bv:
 atom: 
   FF                       { Atom.mk_false }
 | TT                       { Atom.mk_true }
-| term EQUAL term          { Atom.mk_equal ($1, $3)}
+| term EQUAL term          { Atom.mk_equal ($1, $3) }
 | term DISEQ term          { Atom.mk_diseq ($1, $3) }
 | term LESS term           { Atom.mk_lt ($1, $3) }
 | term GREATER term        { Atom.mk_gt ($1, $3) }
 | term LESSOREQUAL term    { Atom.mk_le ($1, $3) }
 | term GREATEROREQUAL term { Atom.mk_ge ($1, $3) }
+| term SUBSET term         { Atom.mk_equal (Propset.mk_inter $1 $3, $1) }
 ;
 
 dom:
   INT          { Dom.Int }
 | REAL         { Dom.Real }
+;
+
+cnstrnt: 
+  dom          { Var.Cnstrnt.Real($1) }
+| signature    { Var.Cnstrnt.Bitvector($1) }
 ;
 
 termlist:             { [] }
@@ -302,9 +311,8 @@ command:
 | ASSERT optname atom       { Istate.do_process ($2, $3) }
 | DEF name ASSIGN term      { Istate.do_def ($2, (Symtab.Term($4))) }
 | PROP name ASSIGN prop     { Istate.do_prop ($2, $4) }
-| SIG name COLON dom        { Istate.do_typ ([$2], $4) }
-| SIG namelist COLON dom    { Istate.do_typ ($2, $4) }
-| SIG name COLON signature  { Istate.do_sgn ($2, $4) }
+| SIG name COLON cnstrnt    { Istate.do_typ ([$2], $4) }
+| SIG namelist COLON cnstrnt{ Istate.do_typ ($2, $4) }
 | RESET                     { Istate.do_reset () }
 | SAVE name                 { Istate.do_save(Some($2)) }
 | SAVE                      { Istate.do_save(None) }        
@@ -320,7 +328,8 @@ command:
 | CTXT optname              { Istate.do_ctxt $2 }
 | SIGMA term                { Istate.do_sigma $2 }
 | term CMP term             { Istate.do_cmp ($1, $3) }
-| SHOW optname              { Istate.do_show $2 }
+| SHOW optname              { Istate.do_show $2 None }
+| SHOW optname eqth         { Istate.do_show $2 (Some($3)) }
 | FIND optname eqth term    { Istate.do_find ($2, $3, $4) }
 | INV optname th term       { Istate.do_inv ($2, $3, $4) }
 | USE optname th term       { Istate.do_dep ($2, $3, $4) }
@@ -331,7 +340,7 @@ command:
 | TRACE identlist           { Istate.do_trace $2 }
 | UNTRACE                   { Istate.do_untrace None }
 | UNTRACE identlist         { Istate.do_untrace (Some($2)) }
-| SAT prop                  { Istate.do_sat $2 }
+| SAT optname prop          { Istate.do_sat ($2, $3) }
 | MODEL optname optvarspecs { Istate.do_model ($2, List.rev $3) }
 | ECHO STRING               { Format.eprintf "%s@." $2 }
 | GET varname               { Istate.do_get $2 }

@@ -47,6 +47,8 @@ module Z : sig
   val ge : t -> t -> bool
 
   val of_int : int -> t
+  val to_int : t -> int
+
   val gcd : t -> t -> t      (* Greatest Common Divisor. *)
   val lcm : t -> t -> t      (* Least Common Multiple. *)
   val pow : int -> int -> t

@@ -13,49 +13,6 @@
 
 open Mpa
 
-module Bitvs = Set.Make(
-  struct
-    type t = Bitv.t * Jst.t
-    let compare (b, _) (c, _) = 
-      if Bitv.equal b c then 0 else Pervasives.compare b c
-  end)
-
-(** An {i interpretation} map associates each dependent bitvector
-  variable [x] with a pair [(n, {b1,...,bn})], where [n] is the
-  width of the bitvector, and [b1] are bitvector constants known
-  to be disequal to [x]. *)
-module Interp = struct
-  type t = (int * Bitvs.t) Term.Map.t
-  let empty = Term.Map.empty
-  let to_list m = Term.Map.fold (fun x cod acc -> ((x, cod) :: acc)) m []
-  let pp fmt m =
-    let pp_bitv fmt (b, _) = Format.fprintf fmt "%s" (Bitv.to_string b) in
-    let pp_set fmt s = Pretty.set pp_bitv fmt (Bitvs.elements s) in
-    let to_list m = Term.Map.fold (fun x (n, b) acc -> (x, (n, b)) :: acc) m [] in
-      Pretty.map Term.pp (Pretty.pair Pretty.number pp_set) fmt (to_list m)
-  let eq m1 m2 = (m1 == m2)
-  let add_diseq x (b, rho) m =
-    try
-      let (n, bs) = Term.Map.find x m in
-	if n <> Bitv.length b then
-	  let sigma = Jst.oracle "bv" [] in
-	    raise(Jst.Inconsistent(sigma))
-	else
-	  let bs' = Bitvs.add (b, rho) bs in
-	  let card = Z.of_int (Bitvs.cardinal bs') in
-	  let max = Z.expt Z.two n in
-	    if Z.ge card max then
-	      let rhol = Bitvs.fold (fun (_, rho) acc -> rho :: acc) bs' [] in 
-	      let phi = Jst.oracle "bv" rhol in
-		raise(Jst.Inconsistent(phi))
-	    else if Z.equal card (Z.sub max Z.one) then
-	      m (* to do: generate possible equality *)
-	    else 
-	      Term.Map.add x (n, bs') m
-    with
-	Not_found ->
-	  Term.Map.add x (Bitv.length b, Bitvs.singleton (b, rho)) m
-end 
 
 (** Index for equalities [x = c] *)
 module Cnstnt = struct 
@@ -77,16 +34,19 @@ module Eqs =
     struct
       let th = Th.bv
       let nickname = Th.to_string Th.bv
-      let apply = Bitvector.apply
-      let is_infeasible _ = false
+      let map = Bitvector.map
+      let is_infeasible (x, b) =
+	match Bitvector.width x, Bitvector.width b with
+	  | Some(n), Some(m) when n <> m -> true
+	  | _ -> false
     end)
     (Cnstnt)
 
-type t = {eqs : Eqs.t; mutable interp : Interp.t}
+type t = {eqs : Eqs.t}
     
 let eq s1 s2 = Eqs.eq s1.eqs s2.eqs
 
-let empty = {eqs = Eqs.empty; interp = Interp.empty}
+let empty = {eqs = Eqs.empty}
 
 let is_empty s = Eqs.is_empty s.eqs
 
@@ -97,54 +57,134 @@ let find s = Eqs.find s.eqs
 let inv s = Eqs.inv s.eqs
 let dep s = Eqs.dep s.eqs
 
+let constant s x =
+  let (a, rho) = apply s x in
+  let b = Bitvector.d_const a in
+    (b, rho)
+
 let is_dependent s = Eqs.is_dependent s.eqs
 let is_independent s = Eqs.is_independent s.eqs
 
-let copy s = { eqs = Eqs.copy s.eqs; interp = s.interp }
+let copy s = { eqs = Eqs.copy s.eqs }
 
 let name (p, s) = Eqs.name (p, s.eqs)
 
+(** Set of bitvector constants. *)
+module Bitvs = Set.Make(
+  struct
+    type t = Bitv.t * Jst.t
+    let compare (b1, _) (b2, _) = Pervasives.compare b1 b2
+  end)
+
+let mem c bs =
+  let dummy = Jst.dep0 in
+    Bitvs.mem (c, dummy) bs
+
+(** Collect all constants of length [n] disequal to [x]. *)
+let  diseqs (p, s) (x, n) =
+  let ys = Partition.diseqs p x in
+    D.Set.fold
+      (fun (y, rho) acc ->   (* [rho |- x <> y] *)
+	 try                 (* [tau |- y = b] *)
+	   let (b, tau) = constant s y in
+	     if Bitv.length b = n then
+	       Bitvs.add (b, Jst.dep2 rho tau) acc
+	     else 
+	       acc
+	 with
+	     Not_found -> acc)
+      ys Bitvs.empty
 
 (** [replace s a] substitutes dependent variables [x]
   in [a] with their right hand side [b] if [x = b] in [s].
   The result is canonized using {!Arith.map}. *)
 let replace s =
-  Fact.Equal.Inj.replace Bitvector.map
-    (find s)
+  Jst.Eqtrans.replace Bitvector.map (find s)
 
-let solve = Fact.Equal.Inj.solver Th.bv Bitvector.solve
+let is_diseq s a b =
+  let (a', rho') = replace s a in
+    try
+      let c = Bitvector.d_const a' in
+      let (b', tau') = replace s b in
+      let d = Bitvector.d_const b' in
+	if Bitv.equal c d then
+	  Some(Jst.dep2 rho' tau')
+	else 
+	  None
+    with
+	Not_found -> None
+    
+let solve = Fact.Equal.equivn Bitvector.solve
 
-let process_equal ((p, s) as cfg) e =  
+let merge ((p, s) as cfg) e = 
   let e' = Fact.Equal.map (replace s) e in
     Trace.msg "bv" "Process" e' Fact.Equal.pp;
-    let sl = solve e' in
-      Eqs.compose (p, s.eqs) sl
+    Eqs.compose (p, s.eqs) (solve e')
 
-let rec process_diseq ((p, s) as cfg) d =  
+let rec dismerge ((p, s) as cfg) d =  
   Trace.msg "bv" "Process" d Fact.Diseq.pp;
-(*
-  let (x, y, rho) = Fact.Diseq.destruct d in
-    match const_of cfg x, const_of cfg y with
-      | None, None -> ()
-      | Some(b, tau), Some(c, sigma) ->  (* [tau |- x = b] *)
-	  if Bitv.equal b c then         (* [sigma |- y = c] *)
-	    let phi = Jst.oracle "bv" [rho; tau; sigma] in
-	      raise(Jst.Inconsistent(phi))
-      | Some(b, tau), None ->
-	  let phi = Jst.oracle "bv" [rho; tau] in
-	    s.interp <- Interp.add_diseq x (b, phi) s.interp
-      | None, Some(c, sigma) ->
-	  let phi = Jst.oracle "bv" [ rho; sigma] in
-	    s.interp <- Interp.add_diseq y (c, phi) s.interp
-*)
+  let (x, y, _) = Fact.Diseq.destruct d in
+    dismerge1 cfg x;
+    dismerge1 cfg y
 
-(* [const_of (p, s) x] returns [tau |- x = b] for [b] a bitvector constant. *)
-and const_of (p, s) x =
-  try
-    let (a, rho) = apply s x in
-      Some(Bitvector.d_const a, rho)
-  with
-      Not_found -> None
+(** If [x] is interpreted over bitvectors of length [n], then
+  - if there are [2^n] different bitvector constants of length [n]
+    disequal to [x], then infer inconsistency,
+  - if there are [2^n-1] different bitvector constant of length [n]
+    disequal to [x], then generate the appropriate equality. 
+  Following code has potential for optimization. *)
+and dismerge1 ((p, s) as cfg) x =
+  match Bitvector.width x with
+    | None -> ()
+    | Some(n) -> 
+	let m = two_to_the_n_sub_one n in  
+	let ds = Partition.diseqs p x in       (* quick failure. *)
+	  if Z.lt (Z.of_int (D.Set.cardinal ds)) m then
+	    ()
+	  else
+	    let cs = diseqs cfg (x, n) in
+	    let card = Z.of_int (Bitvs.cardinal cs) in
+	    let cmp = Z.compare card m in
+	      if cmp < 0 then      (* [|cs| < 2^n-1]. *)
+		()
+	      else 
+		let tau =
+		  Bitvs.fold 
+		    (fun (_, rho) -> Jst.dep2 rho) 
+		    cs Jst.dep0 
+		in
+		  if cmp = 0 then (* [|cs| = 2^n-1]. *)
+		    let b = choose_not_in n cs in
+		    let e = Fact.Equal.make (x, Bitvector.mk_const b, tau) in
+		      Fact.Eqs.push (Th.inj Th.bv) e;
+		  else            (* [|cs| > 2^n-1]. *)
+		    raise(Jst.Inconsistent(tau))
+
+and two_to_the_n_sub_one n = 
+  let ht = Hashtbl.create 4 in
+  let _ = Tools.add_at_reset (fun () -> Hashtbl.clear ht) in
+    try
+      Hashtbl.find ht n 
+    with
+	Not_found ->
+	  let m = Z.sub (Z.expt Z.two n) Z.one in
+	    Hashtbl.add ht n m; m
+
+(** Choose a bitvector of length [n] not in [cs]. *)    
+and choose_not_in n cs =
+  let max = Z.to_int (two_to_the_n_sub_one n) in
+  let rec loop i = 
+    assert(i >= 0);
+    let d = Bitvector.nat2bitv n i in
+      if mem d cs then
+	loop (i - 1) 
+      else 
+	d
+  in
+    loop max
+	
+
+ 
   
-      
-      
+  
+ 

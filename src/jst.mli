@@ -11,8 +11,36 @@
  * benefit corporation.
  *)
 
+(** Justifications
 
-(** {6 Justifications} *)
+  @author Harald Ruess
+
+  Every atom [atm] may have an associated {i justification} [rho]; in this
+  case we also write [rho |- atm]. There are three different kinds of
+  justifications
+  - [All] justifies every
+  - A set of {i dependencies} [{atm1, ...,atmn}]
+  - A proof skeleton (disabled in ICS 2.0)
+
+  Depending on the current proof mode, as obtained with {!Jst.Mode.get},
+  justifications of these kinds are generated.
+*)
+
+(** Proof Mode *)
+module Mode : sig
+
+  type t = No | Dep (* | Yes *)
+
+  val of_string : string -> t
+  val to_string : t -> string
+
+  val is_none : unit -> bool
+
+  val get : unit -> t
+  val set : t -> unit
+
+end
+
 
 type t
    
@@ -20,187 +48,54 @@ val pp : t Pretty.printer
 
 val axioms_of: t -> Atom.Set.t
 
-val is_none : t -> bool
-
-
-
-(** {6 Proof Mode} *)
-
-module Mode : sig
-
-  type t = No | Dep | Yes
-
-  val of_string : string -> t
-  val to_string : t -> string
-
-end
-
-val proofmode : Mode.t ref
-
-
-(** {6 Exceptions} *)
-
 exception Inconsistent of t
-exception Valid of t
-
-val inconsistent : t -> unit
-val inconsistent2 : t -> t -> unit
-val inconsistent3 : t -> t -> t -> unit
-val inconsistent_star : t list -> unit
-
-(** {6 Constructors} *)
 
 val axiom : Atom.t -> t
 
-val trans : Term.t -> Term.t -> Term.t -> t -> t -> t
-  (** If [j1 |- a = b] and [j2 |- b = c], then [trans a b c j1 j2 |- a = c]. *)
+val dep0 : t
 
-val apply : Term.t * Term.t -> t list -> t
+val dep1 : t -> t
 
-val apply1 : Term.t * Term.t -> t -> t
+val dep2 : t -> t -> t
 
-val contradiction : t -> t -> t
-  (** If [j1 |- atm1], [j2 |- atm2], and [atm1] and [atm2] are contradictory, then
-     [contradiction j1 j2 |- false]. *)
+val dep3 : t -> t -> t -> t
 
-val contradiction1 : t -> t
-  (** If [j1 |- atm] and [atm] is equivalent with [false], then [contradiction1 j1 |- false]. *)
+val dep : t list -> t
 
-val contradiction_star : t list -> t
+type jst = t
+    (** Nickname. *)
 
-val equiv : Atom.t -> t -> t -> t
- (** If [j1 |- atm1], [j2 |- atm1 <=> atm2], then [equiv atm2 j1 j2 |- atm2] *)
-
-val valid : t -> t -> t
-  (** If [j1 |- atm], [j2 |- atm <=> true], then [valid atm j1 j2 |- true] *)
-
-val invalid : t -> t -> t
-  (** If [j1 |- atm], [j2 |- atm <=> false], then [valid atm j1 j2 |- false] *)
-
-
-val solve : Th.t -> Term.t * Term.t -> t -> t
-  (** If [j |- a = b] and [(x = c)] is in [Th.solve (a = b)], then [solve (x, c) j |- x = c]. *)
-  
-val sigma : (Sym.t * Term.t list) * Term.t -> t list -> t
-  (** If [j_k |- atm_k], then [sigma ((f, [a_1,...,a_m]), b) j_1 ... j_n |- f(a_1,...,a_m) = b *)
-
-val extend : Term.t * Term.t -> t
-  (** [extend (x, a) |- x = a] with [x] a fresh variable. *)
-
-val abstract : Term.t * Term.t -> t list -> t
-
-
-val slackify : Term.t * Term.t -> t -> t
-  (** [slackify (k, a) j |- k = a] with [k] a fresh slack variable and [j |- a >= 0]. *)
-
-val nonzero : Term.t -> t -> t
- (** If [j |- a > 0], then [nonzero a j |- a <> 0]. *)
-
-
-val implied : Atom.t -> t -> t
-  (** If [j1 |- atm1] and [atm] is implied by [atm1], then [implied atm j1 |- atm]. *)
-
-val implied_equal : Term.t -> Term.t -> t -> t
-  (** If [j |- atm] and [a = b] is implied by [atm], 
-    then [implied_equal a b j |- a = b]. *)
-
-
-val weaken : Term.t -> t -> t
-  (** If [j |- a >= 0], then [weaken a j |- a > 0]. *)
-
-val groebner : Term.t * Term.t -> t -> t
-  (** If [j |- x = c] and there exists a [d] such that [c * d] equals [b] and
-     [a] equals [x * d], then [groebner (a, b) [j_1;...;j_n] |- a = b]. *)
-
-val gomory : Term.t -> t -> t
-  (** Justification for gomory cuts. If [rho |- x = a] and [b >= 0] follows
-    from [x = a] by means of a Gomory cut, then [gomory b rho |- b >= 0]. *)
-
-val const : Term.t * Term.t -> t -> t -> t
-  (** If [j1 |- x = c], [j2 |- y = d] with [c], [d] nonequal constants in the same theory,
-     then [const (x, y) j1 j2 |- x <> y]. *)
-
-val posint : Term.t -> t -> t -> t
-  (** If [j1 |- a in int], [j2 |- a > 0], then [posint a j1 j2 |- a >= 0]. *)
-
-val negation : Atom.t -> t -> t
-
-val oracle : string -> t list -> t
-  (** Because an oracle [string] says so. *)
-
-val array : int -> Term.t -> Term.t -> t list -> t
-  (** [array i a b jl] justifies the equality [a = b], where the
-    hypothesesis [jl] justify the hypotheses for index [i] by
-    "simple" equality reasoning.
-    - 1. [a[i:=x][i] = x]
-    - 2. [i <> j] implies [a[i:=x][j] = a[j]]
-    - 3. [a[j:=x] = b[j:=y]] implies [x = y].
-    - 4. [a[j:=x] = b[k:=y]], [i<>j], [i<>k] implies [a[i] = b[i]]
-    - 5. [i <> j] and [i <> k] implies [a[j:=x][i] = a[k:=y][i]]
-    - 6. [i <> j] ==> a[i:=x][j:= y] = a[j:=y][i:=x]
-  *)
-
-
-(** {6 Record only dependencies} *)
-
-val dependencies : t list -> t
-
-val dependencies0 : t
-
-val dependencies1 : t -> t
-
-val dependencies2 : t -> t -> t
-  
-
-(** {6 Derived Rules} *)
-
-val trans3 : Term.t * Term.t * Term.t * Term.t -> t -> t -> t -> t
-
-val subst_equal : Term.t * Term.t -> t -> t list -> t
-
-val subst_equal1 : Term.t -> Term.t -> t -> t -> t
-val subst_equal2 : Term.t -> Term.t -> t -> t -> t -> t
-
-val subst_diseq : Term.t * Term.t -> t -> t list -> t
-
-val subst_nonneg : Term.t -> t -> t list -> t
-
-val subst_pos : Term.t -> t -> t list -> t
-
-
-(** {6 Justifying Relations} *)
-
-type just = t
-
+(** Justifying Relations *)
 module Three : sig
 
   type t =
-    | Yes of just
-    | No of just
+    | Yes of jst
+    | No of jst
     | X
 
-
-  val to_three : just list ref -> ('a -> 'b -> t) -> 'a -> 'b -> Three.t
+  val to_three : jst list ref -> ('a -> 'b -> t) -> 'a -> 'b -> Three.t
     (** [to_three fcts p a[ accumulate facts in the result of [p a]
         in global variable [fcts] and returns a corresponding result of type
         {!Three.t}. *)
 
+  val of_three : ('a -> Three.t) -> 'a -> t
 end
 
 
-(** {6 Equality Transformers} *)
-
+(** Equality Transformers *)
 module Eqtrans : sig
-
-  type t = Term.t -> Term.t * just
-
-  val acc : just list ref -> t -> Term.t -> Term.t
+  type t = Term.t -> Term.t * jst
 
   val id : t
+    (** [id a] returns [(a, rho)] such that [rho |- a = a]. *)
 
   val compose : t -> t -> t
+    (** If [g a = (b, rho)] and [f b = (c, tau)] with [rho |- a = b]
+      and [tau |- b = c], then [compose f g a] returns [(c, sigma)]
+      with [sigma |- a = c]. *)
 
   val compose3 : t -> t -> t -> t
+    (** [compose3 f g h] is defined as [compose f (compose g h)]. *)
 
   val totalize : t -> t
 
@@ -208,53 +103,53 @@ module Eqtrans : sig
     (** [compose_partial1 f g a] behaves like [compose f g a] when [f] 
       does not throw an exception. In this case, the result is [g a]. *)
 
-  val trace : Trace.level -> string -> t -> t
+  val replace : Term.map -> t -> t
 
+  val apply : Term.apply -> Atom.Equal.t * jst -> t
+
+  val pointwise : t -> Term.t list -> Term.t list * jst
+
+  val mapargs : (Sym.t -> Term.t list -> Term.t * jst) -> (Sym.t -> t) -> t
+    (** [mapargs app f a] maps [f op] over the arguments [al] of
+       an application [a] of the form [op(al)]. If [a] is not
+       an application, [Not_found] is raised. *)
+
+  val trace : Trace.level -> string -> t -> t
 end
 
+
 module Pred : sig
-
-  type t = Term.t -> just option
-
+  type t = Term.t -> jst option
   val disj : t -> t -> t
-
   val apply : Eqtrans.t -> t -> t
-
+  val trace : Trace.level -> string -> t -> t
 end
 
 
 module Pred2 : sig
-
-  type t = Term.t -> Term.t -> just option
-
+  type t = Term.t -> Term.t -> jst option
   val apply : Eqtrans.t -> t -> t
-
+  val trace : Trace.level -> string -> t -> t
 end
 
-
-module Relation : sig
-
-  type 'a t = 'a -> Three.t
- 
-
-end
 
 module Rel1 : sig
-
   type t = Term.t -> Three.t
-
   val apply : Eqtrans.t -> t -> t
-
+  val orelse : t -> t -> t
+  val yes_or_no : Pred.t -> Pred.t -> t
+  val trace : Trace.level -> string -> t -> t
 end
 
 module Rel2 : sig
-
   type t = Term.t -> Term.t -> Three.t
-
   val apply : Eqtrans.t -> t -> t
-
   val orelse : t -> t -> t
-
-  val of_preds : Pred2.t -> Pred2.t -> t
-
+  val yes : Pred2.t -> t
+  val yes_or_no : Pred2.t -> Pred2.t -> t
+  val trace : Trace.level -> string -> t -> t
 end
+
+
+
+

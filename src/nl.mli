@@ -42,6 +42,9 @@ val empty : t
 
 val is_empty : t -> bool
 
+val interp : Partition.t * t -> Jst.Eqtrans.t
+val uninterp : Partition.t * t -> Jst.Eqtrans.t
+
 val copy : t -> t
 
 val name : Partition.t * t -> Jst.Eqtrans.t

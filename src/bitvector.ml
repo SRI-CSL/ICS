@@ -13,6 +13,39 @@
 
 open Mpa
 
+let bitv2nat b =
+  Bitv.fold_right 
+    (fun x acc -> 
+       if x then 2 * acc + 1 else 2 * acc) 
+    b 0
+
+(** Unsigned bitvector of length [n] for integer [i]. Hashed. *)
+let rec nat2bitv n i =
+  let ht = Hashtbl.create 17 in
+  let _ = Tools.add_at_reset (fun () -> Hashtbl.clear ht) in
+    try
+      Hashtbl.find ht (n, i)
+    with
+	Not_found -> 
+	  let b = nat2bitv_rec n i in
+	    Hashtbl.add ht (n, i) b; b
+  
+and nat2bitv_rec n i =
+  assert(i >= 0);
+  let rec loop acc i =
+    if i <= 0 then acc else
+      let acc' = (if i mod 2 = 0 then "0" else "1") ^ acc in
+	loop acc' (i / 2)
+  in
+  let str = loop "" i in
+  let m = String.length str in
+    assert(n - m >= 0);
+    let patch = String.make (n - m) '0' in
+    let str' = patch ^ str in
+      assert(String.length str' = n);
+      Bitv.from_string str'
+
+
 (** {6 Recognizers} *)
 
 let is_pure = Term.is_pure Th.bv
@@ -38,6 +71,7 @@ let d_conc a =
     | Sym.Conc(n, m), [x; y] -> (n, m, x, y)
     | _ -> raise Not_found
 
+
 let d_sub a = 
   match d_interp a with
     | Sym.Sub(n, i, j), [x] -> (n, i, j , x)
@@ -51,7 +85,8 @@ let width a =
     let op, _ = d_interp a in
       Some(Sym.Bv.width op)
   with
-      Not_found -> None
+      Not_found ->
+	(try Some(Term.Var.width_of a) with Not_found -> None)
 
 
 (** {6 Constant bitvectors} *)
@@ -82,7 +117,7 @@ let is_one a =
 let mk_fresh n =
   assert (n >= 0);
   if n = 0 then mk_eps else 
-    Term.Var.mk_fresh Th.bv None None
+    Term.Var.mk_fresh Th.bv None (Var.Cnstrnt.Bitvector(n))
 
 
 (** {6 Iterators} *)

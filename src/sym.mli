@@ -83,6 +83,7 @@ type uninterp = Name.t
 module Uninterp : sig
   val get : t -> uninterp
   val make : Name.t -> t
+  val is : t -> bool
   val pp : 'a Pretty.printer -> (uninterp * 'a list) Pretty.printer
 end
 
@@ -163,19 +164,23 @@ end
 (** {6 Coproducts} *)
 
 (** Function symbols for the theory {!Th.cop} of cotuples are
-  - [InL] for left injection,
-  - [InR] for right injection,
-  - [OutR] for right unpacking,
-  - [OutL] for left unpacking. *)
-type coproduct = InL | InR | OutL | OutR
+  - [In(Left)] for left injection,
+  - [In(Right)] for right injection,
+  - [Out(Right)] for right unpacking,
+  - [Out(Left)] for left unpacking. *)
+type coproduct = 
+  | In of direction 
+  | Out of direction
+
+and direction = Left | Right
 
 (** Operation on function symbols of the product theory {!Th.cop}. 
   - [mk_inl], [mk_inf], [mk_outl] and [mk_outr] are the function symbols
-  {i representing} [InL], [InR], [OutR], and [OutL], respectively.
+  {i representing} [In(Left)], [In(Right)], [Out(Right)], and [Out(Left)], respectively.
   - [get f] returns the function symbol in {!Th.cop} represented by [f],
   or raises [Not_found]. 
   - The tests [is_inl f], [is_inr f], [is_outl f], and [is_outr] succeed iff [f] 
-  represents [InL], [InR], [OutL], or [OutR], respectively.
+  represents [InL], [In(Right)], [Out(Left)], or [Out(Right)], respectively.
   - [pp p fmt (op, [a])] pretty-prints the appliation of [op] to the 
   unary list [[a]] depending on the value of {!Pretty.flag}. See 
   also {!Pretty.apply}. *)
@@ -346,6 +351,24 @@ module Fun : sig
   val pp : 'a Pretty.printer -> (apply * 'a list) Pretty.printer
 end
 
+(** {6 Theory of propositional sets} *)
+
+type propset = Empty | Full | Ite
+
+module Propset : sig
+  val get : t -> propset
+  val mk_empty : t
+  val mk_full : t
+  val mk_ite : t
+  val is : t -> bool
+  val is_empty : t -> bool
+  val is_full : t -> bool
+  val is_ite : t -> bool
+  val pp : 'a Pretty.printer -> (propset * 'a list) Pretty.printer
+end
+
+
+
 
 (** {6 Partitioning} *)
 
@@ -358,6 +381,7 @@ type sym =
   | Pp of pprod
   | Fun of apply
   | Arrays of arrays 
+  | Propset of propset
 
 val get : t -> sym
   (** [get f] returns a theory-specific operator together with

@@ -10,12 +10,65 @@
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
  *)
+
+module Cnstrnt = struct
+
+  type t =
+    | Unconstrained
+    | Real of Dom.t
+    | Bitvector of int
+
+  let mk_real =
+    let int = Real(Dom.Int) 
+    and real = Real(Dom.Real)
+    and nonint = Real(Dom.Nonint) in
+      function
+	| Dom.Int -> int
+	| Dom.Real -> real
+	| Dom.Nonint -> nonint
+
+  let mk_bitvector n = Bitvector(n)
+
+  let pp fmt = function
+    | Unconstrained -> Pretty.string fmt "unconstrained"
+    | Real(d) -> Dom.pp fmt d
+    | Bitvector(n) -> Format.fprintf fmt "bitvector[%d]" n
+
+  let sub c1 c2 =
+    match c1, c2 with
+      | _, Unconstrained -> true
+      | Real(d1), Real(d2) -> Dom.sub d1 d2
+      | Bitvector(n1), Bitvector(n2) -> n1 = n2
+      | _ -> false  
+
+  exception Empty
+
+  let inter c1 c2 =
+    match c1, c2 with
+      | Unconstrained, Unconstrained -> Unconstrained
+      | Unconstrained, _ -> c2
+      | _, Unconstrained -> c1
+      | Real(d1), Real(d2) -> 
+	  (try
+	     let d = Dom.inter d1 d2 in
+	       mk_real (Dom.inter d1 d2)
+	   with
+	       Dom.Empty -> raise Empty)
+      | Bitvector(n1), Bitvector(n2) ->
+	  if n1 = n2 then c1 else raise Empty
+      | _ ->       (* bitvectors and real domains assumed to be disjoint. *)
+	  raise Empty
+	  
+
+end 
+
+open Cnstrnt
  
 type t =  
   | Slack of int * slack
-  | External of Name.t * Dom.t option
-  | Rename of Name.t * int * Dom.t option
-  | Fresh of Th.t * int * Dom.t option
+  | External of Name.t * Cnstrnt.t
+  | Rename of Name.t * int * Cnstrnt.t
+  | Fresh of Th.t * int * Cnstrnt.t
   | Bound of int
 
 and slack = Zero | Nonneg of Dom.t
@@ -54,14 +107,30 @@ let name_of = function
   | Bound(n) ->
       Name.of_string (Format.sprintf "!%d" n)
 
+let cnstrnt_of x =
+  let c = match x with
+    | Slack(_, Zero) -> Real(Dom.Int)
+    | Slack(_, Nonneg(d)) -> Real(d)
+    | External(_, c) -> c
+    | Fresh(_, _, c) -> c
+    | Rename(_, _, c) -> c
+    | _ -> Unconstrained
+  in
+    if c = Unconstrained then raise Not_found else c
+
 let dom_of = function 
   | Slack(_, Zero) -> Dom.Int
   | Slack(_, Nonneg(d)) -> d
-  | External(_, Some(d)) -> d
-  | Fresh(_, _, Some(d)) -> d
-  | Rename(_, _, Some(d)) -> d
+  | External(_, Real(d)) -> d
+  | Fresh(_, _, Real(d)) -> d
+  | Rename(_, _, Real(d)) -> d
   | _ -> raise Not_found
 
+let width_of = function
+  | External(_, Bitvector(n)) -> n
+  | Fresh(_, _, Bitvector(n)) -> n
+  | Rename(_, _, Bitvector(n)) -> n
+  | _ -> raise Not_found
 
 let is_int x = 
   try dom_of x = Dom.Int with Not_found -> false
@@ -75,10 +144,13 @@ let is_real x =
 
 let domcmp d e =
   match d, e with
-    | None, None -> 0
-    | Some _, None -> -1
-    | None, Some _ -> 1
-    | Some d, Some e -> Dom.cmp d e
+    | Unconstrained, Unconstrained -> 0
+    | Real _, Unconstrained -> -1
+    | Unconstrained, Real _ -> 1
+    | Real d, Real e -> Dom.cmp d e
+    | Bitvector(n), Bitvector(m) -> Pervasives.compare n m
+    | Bitvector _, _ -> -1
+    | _, Bitvector _ -> 1
 
 (** slack < external < fresh < renaming < bound *)
 let rec cmp x y =
@@ -146,13 +218,13 @@ let d_free = function
 
 let pretty = ref true
 
-let pp fmt x =
+let rec pp fmt x =
   Name.pp fmt (name_of x);
   if not(!pretty) then
     (try 
-       let d = dom_of x in
+       let d = cnstrnt_of x in
 	 Pretty.string fmt "{";
-	 Dom.pp fmt d;
+	 Cnstrnt.pp fmt d;
 	 Pretty.string fmt "}"
      with
 	 Not_found -> ())

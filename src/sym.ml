@@ -24,6 +24,7 @@ and sym =
   | Pp of pprod
   | Fun of apply
   | Arrays of arrays 
+  | Propset of propset
 
 and uninterp = Name.t
 
@@ -34,7 +35,11 @@ and arith =
 
 and product = Cons | Car | Cdr
 
-and coproduct = InL | InR | OutL | OutR
+and coproduct = 
+  | In of direction 
+  | Out of direction
+
+and direction = Left | Right
 
 and bv =
   | Const of Bitv.t
@@ -51,6 +56,7 @@ and apply =
 
 and arrays = Create | Select | Update
 
+and propset = Empty | Full | Ite
 
 let hash (_, hsh) = hsh
 
@@ -59,13 +65,14 @@ let get (sym, _) = sym
 let theory_of (sym, _) =
   match sym with
     | Uninterp _ -> Th.u
-    | Arith _ -> Th.a
+    | Arith _ -> Th.la
     | Product _ -> Th.p
     | Bv _ -> Th.bv
     | Coproduct _ -> Th.cop
     | Arrays _ -> Th.arr
     | Pp _ -> Th.nl
     | Fun _ -> Th.app
+    | Propset _ -> Th.set
 
 
 module Uninterp = struct
@@ -86,7 +93,10 @@ module Uninterp = struct
 	      let f = (Uninterp(n), hsh) in
 		Name.Hash.add table n f; f
 
-  let is = function Uninterp _ -> true | _ -> false
+  let is (sym, _) = 
+    match sym with
+      | Uninterp _ -> true 
+      | _ -> false
 
   let pp p fmt (f, al) = 
     Pretty.apply p fmt (Name.to_string f, al)
@@ -182,25 +192,25 @@ module Coproduct = struct
     | Coproduct(op), _ -> op
     | _ -> raise Not_found
 
-  let mk_inl = (Coproduct(InL), 177)
-  let mk_inr = (Coproduct(InR), 183)
-  let mk_outl = (Coproduct(OutL), 191)
-  let mk_outr = (Coproduct(OutR), 193)
+  let mk_inl = (Coproduct(In(Left)), 177)
+  let mk_inr = (Coproduct(In(Right)), 183)
+  let mk_outl = (Coproduct(Out(Left)), 191)
+  let mk_outr = (Coproduct(Out(Right)), 193)
 
   let is = function Coproduct _, _ -> true | _ -> false
-  let is_inl = function Coproduct(InL), _ -> true | _ -> false
-  let is_inr = function Coproduct(InR), _ -> true | _ -> false
-  let is_outl = function Coproduct(OutL), _ -> true | _ -> false
-  let is_outr = function Coproduct(OutR), _ -> true | _ -> false
+  let is_inl = function Coproduct(In(Left)), _ -> true | _ -> false
+  let is_inr = function Coproduct(In(Right)), _ -> true | _ -> false
+  let is_outl = function Coproduct(Out(Left)), _ -> true | _ -> false
+  let is_outr = function Coproduct(Out(Right)), _ -> true | _ -> false
 
   let pp p fmt = function
-    | InL, [a] -> 
+    | In(Left), [a] -> 
 	Pretty.apply p fmt ("inl", [a])
-    | InR, [a] -> 
+    | In(Right), [a] -> 
 	Pretty.apply p fmt ("inr", [a])
-    | OutL, [a] -> 
+    | Out(Left), [a] -> 
 	Pretty.apply p fmt ("outl", [a])
-    | OutR, [a] -> 
+    | Out(Right), [a] -> 
 	Pretty.apply p fmt ("outr", [a])
     | _ -> 
 	invalid_arg "Ill-formed application in coproduct theory"
@@ -241,7 +251,7 @@ module Pprod = struct
       | Mult, [] ->
 	  Pretty.string fmt "1"
       | Mult, al ->
-	  Pretty.infixl p "." fmt al
+	  Pretty.infixl p "*" fmt al
       | Expt(n), [a] ->
 	  let op = Format.sprintf "^%d" n in
 	    p fmt a; Pretty.string fmt op
@@ -316,14 +326,14 @@ module Bv = struct
 	  Format.fprintf fmt "0b%s" (Bitv.to_string b)
       | Conc(n, m), [a; b] -> 
 	  (match !Pretty.flag with
-	     | Pretty.Mixfix ->  
+	     | Pretty.Mode.Mixfix ->  
 		 Pretty.infix p "++" p fmt (a, b)
 	     | _ ->
 		 let op = Format.sprintf "conc[%d,%d]" n m in
 		   Pretty.apply p fmt (op, [a; b]))
       | Sub(n, i, j), [a] -> 
 	  (match !Pretty.flag with
-	     | Pretty.Mixfix ->  
+	     | Pretty.Mode.Mixfix ->  
 		 let op = Format.sprintf "[%d:%d]" i j in
 		   p fmt a; Pretty.string fmt op
 	     | _ ->
@@ -362,13 +372,13 @@ module Array = struct
 	    Pretty.apply p fmt ("create", [a])
 	| Select, [a; j] -> 
 	    (match !Pretty.flag with
-	       | Pretty.Mixfix -> 
+	       | Pretty.Mode.Mixfix -> 
 		   arg a; str "["; arg j; str "]"
 	       | _ -> 
 		   Pretty.apply p fmt ("select", [a; j]))
 	| Update, [a; i; x] -> 
 	    (match !Pretty.flag with
-	       | Pretty.Mixfix -> 
+	       | Pretty.Mode.Mixfix -> 
 		   arg a; str "["; arg i; str " := "; arg x; str "]"
 	       | _ -> 
 		   Pretty.apply p fmt ("update", [a; i; x]))
@@ -405,7 +415,7 @@ module Fun = struct
 	    Pretty.apply p fmt (op, [a; b])
       | Apply(None), [a; b] ->
 	  (match !Pretty.flag with
-	     | Pretty.Mixfix -> 
+	     | Pretty.Mode.Mixfix -> 
 		 Pretty.infix p " $ " p fmt (a, b)
 	     | _ ->
 		 Pretty.apply p fmt ("apply",  [a; b]))
@@ -419,6 +429,37 @@ module Fun = struct
   let is_apply = function Fun(Apply _), _ -> true | _ -> false
 
 end
+
+
+module Propset = struct
+
+  let get = function 
+    | Propset(op), _ -> op
+    | _ -> raise Not_found
+
+  let mk_empty = (Propset(Empty), 123)
+  let mk_full = (Propset(Full), 321)
+  let mk_ite = (Propset(Ite), 231)
+
+  let is = function Propset _, _ -> true | _ -> false
+  let is_empty = function Propset(Empty), _ -> true | _ -> false
+  let is_full = function Propset(Full), _ -> true | _ -> false
+  let is_ite = function Propset(Ite), _ -> true | _ ->false
+
+  let pp p fmt (op, al) =
+    let arg = p fmt and str = Pretty.string fmt in
+      match (op, al) with
+	| Empty, [] ->
+	    Pretty.string fmt "empty"
+	| Full, [] ->
+	    Pretty.string fmt "full"
+	| Ite, [a; b; c] -> 
+	    Pretty.apply p fmt ("ite", [a; b; c])
+	| _ ->
+	    invalid_arg "Ill-formed application in theory of propositional sets"    
+end
+
+
 
 (** Function symbols are hash-consed, therefore equality coincides
   with identity. *)
@@ -439,3 +480,4 @@ let pp p fmt ((sym, _),  al) =
     | Arrays(op) -> Array.pp p fmt (op, al)
     | Pp(op) -> Pprod.pp p fmt (op, al)
     | Fun(op) -> Fun.pp p fmt (op, al)
+    | Propset(op) -> Propset.pp p fmt (op, al)

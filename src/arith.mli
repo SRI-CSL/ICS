@@ -160,6 +160,8 @@ val lcm_of_denominators : Term.t -> Mpa.Z.t
 
 (** {6 Iterators} *)
 
+val iter : (Term.t -> unit) -> Term.t -> unit
+
 val map: (Term.t -> Term.t) -> Term.t -> Term.t
   (** Applying a term transformer [f] at uninterpreted positions.
     - [map f (mk_num q)] equals [mk_num q]

@@ -39,6 +39,11 @@ val find : t -> Jst.Eqtrans.t
     to the variable ordering {!Var.cmp}. For nonvariable terms [a], 
     [find s a] returns [a] *)
 
+val cnstrnt : t -> Term.t -> Var.Cnstrnt.t * Jst.t
+  (** For a canonical variable [x], [cnstrnt s x] returns the
+    domain constraint associated with the equivalence class [x].
+    Raises [Not_found] if the interpretation is unconstrained. *)
+
 val removable : t -> Term.Var.Set.t
   (** Set of removable variables. All variables in [removable s] 
     are {i internal}, noncanonical variables. *)

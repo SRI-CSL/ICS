@@ -46,7 +46,7 @@ val mk_abs : Term.t -> Term.t
 
 (** {6 Canonizer} *)
 
-val sigma : Sym.apply -> Term.t list -> Term.t
+val sigma : norm -> Sym.apply -> Term.t list -> Term.t
   (** Depending on the function symbol [f], [sigma f al] uses the constructors
     {!Apply.mk_apply} and {!Apply.mk_abs} to compute  the normal-form of applying [f] to the 
     arguments [al]. *)

@@ -11,7 +11,6 @@
  * benefit corporation.
  *)
 
-
 (** Application programming interface.
 
   The ICS API includes function for
@@ -38,7 +37,7 @@
 (** {6 Configuration} *)
 
 val set_profile : bool -> unit
-val set_pretty : bool -> unit
+val set_pretty : string -> unit
 val set_compactify : bool -> unit
 val set_verbose : bool -> unit
 val set_remove_subsumed_clauses : bool -> unit
@@ -48,13 +47,14 @@ val set_clause_relevance : int -> unit
 val set_cleanup_period : int -> unit
 val set_num_refinements : int -> unit
 val set_statistic : bool -> unit
-val set_footprint : bool -> unit
 val set_justifications : bool -> unit
 val set_integer_solve : bool -> unit
+val set_crossmultiply : bool -> unit
 val set_proofmode : string -> unit
 val set_gc_mode : string -> unit
 val set_gc_space_overhead : int -> unit
 val set_gc_max_overhead : int -> unit
+
 
 (** {6 Channels} *)
 
@@ -146,21 +146,26 @@ val name_eq : name -> name -> bool
 
 type dom
 
+val dom_mk_int : unit -> dom
+val dom_mk_real : unit -> dom
 
-(** {6 Equality theories} *)
+val dom_is_int : dom -> bool
+val dom_is_real : dom -> bool
 
-(** An {b equality theory} is associated with each function symbol of terms.
- These theories are indexed by naturals between [0] and [maxtheories = 8] according
- to the following table
- - [0] Theory of uninterpreted function symbols.
- - [1] Linear arithmetic theory.
- - [2] Product theory.
- - [3] Bitvector theory.
- - [4] Coproducts.
- - [5] Power products. 
- - [6] Theory of function abstraction and application. 
- - [7] Array theory. 
- - [8] Theory of bitvector interpretation(s). 
+
+
+(** {6 Theories} *)
+
+(** A {b theory} is associated with each function symbol of terms.
+ - [u]    Theory of uninterpreted function symbols.
+ - [la]   Linear arithmetic theory.
+ - [p]    Product theory.
+ - [bv]   Bitvector theory.
+ - [cop]  Coproducts.
+ - [nl]   Power products. 
+ - [app]  Theory of function abstraction and application. 
+ - [arr]  Array theory. 
+ - [pset] Theory of propositional sets
 *)
 
 type th
@@ -176,8 +181,6 @@ val th_of_string : string -> th
 (** {6 Function Symbols} *)
 
 type sym
-
-(*
 
 val sym_theory_of : sym -> th
   (** [sym_theory_of f] returns the theory [th] associated with
@@ -261,7 +264,6 @@ val sym_is_cdr : sym -> bool
 
 val sym_mk_cdr : unit -> sym
   (** [sym_mk_cdr()] constructs the symbol for the first projection *)
-
 
 
 (** Symbols of the theory of {b coproducts} are eith
@@ -368,10 +370,6 @@ val sym_mk_apply : dom option -> sym
 val sym_is_apply : sym -> bool
   (** [sym_is_apply f] holds iff [f] represents the function application symbol. *)
 
-val sym_d_apply : sym -> dom option
- (** [sym_d_apply f] returns the constraint associated with a function application
-   symbol. *)
-
 val sym_mk_abs : unit -> sym
   (** [sym_mk_abs()] constructs the symbol for function abstraction. *)
 
@@ -395,7 +393,30 @@ val sym_mk_update : unit -> sym
 val sym_is_update : sym -> bool
  (** [sym_is_update f] holds iff [f] represents the array update symbol. *)
 
-*)
+
+(** Symbols from the theory of {b propositional sets} include
+  - empty set
+  - full set
+  - conditional set. *)
+
+val sym_mk_empty : unit -> sym
+  (** The empty set symbol *)
+
+val sym_is_empty : sym -> bool
+ (** [sym_is_empty f] holds iff [f] represents the empty set symbol. *)
+
+val sym_mk_full : unit -> sym
+  (** The full set symbol *)
+
+val sym_is_full : sym -> bool
+ (** [sym_is_full f] holds iff [f] represents the full set symbol. *)
+
+val sym_mk_ite : unit -> sym
+  (** The conditional set symbol *)
+
+val sym_is_ite : sym -> bool
+ (** [sym_is_ite f] holds iff [f] represents the conditional set constructor. *)
+
 
 (** {6 Variables} *)
 
@@ -408,36 +429,6 @@ val sym_is_update : sym -> bool
   fresh variables are always of the form ["x!i"], where [x] is an arbitrary string 
   and [i] is an integer string. The name associated with a bound variable is of the 
   form ["!i"] for an integer [i].
-*)
-
-type var
-
-(*
-val var_name_of : var -> name
-  (** [name_of x] returns the name associated with a variable [x]. *)
-
-val var_eq : var -> var -> bool
-  (** [eq x y] holds iff [x] and [y] are in the same category (that is,
-    external, fresh, and bound) of variables and if their names are identical. *)
-
-val var_cmp : var -> var -> int
-  (** [cmp x y] realizes a total ordering on variables. The result is [0]
-    if [eq x y] holds, it is less than [0] we say, '[x] is less than [y]',
-    and, otherwise, '[x] is greater than [y]'. An external variable [x] is always
-    less than a nonexternal (that is, a fresh or a free) variable [y]. Otherwise, 
-    the outcome of [cmp x y] is unspecified. *)
-
-val var_mk_external : name -> term
-  (** [var_mk_external x] creates an external variable with associated name [x]. *)
-
-val var_mk_bound : int -> term
-  (** [var_mk_bound i] constructs a bound variable with associated name [!i]. *)
-
-val var_is_external : var -> bool
-  (** [is_var x] holds iff [x] is an external variable. *)
-
-val var_is_bound : var -> bool
-  (** [is_bound x] holds iff [x] is a bound variable. *)
 *)
 
 
@@ -628,21 +619,26 @@ val term_mk_out : int -> term -> term
   (** [term_mk_out n a] constructs a term for [n]-ary outjection. *)
 
 
-(** Builtin simplifying constructors. *)
+(** {b Arrays} *)
 
 val term_mk_update : term -> term -> term -> term
 val term_mk_select :  term -> term -> term
 
-val term_mk_div :  term -> term -> term
 
+(** {b Power products} *)
+
+val term_mk_div :  term -> term -> term
 val term_mk_mult : term -> term -> term
 val term_mk_multl : term list -> term
 val term_mk_expt : int -> term -> term   
   (* [term_mk_expt n x] represent [x^n]. *)
 
+(** {b Function application} *)
+
 val term_mk_apply : term -> term -> term
 
-(** Set of terms. *)
+
+(** {6 Set of terms} *)
 
 type terms
 
@@ -689,14 +685,7 @@ val atom_mk_gt : term -> term -> atom
 val atom_is_negatable : atom -> bool
 val atom_negate : atom -> atom
 
-type atoms
 
-(*
-val atoms_empty : unit -> atoms
-val atoms_singleton : atom -> atoms
-val atoms_add : atom -> atoms -> atoms
-val atoms_to_list : atoms -> atom list
-*)
 
 (** {6 Justifications} *)
 
@@ -874,7 +863,7 @@ val cmd_rep : unit -> unit
     its specification in file [parser.mly], the current internal [istate] 
     accordingly, and outputs the result to the current output channel. *)
 
-val cmd_batch : inchannel -> unit
+val cmd_batch : inchannel -> int
   (** Similar to {!Ics.cmd_rep}, but syntax error messages contain line numbers,
     and processing is aborted after state is unsatisfiable. *)
 
