@@ -255,12 +255,12 @@ let mk_disj =
 	Table.find memo pl
       with
 	  Not_found -> 
-	(*    let disj = simplify pl in  *)  (* removed because too time-consuming. *)
+	 (*    let disj = simplify pl in *)  (* removed because too time-consuming. *)
 	    let disj =
 	      let pl = sort pl in
 	      let hsh = (List.fold_left (fun h p -> h + hash p) 1 pl) land 0x3FFFFFFF in
 		Disj(pl, hsh)
-           in
+            in
 	      Table.add memo pl disj; disj
 
 let mk_conj =
