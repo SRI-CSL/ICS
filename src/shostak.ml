@@ -24,15 +24,20 @@ open Three
 
 let find i s x =
   match i with
-    | Theories.Interp(i) -> Th.find i s.i x
     | Theories.Uninterp -> x
+    | _ -> Context.find i s x
+    
 
 
 (*s Canonization of terms. *)
 
 let rec can_t s a =
   let (s',a') = can_term s a in
-  if is_var a' then (s', a') else extend s' a'
+  if is_var a' then 
+    (s', a') 
+  else 
+    let (x'', s'') = extend s' a' in
+    (s'', x'')
 
 and can_term s a =
   if is_var a then
@@ -61,7 +66,7 @@ and can_list i s l =
        then
 	 (s', x'' :: l)
        else 
-	 let (s'', x''') = extend s' x'' in
+	 let (x''', s'') = extend s' x'' in
 	 (s'', x''' :: l))
     l
     (s, [])
@@ -141,18 +146,13 @@ let rec process s a =
 
 and merge x y s = 
   let e = Fact.mk_equal x y None in
-  close_star (Context.merge e s)
+  Context.close (Context.merge e s)
 
 and add x i s = 
   let c = Fact.mk_cnstrnt x i None in
-  close_star (Context.add c s)
+  Context.close (Context.add c s)
 
 and diseq x y s =
   let d = Fact.mk_diseq x y None in
-  close_star (Context.diseq d s)
-
-and close_star (s, focus) =
-  if Focus.is_empty focus then
-    s
-  else 
-    close_star (Context.close (s, focus))
+  Context.close (Context.diseq d s)
+  
