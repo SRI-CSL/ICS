@@ -730,7 +730,7 @@ and deduce i e s =
     else if Th.eq i Th.bvarith then
       deduce_bvarith e s
     else if Th.eq i Th.pprod then
-      deduce_nonlin e (deduce_nonlin2 e s)
+      deduce_nonlin e s (* (deduce_nonlin2 e s) *)
     else 
       s
 
@@ -865,7 +865,7 @@ and deduce_la1 e s =
       raise Exc.Inconsistent
     else  
       begin
-	Trace.msg "rule" "Deduce" e Fact.pp_equal;
+	Trace.msg "rule" "Deduce(la)" e Fact.pp_equal;
 	try  
 	  let c_sk = c s sk in  (* Keep invariant that [c s k] is stronger than [c s sk]. *)
 	  let s = add (Fact.mk_cnstrnt k c_sk None) s in 
@@ -903,26 +903,33 @@ and add c s =
       (lookup s a', i')   
   in
   let (a, i, prf) = Fact.d_cnstrnt c in
-    match i with
-      | Sign.F ->
-	  raise Exc.Inconsistent
-      | Sign.Zero -> 
-	  equality (Fact.mk_equal a Arith.mk_zero None) s
-      | Sign.T ->
-	  s
-      | _ ->
-	  let (b, i) = normalize (a, i) in
-	    match b with
-	      | Var _ when is_slack b ->
-		  refine (Fact.mk_cnstrnt b i prf) s
-	      | App(Arith(Multq(q)), [x]) when is_slack x ->
-		  refine (Fact.mk_cnstrnt x (Sign.multq (Q.inv q) i) None) s
-	      | _ ->
-		  let d = if is_int s a then Some(Dom.Int) else None in
-		  let alpha = if i = Sign.Pos then false else true in
-		  let k = Term.mk_slack None alpha d in
-		    equality (Fact.mk_equal k b None)
-		      (refine (Fact.mk_cnstrnt k i None) s)
+    match Arith.d_num a with
+      | Some(q) -> 
+	  if Sign.disjoint i (Sign.of_q q) then 
+	    raise Exc.Inconsistent
+	  else 
+	    s
+      | None ->
+	  (match i with
+	     | Sign.F ->
+		 raise Exc.Inconsistent
+	     | Sign.Zero -> 
+		 equality (Fact.mk_equal a Arith.mk_zero None) s
+	     | Sign.T ->
+		 s
+	     | _ ->
+		 let (b, i) = normalize (a, i) in
+		   match b with
+		     | Var _ when is_slack b ->
+			 refine (Fact.mk_cnstrnt b i prf) s
+		     | App(Arith(Multq(q)), [x]) when is_slack x ->
+			 refine (Fact.mk_cnstrnt x (Sign.multq (Q.inv q) i) None) s
+		     | _ ->
+			 let d = if is_int s a then Some(Dom.Int) else None in
+			 let alpha = if i = Sign.Pos then false else true in
+			 let k = Term.mk_slack None alpha d in
+			   equality (Fact.mk_equal k b None)
+			     (refine (Fact.mk_cnstrnt k i None) s))
 
 
 (** Propagate changes in the variable partitioning. *)    
