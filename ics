@@ -1,0 +1,9 @@
+#!/bin/sh
+#
+# Script for starting ICS 
+#
+
+ICSPATH=/project/pvs/ics
+ARCH=`$ICSPATH/bin/config.guess`
+
+exec $ICSPATH/bin/$ARCH/ics $*

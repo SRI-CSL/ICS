@@ -3,7 +3,6 @@
 
 OCAMLSTDLIB = `ocamlc -v | tail -1 | cut -f 4 -d " "`
 
-GMPPATH = -L/usr/lib
 LIBGMPA = /usr/lib/libgmp.a
 GMPINCLUDE = -I /usr/include
 
@@ -44,7 +43,7 @@ INCLUDE = # -I unify -I fol -I qe
 CFLAGS = 
 BFLAGS = -g $(INCLUDE) # -noassert
 OFLAGS = $(INCLUDE) # -noassert
-LIBS = -cclib "$(GMPPATH) -lunix -lgmp"
+LIBS = -cclib "-lunix $(LIBGMPA)"
 
 # Object files
 
