@@ -80,6 +80,9 @@ let is_q q = function
   | App(Arith(Num(p)), []) -> Q.equal q p
   | _ -> false
 
+let is_multq = function
+  | App(Arith(Multq(_)), _) -> true
+  | _ -> false
 
 
 (*s Constants. *)
@@ -341,3 +344,72 @@ let tau c op al =
   with
       Not_found -> Cnstrnt.mk_real
 	
+
+let rec is_int c a = 
+  let is_int_var x = 
+    try 
+      Cnstrnt.dom_of (c x) = Dom.Int 
+    with 
+	Not_found -> false
+  in
+    match a with
+      | App(Arith(Num(q)), []) ->
+	  Mpa.Q.is_integer q
+      | App(Arith(Multq(q)), [x]) ->
+	  Mpa.Q.is_integer q &&
+	  is_int_var x
+      | App(Arith(Add), xl) ->
+	  List.for_all (is_int c) xl
+      | _ ->
+	  false
+
+(*s Constraint of a list of monomials. *)
+
+let rec cnstrnt_of_monomials c ml =
+  let of_monomial = function
+    | App(Arith(Num(q)), []) ->
+	Cnstrnt.mk_singleton q
+    | App(Arith(Multq(q)), [x]) -> 
+	(try Cnstrnt.multq q (c x) with Not_found -> Cnstrnt.mk_real)
+    | x -> 
+	(try c x with Not_found -> Cnstrnt.mk_real)
+  in
+    match ml with
+      | [] -> 
+	  Cnstrnt.mk_zero
+      | [m] -> 
+	  of_monomial m
+      | [m1; m2] -> 
+	  let i1 = of_monomial m1 in
+	  let i2 = of_monomial m2 in
+	    Cnstrnt.add i1 i2
+      | m :: ml' -> 
+	  let i = of_monomial m in
+	    Cnstrnt.add i (cnstrnt_of_monomials c ml')
+
+
+(*s Check if the constraint of an arithmetic term in some constraint
+ environment [c] is unbound or not. *)
+
+let rec is_unbounded c = function
+  | App(Arith(Num _), []) -> 
+      false
+  | App(Arith(Multq(_)), [x]) ->
+      (try Cnstrnt.is_unbounded (c x) with Not_found -> true)
+  | x ->
+      (try Cnstrnt.is_unbounded (c x) with Not_found -> true)
+
+
+(*s Decomposition. *)
+
+let decompose x a =
+  let rec loop pre = function
+    | [] -> raise Not_found
+    | m :: ml ->
+	let (q, y) = mono_of m in
+	  if Term.eq x y then
+	    (List.rev pre, q, ml)
+	  else 
+	    loop (m :: pre) ml
+  in
+    loop [] (monomials a)

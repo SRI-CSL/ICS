@@ -48,10 +48,6 @@ val abstract_cnstrnt : Fact.cnstrnt transform
 
 val prop: Fact.equal -> rule
 
-val groebner_completion : bool ref
-
-val groebner : Fact.equal -> rule
-
 
 (*s Close. *)
 

@@ -24,6 +24,21 @@ open Term
 let mult = Sym.Pp(Sym.Mult)
 let expt n = Sym.Pp(Sym.Expt(n))
 
+(*s Test if term is purely interpreted. *)
+
+let rec is_interp a =
+  is_expt a || is_mult a
+  
+and is_expt = function
+  | App(Pp(Expt(_)), [x]) -> is_var x
+  | _ -> false
+
+and is_mult = function
+  | App(Pp(Mult), xl) ->
+      (List.for_all (fun x -> is_expt x || is_var x) xl)
+  | _ -> false
+
+
 (*s Constructors. *)
 
 let mk_one = 
@@ -80,7 +95,7 @@ and mk_mult_with_expt x n b =
 
 and mk_mult_with_pp xl b =
   match b with
-    | App(Pp(Expt(m)), [y]) ->       (* [(x1 * ... * xk) * y^m = (x1 * ...y^m * ... * xk)] *)
+    | App(Pp(Expt(m)), [y]) -> (* [(x1 * ... * xk) * y^m = (x1 * ...y^m * ... * xk)] *)
 	insert y m xl
     | App(Pp(Mult), yl) ->
 	merge yl xl 
@@ -108,8 +123,8 @@ and merge al bl =
   let rec loop acc al bl = 
     match al, bl with
       | [], [] -> acc
-      | _, [] -> List.sort compare (acc @ al)
-      | [], _ -> List.sort compare (acc @ bl)
+      | _, [] -> acc @ al   (* still needs to be sorted. *)
+      | [], _ -> acc @ bl
       | a :: al', b :: bl' ->
 	  let (x, n) = destruct a 
 	  and (y, m) = destruct b in
@@ -127,7 +142,7 @@ and merge al bl =
   match loop [] al bl with
     | [] -> mk_one
     | [c] -> c
-    | cl -> mk_app mult cl
+    | cl -> mk_app mult (List.sort compare cl)
 
 let mk_inv a = mk_expt (-1) a
 	

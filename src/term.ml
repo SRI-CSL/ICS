@@ -51,6 +51,11 @@ let is_fresh_var = function
   | Var(x) -> Var.is_fresh x
   | _ -> false
 
+let is_slack_var = function
+  | Var(x) -> Var.is_slack x
+  | _ -> false
+
+
 
 (*s Recognizers. *)
 
@@ -225,6 +230,8 @@ let rec pp fmt a =
 	       str "cdr"; args l
 	   | Product(Tuple), [_; _] -> 
 	       str "cons"; args l
+	   | Pp(Mult), [] ->
+	       str "1"
 	   | Pp(Mult), xl ->
 	       infixl "*" xl
 	   | Pp(Expt _), [x] ->

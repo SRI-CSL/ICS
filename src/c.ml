@@ -123,7 +123,7 @@ let merge e s =
 	    s'
 	| Binrel.Sub -> 
 	    let prf' = Fact.mk_rule "equal_sub" [prf; prf1; prf2] in
-              update y i None s'
+              update y i prf' s'
 	| Binrel.Singleton(q) -> 
 	    let prf' = Fact.mk_rule "equal_overlap" [prf; prf1; prf2] in
 	      update y (Cnstrnt.mk_singleton q) prf' s'

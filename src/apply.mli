@@ -29,4 +29,6 @@ val mk_abs : Term.t -> Term.t
 
 val sigma : Sym.apply -> Term.t list -> Term.t
 
+val tau : (Term.t -> Cnstrnt.t) -> Sym.apply -> Term.t list -> Cnstrnt.t
+
 val map: (Term.t -> Term.t) -> Term.t -> Term.t

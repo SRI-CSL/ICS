@@ -82,7 +82,7 @@ let equal_width_of a b =
 %right DISJ XOR IMPL
 %left BIIMPL CONJ
 %nonassoc EQUAL DISEQ LESS GREATER LESSOREQUAL GREATEROREQUAL
-%right APPLY
+%left APPLY
 %left UNION
 %left MINUS PLUS 
 %left DIVIDE

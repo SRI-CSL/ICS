@@ -85,6 +85,8 @@ val is_zero : Term.t -> bool
 val is_one : Term.t -> bool
 val is_q : Mpa.Q.t -> Term.t -> bool
 
+val is_multq : Term.t -> bool
+
 (*s Destructors. *)
 
 val d_num : Term.t -> Q.t option
@@ -135,3 +137,21 @@ val solve : Fact.equal -> Fact.equal option
 
 val tau : (Term.t -> Cnstrnt.t) -> Sym.arith -> Term.t list -> Cnstrnt.t
 
+
+(*s Test if arithmetic term is integer. *)
+
+val is_int : (Term.t -> Cnstrnt.t) -> Term.t -> bool
+
+(*s Compute a subconstraint of [Cnstrnt.mk_real] for a list of monomials. *)
+
+val cnstrnt_of_monomials : (Term.t -> Cnstrnt.t) -> Term.t list -> Cnstrnt.t
+
+(*s Check if the constraint of an arithmetic term in some constraint
+ environment [c] is unbound or not, without actually computing the constraint. *)
+
+val is_unbounded : (Term.t -> Cnstrnt.t) -> Term.t -> bool
+
+(*s [decompose x a] yields [(b, q, c)] if [a] is a linear arithmetic term of
+ the form [b + q * x + c]. Otherwise it raises [Not_found]. *)
+
+val decompose : Term.t -> Term.t -> Term.t list * Mpa.Q.t * Term.t list

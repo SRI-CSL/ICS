@@ -19,25 +19,92 @@ open Sym
 open Term
 (*i*)
 
+let abs = Fun(Abs)
+let apply r = Fun(Apply(r))
+
+
 let mk_abs a =
-  mk_app (Fun(Abs)) [a]
+  mk_app abs [a]
 
 
 let rec mk_apply sigma r a al =
   match a, al with
     | App(Fun(Abs), [x]), [y] -> 
-	eval sigma (subst sigma x y 0)
+	byValue sigma (subst sigma x y 0)
     | _ ->
-	mk_app (Fun(Apply(r))) (a :: al)
+	mk_app (apply r) (a :: al)
 
-and eval sigma a =
-  match a with
-    | App(Fun(Apply(_)), [App(Fun(Abs), [x]); y]) -> 
-	(subst sigma x y 0)
-    | App(f, xl) ->
-	sigma f (mapl (eval sigma) xl)
-    | _ ->
+
+(*s evaluation, not affecting function bodies *)
+
+and eval sigma =
+  Trace.func "eval" "Eval" Term.pp Term.pp
+    (fun a -> 
+       match a with
+	 | App(Fun(Apply(r)), [x; y]) ->
+	     let x' = eval sigma x in
+	       (match x' with
+		  | App(Fun(Abs), [z]) ->
+		      eval sigma (subst sigma z (eval sigma y) 0)
+		  | _ -> 
+		      let y' = eval sigma y in
+			if x' == x && y' == y then a else 
+			  mk_app (apply(r)) [x'; y'])
+	 | _ ->
+	     a)
+
+
+(*normalization using call-by-value*)
+
+and byValue sigma a = 
+  let rec  bodies = function
+    | App(Fun(Abs), [x]) -> 
+	mk_app abs [byValue sigma x]
+    | App(Fun(Apply(r)), xl) -> 
+	mk_app (apply(r)) (mapl bodies xl)
+    | a -> 
 	a
+  in
+    bodies (eval sigma a)
+
+
+(* Head normal form. *)
+
+and hnf sigma a =
+  match a with
+    | App(Fun(Abs), [x]) ->
+	let x' = hnf sigma x in
+	  if x == x' then a else 
+	    mk_app abs [x']
+    | App(Fun(Apply(r)), [x1; x2]) ->
+	(match hnf sigma x1 with
+	   | App(Fun(Abs), [y]) ->
+	       hnf sigma (subst sigma y x2 0)
+	   | y -> 
+	       if y == x1 then a else 
+		 mk_app (apply(r)) [y; x2])
+    | _ -> 
+	a
+
+(* Normalization using call-by-name. *)
+
+and byName sigma a =
+  let rec args a =
+    match a with
+      | App(Fun(Abs), [x]) ->
+	  let x' = args x in
+	    if x == x' then a else 
+	      mk_app abs [x']
+       | App(Fun(Apply(r)), x :: xl) ->
+	  let x' = args x 
+	  and xl' = mapl (byName sigma) xl in
+	    if x == x' && xl == xl' then a else 
+	      mk_app (apply(r)) (x' :: xl')
+      | _ -> 
+	  a
+  in
+    args (hnf sigma a)
+
 
 and subst sigma a s k =
   match a with
@@ -45,7 +112,7 @@ and subst sigma a s k =
 	if Var.is_free x then
           let i = Var.d_free x in
             if k < i then 
-              Var(Var.mk_free(i-1))
+              Var(Var.mk_free(i - 1))
             else if i = k then
               s
             else 
@@ -57,8 +124,10 @@ and subst sigma a s k =
     | App(f, xl) ->
 	sigma f (substl sigma xl s k)
 
+
 and substl sigma al s k =
   mapl (fun x -> subst sigma x s k) al
+
 
 and lift a k =
   match a with
@@ -73,6 +142,7 @@ and lift a k =
     | App(f, xl) ->
 	mk_app f (liftl xl k)
 
+
 and liftl al k =
   mapl (fun a -> lift a k) al
 
@@ -84,6 +154,13 @@ let sigma op al =
     | Abs, [x] -> 
 	mk_abs x
     | _ -> assert false
+
+let tau ctxt op l =
+  match op, l with
+    | Apply(Some(r)), [_] -> 
+	r
+    | _ ->
+	raise Not_found
 	
 
 let rec map f a =

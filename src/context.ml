@@ -118,7 +118,9 @@ let cnstrnt s =
     | App(Pp(op), xl) -> 
 	Pp.tau of_term op xl
     | App(Bvarith(op), xl) -> 
-	Bvarith.tau of_term op xl 
+	Bvarith.tau of_term op xl
+    | App(Fun(op), xl) ->
+	Apply.tau of_term op xl
     | _ -> 
 	raise Not_found
   in

@@ -15,6 +15,7 @@
  i*)
 
 (*i*)
+open Sym
 open Term
 open Context
 (*i*)
@@ -24,6 +25,7 @@ open Context
 type sign = Pos of Term.t | Neg of Term.t
 
 exception Found of sign
+
 
 (*s Don't use [find] for uninterpreted theory. *)
 
@@ -40,20 +42,19 @@ and findequiv th s a =
   try
     choose s
       (fun x ->
-	 try 
-	   let b = apply th s x in 
-	     Some(b) 
+	 try Some(apply th s x) 
 	 with Not_found -> None)
       a
   with
       Not_found -> a
-    
 
+    
 (*s Canonization of terms. *)
 
 let rec term s =
   Trace.func "canon" "Term" Term.pp Term.pp
     (can s)
+
 
 and can s a =
   match a with
@@ -63,6 +64,8 @@ and can s a =
 	arith s op al
     | App(Sym.Bvarith(Sym.Unsigned), [x]) ->
 	unsigned s x
+    | App(Sym.Pp(op), xl) ->
+	pprod s op xl
     | App(f, al) ->
 	let th = Th.of_sym f in
 	let interp x = find th s (can s x) in
@@ -70,8 +73,20 @@ and can s a =
 	let a' = if al == al' then a else sigma s f al' in
 	  lookup s a'
 
+and pprod s op al =
+  match op, al with
+    | Expt(n), [x] ->
+	lookup s (Pp.mk_expt n (find Th.pprod s (can s x)))
+    | Mult, _ ->
+	lookup s (Pp.mk_multl al)
+    | _ ->
+	assert false
+	
+	
+
 and unsigned s x =
-  lookup s (Bvarith.mk_unsigned (find Th.bv s x))
+  lookup s (Bvarith.mk_unsigned (find Th.bv s (can s x)))
+
 
 and arith s op l =    (* special treatment for arithmetic *)
   match op, l with       (* for optimizing memory usage. *)

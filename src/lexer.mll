@@ -64,7 +64,7 @@ let int =  ['0'-'9']+
 rule token = parse 
     [' ' '\t'] { token lexbuf }
   | '\n'       { Tools.linenumber := !Tools.linenumber + 1;
-  	        token lexbuf }
+  	         token lexbuf }
   | '%' [^ '\n']* {token lexbuf }
   | ident      { keyword (Lexing.lexeme lexbuf) }
   | "-inf"     { NEGINF }

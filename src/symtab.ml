@@ -32,7 +32,7 @@ let empty =
 
 let add n e s =
   if Name.Map.mem n s then
-    let msg = "Name" ^ Pretty.to_string Name.pp n ^ "already in table" in 
+    let msg = "Name " ^ Pretty.to_string Name.pp n ^ " already in table" in 
     raise (Invalid_argument msg)
   else 
     Name.Map.add n e s

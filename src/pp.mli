@@ -18,6 +18,8 @@
 open Term
 (*i*)
 
+val is_interp : Term.t -> bool
+
 (*s Module [Arr]: Nonlinear arithmetic. *)
 
 val mk_one : Term.t      (* Different form [Arith.mk_one]! *)

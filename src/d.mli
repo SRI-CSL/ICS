@@ -22,6 +22,7 @@ val pp : Format.formatter -> t -> unit
 
 val changed : Term.Set.t ref
 
+
 (*s Return disequalities as bindings of the form [x |-> {y1,...,yn}].
  The interpretation of such a binding is the conjunction 
  [x <> y1 & ... & x <> yn] of all known disequalities for [x]. The
@@ -29,6 +30,7 @@ val changed : Term.Set.t ref
  such that [x |-> {...,y,...} ] then also [y |-> {....,x,....}] *)
 
 val deq_of : t -> Term.Set.t Term.Map.t
+
 
 (*s [deq s a] is just returns the binding for [a] in [deq_of s]. *)
 
@@ -38,21 +40,26 @@ val deq : t -> Term.t -> Term.Set.t
 
 val is_diseq: t -> Term.t -> Term.t -> bool
 
+
 (*s The empty disequality context. *)
 
 val empty : t
+
 
 (*s Is state unchanged. *)
 
 val eq : t -> t -> bool
 
+
 (*s [merge e s] merges a variable equality ['x = y'] *)
 
 val merge : Fact.equal -> t -> t
 
+
 (*s [add (a,b) s] disequality [a <> b] to the disequality context [s]. *)
 
 val add : Fact.diseq -> t -> t
+
 
 (*s Return disequalites for [x]. *)
 

@@ -105,7 +105,6 @@ let args () =
         "-pp", Arg.Set disable_pretty_print_flag, "Disable Pretty-Printing of terms";
         "-usage", Arg.Set disable_usage_flag,     "Disable printing of usage message";
         "-compactify", Arg.Set disable_compactify_flag, "Disable compactification";
-        "-groebner", Arg.Set Rule.groebner_completion, "Enable Groebner completion";
 	"-nonlin", Arg.Set disable_nonlin_flag, "Disable Interpretation of nonlinear arithmetic";
         "-eot", Arg.String (fun str -> end_of_transmission := str), "Print string argument after each transmission";
 	"-maxloops", Arg.Int (fun n -> maxloops_flag := n), "Run in server mode";

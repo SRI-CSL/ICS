@@ -230,66 +230,12 @@ and arith_deduce e s =
       | _ -> s
 
 
-(*s Groebner basis completion for power products. *)
-
-let groebner_completion = ref false
+(*s Propagating into power products. *)
 
 let rec pprod_star (che, chc) s =
-  (groebner_star che &&&
-   fold pprod che pproduct_deduce &&&
+  (fold pprod che pproduct_deduce &&&
    foldc chc pproduct_cnstrnt) s
 
-and groebner_star ch s =
-  if not(!groebner_completion) then s else
-    fold pprod ch groebner s
-
-and groebner e s =
-  if not(!groebner_completion) then s else
-    let (x, pp, _) = Fact.d_equal e in
-      Fact.Equalset.fold
-	(fun e' s ->
-	   let (y, qq, _) = Fact.d_equal e' in   
-	   let (p, q, gcd) = Pp.gcd pp qq in  (* now [x * p = gcd] and [y * q = gcd] *)
-	     if Pp.is_one gcd || Pp.is_one p || Pp.is_one q then 
-	       s
-	     else
-	       let xp = Pp.mk_mult (v s x) p
-	       and yq = Pp.mk_mult (v s y) q in
-		 try
-		   let u1 = Context.inv pprod s xp in
-		   let u2 = Context.inv pprod s yq in
-		     match Context.is_equal s u1 u2 with
-		       | Three.Yes ->
-			   s
-		       | Three.No -> 
-			   raise Exc.Inconsistent
-		       | Three.X ->
-			   let e'' = Fact.mk_equal (v s u1) (v s u2) None in  
-			     Trace.msg "rule" "Groebner" e'' Fact.pp_equal;
-			     merge e'' s
-		     with
-			 Not_found -> s)
-	(cuts e s)
-	s
-      
-and cuts e s =  
-  let (_, pp, _) = Fact.d_equal e in
-  let es =
-    Set.fold 
-      (fun y acc1 -> 
-	 (Set.fold
-	    (fun u acc2 ->
-	       try 
-		 let e' = equality pprod s u in
-		   Fact.Equalset.add e' acc2
-	       with
-		   Not_found -> acc2)
-	    (use pprod s y)
-	    acc1))
-      (vars_of pp) 
-      Fact.Equalset.empty
-  in
-    Fact.Equalset.remove e es
 
 and pproduct_deduce e s =
   Trace.msg "rule" "Nonlin_deduce" e Fact.pp_equal;

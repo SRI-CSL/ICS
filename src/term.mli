@@ -59,6 +59,7 @@ val mk_app : Sym.t -> t list -> t
 
 val mk_fresh_var : Name.t -> int option -> t
 val is_fresh_var : t -> bool
+val is_slack_var : t -> bool
 val name_of : t -> Name.t
 
 val destruct : t -> Sym.t * t list
