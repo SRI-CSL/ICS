@@ -32,8 +32,14 @@ type bv =
   | Sub of int * int * int
   | Bitwise of int
 
+type builtin = 
+  | Select | Update
+  | Unsigned 
+  | Floor | Ceiling | Mult | Expt | Div | Sin | Cos
+
 type t = 
   | Uninterp of Name.t
+  | Builtin of builtin (* Never construct a [Builtin(f)] symbol explicitly! *)
   | Arith of arith
   | Tuple of tuple
   | Bv of bv
@@ -76,9 +82,25 @@ val interp_theory_of_name : string -> theories
 
 (*s Some predefined function symbols. *)
 
+val add : t
+val product : t
+val car : t
+val cdr : t
+
+
+
+(*s Predefined array function symbols. Never use
+ [Bultin(op)] to construct these function symbols, since
+ the [is_array] test fails on these symbols. *)
+
 val select : t
 val update : t
-val unsigned : t
+
+val is_array : t -> bool
+
+
+(*s Predefined nonlinear function symbols. *)
+
 val floor : t
 val ceiling : t
 val mult : t
@@ -87,4 +109,16 @@ val div : t
 val sin : t
 val cos : t
 
+val is_nonlin : t -> bool
 
+(*s Predefined function symbol for unsigned interpretations. *)
+
+val unsigned : t
+
+val is_unsigned : t -> bool
+
+
+(*s [is_builtin f] tests if [f] is one of the function
+ symbols mentioned above. *)
+
+val is_builtin : t -> bool
