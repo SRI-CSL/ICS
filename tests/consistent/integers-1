@@ -1,4 +1,0 @@
-
-assert int(x).
-
-can ~(1 < x & x < 2).

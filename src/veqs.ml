@@ -38,9 +38,7 @@ let destruct es =
 
 let singleton = Set.singleton
 
-let add x y es = 
-  assert(Term.is_var x && Term.is_var y);
-  Set.add (Veq.make x y) es
+let add = Set.add
 
 let mem = Set.mem
 

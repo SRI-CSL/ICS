@@ -18,6 +18,7 @@ type t = Term.t * Term.t
 
 let make x y =
   assert(Term.is_var x && Term.is_var y);
+  Trace.msg "veq" "" (x, y) Term.pp_equal;
   Term.orient (x,y)
 
 let destruct e = e

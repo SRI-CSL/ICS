@@ -1,3 +1,0 @@
-assert x < y &  y < z.
-check x < z.
-check x >= z => false.

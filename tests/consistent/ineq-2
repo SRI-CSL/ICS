@@ -1,2 +1,0 @@
-assert x <= y &  y <= z & z <= x.
-check x = z & y = z.

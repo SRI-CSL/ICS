@@ -26,7 +26,7 @@ val destruct : t -> Veq.t * t
 
 val singleton : Veq.t -> t
 
-val add : Term.t -> Term.t -> t -> t
+val add : Veq.t -> t -> t
 
 val remove : Veq.t -> t -> t
 

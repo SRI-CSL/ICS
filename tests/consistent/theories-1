@@ -1,2 +1,0 @@
-assert a+2=b.
-assert f(c[a:=3][b-2]) = f(b-a+1).

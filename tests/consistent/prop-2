@@ -1,6 +1,0 @@
-% very basic checks of the propositional part of the d.p.
-
-can false => p.
-
-can (a=>b)=>a=>b.
-

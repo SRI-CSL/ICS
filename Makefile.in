@@ -59,7 +59,6 @@ CMO = sign.cmo three.cmo \
       hashcons.cmo \
       tools.cmo status.cmo \
       pretty.cmo \
-      trace.cmo \
       exc.cmo\
       bitv.cmo \
       extq.cmo dom.cmo endpoint.cmo interval.cmo cnstrnt.cmo \
@@ -67,24 +66,27 @@ CMO = sign.cmo three.cmo \
       sym.cmo \
       var.cmo \
       term.cmo \
-      veq.cmo \
-      veqs.cmo \
+      trace.cmo \
       boolean.cmo \
       arith.cmo \
       tuple.cmo \
       bitvector.cmo \
+      interp.cmo \
+      veq.cmo \
+      veqs.cmo \
       app.cmo \
       atom.cmo \
       use.cmo \
       subst.cmo \
       c.cmo \
       a.cmo \
+      theories.cmo \
       t.cmo \
       bv.cmo \
       b.cmo \
       d.cmo \
+      v.cmo \
       cc.cmo \
-      interp.cmo theories.cmo \
       th.cmo \
       context.cmo \
       builtin.cmo \
@@ -250,7 +252,7 @@ cprofile:
 
 LICENSE = fm-license.pdf
 
-web::	
+web:: ics.tar.gz $(DOCDIR)/doc.ps.gz cp $(BINDIR)/ics $(BINDIR)/ics.byte $(LIBDIR)/libics.so $(LIBDIR)/libics.a $(OBJDIR)/ics_stub.c $(LICENSE)
 	cp $(DOCDIR)/doc.ps.gz $(DOCDIR)/doc.pdf $(DOCDIR)/doc.html $(WEBHOME)
 	cp $(BINDIR)/ics $(WEBHOME)/download/$(ARCH)/ics  # Save these files before cleaning
 	cp $(BINDIR)/ics.byte $(WEBHOME)/download/$(ARCH)/ics.byte
@@ -293,7 +295,7 @@ $(DOCDIR)/literal/%.mli.tex: $(SRCDIR)/%.mli
 doc:  $(DOCDIR)/doc.ps.gz $(DOCDIR)/doc.html $(DOCDIR)/doc.pdf
 
 $(DOCDIR)/doc.dvi: $(LITERAL)  $(DOCDIR)/dep.ps $(DOCDIR)/doc.tex
-	(cd $(DOCDIR); latex ./doc.tex  && bibtex ./doc && latex ./doc.tex)
+	(cd $(DOCDIR); latex ./doc.tex  && bibtex ./doc && latex ./doc.tex && latex ./doc.tex)
 
 $(DOCDIR)/doc.pdf: $(LITERAL)  $(DOCDIR)/dep.ps $(DOCDIR)/doc.tex
 	(cd $(DOCDIR); pdflatex ./doc.tex  && pdflatex ./doc.tex)

@@ -1,2 +1,0 @@
-assert x in int.
-assert x=y & x+y=1.

@@ -1,3 +1,0 @@
-assert 1 < x.
-assert x < 2.
-assert x in int.

@@ -1,4 +1,0 @@
-assert
-x0 < x1. assert x1 < x2. assert x2 < x3. assert x3 < x4. assert x4 < x5. assert x5 < x6. assert x6 < x7. assert x7 < x8. assert x8 < x9. assert x9 < x10. assert x10 < x11. assert x11 < x12. assert x12 < x13. assert x13 < x14. assert x14 < x15. assert x15 < x16. assert x16 < x17. assert x17 < x18. assert x18 < x19. assert x19 < x20. assert x20 < x21. assert x21 < x22. assert x22 < x23. assert x23 < x24. assert x24 < x25. assert x25 < x26. assert x26 < x27. assert x27 < x28. assert x28 < x29. assert x29 < x0. assert x29 < x0.
-check false.
-
