@@ -30,7 +30,7 @@ val to_list : t -> (Term.t * Cnstrnt.t) list
 
 (*s Accessors. *)
 
-val cnstrnt : Term.t -> t -> Cnstrnt.t option
+val cnstrnt : t -> Term.t -> Cnstrnt.t option
 
 (*s Pretty-printing. *)
 
