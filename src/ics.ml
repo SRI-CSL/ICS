@@ -556,9 +556,6 @@ let _ = Callback.register "prop_mk_iff" prop_mk_iff
 let prop_mk_neg = Prop.mk_neg
 let _ = Callback.register "prop_mk_neg" prop_mk_neg
 
-let prop_mk_let = Prop.mk_let
-let _ = Callback.register "prop_mk_let" prop_mk_let
-
 let prop_is_true = Prop.is_true
 let _ = Callback.register "prop_is_true" prop_is_true
 
@@ -583,9 +580,6 @@ let _ = Callback.register "prop_is_iff" prop_is_iff
 let prop_is_neg = Prop.is_neg
 let _ = Callback.register "prop_is_neg" prop_is_neg
 
-let prop_is_let = Prop.is_let
-let _ = Callback.register "prop_is_let" prop_is_let
-
 let prop_d_atom = Prop.d_atom
 let _ = Callback.register "prop_d_atom" prop_d_atom
 
@@ -603,10 +597,6 @@ let _ = Callback.register "prop_d_iff" prop_d_iff
 
 let prop_d_neg = Prop.d_neg
 let _ = Callback.register "prop_d_neg" prop_d_neg
-
-let prop_d_let = Prop.d_let
-let _ = Callback.register "prop_d_let" prop_d_let
-
 
 type assignment = Prop.Assignment.t
 
