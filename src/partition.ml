@@ -140,8 +140,12 @@ let copy p = {v = p.v; d = p.d}
 
 
 (** Merge a variable equality. *)
-let merge p e =  
+let rec merge p e =  
   Trace.msg "p" "Merge(p)" e Fact.Equal.pp;
+  let (x, y, rho) = Fact.Equal.destruct e in  (* to do: add variables for *)
+    merge1 p e                                (* domains. *)
+	
+and merge1 p e =
   p.v <- V.merge e p.v;
   p.d <- D.merge e p.d
 
