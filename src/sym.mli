@@ -35,7 +35,13 @@ type bv =
 type builtin = 
   | Select | Update
   | Unsigned 
-  | Floor | Ceiling | Mult | Expt | Div | Sin | Cos
+  | Floor | Mult | Expt | Div | Sin | Cos 
+  | Apply of range option
+  | Lambda of Var.t
+
+and range =
+  | Real of int * Cnstrnt.t 
+  | Boolean of int
 
 type t = 
   | Uninterp of Name.t
@@ -98,11 +104,14 @@ val update : t
 
 val is_array : t -> bool
 
+(*s Application (for encoding higher-order terms) *)
+
+val apply : range option -> t
+
 
 (*s Predefined nonlinear function symbols. *)
 
 val floor : t
-val ceiling : t
 val mult : t
 val expt : t
 val div : t
