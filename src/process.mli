@@ -3,13 +3,13 @@
 open Term
 (*i*)
 
-val norm : Congstate.t -> term -> term
+val norm : State.t -> term -> term
 
 type result =
   | Valid
   | Inconsistent
-  | Consistent of Congstate.t
+  | Consistent of State.t
 
-val term : term option -> Congstate.t -> term -> result
+val term : term option -> State.t -> term -> result
 
-val equality : term option -> Congstate.t -> term * term -> Congstate.t
+val equality : term option -> State.t -> term * term -> State.t

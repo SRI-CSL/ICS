@@ -23,7 +23,7 @@ let rec pp_basic b = match b.node with
   | Const(c) ->
       Format.print_string (Bitv.to_string c)
   | Sub(x,n,i,j) ->
-      Pp.term x; Format.printf "[";
+      Pretty.term x; Format.printf "[";
       Format.print_int n; Format.printf ","; 
       Format.print_int i; Format.printf ","; 
       Format.print_int j;
@@ -38,7 +38,7 @@ let rec pp_basic b = match b.node with
       Format.printf " end"
       
 let pp =
-  Pp.list_sep (fun () -> Format.printf " ++ ") pp_basic
+  Pretty.list_sep (fun () -> Format.printf " ++ ") pp_basic
        	
 (* Length of concatenation normal forms *)
 		
@@ -61,7 +61,7 @@ module HashBasic = Hashcons.Make(
 	| Const c, Const d ->
 	    compare c d = 0
 	| Sub(t1,n1,l1,u1), Sub(t2,n2,l2,u2)  ->
-	    Term.eq_term t1 t2 && n1 = n2 && l1 = l2 && u1 = u2			     
+	    t1 == t2 && n1 = n2 && l1 = l2 && u1 = u2			     
 	| Ite(x1,y1,z1), Ite(x2,y2,z2) ->
 	    x1 == x2 && y1 == y2 && z1 == z2
 	| _ -> false
@@ -77,7 +77,6 @@ let hc_basic : basic_node -> basic =
 let mk_const c = hc_basic (Const c)
 let mk_eps () = mk_const (Bitv.from_string "")
 let mk_sub x n i j =
-  assert (not(Term.is_bv x));
   hc_basic (Sub (x,n,i,j))
 
 let eq_basic = (==)
@@ -88,7 +87,7 @@ let occursb y b =
   let rec occ b =
     match b.node with
       | Const _ -> false
-      | Sub(x,_,_,_) -> Term.eq_term y x
+      | Sub(x,_,_,_) -> y == x
       | Ite(b1,b2,b3) -> occ b1 || occ b2 || occ b3
   in
   occ b
@@ -104,7 +103,7 @@ module Bvbdd = Bdd.Make(
     type bdd_node = basic_node
     type bdd = basic
     type tag = int
-    let compare = compare    
+    let compare = compare  
     let high n = hc_basic (Const (Bitv.create n true))
     let low n = hc_basic (Const (Bitv.create n false))
     let ite _ x y z = hc_basic (Ite (x,y,z))
@@ -112,7 +111,7 @@ module Bvbdd = Bdd.Make(
     let is_low = function {node=Const b} -> Bitv.all_zeros b | _ -> false
     let is_ite = function {node=Ite _} -> true | _ -> false 
     let destructure_ite = function {node=Ite(x,y,z)} -> Some(x,y,z) | _ -> None 
-    let fresh n = mk_sub (Term.fresh "b" [] Term.All) n 0 (n-1)
+    let fresh n = mk_sub (Var.fresh "b" [] None) n 0 (n-1)
   end)
 
 let mk_apply b1 b2 b3 =
@@ -135,11 +134,10 @@ let one n  = const (Bitv.create n true)
     extraction [mk_sub(x,0,n-1)]. *)
 
 let inj n x =
-  assert(not (Term.is_bv x));
   atom (mk_sub x n 0 (n-1))
 
 let fresh n =
-  inj n (Term.fresh "b" [] Term.All)
+  inj n (Var.fresh "b" [] None)
 
   
 			   
@@ -275,8 +273,8 @@ and solveb b1 b2 =
   if eq_basic b1 b2 then [] else
   match b1.node, b2.node with
     | Const c, Const d ->
-	if compare c d = 0 then [] else raise (Term.Inconsistent "Bitvector solver")
-    | Sub(x,n,i,j), Sub(y,m,k,l) when Term.eq_term x y ->
+	if compare c d = 0 then [] else raise (Exc.Inconsistent "Bitvector solver")
+    | Sub(x,n,i,j), Sub(y,m,k,l) when x == y ->
 	assert(n = m);
         if i < k then
            solve_extr x n i j k l
@@ -287,12 +285,10 @@ and solveb b1 b2 =
     | Sub(t,n,i,j), _ ->
 	let a1 = fresh i in
 	let a2 = fresh (n-j-1) in
-	assert (not (Term.is_bv t) && not(occurs t (a1 ++ atom b2 ++ a2)));
 	[t, a1 ++ atom b2 ++ a2]
     | _, Sub(t,n,i,j) ->
 	let a1 = fresh i in
 	let a2 = fresh (n-j-1) in
-	assert (not (Term.is_bv t) && not(occurs t (a1 ++ atom b1 ++ a2)));
 	[t, a1 ++ atom b1 ++ a2]
     | Ite _, _
     | _, Ite _ ->

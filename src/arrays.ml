@@ -5,10 +5,10 @@ open Mpa
 open Term
 (*i*)
 
-let deriv_eq i j = eq_term i j
+let deriv_eq i j = i == j
 
 let deriv_diseq i j =
-  eq_term (Equal.diseq i j) (ptrue ())
+  Atom.deq (i,j) == Bool.tt
 
 (*s Smart Constructors:
     \begin{displaymath}\begin{array}{rcl}
@@ -28,26 +28,28 @@ let rec app a = function
 		else if deriv_diseq i j then
 		  app b l
 		else
-		  Bool.ite (Equal.equal i j) v (Term.app b l)
+		  Bool.ite (Atom.eq (i,j)) v (hc (App(b,l)))
 	    | App(b,m) ->
 		app b (m @ l)
 	    | _ ->
-		Term.app a l) 
+		hc (App(a,l)))
 
 let rec update a i u =
   match a.node with
-    | Update(b,j,v) when deriv_eq i j  -> update b i u
-    | _ -> Term.update a i u
+    | Update(b,j,v) when deriv_eq i j  ->
+	update b i u
+    | _ ->
+	hc (Update(a,i,u))
 
 (*s Arrays solver. *)
 
 let solve ((a,b) as e) =
   let return a b =
-    if eq_term a b then [] else [(a,b)]
+    if a == b then [] else [(a,b)]
   in
   match a.node,b.node with
     | Update (u,i,s), Update (v,j,t)
-	when eq_term u v && eq_term i j ->
+	when u == v && i == j ->
           return s t
     | _, App _ -> 
 	return b a

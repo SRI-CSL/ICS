@@ -36,12 +36,21 @@ val map : (monomial -> monomial) -> term -> term
 
 val le : term -> term -> bool
 val lt : term -> term -> bool
+
     
 (*s Canonizer and solver for arithmetic. \label{arith} *)
 
 val solve : term option -> term * term -> (term * term) list
 
+(*s Abstract interpretation *)
 
+type sign = Nonpos | Neg | Zero | Pos | Nonneg | T
 
+val sign: term -> sign
+    
+val is_nonneg : term -> bool
+val is_pos : term -> bool
+val is_neg : term -> bool
+val is_nonpos : term -> bool
 
-
+val inconsistent: term -> term -> bool

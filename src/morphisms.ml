@@ -43,13 +43,14 @@ let fold f t v0 =
       | Var _     -> f t acc
       | App (x,l) -> f t (fold_term x (fold_term_list l acc))
       | Update(x,y,z) -> f t (fold_term x (fold_term y (fold_term z acc)))
-      | Equal (x,y)   -> f t (fold_term x (fold_term y acc))
+      | Atom(Equal (x,y))   -> f t (fold_term x (fold_term y acc))
+      | Atom(Le(x,y))   -> f t (fold_term x (fold_term y acc))
+      | Atom(Lt(x,y))   -> f t (fold_term x (fold_term y acc))    
       | Tuple x   -> f t (fold_tuple x acc)
       | Bool x    -> f t (fold_prop x acc)
       | Set x     -> f t (fold_set x acc)
       | Bv l      -> f t (fold_bv l acc)
-      | Mem (x,s) -> f t (fold_term x (fold_term s acc))
-      | Integer x  -> f t (fold_term x acc)
+      | Atom(Integer x)  -> f t (fold_term x acc)
       | Arith x -> f t (fold_arith x acc)
   in
   fold_term t v0
@@ -67,12 +68,14 @@ let size t = fold (fun _ n -> succ n) t 1
 
 exception Impure
 
-let is_pure t =
-  try
-    iter (fun x -> if is_uninterpreted x then raise Impure) t;
-    true
-  with
-      Impure -> false
+let is_pure =
+  Term.cache 1007
+    (fun t ->
+       try
+         iter (fun x -> if is_uninterpreted x then raise Impure) t;
+         true
+       with
+         Impure -> false)
 
 (*s Mapping over terms *)
  
@@ -81,9 +84,9 @@ let rec map f t =
     | Var _ ->
 	f t
     | App (x,yl) ->
-	app (f x) (List.map (map f) yl)
+	Arrays.app (f x) (List.map (map f) yl)
     | Update (x,y,z) ->
-	update (map f x) (map f y) (map f z)
+	Arrays.update (map f x) (map f y) (map f z)
     | Tuple x ->
 	(match x with
 	   | Tup l ->
@@ -120,24 +123,26 @@ let rec map f t =
 	       Arith.mult (List.map (map f) l)
 	   | Plus l ->
 	       Arith.add (List.map (map f) l))
-    | Equal (x,y) ->
-	Equal.equal (map f x) (map f y)
-    | Mem (x,y) ->
-	Sets.mem (map f x) (map f y)
-    | Integer x ->
-	Arith.integer (map f x)
+    | Atom(Equal (x,y)) ->
+	Atom.eq (map f x, map f y)
+    | Atom(Le (x,y)) ->
+	Atom.le (map f x, map f y)
+    | Atom(Lt (x,y)) ->
+	Atom.lt (map f x, map f y)
+    | Atom(Integer x) ->
+	Atom.int (map f x)
 
 (*s [replace t x s] replaces occurrences of term [x] in term [t] with term [s] *)
 
 let replace t x s =
   let rec repl t =
-    if eq_term t x then s
+    if t == x then s
     else match t.node with
       | Var _ -> t
       | App (x,yl) ->
-	  app (repl x) (List.map repl yl)
+	  Arrays.app (repl x) (List.map repl yl)
       | Update (x,y,z) ->
-	  update (repl x) (repl y) (repl z)
+	  Arrays.update (repl x) (repl y) (repl z)
       | Tuple x ->
 	  (match x with
 	     | Tup xl ->
@@ -171,12 +176,14 @@ let replace t x s =
 		 Arith.mult (List.map repl xl)
 	     | Plus xl ->
 		 Arith.add (List.map repl xl)) 
-      | Equal (x,y) ->
-	  Equal.equal (repl x) (repl y)
-      | Mem (x,y) ->
-	  Sets.mem (repl x) (repl y)
-      | Integer x ->
-	  Arith.integer (repl x)
+      | Atom(Equal (x,y)) ->
+	  Atom.eq (repl x, repl y)
+      | Atom(Le (x,y)) ->
+	  Atom.le (repl x, repl y)
+      | Atom(Lt (x,y)) ->
+	  Atom.lt (repl x, repl y)     
+      | Atom(Integer x) ->
+	  Atom.int (repl x)
   in
   repl t
 	

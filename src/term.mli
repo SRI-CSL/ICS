@@ -5,37 +5,32 @@ open Hashcons
 open Bitv
 (*i*)
 
-(*s Types of terms. \label{typeterms}
-    There is one type for each theory
-    ([arith], [tuple], etc.). It facilitates the definition of solvers
-    and canonizers by allowing pattern-matching on a type containing only
-    the constructors corresponding to the given theory. 
-    Any other kind of term (i.e. uninterpreted or from another theory) is
-    handled through a particular constructor ([NotArith], [NotTuple], etc.)
-    Then the type of terms ([term]) assembles the different theories,
-    and introduce uninterpreted terms (constructors [Var] and [App]). *)
+(*s Types of terms.  *)
 
-type constraints = Int | All
-  
-type variable = string * constraints
+type variable = string
 
 type tag = int
 
-type term_node =
+type term =
+    term_node hashed
+
+and term_node =
   | Var of variable
   | App of term * term list
   | Update of term * term * term
-  | Equal of term * term
-  | Bv of bv
   | Arith of arith
   | Tuple of tuple
+  | Atom of atom
   | Bool of prop
   | Set of set
-  | Mem of term * term
-  | Integer of term
-        
-and term = term_node hashed
+  | Bv of bv
 
+and atom =
+  | Equal of term * term
+  | Le of term * term
+  | Lt of term * term
+  | Integer of term
+      
 and arith =
   | Num of Q.t
   | Times of term list
@@ -72,40 +67,7 @@ and fixed = int * term
     prevent the construction of ill-formed terms like 
     [(NotArith (Arith a))] or [(Arith (NotArith a))]. *)
 
-val var : variable -> term
-val app : term -> term list -> term
-val update : term -> term -> term -> term
-val equal : term -> term -> term
-val mem : term -> term -> term
-val integer: term -> term
-
-val ptrue  : unit -> term
-val pfalse : unit -> term
-val ite    : term -> term -> term -> term
-val forall : variable list -> term -> term
-val exists : variable list -> term -> term
-
-val empty  : tag -> term
-val full   : tag -> term
-val setite : tag -> term -> term -> term -> term
-
-val tuple: term list -> term
-val proj : int -> int -> term -> term
-
-val num  : Q.t -> term
-val mult : term list -> term
-val add  : term list -> term
-
-val const : Bitv.t -> term
-val fixed : int -> term -> fixed
-val conc  : fixed list -> term
-val extr  : fixed -> int -> int -> term
-val bvite : fixed -> fixed -> fixed -> term
-
-(*s Fresh variables. *)
-  
-val fresh : string -> term list -> constraints -> term
-val new_var : string -> constraints -> term
+val hc : term_node -> term
 
 (*s Equality and comparison of terms.  Due to internal hash-consing,
     equality is always done in constant time $O(1)$. Comparison
@@ -113,40 +75,19 @@ val new_var : string -> constraints -> term
     tagging with unique integers, and structural ones. The former are
     session-dependent and the latter are not. *)
 
-val eq_term : term -> term -> bool
-val fast_compare_term : term -> term -> int
-val compare_term : term -> term -> int
+val fast_cmp : term -> term -> int
+val cmp : term -> term -> int
 
-    
-val is_var : term -> bool
-val is_num : term -> bool
 val is_const : term -> bool
-val is_bv : term -> bool
-val is_arith : term -> bool
-val is_atomic : term -> bool
 
 val is_uninterpreted : term -> bool
-
-val num_of : term -> Q.t option
-val val_of : term -> Q.t
-
-val width_of : term -> int
-
+    
 (*s Caches for functions over terms. *)
- 
 		  
 val cache : int -> (term -> 'a) -> (term -> 'a)
 val cache2 : int -> (term*term -> 'a) -> (term*term -> 'a)    
 val cachel : int -> (term list -> 'a) -> (term list -> 'a)    
     
-    
-(*s The following exceptions are raised by any solver which detects an 
-    inconsistent system or an obvious validity. *)
-    
-exception Inconsistent of string
-exception Valid
-
-
-
+ 
 
 

@@ -13,8 +13,8 @@ type variable = Term.variable
   
 type term = Term.term
 
-let var x = Term.var (x,Term.All)
-let zvar x = Term.var(x,Term.Int)
+let var x = Var.var (x, None)
+let zvar x = Var.intvar (x, None)
 let app = Arrays.app
 
 let _ = Callback.register "var" var
@@ -47,12 +47,12 @@ let update = Arrays.update
 
 let _ = Callback.register "update" update
 
-let equal = Equal.equal
-let diseq = Equal.diseq
-let lt = Ineq.lt
-let le = Ineq.le
-let gt a b = Ineq.lt b a
-let ge a b = Ineq.le b a
+let equal a b = Atom.eq (a,b)
+let diseq a b = Atom.deq (a,b)
+let lt x y = Atom.lt (x,y)
+let le x y = Atom.le (x,y)
+let gt a b = Atom.lt (b,a)
+let ge a b = Atom.le (b,a)
 let integer_pred = Arith.integer
 let mem = Sets.mem
 let unsigned t = assert false
@@ -68,20 +68,11 @@ let _ = Callback.register "mem" mem
 let _ = Callback.register "unsigned" unsigned
 
 
-let ptrue = Term.ptrue
-let pfalse = Term.pfalse
+let ptrue () = Bool.tt
+let pfalse () = Bool.ff
 let ite = Bool.ite
-let forall xl  =
-  Term.forall (List.map (fun (x,tg) ->
-			   match tg with
-			     | Int -> (x,Term.Int)
-			     | All -> (x,Term.All)) xl)
-let exists xl =
-   Term.exists (List.map (fun (x,tg) ->
-			   match tg with
-			     | Int -> (x,Term.Int)
-			     | All -> (x,Term.All)) xl)
-
+let forall xl  = failwith "to do"
+let exists xl = failwith "to do"
 let _ = Callback.register "ptrue" ptrue
 let _ = Callback.register "pfalse" pfalse
 let _ = Callback.register "ite" ite
@@ -104,8 +95,8 @@ let _ = Callback.register "xor" xor
 let _ = Callback.register "implies" (=>)
 let _ = Callback.register "equiv" (<=>)
 
-let empty_set = Term.empty
-let full_set = Term.full
+let empty_set = Sets.empty
+let full_set = Sets.full
 let setite a b c = Sets.ite 0 a b c
 
 let _ = Callback.register "empty_set" empty_set
@@ -157,10 +148,10 @@ let _ = Callback.register "bv_and" bv_and
 let _ = Callback.register "bv_or" bv_or
 let _ = Callback.register "bv_xor" bv_xor  
 
-let fresh l = fresh "c" l Term.All
+let fresh l = Var.fresh "c" l None
 let _ = Callback.register "fresh" fresh
 
-let new_var s = new_var s Term.All
+let new_var s = Var.create (s,None)
 let _ = Callback.register "new_var" new_var
 
 let tag t = t.tag
@@ -193,7 +184,7 @@ let propify f = function {node = Bool x } -> f x | _ -> false
 let is_ptrue  = propify (function True -> true | _ -> false)
 let is_pfalse = propify (function False -> true | _ -> false)
 let is_ite    = propify (function Ite _ -> true | _ -> false)
-let is_equal  = function {node=Equal _} -> true | _ -> false
+let is_equal  = function {node=Atom(Equal _)} -> true | _ -> false
 let is_lt x    = true (* failwith "to do" *)
 let is_le x    = true (* failwith "to do" *)
 
@@ -240,14 +231,14 @@ let is_one x = match x.node with
 (*s Pretty-print of terms. *)
 
 let pp_term t =
-  Pp.term t; print_flush ()
+  Pretty.term t; print_flush ()
 
 let _ = Callback.register "pp_term" pp_term
 
 (*s Equalities. *)
 
-let eq_term = eq_term
-let compare = compare_term
+let eq_term = (==)
+let compare = cmp
 
 let _ = Callback.register "eq_term" eq_term
 let _ = Callback.register "compare" compare
@@ -261,16 +252,16 @@ let _ = Callback.register "set_verbose" set_verbose
 
 module Tmap = Tmap
 
-type state = Congstate.t
+type state = State.t
 
-let empty_state () = Congstate.empty
+let empty_state () = State.empty
 let _ = Callback.register "empty_state" empty_state
 
-let find = Congstate.find
+let find = State.find
 let _ = Callback.register "find" find
 
 let use s x =
-  let ys = Congstate.use s x in
+  let ys = State.use s x in
   Tset.fold (fun x acc -> x :: acc) ys [] 
 
 let _ = Callback.register "use" use
@@ -280,23 +271,23 @@ let rec stream_map f = parser
   | [< >] -> [< >]
 
 
-let pp_find = Congstate.pp_find
+let pp_find = State.pp_find
 let _ = Callback.register "pp_find" pp_find
 
-let pp_use = Congstate.pp_use
+let pp_use = State.pp_use
 let _ = Callback.register "pp_use" pp_use
 
-let pp_universe = Congstate.pp_universe
+let pp_universe = State.pp_universe
 let _ = Callback.register "pp_universe" pp_universe
 
-let universe = Congstate.mem
+let universe = State.mem
 let _ = Callback.register "universe" universe
 	  
 
 (*s Processing of new equalities. *)
 
 type result =
-  | Consistent of Congstate.t
+  | Consistent of State.t
   | Redundant
   | Inconsistent
 
@@ -312,20 +303,20 @@ let rec process st t =
   try
     process1 st t
   with
-    | Term.Inconsistent str -> Inconsistent
-    | Term.Valid -> Redundant 
+    | Exc.Inconsistent str -> Inconsistent
+    | Exc.Valid -> Redundant 
       
 and process1 st t =
   let t' = Can.can st t in
   match t'.node with
-    | Equal (t1,t2) ->
+    | Atom(Equal (t1,t2)) ->
 	Consistent (Process.equality None st (t1,t2))
     | Bool True ->
-	raise Term.Valid
+	raise Exc.Valid
     | Bool False ->
-	raise (Term.Inconsistent "Can")
+	raise (Exc.Inconsistent "Can")
     | _ ->
-	Consistent (Process.equality None st (t, ptrue()))
+	Consistent (Process.equality None st (t, Bool.tt))
 
 let process_list xl = failwith "to be done"
 	
@@ -351,6 +342,15 @@ let _ = Callback.register "canon" canon
 
 let sigma st t = t
 let solve _ = Solve.solve None
+
+let polarity st t =
+  match Arith.sign t with
+    | Arith.Nonpos -> Format.printf "Nonpos"
+    | Arith. Neg -> Format.printf "Neg"
+    | Arith.Zero -> Format.printf "Zero"
+    | Arith.Pos -> Format.printf "Pos"
+    | Arith.Nonneg -> Format.printf "Nonneg"
+    | Arith.T -> Format.printf "Unconstrained"
 
 (*s Reset. *)
 

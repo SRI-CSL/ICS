@@ -6,7 +6,7 @@ open Hashcons
 (*i*)
 
 (*s A {\em power product} is a list of terms which are ordered from
-    left-to-right according to the session-independent [Term.compare_term]
+    left-to-right according to the session-independent [Term.cmp]
     comparison on terms; e.g. the power product $x^2*y~3$ is represented
     by the list {\tt [x;x;y;y;y]}\@. Since power products are hash-consed,
     they can be compared for equality using the identity [==].

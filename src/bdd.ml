@@ -103,7 +103,7 @@ module Make(Ite : ITE) = struct
   let iff tg s1 s2  = build tg (s1,s2,neg tg s2)
      
 (*s Returns either an equivalent solved form
-    or raises the Term.Inconsistent exception if not solvable.
+    or raises the Inconsistent exception if not solvable.
     Based on the equation:
        [ite(x,p,n) = (p or n) and exists delta. x = (p and (n => delta))]
   *)
@@ -136,7 +136,7 @@ module Make(Ite : ITE) = struct
 	      let e' = add tg x t' e in
 	      let s' = disj tg p n in
 	      if is_low s' then
-		raise (Term.Inconsistent "BDD solver")
+		raise (Exc.Inconsistent "BDD solver")
 	      else if is_high s' then
 		e'
 	      else
@@ -145,7 +145,7 @@ module Make(Ite : ITE) = struct
 	    add tg s (high tg) e
     in
     if is_low s then
-      raise (Term.Inconsistent "BDD solver")
+      raise (Exc.Inconsistent "BDD solver")
     else if is_high s then
       []
     else
@@ -153,7 +153,7 @@ module Make(Ite : ITE) = struct
 
   let solve1 tg s =
     if is_low s then
-      raise (Term.Inconsistent "BDD solver")
+      raise (Exc.Inconsistent "BDD solver")
     else if is_high s then
       []
     else

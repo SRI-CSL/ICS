@@ -30,9 +30,9 @@ let rollback f x =
   try
     f x
   with
-      Term.Inconsistent _ ->
+      Exc.Inconsistent _ ->
 	current := s;
-	raise (Term.Inconsistent "")
+	raise (Exc.Inconsistent "")
 	     
 (*s Canonizer test (command [sigma]). *)
 
@@ -47,7 +47,7 @@ let solve e =
     let s = solve !current e' in
     List.iter pp_mapsto_nl s
   with
-      Term.Inconsistent _ -> printf "F"; endline ()
+      Exc.Inconsistent _ -> printf "F"; endline ()
 
 (*s The command [do_assert] introduces a new atom, which is either an equality
     or a dis-equality. The state is left unchanged is an inconsistency is 
@@ -57,7 +57,7 @@ let change_state f =
   match f !current with
     | Consistent st -> current := st
     | Redundant -> print_string "Redundant"; endline ()
-    | Inconsistent -> raise (Term.Inconsistent "")
+    | Inconsistent -> raise (Exc.Inconsistent "")
   
 let process a = change_state (fun st -> process st a)
 
@@ -83,10 +83,13 @@ let find = function
 let use = function
   | Some(t) ->
       let ts = use !current t in
-      printf "{"; Pp.list pp_term ts; printf "}";
+      printf "{"; Pretty.list pp_term ts; printf "}";
       endline ()
   | None ->
       Ics.pp_use !current
+
+let polarity t =
+  Ics.polarity !current t
 
 let universe = function
   | Some(t) -> 

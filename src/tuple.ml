@@ -5,10 +5,10 @@ open Term
 (*i*)
 
 let rec occurs s t =
-  eq_term s t ||
+  s == t ||
   match t.node with
     | Tuple t -> (match t with
-		    | Proj (_,_,t) -> eq_term s t || occurs s t
+		    | Proj (_,_,t) -> s == t || occurs s t
 		    | Tup tl -> List.exists (occurs s) tl)
     | _ -> false
 
@@ -17,22 +17,23 @@ let rec occurs s t =
 let tuple = function
   | [x] -> x
   | [] -> assert false
-  | l' -> Term.tuple l'
+  | l' -> hc (Tuple (Tup l'))
 
 let proj i n s =
   match s.node with
     | Tuple t -> (match t with
 		    | Tup l -> List.nth l i
-		    | Proj(j,m,a) -> Term.proj (i + j) (n + m) a)
-    | _ -> Term.proj i n s
+		    | Proj(j,m,a) -> hc (Tuple(Proj(i + j,n + m,a))))
+    | _ -> hc (Tuple (Proj (i,n,s)))
+
 
 (*s Solving tuples. *) 
 
 let add ((a,b) as e) el =
-  if eq_term a b then el
+  if a == b then el
   else match b.node with
-    | Tuple(Tup l) when List.exists (eq_term a) l ->
-	raise (Inconsistent "Tuple solver")
+    | Tuple(Tup l) when List.exists (fun y -> a == y) l ->
+	raise (Exc.Inconsistent "Tuple solver")
     | _ -> e :: el
 
 (*s [solve (s, (t0,...,tn)) = [(proj s 0, t0),...,(proj s n, tn)]] *)
@@ -57,7 +58,7 @@ let proj_solve i n s t =
   let rec args j acc =
     if j = -1 then acc
     else
-      let a = if i = j then t else fresh "p" [] All in
+      let a = if i = j then t else Var.fresh "p" [] None in
       args (j - 1) (a :: acc)
   in
   add (s, tuple (args (n - 1) [])) []

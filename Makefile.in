@@ -47,25 +47,17 @@ LIBS = -cclib "-lunix $(LIBGMPA)"
 
 COBJS = mlgmp.o
 
-CMI = hashcons.cmi hasht.cmi ptset.cmi \
-      ptmap.cmi tools.cmi seqs.cmi \
-      gmp.cmi mpa.cmi bitv.cmi term.cmi var.cmi \
-      tset.cmi tmap.cmi pretty.cmi bdd.cmi \
-      euclid.cmi poly.cmi bool.cmi arith.cmi \
-      atom.cmi prop.cmi congstate.cmi \
-      tuple.cmi arrays.cmi conc.cmi bv.cmi \
-      sets.cmi solve.cmi can.cmi process.cmi ics.cmi
-
-CMO = hashcons.cmo hasht.cmo ptset.cmo \
+CMO = cmp.cmo hashcons.cmo hasht.cmo ptset.cmo \
       ptmap.cmo tools.cmo seqs.cmo \
-      gmp.cmo mpa.cmo bitv.cmo term.cmo var.cmo \
+      gmp.cmo mpa.cmo bitv.cmo exc.cmo term.cmo var.cmo \
       tset.cmo tmap.cmo pretty.cmo bdd.cmo \
       euclid.cmo poly.cmo bool.cmo arith.cmo \
-      atom.cmo prop.cmo congstate.cmo \
+      atom.cmo prop.cmo state.cmo \
       tuple.cmo arrays.cmo conc.cmo bv.cmo \
       sets.cmo morphisms.cmo solve.cmo \
       can.cmo process.cmo ics.cmo
 
+CMI = $(CMO:.cmo=.cmi)
 
 CMX = $(CMO:.cmo=.cmx)
 
@@ -215,7 +207,7 @@ OCAMLWEBARGS = $(DOCDIR)/intro.tex \
                $(DOCDIR)/algo.tex $(SRCDIR)/process.mli \
                $(SRCDIR)/process.ml \
                $(SRCDIR)/poly.mli $(SRCDIR)/poly.ml \
-               $(SRCDIR)/congstate.mli $(SRCDIR)/congstate.ml \
+               $(SRCDIR)/state.mli $(SRCDIR)/state.ml \
                $(SRCDIR)/cmd.mli $(SRCDIR)/cmd.ml \
                $(DOCDIR)/theo.tex $(SRCDIR)/term.ml $(SRCDIR)/arith.mli \
                $(SRCDIR)/tuple.mli $(SRCDIR)/tuple.ml \
@@ -239,8 +231,8 @@ $(DOCDIR)/doc.tex: $(OCAMLWEBARGS) Makefile
 $(DOCDIR)/doc.html: $(DOCDIR)/doc.tex
 	$(HEVEA) $(OCAMLWEBSTY) $(DOCDIR)/doc.tex -o $(DOCDIR)/doc.html
 
-$(DOCDIR)/dep.ps: $(addprefix ./src/,$(CMO:.cmo=.ml))
-	$(OCAMLDEP) $(addprefix ./src/,$(CMO:.cmo=.ml)) | ocamldot -lr | dot -Tps > $(DOCDIR)/dep.ps
+$(DOCDIR)/dep.ps: $(SRC)
+	$(OCAMLDEP) -native $(SRC) | ocamldot -lr | dot -Tps > $(DOCDIR)/dep.ps
 
 ### Emacs tags
 

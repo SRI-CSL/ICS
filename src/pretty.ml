@@ -96,7 +96,7 @@ let rec pp_prop prec p = match p with
       printf ".@ ";
       pp_term prec p
 
-and pp_var (x,_) = print_string x
+and pp_var x = print_string x
     
 and pp_tuple prec t = match t with
   | Tup l -> 
@@ -148,7 +148,7 @@ and pp_fixedl prec bl =
   
 and pp_term prec t =
   match t.node with
-  | Var (s,_) -> 
+  | Var s -> 
       printf "%s" s
   | App (f, []) ->
        pp_term prec f

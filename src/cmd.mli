@@ -3,7 +3,7 @@
 open Ics
 (*i*)
 
-val state : unit -> Congstate.t
+val state : unit -> State.t
   
 val sigma : term -> unit
 val solve : term * term -> unit
@@ -21,3 +21,4 @@ val norm : term -> unit
 val check : term -> unit
 val unify : term * term -> unit
 val fol : term -> unit
+val polarity : term -> unit

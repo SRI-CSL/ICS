@@ -14,7 +14,7 @@ let keyword =
     [ "can", CAN; "sigma", SIGMA; "solve", SOLVE; "reset", RESET;
       "drop", DROP; "assert", ASSERT; "find", FIND; "universe", UNIVERSE; "use", USE;
       "check", CHECK; "verbose", VERBOSE; "norm", NORM; "compare", COMPARE;
-      "unify", UNIFY; "fol", FOL;
+      "unify", UNIFY; "fol", FOL; "polarity", POLARITY;
       "proj", PROJ; "floor", FLOOR;
       "in", IN; "notin", NOTIN; "compl", COMPL; "inter", INTER; "union", UNION;
       "diff", DIFF; "symdiff", SYMDIFF; "empty", EMPTY; "full", FULL;

@@ -113,7 +113,7 @@ val compare : term -> term -> int
     dis-equalities, inequalities, etc. are implemented by the
     following abstract type [state]. *)
 
-type state = Congstate.t
+type state = State.t
 
 val empty_state : unit -> state
   
@@ -124,7 +124,7 @@ val empty_state : unit -> state
     [result] is used to describe all these cases. *)
 
 type result =
-  | Consistent of Congstate.t
+  | Consistent of State.t
   | Redundant
   | Inconsistent
 
@@ -151,6 +151,8 @@ val universe : state -> term -> bool
 
 val norm : state -> term -> term
 val canon : state -> term -> term
+
+val polarity : state -> term -> unit
 
 (*s {\bf Controls.} The following functions are provided to control
     the implementation of the decision procedure.  [reset] clears the
@@ -217,8 +219,8 @@ module Tmap : sig
   val fold : (term -> 'a -> 'b -> 'b) -> 'a t -> 'b -> 'b
 end
 
-val sigma : Congstate.t -> term -> term
-val solve : Congstate.t -> term * term -> (term * term) list
+val sigma : State.t -> term -> term
+val solve : State.t -> term * term -> (term * term) list
 
 (*i*)
 
