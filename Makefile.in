@@ -47,7 +47,7 @@ INCLUDE =
 CFLAGS = 
 BFLAGS = -g $(INCLUDE) # -noassert
 OFLAGS = $(INCLUDE) # -noassert
-LIBS = -cclib "-lunix $(LIBGMPA)"
+LIBS = $(LIBGMPA)
 
 # Object files
 
