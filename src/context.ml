@@ -19,179 +19,171 @@ open Term
 open Three
 open Mpa
 open Sym
+open Theories
 (*i*)
 
 (*s Decision procedure state. *)
 
+
 type t = {
-  ctxt : Atom.Set.t;    (* Current context. *)
-  p : Partition.t;      (* Variable partitioning. *)
-  u : Solution.t;       (* Congruence closure data structure. *)
-  a : Solution.t;       (* Arithmetic equality context. *)
-  t : Solution.t;       (* Tuple equality context. *)
-  bv : Solution.t;      (* Bitvector equality context. *)
-  labels : Term.Set.t
+  mutable ctxt : Atom.Set.t;   (* Current context. *)
+  mutable p : Partition.t;     (* Variable partitioning. *)
+  eqs : Solution.t Array.arr;  (* Theory-specific solution sets. *)
+  mutable upper : int;         (* Upper bound on fresh variable index. *)
 }
-
-type index =
-  | Partition of Partition.index
-  | Theory of Sym.theories
-
 
 let empty = {
   ctxt = Atom.Set.empty;
   p = Partition.empty;
-  u = Solution.empty;
-  a = Solution.empty;
-  t = Solution.empty;
-  bv = Solution.empty;
-  labels = Term.Set.empty
-}
+  eqs = Array.create Solution.empty;
+  upper = 0
+} 
 
 
-(*s Accessors. *)
+(*s Accessors for components of partitioning. *)
 
-let v_of s = s.p.Partition.v
-let d_of s = s.p.Partition.d
-let c_of s = s.p.Partition.c
+let ctxt_of s = s.ctxt
+let p_of s = s.p
+let v_of s = Partition.v_of s.p
+let d_of s = Partition.d_of s.p
+let c_of s = Partition.c_of s.p
+let eqs_of s = Array.get s.eqs
+let upper_of s = s.upper
 
 
-(*s Equality test. *)
+(*s Equality test. Do not take upper bounds into account. *)
 
-let eq s t = 
+let eq s t =              
  Partition.eq s.p t.p &&
- Solution.eq s.u t.u &&
- Solution.eq s.a t.a &&
- Solution.eq s.t t.t &&
- Solution.eq s.bv t.bv
+ Array.for_all2 
+   (fun eqs1 eqs2 -> 
+      Solution.eq eqs1 eqs2) 
+   s.eqs t.eqs
 
 
-(*s Updating state. *)
+(*s Destructive updates. *)
 
-let update i s eqs =
-  match i with
-    | A -> if eqs == s.a then s else {s with a = eqs}
-    | T -> if eqs == s.t then s else {s with t = eqs}
-    | BV -> if eqs == s.bv then s else {s with bv = eqs}
-    | U -> if eqs == s.u then s else {s with u = eqs}
+let extend a s = 
+  (s.ctxt <- Atom.Set.add a s.ctxt; s)
 
-let install i s (p, e) =
-  match i with
-    | A -> if p == s.p && e == s.a then s else {s with a = e; p = p}
-    | T -> if p == s.p && e == s.t then s else {s with t = e; p = p}
-    | BV -> if p == s.p && e == s.bv then s else {s with bv = e; p = p}
-    | U -> if p == s.p && e == s.u then s else {s with u = e; p = p}
+let update s i eqs = 
+  (Array.set s.eqs i eqs; s)
 
-let update_p s p =
-  if s.p == p then s else {s with p = p}
+let install s i (p, eqs) =
+  s.p <- p;
+  Array.set s.eqs i eqs;
+  s
 
-let update_v s v = update_p s (Partition.update_v s.p v)
-let update_d s d = update_p s (Partition.update_d s.p d)
-let update_c s c = update_p s (Partition.update_c s.p c)
+let union i e s =
+  update s i (Solution.union i e (eqs_of s i))
+
+let restrict i x s =
+  update s i (Solution.restrict i x (eqs_of s i))
+
+let name i (s, b) =
+  let (x', ei') = Solution.name i (b, eqs_of s i) in
+    (update s i ei', x')
+
+
+(*s Shallow copying. *)
+
+let copy s = {
+  ctxt = s.ctxt;
+  p = Partition.copy s.p;
+  eqs = Array.copy s.eqs;
+  upper = s.upper}
 
 
 (*s Canonical variables module [s]. *)
 
-let v s = V.find s.p.Partition.v
+let v s = V.find (v_of s)
+
+let c s = C.apply (c_of s)
+
+let d s = D.deq (d_of s)
+
+let fold s f x = V.fold (v_of s) f (v s x)
+
+
 
 (*s Constraint of [a] in [s]. *)
 
-let cnstrnt s = C.of_term (v_of s, c_of s)
-
-
-(*s All disequalities of some variable [x]. *)
-
-let deq s = D.deq s.p.Partition.d
+let cnstrnt s = 
+  let rec of_term a = 
+    match a with  
+      | Var _ -> c s (v s a)
+      | App(Arith(op), xl) -> of_arith op xl
+      | App(Builtin(op), xl) -> of_builtin op xl
+      | _ -> raise Not_found
+	  
+  and of_arith op al = 
+    match op, al with
+      | Num(q), [] ->  Cnstrnt.mk_singleton q
+      | Multq(q), [x] -> Cnstrnt.multq q (of_term x)
+      | Add, [x; y] -> Cnstrnt.add (of_term x) (of_term y)
+      | Add, _ -> Cnstrnt.addl (List.map of_term al)
+      | _ -> raise Not_found
+	  
+  and of_builtin op al =
+    match op, al with
+      | Mult, _ ->  Cnstrnt.multl (List.map of_term al)
+      | Unsigned, [_] -> Cnstrnt.mk_nat
+      | Expt, [x; _] when Arith.is_q Q.two x -> Cnstrnt.mk_ge Dom.Real Q.zero
+      | Div, [x; y] -> Cnstrnt.div (of_term x) (of_term  y)
+      | Apply(Some(i)), [_] -> i
+      | _ -> raise Not_found
+  in
+    of_term
 
 
 (*s Choosing a variable. *)
 
-let choose s = V.choose s.p.Partition.v
+let choose s = V.choose (v_of s)
 
 
 (*s Pretty-printing. *)
   
 let pp fmt s =
-  let pps name sl =   
+  let pps i sl =   
     if not(Solution.is_empty sl) then
-      begin
-	Format.fprintf fmt "\n%s:" name;
-	Solution.pp fmt sl
-      end
+      Solution.pp i fmt sl
   in
   Partition.pp fmt s.p;
-  pps "u" s.u;
-  pps "a" s.a;
-  pps "t" s.t;
-  pps "bv" s.bv
+  Array.iter (fun i eqs -> pps i eqs) s.eqs
 
-
-(*s Return solution sets. *)
-
-let solutions i s = 
-  match i with
-    | U -> s.u
-    | A -> s.a
-    | T -> s.t
-    | BV -> s.bv
 
 (*s Parameterized operations on solution sets. *)
 
-let inv i s = Solution.inv (solutions i s)
+let mem i s = Solution.mem (eqs_of s i)
 
-let apply i s = Solution.apply (solutions i s)
+let inv i s = Solution.inv (eqs_of s i)
 
-let find i s = Solution.find (solutions i s)
+let apply i s = Solution.apply (eqs_of s i)
 
-let use i s = Solution.use (solutions i s)
+let find i s = Solution.find (eqs_of s i)
 
-let restrict i x s =
-  update i s (Solution.restrict x (solutions i s))
+let use i s = Solution.use (eqs_of s i)
 
-let name i s b =
-  Solution.name (b, solutions i s)
-
-
-(*s Simplifiers. *)
-
-let rec map i =
-  match i with
-    | A -> Arith.map
-    | T -> Tuple.map
-    | BV -> Bitvector.map
-    | U -> mapu
-
-and mapu ctxt a =
-  match a with
-    | Var _ -> ctxt(a)
-(*    | App(Builtin(op), l) ->  Builtin.map *)
-    | App(f, l) ->  
-	let l' = mapl ctxt l in
-	  if l == l' then a else 
-	    mk_app f l'
-
+let equality i s = Solution.equality (eqs_of s i)
 
 
 (*s Variable partitioning. *)
 
-let partition s = (s.p.Partition.v, s.p.Partition.d)
-
-let is_int s = Partition.is_int s.p
-
 let rec is_equal s x y =
-  match Partition.is_equal s.p x y with
-    | Three.X when is_diseq_constants s x y -> Three.No
-    | res -> res
+  let is_diseq_constants x y =       (* Disequality of arithmetic constants *)
+    try                              (* already tested via constraints. *)
+      let a = apply BV s x in
+	is_const a &&
+	let b = apply BV s y in
+	  is_const b &&
+	  not(Term.eq a b)
+    with
+	Not_found -> false
+  in
+    match Partition.is_equal s.p x y with
+      | Three.X when is_diseq_constants x y -> Three.No
+      | res -> res
 
-and is_diseq_constants s x y =   (* Disequality of arithmetic constants *)
-  try                            (* already tested via constraints. *)
-    let a = Solution.apply s.bv x in
-    is_const a &&
-    let b = Solution.apply s.bv y in
-    is_const b &&
-    not(Term.eq a b)
-  with
-      Not_found -> false
 
 (*s [sigma]-normal forms. *)
 
@@ -200,145 +192,65 @@ let sigma s f =
     | Arith(op) -> Arith.sigma op
     | Tuple(op) -> Tuple.sigma op
     | Bv(op) -> Bitvector.sigma op
+    | Coproduct(op) -> Coproduct.sigma op
     | _ -> mk_app f
 
 
-(*s Tracing. *)
-
-let trace (i, str, arg, pp) =
-  let name = name_of_theory i in
-  Trace.msg name ("Compose(" ^ name ^ ")") arg pp
-
 (* Component-wise solver. *)
 
-let rec solve e s (a, b) =
-  match e with
-    | U -> [Term.orient(a, b)]
-    | T -> Tuple.solve (a, b)
-    | BV -> Bitvector.solve (a, b)
-    | A -> 
-	let asolve p (a, b) =    
-	  match Arith.solve_for p (a, b) with
-	    | Some(x', b') -> [(x',b')]
+let rec solve i s = 
+  Trace.func "slv" "Solve" Fact.pp_equal (Pretty.list Fact.pp_equal)
+    (fun e -> match i with
+       | Theories.U -> [e]
+       | Theories.T -> Tuple.solve e
+       | Theories.BV ->  Bitvector.solve e 
+       | Theories.S -> Coproduct.solve e    
+       | Theories.A ->
+	   let is_var_on_rhs x = 
+	     is_var x &&  not(Set.is_empty (use A s x))
+	   and is_unconstrained_var x = 
+	     is_var x && not (C.mem x (c_of s))
+	   and is_unconstraining_var x = 
+	     is_var x &&
+	     try Cnstrnt.is_unbounded (c s x) with Not_found -> true
+	   in
+	   let asolve p e =    
+	     match Arith.solve p e with
+	       | Some(e') -> [e']
 	    | None -> []
-	in
-	  try asolve (is_var_on_rhs s) (a, b) 
-	  with Exc.Unsolved ->
-	    try asolve (is_unconstrained_var s) (a, b) 
-	    with Exc.Unsolved ->
-	      try asolve (is_unconstraining_var s) (a, b) 
-	      with Exc.Unsolved ->
-		try asolve is_fresh_var (a, b) 
+	   in
+	     try asolve is_var_on_rhs e
+	     with Exc.Unsolved ->
+	       try asolve is_unconstrained_var e
+	       with Exc.Unsolved ->
+		 try asolve is_unconstraining_var e
+		 with Exc.Unsolved ->
+		try asolve is_fresh_var e
 		with Exc.Unsolved -> 
-		  asolve is_var (a, b)
+		  asolve is_var e)
+		  
 
-and is_var_on_rhs s x = 
-  is_var x &&  
-  not(Set.is_empty (Solution.use s.a x))
+let fuse i e s =
+  install s i (Solution.fuse i (s.p, eqs_of s i) [e])
 
-and is_unconstrained_var s x =
-  is_var x && not (C.mem x (c_of s))
-
-and is_unconstraining_var s x = 
-  is_var x &&
-  try 
-    Cnstrnt.is_unbounded (C.apply (c_of s) x) 
-  with 
-      Not_found -> true
-
-
-(*s Extend with fresh variable equality. *)
-
-let rec extend s a =
-  assert(not(is_var a));
-  let x = Term.mk_fresh_var (Name.of_string "v") None in 
-  let s' = match theory_of(sym_of a) with
-    | U -> update U s (Solution.union (x, a) s.u)
-    | T -> update T s (Solution.union (x, a) s.t)
-    | BV -> update BV s (Solution.union (x, a) s.bv)
-    | A -> update A s (Solution.union (x, a) s.a)
-  in
-    (x, s')
-
-
-(*s Variable abstract a term. *)
-
-let rec abstract_term i s a =
-  match a with
-    | Var _ -> 
-	(s, a)
-    | App(f, al) ->
-	let j = theory_of f in
-	let (s', al') = abstract_args j s al in
-	let a' = if Term.eql al al' then a else App(f, al') in
-	  if i = U || i <> j then
-	    try
-	      (s', v s (inv j s a'))
-	    with Not_found ->
-	      let (x'', s'') = extend s' a' in
-		(s'', x'')
-	  else 
-	    (s', a')
-	    
-and abstract_args i s al =
-  match al with
-    | [] -> 
-	(s, [])
-    | b :: bl ->
-	let (s', bl') = abstract_args i s bl in
-	let (s'', b') = abstract_term i s' b in
-	  if Term.eq b b' && bl == bl' then
-	    (s'', al)
-	  else 
-	    (s'', b' :: bl')
-
- 
-
-(*s Propagation of equalities in theory-specific solution sets  *)
-
-let rec propagate i e s =
-  trace(i, "Prop", e, Fact.pp_equal);
-  let (x, y, _) = Fact.d_equal e in
-  if not(Set.is_empty (use i s x)) then      (* [x] occurs on rhs. *)
-    fuse i (Fact.mk_equal x (find i s y) None) s
-  else
-    try
-      let a = apply i s x in
-      try
-	let b = apply i s y in 
-	let e' = Fact.mk_equal a b None in
-	if Term.eq a b then s else compose i e' s
-      with
-	  Not_found ->
-	    let e' = Fact.mk_equal y a None in
-	      compose i e' (restrict i x s)
-    with
-	Not_found -> s       (* [x] occurs neither on rhs nor on lhs. *)
-
-and fuse i e s =  
-  trace(i, "Fuse", e, Fact.pp_equal);
-  let (x, y, _) = Fact.d_equal e in
-  install i s 
-    (Solution.fuse (map i) (s.p, solutions i s) [(x, y)])
-
-and compose i e s = 
-  trace(i, "Compose", e, Fact.pp_equal);
-  let (a, b, _) = Fact.d_equal e in
+let rec compose i e s =
   try
-    let sl = solve i s (a, b) in
-    let (p', e') = Solution.compose (map i) (s.p, solutions i s) sl in
-      install i s (p', e')
+    let sl' = solve i s e in
+      install s i (Solution.compose i (s.p, eqs_of s i) sl')
   with
       Exc.Unsolved -> 
 	Format.eprintf "Warning: Incomplete Solver@.";
-	abstract i (a, b) s
+	ignore i e s
 
-and abstract i (a, b) s =
-  trace(i, "Abstract", (a, b), Term.pp_equal);
-  let e = solutions i s in
-  let (x, e') = Solution.name (a, e) in
-  let (y, e'') = Solution.name (b, e') in
-    update i s e''
+and ignore i e s =
+  let (a, b, _) = Fact.d_equal e in
+  let (x', ei') = Solution.name i (a, eqs_of s i) in
+  let (y', ei'') = Solution.name i (b, ei') in
+  let e' = Fact.mk_equal x' y' None in
+    union i e' s
+
+let update p s = (s.p <- p; s)
+
 
 (* Lookup terms on rhs of solution sets. *)
     
@@ -355,16 +267,16 @@ let lookup s a =
 
 let split s  =
   Solution.fold
-    (fun _ b acc1 ->
+    (fun _ (b,_) acc1 ->
        match b with
 	 | App(Builtin(Select), [upd1; j1]) ->
-	     V.fold s.p.Partition.v
+	     V.fold (v_of s)
 	     (fun upd2 acc2 ->
 		try
-		  (match Solution.apply s.u upd2 with
+		  (match apply U s upd2 with
 		     | App(Builtin(Update), [_; i2; _]) ->
 			 (match is_equal s i2 j1 with
-			    | X -> Atom.Set.add (Atom.mk_equal i2 j1) acc2
+			    | X -> Atom.Set.add (Atom.mk_equal (Fact.mk_equal i2 j1 None)) acc2
 			    | _ -> acc2)
 		     | _ -> 
 			 acc1)
@@ -372,6 +284,79 @@ let split s  =
 		    Not_found -> acc1)
 	     upd1 acc1
 	 | _ -> acc1)
-    s.u
-    (C.split s.p.Partition.c)
+    (eqs_of s U)
+    (C.split (c_of s))
 
+
+
+
+(*s Administration of changed sets. For each of component [v], [d], [c] of the
+ partition there is such a set stored in respective global variables [V.changed],
+ [D.changed], and [C.changed]. Here, we define the change sets for the theory-specific
+ solution sets. In addition, functions for saving, resetting, and restoring are provided. *)
+
+module Changed = struct
+
+  type t = Term.Set.t * Term.Set.t * Term.Set.t * Term.Set.t Array.arr
+
+  let reset () =
+    Partition.Changed.reset ();
+    Solution.Changed.reset ()
+
+  let save () =
+    let (v, d, c) = Partition.Changed.save () in
+    let e = Solution.Changed.save () in
+      (v, d, c, e)
+
+  let restore (v, d, c, e) =
+    Partition.Changed.restore (v, d, c);
+    Solution.Changed.restore e
+    
+
+  let stable () =
+    Partition.Changed.stable () &&
+    Solution.Changed.stable () 
+
+  let in_v (v, _, _, _) = v
+  let in_d (_, d, _, _) = d
+  let in_c (_, _, c, _) = c
+  let in_eqs i (_, _, _, e) = Array.get e i
+
+  let pp fmt (v, d, c, e) =
+    let ppset str xs = 
+      if not(Set.is_empty xs) then
+	begin
+	  Format.fprintf fmt "\n%s: " str;
+	  Pretty.set Term.pp fmt (Set.elements xs) 
+	end 
+    in
+      ppset "v" v; ppset "d" d; ppset "c" c;
+      Array.iter (fun i -> ppset (Theories.to_string i)) e
+ 
+end
+  
+
+(*s Update rules work on the following global variables together with the index
+ for creating new variables. Within a [protect] environment, updates are performed
+ destructively. Global variables are protected! *)
+
+let protect f s =
+  let k' = !Var.k in
+  let r' = !V.removable in
+  let ch' = Changed.save () in
+    try
+      Var.k := s.upper;
+      Changed.reset ();
+      V.removable := Term.Set.empty;
+      let s' = f (copy s) in
+	s'.upper <- !Var.k;
+	Var.k := k';
+	V.removable := r';
+	Changed.restore ch';
+	s'
+    with
+      | exc ->
+	  Var.k := k';
+	  V.removable := r';
+	  Changed.restore ch';
+	  raise exc
