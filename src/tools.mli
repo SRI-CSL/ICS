@@ -46,3 +46,8 @@ val utime : ('a -> 'b) -> 'a -> 'b * float
  the argument [str] is usually just the name of the function. *)
 
 val profile : string -> ('a -> 'b) -> ('a -> 'b)
+
+(*s [dynamic_let (x, v) f a] simulated dynamic binding of value [v]
+ to the global variable [x] in the call of [f] to [a]. *)
+
+val dynamic_let : 'a ref * 'a -> ('b -> 'c) -> 'b -> 'c
