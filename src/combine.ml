@@ -152,8 +152,6 @@ let find s = function
   | Shostak(APP) -> L.find s.app
   | Can(ARR) -> Arr.find s.arr
 
-let extend = ref false
-
 let inv (p, s) a =
   match Term.App.theory_of a with
     | Uninterpreted -> U.inv s.u a
@@ -163,16 +161,8 @@ let inv (p, s) a =
     | Shostak(COP) -> Cop.inv s.cop a
     | Shostak(SET) -> Pset.inv s.pset a
     | Shostak(APP) -> L.inv s.app a
-    | Can(ARR) -> 
-	if !extend then 
-	  Arr.uninterp_with_chaining (p, s.arr) a
-	else 
-	  Arr.uninterp (p, s.arr) a
-    | Can(NL) -> 
-	if !extend then 
-	  Nl.uninterp_with_chaining (p, s.nl) a
-	else 
-	  Nl.uninterp (p, s.nl) a
+    | Can(ARR) -> Arr.abstract (p, s.arr) a
+    | Can(NL) -> Nl.abstract (p, s.nl) a
 
 let dep s = function
   | Uninterpreted -> U.dep s.u
@@ -207,13 +197,13 @@ let interp (p, s) i a =
     | Shostak(BV) -> Bv.apply s.bv a  
     | Shostak(COP) -> Cop.apply s.cop a 
     | Shostak(SET) -> Pset.apply s.pset a 
-    | Can(NL) -> Nl.interp (p, s.nl) a
-    | Can(ARR) -> Arr.interp (p, s.arr) a
+    | Can(NL) -> Nl.replace (p, s.nl) a
+    | Can(ARR) -> Arr.replace (p, s.arr) a
     | _ -> Partition.choose p (apply s i) a
 
 
 (** Totalized inverse map. *)
-let uninterp ((p, _) as cfg) a =
+let abstract ((p, _) as cfg) a =
   try
     Jst.Eqtrans.compose (Partition.find p) (inv cfg) a
   with
@@ -231,7 +221,7 @@ let name (p, s) i a =
     | Shostak(SET) -> Pset.name (p, s.pset) a
     | Can(NL) -> Nl.name (p, s.nl) a
     | Shostak(APP) -> L.name (p, s.app) a
-    | Can(ARR) -> Arr.name (p, s.arr) a
+    | Can(ARR) -> Arr.can (p, s.arr) a
 
 
 
@@ -318,7 +308,7 @@ let rec can ((p, s) as cfg) a =
     else 
       try
 	Jst.Eqtrans.compose
-	  (uninterp cfg)                         
+	  (abstract cfg)                         
 	  (Jst.Eqtrans.mapargs (sigma cfg) interp_can)
 	  a 
       with 
@@ -428,7 +418,7 @@ and abstract_term ((p, s) as cfg) a =
 	    else 
 	      sigma cfg f bl 
 	  in
-	    if i = Th.u || i = Th.arr || i = Th.nl || i <> j then
+	    if i = Th.u || i = Th.nl || i = Th.arr || i <> j then
 	      let (x, tau) = name cfg j c in  (* [tau |- x = c] *)
 	      let sigma = Jst.dep3 tau rho rhos in
 		(x, sigma)                    (* [sigma |- x = a] *)
@@ -474,7 +464,7 @@ and process_equal th (p, s) e =
 	   | SET -> Pset.merge (p, s.pset) e)
     | Can(i) ->
 	(match i with
-	   | ARR -> Arr.merge (p, s.arr) e
+	   | ARR -> Arr.process (p, s.arr) e
 	   | NL ->  Nl.merge (p, s.nl) e)
 
 let process_nonneg (p, s) =
@@ -489,6 +479,7 @@ let dismerge (p, s) d =
   else 
     let d = Fact.Diseq.to_var (name (p, s)) d in
       Partition.dismerge p d;
+      Arr.dismerge (p, s.arr) d;
       Bv.dismerge (p, s.bv) d
 	
 

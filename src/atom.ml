@@ -126,7 +126,9 @@ end
 
 module Nonneg = struct
   type t = Term.t
-  let pp fmt a = Pretty.post Term.pp fmt (a, "<= 0")
+  let pp fmt a = Pretty.post Term.pp fmt (a, ">= 0")
+  let valid () = Arith.mk_zero ()
+  let invalid () = Arith.mk_num (Mpa.Q.negone)
   let make a =
     let nonneg a =
       let al = 
@@ -138,11 +140,19 @@ module Nonneg = struct
 	       (x, 1) :: acc)
 	  a []
       in
-	Pprod.of_list (List.rev al)
+	if Pprod.is_interp a then
+	  Pprod.of_list (List.rev al)
+	else 
+	  a
     in
       try
-	let (q, x) = Arith.d_multq a in
-	  if Mpa.Q.is_pos q then x else nonneg a
+	(match Arith.d_interp a with
+	   | Sym.Num(q), [] -> 
+	       if Mpa.Q.is_nonneg q then valid() else invalid()
+	   | Sym.Multq(q), [x] ->  
+	       if Mpa.Q.is_pos q then x else nonneg a
+	   | _ -> 
+	       nonneg a)
       with
 	  Not_found -> nonneg a
 

@@ -11,7 +11,7 @@
  * benefit corporation.
  *)
 
-(** Equality sets for theory [L] of function application and abstraction
+(** Equality sets for theory [L] of combinatory logic
 
   @author Harald Ruess
 *)

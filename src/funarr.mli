@@ -71,9 +71,6 @@ val map: equalRel -> (Term.t -> Term.t) -> Term.t -> Term.t
     - [map f (mk_update a i x)] equals [mk_select (map f a) (map f i) (map f x)]
     - Otherwise, [map f x] equals [f x] *)
 
-val splits: Term.t -> Term.Set2.t
-  (** [splits a] accumulates all pairs [(i, j)] such that [b[i:=x][j]]
-    is a subterm of [a]. *)
 
 (** {6 Flat terms} *)
 

@@ -17,19 +17,23 @@ let d_interp = function
   | App(sym, al, _) -> (Sym.Array.get sym, al)
   | _ -> raise Not_found
 
+
 let is_interp = function
   | App(sym, _, _) when Sym.Array.is sym -> true
   | _ -> false
+
 
 let d_update a =
   match d_interp a with
     | Sym.Update, [b; i; x] -> (b, i, x)
     | _ -> raise Not_found
 
+
 let d_select a =
   match d_interp a with
     | Sym.Select, [a; j] -> (a, j)
     | _ -> raise Not_found
+
 
 let d_create a =
   match d_interp a with
@@ -45,19 +49,19 @@ let d_select_update a =
 
 type equalRel = Term.t -> Term.t -> Three.t
 
+(** Creating constant array. *)
 let mk_create a =
   Term.App.mk_app Sym.Array.mk_create [a]
 
-(** Reducing patterns of the form [select(update(a,i,x), j)]
-  according to the equations
-     [select(create(a), j) = a]
-     [i = j => select(update(a,i,x), j) = x]
-     [i <> j => select(update(a,i,x),j) = select(a,j)] 
- *)
 
 let select a i = 
   Term.App.mk_app Sym.Array.mk_select [a; i]
 
+let update a i x = 
+  Term.App.mk_app Sym.Array.mk_update  [a; i; x]
+
+
+(** Simplifying constructor for selection terms. *)
 let mk_select is_equal b j =
   try
     (match d_interp b with
@@ -72,9 +76,8 @@ let mk_select is_equal b j =
   with
      Not_found -> select b j
 
-let update a i x = 
-  Term.App.mk_app Sym.Array.mk_update  [a; i; x]
 
+(** Simplifying constructor for update terms. *)
 let rec mk_update is_equal a j y =
   try
     let (b, i, x) = d_update a in
@@ -88,6 +91,8 @@ let rec mk_update is_equal a j y =
   with
       Not_found -> update a j y
 
+
+(** Array canonizer. *)
 let sigma is_equal op l =
   match op, l with
     | Sym.Create, [a] -> mk_create a

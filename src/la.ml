@@ -157,49 +157,16 @@ let occurs_negatively x e  =
     try Q.is_neg (Arith.coefficient_of x a) with Not_found -> false
 
 
-(** {6 Use Structure} *)
-
-(** Index for equalities [x = q + a1 + ... + an] with [q] is a rational constant
-  and [a1 +...+ an] possibly [0]. In this case, [x in use(a1 + ... + an)] is recorded.  
-  This index is used for deducing all implied disequalities. *)
-module UseExt: Eqs.EXT = struct  
-  type t = Term.Var.Set.t Term.Map.t
-  let empty = Term.Map.empty
-  let use idx a =
-    try Term.Map.find a idx with Not_found -> Term.Var.Set.empty
-  let pp fmt m =
-    let pp_set fmt us = Pretty.set Term.pp fmt (Term.Var.Set.elements us) in
-    let l = Term.Map.fold (fun a x acc -> (a, x) :: acc) m [] in
-      Pretty.map Term.pp pp_set fmt l
-  let do_at_add (_, idx, _) (x, a, _) =
-    let (_, b) = Arith.destruct a in   (* [b] is the 'nonconstant' part of [a]. *)
-    let ub = use idx b in
-    let ub' = Term.Var.Set.add x ub in
-      if ub == ub' then idx else Term.Map.add b ub' idx
-  let do_at_restrict (_, idx, _) (x, a, _) =
-    let (_, b) = Arith.destruct a in
-    let ub = use idx b in
-    let ub' = Term.Var.Set.remove x ub in
-      if ub = ub' then idx
-      else if Term.Var.Set.is_empty ub' then 
-	Term.Map.remove b idx
-      else 
-	Term.Map.add b ub' idx
-end
-
-
-
 (** [R.t] represents solution sets of the form [x = a], where [x] is
   unrestricted, and [a] is an arithmetic term. *)
-module R: (Eqs.SET with type ext = UseExt.t) = 
-  Eqs.Make(
+module R: (Eqs.SET with type ext = unit) = 
+  Eqs.Make0(
     struct
       let th = Th.la
       let nickname = Th.to_string Th.la
       let map = Arith.map
       let is_infeasible = Arith.is_infeasible
     end)
-    (UseExt)
 
 
 (** Specification for an index for the variable [x] such that
@@ -214,8 +181,8 @@ end
   variable [k] and terms [a] containing only slack variables.  
   We maintain an index [zero t] such that [k] is in [zero t] iff 
   [k = a] with  constant summand of [a] is  [0]. *)
-module T: (Eqs.SET with type ext = Eqs.index * UseExt.t) = 
-  Eqs.MakeIndexExt
+module T: (Eqs.SET with type ext = Eqs.index) = 
+  Eqs.MakeIndex
     (struct
        let th = Th.la
        let nickname = "t"
@@ -223,7 +190,6 @@ module T: (Eqs.SET with type ext = Eqs.index * UseExt.t) =
        let is_infeasible = Arith.is_infeasible
      end)
     (ZeroIdx)
-    (UseExt)
 
 
 (** Combined solution set [S = (R; T)]. *)
@@ -255,31 +221,13 @@ let is_independent s x =
   S.is_independent r s x
 
 
-
-(** [x] is in [use(a)] iff [x = q + a] in [s]. *)
-module Use = struct
-
-(* Baustelle
-  let get tag s a =  
-    let (use_r, (_, use_t)) = S.ext s in
-      match tag with
-	| S.Left -> (try Term.Map.find a use_r with Not_found -> Term.Var.Set.empty)
-	| S.Right -> (try Term.Map.find a use_t with Not_found -> Term.Var.Set.empty)
-
-  let iter s f a =
-    ()
-*)
-    
-
-end
-
 (** [Zero] index. *)
 module Zero = struct
 
   (** [get t] returns the set of [x] with [x = a] in [t] such that
     the constant monomial of [a] is [0]. *)
   let get s = 
-    let (_, (zero, _)) = S.ext s in
+    let (_, zero) = S.ext s in
       zero
  
   (** Apply [f e] to all equalities [k = a] in [t] such that [|a| = 0]. *)
@@ -954,6 +902,18 @@ and is_neg cfg a =
     try
       let nna = Fact.Nonneg.make (a, Jst.dep0) in
 	protect cfg process_nonneg nna;
+	None
+    with
+	Jst.Inconsistent(rho) -> Some(rho)
+
+(** Test if [a <> b]. *)
+and is_diseq cfg a b =
+  if not(Term.is_pure Th.la a) || not(Term.is_pure Th.la b) then
+    None
+  else 
+    try
+      let e = Fact.Equal.make (a, b, Jst.dep0) in
+	protect cfg merge e;
 	None
     with
 	Jst.Inconsistent(rho) -> Some(rho)

@@ -170,6 +170,10 @@ val is_neg : config -> Jst.Pred.t
   (** [is_neg s a] returns [Some(rho)] if [a < 0] holds in [s]. 
     In this case [rho |- a < 0]. Otherwise, [None] is returned. *)
 
+val is_diseq : config -> Jst.Pred2.t
+  (** [is_diseq s a b] returns [Some(rho)] if [a<>b] holds in [s]. 
+    In this case, [rho |- a <> ]. Otherwise, [None] is returned. *)
+
 
 (** {6 Finite Interpretations} *)
 

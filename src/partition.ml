@@ -44,7 +44,7 @@ let choose p apply y =
   class of [y]. *)
 let iter_if p f y =
   let f' x = try f x with Not_found -> () in
-    V.iter p.v f y
+    V.iter p.v f' y
   
 (** Canonical representative modulo [p]. *)
 let find p = V.find p.v

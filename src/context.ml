@@ -206,16 +206,7 @@ end
 
 let simplify s = 
   Trace.func "rule" "Simplify" Atom.pp Fact.pp
-    (fun a -> 
-       try
-	 Combine.extend := true;
-	 let res = Combine.simplify (s.p, s.eqs) a in
-	   Combine.extend := false;
-	   res
-       with
-	   exc -> 
-	     Combine.extend := false;
-	     raise exc)
+    (Combine.simplify (s.p, s.eqs))
 
 let process s = 
   Trace.proc "rule" "Process" Fact.pp (process s)
