@@ -86,7 +86,11 @@ CMO = sign.cmo three.cmo \
       c.cmo \
       partition.cmo \
       solution.cmo \
+      arrays.cmo \
+      deduce.cmo \
       context.cmo \
+      rule.cmo \
+      sig.cmo \
       shostak.cmo \
       symtab.cmo istate.cmo \
       help.cmo \
