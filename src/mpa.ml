@@ -13,68 +13,93 @@
 
 (** Multi-precision arithmetic using the [gmp] library. *)
 
-open Gmp41
 
 module Z = struct
 
-  type t = Z.t
+  open Big_int
 
-  let of_int = Z.from_int
-  let zero = of_int 0
-  let one = of_int 1
-  let two = of_int 2
-  let add = Z.add
-  let sub = Z.sub
-  let succ a = add a one
-  let mult = Z.mul
-  let divexact = Z.divexact
-  let gcd = Z.gcd
-  let lcm a b = Z.divexact (Z.mul a b) (Z.gcd a b)
-  let pow = Z.pow_ui_ui 
+  type t = big_int
 
-  let rec expt x n =  
-    if n = 0 then one 
-    else 
-      mult x (expt x (n - 1))
+  let of_int = big_int_of_int
+  let zero = zero_big_int
+  let one = unit_big_int
+  let two = add_big_int one one
+  let add = add_big_int
+  let sub = sub_big_int
+  let succ = add one
+  let mult = mult_big_int
+  let divexact =  div_big_int 
+  let gcd = gcd_big_int
+  let lcm a b = divexact (mult a b) (gcd a b)
+  let pow = power_int_positive_int
+
+  let expt = power_big_int_positive_int 
+   
 		 
-  let compare = Z.cmp
-  let equal x y = Z.cmp x y == 0
-  let lt x y = Z.cmp x y < 0
-  let le x y = Z.cmp x y <= 0
-  let gt x y = Z.cmp x y > 0
-  let ge x y = Z.cmp x y >= 0
+  let compare = compare_big_int
+  let equal =   eq_big_int
+  let lt = lt_big_int
+  let le = le_big_int 
+  let gt = gt_big_int
+  let ge = ge_big_int
 		  
-  let to_string z = Z.string_from z
+  let of_string = big_int_of_string
+  let to_string = string_of_big_int
 
-  let to_int = Z.int_from
+  let to_int = int_of_big_int   (** may raise [Failure "int_of_big_int"]. *)
  
   let pp fmt x = 
-    Format.fprintf fmt "%s" (Z.string_from x)
+    Format.fprintf fmt "%s" (to_string x)
+
 end
 
-module Q = struct
-  
-  type t = Q.t
 
-  let of_int n = Q.from_ints n 1
-  let of_ints = Q.from_ints
+module Q = struct
+
+  open Num
+  
+  type t = num
+
+  let of_int = num_of_int
+  let of_ints x y = div_num (num_of_int x) (num_of_int y)
 
   let zero = of_int 0
   let one = of_int 1
   let two = of_int 2
   let negone = of_int (-1)
 
-  let add = Q.add
-  let sub = Q.sub
-  let minus = Q.neg
-  let mult = Q.mul
-  let div = Q.div
-  let inv = Q.inv
+  let add = add_num
+  let sub = sub_num
+  let minus = minus_num
+  let mult = mult_num
+  let div = div_num
+  let inv = div one
+
+  let compare = compare_num
+
+  let equal = eq_num
+  let is_zero = equal zero
+  let is_one = equal one
+  let is_negone = equal negone
+
+  let lt = lt_num
+  let le = le_num
+  let gt = gt_num
+  let ge = ge_num
+
+  let is_pos x = gt x zero
+  let is_neg x = lt x zero
+  let is_nonneg x = ge x zero
+  let is_nonpos x = le x zero
+
+  let min = min_num
+  let max = max_num
+
 
   let rec expt a n =
-    if Q.equal a zero then zero
+    if equal a zero then zero
     else if n < 0 then
-      Q.inv (expt a (-n))
+      inv (expt a (-n))
     else if n = 0 then 
       one
     else if n = 1 then
@@ -82,33 +107,16 @@ module Q = struct
     else 
       mult a (expt a (n - 1))
 
-  let floor x = Gmp41.Z.fdiv_q (Q.get_num x) (Q.get_den x)
+  let of_z = num_of_big_int
+  let to_z = big_int_of_num
 
-  let ceil x  = Gmp41.Z.cdiv_q (Q.get_num x) (Q.get_den x)
+  let floor x = to_z (floor_num x)
+  let ceil x = to_z (ceiling_num x)
 
-  let frac x = sub x (Q.from_z (floor x))
-  let def x = sub (Q.from_z (ceil x)) x
+  let frac x = sub x (floor_num x)
+  let def x = sub (ceiling_num x) x
 
-  let compare = Q.cmp
-  let equal = Q.equal
-  let is_zero x = Q.equal zero x
-  let is_one x = Q.equal one x
-  let is_negone x = Q.equal (Q.neg one) x
-  let lt x y = Q.cmp x y < 0
-  let le x y = Q.cmp x y <= 0
-  let gt x y = Q.cmp x y > 0
-  let ge x y = Q.cmp x y >= 0
-
-  let is_pos x = gt x zero
-  let is_neg x = lt x zero
-  let is_nonneg x = ge x zero
-  let is_nonpos x = le x zero
-
-  let min x y = if le x y then x else y
-  let max x y = if le x y then y else x
-
-  let abs q = 
-    if is_neg q then mult negone q else q
+  let abs = abs_num
 
   type cmp = Equal | Greater | Less
 
@@ -116,38 +124,18 @@ module Q = struct
     let b = compare x y in
     if b == 0 then Equal else if b > 0 then Greater else Less
 
-  let denominator = Q.get_den
-  let numerator = Q.get_num
+  let ratio x = 
+    Ratio.cautious_normalize_ratio (ratio_of_num x)
 
-  let is_integer q = (Gmp41.Z.cmp_si (Q.get_den q) 1) = 0
-  let to_z = Q.get_num
-  let of_z = Q.from_z
+  let denominator x = Ratio.denominator_ratio (ratio x)
+  let numerator x = Ratio.numerator_ratio (ratio x)
 
-  let hash q =
-     Z.to_int (Z.add (Q.get_den q) (Q.get_num q)) land 0x3FFFFFF
+  let is_integer = is_integer_num
+ 
+  let hash = Hashtbl.hash
   
-
-  let to_string q = 
-    let d = Q.get_den q in
-    if Gmp41.Z.cmp_si d 1 == 0 then
-      Gmp41.Z.string_from (Q.get_num q)
-    else
-      (Gmp41.Z.string_from (Q.get_num q)) ^ "/" ^ (Gmp41.Z.string_from d)
-
-  exception ZeroDivision
-
-  let of_string s =
-    try
-      let k = String.index s '/' in
-      let l = String.length s in
-      let n = Gmp41.Z.from_string (String.sub s 0 k) in
-      let d = Gmp41.Z.from_string (String.sub s (succ k) (l - k - 1)) in
-	if Z.equal d Z.zero then
-	  raise ZeroDivision;
-	Q.from_zs n d
-    with 
-	Not_found ->
-	  Q.from_z (Gmp41.Z.from_string s)
+  let to_string = string_of_num
+  let of_string = num_of_string
 
   let pp fmt x = Format.fprintf fmt "%s" (to_string x)
 
