@@ -235,8 +235,10 @@ let is_equal ((p, s) as cfg) a b =
   else 
     Partition.is_equal p a b
 
-let is_diseq ((p, s) as cfg) a b =
-  Partition.is_diseq p a b
+let is_diseq ((p, s) as cfg) =
+  Jst.Pred2.orelse
+    (Partition.is_diseq p)
+    (La.is_diseq (p, s.a))
       
 
 (** Test if terms [a] and [b] are equal or disequal in [s]. *)
@@ -437,35 +439,45 @@ and abstract_term ((p, s) as cfg) a =
 type config = Partition.t * t
 
 let rec merge th (p, s) e = 
-  match th with 
-    | Some(i) -> 
-	assert(Fact.Equal.is_pure i e);
-	process_equal i (p, s) e
+  let (x, y, rho) = Fact.Equal.destruct e in
+  match is_diseq (p, s) x y with
+    | Some(tau) ->
+	raise(Jst.Inconsistent(Jst.dep2 rho tau))
     | None ->
-	assert(Fact.Equal.is_var e);
-	Partition.merge p e;
-	let x = Fact.Equal.lhs_of e in
-	  Th.iter
-	    (fun i -> 
-	       if not(is_empty s i) && occurs s i x then
-		 process_equal i (p, s) e)
+	(match th with 
+	   | Some(i) -> 
+	       assert(Fact.Equal.is_pure i e);
+	       process_equal i (p, s) e
+	   | None ->
+	       assert(Fact.Equal.is_var e);
+	       Partition.merge p e;
+	       let x = Fact.Equal.lhs_of e in
+		 Th.iter
+		   (fun i -> 
+		      if not(is_empty s i) && occurs s i x then
+			process_equal i (p, s) e))
 	    
 and process_equal th (p, s) e =
-  match th with
-    | Uninterpreted -> 
-	U.merge  (p, s.u) e
-    | Shostak(i)->  
-	(match i with
-	   | LA -> La.merge (p, s.a) e
-	   | BV -> Bv.merge (p, s.bv) e
-	   | P -> P.merge (p, s.p) e
-	   | COP -> Cop.merge (p, s.cop) e  
-	   | APP -> L.merge  (p, s.app) e
-	   | SET -> Pset.merge (p, s.pset) e)
-    | Can(i) ->
-	(match i with
-	   | ARR -> Arr.process_equal (p, s.arr) e
-	   | NL ->  Nl.merge (p, s.nl) e)
+ let (a, b, rho) = Fact.Equal.destruct e in
+  match is_diseq (p, s) a b with
+    | Some(tau) ->
+	raise(Jst.Inconsistent(Jst.dep2 rho tau))
+    | None -> 
+	(match th with
+	   | Uninterpreted -> 
+	       U.merge  (p, s.u) e
+	   | Shostak(i)->  
+	       (match i with
+		  | LA -> La.merge (p, s.a) e
+		  | BV -> Bv.merge (p, s.bv) e
+		  | P -> P.merge (p, s.p) e
+		  | COP -> Cop.merge (p, s.cop) e  
+		  | APP -> L.merge  (p, s.app) e
+		  | SET -> Pset.merge (p, s.pset) e)
+	   | Can(i) ->
+	       (match i with
+		  | ARR -> Arr.process_equal (p, s.arr) e
+		  | NL ->  Nl.merge (p, s.nl) e))
 
 let process_nonneg (p, s) =
   La.process_nonneg (p, s.a) 

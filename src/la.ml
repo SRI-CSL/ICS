@@ -916,17 +916,18 @@ and is_neg cfg a =
     with
 	Jst.Inconsistent(rho) -> Some(rho)
 
-(** Test if [a <> b]. *)
-and is_diseq cfg a b =
+(** [a <> b] if [solve(S[a] = S[b])] is inconsistent. *)
+and is_diseq ((_, s) as cfg) a b =
   if not(Term.is_pure Th.la a) || not(Term.is_pure Th.la b) then
     None
   else 
-    try
-      let e = Fact.Equal.make (a, b, Jst.dep0) in
-	protect cfg merge e;
-	None
-    with
-	Jst.Inconsistent(rho) -> Some(rho)
+    let (a', rho) = replace s a
+    and (b', tau) = replace s b in
+      try
+	let _ = Arith.solve (a', b') in
+	  None
+      with
+	  Exc.Inconsistent -> Some(Jst.dep2 rho tau)
 	  
 (** Test if [a >= 0]. *)
 and is_nonneg cfg a = 
