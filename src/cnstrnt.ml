@@ -160,6 +160,9 @@ let mk_nat =
 let mk_singleton q = 
   of_interval (Interval.mk_singleton q)
 
+let mk_zero = mk_singleton Mpa.Q.zero
+let mk_one = mk_singleton Mpa.Q.one
+
 let d_singleton (i, qs) =
   match Interval.d_singleton i with
     | (Some(q) as res) 
@@ -314,10 +317,13 @@ let mk_nonpos dom = mk_le dom Q.zero
 (*s Abstract interpretation. *)
 
 let addq q (j, ps) = 
-  let i = Interval.mk_singleton q in
-  let j' = Interval.add i j in
-  let ps' = Diseqs.fold (fun p -> Diseqs.add (Q.add q p)) ps Diseqs.empty in
-  make (j', ps')
+  if Mpa.Q.is_zero q then
+    make (j, ps)
+  else 
+    let i = Interval.mk_singleton q in
+    let j' = Interval.add i j in
+    let ps' = Diseqs.fold (fun p -> Diseqs.add (Q.add q p)) ps Diseqs.empty in
+      make (j', ps')
 
 let add (i,_) (j,_) = 
   of_interval (Interval.add i j)
@@ -326,14 +332,26 @@ let subtract (i,_) (j,_) =
   of_interval (Interval.subtract i j)
 
 let rec addl = function
-  | [] -> mk_singleton Q.zero
+  | [] -> mk_zero
   | [c] -> c
+  | [c; d] -> add c d
   | c :: cl -> add c (addl cl)
 
-let multq q (i,qs) =
-  let j' = Interval.multq q i in
-  let qs' = Diseqs.fold (fun p -> Diseqs.add (Mpa.Q.mult q p)) qs Diseqs.empty in
-  make (j', qs')
+let multq q ((i,qs) as c) =
+  if Mpa.Q.equal Mpa.Q.zero q then 
+    make (i, qs)
+  else if Mpa.Q.equal Mpa.Q.zero q then
+    mk_zero
+  else if Interval.is_full i then
+    if Diseqs.is_empty qs then
+      c
+    else 
+      let qs' =  Diseqs.fold (fun p -> Diseqs.add (Mpa.Q.mult q p)) qs Diseqs.empty in
+      make (i, qs')
+  else 
+    let j' = Interval.multq q i in
+    let qs' = Diseqs.fold (fun p -> Diseqs.add (Mpa.Q.mult q p)) qs Diseqs.empty in
+      make (j', qs')
 
 let mult (i,_) (j,_) =
   of_interval (Interval.mult i j)
