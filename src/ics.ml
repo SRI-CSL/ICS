@@ -870,9 +870,17 @@ let process st t =
       | Bool False ->
 	  Inconsistent
       | Bool(Equal(t1,t2)) ->
-	  Consistent (Process.process (t1,t2) st)
+	  let st' = Process.process (t1,t2) st in
+	  if Can.inconsistent st' then
+	    Inconsistent
+	  else 
+	    Consistent st'
       | _ ->
-	  Consistent (Process.process (t', Bool.tt ()) st)
+	  let st' = Process.process (t', Bool.tt ()) st in
+	  if Can.inconsistent st' then
+	    Inconsistent
+	  else 
+	    Consistent(st')
   with
     | Exc.Inconsistent -> Inconsistent
     | Exc.Valid -> Valid
