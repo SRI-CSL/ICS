@@ -176,6 +176,14 @@ let _ = Callback.register "prop_tail" tail
 let length = List.length
 let _ = Callback.register "prop_length" length
 
+(** {6 Atoms} *)
+
+let is_connected i j =
+  let a = id_to_atom i 
+  and b = id_to_atom j in
+    Atom.is_connected a b
+let _ = Callback.register "atom_is_connected" is_connected
+
 
 (** {6 Stack} *)
 

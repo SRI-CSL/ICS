@@ -177,8 +177,4 @@ let is_connected a b =
   let xs = vars_of a 
   and ys = vars_of b in
     not(Term.Set.is_empty (Term.Set.inter xs ys))
-
-let _ = Callback.register "atom_is_connected" is_connected
-
-
   

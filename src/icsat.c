@@ -115,11 +115,11 @@ void icsat_add_scratch_context(int x1) {
 
 /* Atoms. */
 
-int icsat_is_connected(value x1, value x2) {
+int icsat_is_connected(int x1, int x2) {
   CAMLparam2(x1, x2);
   static value * closure = NULL;
   if (closure == NULL) { closure = caml_named_value("atom_is_connected"); }
-  CAMLreturn(Int_val(callback2(*closure, x1, x2)));
+  CAMLreturn(Bool_val(callback2(*closure, Val_int(x1), Val_int(x2))));
 }
 
 
