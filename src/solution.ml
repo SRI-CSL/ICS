@@ -29,27 +29,31 @@ let empty = {
   find = Map.empty;
   inv = Map.empty;
   use = Use.empty;
-  changed = Term.Set.empty
+  changed = Set.empty
 }
 
-let is_empty s = s.find = Map.empty
+let is_empty s = 
+  s.find == Map.empty
 
-let unchanged s t =
+
+let eq s t =
   s.find == t.find
+
 
 (*s Fold over the [find] structure. *)
 
 let fold f s = Term.Map.fold f s.find
 
+
 (*s Solution set *)
 
-let solution s =
+let to_list s =
   fold (fun x b acc -> (x, b) :: acc) s []
 
 (*s Pretty-printer. *)
 
 let pp fmt s =
-  Pretty.list (Pretty.eqn Term.pp) fmt (solution s) 
+  Pretty.list (Pretty.eqn Term.pp) fmt (to_list s) 
 
 let apply s x =
   Map.find x s.find
@@ -63,7 +67,6 @@ let mem s x =
   Map.mem x s.find
    
 let use s = Use.find s.use
-
     
 (*s Does a variable occur in [s]. *)
 
@@ -126,15 +129,19 @@ let name (b, s) =
 
 let rec fuse map (p, s) r =
   Trace.msg "s" "Fuse" r (Pretty.list Term.pp_equal);
-  let norm = map (fun x -> try Term.assq x r with Not_found -> x) in
+  let norm = 
+    map (fun x -> try Term.assq x r with Not_found -> x) 
+  in
   let focus = 
     List.fold_right
-      (fun (x, _) -> Set.union (use s x)) r Set.empty
+      (fun (x, _) -> Set.union (use s x)) 
+      r Set.empty
   in
   Set.fold 
     (fun x acc ->
        try
-	 update (x, norm (apply s x)) acc
+	 let b = norm (apply s x) in
+	 update (x, b) acc
        with
 	   Not_found -> acc)
     focus
@@ -154,76 +161,41 @@ and update (x, b) (p, s) =
 	if b <<< x then
 	  restrict x s
 	else 
-	  union (x, a) (restrict b s)
+	  let s' = restrict b s in
+	  union (x, a) s'
       with
-	  Not_found -> restrict x s 
+	  Not_found -> 
+	    restrict x s 
     in
     (p', s')
   else
     try
       let y = inv s b in
-      match Partition.is_equal p x y with
-	| Three.Yes -> 
-	    let s' = if y <<< x then restrict x s else union (x, b) (restrict y s) in
-	    (p, s')
-	| Three.No -> 
-	    raise Exc.Inconsistent
-	| Three.X ->
-	    let e' = Fact.mk_equal x y None in
-	    let p' = Partition.merge e' p in
-	    let s' = if y <<< x then restrict x s else union (x, b) (restrict y s) in
-	    (p', s')
+      let e' = Fact.mk_equal x y None in
+      let p' = Partition.merge e' p in
+      let s' = 
+	if y <<< x then 
+	  restrict x s 
+	else 
+	  let s' = restrict y s in
+	  union (x, b) s'
+      in
+      (p', s')
     with
 	Not_found ->
 	  let s' = union (x, b) s in
 	  (p, s')
 
 
-(*s Compose. *)
+(*s Composition. *)
 
 let compose map (v, s) r =
   Trace.msg "s" "Compose" r (Pretty.list Term.pp_equal);
   let (v', s') = fuse map (v, s) r in
   List.fold_right update r (v', s')
 
-
-(*s Normalize. *)
-
-let normalize map (p, s) =
-  let v = p.Partition.v  in
-  let norm = map (V.find v) in
-  let s' = 
-    fold
-      (fun x b s ->
-	 let b' = norm b in
-	 if Term.eq b b' then
-	   s
-	 else 
-	   union (x, b') s)
-      s s
-  in
-  (p, s')
-
-(*s Pretty-printing. *)
-
-let pp fmt s =
-  let l = fold (fun x a l -> (x,a) :: l) s [] in
-  Pretty.set (Pretty.eqn Term.pp) fmt l 
-
-
-(*s Instantiate variables on rhs with canonical ones *)
-
-let inst v s =
-  fold
-    (fun x b s ->
-       let x' = V.find v x in
-       if Term.eq x x' then 
-	 s
-       else 
-	 union (x', b) (restrict x s))
-    s s
        
-(*s changed. *)
+(*s Changed set *)
 
 let changed s = s.changed
 

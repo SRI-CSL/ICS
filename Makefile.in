@@ -407,17 +407,19 @@ distclean::
 
 # Installation
 
-install:
+install: $(BINDIR)/ics $(LIBDIR)/libics.so $(LIBDIR)/libics.a $(OBJDIR)/ics.h
 	mkdir -p $(bindir)
 	mkdir -p $(libdir)
 	mkdir -p $(includedir)
 	cp $(BINDIR)/ics $(bindir)
 	cp $(LIBDIR)/libics.so $(libdir)
+	cp $(LIBDIR)/libics.a $(libdir)
 	cp $(OBJDIR)/ics.h $(includedir)
 
 uninstall:
 	rm -f $(bindir)/ics
 	rm -f $(libdir)/libics.so
+	rm -f $(libdir)/libics.a
 	rm -f $(includedir)/ics.h
 
 # Static dependencies for the generated files.

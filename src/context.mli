@@ -45,6 +45,10 @@ val empty : t
 
 val pp : t Pretty.printer
 
+(*s Identity test on contexts. *)
+
+val eq : t -> t -> bool
+
 
 (*s For an term [a] which is either uninterpreted or an interpreted
  constant, [type_of s a] returns the most refined type as obtained
