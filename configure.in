@@ -68,6 +68,11 @@ if test "$OCAMLYACC" = no ; then
 	AC_MSG_ERROR(Cannot find ocamlyacc.)
 fi
 
+AC_CHECK_PROG(OCAMLDOC,ocamldoc,ocamldoc,true)
+if test "$OCAMLDOC" = true ; then
+	AC_MSG_WARN(Cannot find ocamldoc -- but not mandatory)
+fi
+
 dnl Check for other programs
 AC_CHECK_PROG(HEVEA,hevea,hevea,true)
 if test "$HEVEA" = true ; then
@@ -135,3 +140,6 @@ AC_SUBST(GMPPATH)
 AC_OUTPUT(Makefile chameleon/Makefile ics)
 
 chmod a+x ics
+
+
+
