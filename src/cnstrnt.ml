@@ -127,12 +127,12 @@ let mk_nat =
 let mk_singleton q = 
   of_interval (Interval.mk_singleton q)
 
-let d_singleton (i,qs) =
+let d_singleton (i, qs) =
   match Interval.d_singleton i with
-    | Some(q) -> 
-	assert(Diseqs.is_empty qs);
-	Some(q)
-    | None ->
+    | (Some(q) as res) 
+	when not(Diseqs.mem q qs) -> 
+	res
+    | _ ->
 	None
 	
 
