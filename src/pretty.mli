@@ -19,9 +19,13 @@
 
 type 'a printer = Format.formatter -> 'a -> unit
 
+val unit : unit printer
+
 val string : string printer
 
 val number : int printer
+
+val option : 'a printer -> 'a option printer
 
 val list : 'a printer -> 'a list printer
 
