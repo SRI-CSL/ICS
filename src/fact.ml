@@ -94,6 +94,9 @@ module Equal = struct
   let is_pure i (a, b, _) =
     Term.is_pure i a && Term.is_pure i b
 
+  let is_diophantine (a, b, _) =
+    Arith.is_diophantine a && Arith.is_diophantine b
+
   module Inj = struct
 
     let solver f (a, b, rho) =         (* [rho |- a = b] *)
@@ -213,7 +216,7 @@ module Diseq = struct
 		  (Arith.lcm_of_denominators b)))
 	in
 	let (a', b') =                (* all coefficients are integer now. *)
-	  if Mpa.Q.is_one lcm then (a, b) else 
+	  if Mpa.Q.is_one lcm then Term.orient (a, b) else 
 	    (Arith.mk_multq lcm a, Arith.mk_multq lcm b)
 	in
 	let q', c' = Arith.destruct (Arith.mk_sub a' b') in  (* [q' + c' <> 0] *)
@@ -235,7 +238,6 @@ module Diseq = struct
     assert(is_diophantine d);
     let q = Arith.d_num b in
       (a, q, rho)
-
 
   type diseq = t
 
