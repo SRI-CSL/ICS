@@ -11,7 +11,6 @@
  * benefit corporation.
  *)
 
-
 let pp_index = ref false
 
 
@@ -398,7 +397,6 @@ module Make(Th: TH): SET = struct
      List.iter (upd (p, s)) el
 
 end
-
 
 
 (** {6 Equality Theories with indices} *)
