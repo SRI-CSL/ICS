@@ -58,7 +58,7 @@ let equal_width_of a b =
 %token INF NEGINF
 %token ALBRA ACLBRA CLBRA
 
-%token LPAR RPAR LBRA RBRA LCUR RCUR UNDERSCORE KLAMMERAFFE
+%token LPAR RPAR LBRA RBRA LCUR RCUR PROPLPAR PROPRPAR UNDERSCORE KLAMMERAFFE
 %token COLON COMMA DOT DDOT ASSIGN UNION TO ENDMARKER BACKSLASH
 
 %token <string> BVCONST 
@@ -262,16 +262,17 @@ bv:
 | term BWIFF term     { Bitvector.mk_bwiff (equal_width_of $1 $3) $1 $3 }
 ;
 
-
+/*
 propmode:  { Tools.mode := Tools.Prop }
 atommode:  { Tools.mode := Tools.Atom }
+ */
 
 prop: topprop { $1 }
 
 propnegatable: negatable { $1 }
 
 topprop:
-  LBRA prop RBRA                 { $2 } 
+  LBRA prop RBRA                { $2 } 
 | name                            { try
 				      match Symtab.lookup $1 (Istate.symtab()) with
 					| Symtab.Def(Symtab.Prop(p)) -> p

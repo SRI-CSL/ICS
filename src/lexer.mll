@@ -86,8 +86,8 @@ rule token = parse
 		 let k = int_of_string (String.sub s 1 (n - 1)) in
 		   FREE k }
   | ','        { COMMA }
-  | '('        { LPAR }
-  | ')'        { RPAR }
+  | '('        { if !Tools.mode = Tools.Prop then PROPLPAR else LPAR }
+  | ')'        { if !Tools.mode = Tools.Prop then PROPRPAR else RPAR }
   | '['        { LBRA }
   | ']'        { RBRA }
   | '{'        { LCUR }
