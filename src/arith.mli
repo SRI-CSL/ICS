@@ -221,15 +221,6 @@ val isolate : Term.t -> (Term.t * Term.t) -> Term.t
     is raised. *)
 
 
-(** {6 Term comparison} *)
-
-val le : Term.t -> Term.t -> bool
-val lt : Term.t -> Term.t -> bool
-val less : Term.t * bool * Term.t -> bool
-val greater : Term.t * bool * Term.t -> bool
-
-
-
 (** {6 Inequalities} *)
 
 type ineq = 

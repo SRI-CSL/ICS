@@ -18,11 +18,22 @@ open Sym
 
 module Pred = struct
 
-  let le = Arith.le
-  let lt = Arith.lt
+  let le (a, b) =
+    let (q, ml) = Arith.poly_of a 
+    and (p, nl) = Arith.poly_of b in
+      Term.eql ml nl && Q.le q p
 
-  let ge a b = le b a
-  let gt a b = lt b a
+  let lt (a, b) =
+    let (q, ml) = Arith.poly_of a 
+    and (p, nl) = Arith.poly_of b in
+      Term.eql ml nl && Q.lt q p
+
+  let lt = Trace.func "foo2" "LT" (Pretty.pair Term.pp Term.pp) Pretty.bool lt
+  let le = Trace.func "foo2" "LE" (Pretty.pair Term.pp Term.pp) Pretty.bool le
+
+  let ge (a, b) = le (b, a)
+
+  let gt (a, b) = lt (b, a)
 
 end
 
@@ -49,8 +60,8 @@ module Bound = struct
       | Neginf, _ -> true
       | _, Posinf -> true
       | Posinf, _ -> false
-      | Bound(true, a), Bound(true, b) -> Pred.le a b
-      | Bound(_, a), Bound(_, b) -> Pred.lt a b
+      | Bound(true, a), Bound(true, b) -> Pred.le (a, b)
+      | Bound(_, a), Bound(_, b) -> Pred.lt (a, b)
       | Bound _, Neginf -> false
 
   let lt l m = 
@@ -61,7 +72,7 @@ module Bound = struct
       | _, Posinf -> true
       | Posinf, _ -> false
       | Bound(alpha, a), Bound(beta, b) ->
-	  if alpha = beta then Pred.lt a b else Pred.le a b
+	  if alpha = beta then Pred.lt (a, b) else Pred.le (a, b)
       | Bound _, Neginf -> false
 
   let occurs x = function
@@ -81,7 +92,8 @@ module Interval = struct
   let mk_empty = (Posinf, Neginf)
 
   let is_empty = function
-    | (Posinf, Neginf) -> true
+    | (Posinf, _) -> true
+    | (_, Neginf) -> true
     | _ -> false
 
   let mk_full = (Neginf, Posinf)
@@ -113,9 +125,10 @@ module Interval = struct
 	   Pretty.string fmt "-inf)"
        | Posinf -> 
 	   Pretty.string fmt "inf)"
-       | Bound(alpha, a) -> 
-	   Pretty.string fmt (if alpha then "]" else ")");
-	   Term.pp fmt a)
+       | Bound(alpha, a) ->   
+	   Term.pp fmt a;
+	   Pretty.string fmt (if alpha then "]" else ")"))
+	 
    
   let occurs x (l, u) =
     Bound.occurs x l || Bound.occurs x u
@@ -172,12 +185,15 @@ module Interval = struct
 	| Bound(alpha, a), Bound(beta, b) ->
 	    let (alpha', a') = mk_lower (alpha, a)
 	    and (beta', b') = mk_upper (beta, b) in
-	      if alpha && beta && Pred.gt a b then
+	      if alpha' && beta' && Pred.gt (a', b') then
 		mk_empty
-	      else if Pred.ge a b then
+	      else if not(alpha' && beta') && Pred.ge (a', b') then
 		mk_empty
 	      else 
 		(Bound(alpha', a'), Bound(beta', b'))
+
+  let make d =
+    Trace.func "foo2" "Interval.make" pp pp (make d)
 
   let const q = mk_singleton q
 	
@@ -274,18 +290,11 @@ module Intervals = struct
 
   let eq = Set.equal
 
-  let subsumed i = Set.exists (Interval.sub i)
-
-  let sub is js =
-    Set.for_all (fun i -> subsumed i js) is
-
   exception Empty
 
   let inter1 d ((l1, u1) as i) js =
     if Interval.is_empty i then 
       mk_empty
-    else if subsumed i js then
-      js 
     else 
        let js = ref js in
        let normalized = ref false in
@@ -306,18 +315,21 @@ module Intervals = struct
 		else if Bound.le l2 l1 && Bound.le u2 u1 then
 		  replace j (Interval.make d (l1, u2)))  
 	     !js;
-	   if !normalized then
-	     !js
-	   else 
-	     Set.add i !js
+	   if !normalized then !js else Set.add i !js
 	 with
 	     Empty -> mk_empty
-
 
   let inter d = Set.fold (inter1 d) 
 
   let pp fmt is =
-    Pretty.list Interval.pp fmt (Set.elements is)
+    let il = Set.elements is in
+      match il with
+	| [i] -> Interval.pp fmt i
+	| _ -> Pretty.list Interval.pp fmt il
+
+  let inter1 dom = 
+    Trace.func "foo2" "Intervals.inter" (Pretty.pair Interval.pp pp) pp 
+      (fun (i, js) -> (inter1 dom i js))
 
   let fold = Set.fold
 
@@ -328,7 +340,7 @@ module Intervals = struct
 	   if Interval.eq i j then 
 	     acc
 	   else
-	     inter1 d j (Set.remove i acc))
+	     inter1 d (j, Set.remove i acc))
       is is
 
   let multq d q = map d (Interval.multq d q)
@@ -337,8 +349,8 @@ module Intervals = struct
     Set.fold 
       (fun i -> 
 	 Set.fold 
-	   (fun j -> 
-	      inter1 d (Interval.add d i j)) js) 
+	   (fun j acc -> 
+	      inter1 d (Interval.add d i j, acc)) js) 
       is mk_full
 
   let mult d is js = mk_full
@@ -347,20 +359,25 @@ module Intervals = struct
     Set.exists (fun i -> Set.exists (Interval.disjoint i) js) is
    
   let replace d x a is =
-    map d (Interval.replace d x a) is 
-
+    Trace.call "foo2" "Replace" (x, is) (Pretty.pair Term.pp pp);
+    let js = map d (Interval.replace d x a) is in
+      Trace.exit "foo2" "Replace" js pp;
+      js
 
   let d_equalities is =
-    Set.fold
-      (fun ((l, h) as i) ((es, is) as acc) ->
-	 match l, h with
-	   | Bound(true, a), Bound(true, b) 
-	       when Term.eq a b ->
+    let (es', is') = 
+      Set.fold
+	(fun ((l, h) as i) ((es, is) as acc) ->
+	   match l, h with
+	     | Bound(true, a), Bound(true, b) 
+		 when Term.eq a b ->
 	         (Term.Set.add a es, Set.remove i is)
-	   | _ ->
-	       acc)
-      is
-      (Term.Set.empty, is)
+	     | _ ->
+		 acc)
+	is
+	(Term.Set.empty, is)
+    in
+      (es', if Set.is_empty is' then mk_full else is')
 
   let occurs x = Set.exists (Interval.occurs x)
 	 
@@ -384,13 +401,16 @@ let pp fmt c =
   let il = intervals_of c in
     if c.dom <> Dom.Real || il = [] then
       Dom.pp fmt c.dom;
-    Pretty.set Interval.pp fmt il
+    match il with
+      | [] -> ()
+      | [i] -> Interval.pp fmt i
+      | _ -> Pretty.set Interval.pp fmt il
 
 let mk_empty = {
   dom = Dom.Real;
   intervals = Intervals.mk_empty
 }
-let is_empty c = (c == mk_empty)
+let is_empty c = (c.intervals == Intervals.mk_empty)
 
 let mk_dom d = {dom = d; intervals = Intervals.mk_full}
 
@@ -435,12 +455,6 @@ let eq c d =
   Dom.eq c.dom d.dom &&
   Intervals.eq c.intervals d.intervals
   
-let sub c d =
-  Dom.sub c.dom d.dom &&
-  Intervals.sub c.intervals d.intervals
- 
-let disjoint c d = 
-  Intervals.disjoint c.intervals d.intervals
   
 let inter c d = 
   try
@@ -510,11 +524,23 @@ let div c d = mk_real
 
 let add_upper (beta, b) c =
   let i = (Neginf, Bound(beta, b)) in
-    make c.dom (Intervals.inter1 c.dom i c.intervals)
+    make c.dom (Intervals.inter1 c.dom (i, c.intervals))
 
 let add_lower (alpha, a) c =
   let i = (Bound(alpha, a), Posinf) in
-    make c.dom (Intervals.inter1 c.dom i c.intervals)
+    make c.dom (Intervals.inter1 c.dom (i, c.intervals))
+
+let add_upper (beta, b) c =
+  Trace.func "foo2" "Cnstrnt.add_upper" (Pretty.pair (Pretty.pair Pretty.bool Term.pp) pp) pp
+    (fun ((beta, b), c) ->
+       add_upper (beta, b) c)
+    ((beta, b), c)
+
+let add_lower (beta, b) c =
+  Trace.func "foo2" "Cnstrnt.add_lower" (Pretty.pair (Pretty.pair Pretty.bool Term.pp) pp) pp
+    (fun ((beta, b), c) ->
+       add_lower (beta, b) c)
+    ((beta, b), c)
 
 let add_dom dom c =
   try

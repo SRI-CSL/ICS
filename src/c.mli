@@ -46,10 +46,17 @@ val cnstrnt : t -> Term.t -> Fact.cnstrnt
 val mem : Term.t -> t -> bool
   (** [mem x s] holds iff [x] is constraint in [s]. *)
 
+
 val eq : t -> t -> bool
   (** [eq s t] when [s] and [t] are physically equal. *)
 
-val is_less : t -> Term.t * bool -> bool
+
+val holds : t -> Term.t * bool -> Three.t
+  (** [holds s (a, alpha)] is 
+    - [Three.Yes] if [a <(=) 0] is valid in [s]
+    - [Three.No] if [a <(=) 0] is inconsistent with [s]
+    - [Three.X] otherwise 
+  *)
 
 
 (** {6 Context manipulations} *)

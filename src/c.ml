@@ -59,29 +59,67 @@ let mem a s = Term.Map.mem a s.c
 
 (** {6 Abstract interpretation} *)
 
-let of_term s =
- let lookup s x = fst(apply s x) in
-   Cnstrnt.of_term (lookup s)
+let of_term s a =
+  try
+    let lookup s x = fst(apply s x) in
+      Cnstrnt.of_term (lookup s) a
+  with
+      Not_found -> Cnstrnt.mk_real
 
-let of_addl s =
-  let lookup s x = fst(apply s x) in
-    Cnstrnt.of_addl (lookup s)
+let of_term s =
+  Trace.func "foo" "of_term" Term.pp Cnstrnt.pp (of_term s)
+
+let of_addl s a =
+  try
+    let lookup s x = fst(apply s x) in
+      Cnstrnt.of_addl (lookup s) a
+  with
+      Not_found -> Cnstrnt.mk_real
+
+
+(** {6 Constructors} *)
+
+let mk_less s (a, beta, b) =
+  Fact.mk_less (Arith.mk_sub a b, beta) None
+
+let mk_greater s (a, beta, b) =
+  Fact.mk_less (Arith.mk_sub b a, beta) None
 
 
 (** {6 Predicates} *)
 
-let is_less s =
-  let rec less (a, alpha) =
-    Trace.msg "foo" "holds?" (a, alpha) (Pretty.pair Term.pp Pretty.bool);
-    (Ineq.is_less (a, alpha, Arith.mk_zero)) 
-    ||
-    (try
-       let c = of_term s a in
-	 Cnstrnt.exists_upper (fun (beta, u) ->less (u, alpha && beta)) c
-     with
-	 Not_found -> false)
-  in
-    less
+let rec is_less s (a, alpha) = 
+  Trace.msg "foo" "is_less" a Term.pp;
+  match a with
+    | App(Arith(Num(q)), []) ->
+	if alpha then Q.le q Q.zero else Q.lt q Q.zero
+    | _ ->
+	(Cnstrnt.exists_upper 
+	   (fun (beta, u) -> 
+	      is_less s (u, alpha && beta)) 
+	   (of_term s a))
+
+let rec is_greater s (a, alpha) =  
+  Trace.msg "foo" "is_greater" a Term.pp;
+  match a with
+    | App(Arith(Num(q)), []) ->
+	if alpha then Q.ge q Q.zero else Q.gt q Q.zero
+    | _ ->
+	(Cnstrnt.exists_lower
+	   (fun (beta, l) -> 
+	      is_greater s (l, alpha && beta)) 
+	   (of_term s a))
+
+let holds s (a, alpha) =
+  if is_less s (a, alpha) then
+    Three.Yes
+  else if is_greater s (a, not alpha) then
+    Three.No
+  else 
+    Three.X
+
+let holds s =
+  Trace.func "foo2" "Holds" (Pretty.pair Term.pp Pretty.bool) Three.pp (holds s)
 
 
 (** {6 Updating of datastructures} *)
@@ -145,25 +183,11 @@ let restrict a s =
       Not_found -> s
 
 (** Asserting an inequality *)
-let rec add rho s =
+let rec add l s =
   eqs := Fact.Equalset.empty;
-  let (a, alpha, b, prf) = Fact.d_less rho in
-  let s' = addl [Ineq.mk_less (a, alpha, b)] s in
+  let s' = addl [l] s in
     (!eqs, s')
 
-and ineqs_of (a, c) = 
-  Cnstrnt.fold
-    (fun (l, u) acc ->
-       let acc' = match l with
-	 | Cnstrnt.Bound(beta, b) -> Ineq.mk_greater (a, beta, b) :: acc
-	 | _ -> acc
-       in
-       let acc'' = match u with
-	 | Cnstrnt.Bound(beta, b) -> Ineq.mk_less (a, beta, b) :: acc'
-	 | _ -> acc'
-       in
-	 acc'')
-    c []
 
 and addl ineqs s =
   match ineqs with
@@ -173,35 +197,46 @@ and addl ineqs s =
 	  addl ineqs' s'
 
 and add1 ineq s =
+  Trace.msg "c'" "Add" ineq Fact.pp_less;
   match Ineq.solve ineq with
     | Ineq.True -> 
 	s
-    | Ineq.False -> 
-	raise Exc.Inconsistent
     | Ineq.Less(x, beta, b) ->
-	(* if is_less s (x, beta, b) then s else *)
-	  (try
-	     let (c, _) = apply s x in
-	     let c' = Cnstrnt.add_upper (beta, b) c in
-	     let s' = update x c' None s in
-	     let ineqs' =      (* derived *)
-	       Cnstrnt.fold_lower 
-		 (fun (gamma, l) acc ->
-		    let ineq = (Arith.mk_sub l b, gamma && beta) in
-		      if is_less s ineq then
-			acc 
-		      else
-			let ineq = Ineq.mk_less (Arith.mk_sub l b, gamma && beta, Arith.mk_zero) in 
-			  ineq :: acc)
-		 c' []
-	     in
-	       addl ineqs' s'
-	   with
-	       Not_found ->
-		 let c = Cnstrnt.mk_less Dom.Real (b, beta) in
-		   update x c None s)
+	(try
+	   let (c, _) = apply s x in
+	   let c' = Cnstrnt.add_upper (beta, b) c in
+	     if c == c' then s else 
+	       let s' = update x c' None s in
+	       let ineqs' =      (* derived *)
+		 Cnstrnt.fold_lower 
+		   (fun (gamma, l) acc ->
+		      let ineq = mk_less s (l, gamma && beta, b) in 
+			ineq :: acc)
+		   c' []
+	       in
+		 addl ineqs' s'
+	 with
+	     Not_found ->
+	       let c = Cnstrnt.mk_less Dom.Real (b, beta) in
+		 update x c None s)
     | Ineq.Greater(x, alpha, a) -> 
-	failwith "to do"
+	(try
+	   let (c, _) = apply s x in
+	   let c' = Cnstrnt.add_lower (alpha, a) c in
+	     if c == c' then s else 
+	       let s' = update x c' None s in
+	       let ineqs' =      (* derived *)
+		 Cnstrnt.fold_upper 
+		   (fun (gamma, u) acc ->
+		      let ineq = mk_less s (a, gamma && alpha, u) in 
+			ineq :: acc)
+		   c' []
+	       in
+		 addl ineqs' s'
+	 with
+	     Not_found ->
+	       let c = Cnstrnt.mk_greater Dom.Real (alpha, a) in
+		 update x c None s)
 
 
 (** Propagating an equality. *)
@@ -220,36 +255,35 @@ and merge1 e s =
 	     update x cd  None (restrict a s)
 	 with
 	     Not_found -> 
-	       let ineqs = 
+	       let ineqs' = 
 		 Cnstrnt.fold_lower
 		   (fun (alpha, l) acc ->
-		      Ineq.mk_less (l, alpha, a) :: acc)
+		      mk_less s (l, alpha, a) :: acc)
 		   c []
 	       in
-	       let ineqs' = 
+	       let ineqs'' = 
 		 Cnstrnt.fold_upper
 		   (fun (beta, u) acc ->
-		      Ineq.mk_less (a, beta, u) :: acc)
-		   c ineqs
+		      mk_less s (a, beta, u) :: acc)
+		   c ineqs'
 	       in
 	       let s' = instantiate s x a in
-		 addl ineqs' s')
+		 addl ineqs'' s')
     with
 	Not_found ->
 	  instantiate s x a
 
 and instantiate s x a =
   Set.fold
-    (fun x s ->
+    (fun y s ->
        try
-	 let (c, _) = apply s x in
+	 let (c, _) = apply s y in
 	 let c' = Cnstrnt.replace x a c in
-	   update x c' None (restrict x s)
+	   update y c' None (restrict y s)
        with
 	   Not_found -> s)
     (use s x) 
     s	 
-
 
 (** Propagate disequalities to the constraint part. The following
  is not complete and should be extended to all finite constraints,

@@ -53,3 +53,10 @@ let union a b =
 let is_disjoint a b =
   inter a b = None
 
+let pp fmt three =
+  let str = match three with
+    | Yes -> "Yes"
+    | No -> "No"
+    | X -> "X"
+  in
+    Format.fprintf fmt "%s" str

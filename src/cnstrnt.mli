@@ -90,12 +90,6 @@ val is_empty : t -> bool
 val eq : t -> t -> bool
   (** [eq c d] holds iff [C(c)] is equal to [C(d)]. *)
 
-val sub : t -> t -> bool
-  (** [sub c d] holds iff [C(c)] is a subset of [C(d)]. *)
-
-val disjoint : t -> t -> bool
-  (** [disjoint c d] holds iff [C(c)] and [C(d)] are disjoint. *)
-
 
 (** {6 Connectives} *)
 

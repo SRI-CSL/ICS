@@ -11,36 +11,24 @@
  * benefit corporation.
  *)
 
-type t = 
+(** {6 Predicates} *)
+
+val is_less : Term.t * bool -> bool
+  (** [is_less (a, alpha)] holds iff [a <(=) 0] is derivable in the theory
+    of arithmetic. *)
+
+val is_greater : Term.t * bool -> bool
+  (** [is_greater (a, alpha)] holds iff [a >(=) 0] is derivable in the theory
+    of arithmetic. *)
+
+
+(** {6 Solving Inequalities} *)
+
+type t =
   | True
-  | False
   | Less of Term.t * bool * Term.t
   | Greater of Term.t * bool * Term.t
 
-val is_le : Term.t -> Term.t -> bool
-  (** [is_le a b] holds iff the nonstrict inequality [a <= b] 
-    holds in the rationals. *)
-
-val is_lt : Term.t -> Term.t -> bool
-  (** [is_lt a b] holds iff the strict inequality [a < b] 
-    holds in the rationals. *)
-  
-val is_less : Term.t * bool * Term.t -> bool
-
-val is_greater : Term.t * bool * Term.t -> bool
-
-val mk_less : Term.t * bool * Term.t -> t
-
-val mk_greater: Term.t * bool * Term.t -> t
-
-val mk_lt : Term.t -> Term.t -> t
-val mk_le : Term.t -> Term.t -> t
-val mk_gt : Term.t -> Term.t -> t
-val mk_ge : Term.t -> Term.t -> t
-
-val mk_negate : t -> t
-
 val pp : t Pretty.printer
 
-
-val solve : t -> t
+val solve : Fact.less -> t

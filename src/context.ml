@@ -361,13 +361,14 @@ let diseq d s =
 
 let rec less c s =
   Trace.msg "rule" "Less" c Fact.pp_less;
-  let (es', c') = C.add c s.c in
-    s.c <- c'; s
+  let (el', c') = C.add c s.c in
+    s.c <- c';      
+    Fact.Equalset.fold (compose Th.la) el' s
 
 (** Add a domain constraint *)
 
 let dom d s =
-  failwith "to do"
+  failwith "dom: to do"
 
 
 (** Garbage collection. Remove all variables [x] which are are scheduled
@@ -608,12 +609,13 @@ module Can = struct
 
   and less s (a, beta) =   (* [a <(=) 0] *)
     let a = fnd Th.la s (can s a) in  (* use arithmetic interp if possible *)
-      if C.is_less s.c (a, beta) then
-	Atom.mk_true
-      else if C.is_less s.c (Arith.mk_multq Q.negone a, not beta) then
-	Atom.mk_false
-      else 
-	Atom.mk_less (a, beta)
+      match C.holds s.c (a, beta) with
+	| Three.Yes -> 
+	    Atom.mk_true
+	| Three.No ->
+	    Atom.mk_false
+	| Three.X -> 
+	    Atom.mk_less (a, beta)
 
   and cnstrnt s (a, d) =
     let a = can s a in
@@ -644,11 +646,10 @@ module Abstract = struct
       (s'', d')
 
   and less (s, l) =
-    let (a, alpha, b, _) = Fact.d_less l in
-    let (s', x') = toplevel_term (s, a) in
-    let (s'', y') = toplevel_term (s', b) in
-    let l' = Fact.mk_less (x', alpha, y') None in
-      (s'', l')
+    let (a, alpha, _) = Fact.d_less l in
+    let (s', x') = term Th.la (s, a) in
+    let l' = Fact.mk_less (x', alpha) None in
+      (s', l')
 
   and dom (s, d) =
     let (a, d, _) = Fact.d_dom d in
@@ -894,9 +895,43 @@ module Nonlin = struct
 	(fun (y, b) -> deduce1 (Fact.mk_equal y b None))
 
 end
+
+
+	
+module Cnstrnt = struct
+
+  let rec propagate ch =
+    propagate1 (Changed.in_eqs Th.la ch) &&&
+    propagate2 (Changed.in_v ch)
+   
+  and propagate1 ch s =
+    Set.fold
+      (fun x s ->
+	 try
+	   let (el, c') = C.merge (equality Th.la s x) s.c in
+	     s.c <- c'; 
+	     Fact.Equalset.fold (compose Th.la) el s
+	 with
+	     Not_found -> s)
+      ch s
+
+  and propagate2 ch s =
+    Set.fold
+      (fun x s -> 
+	 try 
+	   let e = V.equality (v_of s) x in
+	     Trace.msg "foo2" "Propagate2" e Fact.pp_equal;
+	   let (el', c') = C.merge e s.c in
+	     s.c <- c'; 
+	     Fact.Equalset.fold (compose Th.la) el' s
+	 with 
+	     Not_found -> s)
+      ch s
+
+end
+
+	
 		
-
-
 (** {6 Confluence} *)
 
 let maxclose = ref 20
@@ -910,7 +945,8 @@ module Rule = struct
     Set.fold
       (fun x s -> 
 	 try 
-	   propagate (V.equality (v_of s) x) s 
+	   let e = V.equality (v_of s) x in
+	     propagate e s 
 	 with 
 	     Not_found -> s)
 
@@ -943,7 +979,8 @@ module Rule = struct
     Trace.msg "rule" "Close" ch Changed.pp;
     prop (Changed.in_v ch) &&& 
     Bvarith.propagate ch &&&           (* Propagate into arithmetic interps. *)
-    Arrays.propagate ch                (* Propagate into arrays. *)
+    Arrays.propagate ch &&&            (* Propagate into arrays. *)
+    Cnstrnt.propagate ch               
 
 end
 
@@ -981,7 +1018,7 @@ module Process = struct
 		 let d = Fact.mk_diseq a b Fact.mk_axiom in
 		   Status.Ok(diseq_atom atom d s)
 	     | Atom.Less(a, kind) ->
-		 let l = Fact.mk_less (a, kind, Arith.mk_zero) Fact.mk_axiom in
+		 let l = Fact.mk_less (a, kind) Fact.mk_axiom in
 		   Status.Ok(less_atom atom l s)
 	     | Atom.In(a, d) ->
 		 let c = Fact.mk_dom (a, d) Fact.mk_axiom in

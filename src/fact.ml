@@ -29,7 +29,7 @@ and diseq = Term.t * Term.t * justification option
 
 and cnstrnt = Term.t * Cnstrnt.t * justification option
 
-and less = Term.t * bool * Term.t * justification option
+and less = Term.t * bool * justification option
 
 and dom = Term.t * Dom.t * justification option
 
@@ -65,8 +65,8 @@ let mk_cnstrnt x c j =
   Trace.msg "fact" "Cnstrnt" (x, c) (Pretty.infix Term.pp " in " Cnstrnt.pp);
   (x, c, j)
 
-let mk_less (a, alpha, b) j = 
-  (a, alpha, b, j)
+let mk_less (a, alpha) j = 
+  (a, alpha, j)
 
 let mk_dom (a, d) j = 
   (a, d, j)
@@ -81,14 +81,14 @@ let d_dom d = d
 let of_equal e = Equal(e)
 let of_diseq d = Diseq(d)
 let of_cnstrnt c = Cnstrnt(c)
-let of_less (a, alpha, b, j) = Less(a, alpha, b, j)
+let of_less (a, alpha, j) = Less(a, alpha, j)
 let of_dom (a, d, j) = Dom(a, d, j)
 
 let rec pp fmt = function
   | Equal(x, y, _) ->  Pretty.infix Term.pp "=" Term.pp fmt (x, y)
   | Diseq(x, y, _) ->  Pretty.infix Term.pp "<>" Term.pp fmt (x, y)
   | Cnstrnt(x, c, _) -> Pretty.infix Term.pp "in" Cnstrnt.pp fmt (x, c)
-  | Less(a, alpha, b, _) -> Pretty.infix Term.pp (if alpha then "<= " else "<") Term.pp fmt (a, b)
+  | Less(a, alpha, _) -> Term.pp fmt a; Pretty.string fmt (if alpha then "<= 0 " else "< 0")
   | Dom(a, d,_) -> Pretty.infix Term.pp "in" Dom.pp fmt (a, d)
 
 and pp_equal fmt e = 
@@ -104,9 +104,8 @@ and pp_cnstrnt fmt c =
   Pretty.infix Term.pp "in" Cnstrnt.pp fmt (x, i)
 
 and pp_less fmt c = 
-  let (a, alpha, b, _) = d_less c in
-    Pretty.infix Term.pp (if alpha then "<= " else "<") Term.pp fmt (a, b)
-
+  let (a, alpha, _) = d_less c in
+    Term.pp fmt a; Pretty.string fmt (if alpha then "<= 0 " else "< 0")
 
 module Equalset = Set.Make(
   struct

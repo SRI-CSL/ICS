@@ -12,27 +12,51 @@
  *)
 
 open Mpa
+open Sym
 open Term
 open Arith
 
-(** {6 Inequalities} *)
+let is_less (a, alpha) =
+  match a with
+    | App(Arith(Num(q)), []) -> 
+	if alpha then Q.le q Q.zero else Q.lt q Q.zero
+    | _ -> 
+	false
+
+let is_greater (a, alpha) =
+  match a with
+    | App(Arith(Num(q)), []) -> 
+	if alpha then Q.ge q Q.zero else Q.gt q Q.zero
+    | _ -> 
+	false
 
 type t = 
   | True
-  | False
   | Less of Term.t * bool * Term.t
   | Greater of Term.t * bool * Term.t
 
-let mk_less (a, alpha, b) =
-  match Arith.linearize (Arith.mk_sub a b) with
+let pp fmt = function
+  | True -> Pretty.string fmt "True"
+  | Less(a, kind, b) ->
+      Term.pp fmt a;
+      Pretty.string fmt (if kind then " <= " else " < ");
+      Term.pp fmt b
+  | Greater(a, kind, b) ->
+      Term.pp fmt a;
+      Pretty.string fmt (if kind then " >= " else " > ");
+      Term.pp fmt b
+
+let solve l =
+  let (a, alpha, _) = Fact.d_less l in
+    match Arith.linearize a with
       | Const(p) ->                   (* p < 0 *)
 	  let res = Q.compare p Q.zero in
 	    if res < 0 then
 	      True
 	    else if res > 0 then
-	      False
+	      raise Exc.Inconsistent
 	    else (* [p = r] *)
-	      if alpha then True else False
+	      if alpha then True else raise Exc.Inconsistent
       | Linear(p, q, x, a') ->    (* [p + q*x + a' < 0] *) 
 	  assert(not(Q.is_zero q));
 	  let b' = mk_addq (Q.minus (Q.div p q))
@@ -43,67 +67,10 @@ let mk_less (a, alpha, b) =
 	    else (* [ q < 0] *)  
 	      Greater(x, alpha, b')
 
-let mk_greater (a, alpha, b) =              (* [a >(=) b] *)
-    match linearize (mk_sub a b) with
-      | Const(p) ->                         (* [p >(=) 0] *)
-	  let res = Q.compare p Q.zero in
-	    if res < 0 then
-	      False
-	    else if res > 0 then
-	      True
-	    else (* [p = r] *)
-	      if alpha then True else False
-      | Linear(p, q, x, a') ->      (* [p + q*x + a' >(=) r] *) 
-	  assert(not(Q.is_zero q));
-	  let b' =  mk_addq (Q.minus (Q.div p q))
-		     (mk_multq (Q.minus (Q.inv q)) a')
-	  in
-	    if Q.is_pos q then
-	      Greater(x, alpha, b')
-	    else 
-	      Less(x, alpha, b')
-
-let mk_lt a b = mk_less (a, false, b)
-let mk_le a b = mk_less (a, true, b)
-let mk_gt a b = mk_less (b, false, a)
-let mk_ge a b = mk_less (b, true, a)
-
-let mk_negate = function
-  | True -> False
-  | False -> True
-  | Less(x, kind, a) -> Greater(x, not kind, a)
-  | Greater(x, kind, a) -> Less(x, not kind, a)
-
-let pp fmt = function
-  | True -> Pretty.string fmt "True"
-  | False -> Pretty.string fmt "False"
-  | Less(a, kind, b) ->
-      Term.pp fmt a;
-      Pretty.string fmt (if kind then " <= " else " < ");
-      Term.pp fmt b
-  | Greater(a, kind, b) ->
-      Term.pp fmt a;
-      Pretty.string fmt (if kind then " >= " else " > ");
-      Term.pp fmt b
-
-let solve x = x
+let solve =
+  Trace.func "foo2" "Ineq.solve" Fact.pp_less pp solve
 
 
-(** {6 Term comparison} *)
 
-let is_le a b =
-  let (q, ml) = poly_of a 
-  and (p, nl) = poly_of b in
-    Term.eql ml nl && Q.le q p
 
-let is_lt a b =
-  let (q, ml) = poly_of a 
-  and (p, nl) = poly_of b in
-    Term.eql ml nl && Q.lt q p
-
-let is_less (a, alpha, b) =
-  if alpha then le a b else lt a b
-
-let is_greater (a, alpha, b) =
-  less (b, alpha, a)
 

@@ -92,7 +92,7 @@ val mk_cnstrnt : Term.t -> Cnstrnt.t -> justification option -> cnstrnt
   (** [mk_cnstrnt a c j] constructs a fact for the membership [a in c]
     with justification [j]. *)
 
-val mk_less : Term.t * bool * Term.t -> justification option -> less
+val mk_less : Term.t * bool -> justification option -> less
 
 val mk_dom : Term.t * Dom.t -> justification option -> dom
 
@@ -111,7 +111,7 @@ val d_cnstrnt : cnstrnt -> Term.t * Cnstrnt.t * justification option
   (** [d_cnstrnt c] deconstructs constraint fact [c] into [(a, c, j)]
     if [c] had been constructed using [mk_cnstrnt a c j]. *)
 
-val d_less : less ->  Term.t * bool * Term.t * justification option 
+val d_less : less ->  Term.t * bool * justification option 
 
 val d_dom : dom -> Term.t * Dom.t * justification option 
 

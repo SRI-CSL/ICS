@@ -88,7 +88,14 @@ let rec mk_diseq (a, b) =
 	  
 
 let mk_less (a, alpha) =
-  Less(a, alpha)
+  match Arith.d_num a with
+    | Some(q) ->
+	if alpha then
+	  if Q.le q Q.zero then True else False
+	else
+	  if Q.lt q Q.zero then True else False
+    | None ->
+	Less(a, alpha)
     
 let mk_in (a, d) =
   match Arith.d_num a with

@@ -35,3 +35,5 @@ val union : t -> t -> t
 
 val is_disjoint : t -> t -> bool
 (** [is_disjoint u v] holds iff the [inter u v] is [None]. *)
+
+val pp : Format.formatter -> t -> unit
