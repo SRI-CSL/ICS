@@ -67,8 +67,8 @@ let complement = function
   | F -> T
   | Pos -> Nonpos
   | Neg -> Nonneg
-  | Nonneg -> Pos
-  | Nonpos -> Neg
+  | Nonneg -> Neg
+  | Nonpos -> Pos
   | T -> F
   | _ -> raise (Invalid_argument "not complementable")
 
