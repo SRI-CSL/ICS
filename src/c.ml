@@ -143,31 +143,71 @@ let diseq d s =
 
 (*s Deduce new constraints from newly derived arithmetic facts. *)
 
-let deduce (x, b) (c, d) = 
+let rec deduce (x, b) c = 
   Trace.msg "c" "Deduce" (x, b) Term.pp_equal;
-  let i = find c x in             
-  match cnstrnt_split c b with
-    | Some(_, j), None ->
-	(match Cnstrnt.cmp i j with
-	   | Binrel.Disjoint -> raise Exc.Inconsistent
-	   | Binrel.Same -> c
-	   | Binrel.Sub -> c
-	   | Binrel.Super -> update x j c
-	   | Binrel.Overlap(ij) -> update x ij c
-	   | Binrel.Singleton(q) ->
-	       Set.fold 
-		 (fun y ->
-		    add (Fact.mk_cnstrnt y (Cnstrnt.mk_diseq q) None))
-		 (D.deq d x)
-		 (update x (Cnstrnt.mk_singleton q) c))
-    | Some(_, j), Some(b'') when is_var b'' ->
-	let k = Cnstrnt.subtract i j in
-	update b'' k c
-    | _ -> 
-	c
- 
-		
+  try
+    let i = apply c x in                                  
+    match cnstrnt_split c b with
+      | Some(_, j), None ->
+	  (match Cnstrnt.cmp i j with
+	     | Binrel.Disjoint -> raise Exc.Inconsistent
+	     | Binrel.Same -> 
+		 c
+	     | Binrel.Sub -> 
+		 propagate b i c
+	     | Binrel.Super -> 
+		 update x j (propagate b j c)
+	     | Binrel.Overlap(ij) -> 
+		 update x ij (propagate b ij c)
+	     | Binrel.Singleton(q) ->
+		 let k = Cnstrnt.mk_singleton q in
+		 update x k (propagate b k c))
+      | Some(_, j), Some(b'')  ->
+	  if is_var b'' then
+	    let k = Cnstrnt.subtract i j in
+	    update b'' k c
+	  else 
+	    c
+      | _ -> 
+	  c
+  with
+      Not_found ->
+	refine (x, b) c
 
+(*s Propagate constraints for [b in i] for each variable [x] in [b].
+  Suppose [b] is of the form [pre + q * x + post'], then
+  [x in 1/q * (i - (j + k))] is derived, where [pre in j] and
+  [post' in k]. Following should be optimized. *)
+
+and propagate b i c =
+  let rec loop j post c = 
+    match post with
+      | [] -> c
+      | m :: post' ->
+	  try
+	    let (q, x) = Arith.mono_of m in
+	    let k = cnstrnt c (Arith.mk_addl post') in
+	    let j' = Cnstrnt.add (Cnstrnt.multq q (cnstrnt c x)) j in
+            let i' = Cnstrnt.multq (Mpa.Q.inv q) (Cnstrnt.subtract i (Cnstrnt.add j k)) in
+	    let c' = add (Fact.mk_cnstrnt x i' None) c in
+	    loop j' post' c'
+	  with
+	      Not_found -> c  (* should not happen. *)
+  in
+  loop Cnstrnt.mk_zero (Arith.monomials b) c
+  
+and refine (x, b) c =
+  try
+    let j = cnstrnt c b in
+    match Cnstrnt.status j with
+      | Status.Empty -> 
+	  raise Exc.Inconsistent
+      | _ ->
+	  update x j c
+  with
+      Not_found -> c
+
+		
 (*s Split. *)
 
 let split s =
@@ -184,7 +224,6 @@ let split s =
 let changed s = s.changed
 
 let reset s = {s with changed = Set.empty}
-
 
 (*s Pretty-printing. *)
 
