@@ -74,7 +74,6 @@ CMO = sign.cmo three.cmo \
       term.cmo \
       trace.cmo \
       arith.cmo \
-      nonlin.cmo \
       tuple.cmo \
       bitvector.cmo \
       boolean.cmo \
