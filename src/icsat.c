@@ -369,7 +369,7 @@ void icsat_set_cleanup_period(value x1) {
 }
 
 
-value icsat_get_assignment(value int) {
+value icsat_get_assignment(value x1) {
   CAMLparam1(x1);
   CAMLreturn(Val_int(sat_get_assignment(Int_val(x1))));
 }
