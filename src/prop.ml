@@ -335,8 +335,6 @@ let stackpp () =
   Stack.iter (Context.pp Format.std_formatter) stack
 let _ = Callback.register "prop_stackpp" stackpp
 
-
-
 let add i =
   let a = id_to_atom i in
   match Context.add (top()) a with

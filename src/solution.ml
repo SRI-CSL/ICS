@@ -195,7 +195,7 @@ and eqs = ref []
 
 (** Fuse. *)
 
-let rec fuse i is_inconsistent (p, s) r = 
+let rec fuse i (p, s) r = 
   Trace.msg (Th.to_string i) "Fuse" r (Pretty.list Fact.pp_equal);
   Set.fold 
     (fun x acc ->
@@ -203,13 +203,12 @@ let rec fuse i is_inconsistent (p, s) r =
 	 let (b, prf) = justification s x in     (* [prf |- x = b]. *)
 	 let (b', prfs) = norm i r b in          (* [prfs |- b = b']. *)
 	 let e' = Fact.mk_equal x b' (Fact.mk_rule "trans" (prf :: prfs)) in
-	   update i is_inconsistent e' acc
+	   update i e' acc
        with
 	   Not_found -> acc)
     (dom s r)
     (p, s)
 
-	  
 and dom s r = 
   List.fold_right
     (fun e ->
@@ -217,34 +216,31 @@ and dom s r =
 	 Set.union (use s x))
     r Set.empty
 
-and update i is_inconsistent e (p, s) =
-  if is_inconsistent e then
-    raise Exc.Inconsistent
-  else 
-    let (x, b, prf1) = Fact.d_equal e in            (* [prf1 |- x = b]. *)
-      assert(is_var x);
-      if Term.eq x b then
-	(p, restrict i x s)
-      else if is_var b then
-	vareq i e (p, s)
-      else
-	try
-	  let y = inv s b in 
-	    if Term.eq x y then (p, s) else 
-	      let e' = Fact.mk_equal x y None in
-	      let p' = Partition.merge e' p in
-	      let s' = 
-		if y <<< x then 
-		  restrict i x s 
-		else 
-		  let s' = restrict i y s in
-		    union i e s'
-	      in
-		(p', s')
-	with
-	    Not_found ->
-	      let s' = union i e s in
-		(p, s')
+and update i e (p, s) =
+  let (x, b, prf1) = Fact.d_equal e in            (* [prf1 |- x = b]. *)
+    assert(is_var x);
+    if Term.eq x b then
+      (p, restrict i x s)
+    else if is_var b then
+      vareq i e (p, s)
+    else
+      try
+	let y = inv s b in 
+	  if Term.eq x y then (p, s) else 
+	    let e' = Fact.mk_equal x y None in
+	    let p' = Partition.merge e' p in
+	    let s' = 
+	      if y <<< x then 
+		restrict i x s 
+	      else 
+		let s' = restrict i y s in
+		  union i e s'
+	    in
+	      (p', s')
+      with
+	  Not_found ->
+	    let s' = union i e s in
+	      (p, s')
 		
 and vareq i e (p, s) = 
   let (x, y, prf1) = Fact.d_equal e in          (* [prf1 |- x = y]. *)
@@ -268,10 +264,10 @@ and vareq i e (p, s) =
 
 (** Composition. *)
 
-let compose i is_inconsistent (p, s) r =
+let compose i (p, s) r =
   Trace.call (Th.to_string i) "Compose" r (Pretty.list Fact.pp_equal);
-  let (p', s') = fuse i is_inconsistent (p, s) r in
-  let (p'', s'') = List.fold_right (update i is_inconsistent) r (p', s') in
+  let (p', s') = fuse i (p, s) r in
+  let (p'', s'') = List.fold_right (update i) r (p', s') in
     Trace.exit (Th.to_string i) "Compose" () Pretty.unit;
     (p'', s'')
 

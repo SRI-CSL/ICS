@@ -299,10 +299,10 @@ negatable:
 | TT                       { Atom.mk_true }
 | term EQUAL term          { Atom.mk_equal($1, $3)}
 | term DISEQ term          { Atom.mk_diseq($1, $3) }
-| term LESS term           { Atom.mk_less($1, false, $3) }
-| term GREATER term        { Atom.mk_greater($1, false, $3) }
-| term LESSOREQUAL term    { Atom.mk_less($1, true, $3) }
-| term GREATEROREQUAL term { Atom.mk_greater($1, true, $3)}
+| term LESS term           { Atom.mk_less(Arith.mk_sub $1 $3, false) }
+| term GREATER term        { Atom.mk_less(Arith.mk_sub $3 $1, false) }
+| term LESSOREQUAL term    { Atom.mk_less(Arith.mk_sub $1 $3, true) }
+| term GREATEROREQUAL term { Atom.mk_less(Arith.mk_sub $3 $1, true) }
 
 atom:
   negatable                { $1 }

@@ -26,27 +26,11 @@
 
 type t
 
-module Low : sig 
-  
-  type t = 
-    | Neginf 
-    | Bound of bool * Term.t
+type bound = 
+  | Posinf
+  | Neginf
+  | Bound of bool * Term.t
 
-  val eq : t -> t -> bool
-  val le : t -> t -> bool
-
-end
-
-module High : sig
-
-  type t =
-    | Posinf
-    | Bound of Term.t * bool
-
-  val eq : t -> t -> bool
-  val gt : t -> t -> bool
-
-end
 
 (** {6 Constructors} *)
 
@@ -91,38 +75,15 @@ val mk_greater : Dom.t -> (bool * Term.t) -> t
 val dom_of : t -> Dom.t
   (** Get interpretation domain of a constraint. *)
 
-val high_of : t -> Mpa.Q.t * bool
-
-val low_of : t -> bool * Mpa.Q.t
-
-val numeric_of : t -> t
-
 val d_equalities : t -> Term.Set.t * t
   (** [d_equalities c] destructs [c] into a pair [(es, d)]
     consisting of the implied equalities in [es] and the 
     remaining nonequality constraints [d]. *)
 
-val implied : t -> Arith.ineq list
-  (** [implied c] returns a list of all nontrivially implied inequalities of [c]. *)
-
-val equal : Term.t -> t -> Arith.ineq list
-
-
 (** {6 Recognizers} *)
 
 val is_empty : t -> bool
   (** [is_empty c] holds iff [C(c)] is the empty set. *)
-
-val is_full : t -> bool
-  (** [is_real c] holds iff [C(c)] is the real number line *)
-
-val is_unbounded : t -> bool
-  (** [is_unbounded c] holds if both the lower and the upper
-    endpoint are nonrational. *)
-
-val is_finite : t -> bool
-  (** [is_finite c] holds if [C(c)] is finite. *)
-
 
 (** {6 Relations} *)
 
@@ -136,25 +97,6 @@ val disjoint : t -> t -> bool
   (** [disjoint c d] holds iff [C(c)] and [C(d)] are disjoint. *)
 
 
-type rel = 
-  | Disjoint
-  | Same
-  | Sub
-  | Super
-  | Overlap
-
-val cmp : t -> t -> rel
-  (** [cmp c d] returns 
-    - [Sub] if [sub c d] holds and [eq c d] does not hold
-    - [Equal] if [eq c d] holds
-    - [Super] if [sub d c] holds and [eq d c] does not hold
-    - [Disjoint] if [disjoint c d] holds
-    - [Singleton(q)] if the intersection [inter c d] denotes a singleton
-                     set with element [q].
-    - [Overlap(e)] if none of the above holds, and [e] is the intersection
-                     of [c] and [d]. *)
-
-
 (** {6 Connectives} *)
 
 val inter : t -> t -> t
@@ -165,23 +107,29 @@ val inter : t -> t -> t
 
 val pp : t Pretty.printer
 
+(** {6 Adding new constraints} *)
+
+val add_lower : bool * Term.t -> t -> t
+val add_upper : bool * Term.t -> t -> t
+val add_dom : Dom.t -> t -> t
+
 
 (** {6 Iterators} *)
 
-val fold : (Low.t * High.t -> 'a -> 'a) -> t -> 'a -> 'a
-  (** Fold over all intervals *)
+val exists : (bound * bound -> bool) -> t -> bool
 
-val exists : (Low.t * High.t -> bool) -> t -> bool
+val exists_lower : (bool * Term.t -> bool) -> t -> bool
+val exists_upper : (bool * Term.t -> bool) -> t -> bool
 
-val exists_low : (Low.t -> bool) -> t -> bool
-val exists_high : (High.t -> bool) -> t -> bool
+val fold : (bound * bound -> 'a -> 'a) -> t -> 'a -> 'a
 
+val fold_lower : (bool * Term.t -> 'a -> 'a) -> t -> 'a -> 'a
 
-val varfold : (Term.t -> 'a -> 'a) -> t -> 'a -> 'a
-  (** Folding over all variables. *)
+val fold_upper : (bool * Term.t -> 'a -> 'a) -> t -> 'a -> 'a
 
 val replace : Term.t -> Term.t -> t -> t
   (** [replace x a c] replaces all occurrences of [x] in [c] by [a]. *)
+
 
 (** {6 Constraint abstraction} *)
 
@@ -189,23 +137,17 @@ val of_term : (Term.t -> t) -> Term.t -> t
 
 val of_addl : (Term.t -> t) -> Term.t list -> t
 
-
-(** {6 Tests} *)
-
-val occurs : Term.t -> t -> bool
-  (** [occurs x c] holds iff variable [x] is a subterm of some bound in [c]. *)
-  
 val is_int : (Term.t -> t) -> Term.t -> bool
-  (** Test if arithmetic term is integer. *)
 
-val notin : Term.t -> t -> bool
-  (** [notin a c] returns [false] when [a] is known to be not in [c]. *)
   
 val is_diophantine : (Term.t -> t) -> Term.t -> bool
   (** [is_diophantine c a] holds if all variables in the linear 
     arithmetic term [a] are interpreted over the integers, that is,
     if [c(x)] yields a subconstraint of {!Cnstrnt.int}. *)
- 
-val implies_upper : t -> (Term.t * bool) -> Three.t
 
-val implies_lower : t -> (bool * Term.t) -> Three.t
+
+(** {6 Tests} *)
+
+val occurs : Term.t -> t -> bool
+  (** [occurs x c] holds iff variable [x] is a subterm of some bound in [c]. *)
+ 

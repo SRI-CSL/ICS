@@ -24,7 +24,7 @@ type t
 
 (** {6 Accessors} *)
 
-val cnstrnts : t -> (Cnstrnt.t * Fact.justification option) Var.Map.t
+val cnstrnts : t -> (Cnstrnt.t * Fact.justification option) Term.Map.t
   (** [cnstrnts s] returns a map with bindings [x |-> (i, prf)] iff
     [x in i] is stored in [s] with justification [prf]. *)
 
@@ -49,7 +49,7 @@ val mem : Term.t -> t -> bool
 val eq : t -> t -> bool
   (** [eq s t] when [s] and [t] are physically equal. *)
 
-val holds : t -> Arith.ineq -> bool
+val is_less : t -> Term.t * bool -> bool
 
 
 (** {6 Context manipulations} *)
@@ -57,9 +57,9 @@ val holds : t -> Arith.ineq -> bool
 val empty : t 
   (** Empty constraint context. *)
 
-val add : (Term.t -> Term.t) -> (Term.t -> Cnstrnt.t -> bool) -> Fact.cnstrnt -> t -> Fact.Equalset.t * t
+val add : Fact.less -> t -> Fact.Equalset.t * t
 
-val merge :  (Term.t -> Term.t) -> (Term.t -> Cnstrnt.t -> bool) ->  Fact.equal list -> t -> Fact.Equalset.t * t
+val merge : Fact.equal -> t -> Fact.Equalset.t * t
   (** Merge a variable equality [x = y] in the constraint map by
     adding [x in ij] for the canonical variable [x], where [x in i],
     [y in j] are in the constraint map and [ij] is the intersection of

@@ -34,6 +34,12 @@ type diseq
 type cnstrnt
   (** The type of cnstrnt constraints. *)
 
+type less
+  (** The type of inequality facts *)
+
+type dom
+  (** The type of domain constraints. *)
+
 
 (** {6 Injections} *)
 
@@ -44,6 +50,8 @@ type t
 val of_equal : equal -> t
 val of_diseq : diseq -> t
 val of_cnstrnt : cnstrnt -> t
+val of_less : less -> t
+val of_dom : dom -> t
 
 
 (** {6 Justifications} *)
@@ -84,6 +92,10 @@ val mk_cnstrnt : Term.t -> Cnstrnt.t -> justification option -> cnstrnt
   (** [mk_cnstrnt a c j] constructs a fact for the membership [a in c]
     with justification [j]. *)
 
+val mk_less : Term.t * bool * Term.t -> justification option -> less
+
+val mk_dom : Term.t * Dom.t -> justification option -> dom
+
 
 (** {6 Accessors} *)
 
@@ -99,6 +111,9 @@ val d_cnstrnt : cnstrnt -> Term.t * Cnstrnt.t * justification option
   (** [d_cnstrnt c] deconstructs constraint fact [c] into [(a, c, j)]
     if [c] had been constructed using [mk_cnstrnt a c j]. *)
 
+val d_less : less ->  Term.t * bool * Term.t * justification option 
+
+val d_dom : dom -> Term.t * Dom.t * justification option 
 
 (** {6 Pretty-printing} *)
 
@@ -107,6 +122,7 @@ val pp : t Pretty.printer
 val pp_equal : equal Pretty.printer
 val pp_diseq : diseq Pretty.printer
 val pp_cnstrnt : cnstrnt Pretty.printer
+val pp_less : less Pretty.printer
 
 
 (** {6 Sets} *)

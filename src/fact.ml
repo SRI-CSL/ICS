@@ -16,6 +16,8 @@ type t =
   | Equal of equal
   | Diseq of diseq
   | Cnstrnt of cnstrnt
+  | Less of less
+  | Dom of dom
 
 and justification =
   | Axiom
@@ -26,6 +28,11 @@ and equal = Term.t * Term.t * justification option
 and diseq = Term.t * Term.t * justification option
 
 and cnstrnt = Term.t * Cnstrnt.t * justification option
+
+and less = Term.t * bool * Term.t * justification option
+
+and dom = Term.t * Dom.t * justification option
+
 
 and rule = string 
 
@@ -54,23 +61,35 @@ let mk_diseq x y j =
     Trace.msg "fact" "Diseq" (x, y) Term.pp_diseq;
     (x, y, j)
 
-let rec mk_cnstrnt x c j = 
+let mk_cnstrnt x c j = 
   Trace.msg "fact" "Cnstrnt" (x, c) (Pretty.infix Term.pp " in " Cnstrnt.pp);
   (x, c, j)
+
+let mk_less (a, alpha, b) j = 
+  (a, alpha, b, j)
+
+let mk_dom (a, d) j = 
+  (a, d, j)
 
 
 let d_equal e = e
 let d_diseq d = d
 let d_cnstrnt c = c
+let d_less l = l
+let d_dom d = d
 
 let of_equal e = Equal(e)
 let of_diseq d = Diseq(d)
 let of_cnstrnt c = Cnstrnt(c)
+let of_less (a, alpha, b, j) = Less(a, alpha, b, j)
+let of_dom (a, d, j) = Dom(a, d, j)
 
 let rec pp fmt = function
   | Equal(x, y, _) ->  Pretty.infix Term.pp "=" Term.pp fmt (x, y)
   | Diseq(x, y, _) ->  Pretty.infix Term.pp "<>" Term.pp fmt (x, y)
   | Cnstrnt(x, c, _) -> Pretty.infix Term.pp "in" Cnstrnt.pp fmt (x, c)
+  | Less(a, alpha, b, _) -> Pretty.infix Term.pp (if alpha then "<= " else "<") Term.pp fmt (a, b)
+  | Dom(a, d,_) -> Pretty.infix Term.pp "in" Dom.pp fmt (a, d)
 
 and pp_equal fmt e = 
   let (x, y, _) = d_equal e in
@@ -83,6 +102,10 @@ and pp_diseq fmt d =
 and pp_cnstrnt fmt c = 
   let (x, i, _) = d_cnstrnt c in
   Pretty.infix Term.pp "in" Cnstrnt.pp fmt (x, i)
+
+and pp_less fmt c = 
+  let (a, alpha, b, _) = d_less c in
+    Pretty.infix Term.pp (if alpha then "<= " else "<") Term.pp fmt (a, b)
 
 
 module Equalset = Set.Make(

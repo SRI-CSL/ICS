@@ -464,10 +464,10 @@ let _ = Callback.register "atom_mk_int" atom_mk_int
 let atom_mk_nonint a = Atom.mk_in (a, Dom.Nonint)
 let _ = Callback.register "atom_mk_nonint" atom_mk_nonint
 
-let atom_mk_lt a b = Atom.mk_less (a, false, b)
+let atom_mk_lt a b = Atom.mk_less (Arith.mk_sub a b, false)
 let _ = Callback.register "atom_mk_lt"  atom_mk_lt
 
-let atom_mk_le a b = Atom.mk_less (a, true, b)
+let atom_mk_le a b = Atom.mk_less (Arith.mk_sub a b, true)
 let _ = Callback.register "atom_mk_le"  atom_mk_le
 
 let atom_mk_gt a b = atom_mk_lt b a

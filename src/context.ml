@@ -208,40 +208,19 @@ and zsolve e =
 and integer_solve = ref false
 
 let fuse i e s =
-  let is_inconsistent _ = false in
-    update s i (Solution.fuse i is_inconsistent (s.p, eqs_of s i) [e])
+  update s i (Solution.fuse i (s.p, eqs_of s i) [e])
 
 let rec compose i e s =
-  let is_inconsistent e =
-    (Th.eq i Th.la) &&
-    let (x, a, _) = Fact.d_equal e in
-      try Cnstrnt.notin a (c s x) with Not_found -> false
-  in
   let (a, b, prf) = Fact.d_equal e in
   let a' = find i s a 
   and b' = find i s b in
   let e' = Fact.mk_equal a' b' None in
     try
       let sl' = solve i s e' in
-	let s' = update s i (Solution.compose i is_inconsistent (s.p, eqs_of s i) sl') in
-	let s'' = if Th.eq i Th.la then cmerge sl' s' else s' in
-	  s''
+	update s i (Solution.compose i (s.p, eqs_of s i) sl')
     with
 	Exc.Unsolved ->   (* Incomplete Solver *)
 	  ignore i e s
-
-and cmerge el s =
-  Trace.msg "rule" "Cmerge" el (Pretty.list Fact.pp_equal);
-  let (es', c') = C.merge (apply Th.la s) (is_inconsistent s) el s.c in
-    s.c <- c'; 
-    Fact.Equalset.fold (compose Th.la) es' s
-
-and is_inconsistent s x c =
-  try
-    let a = apply Th.la s x in
-      Cnstrnt.notin a c
-  with
-      Not_found -> false
 
 and ignore i e s =
   let (a, b, prf) = Fact.d_equal e in
@@ -255,16 +234,14 @@ and ignore i e s =
 (** Propagating a variable equality into all the other solution sets. *)
 let propagate e s =           
   (compose Th.la e
-     (cmerge [e]
-	(compose Th.p e
-	   (compose Th.bv e
-	      (compose Th.cop e
-		 (fuse Th.u e
-		    (fuse Th.pprod e
-		       (fuse Th.app e
-			  (fuse Th.arr e
-			     (fuse Th.bvarith e s))))))))))
-     
+     (compose Th.p e
+	(compose Th.bv e
+	   (compose Th.cop e
+	      (fuse Th.u e
+		 (fuse Th.pprod e
+		    (fuse Th.app e
+		       (fuse Th.arr e
+			  (fuse Th.bvarith e s)))))))))     
 
 (* Return a name for a nonvariable term. *)
 
@@ -373,8 +350,7 @@ and split_arrays s =
 
 let rec merge e s =
   let p' = Partition.merge e s.p in
-    s.p <- p';
-    cmerge [e] s
+    s.p <- p'; s
 
 let diseq d s =
   let p' = Partition.diseq d (p_of s) in
@@ -383,20 +359,15 @@ let diseq d s =
 
 (** Adding a constraint. *)
 
-let rec add c s =
-  Trace.msg "rule" "Add" c Fact.pp_cnstrnt;
-  let (es', c') = C.add (apply Th.la s) (is_inconsistent s) c s.c in
-    s.c <- c';
-    let s = Fact.Equalset.fold (compose Th.la) es' s in
-      infer c s
+let rec less c s =
+  Trace.msg "rule" "Less" c Fact.pp_less;
+  let (es', c') = C.add c s.c in
+    s.c <- c'; s
 
-and infer c s =
-  let (x, c, prf) = Fact.d_cnstrnt c in
-    folduse Th.la x
-      (fun (y, b) s ->
-	 let e = Fact.mk_equal y b None in
-	   cmerge [e] s)
-      s
+(** Add a domain constraint *)
+
+let dom d s =
+  failwith "to do"
 
 
 (** Garbage collection. Remove all variables [x] which are are scheduled
@@ -594,8 +565,7 @@ module Can = struct
 	 | Atom.True -> Atom.True
 	 | Atom.Equal(a, b) -> equal s (a, b)
 	 | Atom.Diseq(a, b) -> diseq s (a, b)
-	 | Atom.Less(a, kind, b) ->  less s (a, kind, b)
-	 | Atom.Greater(a, kind, b) -> greater s (a, kind, b)
+	 | Atom.Less(a, kind) ->  less s (a, kind)
 	 | Atom.In(a, d) -> cnstrnt s (a, d)
 	 | Atom.False -> Atom.False)
       
@@ -636,27 +606,14 @@ module Can = struct
       if Pp.is_one d then (a, b) else
 	(Sig.mk_mult a d, Sig.mk_mult b d)
 
-  and less s (x, beta, b) =   (* [x <(=) b] *)
-    let x = can s x
-    and b = fnd Th.la s (can s b) in (* use arithmetic interp if possible *)
-    let ineq = Arith.mk_less (x, beta, b) in
-      if C.holds s.c ineq then
+  and less s (a, beta) =   (* [a <(=) 0] *)
+    let a = fnd Th.la s (can s a) in  (* use arithmetic interp if possible *)
+      if C.is_less s.c (a, beta) then
 	Atom.mk_true
-      else if C.holds s.c (Arith.negate ineq) then
+      else if C.is_less s.c (Arith.mk_multq Q.negone a, not beta) then
 	Atom.mk_false
       else 
-	Atom.of_ineq ineq
-	    
-  and greater s (x, alpha, a) =  (* [x >(=) a] *)
-    let x = can s x
-    and a =  fnd Th.la s (can s a) in
-    let ineq = Arith.mk_greater (x, alpha, a) in
-      if C.holds s.c ineq then
-	Atom.mk_true
-      else if C.holds s.c (Arith.negate ineq) then
-	Atom.mk_false
-      else 
-	Atom.of_ineq ineq
+	Atom.mk_less (a, beta)
 
   and cnstrnt s (a, d) =
     let a = can s a in
@@ -685,12 +642,19 @@ module Abstract = struct
     let (s'', y') = toplevel_term (s', b) in
     let d' = Fact.mk_diseq x' y' None in
       (s'', d')
- 
-  and cnstrnt (s, c) =  
-    let (a, i, _) = Fact.d_cnstrnt c in
-    let (s', a') = toplevel_term (s, a) in
-    let c' = Fact.mk_cnstrnt a' i None in
-      (s', c')
+
+  and less (s, l) =
+    let (a, alpha, b, _) = Fact.d_less l in
+    let (s', x') = toplevel_term (s, a) in
+    let (s'', y') = toplevel_term (s', b) in
+    let l' = Fact.mk_less (x', alpha, y') None in
+      (s'', l')
+
+  and dom (s, d) =
+    let (a, d, _) = Fact.d_dom d in
+    let (s', x') = toplevel_term (s, a) in
+    let l' = Fact.mk_dom  (x', d) None in
+      (s', l')
 
   and toplevel_term (s, a) =
     term u (s, a)
@@ -859,7 +823,8 @@ module Bvarith = struct
       match b with
 	| App(Bvarith(Unsigned), [y]) ->   (* [x = unsigned(y)] *)      
 	    let c = Fact.mk_cnstrnt (v s x) Cnstrnt.mk_nat None in
-	      add c s
+	      (* add c s *)
+              s
 	| _ -> 
 	    s
 end
@@ -911,7 +876,8 @@ module Nonlin = struct
       try
 	let c = Pp.cnstrnt (c s) b in
 	let cnstrnt = Fact.mk_cnstrnt (v s x) c None in
-	  add cnstrnt s
+	  (* add cnstrnt s *)
+	  s
       with
 	  Not_found -> s
 
@@ -1011,18 +977,15 @@ module Process = struct
 	     | Atom.Equal(a, b) ->
 		 let e = Fact.mk_equal a b Fact.mk_axiom in
 		   Status.Ok(merge_atom atom e s)
-	     | Atom.Diseq(a, b) -> 
+	     | Atom.Diseq(a, b) ->
 		 let d = Fact.mk_diseq a b Fact.mk_axiom in
 		   Status.Ok(diseq_atom atom d s)
-	     | Atom.Less(x, kind, a) ->
-		 let c = Cnstrnt.mk_less Dom.Real (a, kind) in
-		   Status.Ok(add_atom atom (Fact.mk_cnstrnt x c Fact.mk_axiom) s)
-	     | Atom.Greater(x, kind, a) ->
-		 let c = Cnstrnt.mk_greater Dom.Real (kind, a) in
-		   Status.Ok(add_atom atom (Fact.mk_cnstrnt x c Fact.mk_axiom) s)
+	     | Atom.Less(a, kind) ->
+		 let l = Fact.mk_less (a, kind, Arith.mk_zero) Fact.mk_axiom in
+		   Status.Ok(less_atom atom l s)
 	     | Atom.In(a, d) ->
-		 let c = Fact.mk_cnstrnt a (Cnstrnt.mk_dom d) Fact.mk_axiom in
-		   Status.Ok(add_atom atom c s)
+		 let c = Fact.mk_dom (a, d) Fact.mk_axiom in
+		   Status.Ok(dom_atom atom c s)
 	   with 
 	       Exc.Inconsistent -> 
 		 Status.Inconsistent)
@@ -1035,12 +998,20 @@ module Process = struct
 	 let s'' = merge e' s' in
 	   Rule.close s'')
       
-  and add_atom a c = 
+  and less_atom a c = 
     protect
       (fun s  -> 
 	 s.ctxt <- Atom.Set.add a s.ctxt;
-	 let (s', c') = Abstract.cnstrnt (s, c) in
-	 let s'' = add c' s' in
+	 let (s', c') = Abstract.less (s, c) in
+	 let s'' = less c' s' in
+	   Rule.close s'')
+
+  and dom_atom a d = 
+    protect
+      (fun s  ->
+	 s.ctxt <- Atom.Set.add a s.ctxt;
+	 let (s', d') = Abstract.dom (s, d) in
+	 let s'' = dom d' s' in
 	   Rule.close s'')
 
   and diseq_atom a d =

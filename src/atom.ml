@@ -20,21 +20,26 @@ type t =
   | True
   | Equal of Term.t * Term.t           (* represents [a = b]. *)
   | Diseq of Term.t * Term.t           (* represents [a <> b]. *)
-  | Less of Term.t * bool * Term.t     (* represents [a < q] or [a <= q]. *)
-  | Greater of Term.t * bool * Term.t  (* represents [a > q] or [a >= q]. *)
+  | Less of Term.t * bool              (* represents [a < 0] or [a <= 0]. *)
   | In of Term.t * Dom.t               (* represents [a in d] *)
   | False
 
 let eq a b =
   match a, b with
-    | True, True -> true
-    | False, False -> true
-    | Equal(a1, b1), Equal(a2, b2) -> Term.eq a1 a2 && Term.eq b1 b2
-    | Diseq(a1, b1), Diseq(a2, b2) -> Term.eq a1 a2 && Term.eq b1 b2
-    | Less(a1, alpha1, b1), Less(a2, alpha2, b2) -> Term.eq a1 a2 && alpha1 = alpha2 && Term.eq b1 b2
-    | Greater(a1, alpha1, b1), Greater(a2, alpha2, b2) -> Term.eq a1 a2 && alpha1 = alpha2 && Term.eq b1 b2
-    | In(a1, d1), In(a2, d2) -> Term.eq a1 a2 && Dom.eq d1 d2
-    | _ -> false
+    | True, True -> 
+	true
+    | False, False -> 
+	true
+    | Equal(a1, b1), Equal(a2, b2) -> 
+	Term.eq a1 a2 && Term.eq b1 b2
+    | Diseq(a1, b1), Diseq(a2, b2) -> 
+	Term.eq a1 a2 && Term.eq b1 b2
+    | Less(a1, alpha1), Less(a2, alpha2) -> 
+	Term.eq a1 a2 && alpha1 = alpha2
+    | In(a1, d1), In(a2, d2) -> 
+	Term.eq a1 a2 && Dom.eq d1 d2
+    | _ -> 
+	false
 
 
 (** {6 Set of atoms} *)
@@ -82,16 +87,9 @@ let rec mk_diseq (a, b) =
     Diseq(a, b)
 	  
 
-let mk_less (a, alpha, b) =
-  match Arith.mk_less (a, alpha, b) with
-    | Arith.True -> True
-    | Arith.False -> False
-    | Arith.Less(x, beta, c) -> Less(x, beta, c)
-    | Arith.Greater(x, beta, c) -> Greater(x, beta, c)
-
-let mk_greater (a, alpha, b) =              (* [a >(=) b] *)
-  mk_less (b, alpha, a)
-
+let mk_less (a, alpha) =
+  Less(a, alpha)
+    
 let mk_in (a, d) =
   match Arith.d_num a with
     | Some(q) -> 
@@ -122,14 +120,9 @@ let pp fmt = function
       Term.pp fmt a;
       Pretty.string fmt " <> ";
       Term.pp fmt b
-  | Less(a, kind, b) ->
+  | Less(a, kind) ->
       Term.pp fmt a;
-      Pretty.string fmt (if kind then " <= " else " < ");
-      Term.pp fmt b
-  | Greater(a, kind, b) ->
-      Term.pp fmt a;
-      Pretty.string fmt (if kind then " >= " else " > ");
-      Term.pp fmt b;
+      Pretty.string fmt (if kind then " <= 0 " else " < 0 ")
   | In(a, d) ->
       Term.pp fmt a;
       Pretty.string fmt " in ";
@@ -146,19 +139,12 @@ let negate = function
   | False -> mk_true
   | Equal(a, b) -> mk_diseq (a, b)
   | Diseq(a, b) -> mk_equal (a, b)
-  | Less(a, kind, q) -> mk_greater (a, not kind, q)
-  | Greater(a, kind, q) -> mk_less (a, not kind, q)
+  | Less(a, kind) -> mk_less (Arith.mk_multq Q.negone a, not kind)
   | a -> 
       let str = Pretty.to_string pp a in
       raise (Invalid_argument ("Atom " ^ str ^ " not negatable."))
 
 let _ = Callback.register "atom_negate" negate
-
-let of_ineq = function
-  | Arith.True -> True
-  | Arith.False -> False
-  | Arith.Less(x, alpha, a) -> Less(x, alpha, a)
-  | Arith.Greater(x, alpha, a) -> Greater(x, alpha, a)
 
 
 (** {6 Miscellaneous} *)
@@ -168,8 +154,7 @@ let vars_of = function
   | False -> Term.Set.empty
   | Equal(a, b) -> Term.Set.union (Term.vars_of a) (Term.vars_of b)
   | Diseq(a, b) -> Term.Set.union (Term.vars_of a) (Term.vars_of b)
-  | Less(a, _, b) -> Term.Set.union (Term.vars_of a) (Term.vars_of b)
-  | Greater(a, _, b) -> Term.Set.union (Term.vars_of a) (Term.vars_of b)
+  | Less(a, _) -> Term.vars_of a
   | In(a, _) -> Term.vars_of a
 
 let list_of_vars a = 
@@ -185,8 +170,7 @@ let occurs x a =
       | False -> false
       | Equal(s, t) -> term_occurs s || term_occurs t
       | Diseq(s, t) -> term_occurs s || term_occurs t
-      | Less(s, _, t) -> term_occurs s || term_occurs s
-      | Greater(s, _, t) -> term_occurs s || term_occurs t
+      | Less(s, _) -> term_occurs s
       | In(s, _) -> term_occurs s
 
 let is_connected a b =
@@ -194,11 +178,13 @@ let is_connected a b =
     | Var(x) -> occurs x b
     | App(_, sl) -> List.exists term_is_connected sl
   in
+  let terms_is_connected (s, t) = 
+    term_is_connected s || term_is_connected t
+  in
     match a with
       | True -> false
       | False -> false
-      | Equal(s, t) -> term_is_connected s || term_is_connected t
-      | Diseq(s, t) -> term_is_connected s || term_is_connected t
-      | Less(s, _, t) -> term_is_connected s || term_is_connected t
-      | Greater(s, _, t) -> term_is_connected s || term_is_connected t
+      | Equal(s, t) -> terms_is_connected (s, t)
+      | Diseq(s, t) -> terms_is_connected (s, t)
+      | Less(s, _) -> term_is_connected s
       | In(s, _) -> term_is_connected s
