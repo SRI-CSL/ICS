@@ -49,7 +49,7 @@ LIBS = -cclib "-lunix $(LIBGMPA)"
 
 COBJS = mlgmp.o
 
-CMO = cmp.cmo gmp.cmo mpa.cmo qext.cmo \
+CMO = cmp.cmo gmp.cmo mpa.cmo \
       hashcons.cmo hasht.cmo \
       ptset.cmo ptmap.cmo \
       tools.cmo binrel.cmo \
