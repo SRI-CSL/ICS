@@ -98,7 +98,7 @@ let rec add d s =
 (*s Propagating an equality between variables. *)
 
 let merge e s =
-  let (a, b,_) = Fact.d_equal e in
+  let (a, b, _) = Fact.d_equal e in
   let da = deq s a and db = deq s b in
   if Term.Set.mem a db || Term.Set.mem b da then
     raise Exc.Inconsistent
