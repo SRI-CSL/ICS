@@ -364,7 +364,12 @@ let rec multl = function
   | c :: cl -> mult c (multl cl)
 
 let expt n (i,_) =
-  of_interval (Interval.expt n i)
+  if n = 0 then
+    mk_one
+  else if n < 0 then
+    mk_real
+  else
+    of_interval (Interval.expt n i)
 
 let div (i,_) (j,_) = mk_real
   
