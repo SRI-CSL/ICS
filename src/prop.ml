@@ -149,7 +149,7 @@ module Atomtbl = Hashtbl.Make(
   struct
     type t = Atom.t
     let equal = Atom.eq
-    let hash = Hashtbl.hash
+    let hash = Atom.hash  (* not clear if this is a good enough hash function. *)
   end)
 
 
@@ -157,14 +157,14 @@ module Inttbl = Hashtbl.Make(
   struct
     type t = int
     let equal = (=)
-    let hash = Hashtbl.hash
+    let hash x = x
   end)
 
 module Nametbl = Hashtbl.Make(
   struct
     type t = Name.t
     let equal = Name.eq
-    let hash = Hashtbl.hash
+    let hash = Name.hash
   end)
 
 let id = ref 0
@@ -197,9 +197,6 @@ let atom_to_icsat_id a =
   with
       Not_found -> failwith "ICSAT: no such atom id"
 
-let atom_to_icsat_id =
-  Trace.func "foo" "Atom_to_icsat_id" Atom.pp Pretty.number atom_to_icsat_id
-
 let var_to_icsat_id x =
   try
     Nametbl.find vartbl x
@@ -230,7 +227,6 @@ let to_prop p =
 	  let i = atom_to_id a in
 	  let j = atom_to_id b in
 	  let id = icsat_mk_atom i j in
-	    Trace.msg "foo6" "Idtbl.add" (a, id) (Pretty.pair Atom.pp Pretty.number);
 	    if not(Atomtbl.mem idtbl a) then
 	      Atomtbl.add idtbl a id;
 	    id
@@ -369,7 +365,7 @@ let add i =
 	       0
 	   with
 	       Not_found -> 
-		 Format.eprintf "Warning: no explanation generated";
+		 Format.eprintf "\nWarning: no explanation generated";
 		 explained := false;
 		 0)
       | Context.Status.Ok(s) -> 
@@ -441,7 +437,7 @@ let rec sat s p =
   try
     init s;
     let result = 
-      let mode = if !Justification.proofmode = Justification.Mode.No then false else true in
+      let mode = !Justification.proofmode != Justification.Mode.No in
 	if icsat_sat (to_prop p) mode then
 	  begin
 	    debug();
@@ -487,7 +483,6 @@ and assignment () =
   let literals = 
     Atomtbl.fold
       (fun a id acc ->
-	 Trace.msg "foo5" "Atom" (id, a) (Pretty.pair Pretty.number Atom.pp);
 	  (match icsat_get_assignment id with
 	     | (-1) -> Atom.negate a :: acc  
 	     | 0 -> acc               (* don't care *)
