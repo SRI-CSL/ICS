@@ -99,8 +99,8 @@ for ldir in $gmplibs; do
        AC_MSG_RESULT(found)
        LIBS=$ldir/libgmp.a
        AC_TRY_RUN([#include<string.h>
-#include<malloc.h>
-char *__gmp_version;
+#include<stdlib.h>
+extern char *__gmp_version;
 int main() {
   char *p;
   int maj;
