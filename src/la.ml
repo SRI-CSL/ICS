@@ -642,8 +642,7 @@ and process_nonneg ((_, s) as cfg) c =
 		  Not_found ->
 		    add_to_t cfg e;
 		    infer cfg
-		  
-    
+		      
 and add_to_t ((_, s) as cfg) e =
   let (k, a, rho) = Fact.Equal.destruct e in
     assert(is_restricted_var k && is_restricted a);
@@ -875,14 +874,14 @@ and process_diseq ((p, s) as cfg) d =
       process_diophantine_diseq cfg d
     else 
       process_nondiophantine_diseq cfg d 
-	
+ 
 
 (** Nondiophantine disequalities are variable-abstracted
   and added to the disequalities in the variable partitioning. *)
 and process_nondiophantine_diseq ((p, _) as cfg) d =
-  let d' = Fact.Diseq.map (name cfg) d in
-    assert(Fact.Diseq.is_var d');
-    Partition.dismerge p d'
+    let d' = Fact.Diseq.map (name cfg) d in
+      assert(Fact.Diseq.is_var d');
+      Partition.dismerge p d'
 	
 (** Whenever we add [e<>n], we calculate the largest contiguous segment [N] 
   containing [n] such that [e<>m] for [m] in [N], then with 
@@ -895,6 +894,7 @@ and process_nondiophantine_diseq ((p, _) as cfg) d =
   If both calls are free of contradiction, then we revert to
   the original state and continue processing inputs. *)
 and process_diophantine_diseq cfg d =
+  assert(Fact.Diseq.is_diophantine d);
   let (e, n, rho) = Fact.Diseq.d_diophantine d in
   let (min, max, taus) =                   (* [taus] together prove *)
     contiguous_diseq_segment cfg (e, n)    (* [e] not in [[min+1, max-1]]. *)
@@ -910,12 +910,12 @@ and process_diophantine_diseq cfg d =
 	  (match is_gt cfg (max, e)  with              
 	     | Some(tau'') ->                        (* [tau'' |- max > e] *)
 		 let rho' = Justification.dependencies (tau'' :: taus) in 
-		   (try 
-		     process_nonneg cfg              (* now: [rho' |- e <= min] *)
-		       (Fact.Nonneg.make (Arith.mk_sub min e, rho'))
-		   with                              (* reprocess! *)
-		       Justification.Inconsistent _ -> 
-			 failwith "Unsoundness.")
+		   (try
+		      process_nonneg cfg              (* now: [rho' |- e <= min] *)
+			(Fact.Nonneg.make (Arith.mk_sub min e, rho'))
+		    with                              (* reprocess! *)
+			Justification.Inconsistent _ -> 
+			  failwith "Unsoundness.")
 	     | None ->
 		 process_nondiophantine_diseq cfg d)
 	   
