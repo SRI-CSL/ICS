@@ -172,7 +172,7 @@ module E = struct
     | Th.Can(i) ->
 	(match i with
 	   | Th.NL -> Nl.Ops.find (p, s.nl)
-	   | Th.ARR -> (Nl.Ops.find (p, s.arr)))
+	   | Th.ARR -> (Arr.Ops.find (p, s.arr)))
 	 
   let inv (s, p) a = 
     try
@@ -191,7 +191,7 @@ module E = struct
 	  | Th.Can(i) ->
 	      (match i with
 		 | Th.NL -> Nl.Ops.inv (p, s.nl) a
-		 | Th.ARR -> Nl.Ops.inv (p,s .arr) a))
+		 | Th.ARR -> Arr.Ops.inv (p,s .arr) a))
     with
 	Not_found -> Partition.find p a
 
