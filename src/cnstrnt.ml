@@ -12,19 +12,23 @@ type t = Interval.t
 let cnstrnt ctxt a =
   let rec cnstrnt_of_term a =
     try
-      ctxt a
+      Interval.inter (ctxt a) (cnstrnt_compute a)
     with
 	Not_found ->
-	  (match a.node with
-	     | Arith x ->
-		 (match x with
-		   | Num q -> cnstrnt_of_num q
-		   | Multq(q,x) -> Interval.multq q (cnstrnt_of_term x)
-		   | Mult l -> cnstrnt_of_mult l
-		   | Add l -> cnstrnt_of_add l
-		   | Div(x,y) -> cnstrnt_of_div x y)
-	     | _ ->
-		 Interval.top)
+	  cnstrnt_compute a
+
+  and cnstrnt_compute a =
+    match a.node with
+      | Arith x ->
+	  (match x with
+	     | Num q -> cnstrnt_of_num q
+	     | Multq(q,x) -> Interval.multq q (cnstrnt_of_term x)
+	     | Mult l -> cnstrnt_of_mult l
+	     | Add l -> cnstrnt_of_add l
+	     | Div(x,y) -> cnstrnt_of_div x y)
+      | _ ->
+	  Interval.top
+
 
   and cnstrnt_of_num q =
     Interval.singleton q
@@ -92,4 +96,7 @@ let rec app c a =
 		     if b1 === b2 then b1 else
 		       hc(Bool(Ite(a,b1,b2))))
 	  | _ ->
-	      hc(App(hc(Set(Cnstrnt(c))),[a]))
+	      if Interval.is_singleton c then
+		hc(Bool(Equal(a,hc(Arith(Num(Interval.value_of c))))))
+	      else 
+		hc(App(hc(Set(Cnstrnt(c))),[a]))
