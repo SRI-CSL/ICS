@@ -235,37 +235,47 @@ let choose s p x =
     
 (** {6 Pretty-printing.} *)
 
+let pretty = ref true
+
+(** Representation as [z |-> {x1, ...,xn}] with [z] the
+  canonical variables, and [xi] the variables with [z]
+  as canonical representative. *)
+let to_map s =
+  Map.fold  
+    (fun x (y, rho) acc ->         (* [rho |- x = y] *)
+       let (z, tau) = find s y in  (* [tau |- y = z] *)
+	 try
+	   let zs = Term.Map.find z acc in
+	   let zs' = Term.Set.add x zs in
+	     Term.Map.add z zs' acc
+	 with
+	     Not_found -> 
+	       Term.Map.add z (Term.Set.singleton x) acc)
+    s.find Term.Map.empty
+
+let to_list s =
+  Map.fold 
+    (fun x xs acc -> 
+       (x, Term.Set.elements xs) :: acc) 
+    (to_map s) []
+
 let pp fmt s =
-  let canrepr s = 
-    Map.fold 
-      (fun _ (y, _) acc -> 
-	 if Map.mem y s.find then
-	   acc
-	 else 
-	   Set.add y acc)
-      s.find
-      Set.empty
-  in
-  let partition s =
-    Set.fold 
-      (fun x -> 
-	 Map.add x (ext s x)) 
-      (canrepr s) 
-      Map.empty
-  in
-    if not(is_empty s) then
-      let m = partition s in
-      let l = Map.fold 
-		(fun x ys acc -> 
-		   match Set.elements ys with
-		     | [_] -> acc   (* restrict may lead to singleton sets. *)
-		     | yl -> (x, yl) :: acc) 
-		m [] 
-      in
-	Pretty.string fmt "\nv:";
-	Pretty.list
-	  (fun fmt (x, ys) -> 
-	     Term.pp fmt x;
-	     Pretty.string fmt ":";
-	     Pretty.set Term.pp fmt ys)
-	  fmt l
+  if not(is_empty s) then
+    begin
+      Pretty.string fmt "\nv:";
+      if !pretty then
+	let l = to_list s in
+	  Pretty.map Term.pp (Pretty.set Term.pp) fmt l
+      else 
+	let l = 
+	  Map.fold 
+	    (fun x (y, rho) acc -> (x, (y, rho)) :: acc)
+	    s.find []
+	in
+	  Pretty.map
+	    Term.pp 
+	    (Pretty.pair Term.pp Justification.pp)
+	    fmt 
+	    l
+    end 
+	  
