@@ -20,8 +20,8 @@ open Sym
 
 
 type t =
-  | Var of Var.t
-  | App of Sym.t * t list
+  | Var of Var.t * int
+  | App of Sym.t * t list * int
 
 type trm = t  
     (** Synonym for avoiding name clashes *)
@@ -29,19 +29,16 @@ type trm = t
 
 (** {6 Hashing} *)
 
-let rec hash = function
-  | Var(x) -> 
-      Var.hash x
-  | App(f, l) -> 
-      ((Sym.hash f) + 
-       (List.fold_left (fun h a -> h + hash a) 1 l)) land 0x3FFFFFFF
+let hash = function
+  | Var(_, hsh) -> hsh
+  | App(_, _, hsh) -> hsh
 
 
 (** {6 Recognizers} *)
 
 let is_var = function Var _ -> true | _ -> false
 let is_app = function App _ -> true | _ -> false
-let is_const = function App(_,[]) -> true | _ -> false
+let is_const = function App(_,[], _) -> true | _ -> false
 
 
 (** {6 Pretty-Printing} *)
@@ -53,27 +50,49 @@ let rec pp fmt a =
   let term = pp fmt in
   let args =  Pretty.tuple pp fmt in
     match a with
-      | Var(x) -> 
+      | Var(x, _) -> 
 	  Var.pp fmt x
-      | App(f, l) ->
-	  (match f, l with
-	     | Pair(Car), [App(Coproduct(OutR), [x])] ->
-		 str "hd"; str "("; term x; str ")"
-	     | Pair(Cdr), [App(Coproduct(OutR), [x])] ->
-		 str "tl"; str "("; term x; str ")"
-	     | Coproduct(InL), [App(Pair(Cons), [x; xl])] ->
-		 Pretty.infix pp "::" pp fmt (x, xl)
-	     | Coproduct(InR), [App(Pair(Cons), [])] ->
-		 str "[]"
-	     | _ -> 
-		 Sym.pp pp fmt (f, l))
+      | App(f, l, _) ->
+	  Sym.pp pp fmt (f, l)
 
 let to_string = Pretty.to_string pp
 
 
+
+(** {6 Term Ordering} *)
+
+let rec cmp a b =
+  match a, b with  
+    | Var(x, _), Var(y, _) -> Var.cmp x y
+    | Var _, App _ -> 1
+    | App _, Var _ -> -1
+    | App(f, l, _), App(g, m, _) ->
+	let c1 = Sym.cmp f g in
+	if c1 != 0 then c1 else cmpl l m
+ 
+and cmpl l m =
+  let rec loop c l m =
+    match l, m with
+      | [], [] -> c
+      | [], _  -> -1
+      | _,  [] -> 1
+      | x :: xl, y :: yl -> 
+	  if c != 0 then 
+	    loop c xl yl 
+	  else 
+	    loop (cmp x y) xl yl
+  in
+  loop 0 l m
+
+let (<<<) a b = (cmp a b <= 0)
+
+let orient ((a, b) as e) =
+  if cmp a b >= 0 then e else (b, a)
+
+
+
 (** {6 Variables} *)
 
-let varcmp = Var.cmp  (* avoid clash *)
 
 module Var = struct
 
@@ -93,8 +112,9 @@ module Var = struct
 	  ExternalHash.find table (n, d)
 	with
 	    Not_found ->
-	      let x = Var(Var.mk_external n d) in
-		ExternalHash.add table (n, d) x; x
+	      let x = Var.mk_external n d in
+	      let a = Var(x, Var.hash x) in
+		ExternalHash.add table (n, d) a; a
 
 
   (** Constructing hashconsed binding variables *)
@@ -106,8 +126,9 @@ module Var = struct
 	  Hashtbl.find table k
 	with
 	    Not_found ->
-	      let x = Var(Var.mk_free k) in
-		Hashtbl.add table k x; x
+	      let x = Var.mk_free k in
+	      let a = Var(x, Var.hash x) in
+		Hashtbl.add table k a; a
 		  
 
   (** Global variable for creating fresh variables. *)
@@ -137,8 +158,9 @@ module Var = struct
 	    RenameHash.find table (n, k, d)
 	  with
 	      Not_found ->
-		let x = Var(Var.mk_rename n k d) in
-		  RenameHash.add table (n, k, d) x; x
+		let x = Var.mk_rename n k d in
+		let a = Var(x, Var.hash x) in
+		  RenameHash.add table (n, k, d) a; a
 
 
   (** Constructing hashconsed slack ariables. *)
@@ -159,8 +181,9 @@ module Var = struct
 	    SlackHash.find table (k, sl)
 	  with
 	      Not_found ->
-		let x = Var(Var.mk_slack k sl) in
-		  SlackHash.add table (k, sl) x; x
+		let x = Var.mk_slack k sl in
+		let a = Var(x, Var.hash x) in
+		  SlackHash.add table (k, sl) a; a
 
 
   (** Construct hashconsed fresh variables local to some theory. *)
@@ -181,42 +204,43 @@ module Var = struct
 	    FreshHash.find table (th, k, d)
 	  with
 	      Not_found ->
-		let x = Var(Var.mk_fresh th k d) in
-		  FreshHash.add table (th, k, d) x; x
+		let x = Var.mk_fresh th k d in
+		let a = Var(x, Var.hash x) in
+		  FreshHash.add table (th, k, d) a; a
 
 
   (** {7 Recognizers} *)
 
-  let is_zero_slack = function Var(x) -> Var.is_zero_slack x | _ -> false
-  let is_nonneg_slack = function Var(x) -> Var.is_nonneg_slack x | _ -> false
+  let is_zero_slack = function Var(x, _) -> Var.is_zero_slack x | _ -> false
+  let is_nonneg_slack = function Var(x, _) -> Var.is_nonneg_slack x | _ -> false
   let is_slack x = is_zero_slack x || is_nonneg_slack x
-  let is_external = function Var(x) -> Var.is_var x | _ -> false
-  let is_rename = function Var(x) -> Var.is_rename x | _ -> false
-  let is_fresh i = function Var(x) -> Var.is_fresh i x | _ -> false
-  let is_internal = function Var(x) -> Var.is_internal x | _ -> false
-  let is_free = function Var(x) -> Var.is_free x | _ -> false
+  let is_external = function Var(x, _) -> Var.is_var x | _ -> false
+  let is_rename = function Var(x, _) -> Var.is_rename x | _ -> false
+  let is_fresh i = function Var(x, _) -> Var.is_fresh i x | _ -> false
+  let is_internal = function Var(x, _) -> Var.is_internal x | _ -> false
+  let is_free = function Var(x, _) -> Var.is_free x | _ -> false
 
 
   (** {7 Accessors} *)
 
   let dom_of = function
-    | Var(x) -> Var.dom_of x
+    | Var(x, _) -> Var.dom_of x
     | _ -> raise Not_found
 
        
   let name_of = function 
-    | Var(x) -> Var.name_of x 
+    | Var(x, _) -> Var.name_of x 
     | _ -> raise Not_found
 
   let is_dom d a =
     try Dom.eq (dom_of a) d with Not_found -> false
 
   let is_int = function
-    | Var(x) -> Var.is_int x
+    | Var(x, _) -> Var.is_int x
     | _ -> false
 
   let is_real = function
-    | Var(x) -> Var.is_real x
+    | Var(x, _) -> Var.is_real x
     | _ -> false
 
        (** Create a term variable from a variable. *)
@@ -226,79 +250,37 @@ module Var = struct
     | Var.Slack(i, m) -> mk_slack (Some(i)) m
     | Var.Fresh(th, i, d) -> mk_fresh th (Some(i)) d
     | Var.Bound(n) -> mk_free n
-
-
-	(** Set of variables. *)
-  module Set = struct
-    
-    let empty = Var.Set.empty
-    let is_empty = Var.Set.is_empty
-		     
-    (** [restrict f] restrict a function of terms to variables. *)
-    let restrict f = function
-      | Var(x) -> f x
-      | App _ -> failwith "Fatal error: variable function applied to application."
-	  
-    let inject f x = f (of_var x)
-		       
-    let mem = restrict Var.Set.mem
-    let add = restrict Var.Set.add
-    let singleton = restrict Var.Set.singleton
-    let remove = restrict Var.Set.remove
-
-    let union = Var.Set.union
-    let inter = Var.Set.inter
-    let diff = Var.Set.diff
-    let compare = Var.Set.compare
-    let equal = Var.Set.equal
-    let subset = Var.Set.subset
-
-    let iter f = Var.Set.iter (inject f)
-    let for_all p = Var.Set.for_all (inject p)
-    let exists p = Var.Set.exists (inject p)
-    let filter p = Var.Set.filter (inject p)
-    let partition p = Var.Set.partition (inject p)
-    let cardinal = Var.Set.cardinal
-    let map f = Var.Set.fold (fun x -> add (inject f x))   
-    let elements s = Var.Set.fold (fun x acc ->  of_var x :: acc) s []
-
-    let pp fmt s =
-      Pretty.set pp fmt (elements s)
-
-  end 
-
-
 end 
 
 module App = struct
 
-  let mk_const =
-    let table = Sym.Hash.create 17 in
-    let _ =  Tools.add_at_reset (fun () -> Sym.Hash.clear table) in 
-      fun f ->
-	try
-	  Sym.Hash.find table f
-	with
-	    Not_found ->
-	      let c = App(f, []) in
-		Sym.Hash.add table f c; c
+  let mk_const c =
+    App(c, [], Sym.hash c)
 
-  let mk_app f l = 
+  let mk_app f l =
     match l with
-      | [] -> mk_const f
-      | _ -> App(f, l)
+    | [] -> 
+	mk_const f
+    | [a] -> 
+	App(f, l , ((Sym.hash f) + hash a) land 0x3FFFFFFF)
+    | [a; b] -> 
+	App(f, l, ((Sym.hash f) + hash a + hash b) land 0x3FFFFFFF)
+    | [a; b; c] -> 
+	App(f, l, ((Sym.hash f) + hash a + hash b + hash c) land 0x3FFFFFFF)
+    | l -> 
+	App(f, l, ((Sym.hash f) + (List.fold_left (fun h a -> h+hash a) 1 l)) land 0x3FFFFFFF)
 
   let destruct a =
-    match a with App(f,l) -> (f,l) | _ -> raise Not_found
+    match a with App(f, l, _) -> (f, l) | _ -> raise Not_found
 
   let sym_of a = 
-    match a with App(f,_) -> f | _ -> raise Not_found
+    match a with App(f,_, _) -> f | _ -> raise Not_found
 
   let args_of a = 
-    match a with App(_,l) -> l | _ -> raise Not_found
+    match a with App(_,l, _) -> l | _ -> raise Not_found
 
   let theory_of = function
-    | App(f, _) -> Th.of_sym f 
+    | App(f, _, _) -> Sym.theory_of f 
     | _ -> raise Not_found
 
 end
@@ -306,14 +288,36 @@ end
 
 (** Syntactic term equality *)
 let rec eq a b = 
-  a == b  ||   (* variables and constants are hashconsed *)
-  (match a, b with
-     | App(f, l), App(g, m) -> 
-	 Sym.eq f g && eql l m
-     | _ -> false)
+  (hash a = hash b) &&        (* [eq] only if hash values coincide *)
+  ((a == b)  ||               (* variables are hashconsed *)
+   (match a, b with
+      | App(f, l, _), App(g, m, _) -> 
+	  (match l, m with
+	     | [], [] -> Sym.eq f g
+	     | [], _ -> false  (* quick failures *)
+	     | _, [] -> false
+	     | [x], [y] -> Sym.eq f g && eq x y
+	     | [_], _ -> false
+	     | _, [_] -> false
+	     | [x1; y1], [x2; y2] -> Sym.eq f g && eq x1 x2 && eq y1 y2
+	     | [_; _], _ -> false
+	     | _, [_; _] -> false
+	     | _ -> Sym.eq f g && eql l m)
+      | _ -> false))
 
 and eql al bl =
   try List.for_all2 eq al bl with Invalid_argument _ -> false
+
+(** Syntactic term comparison. *)
+let compare a b = cmp a b             (* syntactic comparison does not work. why? *)
+(*
+  if eq a b then 0 else 
+    if hash a < hash b then -1 else 1
+*)
+
+let compare a b =
+  Trace.func "foo5" "Compare" (Pretty.pair pp pp) Pretty.number
+    (fun (a, b) -> compare a b) (a, b)
 
 
 (** Some recognizers. *)
@@ -321,8 +325,8 @@ and eql al bl =
 let is_equal a b =
   if eq a b then Three.Yes else 
     match a, b with                
-      | App(c, []), App(d, []) 
-	  when Th.of_sym c = Th.of_sym d -> Three.No
+      | App(c, [], _), App(d, [], _) 
+	  when Sym.theory_of c = Sym.theory_of d -> Three.No
       | _ -> Three.X
 
 (** Mapping over list of terms. Avoids unnecessary consing. *)
@@ -344,67 +348,35 @@ let rec assq a = function
 let rec fold f a acc =
   match a with
     | Var _ -> f a acc
-    | App(_, l) -> List.fold_right (fold f) l acc
+    | App(_, l, _) -> List.fold_right (fold f) l acc
 
 let rec iter f a  =
   match a with
     | Var _ -> f a
-    | App(_, l) -> List.iter (iter f) (App.args_of a)
+    | App(_, l, _) -> List.iter (iter f) (App.args_of a)
 
 let rec for_all p a  =
   p a && 
   match a with
     | Var _ -> true
-    | App(_, l) -> List.for_all (for_all p) l
+    | App(_, l, _) -> List.for_all (for_all p) l
 
 
 let rec subterm a b  =
   eq a b ||
   match b with
     | Var _ -> false
-    | App(_, l) -> List.exists (subterm a) (App.args_of b)
+    | App(_, l, _) -> List.exists (subterm a) (App.args_of b)
 
 let occurs x b = subterm x b
 
 let is_pure i =
   let rec loop = function
     | Var _ -> true
-    | App(f, al) -> Th.of_sym f = i && List.for_all loop al
+    | App(f, al, _) -> Sym.theory_of f = i && List.for_all loop al
   in
     loop
 
-
-
-(** {6 Term comparison} *)
-
-
-let rec cmp a b =
-  match a, b with  
-    | Var(x), Var(y) -> varcmp x y
-    | Var _, App _ -> 1
-    | App _, Var _ -> -1
-    | App(f, l), App(g, m) ->
-	let c1 = Sym.cmp f g in
-	if c1 != 0 then c1 else cmpl l m
- 
-and cmpl l m =
-  let rec loop c l m =
-    match l, m with
-      | [], [] -> c
-      | [], _  -> -1
-      | _,  [] -> 1
-      | x :: xl, y :: yl -> 
-	  if c != 0 then 
-	    loop c xl yl 
-	  else 
-	    loop (cmp x y) xl yl
-  in
-  loop 0 l m
-
-let (<<<) a b = (cmp a b <= 0)
-
-let orient ((a, b) as e) =
-  if cmp a b >= 0 then e else (b, a)
 
 
 (** {6 Sets and maps of terms.} *)
@@ -414,20 +386,20 @@ module Set2 = Set.Make(
   struct
     type t = trm * trm
     let compare (a1, a2) (b1, b2) =
-      let cmp1 = cmp a1 b1 in
-	if cmp1 <> 0 then cmp1 else cmp a2 b2
+      let cmp1 = compare a1 b1 in
+	if cmp1 <> 0 then cmp1 else compare a2 b2
   end)
 
 module Set = Set.Make(
   struct
     type t = trm
-    let compare = cmp
+    let compare = compare
   end)
 
 module Map = Map.Make(
   struct
     type t = trm
-    let compare = cmp
+    let compare = compare
   end)
 
 
@@ -436,7 +408,7 @@ let rec vars_of a =
   match a with
     | Var _ -> 
 	Set.singleton a
-    | App(_, al) ->
+    | App(_, al, _) ->
 	List.fold_left 
 	  (fun acc b ->
 	     Set.union (vars_of b) acc)
@@ -473,32 +445,6 @@ module Diseq = struct
    let compare (a1, b1) (a2, b2) =
      let res = cmp a1 a2 in if res = 0 then cmp b1 b2 else res
 end
-
-
-
-
-(** {6 Encoding of arithmetic constraints} *)
-
-module Nonneg = struct
-   type t = trm
-   let pp fmt a = pp fmt a; Format.fprintf fmt " >= 0"
-   let make = function
-     | App(Sym.Arith(Sym.Multq(q)), [x]) when Q.is_pos q -> x
-     | a -> a
-   let term_of a = a
-   let compare  = cmp
-end
-
-module Pos = struct
-   type t = trm
-   let pp fmt a = pp fmt a; Format.fprintf fmt " > 0"
-   let make  = function
-     | App(Sym.Arith(Sym.Multq(q)), [x]) when Q.is_pos q -> x
-     | a -> a
-   let term_of a = a
-   let compare  = cmp
-end
-
 
 
 (** {6 Term Substitution} *)
