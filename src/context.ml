@@ -602,9 +602,15 @@ let rec equality e s =
 	
 (** Processing of a variable equality. *)  
 and merge_v e s =
-  let fuse_star e = 
+  let propagate e = 
     List.fold_right 
-      (fun i s -> if is_empty i s then s else fuse i e s)
+      (fun i s -> 
+	 if is_empty i s then 
+	   s 
+	 else if Th.is_fully_interp i then
+	   merge_i i e s
+	 else 
+	   fuse i e s)
   in
   let (x, y, prf) = Fact.d_equal e in
     match is_equal s x y with
@@ -616,7 +622,7 @@ and merge_v e s =
 	  Trace.msg "rule" "Merge(v)" e Fact.pp_equal;
 	  let (ch', p') = Partition.merge e s.p in
 	    s.p <- p';
-	    let s' = fuse_star e Th.all s in  (* propagate on rhs. *)  
+	    let s' = propagate e Th.all s in  (* propagate on rhs. *)  
 	      close_p ch' s'
 
 
@@ -629,7 +635,8 @@ and merge_i i e s =
       let e' = Fact.mk_equal a b None in
 	Trace.msg "rule" "Merge(i)" e' Fact.pp_equal;
 	try
-	  compose i s (Th.solve i e')
+	  let sl = Th.solve i e' in
+	    compose i s sl
 	with 
 	    Exc.Incomplete ->
 	      let (a, b, _) = Fact.d_equal e in
