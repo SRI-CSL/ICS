@@ -66,6 +66,8 @@ module Q : sig
   val is_zero : t -> bool
   val is_one : t -> bool
   val is_negone : t -> bool
+  val is_pos : t -> bool
+  val is_neg : t -> bool
   val of_int : int -> t
   val of_ints : int -> int -> t
 
