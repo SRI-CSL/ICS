@@ -137,12 +137,12 @@ let resolve =
 (** [apply e a], for [e] is of the form [x = b], applies the
   substition [x := b] to [a]  *)
 let apply1 = 
-  Fact.Equal.Inj.apply1 Arith.apply1
+  Fact.Equal.Inj.apply1 Arith.apply
 
 
 (** [norm el a] iteratively applies the substitution [el] to [a]. *)
 let norm = 
-  Fact.Equal.Inj.norm Arith.apply1
+  Fact.Equal.Inj.norm Arith.apply
 
 
 (** Transform the equation [e] of the form [a = b] to the equivalent [x = c].  
@@ -177,7 +177,7 @@ let inconsistent rho =
 
 
 (** Test if [a], [b] in the equality [a = b] have consistent domains. *) 
-let is_infeasible (a, b) =
+let is_infeasible a b =
   try
     let d = Arith.dom_of a
     and e = Arith.dom_of b in
@@ -214,13 +214,13 @@ end
 
 (** [R.t] represents solution sets of the form [x = a], where [x] is
   unrestricted, and [a] is an arithmetic term. *)
-module R: Eqs.SET = Eqs.MakeCnstnt(
+module R: Eqs.SET = Eqs.Make(
   struct
     let th = Th.a
     let nickname = Th.to_string Th.a
-    let apply = Arith.apply1
+    let apply = Arith.apply
+    let is_infeasible = is_infeasible
   end)
-  (QIdx)
 
 
 (** Specification for an index for the variable [x] such that
@@ -236,52 +236,19 @@ end
   We maintain an index [zero t] such that [k] is in [zero t] iff 
   [k = a] with  constant summand of [a] is  [0]. *)
 module T: Eqs.SET = 
-  Eqs.MakeIndexCnstnt1
+  Eqs.MakeIndex1
     (struct
        let th = Th.a
        let nickname = "t"
-       let apply = Arith.apply1
+       let apply = Arith.apply
+       let is_infeasible = is_infeasible
      end)
     (ZeroIdx)
-    (QIdx)
-
-
-(** Effects for enforcing invariants between the two solution sets [R] and [T]. *)
-module Effects = struct
-  type left = R.t
-  type right = T.t
-
-  let other_cnstnt (r, t) = function
-    | Eqs.Right -> T.cnstnt t
-    | Eqs.Left -> R.cnstnt r
-
-  let other_find (r, t) = function
-    | Eqs.Right -> T.find t
-    | Eqs.Left -> R.find r
-      
-  (** Check for feasibility and guarantee confluence across solution sets. 
-    It is ok to restrict with empty effects here. *)
-  let do_at_update tag (p, r, t) (x, a, rho) =     (* [rho |- x = a] *)
-    match is_infeasible (x, a) with
-      | Some(tau) -> 
-	  inconsistent tau
-      | None ->
-	  Fact.Eqs.push (Th.inj Th.a) (Fact.Equal.make (x, a, rho));
-	  if Arith.is_num a then         (* generate constant disequalities *)
-	    Term.Set.iter                (* across boundaries. *)
-	      (fun y ->
-		 let (b, tau) = other_find (r, t) tag y in
-		   if is_diseq_num a b then
-		     let sigma = Justification.dependencies [rho; tau] in
-		       Partition.dismerge p (Fact.Diseq.make (x, y, sigma)))
-	      (other_cnstnt (r, t) tag)
-
-  let do_at_restrict _ _ _ = ()
-end
 
 
 (** Combined solution set [S = (R; T)]. *)
-module S = Eqs.Union(R)(T)(Effects)
+module S = 
+  Eqs.Union(R)(T)(QIdx)
 
 type t = S.t
 
@@ -936,6 +903,7 @@ and process_diophantine_diseq cfg d =
   in
   let l = Arith.mk_num (Q.sub min Q.one)
   and h = Arith.mk_num (Q.add max Q.one) in
+    Trace.msg "la" "(l, h)" (l, h) (Pretty.pair Term.pp Term.pp);
     try
       case_process_le cfg (e, l);           (* try [e <= l] *)
       (try
