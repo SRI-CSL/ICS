@@ -274,13 +274,37 @@ let constructors () =
 
   cprintf "\nvoid %s_deregister(value* r) {\n" !base;
   cprintf "  if (((*r) & 1) == 0) { remove_global_root(r); }\n}\n";
+  
+  cprintf "\n/* The following is extracted from register_global_root in ocaml/byterun/globroots.c */\n";
+  cprintf "\nint %s_registered_value_p (value *r)\n" !base;
+  cprintf "{\n";
+  cprintf "  struct global_root * e, * f;\n";
+  cprintf "  int i;\n\n";
+  cprintf "/*   Assert (((long) r & 3) == 0);  /\* compact.c demands this (for now) *\/ */\n";
+  cprintf "/*   Assert (((long) r & 1) == 0);  /\* from ics_deregister *\/ */\n\n";
+  cprintf "  /* Init \"cursor\" to list head */\n";
+  cprintf "  e = (struct global_root *) &caml_global_roots;\n";
+  cprintf "  /* Find value */\n";
+  cprintf "  for (i = caml_global_roots.level; i >= 0; i--) {\n";
+  cprintf "    while (1) {\n";
+  cprintf "      f = e->forward[i];\n";
+  cprintf "      if (f == NULL || f->root >= r) break;\n";
+  cprintf "      e = f;\n";
+  cprintf "    }\n";
+  cprintf "  }\n";
+  cprintf "  e = e->forward[0];\n";
+  cprintf "  /* If already present, don't do anything */\n";
+  cprintf "  return (e != NULL && e->root == r) ? 1 : 0;\n";
+  cprintf "}\n";
+  
   (* "" *)
 
   lprintf "\n(ff:def-foreign-call %s_void  ())\n" !base;
   lprintf "\n(ff:def-foreign-call %s_false ())\n" !base;
   lprintf "\n(ff:def-foreign-call %s_true  ())\n" !base;
   lprintf "\n(ff:def-foreign-call %s_nil   ())\n" !base;
-  lprintf "\n(ff:def-foreign-call %s_deregister (v) :returning :void)\n" !base
+  lprintf "\n(ff:def-foreign-call %s_deregister (v) :returning :void)\n" !base;
+  lprintf "\n(ff:def-foreign-call %s_registered_value_p (v))\n" !base
 
 (*s Outout the Lisp stub code. *)
 
@@ -329,6 +353,19 @@ let output_code l =
   cprintf "#include <caml/callback.h>\n#include <caml/memory.h>\n";
   cprintf "#include <setjmp.h>\n";
   cprintf "#include <signal.h>\n";
+  cprintf "\n/* The following is from globroots.h which is not put into the ocaml lib dir */\n\n";
+  cprintf "struct global_root {\n";
+  cprintf "  value * root;                    /* the address of the root */\n";
+  cprintf "  struct global_root * forward[1]; /* variable-length array */\n";
+  cprintf "};\n\n";
+  cprintf "#define MAX_LEVEL 15\n\n";
+  cprintf "struct global_root_list {\n";
+  cprintf "  value * root;                 /* dummy value for layout compatibility */\n";
+  cprintf "  struct global_root * forward[MAX_LEVEL]; /* forward chaining */\n";
+  cprintf "  int level;                    /* max used level */\n";
+  cprintf "};\n\n";
+  cprintf "extern struct global_root_list caml_global_roots;\n\n";
+  cprintf "/* End of globroots.h */\n\n";
   cprintf "extern void set_ocaml_handlers(void);\n";
   cprintf "extern void restore_lisp_handlers(void);\n";
   cprintf "extern void ics_error(char *, char *);\n";
