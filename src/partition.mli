@@ -15,16 +15,22 @@
  i*)
 
 
-(*s Module [Partition]: A partition consists of a set of variable equalities
- [x = y], a set of variable disequalities [x <> y], and a set ofvariable 
- constraints [x in i], where [i] is an arithmetic constraint of type [Cnstrnt.t]. *)
+(*s Module [Partition]: A partition consists of a
+       \begin{itemize}
+       \item  set of variable equalities [x = y], 
+       \item a set of variable disequalities [x <> y],
+       \item and a set of variable constraints [x in i],
+       \end{itemize}
+  where [i] is an arithmetic constraint of type [Cnstrnt.t]. *)
 
 
-type t = {
-  v : V.t;              (* Variable equalities. *)
-  d : D.t;              (* Variables disequalities. *)
-  c : C.t               (* Constraints. *)
-}
+type t
+
+(*s Accessors. *)
+
+val v_of : t -> V.t
+val d_of : t -> D.t
+val c_of : t -> C.t
 
 (*s The [empty] partition. *)
 
@@ -38,20 +44,15 @@ val v : t -> Term.t -> Term.t
 
 (*s [update_v s v] updates the [v] part of the partitioning [s] if it
  is different from [s.v]. Similarly,  [update_d] and [update_c] update
- the disequlity part and the constraint part, respectively. *)
+ the disequality part and the constraint part, respectively. *)
 
 val update_v : t -> V.t -> t
 val update_d : t -> D.t -> t
 val update_c : t -> C.t -> t
 
+(*s [copy p] does a shallow copying of [p]. *)
 
-(*s [cnstrnt s a] computes a constraint for [s] by using variable constraints
- [x in i] in the variable constraint part [c] of the partitioning [s], and by
- recursing over arithmetic terms using abstract interval interpretation as
- defined in the module [Cnstrnt].  If the term is unconstrained, the exception
- [Not_found] is raised. *)
-
-val cnstrnt : t -> Term.t -> Cnstrnt.t
+val copy : t -> t
 
 
 (*s [is_int s a] tests if the constraint [cnstrnt s a] is included in [Cnstrnt.mk_int]. *)
@@ -88,8 +89,6 @@ val merge : Fact.equal -> t -> t
 
 (*s [remove s] removes all internal variables which are not canonical. *)
 
-val removable : t -> Term.Set.t
-
 val restrict : Term.Set.t -> t -> t
 
 
@@ -106,6 +105,12 @@ val add : Fact.cnstrnt -> t -> t
  the result is unchanged; otherwise, [x <> y] is added using [D.add]. *)
 
 val diseq : Fact.diseq -> t -> t
+
+(*s Return stored facts. *)
+
+val equality : t -> Term.t -> Fact.equal
+val disequalities : t -> Term.t -> Fact.diseq list
+val cnstrnt : t -> Term.t -> Fact.cnstrnt
  
 
 (*s [eq s t] holds if the respective equality, disequality, and constraint parts
@@ -114,29 +119,13 @@ val diseq : Fact.diseq -> t -> t
 val eq : t -> t -> bool
 
 
-type index = V | D | C
+(*s Management of changed variables. *)
 
-(*s [changed s] returns the changed sets for the equality, the disequality,
- and the constraint part (in this order).  The changed set for equalities
- contains variables [x] for which [v s x] changed since the last [reset].
- Similarly, [x <> y] is in the changed set of the disequality part, if 
- [x <> y] has been added, since the last [reset], and [x] is in the 
- changed set of the constraint part, if a refined constraint [x in i]
- has been added since the last [reset]. *)
+module Changed : sig
 
-val changed : t -> Term.Set.t * Fact.diseq list * Term.Set.t
+  val reset : unit -> unit
+  val save : unit -> Term.Set.t * Term.Set.t * Term.Set.t
+  val restore : Term.Set.t * Term.Set.t * Term.Set.t -> unit
+  val stable : unit -> bool
 
-val changed_v : t -> Term.Set.t
-val changed_d : t -> Fact.diseq list
-val changed_c : t -> Term.Set.t
-
-(*s Resetting the [changed] indices to empty sets. *)
-
-val reset : index -> t -> t
- 
-val reset_v : t -> t
-val reset_d : t -> t
-val reset_c : t -> t
-
-
-
+end
