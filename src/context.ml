@@ -164,6 +164,7 @@ let rec map i =
 and mapu ctxt a =
   match a with
     | Var _ -> ctxt(a)
+(*    | App(Builtin(op), l) ->  Builtin.map *)
     | App(f, l) ->  
 	let l' = mapl ctxt l in
 	  if l == l' then a else 
@@ -210,25 +211,87 @@ let trace (i, str, arg, pp) =
 
 (* Component-wise solver. *)
 
-let solve e s (a, b) =
+let rec solve e s (a, b) =
   match e with
     | U -> [Term.orient(a, b)]
     | T -> Tuple.solve (a, b)
     | BV -> Bitvector.solve (a, b)
     | A -> 
-	let is_var_on_rhs x = 
-	  is_var x &&  
-	  not(Set.is_empty (Solution.use s.a x)) 
+	let asolve p (a, b) =    
+	  match Arith.solve_for p (a, b) with
+	    | Some(x', b') -> [(x',b')]
+	    | None -> []
 	in
-	  try
-	    match Arith.solve_for is_var_on_rhs (a, b) with
-	      | Some(x', b') -> [(x',b')]
-	      | None -> []
-	    with
-		Exc.Unsolved ->
-		  match Arith.solve_for is_var (a, b) with
-		    | Some(x', b') -> [(x', b')] 
-		    | None -> []
+	  try asolve (is_var_on_rhs s) (a, b) 
+	  with Exc.Unsolved ->
+	    try asolve (is_unconstrained_var s) (a, b) 
+	    with Exc.Unsolved ->
+	      try asolve (is_unconstraining_var s) (a, b) 
+	      with Exc.Unsolved ->
+		try asolve is_fresh_var (a, b) 
+		with Exc.Unsolved -> 
+		  asolve is_var (a, b)
+
+and is_var_on_rhs s x = 
+  is_var x &&  
+  not(Set.is_empty (Solution.use s.a x))
+
+and is_unconstrained_var s x =
+  is_var x && not (C.mem x (c_of s))
+
+and is_unconstraining_var s x = 
+  is_var x &&
+  try 
+    Cnstrnt.is_unbounded (C.apply (c_of s) x) 
+  with 
+      Not_found -> true
+
+
+(*s Extend with fresh variable equality. *)
+
+let rec extend s a =
+  assert(not(is_var a));
+  let x = Term.mk_fresh_var (Name.of_string "v") None in 
+  let s' = match theory_of(sym_of a) with
+    | U -> update U s (Solution.union (x, a) s.u)
+    | T -> update T s (Solution.union (x, a) s.t)
+    | BV -> update BV s (Solution.union (x, a) s.bv)
+    | A -> update A s (Solution.union (x, a) s.a)
+  in
+    (x, s')
+
+
+(*s Variable abstract a term. *)
+
+let rec abstract_term i s a =
+  match a with
+    | Var _ -> 
+	(s, a)
+    | App(f, al) ->
+	let j = theory_of f in
+	let (s', al') = abstract_args j s al in
+	let a' = if Term.eql al al' then a else App(f, al') in
+	  if i = U || i <> j then
+	    try
+	      (s', v s (inv j s a'))
+	    with Not_found ->
+	      let (x'', s'') = extend s' a' in
+		(s'', x'')
+	  else 
+	    (s', a')
+	    
+and abstract_args i s al =
+  match al with
+    | [] -> 
+	(s, [])
+    | b :: bl ->
+	let (s', bl') = abstract_args i s bl in
+	let (s'', b') = abstract_term i s' b in
+	  if Term.eq b b' && bl == bl' then
+	    (s'', al)
+	  else 
+	    (s'', b' :: bl')
+
  
 
 (*s Propagation of equalities in theory-specific solution sets  *)
@@ -276,7 +339,6 @@ and abstract i (a, b) s =
   let (x, e') = Solution.name (a, e) in
   let (y, e'') = Solution.name (b, e') in
     update i s e''
-
 
 (* Lookup terms on rhs of solution sets. *)
     
