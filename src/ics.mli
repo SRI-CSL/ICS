@@ -38,6 +38,9 @@
 val version : unit -> string
   (** Returns this ICS's version number. *)
 
+
+(** {6 Parameters} *)
+
 (** The following flags determine the current {i configuration} of ICS. *)
 
 val set_profile : bool -> unit
@@ -113,6 +116,9 @@ val set_gc_space_overhead : int -> unit
 val set_gc_max_overhead : int -> unit
   (** Controlling heap compaction (default 500), [gc_max_overhead >= 1000000] disables compaction. *)
 
+
+(** {6 Channels} *)
+
 type inchannel = in_channel
     (** [inchannel] is the type of input channels. *)
 
@@ -140,6 +146,8 @@ val outchannel_of_string : string -> outchannel
     raises [Sys_error] in case such a channel can not be opened. *)
 
 
+(** {6 Multi-precision arithmetic} *)
+
 type q
   (** Type for representing the rational numbers. *)
 
@@ -163,6 +171,8 @@ val num_of_string : string -> q
     [s] is of the form [n/m] where [n] and [m] are integers. *)
   
 
+(** {6 Names} *)
+
 type name
   (** Representation of strings with constant equality test. *)
 
@@ -179,8 +189,10 @@ val name_eq : name -> name -> bool
     are equal.  This equality test is constant in the length of strings. *)
 
 
+(** {6 Arithmetic domains} *)
+
 type dom
-  (** Arithmetic Constraints *)
+  (** Arithmetic domains *)
 
 
 val dom_mk_int : unit -> dom
@@ -189,6 +201,8 @@ val dom_mk_real : unit -> dom
 val dom_is_int : dom -> bool
 val dom_is_real : dom -> bool
 
+
+(** {6 Theories} *)
 
 type th
   (** A {b theory} is associated with each function symbol of terms.
@@ -209,6 +223,8 @@ val th_of_string : string -> th
  (** [th_of_string s] returns theory [th] if [to_string th] is [s]; 
    otherwise the result is unspecified. *)
 
+
+(** {6 Function symbols} *)
 
 type sym
   (** Representation of function symbols. Function symbols
@@ -459,8 +475,6 @@ val sym_is_ite : sym -> bool
  (** [sym_is_ite f] holds iff [f] represents the conditional set constructor. *)
 
 
-
-
 (** {6 Terms} *)
    
 (** Terms are either 
@@ -693,6 +707,7 @@ val terms_to_list : terms -> term list
   (** Converting a set of terms into a list of terms. *)
 
 
+(** {6 Atoms} *)
 
 type atom
   (** An {b atom} is either
@@ -743,6 +758,7 @@ val atom_negate : atom -> atom
   (** Constructs the negation of an atom. *)
 
 
+(** {6 Justifications} *)
 
 type justification
   (** A {i justification} is either
@@ -753,6 +769,9 @@ val justification_pp : justification -> unit
   (** Print a justification to [stdout]. *)
 
 
+
+(** {6 Processing} *)
+
 type context
   (** A {i logical context} represents a conjunction of atoms. *)
 
@@ -760,7 +779,8 @@ val context_pp : context -> unit
   (** Pretty-printing a context to standard output. *)
 
 val context_ctxt_pp : context -> unit
-  (** Pretty-printing the logical context in a way that can be read in again by the parser. *)
+  (** Pretty-printing the logical context in a way that can be read in again 
+    by the parser. *)
 
 val context_eq : context -> context -> bool
   (** [context_eq s1 s2] is a constant-time predicate for 
@@ -845,6 +865,8 @@ val dom : context -> term -> dom * justification
     information in [s] and abstraction interval interpretation.
     If no such constraint can be deduced, [None] is returned. *)
 
+
+(** {6 Propositional logic} *)
 
 type prop
   (** Representation of propositional formulas with propositional 
@@ -948,6 +970,8 @@ val prop_sat : context -> prop -> assignment option
     implicitly represents a set of candidate models. *)
 
 
+(** {6 Imperative states} *)
+
 (** An imperative state [istate] does not only include a logical 
  context of type [state] but also a symbol table and input and 
  output channels. A global [istate] variable is manipulated and
@@ -977,8 +1001,10 @@ val cmd_batch : inchannel -> int
     and processing is aborted after state is unsatisfiable. *)
 
 val flush : unit -> unit
+  (** Flush currently active output channel. *)
 
 
+(** {6 Controls} *)
 
 val reset : unit -> unit
   (** [reset()] clears all the global tables. This does not only 
@@ -988,12 +1014,11 @@ val reset : unit -> unit
 val gc : unit -> unit
   (** [gc()] triggers a full major collection of ocaml's garbage collector. *)
 
-val do_at_exit : unit -> unit
-  (** [do_at_exit] clears out internal data structures. *)
-
 val sleep : int -> unit
   (** Sleeping for a number of seconds. *)
 
+
+(** {6 Tracing} *)
 
 (** Rudimentary control on trace messages, which are 
  sent to [stderr]. These functions are mainly included
@@ -1015,14 +1040,16 @@ val trace_get : unit -> string list
     (** [trace_get()] returns the set of active trace levels. *)
 
 
-(** {i Lists} *)
+(** {6 Lists} *)
+
 val is_nil : 'a list -> bool
 val cons : 'a -> 'a list -> 'a list
 val head : 'a list -> 'a
 val tail : 'a list -> 'a list
 
 
-(** {i Pairs} *)
+(** {6 Pairs} *)
+
 val pair : 'a -> 'b -> 'a * 'b
   (** [pair a b] builds a pair [(a,b)]. *)
   
@@ -1033,22 +1060,29 @@ val snd : 'a * 'b -> 'b
   (** [snd p] returns [b] if [p] is equal to some [pair _ b]. *)
 
 
-(** {i Triples}  *)
+(** {6  Triples}  *)
+
 val triple : 'a -> 'b -> 'c -> 'a * 'b * 'c
 val fst_of_triple : 'a * 'b *'c -> 'a
 val snd_of_triple : 'a * 'b *'c -> 'b
 val third_of_triple : 'a * 'b *'c -> 'c
 
 
-(** {i Quadruples} *)
+(** {6 Quadruples} *)
+
 val fst_of_quadruple : 'a * 'b * 'c *'d -> 'a
 val snd_of_quadruple : 'a * 'b * 'c *'d -> 'b
 val third_of_quadruple : 'a * 'b * 'c *'d -> 'c
 val fourth_of_quadruple : 'a * 'b * 'c *'d -> 'd
 
-(** Options. An element of type ['a option] either satisfies
- the recognizer [is_some] or [is_none].  In case, [is_some]
- holds, a value of type ['a] can be obtained by [value_of].  *)
+(** {6 Option types} *) 
+
+(** An element of type ['a option] either satisfies
+  the recognizer [is_some] or [is_none].  In case, [is_some]
+  holds, a value of type ['a] can be obtained by [value_of].  *)
+
 val is_some : 'a option -> bool
 val is_none : 'a option -> bool
 val value_of : 'a option -> 'a
+
+

@@ -14,10 +14,10 @@
 (** Rudimentary tracing capability. 
 
   @author Harald Ruess
+*)
 
-  All trace messages are
-  directed to {!Format.stderr}. The amount of tracing output
-  is determined by the the set of active {b trace levels}. 
+(** All trace messages are directed to {!Format.err_formatter}. The amount of 
+  tracing output is determined by the the set of active {b trace levels}. 
 *)
 
 type level = string

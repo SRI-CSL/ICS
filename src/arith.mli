@@ -165,6 +165,7 @@ val apply: Term.Equal.t -> Term.t -> Term.t
   (** [apply (x, b)] a occurrences of [x] in [a] with [b], and normalizes. *)
 
 
+(** Iterators over monomials. *)
 module Monomials : sig
 
   type pred = Mpa.Q.t -> Term.t -> bool
@@ -186,7 +187,7 @@ module Monomials : sig
   val variable_choose : pred -> Term.t -> Term.t
   val coefficient_choose : pred -> Term.t -> Mpa.Q.t
 
-
+  (** Iterators over positive monomials. *)
   module Pos : sig
     val is_empty : Term.t -> bool
     val exists : pred -> Term.t -> bool
@@ -199,6 +200,7 @@ module Monomials : sig
     val coefficient_of : Term.t -> Term.t -> Mpa.Q.t
   end 
 
+  (** Iterators over negative monomials. *)
   module Neg : sig
     val is_empty : Term.t -> bool
     val exists : pred -> Term.t -> bool

@@ -14,8 +14,9 @@
 (** Theory of arrays.
 
   @author Harald Ruess
+*)
 
-  Terms in the theory of arrays are 
+(** Terms in the theory of arrays are 
   - creation [create(a)] of a constant array
   - selection [a[j]] of element at position [j] in the array [a], and 
   - updating [a[i := x]] array [a] at position [i] with value [x].

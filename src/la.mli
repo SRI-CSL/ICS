@@ -15,10 +15,10 @@
 
   @author Harald Ruess
   @author N. Shankar
-
-  This module provides the building blocks for a decision procedure
-  for real and integer linear arithmetic based on the Simplex algorithm.
 *)
+
+(** This module provides the building blocks for a decision procedure
+  for real and integer linear arithmetic based on the Simplex algorithm. *)
 
 
 module S : (Solution.SET with type ext = Term.Var.Set.t)

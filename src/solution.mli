@@ -13,9 +13,6 @@
 
 (** Solution sets.
 
-  @author Harald Ruess
-  @author N. Shankar
-
   A {b solution set} for theory [th] is a set of equalities of the 
   form [x = a], where [x] is term variable and [a] is a [th]-pure
   term application. For each such equality, a {i justification} [rho] 
@@ -26,6 +23,9 @@
   then [a] is identical with [b], and
   - solution sets are {i injective}, that is, [x = a] and [y = a] 
   are not in a solution set for [x <> y].
+
+  @author Harald Ruess
+  @author N. Shankar
 *)
 
 val pp_index : bool ref
@@ -71,7 +71,7 @@ module type SET = sig
     (** Test for identity of two solution sets. *)
 
   val pp : t Pretty.printer
-    (** Pretty-printing a solution set. If {!Eqs.pp_index} is set
+    (** Pretty-printing a solution set. If [Eqs.pp_index] is set
       to [true], then the {i dependency index} is printed, too. *)
 
   val empty : t
@@ -132,6 +132,7 @@ module type SET = sig
     (** Return the value of the extension field. *)
 
   module Dep : (DEP with type eqs = t)
+    (** Iterators over dependency index. *)
     
   val restrict : t -> Term.t -> unit
     (** [restrict s x] removes equalities of the form [x = a] in [s]. *)
@@ -170,7 +171,9 @@ module Make(Ext: EXT): (SET with type ext = Ext.t)
     Updates and restrictions have the respective side effects as before methods. *)
    
 
+
 module type SET0 = (SET with type ext = unit)
+  (** Solution set without field extension. *)
 
 module Set: SET0
   (** Functor for constructing a solution set for theory specification [T0].

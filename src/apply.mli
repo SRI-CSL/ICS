@@ -54,7 +54,7 @@ val abstract : Name.t -> Term.t -> Term.t
 
 val sigma : Sym.cl -> Term.t list -> Term.t
   (** Depending on the function symbol [f], [sigma f al] uses the constructors
-    {!Apply.mk_apply} and {!Apply.mk_abs} to compute the normal-form of applying [f] to the 
+    {!Apply.mk_apply} to compute the normal-form of applying [f] to the 
     arguments [al]. *)
 
 

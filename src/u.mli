@@ -15,16 +15,14 @@
 
   @author Harald Ruess
   @author N. Shankar
-
-  A {i congruence closure} state represents the conjunction of 
-  a set of equalities [x = f(x1,...,xn)] with [x], [xi] term variables and [f] 
-  an uninterpreted function symbol. This set of equalities is 
-  - {i injective} in that [x = a] and [y = a] implies [x = y], and 
-  - {i functional} in that [x = a] and [x = b] implies [a = b].
 *)
-
 
 module S: Solution.SET0
 
-(** Congruence closure inference system. *)
 module Infsys: (Infsys.EQ with type e = S.t)
+  (** A {i congruence closure} state represents the conjunction of 
+    a set of equalities [x = f(x1,...,xn)] with [x], [xi] term variables and [f] 
+    an uninterpreted function symbol. This set of equalities is 
+    - {i injective} in that [x = a] and [y = a] implies [x = y], and 
+    - {i functional} in that [x = a] and [x = b] implies [a = b].
+  *)

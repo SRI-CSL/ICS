@@ -73,6 +73,8 @@ val set_num_refinements : int -> unit
 val statistics : bool ref
 val show_explanations : bool ref
 
+(** Assignments for propositional formulas over literals
+  including equalities and arithmetic inequalities. *)
 module Assignment : sig
 
   type t = {

@@ -14,7 +14,9 @@
 (** Theory of products.
 
   @author Harald Ruess
+*)
 
+(**
   The {i signature} [P] of pairs consists of
   - [cons], the product constructor of arity two.
   - [car] of arity one, projection on first component.

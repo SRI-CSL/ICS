@@ -11,11 +11,15 @@
  * benefit corporation.
  *)
 
-(** {b Function symbols}
+(** Function symbols
 
   @author Harald Ruess
-  @author N. Shankar
-  
+
+ This module provides constructors for all the function symbols
+ for the theories in {!Th.t}.
+*)
+
+(**
   The set of {b function symbols} is partitioned into {i uninterpreted}
   and {i interpreted} function symbols, and the interpreted function
   symbols are partitioned themselves into function symbols for the 
@@ -37,10 +41,20 @@
   function symbols.  Since representations of function symbols are 
   {i hashconsed}, equality tests {!Sym.eq} and comparison {!Sym.cmp} 
   are performed in constant time.
+
+  Symbols should only be constructed using the explicitly provided 
+  constructors as the definition of the type {!Sym.sym} is only given
+  to allow for convenient pattern matching. 
+
+  Also, {!Tools.do_at_reset} resets internal structures and therefore
+  invalidates all uses of symbols. In particular, symbols should never
+  be stored in global constants. 
 *)
 
 type t = sym * int
-  (** Representation type for function symbols. *)
+  (** Representation type for function symbols. This includes the
+    function symbol itself together with a hash value. This type
+    is purposely not kept abstract as to allow for pattern matching. *)
 
 and sym = 
   | Uninterp of uninterp
@@ -53,9 +67,11 @@ and sym =
   | Arrays of arrays 
   | Propset of propset
 
+
 (** An uninterpreted function symbol in {!Th.u} just consists of a name.
   There is no {i arity} associated with it. *)
 and uninterp = Name.t
+
 
 (** Function symbols for linear arithmetic {!Th.la} are
   - [Num(q)] for representing rational number [q],
@@ -66,11 +82,13 @@ and arith =
   | Add
   | Multq of Mpa.Q.t
 
+
 (** Function symbols for the theory {!Th.p} of products are
   - [Cons] for constructing pairs
   - [Car] for projection to first component
   - [Cdr] for projection to second component. *)
 and product = Cons | Car | Cdr
+
 
 (** Function symbols for the theory {!Th.cop} of cotuples are
   - [In(Left)] for left injection,
@@ -83,6 +101,7 @@ and coproduct =
 
 and direction = Left | Right
 
+
 (** Function symbols of the theory {!Th.arr} of arrays
   - [Create] for creating constant arrays,
   - [Select] for array lookup, and
@@ -91,6 +110,7 @@ and arrays =
   | Create
   | Select 
   | Update
+
 
 (** Function symbols of the theory {!Th.app} of functions
   - Apply of function application, and
@@ -116,6 +136,7 @@ and bv =
   | Conc of int * int
   | Sub of int * int * int
 
+
 (** Function symbols of the theory {!Th.nl} of nonlinear arithmetic
   or {i power products} are
   - [Mult] for nonlinear multiplication *)
@@ -123,16 +144,19 @@ and pprod =
   | Mult
 
 
-type tsym = t (** nickname *)
+type tsym = t 
+    (** nickname *)
 
 
 val theory_of : t -> Th.t
   (** [theory_of f] returns the theory of type {!Th.t} associated with [f]. *)
+  
 
 val eq : t -> t -> bool
   (** [eq f g] succeeds iff [f] and [g] represent the same function symbol.
     This test is performed in constant time (in particular, independent
     of the length of names of uninterpreted function symbols). *)
+
 
 val cmp : t -> t -> int
   (** [cmp f g] returns [0] iff [eq f g] holds, and [cmp f g] is positive
@@ -140,9 +164,11 @@ val cmp : t -> t -> int
     [cmp f g] might thus be viewed as representing a {i total ordering} [<=] on 
     function symbols with [f <= g] iff [cmp f g] is, say, nonpositive. *)
 
+
 val hash : t -> int
   (** Nonnegative hash value for function symbols. This value is not
     unique to a function symbol. *)
+
 
 val pp : 'a Pretty.printer -> (t * 'a list) Pretty.printer
   (** Pretty-printing applications of symbols to an argument list.
@@ -151,9 +177,7 @@ val pp : 'a Pretty.printer -> (t * 'a list) Pretty.printer
     below. *)
 
 
-(** {6 Uninterpreted Function Symbols} *)
-
-(** Operations on uninterpreted function symbols.
+(** Operations on {i uninterpreted function symbols}.
   - [get f] returns the uninterpreted function symbol associated with [f],
   - [make n] constructs a hashconsed representation of an uninterpreted function
   symbol of name [n], and
@@ -167,11 +191,7 @@ module Uninterp : sig
 end
 
 
-(** {6 Linear Arithmetic} *)
-
-     
-
-(** Operation on linear arithmetic function symbols. 
+(** Operation on {i linear arithmetic} function symbols. 
   - [mk_num q], [mk_multq q], and [mk_add] construct hashconsed function
   symbols for {i representing} [Num(q)], [Multq(q)], and [Add], respectively.
   - [get f] returns the arithmetic function symbol represented by [f],
@@ -200,10 +220,7 @@ module Arith : sig
  end 
 
 
-(** {6 Products} *)
-
-
-(** Operation on function symbols of the product theory {!Th.p}. 
+(** Operation on function symbols of the {i product} theory {!Th.p}. 
   - [mk_cons], [mk_car], and [mk_cdr] are the function symbols
   {i representing} [Cons], [Car], [Cdr], respectively.
   - [get f] returns the function symbol in {!Th.p} represented by [f],
@@ -226,10 +243,7 @@ module Product : sig
 end
 
 
-(** {6 Coproducts} *)
-
-
-(** Operation on function symbols of the product theory {!Th.cop}. 
+(** Operation on function symbols of the {i coproduct} theory {!Th.cop}. 
   - [mk_inl], [mk_inf], [mk_outl] and [mk_outr] are the function symbols
   {i representing} [In(Left)], [In(Right)], [Out(Right)], and [Out(Left)], respectively.
   - [get f] returns the function symbol in {!Th.cop} represented by [f],
@@ -254,10 +268,7 @@ module Coproduct : sig
 end
 
 
-(** {6 Power products} *)
-
-
-(** Operation on function symbols of the product theory {!Th.nl}. 
+(** Operation on function symbols of {i nonlinear multiplication} theory {!Th.nl}. 
   - [mk_mul], [mk_expt n], [mk_outl] are the function symbols
   {i representing} [Mult] and [Expt(n)], respectively.
   - [get f] returns the function symbol in {!Th.nl} represented by [f],
@@ -280,11 +291,8 @@ module Pprod : sig
 end
 
 
-(** {6 Bitvectors} *)
 
-  
-
-(** Operation on function symbols of the product theory {!Th.bv}. 
+(** Operation on function symbols of the {i bitvector} theory {!Th.bv}. 
   - Constructors [mk_const b], [mk_conc n m], [mk_sub n i j]
   for {i representing} [Const(b)], [Conc(n, m)], and [Sub(n, i, j)], respectively.
   - [get f] returns the function symbol in {!Th.bv} represented by [f],
@@ -321,10 +329,8 @@ module Bv: sig
 end
 
 
-(** {6 Functional Arrays} *)
-
-    
-(** Operation on function symbols of the product theory {!Th.arr}. 
+(** Operation on function symbols of the theory {!Th.arr}
+  of {i functional arrays}. 
   - Constants [mk_create], [mk_select], [mk_update] for {i representing} 
   [Create], [Select], [Update], respectively.
   - [get f] returns the function symbol in {!Th.arr} represented by [f],
@@ -347,11 +353,9 @@ module Array : sig
   val pp : 'a Pretty.printer -> (arrays * 'a list) Pretty.printer
 end
 
-
-(** {6 Combinatory Logic} *)
-
    
-(** Operation on function symbols of the product theory {!Th.app}. 
+(** Operation on function symbols of the theory {!Th.app} of
+  {i combinatory logic} with case split.
   - Constructors [mk_apply r] and [mk_abs] {i representing} 
     [Apply(r)] and [Abs], respectively.
   - [get f] returns the function symbol in {!Th.app} represented by [f],
@@ -381,8 +385,7 @@ module Cl : sig
   val pp : 'a Pretty.printer -> (cl * 'a list) Pretty.printer
 end
 
-(** {6 Theory of propositional sets} *)
-
+(** Theory of {i propositional sets} *)
 module Propset : sig
   val get : t -> propset
   val mk_empty : t
@@ -395,10 +398,6 @@ module Propset : sig
   val pp : 'a Pretty.printer -> (propset * 'a list) Pretty.printer
 end
 
-
-
-
-(** {6 Partitioning} *)
 
 val get : t -> sym
   (** [get f] returns a theory-specific operator together with

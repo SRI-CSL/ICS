@@ -24,7 +24,7 @@ module type SIG = sig
   val f : Sym.t
 end 
 
-
+(** Canonizer and iterators for AC theories. *)
 module type TERM = sig
 
   val d_interp : Term.t -> Term.t * Term.t
@@ -98,13 +98,13 @@ module Infsys(Sig: SIG): (Infsys.EQ with type e = Solution.Set.t)
     The following invariants are maintained.
     - Right-hand sides of context equalities [x = a] are kept in 
     canonical form.  That is, if the variable equality [y = z]
-    has been merged using {!Nl.merge}, then the noncanonical [y]
+    has been merged using [merge], then the noncanonical [y]
     is not appearing on any right-hand side. 
     - Also, if [x = a] and [y = b] in a context, then the 
     variables [x] and [y] are different (that is, they are not {!Term.eq})
     - If [u = y * v] in a context, then [y] is always {i atomic} in the 
     sense that it is an {i original} variable from one of the arguments
-    of {!Nl.process} or {!Nl.name}, whereas [u], [v] may be {i generated}
+    of [process] or [name], whereas [u], [v] may be {i generated}
     variables.
 
     Forward chaining is used to keep contexts {i confluent}

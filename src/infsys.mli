@@ -142,7 +142,7 @@ module Empty: EQ
 
 val difference : bool ref
 
-
+(** Specification of tracer for inference system. *)
 module type LEVEL = sig 
   type t
   val level : Trace.level

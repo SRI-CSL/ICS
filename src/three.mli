@@ -14,10 +14,9 @@
 (** Three-valued datatype. 
 
   @author Harald Ruess
-
-  There is an implicit partial ordering  with [Yes < X] and [No < X]. 
 *)
 
+(** There is an implicit partial ordering  with [Yes < X] and [No < X]. *)
 type t = 
   | Yes
   | No

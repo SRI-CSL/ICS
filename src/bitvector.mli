@@ -14,8 +14,9 @@
 (** Theory of bitvectors.
 
   @author Harald Ruess
+*)
 
-  Bitvectors of width [n], where [n] is a natural
+(** Bitvectors of width [n], where [n] is a natural
   number, are arrays of bits with positions [0] through [n-1] 
   in increasing order from left-to-right.
 

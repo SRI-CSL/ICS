@@ -11,5 +11,15 @@
  * benefit corporation.
  *)
 
+(** Version number
+
+  @author Harald Ruess
+*)
+
 val version : string
+  (** Version and build date of current ICS version. *)
+
 val debug : int
+  (** Level of debugging.
+    - [0] no debugging
+    - [1] debugging information turned on. *)

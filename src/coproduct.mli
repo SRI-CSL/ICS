@@ -11,7 +11,7 @@
  * benefit corporation.
  *)
 
-(** Theory of coproducts.
+(** Theory of coproducts
 
   @author Harald Ruess
 *)

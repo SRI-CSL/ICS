@@ -72,7 +72,8 @@ val dep : t list -> t
 type jst = t
     (** Nickname. *)
 
-(** Justifying Relations *)
+
+(** Justifying ternary relations. *)
 module Three : sig
 
   type t =
@@ -89,7 +90,7 @@ module Three : sig
 end
 
 
-(** Equality Transformers *)
+(** Justifying equality Transformers *)
 module Eqtrans : sig
   type t = Term.t -> Term.t * jst
 
@@ -125,6 +126,7 @@ module Eqtrans : sig
 end
 
 
+(** Justifying predicates over terms. *)
 module Pred : sig
   type t = Term.t -> jst option
   val disj : t -> t -> t
@@ -133,6 +135,7 @@ module Pred : sig
 end
 
 
+(** Justifying predicates over pair of terms. *)
 module Pred2 : sig
   type t = Term.t -> Term.t -> jst option
   val apply : Eqtrans.t -> t -> t
@@ -142,6 +145,7 @@ module Pred2 : sig
 end
 
 
+(** Justifying ternary relations over terms. *)
 module Rel1 : sig
   type t = Term.t -> Three.t
   val apply : Eqtrans.t -> t -> t
@@ -150,6 +154,8 @@ module Rel1 : sig
   val trace : Trace.level -> string -> t -> t
 end
 
+
+(** Justifying ternary relations over pairs of terms. *)
 module Rel2 : sig
   type t = Term.t -> Term.t -> Three.t
   val apply : Eqtrans.t -> t -> t

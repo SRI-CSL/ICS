@@ -98,9 +98,6 @@ let set_gc_max_overhead overhead =
 let _ = Callback.register "set_gc_max_overhead" set_gc_max_overhead
 
 
-let do_at_exit () = Tools.do_at_exit ()
-let _ = Callback.register "do_at_exit" do_at_exit
-
 
 (** {6 Channels} *)
 

@@ -14,6 +14,8 @@
 (** Operations on uninterpreted terms
 
   @author Harald Ruess
+
+  Currently not used. But here goes the forward chaining rules.
 *)
 
 val sigma : Sym.t -> Term.t list -> Term.t

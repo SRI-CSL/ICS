@@ -14,9 +14,10 @@
 (** Datatype of terms 
 
   @author Harald Ruess
+*)
 
-  A {i term} is either a 
-  - {i variable} [x] ({!Var.t}) or an
+(** A {i term} is either a 
+  - an injection of a {i variable} [x] ({!Var.t}) or an
   - {i application} of a function symbol [f] ({!Sym.t}) to a list of 
   argument terms [l].
 
@@ -49,6 +50,8 @@ val to_string : t -> string
 
 (** {6 Variables} *)
  
+
+(** Operations on term variables. *)
 module Var : sig
  
   val mk_var : Name.t -> Var.Cnstrnt.t -> t
@@ -150,6 +153,7 @@ end
 
 (** {6 Applications} *)
 
+(** Operations on term applications. *)
 module App : sig
 
   val mk_const : Sym.t -> t
@@ -290,10 +294,13 @@ val assq : t -> (t * 'a) list -> 'a
 (** {6 Sets and maps of terms} *)
 
 module Set2 : (Set.S with type elt = trm * trm)
+  (** Set of pair of terms. *)
 
 module Set : (Set.S with type elt = trm)
+  (** Set of terms. *)
 
 module Map : (Map.S with type key = trm)
+  (** Maps with terms as keys. *)
 
 val vars_of : t -> Var.Set.t
   (** Return set of variables. *)

@@ -16,6 +16,7 @@
   @author Harald Ruess
 *)
 
+(** Pretty-printing modes. *)
 module Mode : sig
   type t = Mixfix | Prefix | Sexpr
   val to_string : t -> string

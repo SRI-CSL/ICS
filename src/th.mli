@@ -15,9 +15,10 @@
 (** Classification of function symbols
   
   @author Harald Ruess
+*)
 
-  Function symbols are classified according to which {i theory} 
-  they belong to. Here, we distinguish between three classes of
+(** Function symbols are classified according to which {i theory} 
+  they belong to.  We distinguish between three classes of
   {i equality theories}.
   - {i Uninterpreted} theory
   - {i Canonizable} theories have a unique normal forms.

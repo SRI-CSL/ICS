@@ -23,7 +23,7 @@
   - {!Th.nl} of nonlinear multiplication,
   - {!Th.p} of products,
   - {!Th.cop} of coproducts,
-  - {!Th.cl} of combinatory logic,
+  - {!Th.app} of combinatory logic,
   - {!Th.arr} of functional arrays,
   - {!Th.set} of propositional sets,
   - {!Th.bv} of bitvectors. *)

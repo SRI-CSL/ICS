@@ -11,8 +11,6 @@
  * benefit corporation.
  *)
 
-(** Operations on product terms. *)
-
 let is_pure = Term.is_pure Th.p
 
 let is_interp = function

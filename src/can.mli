@@ -43,6 +43,7 @@ module Make(Can: T): (Infsys.EQ with type e = Solution.Set.t)
     of a canonizable and ground confluent theory. *)
 
 
+(** Operations for canonizable theories. *)
 module type OPS = sig
   val is_flat : Term.t -> bool
   val is_pure : Term.t -> bool

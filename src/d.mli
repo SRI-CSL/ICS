@@ -30,6 +30,7 @@ val eq : t -> t -> bool
     true that [s] and [t] are not logically equivalent. *)
 
 module Set : (Set.S with type elt = Term.t * Jst.t)
+  (** Set of disequal terms together with justifications. *)
 
 val diseqs : t -> Term.t -> Set.t
  (** [diseqs s x] returns set of  disequalites of the form [x <> y] 

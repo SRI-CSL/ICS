@@ -14,8 +14,9 @@
 (** Theory of propositional sets
 
   @author Harald Ruess
- 
-  Set connective, including recognizers and destructors.
+*)
+
+(** Set connective, including recognizers and destructors.
   [ite(x,p,n)] can be thought of being defined as
   [union (inter x p) (inter (compl x) n)], where [union],[inter],
   and [compl] are just set union, set intersection, and set complement,

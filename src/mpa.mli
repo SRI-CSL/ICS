@@ -12,14 +12,17 @@
  * benefit corporation.
  *)
 
-(** Multi-precision arithmetic. The purpose of this module is to
-  abstract the necessary arithmetic functions of any multi-precision
-  package such as Ocaml's bignums, GNU MP etc in order to switch
-  more easily between different multi-precision arithmetic packages. 
+(** Multi-precision arithmetic.
 
   @author Jean-Christophe Filliatre
-  @author Harald Ruess
+  @author Harald Ruess 
 *)
+
+(** The purpose of this module is to
+  abstract the necessary arithmetic functions of any multi-precision
+  package such as Ocaml's bignums, GNU MP etc in order to switch
+  more easily between different multi-precision arithmetic packages.  *)
+
 
 (** {6 Integers} *)
 

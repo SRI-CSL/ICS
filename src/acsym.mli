@@ -26,7 +26,7 @@ module type SIG = sig
   val f : Sym.t
 end 
 
-
+(** Canonizer and iterators for AC theories. *)
 module type TERM = sig
 
   val d_interp : Term.t -> Term.t * Term.t

@@ -14,8 +14,9 @@
 (** Theory of power products.
 
   @author Harald Ruess
+*)
 
-  Power products are of th form [x1^n1 * ... * xk^nk], 
+(** Power products are of th form [x1^n1 * ... * xk^nk], 
   where [xi^ni] represents the variable [xi] raised to the [n], 
   where [n] is any integer, positive or negative, except for [0],
   and [*] is nary multiplication; in addition [xi^1] is reduced

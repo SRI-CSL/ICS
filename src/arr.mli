@@ -30,7 +30,7 @@ module Infsys: (Infsys.EQ with type e = Solution.Set.t)
     
     Right-hand sides of context equalities [x = a] are kept in 
     canonical form.  That is, if the variable equality [y = z]
-    has been merged using {!Arr.merge}, then the noncanonical [y]
+    has been merged using [Arr.merge], then the noncanonical [y]
     is not appearing on any right-hand side.
     
     Forward chaining is used to keep configurations {i confluent}.

@@ -14,8 +14,9 @@
 (** Logical contexts
 
   @author Harald Ruess
-  
-  A {b logical context} is simply a conjunction [ctxt] of atoms.  When atoms 
+*)
+
+(** A {b logical context} is simply a conjunction [ctxt] of atoms.  When atoms 
   are added to a logical context, the following datastructures are maintained.
   - A {b partitioning} [p] of type {!Partition.t} consisting of variable 
     equalities, variable disequalities, and variable constraints.
@@ -27,6 +28,7 @@
 type t
   (** Representation of logical contexts. *)
 
+(** Pretty-printing mode for processing. *)
 module Mode : sig
   type t = Context | Internals | None
   val value : t ref
@@ -58,6 +60,7 @@ val upper_of : t -> int
   (** [upper_of s] returns an upper bound on the indices of all fresh
     variables in [s]. *)
 
+(** Result of processing. *)
 module Status : sig
 
   type 'a t = 

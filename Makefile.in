@@ -313,6 +313,7 @@ ics-2-0.tar.gz:
                   ./ics-mode.el \
                   ./fm-license.pdf \
                   ./ics.in \
+                  ./src/version.ml.in \
                   ./chameleon/Makefile.in \
                   ./chameleon/src/chameleon.ml \
                   ./chameleon/src/mli_lexer.mll \
@@ -439,6 +440,8 @@ clean::
 	rm -f gmon.out
 	rm -rf profile.out
 	rm -f $(BINDIR)/ics $(BINDIR)/ics.byte 
+	rm -f $(LIBDIR)/*
+	rm -f $(INCDIR)/*
 	rm -rf $(SRCDIR)/parser.output
 	rm -rf $(SRCDIR)/lexer.ml
 	rm -rf $(SRCDIR)/lexer.mli
@@ -450,6 +453,7 @@ clean::
 	rm -f $(DOCDIR)/*.bbl $(DOCDIR)/*.log $(DOCDIR)/*.haux $(DOCDIR)/*.dvi
 	make -C chameleon clean
 	rm -f $(DOCDIR)/*.ppm $(DOCDIR)/*.blg $(DOCDIR)/*.brf $(DOCDIR)/*.out 
+	rm -rf $(DOCDIR)/html
 	@(cd sat; $(MAKE) clean)
 
 

@@ -14,8 +14,9 @@
 (** Propositional logic
 
   @author Harald Ruess
+*)
 
-  Propositional is just defined in terms of bitwise operations
+(** Propositional is just defined in terms of bitwise operations
   on bitvectors of width [1].  This module provides the
   corresponding definitions. 
 *)

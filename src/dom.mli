@@ -11,21 +11,22 @@
  * benefit corporation.
  *)
 
-(** Various subdomains of numbers. The symbol [Real] {b denotes} the 
-  set of real numbers, [Int] all integers, [Compl(Int)] all reals which 
-  are not integer, and [Compl(Real)] is the empty set.
+(** Various subdomains of numbers.
 
   @author Harald Ruess
 *)
 
 type t = Int | Real | Nonint
+ (** The symbol 
+   - [Real] {b denotes} the set of real numbers, 
+   - [Int] all integers, 
+   - and [Nonint] all reals which are not integer. *)
 
-
-(** {6 Relations} *)
 
 val eq : t -> t -> bool
   (** [eq d e] holds iff the denotation of [d] equals the
     denotation of [e]. *)
+
 
 val cmp : t -> t -> int
   (** [cmp d e] is 
@@ -34,20 +35,21 @@ val cmp : t -> t -> int
     - [1] if [sub e d] holds.
     Otherwise the result is unspecified. *)
 
+
 val sub : t -> t -> bool
   (** [sub d e] holds iff the denotation of [d] is a subset of the
     denotation of [e]. *)
+
 
 val disjoint : t -> t -> bool
   (** [disjoint d e] holds iff the denotations of [d] and [e] 
     are disjoint. *)
 
 
-(** {6 Connectives} *)
-
 val union : t -> t -> t
   (** [union d1 d2] returns [d] iff the denotation
     [d] is the union of the denotations of [d1] and [d2]. *)
+
 
 exception Empty
 
@@ -70,19 +72,17 @@ val mult : t -> t -> t
 val multl : t list -> t
 
 
-(** {6 Rationals} *)
-
 val of_q : Mpa.Q.t -> t
   (** [of_q q] returns [Int] if the rational [q] is 
     an integer, and [Real] otherwise. *)
+
 
 val mem : Mpa.Q.t -> t -> bool
   (** [mem q d] tests if the rational [q] is an element of
     the denotation of [d]. *)
 
 
-(** {6 Pretty-printing} *)
-
 val pp: t Pretty.printer
+
 
 val to_string : t -> string
