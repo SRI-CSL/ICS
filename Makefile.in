@@ -17,7 +17,7 @@ HEVEA = @HEVEA@
 OCAMLWEB = @OCAMLWEB@
 OCAMLWEBSTY = $$HOME/tex/ocamlweb.sty
 
-WEBHOME = /homes/web
+WEBHOME = /homes/web/www.icansolve.com
 
 ### end of configuration part ################################################
 
@@ -65,6 +65,7 @@ CMO = sign.cmo three.cmo \
       sym.cmo \
       var.cmo \
       term.cmo \
+      interp.cmo theories.cmo \
       veq.cmo \
       veqs.cmo \
       boolean.cmo \
@@ -75,7 +76,6 @@ CMO = sign.cmo three.cmo \
       app.cmo \
       atom.cmo \
       subst.cmo \
-      supinf.cmo \
       c.cmo \
       a.cmo \
       t.cmo \
@@ -86,6 +86,7 @@ CMO = sign.cmo three.cmo \
       th.cmo \
       shostak.cmo \
       symtab.cmo istate.cmo \
+      help.cmo \
       parser.cmo lexer.cmo \
       ics.cmo
 
@@ -249,7 +250,7 @@ cprofile:
 
 .PHONY : web
 
-LICENSE = ICS-License-and-NDA.doc
+LICENSE = fm-license.pdf
 
 web::	
 	cp ./bin/$(OBJDIR)/ics $(WEBDIR)/download/$(OBJDIR)/ics     # Save these files before cleaning
@@ -270,8 +271,6 @@ ics.tar.gz:	distclean
 
 LITERAL = $(addprefix $(DOCDIR)/literal/,$(CMO:.cmo=.ml.tex)) \
           $(addprefix $(DOCDIR)/literal/,$(CMO:.cmo=.mli.tex)) \
-          $(DOCDIR)/literal/cmd.mli.tex \
-          $(DOCDIR)/literal/cmd.ml.tex \
           $(DOCDIR)/literal/main.ml.tex \
 
 $(DOCDIR)/literal/%.ml.tex: $(SRCDIR)/%.ml
