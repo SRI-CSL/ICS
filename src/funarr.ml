@@ -14,22 +14,24 @@
 open Term
 
 let d_interp = function
-  | App(Sym.Arrays(op), al) -> (op, al)
+  | App(sym, al, _) -> (Sym.Array.get sym, al)
   | _ -> raise Not_found
 
-let d_update = function
-  | App(Sym.Arrays(Sym.Update), [b; i; x]) -> (b, i, x)
-  | _ -> raise Not_found
+let d_update a =
+  match d_interp a with
+    | Sym.Update, [b; i; x] -> (b, i, x)
+    | _ -> raise Not_found
 
-let d_select = function
-  | App(Sym.Arrays(Sym.Select), [a; j]) -> (a, j)
-  | _ -> raise Not_found
+let d_select a =
+  match d_interp a with
+    | Sym.Select, [a; j] -> (a, j)
+    | _ -> raise Not_found
 
-let d_select_update = function
-  | App(Sym.Arrays(Sym.Select), [App(Sym.Arrays(Sym.Update), [a;i;x]); j]) ->
-      (a, i, x, j)
-  | _ ->
-      raise Not_found
+
+let d_select_update a =
+  let (b, j) = d_select a in
+  let (a, i, x) = d_update b in
+    (a, i, x, j)
 
 
 type equalRel = Term.t -> Term.t -> Three.t
