@@ -118,6 +118,8 @@ val is_nonneg : Term.t -> Three.t
 
 val is_pos : Term.t -> Three.t
 
+val is_diseq : Term.t -> Term.t -> Three.t
+
 val d_interp : Term.t -> Sym.arith * Term.t list
 
 val constant_of : Term.t -> Mpa.Q.t
@@ -139,6 +141,9 @@ val d_add : Term.t -> Term.t list
     with symbol [Sym.Add]. *)
   
 val coefficient_of : Term.t -> Term.t -> Mpa.Q.t
+
+val coefficient_of_mono : Term.t -> Mpa.Q.t
+val variable_of_mono : Term.t -> Term.t
    
 val lcm_of_denominators : Term.t -> Mpa.Z.t
 

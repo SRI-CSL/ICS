@@ -139,6 +139,17 @@ let nonconstant_of a =
     | _ ->
 	a
 
+let is_diseq a b =
+  if Term.eq a b then Three.No else 
+  let q = constant_of a and p = constant_of b in
+    if not(Q.equal q p) && 
+       Term.eql (nonconstant_monomials_of a) (nonconstant_monomials_of b)
+    then
+      Three.Yes
+    else 
+      Three.X
+      
+
 (** Create a polynomial with constant part [q] and 
   monomials [ml]. Assumes [ml] is canonical. *)
 let mk_polynomial q ml =
