@@ -21,7 +21,7 @@
  and [u = z2], [x = i2], [y = j1] are known to be true in the
  partitioning [p], then the equality [z1 = k2] is added to [p]. *)
 
-val propagate : Fact.equal -> Partition.t * Solution.t -> Partition.t * Solution.t
+val propagate : Fact.equal -> Context.t -> Context.t
 
 
 (*s [diseq d (p, u)] propagates a disequality [d] of the form [i <> j]. 
@@ -31,4 +31,4 @@ val propagate : Fact.equal -> Partition.t * Solution.t -> Partition.t * Solution
   already in [u] or [z3] is generated and the equality [z3 = select(a,j)] is
   added to [u]. *)
 
-val diseq : Fact.diseq -> Partition.t * Solution.t -> Partition.t * Solution.t
+val diseq : Fact.diseq -> Context.t -> Context.t
