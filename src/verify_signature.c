@@ -93,7 +93,7 @@ set to a file you should have\nreceived in email after registering at \
 
   // Now fopen the file, so we can use fgets to read lines rather than
   // some number of chars.
-  if ((fp = fopen(datafile, "r"))==NULL) {
+  if ((fp = fopen(datafile, "rt"))==NULL) {
     fprintf(stderr, "There was a problem opening the file pointed to by the\n\
 %s environment variable:\n  %s: %s\nThis environment variable must be \
 set to a file you should have\nreceived in email after registering at \
