@@ -57,6 +57,8 @@ val process_equal :  config -> Th.t -> Fact.Equal.t -> unit
 
 val process_nonneg : config -> Fact.Nonneg.t -> unit
 
+val process_pos : config -> Fact.Pos.t -> unit
+
 val process_diseq : config -> Fact.Diseq.t -> unit
 
 val merge :  config -> Th.t -> Fact.Equal.t -> unit

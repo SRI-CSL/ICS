@@ -244,22 +244,22 @@ module Out = struct
 
   let unsat j =
     let fmt = !outchannel in
+      Format.fprintf fmt ":unsat ";
       if not(Justification.is_none j) then
 	begin
-	  Format.fprintf fmt ":unsat ";
 	  Justification.pp fmt j
 	end;
-	Format.fprintf fmt "@?"
+      Format.fprintf fmt "@?"
 
   let valid j =
     if !batch then nothing () else 
       let fmt = !outchannel in
+	Format.fprintf fmt ":valid ";
 	if not(Justification.is_none j) then
 	  begin
-	    Format.fprintf fmt ":valid ";
 	    Justification.pp fmt j
 	  end;
-      Format.fprintf fmt "@?"
+	Format.fprintf fmt "@?"
     
   let terms ts =
     if !batch then nothing () else 
@@ -302,8 +302,6 @@ module Out = struct
 	Term.Subst.pp !outchannel ml;
 	Format.fprintf !outchannel "@?"
       end 
-
-
 
   let yes_or_no res =
     if !batch then nothing () else
@@ -1294,7 +1292,7 @@ module Parameters = struct
     set Compactify "true";
     set Footprint "false";
     set Statistics "false";
-    set Proofmode "dep";
+    set Proofmode "no";
     set Justifications "false";
     set Inchannel "stdin";
     set Outchannel "stdout";

@@ -266,6 +266,9 @@ type config = Partition.t * t
 let process_nonneg (p, s) =
   La.process_nonneg (p, s.a) 
 
+let process_pos (p, s) =
+  La.process_pos (p, s.a) 
+
 let process_diseq (p, s) d =
   try
     if Fact.Diseq.is_diophantine d then

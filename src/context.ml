@@ -259,13 +259,7 @@ and process_nonneg s c =
   Combine.process_nonneg (s.p, s.eqs) c
 
 and process_pos s c = 
-  let (a, rho) = Fact.Pos.destruct c in
-  (let tau1 = Justification.nonzero a rho in
-   let d = Fct.mk_diseq s (a, Arith.mk_zero, tau1) in
-     process s d);
-  (let tau2 = Justification.weaken a rho in
-   let c = Fct.mk_nonneg s (a, tau2) in 
-     process s c)
+  Combine.process_pos (s.p, s.eqs) c
 
 and process_diseq s d =
   if Fact.Diseq.is_diophantine d then
