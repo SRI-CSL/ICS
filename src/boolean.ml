@@ -24,9 +24,15 @@ let is_false a = (Term.eq a (mk_false()))
 
 (*s Boolean connectives. *)
 
-let mk_conj a b = Bitvector.mk_bitwise 1 a b (mk_false())
-let mk_disj a b = Bitvector.mk_bitwise 1 a (mk_true()) b
-let mk_xor a b = Bitvector.mk_bitwise 1  a
-		   (Bitvector.mk_bitwise 1 b (mk_false()) (mk_true()))
-		   a
-let mk_neg a = Bitvector.mk_bitwise 1 a (mk_false()) (mk_true())
+let mk_conj a b = 
+  Bitvector.mk_bitwise 1 a b (mk_false())
+
+let mk_disj a b = 
+  Bitvector.mk_bitwise 1 a (mk_true()) b
+
+let mk_xor a b = 
+  Bitvector.mk_bitwise 1  a
+    (Bitvector.mk_bitwise 1 b (mk_false()) (mk_true()))
+    a
+let mk_neg a = 
+  Bitvector.mk_bitwise 1 a (mk_false()) (mk_true())
