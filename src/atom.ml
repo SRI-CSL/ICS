@@ -204,8 +204,6 @@ let map f atm =
 	let a' = f a in
 	  if a == a' then atm else mk_pos a'
 	    
-	      
-
 let is_pure i (a, _) =
   match a with 
     | TT -> true
@@ -214,7 +212,6 @@ let is_pure i (a, _) =
     | Nonneg(a) -> Term.is_pure i a
     | Pos(a) -> Term.is_pure i a
     | FF -> true
-
 
 
 (** {6 Negations of atoms} *)
