@@ -391,50 +391,25 @@ let minimize (p, s) = La.minimize (p, s.a)
 
 module Split = struct
 
-  type t = 
-    | Int of Term.t * La.Finite.t
-    | Vareq of Term.Equal.t
+  type t = {
+    finint: La.Finite.t Term.Map.t;
+    arridx: Term.Set2.t
+  }
 
-  let pp fmt = function
-    | Int(x, fin) -> 
-	Term.pp fmt x;
-	Format.fprintf fmt " in ";
-	La.Finite.pp fmt fin
-    | Vareq(e) -> 
-	Term.Equal.pp fmt e
+  let is_empty spl =
+    Term.Set2.is_empty spl.arridx &&
+    Term.Map.empty == spl.finint
+
+  let pp fmt spl =
+    if not(spl.finint == Term.Map.empty) then
+      (let l = Term.Map.fold (fun x fin acc -> (x, fin) :: acc) spl.finint [] in
+	 Pretty.map Term.pp La.Finite.pp fmt l);
+    if not(Term.Set2.is_empty spl.arridx) then
+      Pretty.set Term.Equal.pp fmt (Term.Set2.elements spl.arridx)
 
 end 
 
-let rec split (p, s) = 
-  let m0 = [] in
-  let m1 = split_la (p, s) m0 in
-  let m2 = split_arr (p, s) m1 in
-    m2
-
-and split_la (p, s) =
-  Term.Map.fold
-    (fun x fin acc -> 
-       Split.Int(x, fin) :: acc)
-    (La.Finite.of_config (p, s.a))
-
-and split_arr (p, s) =
-  failwith "to do"
-(*
-  let rec splits acc = function
-    | Term.App(Sym.Arrays(Sym.Select), [u; j]) ->
-	(match u with 
-	   | Term.App(Sym.Arrays(Sym.Update), [a; i; x]) ->
-	       let acc' = Split.Vareq(i, j) :: acc in
-		 (splits (splits (splits (splits acc' a) i) x) j)
-	   | _ ->
-	       splits (splits acc u) j)
-    | Term.App(Sym.Arrays(Sym.Update), [a; i; x]) -> 
-	splits (splits (splits acc a) i) x
-    | _ ->
-	acc
-  in
-    Arr.fold (fun _ (a, _) acc -> splits acc a) s.arr
-*)
-	 
-	 
- 
+let split (p, s) = {
+  Split.finint = La.Finite.of_config (p, s.a);
+  Split.arridx = Arr.splits (p, s.arr)
+}

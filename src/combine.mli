@@ -105,12 +105,15 @@ val model : Partition.t * t -> Term.Set.t -> Term.t Term.Map.t
 
 module Split : sig
 
-  type t = 
-    | Int of Term.t * La.Finite.t
-    | Vareq of Term.Equal.t
+  type t = {
+    finint: La.Finite.t Term.Map.t;
+    arridx: Term.Set2.t
+  }
 
   val pp : t Pretty.printer
 
+  val is_empty : t -> bool
+
 end 
 
-val split : config -> Split.t list
+val split : config -> Split.t
