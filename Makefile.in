@@ -74,6 +74,7 @@ CMO = sign.cmo three.cmo \
       term.cmo \
       trace.cmo \
       fact.cmo \
+      euclid.cmo \
       arith.cmo \
       tuple.cmo \
       coproduct.cmo \
