@@ -222,9 +222,9 @@ arith:
                                   Linarith.mk_add $1 $3 }
 | term MINUS term               { Linarith.mk_sub $1 $3 }
 | MINUS term %prec prec_unary   { Linarith.mk_neg $2 }
-| term TIMES term               { Nl.Nonlin.mk_mult $1 $3 }
-| term DIVIDE term              { Nl.Nonlin.mk_div $1 $3 }
-| term EXPT int                 { Nl.Nonlin.mk_expt $1 (Mpa.Z.to_int $3) }
+| term TIMES term               { Nonlin.mk_mult $1 $3 }
+| term DIVIDE term              { Nonlin.mk_div $1 $3 }
+| term EXPT int                 { Nonlin.mk_expt $1 (Mpa.Z.to_int $3) }
 ;
 
 product:

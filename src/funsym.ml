@@ -102,7 +102,16 @@ module type SIG = sig
   val name : t -> Name.t
 end
 
+module type OP = sig
+  type op
+  val inj : op -> t
+  val out : t -> op
+  val is_interp : t -> bool
+end
+
 module Make(Sig: SIG) = struct
+
+  type op = Sig.t
 
   let equal op1 op2 =
     Name.eq (Sig.name op1) (Sig.name op2)

@@ -42,7 +42,7 @@ module type S = sig
   val map : (Term.t -> Term.t) -> Term.t -> Term.t
   val can : Term.interp
   val is_diseq : Term.t -> Term.t -> bool
-  module Infsys : Can.INFSYS
+  module Component : Can.COMPONENT
 end
 
 module Make(T: SPEC): S

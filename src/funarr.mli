@@ -53,8 +53,9 @@ val map: (Term.t -> Term.t) -> Term.t -> Term.t
     - [map f (mk_update a i x)] equals [mk_select (map f a) (map f i) (map f x)]
     - Otherwise, [map f x] equals [f x] *)
 
-
+(*
 module Infsys: Can.INFSYS
+*)
   (** Inference system for the theory {!Th.arr} of extensional arrays
     as defined in module {!Funarr}.
 

@@ -81,7 +81,7 @@ OCAMLLIBS= $(OCAMLSTDLIB)/libunix.a $(OCAMLSTDLIB)/libnums.a
 
 ### Ocaml sources ###
 
-FOREIGN = dynarray.ml ptmap.ml ptset.ml
+FOREIGN =
 
 GENERATED = parser.ml lexer.ml
 
@@ -98,7 +98,7 @@ CORE = three.ml mpa.ml tools.ml weakhash.ml memoize.ml stacks.ml \
       axioms.ml can.ml \
       spec.ml \
       u.ml \
-      ac.ml linarith.ml \
+      ac.ml linarith.ml nonlin.ml \
       simplex.ml \
       coproduct.ml bitvector.ml \
       propset.ml boolean.ml \
@@ -237,7 +237,7 @@ lexer.cmi: lexer.ml
 parser.mli parser.ml: parser.mly
 
 .depend: 
-	(cd $(OBJDIR); $(OCAMLDEP) *.mli *.ml main.ml > .depend)
+	$(OCAMLDEP) $(SRCML) $(SRCMLI) $(SRCDIR)/main.ml > .depend
 
 ifeq ($(MAKELEVEL),1)
 include .depend

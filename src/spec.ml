@@ -49,7 +49,7 @@ module type S = sig
   val map : (Term.t -> Term.t) -> Term.t -> Term.t
   val can : Term.interp
   val is_diseq : Term.t -> Term.t -> bool
-  module Infsys : Can.INFSYS
+  module Component : Can.COMPONENT
 end
 
 module Make(Spec: SPEC): S = struct
@@ -78,7 +78,7 @@ module Make(Spec: SPEC): S = struct
 
   let can = Ops.normalize
 
-  let is_diseq = Ops.is_diseq  
+  let is_diseq = Ops.is_diseq
 
   let map f =
     let rec mapf a = 
@@ -94,6 +94,7 @@ module Make(Spec: SPEC): S = struct
   module Th: Can.T = struct
     let th = th
     let can = can
+    let is_diseq = is_diseq
     let map = map
     let chains =
       Spec.Axs.chains @
@@ -102,8 +103,8 @@ module Make(Spec: SPEC): S = struct
   end
 	
   (** Inference system for defined theory *)
-  module Infsys: Can.INFSYS = 
-    Can.Infsys(Th)
+  module Component: Can.COMPONENT = 
+    Can.Make(Th)
 	   
 end
 
@@ -120,10 +121,4 @@ module Register(S: S) = struct
       m.Term.Methods.can <- Some(S.can);
       m.Term.Methods.is_diseq <- Some(S.is_diseq);
       Term.Methods.register S.th m
-
-(*
-  module Unit = 
-    Can.Register(S.Infsys)
-*)
-
 end

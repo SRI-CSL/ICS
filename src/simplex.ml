@@ -1957,6 +1957,8 @@ module Infsys = struct
   let finalize () =
     if !unchanged then !state else copy !state
 
+  module Effect = Effect
+
   let abstract t a =
     assert(is_pure t);
     let e1 = replace t in             (* [e1 |- t = t']  *)
@@ -2043,32 +2045,12 @@ module Infsys = struct
 
 end
 
-module Component: E.COMPONENT = struct
-  let th = A.theory
-  module Eqs = Config
-  module I = Infsys
-  module Infsys = struct
-    type eqs = Eqs.t
-    let current = I.current
-    let reset = I.reset
-    let initialize = I.initialize
-    let is_unchanged = I.is_unchanged
-    let finalize = I.finalize
-    let abstract = I.abstract
-    let process_nonneg = Some(I.process_nonneg)
-    let process_pos = Some(I.process_pos)
-    let process_equal = Some(I.process_equal)
-    let process_diseq = Some(I.process_diseq)
-    let process_nonneg = Some(I.process_nonneg)
-    let process_pos = Some(I.process_pos)
-    let propagate_equal = Some(I.propagate_equal)
-    let propagate_diseq = Some(I.propagate_diseq)
-    let propagate_cnstrnt = None
-    let propagate_nonneg = None
-    let branch = I.branch
-    let normalize = I.normalize
-  end
+(** {6 Linear arithmetic component} *)
+
+module Component = struct
+  let th = Linarith.theory
+  module Config = Config
+  module Infsys = Infsys
 end
 
-module Unit = 
-  E.Register(Component)
+

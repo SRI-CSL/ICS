@@ -203,6 +203,8 @@ module T: Can.T = struct
 
   let can = sigma
 
+  let is_diseq _ _ = false
+
   open Axioms
 
   let mk_app_create a = Lterm.mk_app (Op.inj Sig.Create) [a]
@@ -291,10 +293,10 @@ module T: Can.T = struct
  
 end
 
+(*
 module Infsys: Can.INFSYS =
   Can.Infsys(T)
 
-(*
 module Unit = 
   Can.Register(Infsys)
 *)

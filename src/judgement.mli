@@ -135,6 +135,8 @@ val mk_bot : diseq -> unsat
 val mk_refl : Term.t -> equal
   (** [refl a |- a = a]. *)
 
+val is_refl : equal -> bool
+
 val mk_sym : equal -> equal
   (** If [sym p |- a = b], then [sym p |- b = a]. *)
 

@@ -27,12 +27,14 @@ type iter = (Judgement.equal -> unit) -> unit
 module type T = sig
   val th : Theory.t
   val can : Funsym.t -> Term.Args.t -> Term.t
+  val is_diseq : Term.t -> Term.t -> bool
   val chains : Axioms.Chain.t list
   val disjunction : iter -> Judgement.disjunction
 end
 
+
 (** {i Configuration} for inference systems on flat terms. *)
-module Config : sig
+module type CONFIG = sig
 
   type t
     (** Representation of a conjunction of (directed) equalities [x = f(x{1},...,x{n}]] 
@@ -99,36 +101,50 @@ module Config : sig
     
   val model : t -> Term.Model.t
 
+  module Apply : sig
+    val get : t -> Term.t -> Term.t
+    val justify : t -> Term.t -> Judgement.equal
+  end 
+  module Inv : sig
+    val get : t -> Term.t -> Term.t
+    val justify : t -> Term.t -> Judgement.equal
+  end 
+  module Replace : sig
+    val get : t -> Term.t -> Term.t
+    val justify : t -> Term.t -> Judgement.equal
+  end 
+  module Diseq : sig
+    val test : t -> Term.t -> Term.t -> bool
+    val justify : t -> Term.t -> Term.t -> Judgement.diseq
+  end
+  module Equal : sig
+    val test : t -> Term.t -> Term.t -> bool
+    val justify : t -> Term.t -> Term.t -> Judgement.equal
+  end 
 end
 
 (** An {i inference system} manipulates current {i configurations}. *)
 module type INFSYS = sig
 
-  val current : unit -> Config.t
+  type config 
+
+  val current : unit -> config
     (** Return the current configuration. The resulting configuration
       should not be updated in that side effects might be propagated
       in an undesired way. *)
 
-  val finalize : unit -> Config.t
+  val finalize : unit -> config
     (** Retrieve modified equality set. *)
 
   val reset : unit -> unit
     (** Reset the current configuration to the empty configuration. *)
 
-  val initialize : Config.t -> unit
+  val initialize : config -> unit
     (** Intitialize current configuration with the given equalities. *)
 
   val is_unchanged : unit -> bool
     (** [is_unchange()] holds if the current configuration has not
       been modified since the last initialization or reset. *)
-
-  val can : Term.t -> Term.t * Judgement.equal
-    (** For a term [t], return a variable [x] which is equal in a 
-      possibly extended configuration. *)
-
-  val remove : Judgement.equal -> unit
-    (** [remove e] removes equality [x = t] from current configuration
-      if [e |- x = t]. *)
 
   val abstract : Term.t -> Judgement.atom -> unit
     (** [(g U {fct[a]}; e; p)] ==> [(g U {fct[x]}; e U {x = a}; p)]
@@ -173,8 +189,12 @@ module type INFSYS = sig
 
 end
 
-module Infsys(Can: T): INFSYS
+module type COMPONENT = sig
+  val th : Theory.t
+  module Config : CONFIG
+  module Infsys : (INFSYS with type config = Config.t)
+end
+
+module Make(Can: T): COMPONENT 
   (** Constructing an inference system from the 
     specification [Can] of a canonizable theory. *)
-
-module Component(Can: T): E.COMPONENT

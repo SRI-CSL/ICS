@@ -316,18 +316,7 @@ let _ =
 	   length entries smallest median biggest)
 
 let mk_var x = 
-  Format.eprintf "\nmk_var <- %s" (Name.to_string x);
-  let y = Universe.merge universe (Var(x)) in
-    Format.eprintf "\nmk_var <- %s@." (Name.to_string (name_of y));
-    y
-(*
-let mk_var n =
-  Trace.call 3 "Term.mk_var" n Name.pp;
-  let x = mk_var n in
-    Trace.exit 3 "Term.mk_var" (name_of x) Name.pp;
-    x
-*)
-
+  Universe.merge universe (Var(x))
     
 let mk_app = 
   let dummy = 

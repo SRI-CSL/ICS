@@ -83,12 +83,11 @@ module type SIG = sig
   val name : t -> Name.t
 end
 
-module Make(Sig: SIG) : sig
-
-  val inj : Sig.t -> t
-
-  val out : t -> Sig.t
-
+module type OP = sig
+  type op
+  val inj : op -> t
+  val out : t -> op
   val is_interp : t -> bool
-	
-end 
+end
+
+module Make(Sig: SIG) : (OP with type op = Sig.t)

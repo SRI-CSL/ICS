@@ -14,7 +14,13 @@
 (** Rewriting and forward chaining.
 
   @author Harald Ruess
+
+  This module defines data structures for representing {i rewrites}
+  and {i forward chaining rules}.  These {i axioms} are compiled
+  into a normalizinig function and a disequality test.
 *)
+
+exception Bot
 
 module Subst : (Map.S with type key = Name.t)
   (** Substitutions map names of logical variables to terms. *)
@@ -134,31 +140,30 @@ module Compile(A: AXIOMS) : sig
     
 end 
 
-(** Input signature for the function {!Axioms.ForwardChain}. *)
-module type C = sig
-  val chains: Chain.t list
-  val normalize : Term.interp
-end
+(** Compiled representation of a forward chaining rule. *)
+module FlatChain : sig
+      
+  type t = Name.t * hyps * concl
+  and hyps = hyp list
+  and hyp = 
+    | HypEqual of var * term
+    | HypDiseq of var * var  
+  and concl = 
+    | ConclEqual of term * term
+    | ConclDiseq of term * term  
+  and var = Name.t
+  and term =
+    | Var of var
+    | App of Funsym.t * var list
 
-module type A = sig
-  val do_on_diseq : Judgement.equal -> unit
-  val do_on_equal : Judgement.equal -> unit
-end
+  val pp : Format.formatter -> t -> unit
 
-type iter = (Judgement.equal -> unit) -> unit
+  val to_chain : t -> Chain.t
 
-module type CLOSE = sig
+  val of_chain : Chain.t -> t
 
-  val on_vareq : Judgement.equal -> iter -> unit
+  val of_chains : Chain.t list -> t list
 
-  val on_vardiseq : Judgement.diseq -> iter -> unit
-
-  val on_flateq : Judgement.equal -> iter -> unit
-
+  val reorder : Name.t list -> hyp list -> hyp list
+	    
 end 
-
-(** Compilation of a set of forward chaining rules to a list 
-  of sensors for variable equalities, variables disequalities,
-  and flat equalities of the form [x = f(y1,...,yn)] with [x], [yi]
-  variables. *)
-module ForwardChain(C: C)(A: A): CLOSE

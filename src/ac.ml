@@ -102,6 +102,8 @@ module T(Sig: SIG) = struct
     in
       mapf
 
+  let is_diseq _ _ = false
+
   open Axioms
 
   (** [x * (y * z) = (x * y) * z]. *)
@@ -122,8 +124,8 @@ module T(Sig: SIG) = struct
 end 
 
 (** Inference system for AC theories. *)
-module Make(Sig: SIG): Can.INFSYS =
-  Can.Infsys(T(Sig))
+module Make(Sig: SIG): Can.COMPONENT =
+  Can.Make(T(Sig))
 
 
 

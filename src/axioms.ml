@@ -21,41 +21,6 @@ type subst = Term.t Subst.t
 
 exception Bot
 
-module Derive = struct
-
-  let debug = Version.debug()
-		
-  class equalchain (id : Name.t) (subst : Term.t Name.Map.t) (hyps: Judgement.atoms) s t = 
-    (object
-       inherit Judgement.Top.equal
-       method lhs = s
-       method rhs = t
-       method hyps = hyps
-       method name =  Format.sprintf "chain[%s]" (Name.to_string id)
-       initializer 
-	 if debug >= 4 then
-	   Format.printf "\nchain[%s] ==> %s = %s " 
-	     (Name.to_string id) (Term.to_string s) (Term.to_string t)
-     end: Judgement.equal)
-    					  
-  class diseqchain (id : Name.t) (subst : Term.t Name.Map.t) (hyps: Judgement.atoms) s t = 
-    (object (self)
-       inherit Judgement.Top.diseq
-       method lhs = s
-       method rhs = t
-       method hyps = hyps
-       method name = Format.sprintf "chain[%s]" (Name.to_string id)
-       initializer 
-	 if debug >= 4 then
-	   Format.printf "\nchain[%s] ==> %s <> %s " 
-	     (Name.to_string id) (Term.to_string s) (Term.to_string t)
-     end: Judgement.diseq)
-
-  let mk_equalchain id subst hyps a b = new equalchain id subst hyps a b   
-  let mk_diseqchain id subst hyps a b = new diseqchain id subst hyps a b
-
-end
-
 (** Terms with logical variables. *)
 module Lterm = struct
   
@@ -400,8 +365,6 @@ module Compile(A: AXIOMS) = struct
 end 
 
 
-(** {6 Forward chaining}. *)
-
 (** Compiled representation of a forward chaining rule. *)
 module FlatChain = struct 
       
@@ -431,7 +394,8 @@ module FlatChain = struct
       | ConclDiseq(a, b) -> Atom.mk_diseq (to_lterm a) (to_lterm b)
     and to_lterm = function
       | Var(x) -> to_lvar x
-      | App(f, xl) -> Lterm.App(f, List.map to_lvar xl)
+      | App(f, xl) ->
+	    Lterm.App(f, List.map to_lvar xl)
     and to_lvar x =
       Lterm.Var(x)
     in
@@ -439,7 +403,7 @@ module FlatChain = struct
 
   let pp fmt ch =
     Chain.pp fmt (to_chain ch)
-	
+
   let of_chain {Chain.name = id; Chain.hyps = h; Chain.concl = c} =
     let acc = ref [] in
     let rec of_hyp h =
@@ -491,238 +455,6 @@ module FlatChain = struct
 		 vars := h :: !vars)
 	hl;
       !flats @ !vars
- 	    
+
+	    
 end 
-
-module type C = sig
-  val chains: Chain.t list
-  val normalize : Term.interp
-end
-
-module type A = sig
-  val do_on_diseq : Judgement.equal -> unit
-  val do_on_equal : Judgement.equal -> unit
-end
-
-type iter = (Judgement.equal -> unit) -> unit
-
-module type CLOSE = sig
-
-  val on_vareq : Judgement.equal -> iter -> unit
-
-  val on_vardiseq : Judgement.diseq -> iter -> unit
-
-  val on_flateq : Judgement.equal -> iter -> unit
-
-end 
-
-
-module ForwardChain(C: C)(A: A): CLOSE = struct
-
-  let on_vareq = ref []
-  let on_vardiseq = ref []
-  let on_flateq = ref []
- 
-  let is_flat t =
-    not(Term.is_var t) &&
-    (Term.Args.for_all Term.is_var (Term.args_of t))
-
-  module Subst = Name.Map
-
-  let iterate_on_flateqs: ((Judgement.equal -> unit) -> unit) ref = 
-    let donothing _ = () in
-      ref donothing
-
-  (** Compile a flat chaining rule into a sensor.
-    For each hypothesis there is one such sensor function. *)
-  let rec compile (id, hl, c) =
-    let rec loop pre = function
-      | [] -> ()
-      | h :: post -> 
-	  compile_hyp id h (pre @ post) c;
-	  loop (h :: pre) post
-    in
-      loop [] hl 
-
-  and compile_hyp id h hl c =
-    match h with
-      | FlatChain.HypEqual(x, FlatChain.Var(y)) ->
-	  on_vareq := compile_vareq id (x, y) hl c :: !on_vareq
-      | FlatChain.HypEqual(x, FlatChain.App(f, yl)) -> 
-	  on_flateq := compile_flateq id (x, f, yl) hl c :: !on_flateq
-      | FlatChain.HypDiseq(x, y) ->
-	  on_vardiseq :=  compile_diseq id (x, y) hl c :: !on_vardiseq
-
-  (** Returns sensor for a variable equality. *)
-  and compile_vareq id (x, y) hl c =
-    let hl' = FlatChain.reorder [x; y] hl in
-    let on_vareq e =
-      let i = e#lhs and j = e#rhs in
-      assert(Term.is_var i && Term.is_var j);
-      let subst0 = 
-	 Subst.add x i 
-	   (Subst.add y j Subst.empty) 
-       in
-	on_satisfying id hl' c subst0 (Judgement.mk_singleton (e:>Judgement.atom))
-    in
-      on_vareq
-	
-  (** Returns sensor for a flat equality [i = f(j1,...,jn)]. *)
-  and compile_flateq id (x, f, yl) hl c =  
-    let hl' = FlatChain.reorder (x :: yl) hl in 
-    let on_flateq e =
-      let i = e#lhs and a = e#rhs in
-      assert(Term.is_var i && is_flat a);
-      let g = Term.sym_of a and jl = (Term.Args.to_list (Term.args_of a)) in
-	if Funsym.eq f g && 
-	  List.length yl = List.length jl 
-	then 
-	  let subst0 = 
-	    Subst.add x i
-	      (List.fold_right2 Subst.add yl jl Subst.empty)
-	  in
-	    on_satisfying id hl' c subst0 (Judgement.mk_singleton (e:>Judgement.atom))
-    in
-      on_flateq
-
-  (** Returns sensor for a variable disequality. *)
-  and compile_diseq id (x, y) hl c =
-    let hl' = FlatChain.reorder [x; y] hl in 
-    let on_vardiseq d =
-      let i = d#lhs and j = d#rhs in
-      assert(Term.is_var i && Term.is_var j);
-      let subst0 = 
-	Subst.add x i 
-	  (Subst.add y j Subst.empty) 
-      in
-	on_satisfying id hl' c subst0 (Judgement.mk_singleton (d:>Judgement.atom));
-    in
-      on_vardiseq
-
-  and on_satisfying id hl c subst hyps =
-    match hl with
-      | [] -> 
-	  deduce id c subst hyps
-      | FlatChain.HypEqual(x, FlatChain.Var(y)) :: hl' ->
-	  on_satisfying_vareq id (x, y) hl' c subst hyps
-      | FlatChain.HypDiseq(x, y) :: hl' ->
-	  on_satisfying_vardiseq id (x, y) hl' c subst hyps
-      | FlatChain.HypEqual(x, FlatChain.App(f, yl)) :: hl' -> 
-	  on_satisfying_flateq id (x, f, yl) hl' c subst hyps
-
-  and on_satisfying_flateq id ((x, f, yl) as pat) hl c subst hyps = 
-    !iterate_on_flateqs
-      (fun e -> 
-	 let i = e#lhs and a = e#rhs in
-	   assert(is_flat a);
-	   let g = Term.sym_of a in
-	   if Funsym.eq f g then
-	     let jl = Term.Args.to_list (Term.args_of a) in
-	       assert(List.for_all Term.is_var jl);
-	       if List.length yl = List.length jl then
-		 try
-		   let subst' = match_flat pat (i, g, jl) subst in
-		     on_satisfying id hl c subst' (Judgement.mk_add_equal e hyps)
-		 with
-		     Bot -> ())
-      
-  and match_flat ((x, f, yl) as pat) ((i, g, jl) as a) subst =
-    let subst' = match_var x i subst in
-      match_vars yl jl subst'
-	
-  and match_var x i subst =
-    assert(Term.is_var i);
-    try
-      let j = Subst.find x subst in
-	if Term.eq i j then subst else raise Bot
-    with
-	Not_found -> Subst.add x i subst
-	  
-  and match_vars xl jl subst = 
-    List.fold_right2 match_var xl jl subst
-      
-  and on_satisfying_vareq id (x, y) hl c subst hyps =
-    try
-      let i = Subst.find x subst and j = Subst.find y subst in
-	assert(Term.is_var i && Term.is_var j);
-	match V.Infsys.is_equal i j with
-	  | Some(e) ->
-	      on_satisfying id hl c subst (Judgement.mk_add_equal e hyps)
-	  | None -> 
-	      ()
-	with
-	    Not_found -> ()
-	      
-  and on_satisfying_vardiseq id (x, y) hl c subst hyps =
-    try
-      let i = Subst.find x subst and j = Subst.find y subst in
-	assert(Term.is_var i && Term.is_var j);
-	(match V.Infsys.is_diseq i j with
-	   | Some(d) -> on_satisfying id hl c subst (Judgement.mk_add_diseq d hyps)
-	   | None -> ())
-    with
-	Not_found -> ()
-
-  and deduce id c subst hyps =
-    match c with
-      | FlatChain.ConclEqual(p, q) -> 
-	  deduce_equal id (p, q) subst hyps
-      | FlatChain.ConclDiseq(p, q) ->  
-	  deduce_diseq id (p, q) subst hyps
-
-  and deduce_equal id (p, q) subst hyps =
-    try
-      let a = apply p subst
-      and b = apply q subst in
-      let e = Derive.mk_equalchain id subst hyps a b in
-	A.do_on_equal e;
-    with
-	Not_found -> ()
-
-  and deduce_diseq id (p, q) subst hyps =
-    try
-      let a = apply p subst
-      and b = apply q subst in
-	assert(Term.is_var a);
-	assert(Term.is_var b);
-	let d = Derive.mk_diseqchain id subst hyps a b in
-	  A.do_on_diseq d
-    with
-	Not_found -> ()
-
-  and apply p subst =
-    let inst x = Subst.find x subst in
-      match p with
-	| FlatChain.Var(x) -> 
-	    inst x
-	| FlatChain.App(f, xl) -> 
-	    (* let il = List.map inst xl in *)
-	    let il = failwith "to do" in
-	      C.normalize f il
-
-  (** Do compilation for all chains *)
-  let _ =
-    List.iter
-      (fun ch -> 
-	 Trace.call 10 "Compiling " ch Chain.pp;
-	 let (id, hl, c) = FlatChain.of_chain ch in
-	   compile (id, hl, c);
-	   Trace.exit 10 "Compiling" (id, hl, c) FlatChain.pp)
-      C.chains
-
-  let on_vareq e iter = 
-    iterate_on_flateqs := iter;
-    let apply f = f e in
-      List.iter apply !on_vareq
-
-  let on_vardiseq d iter = 
-    iterate_on_flateqs := iter;
-    let apply f = f d in
-      List.iter apply !on_vardiseq
-
-  let on_flateq e iter = 
-    iterate_on_flateqs := iter;
-    let apply f = f e in
-      List.iter apply !on_flateq
-
-end

@@ -45,7 +45,7 @@ module T(Sig: SIG) : sig
 end
 
 
-module Make(Sig: SIG): Can.INFSYS
+module Make(Sig: SIG): Can.COMPONENT
   (** Inference system for a theory with a single AC symbol.
 
     An {i AC context} consists of equalities of the form [x = y*z] 

@@ -45,7 +45,6 @@ module type INFSYS = sig
   val normalize : unit -> unit
 end
 
-
 module type COMPONENT = sig
   val th : Theory.t
   module Eqs : CONFIG
@@ -53,7 +52,7 @@ module type COMPONENT = sig
 end
 
 
-module Eqs = struct
+module Config = struct
 
   type t = eqs Theory.Map.t
 
@@ -67,7 +66,11 @@ module Eqs = struct
 
     let out = Theory.Map.find
 
-    let call (i: Theory.t) ms = Theory.Hash.find ms i
+    let call (i: Theory.t) ms = 
+      try
+	Theory.Hash.find ms i
+      with
+	  Not_found -> invalid_arg "E.Config.Component: method not found"
 
     module Methods = struct
       module Table = Theory.Hash
@@ -180,7 +183,7 @@ module Infsys = struct
   module Methods = struct
     module Table = Theory.Hash
     let reset: (unit -> unit) Table.t = Table.create 11
-    let current : (unit -> Eqs.eqs) Table.t = Table.create 11
+    let current : (unit -> Config.eqs) Table.t = Table.create 11
     let initialize = Table.create 11
     let is_unchanged: (unit -> bool) Table.t = Table.create 11
     let finalize = Table.create 11
@@ -202,8 +205,8 @@ module Infsys = struct
   let reset () =
     Methods.call_all Methods.reset ()
 
-  let initialize (e: Eqs.t) =
-    Eqs.iter 
+  let initialize (e: Config.t) =
+    Config.iter 
       (fun i -> 
 	 Methods.call i Methods.initialize)
       e
@@ -212,17 +215,17 @@ module Infsys = struct
     Methods.Table.fold
       (fun i fin acc ->
 	 let ei = fin () in
-	   Eqs.Component.add i ei acc)
+	   Config.Component.add i ei acc)
       Methods.finalize
-      (Eqs.empty())
+      (Config.empty())
 
   let current () =
     Methods.Table.fold
       (fun i fin acc ->
 	 let ei = fin () in
-	   Eqs.Component.add i ei acc)
+	   Config.Component.add i ei acc)
       Methods.current
-      (Eqs.empty())
+      (Config.empty())
 
   exception Changed
 
@@ -250,7 +253,6 @@ module Infsys = struct
   exception Branch
 			    
   let branch () = None
-
      (*
     try
       Methods.Table.iter
@@ -284,144 +286,6 @@ let register th =
     end
 
 
-module Trace(C: COMPONENT): COMPONENT = struct
-  let th = C.th
-  module E = C.Eqs
-  module I = C.Infsys
-  let msg str = Format.sprintf "%s.%s" (Theory.to_string th) str
-  module Eqs = struct
-    type t = E.t
-    let empty = E.empty
-    let pp = E.pp
-    let is_empty = E.is_empty
-    let apply s = E.apply s
-    let inv s = E.inv s
-    let dep s = E.dep s
-    let occ = E.occ
-    let model = E.model
-  end 
-  module Infsys = struct
-    type eqs = Eqs.t
-    let current = I.current
-    let reset = Trace.func 8 (msg "reset") Pretty.unit Pretty.unit I.reset
-    let initialize = Trace.func 8 (msg "initialize") Eqs.pp Pretty.unit I.initialize
-    let is_unchanged = Trace.func 8 (msg "is_unchanged") Pretty.unit Pretty.bool I.is_unchanged
-    let finalize = Trace.func 8 (msg "finalize") Pretty.unit Eqs.pp I.finalize
-    let abstract = I.abstract
-    let process_equal = match I.process_equal with
-      | None -> None
-      | Some(proc) -> Some(Trace.proc 3 (msg "process") (fun fmt e -> e#pp fmt) proc)
-    let process_diseq = match I.process_diseq with
-      | None -> None
-      | Some(proc) -> Some(Trace.proc 3 (msg "process") (fun fmt d -> d#pp fmt) proc)
-    let process_nonneg = match I.process_nonneg with
-      | None -> None
-      | Some(proc) -> Some(Trace.proc 3 (msg "process") (fun fmt c -> c#pp fmt) proc)
-    let process_pos = match I.process_pos with
-      | None -> None
-      | Some(proc) -> Some(Trace.proc 3 (msg "process") (fun fmt c -> c#pp fmt) proc)
-    let propagate_equal = match I.propagate_equal with
-      | None -> None
-      | Some(proc) -> Some(Trace.proc 3 (msg "propagate") Term.pp proc)
-    let propagate_diseq = match I.propagate_diseq with
-      | None -> None
-      | Some(proc) -> Some(Trace.proc 3 (msg "propagate") (fun fmt d -> d#pp fmt) proc)
-    let propagate_cnstrnt = match I.propagate_cnstrnt with
-      | None -> None
-      | Some(proc) -> Some(Trace.proc 3 (msg "propagate") Term.pp proc)
-    let propagate_nonneg =  match I.propagate_nonneg with
-      | None -> None
-      | Some(proc) -> Some(Trace.proc 3 (msg "propagate") Term.pp proc)
-    let branch = I.branch
-    let normalize = 
-      Trace.proc 3 (msg "normalize") Pretty.unit I.normalize
-  end
-end
-
-
-
-module Register(C: COMPONENT) = struct
-
-  module I = Trace(C)
-
-  let _ =
-    if Theory.Set.mem I.th !theories then
-      invalid_arg (Format.sprintf "Theory %s already registered" (Theory.to_string I.th))
-    else
-      theories := Theory.Set.add I.th !theories
-
-  let out (e: Eqs.eqs) = 
-    let (ei: I.Eqs.t) = Obj.magic e in
-      ei
-			   
-  let inj (ei: I.Eqs.t) = 
-    let (e: Eqs.eqs) = Obj.magic ei in
-      e
-
- let _ = 
-   let module Methods = Eqs.Component.Methods in
-   let _ = Methods.Table.add Methods.is_empty I.th (fun e -> I.Eqs.is_empty (out e)) in
-   let _ = Methods.Table.add Methods.pp I.th (fun fmt e -> I.Eqs.pp fmt (out e)) in
-   let _ = Methods.Table.add Methods.apply I.th (fun e -> I.Eqs.apply (out e)) in
-   let _ = Methods.Table.add Methods.inv I.th (fun e -> I.Eqs.inv (out e)) in
-   let _ = Methods.Table.add Methods.dep I.th (fun e -> I.Eqs.dep (out e)) in
-   let _ = Methods.Table.add Methods.occ I.th (fun x e -> I.Eqs.occ x (out e)) in
-   let _ = Methods.Table.add Methods.model I.th (fun e -> I.Eqs.model (out e)) in
-     ()
-
- let _ = 
-   let module Methods = Infsys.Methods in
-   let add m = Methods.Table.add m I.th in
-   let _ = add Methods.reset I.Infsys.reset in
-   let _ = add Methods.current (fun () -> inj (I.Infsys.current ())) in
-   let _ = add Methods.initialize (fun e -> I.Infsys.initialize (out e)) in
-   let _ = add Methods.is_unchanged I.Infsys.is_unchanged in
-   let _ = add Methods.finalize (fun () -> inj (I.Infsys.finalize ())) in
-   let _ = add Methods.abstract I.Infsys.abstract in
-   let _ = match I.Infsys.process_equal with 
-     | None -> ()
-     | Some(process_equal) -> add Methods.process_equal process_equal 
-   in
-   let _ = match I.Infsys.process_diseq with 
-     | None -> ()
-     | Some(process_diseq) -> add Methods.process_diseq process_diseq 
-   in
-   let _ = match I.Infsys.process_nonneg with 
-     | None -> ()
-     | Some(process_nonneg) -> add Methods.process_nonneg process_nonneg
-   in
-   let _ = match I.Infsys.process_pos with 
-     | None -> ()
-     | Some(process_pos) -> add Methods.process_pos process_pos
-   in
-   let _ = match I.Infsys.propagate_equal with 
-     | None -> ()
-     | Some(propagate_equal) -> add Methods.propagate_equal propagate_equal 
-   in
-   let _ = match I.Infsys.propagate_diseq with 
-     | None -> ()
-     | Some(propagate_diseq) -> add Methods.propagate_diseq propagate_diseq 
-   in
-   let _ = match I.Infsys.propagate_cnstrnt with 
-     | None -> ()
-     | Some(propagate_cnstrnt) -> add Methods.propagate_cnstrnt propagate_cnstrnt 
-   in
-   let _ = match I.Infsys.propagate_nonneg with 
-     | None -> ()
-     | Some(propagate_nonneg) -> add Methods.propagate_nonneg propagate_nonneg 
-   in
-   let _ = add Methods.branch I.Infsys.branch in
-   let _ = add Methods.normalize I.Infsys.normalize in
-     ()
-
- let _ =
-   if Version.debug() >= 1 then
-     Format.eprintf "\nRegistering %s@;" (Theory.to_string I.th)
-
-end
-
-
-module Config = Eqs
 
 
 (** {6 Equality Components} *)
@@ -479,15 +343,15 @@ module Equal(E: EQUAL) = struct
 
   let _ = register E.th
 
-  let out (e: Eqs.eqs) = 
+  let out (e: Config.eqs) = 
     let (ei: E.Config.t) = Obj.magic e in
       ei
 			   
   let inj (ei: E.Config.t) = 
-    let (e: Eqs.eqs) = Obj.magic ei in
+    let (e: Config.eqs) = Obj.magic ei in
       e
 
-  open Eqs.Component.Methods
+  open Config.Component.Methods
 
   let register m f = Table.add m E.th f
 
@@ -521,7 +385,6 @@ end
 
 (** {6 Arithmetic Components} *)
 
-
 module type ARITH = sig
   val th : Theory.t
   module Config : sig
@@ -529,11 +392,37 @@ module type ARITH = sig
     val empty : unit -> t
     val is_empty : t -> bool
     val pp : Format.formatter -> t -> unit
-    val apply : t -> eqtrans
-    val inv : t -> eqtrans
     val dep : t -> Term.t -> Dep.Set.t
     val occ : Term.t -> t -> bool
     val model : t -> Term.Model.t
+    module Apply : sig
+      val get : t -> Term.t -> Term.t
+      val justify : t -> Term.t -> Judgement.equal
+    end 
+    module Inv : sig
+      val get : t -> Term.t -> Term.t
+      val justify : t -> Term.t -> Judgement.equal
+    end 
+    module Replace : sig
+      val get : t -> Term.t -> Term.t
+      val justify : t -> Term.t -> Judgement.equal
+    end 
+    module Diseq : sig
+      val test : t -> Term.t -> Term.t -> bool
+      val justify : t -> Term.t -> Term.t -> Judgement.diseq
+    end
+    module Equal : sig
+      val test : t -> Term.t -> Term.t -> bool
+      val justify : t -> Term.t -> Term.t -> Judgement.equal
+    end
+    module Nonneg : sig
+      val test : t -> Term.t -> Term.t -> bool
+      val justify : t -> Term.t -> Term.t -> Judgement.equal
+    end
+    module Pos : sig
+      val test : t -> Term.t -> Term.t -> bool
+      val justify : t -> Term.t -> Term.t -> Judgement.equal
+    end
   end
   module Infsys : sig
     type eqs
@@ -550,7 +439,6 @@ module type ARITH = sig
     val propagate_equal : (Term.t -> unit)
     val propagate_diseq : (Judgement.diseq -> unit) 
     val propagate_cnstrnt : (Term.t -> unit)
-    val propagate_nonneg : (Term.t -> unit)
     val branch : unit -> Judgement.disjunction option
     val normalize : unit -> unit
   end
@@ -560,22 +448,20 @@ module Arith(A: ARITH) = struct
 
   let _ = register A.th
 
-  let out (e: Eqs.eqs) = 
+  let out (e: Config.eqs) = 
     let (ei: A.Config.t) = Obj.magic e in
       ei
 			   
   let inj (ei: A.Config.t) = 
-    let (e: Eqs.eqs) = Obj.magic ei in
+    let (e: Config.eqs) = Obj.magic ei in
       e
 
-  open Eqs.Component.Methods
+  open Config.Component.Methods
 
   let register m f = Table.add m A.th f
 
    let _ = register is_empty (fun e -> A.Config.is_empty (out e))
    let _ = register pp (fun fmt e -> A.Config.pp fmt (out e))
-   let _ = register apply (fun e -> A.Config.apply (out e))
-   let _ = register inv (fun e -> A.Config.inv (out e))
    let _ = register dep (fun e -> A.Config.dep (out e))
    let _ = register occ (fun x e -> A.Config.occ x (out e))
    let _ = register model (fun e -> A.Config.model (out e))
