@@ -40,10 +40,6 @@ val empty : t
 
 val eq : t -> t -> bool
 
-(*s Extend the constraint map. *)
-
-val extend : Cnstrnt.t -> t -> Term.t * t
-
 (*s Add a new constraint. *)
 
 val add : Fact.cnstrnt -> t -> t
