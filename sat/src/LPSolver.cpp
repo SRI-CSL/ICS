@@ -665,6 +665,7 @@ void LPSolver::initialize_solver() {
 	cleanup_period_counter = 0;
 	num_lookahead_optimization_assignments = 0;
 	lookahead_optimization_time = 0.0;
+	heurisitic_update_time = 0.0;
 	relevant_atoms.clear();
 }
 
@@ -1295,6 +1296,7 @@ public:
 
 unsigned int LPSolver::update_heuristics_in_activation_mode(LPFormulaId f)
 {
+ 	clock_t start = clock();
 	unsigned int f_idx = absolute(f);
 	const LPFormula * formula = formula_manager->get_formula(f_idx);
 	switch(formula->get_kind()) {
@@ -1342,6 +1344,8 @@ unsigned int LPSolver::update_heuristics_in_activation_mode(LPFormulaId f)
 	default:
 		assert(false);
 	}
+	clock_t end = clock();
+	heurisitic_update_time += ((double) (end - start)) / CLOCKS_PER_SEC;
 	return max(num_clausal_positive_occurrences[f_idx], num_clausal_negative_occurrences[f_idx]);
 }
 

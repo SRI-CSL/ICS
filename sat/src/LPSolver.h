@@ -290,6 +290,7 @@ private:
 	double polarity_optimization_time;
 	double implication_graph_optimization_time;
 	double lookahead_optimization_time;
+	double heurisitic_update_time;
 
 	unsigned int num_subsumed_clauses;
 	unsigned int num_backtracks;
@@ -796,6 +797,7 @@ public:
 	double get_polarity_optimization_time() const { return polarity_optimization_time; }
 	double get_implication_graph_optimization_time() const { return implication_graph_optimization_time; }
 	double get_lookahead_optimization_time() const { return lookahead_optimization_time; }
+	double get_heurisitic_update_time() const { return heurisitic_update_time; }
 	unsigned int get_num_backtracks() const { return num_backtracks; }
 	unsigned int get_num_ics_detected_inconsistencies() const { return num_ics_detected_inconsistencies; }
 	unsigned int get_num_case_splits() const { return num_case_splits; }

@@ -163,6 +163,7 @@ extern "C" {
 		cout << "      branching/activation time: " << sat_solver->get_branching_time() << " secs\n";
 		cout << "      constraint propagation time: " << sat_solver->get_constraint_propagation_time() << " secs\n";
 		cout << "      conflict resolution time: " << sat_solver->get_conflict_resolution_time() << " secs\n";
+		cout << "      heuristic statistics update time: " << sat_solver->get_heurisitic_update_time() << " secs\n";
 		cout << "      ICS time: " << sat_solver->get_ics_time() << " secs\n";
 		cout << "      ICS explain function time: " << sat_solver->get_ics_explain_time() << " secs\n";
 		cout << "  number of backtracks: " << sat_solver->get_num_backtracks() << endl;
