@@ -74,6 +74,8 @@ val (<<<): t -> t -> bool
 
 val orient : t * t -> t * t
 
+val max : t -> t -> t
+val min : t -> t -> t
 
 (*s Test if term is a constant. *)
 

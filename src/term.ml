@@ -106,6 +106,12 @@ let (<<<) a b = (cmp a b <= 0)
 let orient (a,b) =
   if a <<< b then (b,a) else (a,b)
 
+let min a b =
+  if a <<< b then a else b
+
+let max a b = 
+  if a <<< b then b else a
+
 
 (*s Some recognizers. *)
 
