@@ -518,17 +518,16 @@ let rec equality e s =
   let extend_i i (x, b) s =  
     let x = v s x 
     and b = replace i s b in
-      if not(mem i s x) && Arith.is_num b then 
-	extend i (Fact.mk_equal x b None) s
-      else 
-	let (s, y) = name i (s, b) in
-	  if Term.eq x y then s else
-	    let e' = Fact.mk_equal x y None in
-	      merge_v e' s
+    let (s, y) = name i (s, b) in
+      if Term.eq x y then s else
+	let e' = Fact.mk_equal x y None in
+	  merge_v e' s
   in
     match a, b with
       | Var _, Var _ -> 
 	  merge_v e s 
+      | Var _, App(f, []) when not(mem (Th.of_sym f) s a) ->
+	  extend (Th.of_sym f) e s
       | App(f, _), _ -> 
 	  extend_i (Th.of_sym f) (a, b) s
       | _, App(f, _) -> 
@@ -876,26 +875,7 @@ and add c s =
 
 
 (** Propagate changes in the variable partitioning. *)    
-and close ch s =
-  let s' = infer (ch.Partition.chv) s in
-    s'
-
-and infer chc s =
-    Set.fold
-      (fun x s ->
-	 try
-	   let e = equation Th.la s x in
-	     deduce Th.la e s
-	 with
-	     Not_found ->
-	       (Set.fold 
-		  (fun y s ->
-		     try deduce Th.la (equation Th.la s y) s
-		     with Not_found -> s)
-		  (use Th.la s x)
-		  s))
-      chc s
-
+and close ch s = s
 
 (** Garbage collection. Remove all variables [x] which are are scheduled
  for removal in the partitioning. Check also that this variable [x] does

@@ -145,21 +145,37 @@ let vars_of = function
 let list_of_vars a = 
   Term.Set.elements (vars_of a)
 
-let occurs x a =
-  let rec term_occurs = function
-    | Var(y) -> Var.eq x y
-    | App(_, sl) -> List.exists term_occurs sl
-  in
-    match a with
-      | True -> false
-      | False -> false
-      | Equal(s, t) -> term_occurs s || term_occurs t
-      | Diseq(s, t) -> term_occurs s || term_occurs t
-      | In(s, _) -> term_occurs s
+module Pairtbl = Hashtbl.Make(
+  struct
+    type t = Var.t * atom
+    let equal (a1, b1) (a2, b2) = (a1 == a2) && (b1 == b2)
+    let hash = Hashtbl.hash
+  end)
+
+let occurs =
+  let ht = Pairtbl.create 17 in
+    fun ((x, a) as p) ->
+      try
+	Pairtbl.find ht p
+      with
+	  Not_found ->
+	    let rec term_occurs = function
+	      | Var(y) -> Var.eq x y
+	      | App(_, sl) -> List.exists term_occurs sl
+	    in
+	    let result = match a with
+	      | True -> false
+	      | False -> false
+	      | Equal(s, t) -> term_occurs s || term_occurs t
+	      | Diseq(s, t) -> term_occurs s || term_occurs t
+	      | In(s, _) -> term_occurs s
+	    in
+	      Pairtbl.add ht p result;
+	      result
 
 let is_connected a b =
   let rec term_is_connected = function
-    | Var(x) -> occurs x b
+    | Var(x) -> occurs (x, b)
     | App(_, sl) -> List.exists term_is_connected sl
   in
   let terms_is_connected (s, t) = 
