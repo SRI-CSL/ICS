@@ -15,11 +15,9 @@ OCAMLDEP = @OCAMLDEP@
 
 HEVEA = @HEVEA@
 OCAMLWEB = @OCAMLWEB@
-OCAMLWEBSTY = $$HOME/tex/inputs/ocamlweb.sty
+OCAMLWEBSTY = $$HOME/tex/ocamlweb.sty
 
 ### end of configuration part ################################################
-
-
 
 ifeq ($(MAKELEVEL),0)
 	ARCH := $(shell bin/config.guess)
@@ -51,19 +49,19 @@ COBJS = mlgmp.o
 
 CMI = hashcons.cmi hasht.cmi ptset.cmi \
       ptmap.cmi tools.cmi seqs.cmi \
-      gmp.cmi mpa.cmi bitv.cmi term.cmi \
-      tset.cmi tmap.cmi pp.cmi bdd.cmi \
-      euclid.cmi poly.cmi bool.cmi equal.cmi \
-      arith.cmi ineq.cmi prop.cmi congstate.cmi \
+      gmp.cmi mpa.cmi bitv.cmi term.cmi var.cmi \
+      tset.cmi tmap.cmi pretty.cmi bdd.cmi \
+      euclid.cmi poly.cmi bool.cmi arith.cmi \
+      atom.cmi prop.cmi congstate.cmi \
       tuple.cmi arrays.cmi conc.cmi bv.cmi \
       sets.cmi solve.cmi can.cmi process.cmi ics.cmi
 
 CMO = hashcons.cmo hasht.cmo ptset.cmo \
       ptmap.cmo tools.cmo seqs.cmo \
-      gmp.cmo mpa.cmo bitv.cmo term.cmo \
-      tset.cmo tmap.cmo pp.cmo bdd.cmo \
-      euclid.cmo poly.cmo bool.cmo equal.cmo \
-      arith.cmo ineq.cmo prop.cmo congstate.cmo \
+      gmp.cmo mpa.cmo bitv.cmo term.cmo var.cmo \
+      tset.cmo tmap.cmo pretty.cmo bdd.cmo \
+      euclid.cmo poly.cmo bool.cmo arith.cmo \
+      atom.cmo prop.cmo congstate.cmo \
       tuple.cmo arrays.cmo conc.cmo bv.cmo \
       sets.cmo morphisms.cmo solve.cmo \
       can.cmo process.cmo ics.cmo
@@ -132,8 +130,8 @@ $(OBJDIR):
 
 $(LIBDIR):
 	-umask 022; if test '!' -d $(LIBDIR) ; then \
-           mkdir $(LIBDIR); fi; 
-  
+           mkdir $(LIBDIR); fi;
+
 ### Source file links
 
 .PRECIOUS : $(OBJDIR)/%.ml $(OBJDIR)/%.mli $(OBJDIR)/%.mly 
@@ -143,16 +141,16 @@ $(LIBDIR):
 
 $(OBJDIR)/%.ml: $(SRCDIR)/%.ml
 	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
-	
+
 $(OBJDIR)/%.mli: $(SRCDIR)/%.mli
 	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
-	
+
 $(OBJDIR)/%.mly: $(SRCDIR)/%.mly
 	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
-	
+
 $(OBJDIR)/%.mll: $(SRCDIR)/%.mll
 	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
-	
+
 $(OBJDIR)/mlgmp.c: $(SRCDIR)/mlgmp.c
 	@(cd $(OBJDIR) ; ln -sf $(SRCDIR)/$(@F) .)
 
@@ -210,39 +208,39 @@ cprofile:
 
 ### literate programming
 
-OCAMLWEBARGS = $(DOC)/intro.tex \
-               $(DOC)/ics.tex $(SRC)/ics.mli \
-               $(DOC)/terms.tex $(SRC)term.mli \
-               $(DOC)/algo.tex $(SRC)/find.mli $(SRC)/find.ml \
-               $(SRC)/process.ml \
-               $(DOC)/dp.tex \
-               $(SRC)/poly.mli $(SRC)/poly.ml $(SRC)/ineq.mli \
-               $(SRC)/ineq.ml \
-               $(SRC)/state.mli $(SRC)/state.ml $(SRC)/dp.mli $(SRC)/dp.ml \
-               $(DOC)/theo.tex $(SRC)/term.ml $(SRC)/arith.mli \
-               $(SRC)/arith.ml $(SRC)/tuple.mli $(SRC)/tuple.ml \
-               $(SRC)/arrays.mli $(SRC)/arrays.ml \
-               $(DOC)/misc.tex $(SRC)/tools.mli $(SRC)/lexer.mli \
-               $(SRC)/toplevel.ml
+OCAMLWEBARGS = $(DOCDIR)/intro.tex \
+               $(DOCDIR)/ics.tex $(SRCDIR)/ics.mli \
+               $(DOCDIR)/terms.tex $(SRCDIR)/term.mli \
+               $(DOCDIR)/algo.tex $(SRCDIR)/process.mli \
+               $(SRCDIR)/process.ml \
+               $(SRCDIR)/poly.mli $(SRCDIR)/poly.ml \
+               $(SRCDIR)/ineq.ml \
+               $(SRCDIR)/congstate.mli $(SRCDIR)/congstate.ml \
+               $(SRCDIR)/cmd.mli $(SRCDIR)/cmd.ml \
+               $(DOCDIR)/theo.tex $(SRCDIR)/term.ml $(SRCDIR)/arith.mli \
+               $(SRCDIR)/tuple.mli $(SRCDIR)/tuple.ml \
+               $(SRCDIR)/arrays.mli $(SRCDIR)/arrays.ml \
+               $(DOCDIR)/misc.tex $(SRCDIR)/tools.mli \
+               $(SRCDIR)/main.ml
 
-manual: $(DOC)/manual.ps  $(DOC)/manual.html
-	cp  $(DOC)/manual.ps  $(DOC)/manual.html $$HOME/internal_html/ics
+manual: $(DOCDIR)/manual.ps  $(DOCDIR)/manual.html
+	cp  $(DOCDIR)/manual.ps  $(DOCDIR)/manual.html $$HOME/internal_html/ics
 
-doc:  $(DOC)/doc.ps  $(DOC)/doc.html
-	cp  $(DOC)/doc.ps  $(DOC)/doc.html $$HOME/internal_html/ics
+doc:  $(DOCDIR)/doc.ps  $(DOCDIR)/doc.html
+	cp  $(DOCDIR)/doc.ps  $(DOCDIR)/doc.html $$HOME/internal_html/ics
 
-$(DOC)/doc.dvi:  $(DOC)/doc.tex  $(DOC)/dep.ps
+$(DOCDIR)/doc.dvi:  $(DOCDIR)/doc.tex  $(DOCDIR)/dep.ps
 
-$(DOC)/doc.ps:  $(DOC)/doc.dvi  $(DOC)/dep.ps
+$(DOCDIR)/doc.ps:  $(DOCDIR)/doc.dvi  $(DOCDIR)/dep.ps
 
-$(DOC)/doc.tex: $(OCAMLWEBARGS) Makefile
-	$(OCAMLWEB) -o $(DOC)/doc.tex $(OCAMLWEBARGS)
+$(DOCDIR)/doc.tex: $(OCAMLWEBARGS) Makefile
+	$(OCAMLWEB) -o $(DOCDIR)/doc.tex $(OCAMLWEBARGS)
 
-$(DOC)/doc.html: $(DOC)/doc.tex
-	$(HEVEA) $(OCAMLWEBSTY) $(DOC)/doc.tex -o $(DOC)/doc.html
+$(DOCDIR)/doc.html: $(DOCDIR)/doc.tex
+	$(HEVEA) $(OCAMLWEBSTY) $(DOCDIR)/doc.tex -o $(DOCDIR)/doc.html
 
-$(DOC)/dep.ps: $(CMO:.cmo=.ml)
-	$(OCAMLDEP) $(CMO:.cmo=.ml) | ocamldot -lr | dot -Tps > $(DOC)/dep.ps
+$(DOCDIR)/dep.ps: $(CMO:.cmo=.ml)
+	$(OCAMLDEP) $(CMO:.cmo=.ml) | ocamldot -lr | dot -Tps > $(DOCDIR)/dep.ps
 
 ### Emacs tags
 
