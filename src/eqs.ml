@@ -154,7 +154,7 @@ struct
   let do_at_restrict _ _ = ()
 end
 
-module CombineExt(Left: EXT)(Right: EXT): EXT =
+module CombineExt(Left: EXT)(Right: EXT): EXT with type t = Left.t * Right.t =
   struct
     type t = Left.t * Right.t
     let pp fmt (l, r) = 
@@ -483,9 +483,9 @@ module MakeCnstnt(Th: TH)(Cnstnt: CNSTNT)
 
 (** {6 Solution sets with constant index} *)
 
-module MakeIndexCnstnt(Th: TH)(Idx: INDEX)(Cnstnt: CNSTNT) =
+module MakeIndexCnstnt(Th: TH)(Idx: INDEX)(Cnstnt: CNSTNT)
+  : (SET with type ext = Term.Set.t * (Term.t * Justification.t) Term.Map.t) =
   Make(Th)(CombineExt(Idx2Ext(Idx))(Cnstnt2Ext(Cnstnt)))
-
 
 
 (** {6 Combining two equality sets} *)
@@ -547,7 +547,9 @@ module Union(Left: SET)(Right: SET)(Ext: EXT) = struct
     Left.pp fmt s.left;
     Right.pp fmt s.right;
     if !pp_index then 
-      Ext.pp fmt s.ext
+      begin
+	Ext.pp fmt s.ext
+      end
       
   let empty = { 
     left = Left.empty; 
