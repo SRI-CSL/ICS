@@ -120,6 +120,11 @@ int icsat_is_connected(int x1, int x2) {
   return(Bool_val(callback2(*closure, Val_int(x1), Val_int(x2))));
 }
 
+void icsat_atom_pp(int x1) {
+  static value * closure = NULL;
+  if (closure == NULL) { closure = caml_named_value("atom_pp"); }
+  callback(*closure, Val_int(x1));
+}
 
 
 /* Propositional Constructors */
@@ -340,7 +345,7 @@ void icsat_set_verbose(value x1) {
   CAMLreturn0;
 }
 
-extern void  sat_set_remove_subsumed_clauses(int);
+extern void sat_set_remove_subsumed_clauses(int);
 
 void icsat_set_remove_subsumed_clauses(value x1) {
   CAMLparam1(x1);
@@ -348,11 +353,15 @@ void icsat_set_remove_subsumed_clauses(value x1) {
   CAMLreturn0;
 }
 
+extern void sat_set_validate_counter_example(int);
+
 void icsat_set_validate_counter_example(value x1) {
   CAMLparam1(x1);
   sat_set_validate_counter_example(Bool_val(x1));
   CAMLreturn0;
 }
+
+extern void  sat_set_polarity_optimization(int);
 
 void icsat_set_polarity_optimization(value x1) {
   CAMLparam1(x1);
@@ -360,17 +369,23 @@ void icsat_set_polarity_optimization(value x1) {
   CAMLreturn0;
 }
 
+extern void  sat_set_clause_relevance(int);
+
 void icsat_set_clause_relevance(value x1) {
   CAMLparam1(x1);
   sat_set_clause_relevance(Int_val(x1));
   CAMLreturn0;
 }
 
+extern void sat_set_num_refinements(int);
+
 void icsat_set_num_refinements(value x1) {
   CAMLparam1(x1);
   sat_set_num_refinements(Int_val(x1));
   CAMLreturn0;
 }
+
+extern void sat_set_cleanup_period(int);
 
 void icsat_set_cleanup_period(value x1) {
   CAMLparam1(x1);

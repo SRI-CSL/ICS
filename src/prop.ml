@@ -299,6 +299,10 @@ let is_connected i j =
     Atom.is_connected a b
 let _ = Callback.register "atom_is_connected" is_connected
 
+let atom_pp i =
+  let a = id_to_atom i in
+    Atom.pp Format.std_formatter a
+let _ = Callback.register "atom_pp" atom_pp
 
 (** {6 Stack} *)
 
