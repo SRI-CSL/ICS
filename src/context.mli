@@ -114,8 +114,11 @@ val solve : Th.t -> t -> Fact.equal -> Fact.equal list
 val extend : Atom.t -> t -> t
 
 val union : Th.t -> Fact.equal -> t -> t
+
 val restrict : Th.t -> Term.t -> t -> t
+
 val fuse : Th.t -> Fact.equal -> t -> t
+
 val compose : Th.t -> Fact.equal -> t -> t
 
 val update: Partition.t -> t -> t

@@ -118,7 +118,7 @@ let add c s =
       let c' = Fact.mk_cnstrnt x' i None in
       let e' = Fact.mk_equal x' a None in
 	Trace.msg "foo" "Slackify" e' Fact.pp_equal;
-	let s' = update (Partition.add c' (p_of s)) s in  (* install constraint first. *) 
+	let s' = update (Partition.add c' (p_of s)) s in
 	  compose la e' s'
 	  
 (*s Sequential composition *)

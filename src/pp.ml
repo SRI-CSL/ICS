@@ -158,6 +158,7 @@ let rec map f a =
 (*s Constraint. *)
 
 let tau ctxt op l =
+  Trace.msg "pp" "tau" l (Pretty.list Term.pp);
   try
     match op, l with
       | Expt(n), [x] -> 

@@ -21,7 +21,7 @@ type rule = string
 
 type justification =
   | Axiom
-  | Rule of rule * justification list
+  | Rule of rule * t list
 
 type equal
 type diseq

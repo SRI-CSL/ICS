@@ -166,27 +166,31 @@ let name i (b, s) =
       Not_found -> extend i b s
 
 
-(*s Fuse. *)
-
-let rec fuse i (p, s) r = 
-  Trace.msg (Th.to_string i) "Fuse" r (Pretty.list Fact.pp_equal);
-  let norm = Th.map i (fun x -> assoc x r) in
-  Set.fold 
-    (fun x acc ->
-       try
-	 let b = apply s x in
-	 let e' = Fact.mk_equal x (norm b) None in
-	 update i e' acc
-       with
-	   Not_found -> acc)
-    (dom s r)
-    (p, s)
+let rec norm i r = 
+  Th.map i (fun x -> assoc x r)
 
 and assoc x = function
   | [] -> x
   | e :: el -> 
       let (a, b, _) = Fact.d_equal e in
 	if Term.eq x a then b else assoc x el
+
+(*s Fuse. *)
+
+let rec fuse i (p, s) r = 
+  Trace.msg (Th.to_string i) "Fuse" r (Pretty.list Fact.pp_equal);
+  Set.fold 
+    (fun x acc ->
+       try
+	 let b = apply s x in
+	 let b' = norm i r b in
+	 let e' = Fact.mk_equal x b' None in
+	 update i e' acc
+       with
+	   Not_found -> acc)
+    (dom s r)
+    (p, s)
+
 	  
 and dom s r = 
   List.fold_right

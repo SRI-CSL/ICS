@@ -182,7 +182,7 @@ and normalize s (a, c)=     (* following still suspicious. *)
     if Term.eq a a' && Cnstrnt.eq c c' then
       (a, c)
     else 
-      let (a'', c'') = normalize s (a', c') in
+      let (a'', c'') = normalize1 s (a', c') in
 	(can s a'', c'')
 
 and normalize1 s =

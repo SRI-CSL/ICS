@@ -22,7 +22,7 @@ type t =
 
 and justification =
   | Axiom
-  | Rule of string * justification list
+  | Rule of string * t list
 
 and equal = Term.t * Term.t * justification option
 and diseq = Term.t * Term.t * justification option

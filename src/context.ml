@@ -109,8 +109,9 @@ let fold s f x = V.fold (v_of s) f (v s x)
 (*s Constraint of [a] in [s]. *)
 
 let cnstrnt s = 
-  let rec of_term = function
-    | (Var _ as a) -> 
+  let rec of_term a =
+    match a with
+    | Var _  -> 
 	c s (v s a)
     | App(Arith(op), xl) ->
 	Arith.tau of_term op xl

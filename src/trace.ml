@@ -60,32 +60,36 @@ let msg level op args pp =
       Format.eprintf "@." 
     end
 
-let rec whitespace = function
-  | 0 -> ()
-  | n -> (Format.eprintf "%d " n; whitespace (n - 1))
-  
+let rec whitespace level n =
+  if is_active level then
+    begin
+      match n with
+	| 0 -> ()
+	| n -> (Format.eprintf "%d " n; whitespace level (n - 1))
+    end  
+
+let indent = ref 0
 
 let func level = 
-  let indent = ref 0 in
-    fun name pp qq f a ->
-      try  
-	whitespace !indent;
-	indent := !indent + 1;
-	call level name a pp;
-	let b = f a in
-	  indent := !indent - 1;
-	  whitespace !indent;
-	  exit level name b qq;
-	  b
-      with
-	| exc -> 
-	    begin
-	      indent := !indent - 1;
-	      whitespace !indent;
-	      (if is_active level then
-		 Format.eprintf "Exit: %s@." (Printexc.to_string exc));
-	      raise exc
-	    end
+  fun name pp qq f a ->
+    try  
+      whitespace level !indent;
+      indent := !indent + 1;
+      call level name a pp;
+      let b = f a in
+	indent := !indent - 1;
+	whitespace level !indent;
+	exit level name b qq;
+	b
+    with
+      | exc -> 
+	  begin
+	    indent := !indent - 1;
+	    whitespace level !indent;
+	    (if is_active level then
+	       Format.eprintf "Exit: %s@." (Printexc.to_string exc));
+	    raise exc
+	  end
 
 let proc level = 
   let qq fmt () = Format.fprintf fmt "()" in 
