@@ -367,15 +367,26 @@ void LPSolver::explain_ics_inconsistency(unsigned int f_idx)
 		  int * atom_array = explanation.first;
 		  int array_len = explanation.second;
 			new_conflict_point.reset();
-      // cout << "ICS explanation: \n";
+//			cout << "ICS explanation: \n";
 		  for(int i = 0; i < array_len; i++) {
-		  	// cout << "assert "; cout.flush();
-			  // icsat_atom_pp(atom_array[i]);
-			  // cout << ".\n";
-			  // cout.flush();
-			  // cout << "id = " << ics_interface.get_formula_id_of_atom_id(atom_array[i]) << "\n";
-        new_conflict_point.push(ics_interface.get_formula_id_of_atom_id(atom_array[i]));
+				int formula_id = ics_interface.get_formula_id_of_atom_id(atom_array[i]);
+//  				cout << "assert "; cout.flush();
+//  				icsat_atom_pp(atom_array[i]);
+//  				cout << ".\n";
+//  				cout.flush();
+//  				cout << "id = " << formula_id << "\n";
+//  				cout << "pos-atom : "; cout.flush();
+//  				icsat_atom_pp(formula_manager->get_formula(abs(formula_id))->get_atom());
+//  				cout << endl;
+//  				cout << "neg-atom : "; cout.flush();
+//  				icsat_atom_pp(formula_manager->get_formula(abs(formula_id))->get_not_atom());
+// 				int val = get_formula_value(abs(formula_id));
+//  				cout << endl;
+// 				cout << "value = " << val << endl << endl;
+
+				new_conflict_point.push(- formula_id);
 		  }
+//			cout << "---------------------\n";
 			return;
 	  }
 	  else {

@@ -83,12 +83,15 @@ extern "C" {
 		return sat_formula_manager->create_ite(c,t,e);
 	}
 	LPFormulaId sat_mk_atom(int a, int not_a) {
-		// icsat_atom_pp(a);
-		// cout.flush(); cout << endl;
-		// icsat_atom_pp(not_a);
-		// cout.flush(); cout << endl;
-		// cout<<"-----------------\n";
-		return sat_formula_manager->create_atom(a, not_a);
+// 		cout << "sat_mk_atom\n";
+// 		icsat_atom_pp(a);
+// 		cout.flush(); cout << endl;
+// 		icsat_atom_pp(not_a);
+// 		cout.flush(); cout << endl;
+		LPFormulaId result = sat_formula_manager->create_atom(a, not_a);
+// 		cout << " result  = " << result << endl;
+// 		cout<<"-----------------\n";
+		return result;
 	}
 	LPFormulaId sat_mk_var(char * var) {
 		return sat_formula_manager->create_proposition(var);

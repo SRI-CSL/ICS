@@ -28,6 +28,7 @@ void ICSInterface::reset()
 
 void ICSInterface::push()
 {
+	// cout << "pushing...\n";
 	// clock_t start = clock();
 	icsat_push();
 	// clock_t end = clock();
@@ -36,6 +37,7 @@ void ICSInterface::push()
 
 void ICSInterface::pop()
 {
+	// cout << "poping...\n";
 	// clock_t start = clock();
 	icsat_pop();
 	// clock_t end = clock();
@@ -115,7 +117,7 @@ bool ICSInterface::assert_formula(LPFormulaId f, bool in_scratch) {
 	int f_v = f > 0 ? formula_manager->get_formula(f)->get_atom() : formula_manager->get_formula(f)->get_not_atom();
 
 	DBG_CODE(
-					 cout << "assert "; cout.flush();
+					 cout << "asserting "; cout.flush();
 					 icsat_atom_pp(f_v);
 					 cout << ".\n";
 					 );

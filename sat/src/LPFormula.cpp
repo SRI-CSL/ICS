@@ -240,8 +240,20 @@ LPFormulaId LPFormulaManager::create_atom(int a, int not_a)
  		// formula was already created...
  		return *it;
  	}
- 	formula_pool.insert(next_formula_id);
 
+	new_formula->data.eq.atom = not_a;
+	new_formula->data.eq.not_atom = a;
+	LPFormulaPool::const_iterator it2 = formula_pool.find(next_formula_id);
+ 	if (it2 != formula_pool.end()) {
+ 		// formula was already created...
+		// cout << "neg case it2 " << (*it2) << " " << (0 - (*it2)) << endl;
+ 		return 0 - (*it2);
+ 	}
+	
+	new_formula->data.eq.atom = a;
+	new_formula->data.eq.not_atom = not_a;
+
+ 	formula_pool.insert(next_formula_id);
 	return next_formula_id++;
 }
 
