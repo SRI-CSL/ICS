@@ -171,15 +171,15 @@ GENERATED = lexer.ml parser.mli parser.ml
 
 $(BINDIR):	
 	-umask 022; if test '!' -d $(BINDIR) ; then \
-                      mkdir $(BINDIR); fi;
+                      mkdir -p $(BINDIR); fi;
 
 $(OBJDIR):
 	-umask 022; if test '!' -d $(OBJDIR) ; then \
-           mkdir $(OBJDIR); fi; 
+           mkdir -p $(OBJDIR); fi; 
 
 $(LIBDIR):
 	-umask 022; if test '!' -d $(LIBDIR) ; then \
-           mkdir $(LIBDIR); fi;
+           mkdir -p $(LIBDIR); fi;
 
 ### Source file links
 
