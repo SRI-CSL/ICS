@@ -23,6 +23,23 @@ type t =
   | Ite of t * t * t * int
   | Neg of t * int
 
+let is_true = function True -> true | _ -> false
+let is_false = function False -> true | _ -> false
+let is_var = function Var _ -> true | _ -> false
+let is_atom = function Atom _ -> true | _ -> false
+let is_disj = function Disj _ -> true | _ -> false
+let is_iff = function Iff _ -> true | _ -> false
+let is_ite = function Ite _ -> true | _ -> false
+let is_neg = function Neg _ -> true | _ -> false
+
+let d_var = function Var(x) -> x | _ -> invalid_arg "wrong propositional argument"
+let d_atom = function Atom(a) -> a | _ -> invalid_arg "wrong propositional argument"
+let d_disj = function Disj(dl, _) -> dl | _ -> invalid_arg "wrong propositional argument"
+let d_iff = function Iff(p, q, _) -> (p, q) | _ -> invalid_arg "wrong propositional argument"
+let d_ite = function Ite(p, q, r, _) -> (p, q, r) | _ -> invalid_arg "wrong propositional argument"
+let d_neg = function Neg(p, _) -> p | _ -> invalid_arg "wrong propositional argument"
+
+
 type prp = t
 
 let get p = p
@@ -180,20 +197,47 @@ let mk_neg =
 	    in
 	      Table.add memo p np; np
 
-
-let mk_disj =
-  let rec simplify acc = function  (* don't do simplify as this builds up *) 
-    | [] -> acc                    (* structure and many formulas can not *)
-    | True :: _ -> [True]          (* be build as a result. *)
-    | False :: pl -> simplify acc pl
-    | Disj(ql, _) :: pl -> simplify acc (ql @ pl)
-    | p :: pl -> simplify (p :: acc) pl  
-  in
+exception Valid
+let mk_disj = 
   let sort = 
     let cmp p q = 
       Pervasives.compare (hash p) (hash q) 
     in
       List.sort cmp 
+  in
+  let simplify pl = 
+    try
+      let res = ref [] in
+      let todo = Stack.create () in
+      let rec process_disj_children = function   
+	| [] -> ()                 
+	| True :: _ ->
+	    raise Valid
+	| False :: pl -> 
+	    process_disj_children pl
+	| ((Disj(_, _) as p) :: pl) -> 
+	    Stack.push p todo;
+	    process_disj_children pl
+	| p :: pl ->
+	    res := p :: !res;
+	    process_disj_children pl 
+      in
+      let rec process_todo () =
+	try
+	  let p = Stack.pop todo in
+	    assert(is_disj p);
+	    process_disj_children (d_disj p);
+	    process_todo ()
+	with
+	    Stack.Empty ->   
+	      let pl = (* sort *) !res in
+	      let hsh = (List.fold_left (fun h p -> h + hash p) 1 pl) land 0x3FFFFFFF in
+		Disj(pl, hsh)
+      in
+	process_disj_children pl;
+	process_todo ()
+    with
+	Valid -> mk_true
   in
   let module Table = Hashtbl.Make(
     struct
@@ -211,14 +255,12 @@ let mk_disj =
 	Table.find memo pl
       with
 	  Not_found -> 
-	    let disj = match pl with
-	      | [] -> False
-	      | [p] -> p
-	      | pl -> 
-		  let pl = sort pl in
-		  let hsh = (List.fold_left (fun h p -> h + hash p) 1 pl) land 0x3FFFFFFF in
-		    Disj(pl, hsh)
-	    in
+	(*    let disj = simplify pl in  *)  (* removed because too time-consuming. *)
+	    let disj =
+	      let pl = sort pl in
+	      let hsh = (List.fold_left (fun h p -> h + hash p) 1 pl) land 0x3FFFFFFF in
+		Disj(pl, hsh)
+           in
 	      Table.add memo pl disj; disj
 
 let mk_conj =
@@ -313,22 +355,6 @@ let mk_ite =
 	      in
 		Table.add memo pqr ite; ite
 
-
-let is_true = function True -> true | _ -> false
-let is_false = function False -> true | _ -> false
-let is_var = function Var _ -> true | _ -> false
-let is_atom = function Atom _ -> true | _ -> false
-let is_disj = function Disj _ -> true | _ -> false
-let is_iff = function Iff _ -> true | _ -> false
-let is_ite = function Ite _ -> true | _ -> false
-let is_neg = function Neg _ -> true | _ -> false
-
-let d_var = function Var(x) -> x | _ -> invalid_arg "wrong propositional argument"
-let d_atom = function Atom(a) -> a | _ -> invalid_arg "wrong propositional argument"
-let d_disj = function Disj(dl, _) -> dl | _ -> invalid_arg "wrong propositional argument"
-let d_iff = function Iff(p, q, _) -> (p, q) | _ -> invalid_arg "wrong propositional argument"
-let d_ite = function Ite(p, q, r, _) -> (p, q, r) | _ -> invalid_arg "wrong propositional argument"
-let d_neg = function Neg(p, _) -> p | _ -> invalid_arg "wrong propositional argument"
 
 
 (** {6 Translations to/from ICSAT propositions} *)
