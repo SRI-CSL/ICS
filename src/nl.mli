@@ -18,6 +18,11 @@
 *)
 
 
+module Ops: Can.OPS
+  (** Various operations with a set of flat equalities of the
+    form [u = x * y] as context. *)
+
+
 module Infsys: (Infsys.EQ with type e = Solution.Set.t)
   (** Inference system for nonlinear multiplication as 
     an extension of the AC inference system {!Ac.Make}

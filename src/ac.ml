@@ -275,6 +275,11 @@ module T(Sig: SIG): Can.T = struct
 end
 
 
+module Ops(Sig: SIG) : Can.OPS =
+  Can.Ops(T(Sig))
+  
+
+
 (** Inference system for AC theories. *)
 module Infsys(Sig: SIG): (Infsys.EQ with type e = Solution.Set.t) =
   Can.Make(T(Sig))

@@ -478,6 +478,7 @@ module T: Can.T = struct
  
 end
 
+module Ops = Can.Ops(T)
 
 module Infsys: (Infsys.EQ with type e = S.t) =
   Can.Make(T)

@@ -44,24 +44,18 @@ let solve th e =
 (** Combined equality sets. *)
 module E = struct
 
-  module Nl = Solution.Set
-  module P = Solution.Set
-  module Cop = Solution.Set
-  module Cl = Solution.Set
-  module Arr = Solution.Set
-  module Set = Solution.Set
-  module Bv = Solution.Set
+  module S = Solution.Set
 
   type t = {
     u: U.S.t;
     la: La.S.t;
-    nl: Nl.t;
-    p: P.t;
-    cop: Cop.t;
-    cl : Cl.t;
-    arr : Arr.t;
-    set : Set.t;
-    bv : Bv.t
+    nl: S.t;
+    p: S.t;
+    cop: S.t;
+    cl : S.t;
+    arr : S.t;
+    set : S.t;
+    bv : S.t
   }
 
    (** Projections to individual equality sets. *)
@@ -78,48 +72,48 @@ module E = struct
   let empty = {
     u = U.S.empty;
     la = La.S.empty;
-    nl = Nl.empty;
-    p = P.empty;
-    cop = Cop.empty;
-    cl = Cl.empty;
-    arr = Arr.empty;
-    set = Set.empty;
-    bv = Bv.empty
+    nl = S.empty;
+    p = S.empty;
+    cop = S.empty;
+    cl = S.empty;
+    arr = S.empty;
+    set = S.empty;
+    bv = S.empty
   }
 
   let copy s = {
     u = U.S.copy s.u;
     la = La.S.copy s.la;
-    nl = Nl.copy s.nl;
-    p = P.copy s.p;
-    cop = Cop.copy s.cop;
-    cl = Cl.copy s.cl;
-    arr = Arr.copy s.arr;
-    set = Set.copy s.set;
-    bv = Bv.copy s.bv
+    nl = S.copy s.nl;
+    p = S.copy s.p;
+    cop = S.copy s.cop;
+    cl = S.copy s.cl;
+    arr = S.copy s.arr;
+    set = S.copy s.set;
+    bv = S.copy s.bv
   }
 
   let is_empty s =
     U.S.is_empty s.u &&
     La.S.is_empty s.la &&
-    Nl.is_empty s.nl &&
-    P.is_empty s.p &&
-    Cop.is_empty s.cop &&
-    Cl.is_empty s.cl &&
-    Arr.is_empty s.arr &&
-    Set.is_empty s.set &&
-    Bv.is_empty s.bv
+    S.is_empty s.nl &&
+    S.is_empty s.p &&
+    S.is_empty s.cop &&
+    S.is_empty s.cl &&
+    S.is_empty s.arr &&
+    S.is_empty s.set &&
+    S.is_empty s.bv
     
   let eq s1 s2 =
     U.S.eq s1.u s2.u &&
     La.S.eq s1.la s2.la &&
-    Nl.eq s1.nl s2.nl &&
-    P.eq s1.p s2.p &&
-    Cop.eq s1.cop s2.cop &&
-    Cl.eq s1.cl s2.cl &&
-    Arr.eq s1.arr s2.arr &&
-    Set.eq s1.set s2.set &&
-    Bv.eq s1.bv s2.bv
+    S.eq s1.nl s2.nl &&
+    S.eq s1.p s2.p &&
+    S.eq s1.cop s2.cop &&
+    S.eq s1.cl s2.cl &&
+    S.eq s1.arr s2.arr &&
+    S.eq s1.set s2.set &&
+    S.eq s1.bv s2.bv
 
    
   let pp fmt s =
@@ -130,20 +124,20 @@ module E = struct
 	(let name = Th.to_string Th.la in
 	   Format.fprintf fmt "\n%s(r):" name; La.pp La.R fmt s.la;
 	   Format.fprintf fmt "\n%s(t):" name; La.pp La.T fmt s.la);
-      if not(Nl.is_empty s.nl) then
-	(name Th.nl; Nl.pp fmt s.nl);
-      if not(P.is_empty s.p) then
-	(name Th.p; P.pp fmt s.p);
-      if not(Cop.is_empty s.cop) then
-	(name Th.cop; Cop.pp fmt s.cop);
-      if not(Cl.is_empty s.cl) then
-	(name Th.app; Cl.pp fmt s.cl);
-      if not(Arr.is_empty s.arr) then
-	(name Th.arr; Arr.pp fmt s.arr);
-      if not(Set.is_empty s.set) then
-	(name Th.set; Set.pp fmt s.set);
-      if not(Bv.is_empty s.bv) then
-	(name Th.bv; Bv.pp fmt s.bv)
+      if not(S.is_empty s.nl) then
+	(name Th.nl; S.pp fmt s.nl);
+      if not(S.is_empty s.p) then
+	(name Th.p; S.pp fmt s.p);
+      if not(S.is_empty s.cop) then
+	(name Th.cop; S.pp fmt s.cop);
+      if not(S.is_empty s.cl) then
+	(name Th.app; S.pp fmt s.cl);
+      if not(S.is_empty s.arr) then
+	(name Th.arr; S.pp fmt s.arr);
+      if not(S.is_empty s.set) then
+	(name Th.set; S.pp fmt s.set);
+      if not(S.is_empty s.bv) then
+	(name Th.bv; S.pp fmt s.bv)
 
   let pp_i i fmt s =
     match i with
@@ -154,15 +148,15 @@ module E = struct
 		 La.pp La.R fmt s.la; 
 		 Format.fprintf fmt "\n";
 		 La.pp La.T fmt s.la
-             | Th.BV -> Bv.pp fmt s.bv
-             | Th.P -> P.pp fmt s.p
-             | Th.COP -> Cop.pp fmt s.cop
-             | Th.APP -> Cl.pp fmt s.cl
-             | Th.SET -> Set.pp fmt s.set)
+             | Th.BV -> S.pp fmt s.bv
+             | Th.P -> S.pp fmt s.p
+             | Th.COP -> S.pp fmt s.cop
+             | Th.APP -> S.pp fmt s.cl
+             | Th.SET -> S.pp fmt s.set)
       | Th.Can(i) ->
 	  (match i with
-	     | Th.NL -> Nl.pp fmt s.nl
-	     | Th.ARR -> Arr.pp fmt s.arr)
+	     | Th.NL -> S.pp fmt s.nl
+	     | Th.ARR -> S.pp fmt s.arr)
 
   let find (s, p) = function
     | Th.Uninterpreted -> 
@@ -170,15 +164,15 @@ module E = struct
     | Th.Shostak(i) -> 
 	(match i with
            | Th.LA -> La.S.find s.la
-           | Th.BV -> Bv.find s.bv
-           | Th.P -> P.find s.p
-           | Th.COP -> Cop.find s.cop
-           | Th.APP -> Cl.find s.cl
-           | Th.SET -> Set.find s.set)
+           | Th.BV -> S.find s.bv
+           | Th.P -> S.find s.p
+           | Th.COP -> S.find s.cop
+           | Th.APP -> S.find s.cl
+           | Th.SET -> S.find s.set)
     | Th.Can(i) ->
 	(match i with
-	   | Th.NL -> Nl.find s.nl
-	   | Th.ARR -> Arr.find s.arr)
+	   | Th.NL -> Nl.Ops.find (p, s.nl)
+	   | Th.ARR -> (Nl.Ops.find (p, s.arr)))
 	 
   let inv (s, p) a = 
     try
@@ -189,15 +183,15 @@ module E = struct
 	  | Th.Shostak(i) -> 
 	      (match i with
 		 | Th.LA -> La.S.inv s.la a
-		 | Th.BV -> Bv.inv s.bv a
-		 | Th.P -> P.inv s.p a
-		 | Th.COP -> Cop.inv s.cop a
-		 | Th.APP -> Cl.inv s.cl a 
-		 | Th.SET -> Set.inv s.set a)
+		 | Th.BV -> S.inv s.bv a
+		 | Th.P -> S.inv s.p a
+		 | Th.COP -> S.inv s.cop a
+		 | Th.APP -> S.inv s.cl a 
+		 | Th.SET -> S.inv s.set a)
 	  | Th.Can(i) ->
 	      (match i with
-		 | Th.NL -> Nl.inv s.nl a
-		 | Th.ARR -> Arr.inv s.arr a))
+		 | Th.NL -> Nl.Ops.inv (p, s.nl) a
+		 | Th.ARR -> Nl.Ops.inv (p,s .arr) a))
     with
 	Not_found -> Partition.find p a
 
@@ -208,27 +202,27 @@ module E = struct
       | Th.Shostak(i) -> 
 	  (match i with
              | Th.LA -> La.S.dep s.la
-             | Th.BV -> Bv.dep s.bv
-             | Th.P -> P.dep s.p
-             | Th.COP -> Cop.dep s.cop
-             | Th.APP -> Cl.dep s.cl
-             | Th.SET -> Set.dep s.set)
+             | Th.BV -> S.dep s.bv
+             | Th.P -> S.dep s.p
+             | Th.COP -> S.dep s.cop
+             | Th.APP -> S.dep s.cl
+             | Th.SET -> S.dep s.set)
       | Th.Can(i) ->
 	  (match i with
-	     | Th.NL -> Nl.dep s.nl
-	     | Th.ARR -> Arr.dep s.arr)
+	     | Th.NL -> S.dep s.nl
+	     | Th.ARR -> S.dep s.arr)
 
   let diff s1 s2 =
     {empty with
        u = U.S.diff s1.u s2.u;
        la = La.S.diff s1.la s2.la;
-       bv = Bv.diff s1.bv s2.bv;
-       p = P.diff s1.p s2.p;
-       cop = Cop.diff s2.cop s2.cop;
-       cl = Cl.diff s1.cl s2.cl;
-       set = Set.diff s1.set s2.set;
-       nl = Nl.diff s1.nl s2.nl;
-       arr = Arr.diff s1.arr s2.arr}
+       bv = S.diff s1.bv s2.bv;
+       p = S.diff s1.p s2.p;
+       cop = S.diff s2.cop s2.cop;
+       cl = S.diff s1.cl s2.cl;
+       set = S.diff s1.set s2.set;
+       nl = S.diff s1.nl s2.nl;
+       arr = S.diff s1.arr s2.arr}
 	
 end 
 

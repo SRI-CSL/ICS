@@ -68,6 +68,10 @@ module type TERM = sig
 end 
 
 
+module Ops(Sig: SIG): Can.OPS
+  (** Various operations on flat equalities. *)
+
+
 module Make(Sig: SIG): TERM
   (** Canonizer for a theory with one AC symbol, say [*]. 
     A term [a] is said to be in in {i canonical} form if it is

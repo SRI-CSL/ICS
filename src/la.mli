@@ -42,6 +42,7 @@ val can : Partition.t * S.t -> Jst.Eqtrans.t
     in [a] with their right hand side [b] if [x = b] in [s].
     The result is canonized using {!Arith.map}. *)
 
+val nl_merge : (Fact.Equal.t -> unit) ref
 
 (** Inference system for linear arithmetic. *)
 module Infsys : (Infsys.ARITH with type e = S.t)

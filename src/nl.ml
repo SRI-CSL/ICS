@@ -46,8 +46,8 @@ let apply_subst e =
     Jst.Eqtrans.replace Pprod.map lookup
 
 
+module Ops = Ac.Ops(Pprod.Sig)
 
-(** {6 Inference system} *)
 
 (** Inference system for nonlinear multiplication as 
   an extension of the AC inference system with deduction
@@ -162,6 +162,18 @@ module Infsys0: (Infsys.EQ with type e = S.t) = struct
 		       G.put fct' !g)
       x
 
+
+  let nl_merge_la_eqs e =
+    assert(Fact.Equal.is_pure Th.la e);
+    if not(S.is_empty (current())) then
+      merge_la e
+
+  (* [nl_merge_la_eqs] can not be called in module [la] because of mutual
+   dependency of [La] and [Nl], so we use a hack and install this
+   function into a global variable of [La]. *)
+  let _ =
+    La.nl_merge := nl_merge_la_eqs
+
   let propagate e =
     assert(Fact.Equal.is_var e);
     Ac.propagate e;
@@ -209,7 +221,7 @@ module Infsys0: (Infsys.EQ with type e = S.t) = struct
     with
 	Found(d1, d2, rho) -> 
 	  Clause.of_list ([d1; d2],  rho)
-	  
+
 
   (** No normalization. *)
   let normalize _ = ()

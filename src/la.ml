@@ -15,6 +15,10 @@
 
 open Mpa
 
+let do_nothing _ = ()
+
+let nl_merge = ref do_nothing
+
 (** The state [s] of the decision procedures for linear arithmetic is separated
   into {i unrestricted} and {i restricted} solved equalities and consists 
   of a pair [(r, t)], where
@@ -931,6 +935,7 @@ and process_nonneg ((a, rho) as nn) =                 (* [rho |- a >= 0] *)
 		   (let y = choose_unrestricted a in 
 		    let (k, tau) = mk_nonneg_slack a rho in  (* [tau |- k = a] *) 
 		    let e = Fact.Equal.make k a (Jst.dep2 rho tau) in
+		      !nl_merge e;
 		      compose (isolate y e))
 		 with
 		     Not_found ->
@@ -943,6 +948,7 @@ and process_nonneg_restricted (a, rho) =                 (* [rho |- a >= 0] *)
   assert(is_restricted a); 
   let (k, tau) = mk_nonneg_slack a rho in                (* [tau |- k = a] *)
   let e = Fact.Equal.make k a (Jst.dep2 rho tau) in
+    !nl_merge e;
     process_nonneg_make_feasible e
 
 and process_nonneg_make_feasible e =

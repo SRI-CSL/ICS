@@ -44,3 +44,7 @@ module Infsys: (Infsys.EQ with type e = Solution.Set.t)
     (see {!Partition.t}). *)
 
 
+module Ops: Can.OPS
+  (** Various operations with a set of flat equalities of the
+    form [u = x * y] as context. *)
+
