@@ -805,9 +805,28 @@ struct
   type config = Partition.t * t
 
   (** Combined effects *)
-  let effects tag (p, s) =
-    (Effects2.do_at_update tag (p, s.left, s.right),
-     Effects2.do_at_restrict tag (p, s.left, s.right))
+  let effects tag (p, s) = 
+    let do_at_update tag ((x, a, rho) as e) =
+      Effects2.do_at_update tag (p, s.left, s.right) e;
+      (try                           (* establish confluence *)
+	 (match tag with
+	    | Right ->
+		let (y, tau) = Left.inv s.left a in        (* [tau |- y = a] *)
+		let  sigma = Justification.trans (x, a, y) tau rho in
+		  Partition.merge p (Fact.Equal.make (x, y, sigma));
+		  Left.restrict effects0 (p, s.left) y (* restrict [y = a] in [Left]. *)
+	    | Left ->
+		let (y, tau) = Right.inv s.right a in   (* [tau |- y = a] *)
+		let  sigma = Justification.trans (x, a, y) tau rho in
+		  Partition.merge p (Fact.Equal.make (x, y, sigma));
+		  Left.restrict effects0 (p, s.left) x)  (* restrict [x = a] in [Left] *)
+       with
+	   Not_found -> ())
+    and do_at_restrict tag =
+      Effects2.do_at_restrict tag (p, s.left, s.right)
+    in
+      (do_at_update tag, do_at_restrict tag)
+
 
   (** Depending on [tag] call either the update function [f_left]
     on the left configuration [(p, s.left)] or [f_right] on the
