@@ -69,6 +69,10 @@ val is_independent : t -> Term.t -> bool
   (** [is_independent s y] iff there are [x], [a] such that [x = a] in [s]
     and [y] is an argument variable of the flat term [a]. *)
 
+val fold : (Term.t -> Term.t * Jst.t -> 'a -> 'a) -> t -> 'a -> 'a
+  (** [fold f s e] applies [f x (a, rho)] for each [x = a] with justification
+    [rho] in [s] and accumulates the result starting with [e]. The order of
+    application is unspecified. *)
 
 (** {6 Updates} *)
 

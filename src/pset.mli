@@ -39,6 +39,11 @@ val is_dependent : t -> Term.t -> bool
 
 val is_independent : t -> Term.t -> bool
 
+val fold : (Term.t -> Term.t * Jst.t -> 'a -> 'a) -> t -> 'a -> 'a
+  (** [fold f s e] applies [f x (a, rho)] for each [x = a] with justification
+    [rho] in [s] and accumulates the result starting with [e]. The order of
+    application is unspecified. *)
+
 
 (** {6 Updates} *)
 

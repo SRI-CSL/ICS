@@ -156,7 +156,9 @@ let cnstrnt s x =
   try
     Term.Var.Map.find x s.cnstrnt
   with
-      Not_found -> (Term.Var.cnstrnt_of x, Jst.dep0)
+      Not_found -> 
+	let c = Term.Var.cnstrnt_of x in
+	  (c, Jst.dep0)
 
 
 (** Set of removable variables. *)
@@ -174,7 +176,7 @@ let to_equalities s =
        Fact.Equal.make (x, y, rho) :: acc)
     s.post []
 
-let pp_as_equalities = ref false
+let pp_as_equalities = ref true
        
 let pp fmt s =
   if not(is_empty s) then
@@ -192,12 +194,101 @@ let pp fmt s =
 	end 
     end  
 
+
+(** Variable equality modulo [s] *)
+let is_equal s x y = 
+  assert(Term.is_var x);
+  assert(Term.is_var y);
+  let (x', rho) = find s x         (* [rho |- x = x'] *)
+  and (y', tau) = find s y in 
+    if Term.eq x' y' then          (* [tau |- y = y'] *)
+      Some(Jst.dep2 rho tau)
+    else 
+      None
+
+
+(** Checker for justifications. *)
+let check validates s =
+  Term.Var.Map.fold
+    (fun x (y, rho) acc ->
+       try
+	 let hyps = Jst.axioms_of rho in
+	 let concl = Atom.mk_equal (x, y) in
+	 let res = validates hyps concl in
+	   res
+       with
+	   Not_found -> true)
+    s.post true
+       
+
+
 (** A variable [x] is {i canonical} iff it is not in the domain
   of the [post] function of [s]. In this case, {!V.find} is the
   identity. *)
 let is_canonical s x =  
   assert(Term.is_var x);
   not(Term.Var.Map.mem x s.post)
+
+(** Iterating over all equalities [x = y]. *)
+let fold f s = Term.Var.Map.fold f s.post
+  
+(** Extension of the equivalence class for [x] contains
+  all [y] such that [x] and [y] are equal modulo [s].
+  Expensive operation, uses memory linear in the size of the
+  [pre] of [y]. *)
+let ext s x =
+  assert(Term.is_var x);
+  let (y, _) = find s x in
+    Pre.elements (Pre.add y (inv s y))
+
+(** Starting from the canonical representative [x' = find s x], the
+  function [f] is applied to each [y] in [ext s x'] and the results are
+  accumulated. *)
+let accumulate s f x e = 
+  assert(Term.is_var x);
+  let (y, _) = find s x in
+    Pre.fold f (inv s y) (f y e)
+
+(** Iteration on extension of equivalence class. *)
+let iter s f x =
+  assert(Term.is_var x);
+  let (y, _) = find s x in
+    f y;
+    Pre.iter f (inv s y)
+
+let exists s p x = 
+  assert(Term.is_var x);
+  let (y, _) = find s x in
+    p y || Pre.exists p (inv s y) 
+
+let for_all s p x =  
+  assert(Term.is_var x);
+  let (y, _) = find s x in
+    p y && Pre.for_all p (inv s y) 
+
+exception Found
+
+(** Choose an element satisfying some property. *)
+let choose s p x = 
+  assert(Term.is_var x);
+  let (y, _) = find s x in
+    match p y with
+      | Some(z) -> z
+      | None ->
+	  let result = ref (Obj.magic 1) in
+	    try     
+	      Pre.iter
+		(fun y ->
+		   match p y with
+		     | Some(z) -> 
+			 result := z;
+			 raise Found
+		     | None -> ())
+		(inv s y);
+	      raise Not_found
+	    with
+		Found -> !result
+
 
 (** Merging of two different canonical variables [x] and [y] *)
 let rec merge e s =            
@@ -299,16 +390,6 @@ let restrict s x =
   with
       Not_found -> s
 
-(** Variable equality modulo [s] *)
-let is_equal s x y = 
-  assert(Term.is_var x);
-  assert(Term.is_var y);
-  let (x', rho) = find s x         (* [rho |- x = x'] *)
-  and (y', sigma) = find s y in 
-    if Term.eq x' y' then          (* [sigma |- y = y'] *)
-      Some(Jst.dep2 rho sigma)
-    else 
-      None
 
 (** Garbage collection *)
 let gc f s =
@@ -317,62 +398,3 @@ let gc f s =
     if f x then restrict s x else s
   in
   Term.Var.Set.fold gc1 s.removable s
-	  
-(** Extension of the equivalence class for [x] contains
-  all [y] such that [x] and [y] are equal modulo [s].
-  Expensive operation, uses memory linear in the size of the
-  [pre] of [y]. *)
-let ext s x =
-  assert(Term.is_var x);
-  let (y, _) = find s x in
-    Pre.elements (Pre.add y (inv s y))
-
-(** Starting from the canonical representative [x' = find s x], the
-  function [f] is applied to each [y] in [ext s x'] and the results are
-  accumulated. *)
-let fold s f x e = 
-  assert(Term.is_var x);
-  let (y, _) = find s x in
-    Pre.fold f (inv s y) (f y e)
-
-(** Iteration on extension of equivalence class. *)
-let iter s f x =
-  assert(Term.is_var x);
-  let (y, _) = find s x in
-    f y;
-    Pre.iter f (inv s y)
-
-let exists s p x = 
-  assert(Term.is_var x);
-  let (y, _) = find s x in
-    p y || Pre.exists p (inv s y) 
-
-let for_all s p x =  
-  assert(Term.is_var x);
-  let (y, _) = find s x in
-    p y && Pre.for_all p (inv s y) 
-
-exception Found
-
-(** Choose an element satisfying some property. *)
-let choose s p x = 
-  assert(Term.is_var x);
-  let (y, _) = find s x in
-    match p y with
-      | Some(z) -> z
-      | None ->
-	  let result = ref (Obj.magic 1) in
-	    try     
-	      Pre.iter
-		(fun y ->
-		   match p y with
-		     | Some(z) -> 
-			 result := z;
-			 raise Found
-		     | None -> ())
-		(inv s y);
-	      raise Not_found
-	    with
-		Found -> !result
-
- 

@@ -208,14 +208,18 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
  
   let fold f s = Term.Var.Map.fold f s.find
 
-  let to_list s = fold (fun x (b,_) acc -> (x, b) :: acc) s []
+  let to_list s = fold (fun x (b, rho) acc -> (x, b, rho) :: acc) s []
 
   let pp fmt s =
     let el = to_list s in
       if not(el = []) then
 	begin
+	  let eqn fmt (x, b, rho) = 
+	    Fact.pp_justification fmt rho;
+	    Pretty.infix Term.pp "=" Term.pp fmt (x, b)
+	  in
 	  Format.fprintf fmt "\n%s: " Th.nickname;
-	  Pretty.set (Pretty.infix Term.pp "=" Term.pp) fmt (to_list s);
+	  Pretty.set eqn fmt (to_list s);
 	  if !pp_index then
 	    begin
 	      Format.fprintf fmt "\nuse: ";
@@ -223,6 +227,8 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
 	      Ext.pp fmt s.ext
 	    end 
 	end
+
+  let to_list s = fold (fun x (b, _) acc -> (x, b) :: acc) s []
 
   let synchronized s =
     let res1 = 
@@ -277,21 +283,12 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
 
   let inv s a =
     let x = Term.Map.find a s.inv in
-      (* assert(Term.Var.Map.mem x s.find); *)
-    try
-      let (_, rho) = apply s x in
-	(x, rho)
-    with
-	Not_found -> 
-	  Format.eprintf "\nFATAL ERROR for: %s" (Pretty.to_string Term.Equal.pp (x, a));
-	  Format.eprintf "\n IN FIND \n";
-	  pp Format.err_formatter s;
-          Format.eprintf "\n AND INV \n";
-	  exit 1
-	  
-
+      assert(Term.Var.Map.mem x s.find);
+	let (b, rho) = apply s x in
+	  assert(Term.eq a b);
+	  (x, rho)
+    
   let ext s = s.ext
-
 
    (** {6 Iterators} *)
 
@@ -428,7 +425,8 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
 	   Not_found -> 
 	     restrict (p, s) x
 	     
-
+   let v = Name.of_string "v"
+  
    (** Return a canonical variable [x] equal to [b]. If [b] is not a rhs in
      the equality set for theory [i], then a variable [x] is newly created. *)
    let name (p, s) b =
@@ -437,8 +435,8 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
 	 inv s b 
        with 
 	   Not_found ->
-	     let dom = try Var.Cnstrnt.Real(Arith.dom_of b) with Not_found -> Var.Cnstrnt.Unconstrained in
-	     let x = Term.Var.mk_rename (Name.of_string "v") None dom in 
+	     let c = try Var.Cnstrnt.mk_real(Arith.dom_of b) with Not_found -> Var.Cnstrnt.Unconstrained in
+	     let x = Term.Var.mk_rename v None c in 
 	     let rho = Jst.dep0 in
 	       update (p, s) (Fact.Equal.make (x, b, rho));
 	       (x, rho)
@@ -461,7 +459,8 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
    and norm el =
      let lookup x =
        let rec loop = function
-	 | [] -> (x, Jst.dep0)
+	 | [] -> 
+	     Jst.Eqtrans.id x
 	 | e :: el -> 
 	     let (y, b, rho) = Fact.Equal.destruct e in
 	       if Term.eq x y then (b, rho) else loop el

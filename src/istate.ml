@@ -221,12 +221,9 @@ module Out = struct
 	Format.fprintf fmt "@?"
 
   let ok n =
-    if !batch then nothing () else 
-       begin
-	 Format.fprintf !outchannel ":ok ";
-	 Name.pp !outchannel n;
-	 Format.fprintf !outchannel "@?"
-       end 
+    Format.fprintf !outchannel ":ok ";
+    Name.pp !outchannel n;
+    Format.fprintf !outchannel "@?"
 
   let unsat j =
     let fmt = !outchannel in
@@ -238,14 +235,17 @@ module Out = struct
       Format.fprintf fmt "@?"
 
   let valid j =
-    if !batch then nothing () else 
-      let fmt = !outchannel in
-	Format.fprintf fmt ":valid ";
-	if not(Jst.Mode.is_none()) then
-	  begin
-	    Jst.pp fmt j
-	  end;
-	Format.fprintf fmt "@?"
+    let fmt = !outchannel in
+      Format.fprintf fmt ":valid ";
+      if not(Jst.Mode.is_none()) then
+	begin
+	  Jst.pp fmt j
+	end;
+      Format.fprintf fmt "@?"
+	
+  let prop_unsat () =
+    let fmt = !outchannel in
+      Format.fprintf fmt ":unsat@?"
     
   let terms ts =
     if !batch then nothing () else 
@@ -305,15 +305,12 @@ module Out = struct
 	      Jst.pp !outchannel rho;
 	    Format.fprintf !outchannel "@?"
 
-  let sat (n, rho) =
-    if !batch then nothing () else
-      begin
-	Format.fprintf !outchannel ":sat ";
-	Name.pp !outchannel n;
-	Format.fprintf !outchannel "\n:model ";
-	Prop.Assignment.pp !outchannel rho;
-	Format.fprintf !outchannel "@?"
-      end 
+  let prop_sat (n, rho) =
+    Format.fprintf !outchannel ":sat ";
+    Name.pp !outchannel n;
+    Format.fprintf !outchannel "\n:model ";
+    Prop.Assignment.pp !outchannel rho;
+    Format.fprintf !outchannel "@?"
 
   let prop p = 
     if !batch then nothing () else
@@ -889,24 +886,16 @@ let do_untrace =
 let do_process = 
   Command.register "assert"
     (fun (n, a) ->
-       let t = (get_context n) in
-	 if !batch then
-	   (match Context.add t a with
-	      | Context.Status.Inconsistent(rho) -> 
-		  if !batch then (* Exit in batch mode when inconsistency is detected *)
-		    raise(Jst.Inconsistent(rho))
-	      | _ -> ())
-	 else
-	   match Context.add t a with  (* Update state and install new name in symbol table *)
-	     | Context.Status.Ok(t') -> 
-		 current := t';
-		 let n = save_state None in Out.ok n
-	     | Context.Status.Valid(rho) ->  Out.valid rho
-	     | Context.Status.Inconsistent(rho) -> 
-		 (if !batch then (* Exit in batch mode when inconsistency is detected *)
-		    raise(Jst.Inconsistent(rho))
-		  else 
-		    Out.unsat rho))
+       let t = get_context n in
+	 match Context.add t a with  (* Update state and install new name in symbol table *)
+	   | Context.Status.Ok(t') -> 
+	       current := t';
+	       let n = save_state None in Out.ok n
+	   | Context.Status.Valid(rho) ->  Out.valid rho
+	   | Context.Status.Inconsistent(rho) ->
+	       Out.unsat rho;
+	       if !batch then (* Exit in batch mode when inconsistency is detected *)
+		 raise(End_of_file))
     {args = "[@<ident>]  <atom>";
      short = "Add an atom to a context"; 
      description = "
@@ -936,28 +925,27 @@ let do_process =
 
 let do_valid =
   Command.register "valid"
-  (fun (n, a) ->
-     match Context.add (get_context n) a with 
-       | Context.Status.Valid _ -> Out.tt ()
-       | _ -> Out.ff ())
-  {args = "[@<ident>]  <atom>";
-   short = "Test if <atom> is valid in context <ident>."; 
+  (fun (n, al) ->
+     if Context.is_valid (get_context n) al then Out.tt () else Out.ff ())
+  {args = "[@<ident>]  <atom>,...,<atom>";
+   short = "Test if the conjunction of <atom>s is valid in context <ident>."; 
    description = "" ; 
    examples = []; 
-   seealso = "symtab, forget, restore, valid, unsat"}
+   seealso = "assert, unsat"}
 
 
 let do_unsat =
   Command.register "unsat"
-    (fun (n, a) ->
-       match Context.add (get_context n) a with 
-	 | Context.Status.Inconsistent _ -> Out.tt ()
-	 | _ -> Out.ff ())
-    {args = "[@<ident>]  <atom>";
-     short = "Test if <atom> is unsatisfiable in context <ident>."; 
+    (fun (n, al) ->
+       if Context.is_inconsistent (get_context n) al then 
+	 Out.tt ()
+       else 
+	 Out.ff ())
+    {args = "[@<ident>]  <atom>,...,<atom>";
+     short = "Test if the conjunction of <atom>s is unsatisfiable in context <ident>."; 
      description = "" ; 
      examples = []; 
-     seealso = ""}
+     seealso = "assert, valid"}
 
 
 let do_model =
@@ -1178,16 +1166,11 @@ let do_sat =
        let s = get_context n in
        match Prop.sat s p with
 	 | None -> 
-	     let rho = Jst.dep0 in
-	       if !batch then (* Exit in batch mode when inconsistency is detected *)
-		 raise(Jst.Inconsistent(rho))
-	       else
-		 Out.unsat rho
+	     Out.prop_unsat ()
 	 | Some(rho, s') -> 
-	     (* if !batch then () else *)
-	       let n = fresh_state_name () in
-		 symtab := Symtab.add n (Symtab.State(s')) !symtab;
-		 Out.sat (n, rho))
+	     let n = fresh_state_name () in
+	       symtab := Symtab.add n (Symtab.State(s')) !symtab;
+	       Out.prop_sat (n, rho))
     {args = "[@<ident>] <prop> ";
      short = "SAT Solver for propositional constraints."; 
      description = 

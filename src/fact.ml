@@ -15,7 +15,7 @@ let rec pp_justification fmt j =
   if !print_justification then
     begin
       Jst.pp fmt j;
-      Format.fprintf fmt " @,|-@, "
+      Format.fprintf fmt " |- "
     end;
   Format.fprintf fmt "@?"
     

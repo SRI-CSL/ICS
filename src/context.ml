@@ -238,10 +238,44 @@ let add s atm =
 	   | exc ->     
 	       raise exc)
 
-
 let add s =
   let pp fmt s = Mode.set Mode.None (pp fmt) s in
-    Trace.func "top" "Process" 
-      Atom.pp 
-      (Status.pp pp) 
+    Trace.func "top" "Process" Atom.pp (Status.pp pp) 
       (add s)
+
+let addl =
+  let rec loop s = function
+    | [] -> 
+	Status.Ok(s)
+    | a :: al -> 
+	(match add s a with
+	   | Status.Valid _ -> loop s al
+	   | Status.Ok(s') -> loop s' al   
+	   | Status.Inconsistent(rho) -> Status.Inconsistent(rho))
+  in
+    loop 
+
+
+let is_inconsistent =
+  let rec loop s = function
+    | [] -> false
+    | a :: al -> 
+	(match add s a with
+	   | Status.Valid _ -> loop s al
+	   | Status.Inconsistent _ -> true
+	   | Status.Ok(s') -> loop s' al)
+  in
+    loop 
+
+let is_valid =
+  let rec loop s = function
+    | [] -> true
+    | a :: al -> 
+	(match add s a with
+	   | Status.Valid _ -> loop s al
+	   | _ -> false)
+  in
+    loop
+
+
+

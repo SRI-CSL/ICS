@@ -64,14 +64,12 @@ val d_let : t -> Name.t * t * t
 (** Parameter settings for SAT solver *)
 val set_verbose : bool -> unit
 val set_remove_subsumed_clauses : bool -> unit
-val set_validate_counter_example : bool -> unit
+val set_validate : bool -> unit
 val set_polarity_optimization : bool -> unit
 val set_clause_relevance : int -> unit
 val set_cleanup_period : int -> unit 
 val set_num_refinements : int -> unit
-
 val statistics : bool ref
-val print_consistent_context : bool ref
 
 module Assignment : sig
 

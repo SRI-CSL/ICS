@@ -60,6 +60,8 @@ let find = Eqs.find
 let inv = Eqs.inv
 let dep = Eqs.dep
 
+let fold = Eqs.fold
+
   
 (** Search for largest match on rhs. For example, if [a] is
  of the form [x * y] and there is an equality [u = x^2 * y],

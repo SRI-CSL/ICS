@@ -28,6 +28,11 @@ val eq : t -> t -> bool
     [eq s t] equals [false] does not imply that these contexts are not
     logically equivalent. *)
 
+val fold : (Term.t -> Term.t * Jst.t -> 'a -> 'a) -> t -> 'a -> 'a
+  (** [fold f s e] applies [f x (y, rho)] for each [x = y] with justification
+    [rho] in [s] and accumulates the result starting with [e]. The order of
+    application is unspecified. *)
+
 val pp : t Pretty.printer
   (** Pretty-printing *)
 
@@ -74,10 +79,10 @@ val garbage_collection_enabled : bool ref
   (** Switch for enabling/disabling garbage collection of noncanonical, 
     internal variables. *)
 
-val fold : t -> (Term.t -> 'a -> 'a) -> Term.t -> 'a -> 'a
+val accumulate :  t -> (Term.t -> 'a -> 'a) -> Term.t -> 'a -> 'a
   (** Folding over the members of a specific equivalence class.
     That is, if [{x1,...,xn}] is the set of variables with
-    [find s xi] equals the variable [x'], then [fold s f x e]
+    [find s xi] equals the variable [x'], then [accumulate s f x e]
     reduces to [f x1 (f x2 ... (f xn e)...)] if [find s x] is [x']. 
     The order of application is unspecified. *)
 

@@ -183,14 +183,17 @@ module Symtab = struct
     corresponding representation. *)
   let concretize rho =
     let lookup rho k =
-      let rec search = function
-	| [] -> raise Not_found
-	| (x, (k1, k2)) :: l -> 
-	  if Term.eq k k1 then mk_car(x)
-	  else if Term.eq k k2 then mk_cdr(x)
-	  else search l
-      in
-	search rho
+      try
+	let rec search = function
+	  | [] -> raise Not_found
+	  | (x, (k1, k2)) :: l -> 
+	      if Term.eq k k1 then mk_car(x)
+	      else if Term.eq k k2 then mk_cdr(x)
+	      else search l
+	in
+	  search rho
+      with
+	  Not_found -> k
     in
       map (lookup rho)
 
@@ -201,11 +204,10 @@ end
 (** Solving a pair equality.  For example [x = cons(car(x), y)] is 
   solved as [y |-> cdr(x)]. *) 
 let rec solve e =
-  let e0, sl0, (rho: Symtab.t) = pre e in 
-  let sl1 = solvel ([e0], sl0) in
-  let sl2 = (post rho) sl1 in
+  let e0, sl0, rho = pre e in
+  let sl1 = solvel ([e0], sl0)in
+  let sl2 = post rho sl1 in
     sl2
-
 
 (** Preprocess the input equality [e] to replace ach term of the
   form [car(x)] by [k1] with the solution [x = cons(k1, k2)] added

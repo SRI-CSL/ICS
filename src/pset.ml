@@ -40,6 +40,8 @@ let dep = S.dep
 let is_dependent = S.is_dependent
 let is_independent = S.is_independent
 
+let fold = S.fold
+
 
 let name = S.name
 

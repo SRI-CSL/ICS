@@ -214,10 +214,10 @@ val do_process : Name.t option * Atom.t -> unit
   (** Adding a new fact *)
 
 
-val do_valid : Name.t option * Atom.t -> unit
+val do_valid : Name.t option * Atom.t list -> unit
   (** Checking for validity. *)
 
-val do_unsat : Name.t option * Atom.t -> unit
+val do_unsat : Name.t option * Atom.t list -> unit
   (** Checking for unsatisfiablity. *)
 
 val do_model : Name.t option *  (Term.t * La.mode option) list -> unit

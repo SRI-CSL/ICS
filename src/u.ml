@@ -46,10 +46,13 @@ let find = U.find
 let inv = U.inv
 let dep = U.dep
 
+let fold = U.fold
+
 let is_dependent = U.is_dependent
 let is_independent = U.is_independent
 
-let name (p, s) = Jst.Eqtrans.compose (Partition.find p) (U.name (p, s))
+let name (p, s) = 
+  Jst.Eqtrans.compose (Partition.find p) (U.name (p, s))
 
 let merge ((p, s) as cfg) e =
   Trace.msg "u" "Process" e Fact.Equal.pp;

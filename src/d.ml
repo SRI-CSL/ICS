@@ -93,12 +93,12 @@ let rec pp fmt s =
 
 
 let map_diseqs s f a =
-  let (x, rho) = f a in
+  let (x, rho) = f a in                        (* [rho |- x = a] *)
   let ds = diseqs s x in
     if Term.eq a x then ds else
       Set.fold 
-	(fun (z, tau) ->                       (* [tau |- y <> z] *)
-	   let sigma = Jst.dep2 tau rho in
+	(fun (z, tau) ->                       (* [tau |- x <> z] *)
+	   let sigma = Jst.dep2 tau rho in     (* ==> [sigma |- a <> z]. *)
 	     Set.add (z, sigma))
 	ds Set.empty
 
@@ -121,7 +121,7 @@ let is_diseq s x y =
 let add d s = 
   assert(Fact.Diseq.is_var d);
   assert(closed s);
-  let (x, y, rho) = Fact.Diseq.destruct d in
+  let (x, y, rho) = Fact.Diseq.destruct d in    (* [rho |- x <> y] *)
     match is_diseq s x y with
       | Some _ -> s
       | None ->
@@ -142,7 +142,7 @@ let merge e s =
   Trace.msg "d" "Merge(d)" e Fact.Equal.pp;
   assert(Fact.Equal.is_var e);
   assert(closed s);
-  let (x, y, rho) = Fact.Equal.destruct e in         (* [rho |- x = y] *)
+  let (x, y, rho) = Fact.Equal.destruct e in           (* [rho |- x = y] *)
     if Term.eq x y then s else
       match is_diseq s x y with
 	| Some(tau) ->                                 (* [tau |- x <> y] *)
@@ -153,8 +153,15 @@ let merge e s =
 	       and dy = diseqs s y in
 		 assert(not(mem x dy));
 		 assert(not(mem y dx));
+		 let dx' = 
+		   Set.fold 
+		     (fun (z, tau) ->                       (* [tau |- x <> z] *)
+			let sigma = Jst.dep2 tau rho in     (* ==> [sigma |- y <> z]. *)
+			  Set.add (z, sigma))
+		     dx Set.empty
+		 in
 		 let (s', dy') = 
-		   (Term.Map.remove x s, Set.union dx dy) 
+		   (Term.Map.remove x s, Set.union dx' dy)     (* [dx] has to incorporate the new equality! *)
 		 in
 		 let (s'', dy'') = 
 		   Set.fold
@@ -184,9 +191,3 @@ let merge e s =
 		   assert(not(occurs s x));
 		   s)
  
-
-
-
-
-
-

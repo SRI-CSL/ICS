@@ -53,7 +53,7 @@ let is_canonical p = V.is_canonical p.v
 
 (** Checker for the invariant that disequalities are kept in 
   canonical form. *)
-let invariant p =
+let invariant_diseqs_canonical p =
   D.fold 
     (fun x ys acc ->
        acc &&
@@ -81,7 +81,7 @@ let cnstrnt p x =
       V.cnstrnt p.v x
     else 
       let (c, tau) = V.cnstrnt p.v x in
-	(c, Jst.dep2 tau rho)
+	(c, Jst.dep2 rho tau)
 
 
 (** {6 Predicates} *)
@@ -138,7 +138,7 @@ let rec merge p e =
 and merge1 p e =
   p.d <- D.merge e p.d;
   p.v <- V.merge e p.v ;
-  assert(invariant p)
+  assert(invariant_diseqs_canonical p)
 
 and merge2 p d e =
   let (x, y, rho) = Fact.Equal.destruct e in
@@ -172,7 +172,7 @@ let dismerge p d =
     else 
       begin
 	p.d <- D.add d' p.d;
-	assert(invariant p)
+	assert(invariant_diseqs_canonical p)
       end 
  
 

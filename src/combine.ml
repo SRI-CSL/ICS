@@ -81,7 +81,8 @@ let pp i fmt s =
 	   | ARR -> Arr.pp fmt s.arr)
 
 let is_empty s = function 
-  | Uninterpreted -> U.is_empty s.u
+  | Uninterpreted -> 
+      U.is_empty s.u
   | Shostak(i) ->
       (match i with
 	 | LA ->  La.is_empty s.a
@@ -175,6 +176,18 @@ let dep s = function
   | Can(ARR) -> Arr.dep s.arr
 
 
+let fold f s = function
+  | Uninterpreted -> U.fold f s.u
+  | Shostak(LA)-> La.fold f s.a
+  | Shostak(P)-> P.fold f s.p
+  | Shostak(BV) -> Bv.fold f s.bv
+  | Shostak(COP) -> Cop.fold f s.cop
+  | Shostak(SET) -> Pset.fold f s.pset
+  | Can(NL) -> Nl.fold f s.nl
+  | Can(APP) -> L.fold f s.app
+  | Can(ARR) -> Arr.fold f s.arr
+
+
 (** No interpretations for uninterpreted theory! *)
 let interp (p, s) i a =
   match i with
@@ -266,8 +279,6 @@ let is_neg cfg a = is_pos cfg (Arith.mk_neg a)
 
 let is_nonpos cfg a = is_nonneg cfg (Arith.mk_neg a)
 
-let is_nonneg cfg = Jst.Rel1.trace "bar" "is_nonneg" (is_nonneg cfg)
-
 
 (** {6 Canonization} *)
 
@@ -315,6 +326,10 @@ let rec can ((p, s) as cfg) a =
       with 
 	  Not_found ->
 	    Partition.find p a
+
+let is_canonical cfg a =
+  let (b, _) = can cfg a in
+    Term.eq a b
 	    
 
 (** Solver *)
@@ -376,22 +391,23 @@ and abstract_atom cfg atm =
 	(try
 	   let i = Term.App.theory_of a and j = Term.App.theory_of b in
 	     if i = j then Fact.mk_holds atm else 
-	       let (a', rho') = name cfg i a in
-		 (Atom.mk_equal (a', b), rho')
+	       let (x', rho') = name cfg i a in
+		 (Atom.mk_equal (x', b), rho')
 	 with
 	     Not_found -> Fact.mk_holds atm)
     | Atom.Diseq(a, b) -> 
 	(try
 	   let i = Term.App.theory_of a and j = Term.App.theory_of b in
 	     if i = j then Fact.mk_holds atm else 
-	       let (a', rho') = name cfg i a in
-		 (Atom.mk_diseq (a', b), rho')
+	       let (x', rho') = name cfg i a in
+		 (Atom.mk_diseq (x', b), rho')
 	 with
 	     Not_found -> Fact.mk_holds atm)
     | _ -> 
 	Fact.mk_holds atm
 
 and abstract_term ((p, s) as cfg) a =   
+ (* assert(is_canonical cfg a); *)
   let rec of_args j al =
     let rho = ref Jst.dep0 in
     let trans a =
@@ -403,7 +419,7 @@ and abstract_term ((p, s) as cfg) a =
   and of_term i a =
     match a with
       | Term.Var _ ->  
-	  Partition.find p a
+	  of_var a
       | Term.App(f, _, _) when Sym.Fun.is_abs f -> (* abstract lambda terms. *)
 	  name cfg Th.app a
       | Term.App(f, al, _) ->
@@ -421,9 +437,11 @@ and abstract_term ((p, s) as cfg) a =
 		(x, sigma)                    (* [sigma |- x = a] *)
 	    else 
 	      (c, rho)
+  and of_var a =
+    Jst.Eqtrans.id a
   in
     match a with 
-      | Term.Var _ -> Jst.Eqtrans.id a
+      | Term.Var _ -> of_var a
       | Term.App(f, _, _) -> of_term (Sym.theory_of f) a
 
 

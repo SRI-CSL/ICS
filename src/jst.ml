@@ -80,6 +80,16 @@ let dep3 j1 j2 j3 =
     | No -> Atom.Set.empty
     | Dep -> Atom.Set.union j1 (Atom.Set.union j2 j3)
 
+let dep4 j1 j2 j3 j4 = 
+  match !proofmode with
+    | No -> Atom.Set.empty
+    | Dep -> Atom.Set.union j1 (Atom.Set.union j2 (Atom.Set.union j3 j4))
+
+let dep5 j1 j2 j3 j4 j5 = 
+  match !proofmode with
+    | No -> Atom.Set.empty
+    | Dep -> Atom.Set.union j1 (Atom.Set.union j2 (Atom.Set.union j3 (Atom.Set.union j4 j5)))
+
 let dep jl = 
   match !proofmode with
     | No -> Atom.Set.empty
@@ -102,8 +112,7 @@ module Three = struct
       | X ->  Three.X
 
   let of_three =
-    let yes = Yes(dep0)
-    and no = No(dep0) in
+    let yes = Yes(dep0) and no = No(dep0) in
       fun p a ->
 	match p a with
 	  | Three.Yes -> yes
@@ -111,13 +120,14 @@ module Three = struct
 	  | Three.X -> X
 
   let pp fmt = function
-    | Yes(rho) -> Pretty.apply pp fmt ("yes", [rho])
-    | No(rho) -> Pretty.apply pp fmt ("no", [rho])
-    | X -> Pretty.string fmt "x"
+    | Yes(rho) -> Pretty.apply pp fmt (":yes", [rho])
+    | No(rho) -> Pretty.apply pp fmt (":no", [rho])
+    | X -> Pretty.string fmt ":x"
 end
 
 
 module Eqtrans = struct
+
   type t = Term.t -> Term.t * jst
 
   let id a = (a, dep0)
@@ -282,9 +292,11 @@ module Rel2 = struct
     and (b', beta') = f b in
       match r a' b' with
 	| (Three.Yes(tau) as res) ->
-	    if a == a' && b == b' then res else Three.Yes(dep3 tau alpha' beta')
+	    if a == a' && b == b' then res else 
+	      Three.Yes(dep3 tau alpha' beta')
 	| (Three.No(tau) as res) ->
-	    if a == a' && b == b' then res else Three.Yes(dep3 tau alpha' beta')
+	    if a == a' && b == b' then res else 
+	      Three.Yes(dep3 tau alpha' beta')
 	| Three.X ->
 	    Three.X
 

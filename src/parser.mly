@@ -301,6 +301,11 @@ termlist:             { [] }
 | termlist COMMA term { $3 :: $1 }
 ;
 
+atomlist:             { [] }
+| atom                { [$1] }
+| atomlist COMMA atom { $3 :: $1 }
+;
+
 signature:
   BV LBRA INTCONST RBRA     { $3 }
 ;
@@ -319,8 +324,8 @@ command:
 | RESTORE name              { Istate.do_restore $2 }
 | REMOVE name               { Istate.do_remove $2 }
 | FORGET                    { Istate.do_forget() }
-| VALID optname atom        { Istate.do_valid ($2, $3) }
-| UNSAT optname atom        { Istate.do_unsat ($2, $3) }
+| VALID optname atomlist    { Istate.do_valid ($2, $3) }
+| UNSAT optname atomlist    { Istate.do_unsat ($2, $3) }
 | EXIT                      { raise End_of_file }
 | DROP                      { failwith "drop" }
 | SYMTAB                    { Istate.do_symtab None }

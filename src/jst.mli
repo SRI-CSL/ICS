@@ -60,6 +60,10 @@ val dep2 : t -> t -> t
 
 val dep3 : t -> t -> t -> t
 
+val dep4 : t -> t -> t -> t -> t
+
+val dep5 : t -> t -> t -> t -> t -> t
+
 val dep : t list -> t
 
 type jst = t

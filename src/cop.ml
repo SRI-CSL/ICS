@@ -58,6 +58,8 @@ let find = S.find
 let inv = S.inv
 let dep = S.dep
 
+let fold = S.fold
+
 let is_dependent = S.is_dependent
 let is_independent = S.is_independent
 

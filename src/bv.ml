@@ -57,6 +57,8 @@ let find s = Eqs.find s.eqs
 let inv s = Eqs.inv s.eqs
 let dep s = Eqs.dep s.eqs
 
+let fold f s = Eqs.fold f s.eqs
+
 let constant s x =
   let (a, rho) = apply s x in
   let b = Bitvector.d_const a in

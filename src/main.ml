@@ -40,8 +40,6 @@ let args () =
 	"Pretty-printing mode ([mixfix | prefix | sexpr]) ";	
 	"-nohelp", Arg.Clear Istate.help_enabled,
 	"Disable help feature";
-	"-print_consistent_context", Arg.Unit(fun() -> Prop.print_consistent_context := true),
-	"Print consistent set of hypothesis in SAT solver";
 	"-trace", Arg.String Ics.trace_add,
 	"Enable tracing";
         "-version", Arg.Unit (fun () -> Format.eprintf "%s@." version; exit 0),
@@ -64,8 +62,8 @@ let args () =
         "Print progress in batch mode";
 	"-remove_subsumed_clauses", set_true Ics.set_remove_subsumed_clauses,
         "Removing subsumed clauses in SAT solver";
-	"-validate_counter_example", set_true Ics.set_validate_counter_example,
-        "Check Boolean part of counterexample (for debugging)";
+	"-validate", set_true Ics.set_validate,
+        "Validate SAT assignments and explanations (for debugging)";
 	"-polarity_optimization", set_true Ics.set_polarity_optimization,
         "Optimizations for SAT solver based on polarities";
 	"-clause_relevance", Arg.Int(Ics.set_clause_relevance),
@@ -157,6 +155,7 @@ let rec main () =
 	  Format.eprintf "\nGC statistics:\n";
 	  Gc.print_stat stderr
 	end;
+      Format.eprintf "@.";
       exit 0
   with
       exc ->

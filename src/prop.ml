@@ -124,7 +124,13 @@ external set_clause_relevance : int -> unit = "icsat_set_clause_relevance"
 external set_cleanup_period : int -> unit = "icsat_set_cleanup_period"
 external set_num_refinements : int -> unit = "icsat_set_num_refinements"
 
-let print_consistent_context = ref true
+let debug = ref false
+
+let validate_explanations = ref false
+
+let set_validate b =
+  validate_explanations := b;
+  set_validate_counter_example b
 
 
 (** {6 Translating to and from propositions} *)
@@ -294,18 +300,37 @@ module Explanation = struct
     explained := false;
     Stack.clear explanation
 
-  let install hyps = 
+  let to_list () = 
+    let l = ref [] in
+      Stack.iter (fun i -> l := (Atom.of_index i) :: !l) explanation;
+      !l
+
+  let pp fmt () =
+    Pretty.set Atom.pp fmt (to_list ())
+
+  let is_inconsistent s =
+    let l = to_list () in
+      Context.is_inconsistent s l
+
+  let install hyps =
     explained := true;
     assert(Stack.is_empty explanation);
     Atom.Set.iter
       (fun a -> 
 	 let i =  Atom.index_of a in
 	 Stack.push i explanation)
-      hyps
+      hyps;
+    if !validate_explanations then
+      if not(is_inconsistent Context.empty) then
+	begin
+	  Format.eprintf "\n Suspicious explanation:";
+          pp Format.err_formatter ();
+	  Format.eprintf "@."
+	end 
+	
 
   let noinstall () =
     explained := false
-
 
   let is_explained () = !explained
   let _ = Callback.register "prop_is_explained" is_explained
@@ -323,8 +348,9 @@ end
 
 
 let add i =
+  let s = top() in
   let a = Atom.of_index i in
-    match Context.add (top()) a with
+    match Context.add s a with
       | Context.Status.Valid _ -> 
 	  (let (s, al) = Stack.pop stack in
 	     push (s, a :: al);
@@ -406,8 +432,8 @@ let rec sat s p =
       let mode = Jst.Mode.get() != Jst.Mode.No in
 	if icsat_sat (to_prop p) mode then
 	  begin
-	    debug();
-	    Some(assignment (), top())
+	    debug_output();
+	    Some(assignment(), top())
 	  end 
 	else 
 	  None
@@ -421,8 +447,8 @@ let rec sat s p =
 	finalize ();
 	raise exc
 
-and debug () =
-  if !print_consistent_context then
+and debug_output () =
+  if !debug then
     let fmt = Format.std_formatter in
     let bl = ref [] in
       Stack.iter

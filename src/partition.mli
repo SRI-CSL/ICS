@@ -68,7 +68,8 @@ val is_diseq : t -> Jst.Pred2.t
 
 val is_equal_or_diseq : t -> Jst.Rel2.t
 
-(** {6 Choose in equivalence class} *)
+
+(** {6 Iterators} *)
 
 val choose : t -> Jst.Eqtrans.t -> Jst.Eqtrans.t
   (** [choose p apply x] chooses an [x'] such that [apply x'] does

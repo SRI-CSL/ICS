@@ -60,6 +60,11 @@ val is_diseq : t -> Jst.Pred2.t
   (** [is_diseq s x y] holds if [x = b] and [x = c], where [b], [c]
     are disequal bitvector constants. *)
 
+val fold : (Term.t -> Term.t * Jst.t -> 'a -> 'a) -> t -> 'a -> 'a
+  (** [fold f s e] applies [f x (a, rho)] for each [x = a] with justification
+    [rho] in [s] and accumulates the result starting with [e]. The order of
+    application is unspecified. *)
+
 val copy : t -> t
  (** The update functions {!Bv.name}, {!Bv.merge},
     and {!Bv.dismerge} {b destructively} update equality

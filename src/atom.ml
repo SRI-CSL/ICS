@@ -194,7 +194,7 @@ module AtomTbl = Hashtbl.Make(
   
 let heap = AtomTbl.create 117
 let index = Array.make 20000 (Obj.magic 0)
-let max = ref (Obj.magic 0) 
+let max = ref 0
   
 let genidx () =
   let idx  = !max in

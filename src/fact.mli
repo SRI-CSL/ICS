@@ -26,6 +26,7 @@
 val print_justification : bool ref
   (** {!Fact.pp} prints justification only if this flag is set to [true]. *)
 
+val pp_justification : Jst.t Pretty.printer
 
 (** {6 Facts} *)
 
@@ -80,6 +81,8 @@ module Diseq : sig
   val make : Term.t * Term.t * Jst.t -> t
   val of_diseq : Atom.Diseq.t * Jst.t -> t
   val destruct : t -> Term.t * Term.t * Jst.t
+  val lhs_of : t -> Term.t
+  val rhs_of : t -> Term.t
   val pp : t Pretty.printer
   val map : Jst.Eqtrans.t -> t -> t
   val to_var : (Th.t -> Jst.Eqtrans.t) -> t -> t

@@ -27,6 +27,13 @@
 type t
   (** Representation of logical contexts. *)
 
+module Mode : sig
+  type t = Context | Internals | None
+  val value : t ref
+  val set : t -> ('a -> 'b) -> 'a -> 'b
+end 
+
+
 val pp : t Pretty.printer
   (** Pretty-printing the context of a state. *)
 
@@ -59,6 +66,7 @@ module Status : sig
     | Ok of 'a
 
   val pp : 'a Pretty.printer -> 'a t Pretty.printer
+
 end
 
 
@@ -69,3 +77,13 @@ val add : t -> Atom.t -> t Status.t
     - [Inconsistent] if [s] conjoined with [a] can be shown to be inconsistent, and 
     - [Ok(s')] otherwise.  In this case, [s'] is a logical state equivalent 
     to [s] conjoined with [a]. *)
+
+val addl : t -> Atom.t list -> t Status.t
+
+val is_inconsistent : t -> Atom.t list -> bool
+  (** [is_inconsistent s al] is [true] iff the conjunction of 
+    atoms in [al] is inconsistent in [s]. *)
+
+val is_valid : t -> Atom.t list -> bool
+  (** [is_valid s al] is [true] iff the conjunction of 
+    atoms in [al] is valid in [s]. *)

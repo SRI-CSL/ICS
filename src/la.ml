@@ -141,7 +141,7 @@ let resolve e =
   substition [x := b] to [a]  *)
 let apply1 e = 
   let (x, a, rho) = Fact.Equal.destruct e in
-  let lookup y = if Term.eq x y then (a, rho) else (y, Jst.dep0) in
+  let lookup y = if Term.eq x y then (a, rho) else Jst.Eqtrans.id y in
     Jst.Eqtrans.replace Arith.map lookup
 
 (** Transform the equation [e] of the form [a = b] to the equivalent [x = c].  
@@ -448,10 +448,8 @@ let protect (p, s) f a =
 (** Return a variable for a term [a], possibly extending [R]
   with a fresh variable. First, canonize to ensure that all
   dependent variables are removed. *)
-let name cfg =
-  Jst.Eqtrans.compose
-    (S.name r cfg)
-    (interp cfg)
+let name cfg =                             (* ??? *)
+  (S.name r cfg)
 
 (** Fusing a list of solved equalities into solution set for mode [m]. *)
 let fuse1 tag cfg e =
@@ -554,24 +552,24 @@ and process_solved_restricted ((p, s) as cfg) e =
 		 let e' = Fact.Equal.make (k, a', rho') in
 		 let cmp = Mpa.Q.compare (Arith.constant_of a') Mpa.Q.zero in
 		   if cmp < 0 then                 (* I. [|a'| < 0] *)
-		     raise(Jst.Inconsistent rho)
+		     raise(Jst.Inconsistent (Jst.dep3 rho rho' tau))
 		   else if cmp = 0 then            (* II. [|a'| = 0] *)
 		     (try 
 			compose1 t cfg 
 			  (isolate (choose a') e');
-			let sigma = Jst.dep2 rho tau in
+			let sigma = Jst.dep3 rho rho' tau in
 			let e0 = Fact.Equal.make(k, Arith.mk_zero, sigma) in
 			  compose1 t cfg e0
 		    with 
 			Not_found -> ())  (* skip *)
 		   else                            (* III. [|a'| > 0] *)
 		     if Arith.Monomials.Neg.is_empty a' then
-		       raise(Jst.Inconsistent rho)
+		       raise(Jst.Inconsistent (Jst.dep3 rho rho' tau))
 		     else 
 		       (try
 			  let y = choose_negvar_with_no_smaller_gain s a' in
 			    pivot cfg y;
-			    let sigma = Jst.dep2 rho tau in
+			    let sigma = Jst.dep3 rho rho' tau in
 			      compose1 t cfg 
 				(Fact.Equal.make (k, Arith.mk_zero, sigma))
 			with

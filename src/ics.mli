@@ -41,7 +41,7 @@ val set_pretty : string -> unit
 val set_compactify : bool -> unit
 val set_verbose : bool -> unit
 val set_remove_subsumed_clauses : bool -> unit
-val set_validate_counter_example : bool -> unit
+val set_validate: bool -> unit
 val set_polarity_optimization: bool -> unit
 val set_clause_relevance : int -> unit
 val set_cleanup_period : int -> unit

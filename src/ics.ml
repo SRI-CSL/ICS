@@ -41,8 +41,8 @@ let _ = Callback.register "set_verbose" set_verbose
 let set_remove_subsumed_clauses = Prop.set_remove_subsumed_clauses
 let _ = Callback.register "set_remove_subsumed_clauses" set_remove_subsumed_clauses
 
-let set_validate_counter_example = Prop.set_validate_counter_example
-let _ = Callback.register "set_validate_counter_example" set_validate_counter_example
+let set_validate = Prop.set_validate
+let _ = Callback.register "set_validate" set_validate
 
 let set_polarity_optimization = Prop.set_polarity_optimization
 let _ = Callback.register "set_polarity_optimization" set_polarity_optimization
@@ -798,24 +798,18 @@ and cmd_batch (inch) =
     while true do
       Parser.commandsequence Lexer.token (Istate.lexing())
     done;
-    666
+    failwith "unreachable"
   with
     | Parsing.Parse_error ->
-	Istate.do_parse_error !Tools.linenumber;
-	Istate.do_quit 2; 2
+	Format.fprintf !Istate.outchannel ":error (Parse error on line %d)@." !Tools.linenumber;
+	2
     | End_of_file -> 
-	Format.fprintf !Istate.outchannel "\n:ok @.";
-	Istate.do_quit 0; 0
+	0
     | Sys.Break -> 
-	Istate.do_quit 1; 1
-    | Jst.Inconsistent(rho) ->
-	Format.fprintf !Istate.outchannel "\n:unsat ";
-	Jst.pp !Istate.outchannel rho;
-	Format.fprintf !Istate.outchannel "@.";
-	Istate.do_quit 0; 0
-    | exc -> 
-	Istate.do_error ("Exception " ^ (Printexc.to_string exc)); 
-	Istate.do_quit (-2); (-2)
+	1
+    | exc ->   
+	Format.fprintf !Istate.outchannel ":error %s@." (Printexc.to_string exc); 
+	(-2)
 
 let _ = Callback.register "cmd_rep" cmd_rep
 let _ = Callback.register "cmd_batch" cmd_batch

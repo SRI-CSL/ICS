@@ -47,6 +47,11 @@ val dep : t -> Th.t -> Term.t -> Term.Var.Set.t
   (** [use th s x] consists of the set of all term variables [y] such
     that [y = a] in [s], and [x] is a variable [a]. *)
 
+val fold : (Term.t -> Term.t * Jst.t -> 'a -> 'a) -> t -> Th.t -> 'a -> 'a
+  (** [fold f s i e] applies [f x (a, rho)] for each [x = a] in [i]
+    with justification [rho] in [s] and accumulates the result starting 
+    with [e]. The order of application is unspecified. *)
+
 
 (** {6 Process} *)
 
