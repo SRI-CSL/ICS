@@ -27,39 +27,6 @@ type trm = t
     (** Synonym for avoiding name clashes *)
 
 
-(** {6 Term comparison} *)
-
-let rec cmp a b =
-  match a, b with  
-    | Var(x), Var(y) -> Var.cmp x y
-    | Var _, App _ -> 1
-    | App _, Var _ -> -1
-    | App(f, l), App(g, m) ->
-	let c1 = Sym.cmp f g in
-	if c1 != 0 then c1 else cmpl l m
- 
-and cmpl l m =
-  let rec loop c l m =
-    match l, m with
-      | [], [] -> c
-      | [], _  -> -1
-      | _,  [] -> 1
-      | x :: xl, y :: yl -> 
-	  if c != 0 then 
-	    loop c xl yl 
-	  else 
-	    loop (cmp x y) xl yl
-  in
-  loop 0 l m
-
-
-
-let (<<<) a b = (cmp a b <= 0)
-
-let orient ((a, b) as e) =
-  if cmp a b >= 0 then e else (b, a)
-
-
 (** {6 Hashing} *)
 
 let rec hash = function
@@ -105,6 +72,8 @@ let to_string = Pretty.to_string pp
 
 
 (** {6 Variables} *)
+
+let varcmp = Var.cmp  (* avoid clash *)
 
 module Var = struct
 
@@ -407,6 +376,42 @@ let is_pure i =
     | App(f, al) -> Th.of_sym f = i && List.for_all loop al
   in
     loop
+
+
+
+(** {6 Term comparison} *)
+
+
+let rec cmp a b =
+  match a, b with  
+    | Var(x), Var(y) -> varcmp x y
+    | Var _, App _ -> 1
+    | App _, Var _ -> -1
+    | App(f, l), App(g, m) ->
+	let c1 = Sym.cmp f g in
+	if c1 != 0 then c1 else cmpl l m
+ 
+and cmpl l m =
+  let rec loop c l m =
+    match l, m with
+      | [], [] -> c
+      | [], _  -> -1
+      | _,  [] -> 1
+      | x :: xl, y :: yl -> 
+	  if c != 0 then 
+	    loop c xl yl 
+	  else 
+	    loop (cmp x y) xl yl
+  in
+  loop 0 l m
+
+
+
+let (<<<) a b = (cmp a b <= 0)
+
+let orient ((a, b) as e) =
+  if cmp a b >= 0 then e else (b, a)
+
 
 
 (** {6 Sets and maps of terms.} *)
