@@ -1,8 +1,16 @@
-
-open Mpa
-open Format
-
-   
+(*
+ * The contents of this file are subject to the ICS(TM) Community Research
+ * License Version 1.0 (the ``License''); you may not use this file except in
+ * compliance with the License. You may obtain a copy of the License at
+ * http://www.icansolve.com/license.html.  Software distributed under the
+ * License is distributed on an ``AS IS'' basis, WITHOUT WARRANTY OF ANY
+ * KIND, either express or implied. See the License for the specific language
+ * governing rights and limitations under the License.  The Licensed Software
+ * is Copyright (c) SRI International 2001, 2002.  All rights reserved.
+ * ``ICS'' is a trademark of SRI International, a California nonprofit public
+ * benefit corporation.
+ *)
+ 
 type t =  
   | Slack of int * slack
   | External of Name.t * Dom.t option
@@ -57,24 +65,31 @@ let is_real x =
 
 (** {6 Variable ordering} *)
 
+let domcmp d e =
+  match d, e with
+    | None, None -> 0
+    | Some _, None -> -1
+    | None, Some _ -> 1
+    | Some d, Some e -> Dom.cmp d e
+
 (* slack < external < fresh < renaming < bound *)
 let rec cmp x y =
   match x, y with
     | Slack(i, sl1), Slack(j, sl2) ->
 	(match sl1, sl2 with
 	   | Zero, Zero -> 
-	       Pervasives.compare j i
+	       Pervasives.compare i j
 	   | Zero, Nonneg _ -> -1
 	   | Nonneg _, Zero -> 1
 	   | Nonneg(d), Nonneg(e) ->
 	       let c1 = Dom.cmp d e in
 		 if c1 != 0 then c1 else
-		   Pervasives.compare j i)
+		   Pervasives.compare i j)
     | Slack _, _ ->  -1
     | _, Slack _ -> 1
     | External(n, d), External(m, e) -> 
 	let c1 = domcmp d e in
-	  if c1 != 0 then c1 else Name.cmp n m
+	  if c1 != 0 then c1 else Name.compare n m
     | External _, _ -> -1
     | _, External _ -> 1
     | Fresh(n, i, d), Fresh(m, j, e) ->
@@ -88,18 +103,12 @@ let rec cmp x y =
 	let c1 = domcmp d e in
 	  if c1 != 0 then c1 else 
 	    let c2 = Pervasives.compare i j in
-	      if c2 != 0 then c2 else Name.cmp n m
+	      if c2 != 0 then c2 else Name.compare n m
     | Rename _, _ -> -1
     | Bound(i), Bound(j) -> 
 	Pervasives.compare i j
     | Bound _ , _ -> 1
 
-and domcmp d e =
-  match d, e with
-    | None, None -> 0
-    | Some _, None -> -1
-    | None, Some _ -> 1
-    | Some d, Some e -> Dom.cmp d e
 
 
 let (<<<) x y = (cmp x y <= 0)
@@ -140,29 +149,3 @@ let pp fmt x =
 	 Pretty.string fmt "}"
      with
 	 Not_found -> ())
-
-(** {6 Sets and maps of terms} *)
-
-
-module Set = Set.Make(
-  struct
-    type t = var
-    let compare = cmp
-  end)
-
-module Map = Map.Make(
-  struct
-    type t = var
-    let compare = cmp
-  end)
-
-
-(** {6 Hashing} *)
-
-let hash = function
-  | External(n, _) -> (3 + Hashtbl.hash n) land 0x3FFFFFFF
-  | Rename(n, i, _) -> (5 + i + Hashtbl.hash n) land 0x3FFFFFFF
-  | Bound(i) -> (7 + i) land 0x3FFFFFFF
-  | Slack(n, Zero) -> (11 + Hashtbl.hash n) land 0x3FFFFFFF 
-  | Slack(n, Nonneg(d)) -> (17 + Hashtbl.hash d) land 0x3FFFFFFF 
-  | Fresh(n, i, _) -> (21 + i + Hashtbl.hash n) land 0x3FFFFFFF 
