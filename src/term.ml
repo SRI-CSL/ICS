@@ -289,35 +289,39 @@ end
 (** Syntactic term equality *)
 let rec eq a b = 
   (hash a = hash b) &&        (* [eq] only if hash values coincide *)
-  ((a == b)  ||               (* variables are hashconsed *)
-   (match a, b with
-      | App(f, l, _), App(g, m, _) -> 
-	  (match l, m with
-	     | [], [] -> Sym.eq f g
-	     | [], _ -> false  (* quick failures *)
-	     | _, [] -> false
-	     | [x], [y] -> Sym.eq f g && eq x y
-	     | [_], _ -> false
-	     | _, [_] -> false
-	     | [x1; y1], [x2; y2] -> Sym.eq f g && eq x1 x2 && eq y1 y2
-	     | [_; _], _ -> false
-	     | _, [_; _] -> false
-	     | _ -> Sym.eq f g && eql l m)
-      | _ -> false))
+  eq1 a b
+
+and eq1 a b =
+  (a == b)  ||               (* variables are hashconsed *)
+  (match a, b with
+     | App(f, l, _), App(g, m, _) -> 
+	 (match l, m with
+	    | [], [] -> Sym.eq f g
+	    | [], _ -> false  (* quick failures *)
+	    | _, [] -> false
+	    | [x], [y] -> Sym.eq f g && eq x y
+	    | [_], _ -> false
+	    | _, [_] -> false
+	    | [x1; y1], [x2; y2] -> Sym.eq f g && eq x1 x2 && eq y1 y2
+	    | [_; _], _ -> false
+	    | _, [_; _] -> false
+	    | _ -> Sym.eq f g && eql l m)
+     | _ -> false)
 
 and eql al bl =
   try List.for_all2 eq al bl with Invalid_argument _ -> false
 
 (** Syntactic term comparison. *)
-let compare a b = cmp a b             (* syntactic comparison does not work. why? *)
-(*
-  if eq a b then 0 else 
-    if hash a < hash b then -1 else 1
-*)
+let compare a b = (* cmp a b *)         (* syntactic comparison does not work. why? *)
+  let res = Pervasives.compare (hash a) (hash b) in
+    if res <> 0 then res else
+      if eq1 a b then 0 else cmp a b
 
+(*
 let compare a b =
   Trace.func "foo5" "Compare" (Pretty.pair pp pp) Pretty.number
     (fun (a, b) -> compare a b) (a, b)
+*)
 
 
 (** Some recognizers. *)
