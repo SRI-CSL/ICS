@@ -51,3 +51,7 @@ val profile : string -> ('a -> 'b) -> ('a -> 'b)
  to the global variable [x] in the call of [f] to [a]. *)
 
 val dynamic_let : 'a ref * 'a -> ('b -> 'c) -> 'b -> 'c
+
+(*s [linenumber] used by lexer and parser. *)
+
+val linenumber : int ref
