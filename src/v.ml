@@ -30,7 +30,7 @@ let eq s t =
 
 let apply s x = 
   match x with
-    | App _ -> raise Not_found 
+    | App _ -> raise Not_found  (* only variables in domain. *)
     | _ -> Map.find x s.find
 
 (*s Canonical representative of equivalence class containing [x] *)
@@ -47,7 +47,7 @@ let rec find s x =
 
 let inv s x = 
   match x with
-    | App _ -> raise Not_found 
+    | App _ -> raise Not_found
     | _ -> Map.find x s.inv
 
 
@@ -55,9 +55,15 @@ let inv s x =
 
 let union x y s = 
   Trace.msg "v" "Union" (x, y) Term.pp_equal;
-  let find' = Map.add x y s.find in
-  let invy = Set.add x (try Map.find y s.inv with Not_found -> Set.empty) in
-  let inv' = Map.add y invy s.inv in
+  let find' = 
+    Map.add x y s.find 
+  in
+  let invy = 
+    Set.add x 
+      (try Map.find y s.inv with Not_found -> Set.empty)
+  in
+  let inv' = 
+    Map.add y invy s.inv in
   let changed' = 
     Set.add x s.changed in
   let removable' = 
@@ -76,18 +82,32 @@ let restrict x s =
   try
     let y = apply s x in
       Trace.msg "v" "Restrict" x pp;
-      {find = Map.remove x s.find;
-       inv = 
-	 (let inv' = Map.remove x s.inv in
-            try 
-	      let invy = inv s y in
-	      let invy' = Set.remove x invy in
-		if Set.is_empty invy' then
-		  Map.remove y inv'
-		else 
-		  Map.add y invy' inv'
-	    with 
-		Not_found -> inv');
+      let y = find s y in                    (* now get canonical [y]. *)
+      let find' =
+	let newfind = Map.remove x s.find in (* remove [x |-> y]. *)
+	  try
+	    let invx = inv s x in            (* for all [z |-> x], set [z |-> y]. *)
+	      Set.fold
+		(fun z -> Map.add z y)
+		invx
+		newfind
+	  with
+	      Not_found -> newfind
+      in
+      let inv' =
+	let newinv = Map.remove x s.inv in  (*s remove the inverse of [x]. *)
+	  try 
+	    let invy = inv s y in           (* remove [x] from the inverse of [y]. *)
+	    let invy' = Set.remove x invy in
+	      if Set.is_empty invy' then 
+		Map.remove y newinv
+	      else 
+		Map.add y invy' newinv
+	  with
+	      Not_found -> newinv
+      in
+      {find = find';
+       inv = inv';
        changed = Set.remove x s.changed;
        removable = Set.remove x s.removable}
   with
@@ -134,9 +154,6 @@ let is_empty s =
 
 let removable s = s.removable
 
-let remove s =
-  Set.fold restrict (removable s) s
-
 
 (*s Starting from the canonical representative [x' = find s x], the
   function [f] is applied to each [y] in [inv s x'] and the results are
@@ -158,7 +175,7 @@ let fold s f x =
 
 let merge e s =
   let (x, y,_) = Fact.d_equal e in
-  let x' = find s x and y' = find s y in
+  let (x', y') = Term.orient (find s x, find s y) in
   if Term.eq x' y' then 
     s
   else
