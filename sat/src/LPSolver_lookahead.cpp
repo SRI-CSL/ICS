@@ -49,7 +49,7 @@ bool LPSolver::apply_lookahead_optimization()
 	int * back_assignments = new int[get_internal_formulas_array_size()];
 	int * back_assignments2 = new int[get_internal_formulas_array_size()];
 	if (verbose)
-		cout << "    applying lookahead optimization...\n";
+		cerr << "    applying lookahead optimization...\n";
 
 	SOLVER_LOOKAHEAD_TRACE(ctrace << "Lookahead optimization\n";);
 

@@ -539,8 +539,8 @@ void LPSolver::remove_irrelevant_clauses()
 void LPSolver::expand_literals()
 {
 	if (verbose) {
-		cout << "*";
-		cout.flush();
+		cerr << "*";
+		cerr.flush();
 	}
 	unsigned int grow_factor = 2;
 	unsigned int new_capacity_literals = capacity_literals * grow_factor;
@@ -573,8 +573,8 @@ void LPSolver::compact_literals()
 	//
 
 	if (verbose) {
-		cout << "!";
-		cout.flush();
+		cerr << "!";
+		cerr.flush();
 	}
 
 	LPFormulaId * ptr = literals;
@@ -728,13 +728,13 @@ bool LPSolver::is_satisfiable(LPFormulaId f)
 	initialize_solver();
 
 	if (verbose)
-		cout << "  preprocessing...\n";
+		cerr << "  preprocessing...\n";
 
 	if (polarity_optimization)
 		apply_polarity_optimization(f);
 
 	if (verbose)
-		cout << "    internalizing formula...\n";
+		cerr << "    internalizing formula...\n";
 	
 	internalize_formula(absolute(f));
 
@@ -755,7 +755,7 @@ bool LPSolver::is_satisfiable(LPFormulaId f)
 	}
 
 	if (verbose)
-		cout << "    propagating extended constraints...\n";
+		cerr << "    propagating extended constraints...\n";
 
 	if (propagate_rich_constraints() != 0) {
 		// an inconsistency was detected...
@@ -774,7 +774,7 @@ bool LPSolver::is_satisfiable(LPFormulaId f)
 	}
 
 	if (verbose)
-		cout << "    preparing depth first search...\n";
+		cerr << "    preparing depth first search...\n";
 
 	internalize_formula_as_clauses(f);
 
@@ -789,7 +789,7 @@ bool LPSolver::is_satisfiable(LPFormulaId f)
 
 
 	if (verbose)
-		cout << "  branching (depth first search)...\n  ";
+		cerr << "  branching (depth first search)...\n  ";
 	
 	constraint_propagation_time = 0.0; // I only want the constraint_propagation_time spent in the depth first search
 	num_backtracks = 0; // I only want to record the number of backtracks in the depth first search
@@ -863,7 +863,7 @@ bool LPSolver::is_satisfiable(LPFormulaId f)
 	}
  end_branching_loop:
 	if (verbose)
-		cout << endl;
+		cerr << endl;
 	end = clock();
 	solver_time = ((double) (end - start)) / CLOCKS_PER_SEC;
 	

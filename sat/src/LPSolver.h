@@ -262,8 +262,8 @@ private:
 		if (verbose) {
 			tick_counter++;
 			if (tick_counter > TICK_FREQUENCY) {
-				cout << ".";
-				cout.flush();
+				cerr << ".";
+				cerr.flush();
 				tick_counter = 0;
 			}
 		}
@@ -743,8 +743,8 @@ public:
 		cleanup_period_counter++;
 		if (cleanup_period_counter > cleanup_period) {
 			if (verbose) {
-				cout << "#";
-				cout.flush();
+				cerr << "#";
+				cerr.flush();
 			}
 			cleanup_period_counter = 0;
 			remove_irrelevant_clauses();

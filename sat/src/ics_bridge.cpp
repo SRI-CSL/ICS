@@ -150,40 +150,40 @@ extern "C" {
 	void sat_print_statistics() {
 		if (sat_solver == NULL)
 			return;
-		cout << "Statistics...\n";
-		cout << "  number of formulas: " << sat_formula_manager->get_num_formulas() << endl;
-		cout << "  total solver time: " << SAT_total_solver_time << " secs\n";
-		cout << "    preprocessor time: " << sat_solver->get_preprocessing_time() << " secs\n";
-		cout << "      formula association time: " << SAT_associated_formulas_time << " secs\n";
+		cerr << "Statistics...\n";
+		cerr << "  number of formulas: " << sat_formula_manager->get_num_formulas() << endl;
+		cerr << "  total solver time: " << SAT_total_solver_time << " secs\n";
+		cerr << "    preprocessor time: " << sat_solver->get_preprocessing_time() << " secs\n";
+		cerr << "      formula association time: " << SAT_associated_formulas_time << " secs\n";
 		if (SAT_polarity_optimization)
-			cout << "      polarity optimization time: " << sat_solver->get_polarity_optimization_time() << " secs\n";
+			cerr << "      polarity optimization time: " << sat_solver->get_polarity_optimization_time() << " secs\n";
 		if (SAT_implication_graph_optimization)
-			cout << "      implication graph optimization time: " << sat_solver->get_implication_graph_optimization_time() << " secs\n";
-		cout << "    (main loop) solver time: " << sat_solver->get_solver_time() << " secs\n";
-		cout << "      branching/activation time: " << sat_solver->get_branching_time() << " secs\n";
-		cout << "      constraint propagation time: " << sat_solver->get_constraint_propagation_time() << " secs\n";
-		cout << "      conflict resolution time: " << sat_solver->get_conflict_resolution_time() << " secs\n";
-		cout << "      heuristic statistics update time: " << sat_solver->get_heurisitic_update_time() << " secs\n";
-		cout << "      ICS time: " << sat_solver->get_ics_time() << " secs\n";
-		cout << "      ICS explain function time: " << sat_solver->get_ics_explain_time() << " secs\n";
-		cout << "  number of backtracks: " << sat_solver->get_num_backtracks() << endl;
-		cout << "    number of non-chronological backtrackings: " << sat_solver->get_num_non_chronological_backtracking() << endl;
-		cout << "  number of inconsistencies detected by ICS: " << sat_solver->get_num_ics_detected_inconsistencies() << endl;
-		cout << "  number of case splits: " << sat_solver->get_num_case_splits() << endl;
-		cout << "  number of deductions: " << sat_solver->get_num_deductions() << endl;
-		cout << "  maximum decision level: " << sat_solver->get_max_decision_level() << endl;
-		cout << "  number of calls to ICS: " << sat_solver->get_num_ics_calls() << endl;
-		cout << "  conflict clauses statistics:\n";
-		cout << "    [1,  10]   = " << sat_solver->get_num_generated_conflict_clauses_smaller_than_10() << endl;
-		cout << "    (10, 30]   = " << sat_solver->get_num_generated_conflict_clauses_smaller_than_30() << endl;
-		cout << "    (30, 50]   = " << sat_solver->get_num_generated_conflict_clauses_smaller_than_50() << endl;
-		cout << "    (50, 100]  = " << sat_solver->get_num_generated_conflict_clauses_smaller_than_100() << endl;
-		cout << "    (100, inf) = " << sat_solver->get_num_generated_conflict_clauses_larger_than_100() << endl;
-		cout << "  number of deleted clauses: " << sat_solver->get_num_deleted_clauses() << endl;
+			cerr << "      implication graph optimization time: " << sat_solver->get_implication_graph_optimization_time() << " secs\n";
+		cerr << "    (main loop) solver time: " << sat_solver->get_solver_time() << " secs\n";
+		cerr << "      branching/activation time: " << sat_solver->get_branching_time() << " secs\n";
+		cerr << "      constraint propagation time: " << sat_solver->get_constraint_propagation_time() << " secs\n";
+		cerr << "      conflict resolution time: " << sat_solver->get_conflict_resolution_time() << " secs\n";
+		cerr << "      heuristic statistics update time: " << sat_solver->get_heurisitic_update_time() << " secs\n";
+		cerr << "      ICS time: " << sat_solver->get_ics_time() << " secs\n";
+		cerr << "      ICS explain function time: " << sat_solver->get_ics_explain_time() << " secs\n";
+		cerr << "  number of backtracks: " << sat_solver->get_num_backtracks() << endl;
+		cerr << "    number of non-chronological backtrackings: " << sat_solver->get_num_non_chronological_backtracking() << endl;
+		cerr << "  number of inconsistencies detected by ICS: " << sat_solver->get_num_ics_detected_inconsistencies() << endl;
+		cerr << "  number of case splits: " << sat_solver->get_num_case_splits() << endl;
+		cerr << "  number of deductions: " << sat_solver->get_num_deductions() << endl;
+		cerr << "  maximum decision level: " << sat_solver->get_max_decision_level() << endl;
+		cerr << "  number of calls to ICS: " << sat_solver->get_num_ics_calls() << endl;
+		cerr << "  conflict clauses statistics:\n";
+		cerr << "    [1,  10]   = " << sat_solver->get_num_generated_conflict_clauses_smaller_than_10() << endl;
+		cerr << "    (10, 30]   = " << sat_solver->get_num_generated_conflict_clauses_smaller_than_30() << endl;
+		cerr << "    (30, 50]   = " << sat_solver->get_num_generated_conflict_clauses_smaller_than_50() << endl;
+		cerr << "    (50, 100]  = " << sat_solver->get_num_generated_conflict_clauses_smaller_than_100() << endl;
+		cerr << "    (100, inf) = " << sat_solver->get_num_generated_conflict_clauses_larger_than_100() << endl;
+		cerr << "  number of deleted clauses: " << sat_solver->get_num_deleted_clauses() << endl;
 		if (SAT_remove_subsumed_clauses)
-			cout << "  number of subsumed clauses: " << sat_solver->get_num_subsumed_clauses() << endl;
+			cerr << "  number of subsumed clauses: " << sat_solver->get_num_subsumed_clauses() << endl;
 		if (SAT_implication_graph_optimization)
-			cout << "  number of assignments produced by implication graph optimization: " 
+			cerr << "  number of assignments produced by implication graph optimization: " 
 					 << sat_solver->get_num_implication_graph_optimization_assignments() << endl;
 		sat_formula_manager->dump_mem_info();
 	}
@@ -234,14 +234,14 @@ extern "C" {
 // 		DBG_CODE(cout << "result = " << result << endl;);
 		if (result && SAT_validate_counter_example) {
 			if (SAT_verbose)
-				cout << "  validating counter example... "; 
+				cerr << "  validating counter example... "; 
 			if (sat_solver->check_assignment(root_id)) {
 				if (SAT_verbose)
-					cout << "done\n";
+					cerr << "done\n";
 			}
 			else {
 				if (SAT_verbose)
-					cout << "FAILED\n";
+					cerr << "FAILED\n";
 				cerr << "BUG DETECTED: failed to validade SAT assignment\n";
 				exit(-1);
 			}

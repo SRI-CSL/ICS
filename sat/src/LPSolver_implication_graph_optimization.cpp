@@ -144,7 +144,7 @@ bool LPSolver::apply_implication_graph_optimization()
 {
  	clock_t start = clock();
 	if (verbose) {
-		cout << "    applying implication graph optimization...";
+		cerr << "    applying implication graph optimization...";
 		cout.flush();
 	}
 
@@ -155,11 +155,11 @@ bool LPSolver::apply_implication_graph_optimization()
 	LPIdList ** implication_graph = compute_implication_graph();
 	if (implication_graph == NULL) {
 		if (verbose)
-			cout << " not applicable\n";
+			cerr << " not applicable\n";
 		return true;
 	}
 	if (verbose)
-		cout << endl;
+		cerr << endl;
 	SOLVER_TRACE(dump_implication_graph(ctrace, implication_graph););
 	LPIdList ** transpose_graph = transpose_implication_graph(implication_graph);
 	DFSColor * colors = new DFSColor[num_nodes];

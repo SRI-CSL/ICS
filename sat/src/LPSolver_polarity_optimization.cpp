@@ -109,7 +109,7 @@ void LPSolver::apply_polarity_optimization(LPFormulaId root)
 {
  	clock_t start = clock();
 	if (verbose)
-		cout << "    applying polarity based optimization...\n";
+		cerr << "    applying polarity based optimization...\n";
 	LPFormulaPolarityForce * forces;
 
 	assert(check_marks());
