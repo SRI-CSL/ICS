@@ -6,6 +6,10 @@
 ICSPATH=@ICSPATH@
 ARCH=`$ICSPATH/config.guess`
 
+if test -z "$ICS_LICENSE_CERTIFICATE"; 
+then ICS_LICENSE_CERTIFICATE=$ICSPATH/certificate; 
+export ICS_LICENSE_CERTIFICATE; fi;
+
 if [ "$1" = "-bytecode" ]; then
   shift
   cd $ICSPATH/obj/$ARCH
