@@ -876,8 +876,7 @@ type prop
     - a literal [l] with [l] an atom (atoms are closed under negation),
     - a conjunction [p1 & ... & pn],
     - a disjunction [p1 | ... | pn],
-    - a negation [~p], or
-    - a let binding [let x := p in q]. *)
+    - a negation [~p]. *)
 
 val prop_pp : prop -> unit
   (** Printing a propositional formula. *)
@@ -923,10 +922,6 @@ val prop_mk_iff : prop -> prop ->prop
 val prop_mk_neg : prop -> prop
  (** [prop_mk_neg p] constructs a representation of the negation of [p]. *)
 
-val prop_mk_let : name -> prop -> prop -> prop
-  (** [prop_mk_let x p q] constructs a structure-shared representation of the formula
-    where [x] is replaced by [p] in [q]. *)
-
 (** Exactly one of the following recognizers is true for a propositional formula. *)
 val prop_is_true : prop -> bool
 val prop_is_false : prop -> bool
@@ -936,7 +931,6 @@ val prop_is_ite : prop -> bool
 val prop_is_disj : prop -> bool
 val prop_is_iff : prop -> bool
 val prop_is_neg : prop -> bool
-val prop_is_let : prop -> bool
 
 (** If the corresponding recognizer above holds, propositional formulas may
   be destructured using the following. *)
@@ -946,7 +940,6 @@ val prop_d_ite : prop -> prop * prop * prop
 val prop_d_disj : prop -> prop list
 val prop_d_iff : prop -> prop * prop
 val prop_d_neg : prop -> prop
-val prop_d_let : prop -> name * prop * prop
 
 
 
