@@ -276,8 +276,6 @@ let constructors () =
   cprintf "  if (((*r) & 1) == 0) { remove_global_root(r); }\n}\n";
   (* "" *)
 
-  lprintf "\n(ff:def-foreign-call %s_sleep_wrapper  ())\n" !base;
-  lprintf "\n(ff:def-foreign-call %s_process_wrapper  ())\n" !base;
   lprintf "\n(ff:def-foreign-call %s_void  ())\n" !base;
   lprintf "\n(ff:def-foreign-call %s_false ())\n" !base;
   lprintf "\n(ff:def-foreign-call %s_true  ())\n" !base;
