@@ -323,6 +323,13 @@ private:
 	// Invariant checking
 	// 
 	bool check_assignment_invariant() const;
+	int check_or_truth_value(const LPFormula * formula, int * memo);
+	int check_ite_truth_value(const LPFormula * formula, int * memo);
+	int check_iff_truth_value(const LPFormula * formula, int * memo);
+	int check_formula_truth_value_loop(LPFormulaId f_id, int * memo);
+	bool check_formula_truth_value(LPFormulaId root_id);
+
+	bool check_clauses();
 	bool check_equivalence_class_invariant();
 	bool check_equivalence_class_root_invariant();
 	bool check_activation_invariant();

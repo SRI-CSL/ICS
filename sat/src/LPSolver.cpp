@@ -7,7 +7,7 @@
    HISTORY
      demoura - Apr 11, 2002: Created.
 ***/
-
+//#undef NDEBUG
 #include<time.h>
 #include"sort.h"
 #include"LPSolver.h"
@@ -731,6 +731,10 @@ bool LPSolver::is_satisfiable(LPFormulaId f)
 	root_formula_id = f;
 	initialize_solver();
 
+	// cout << "root : " << f << endl;
+	// cout << *formula_manager << endl;
+	// cout << "----------------" << endl;
+
 	if (verbose)
 		cerr << "  preprocessing...\n";
 
@@ -857,7 +861,7 @@ bool LPSolver::is_satisfiable(LPFormulaId f)
 		// this is not necessary for completeness and soundness,
 		// and it should not be true if we are using multiple trail stacks,
 		// or some other kind of non-chronological backtracking...
-		assert(check_after_constraint_propagation());
+		// assert(check_after_constraint_propagation());
 
 		assert(check_completeness_argument());
 
@@ -1291,7 +1295,132 @@ bool LPSolver::check_assignment(LPFormulaId root_id) {
  	ics_interface.reset_scratch_state();
 	bool result = check_counter_example_main_loop(root_id);
 	reset_marks();
+	return result && check_clauses() && check_formula_truth_value(root_id);
+}
+
+#define EV_T 1
+#define EV_F -1
+#define EV_X 2
+#define EV_NIL 0
+
+int ev_neg(int x) {
+	switch (x) {
+	case EV_T: return EV_F;
+	case EV_F: return EV_T;
+	case EV_X: return EV_X;
+	default: assert(false);
+		return EV_X;
+	}
+}
+
+int LPSolver::check_or_truth_value(const LPFormula * formula, int * memo) {
+	unsigned int n = formula->get_num_arguments();
+	bool has_ev_x = false;
+	for (unsigned int i = 0; i < n; i++) {
+		LPFormulaId child_id = formula->get_argument(i);
+		int child_val = check_formula_truth_value_loop(child_id, memo);
+		if (child_val == EV_T)
+			return EV_T;
+		if (child_val == EV_X)
+			has_ev_x = true;
+	}
+	if (has_ev_x)
+		return EV_X;
+	else
+		return EV_F;
+}
+
+int LPSolver::check_ite_truth_value(const LPFormula * formula, int * memo) {
+	int c_val = check_formula_truth_value_loop(formula->get_cond(), memo);
+	int t_val = check_formula_truth_value_loop(formula->get_then(), memo);
+	int e_val = check_formula_truth_value_loop(formula->get_else(), memo);
+	if (c_val == EV_T)
+		return t_val;
+	if (c_val == EV_F)
+		return e_val;
+	if (t_val == e_val)
+		return t_val;
+	return EV_X;
+}
+
+int LPSolver::check_iff_truth_value(const LPFormula * formula, int * memo) {
+	LPFormulaId lhs = formula->get_iff_lhs();
+	LPFormulaId rhs = formula->get_iff_rhs();
+	int lhs_val = check_formula_truth_value_loop(lhs, memo);
+	int rhs_val = check_formula_truth_value_loop(rhs, memo);
+	if (lhs_val == EV_X) return EV_X;
+	if (rhs_val == EV_X) return EV_X;
+	if (lhs_val == rhs_val) return EV_T;
+	return EV_F;
+}
+
+int LPSolver::check_formula_truth_value_loop(LPFormulaId f_id, int * memo) {
+	unsigned int f_idx = absolute(f_id);
+	bool sign = f_id < 0;
+	int cached_val = memo[f_idx];
+	if (cached_val != EV_NIL)
+		return sign ? ev_neg(cached_val) : cached_val;
+	
+	const LPFormula * formula = formula_manager->get_formula(f_idx);
+	
+	int result; 
+	
+	switch(formula->get_kind()) {
+	case LP_OR: 
+		result = check_or_truth_value(formula, memo);
+		break;
+	case LP_IFF:
+		result = check_iff_truth_value(formula, memo);
+		break;
+	case LP_ITE:
+		result = check_ite_truth_value(formula, memo);
+		break;
+	case LP_PROPOSITION:
+	case LP_EQ:
+		result = get_formula_value(f_idx);
+		break;
+	default:
+		assert(false);
+		result = EV_X;
+	}
+
+	memo[f_idx] = result;
+	return sign ? ev_neg(result) : result;
+}
+
+bool LPSolver::check_formula_truth_value(LPFormulaId root_id) {
+	int n = formula_manager->get_num_formulas();
+	int * memo = new int[n];
+	memset(memo, 0, sizeof(int)*n);
+	bool result = check_formula_truth_value_loop(root_id, memo) == EV_T;
+	delete[] memo;
 	return result;
+}
+
+bool LPSolver::check_clauses() {
+ 	ics_interface.reset_scratch_state();
+	unsigned int n = clauses.get_size();
+	for (unsigned int i = 1; i < n; i++) {
+		LPClause & c = clauses.get(i);
+		if (c.is_main_clause()) {
+			unsigned int size = c.get_size();
+			bool sat = false;
+			for (unsigned int j = 0; j < size; j++) {
+				LPFormulaId f_id = c.get_literal(j);
+				if (get_formula_value(f_id) == 1) {
+					unsigned int f_idx = absolute(f_id);
+					const LPFormula * formula = formula_manager->get_formula(f_idx);
+					sat = true;
+					break;
+				}
+			}
+			if (!sat) {
+				assert(false);
+				return false;
+			}
+		}
+	}
+	return true;
 }
 
 class LPIdxClausalOccursLt {

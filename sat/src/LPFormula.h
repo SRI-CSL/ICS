@@ -181,6 +181,7 @@ public:
 	unsigned int get_num_atoms() const;
 
 	LPFormulaId create_proposition(char * name);
+	LPFormulaId create_or_aux(unsigned int num_args, LPFormulaId * arguments);
 	LPFormulaId create_or(unsigned int num_args, LPFormulaId * arguments);
 	LPFormulaId create_or(LPFormulaId arg1, LPFormulaId arg2);
 	LPFormulaId create_nor(unsigned int num_args, LPFormulaId * arguments) { return -create_or(num_args, arguments); }
@@ -201,7 +202,7 @@ public:
 	LPFormulaId normalize_formula(LPFormulaId f_id);
 	
 private:
-	LPFormulaId normalize_formula_aux(LPFormulaId f_id, unsigned int * cache);
+	LPFormulaId normalize_formula_aux(LPFormulaId f_id, int * cache);
 };
 
 ostream& operator<<(ostream& target, const LPFormulaManager & m);
