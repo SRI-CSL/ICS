@@ -265,7 +265,7 @@ command:
 | ASSERT atom               { match Istate.process $2 with
 				| Shostak.Valid -> pr "Valid."
 				| Shostak.Inconsistent -> pr "Unsat."
-				| Shostak.Satisfiable _ -> () }
+				| Shostak.Satisfiable _ -> pr "Ok." }
 | DEF name ASSIGN term      { Istate.def $2 $4 }
 | SIG name COLON signature  { Istate.sgn $2 $4 }
 | TYPE name ASSIGN cnstrnt  { Istate.typ $2 $4 }
