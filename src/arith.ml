@@ -264,34 +264,25 @@ let rec cnstrnt ctxt = function
 (*s Solving of an equality [a = b] in the rationals and the integers. 
   Solve for maximal monomial which satisfies predicate [pred]. *)
 
-let rec solve_for pred e =
+let rec solve e =
   let (a, b, j) = Fact.d_equal e in
-  let (q,l) = poly_of (mk_sub a b) in
+  let (q, l) = poly_of (mk_sub a b) in
   if l = [] then
     if Q.is_zero q then None else raise(Exc.Inconsistent)
   else
     try
-      let ((p, x), ml) = destructure pred l in
+      let ((p, x), ml) = destructure is_var l in
       assert(not(Q.is_zero p));             (*s case [q + p * x + ml = 0] *)
       let b = mk_multq (Q.minus (Q.inv p)) (of_poly q ml) in
       if Term.eq x b then 
 	None
       else 
-	let (x, b) = orient pred x b in
+	let (x, b) = if is_var b then Term.orient (x, b) else (x, b) in
 	Some(Fact.mk_equal x b j)
     with
 	Not_found -> 
 	  raise Exc.Unsolved
 
-and orient pred x b = 
-  if is_interp b then
-    (x, b)
-  else if is_var b then
-    Term.orient (x, b)
-  else if x <<< b && pred b then
-    (b, x)
-  else 
-    (x, b)
 
 (*s Destructuring a polynomial into the monomial which satisfies predicate [f]
   and the remaining polynomial. *)
@@ -310,40 +301,7 @@ and destructure pred l =
    in
    loop [] l
 
-
-(*s Solver. *)
-
-let rec solve e =
-  try
-    solve_for not_is_slack_var e
-  with
-      Exc.Unsolved -> 
-	solve_for is_var e
-	
-and not_is_slack_var a =
-  match a with
-    | Var(x) when not(Var.is_slack x) -> true
-    | _ -> false
-	
-
-(*s Constraints. *)
-
-let tau c op al = 
-  try
-    (match op, al with
-       | Num(q), [] ->  
-	   Cnstrnt.mk_singleton q
-       | Multq(q), [x] -> 
-	   Cnstrnt.multq q (c x)
-       | Add, [x; y] ->
-	   Cnstrnt.add (c x) (c y)
-       | Add, _ -> 
-	   Cnstrnt.addl (List.map c al)
-       | _ -> 
-	   Cnstrnt.mk_real)
-  with
-      Not_found -> Cnstrnt.mk_real
-	
+(*s Integer test. *)
 
 let rec is_int c a = 
   let is_int_var x = 
@@ -363,9 +321,27 @@ let rec is_int c a =
       | _ ->
 	  false
 
+
+(*s Constraints. *)
+
+let rec tau c op al = 
+  try
+    (match op, al with
+       | Num(q), [] ->  
+	   Cnstrnt.mk_singleton q
+       | Multq(q), [x] -> 
+	   Cnstrnt.multq q (c x)
+       | Add, _ -> 
+	   cnstrnt_of_monomials c al
+       | _ -> 
+	   Cnstrnt.mk_real)
+  with
+      Not_found -> Cnstrnt.mk_real
+	
+
 (*s Constraint of a list of monomials. *)
 
-let rec cnstrnt_of_monomials c ml =
+and cnstrnt_of_monomials c ml =
   let of_monomial = function
     | App(Arith(Num(q)), []) ->
 	Cnstrnt.mk_singleton q
@@ -413,3 +389,26 @@ let decompose x a =
 	    loop (m :: pre) ml
   in
     loop [] (monomials a)
+
+
+(* Largest monomial and rest. *)
+
+let destructure a = 
+  match a with
+    | App(Arith(Num(_)), []) ->
+	raise Not_found
+    | App(Arith(Multq(q)), [x]) ->
+	(q, x, [])
+    | App(Arith(Add), xl) ->
+	(match xl with
+	   | (App(Arith(Num _), []) as p) :: m :: ml ->
+	       let (q, x) = mono_of m in
+		 (q, x, p :: ml)
+	   | m :: ml ->
+	       let (q, x) = mono_of m in
+		 (q, x, ml)
+	   | _ ->
+	       raise Not_found)
+    | _ ->
+	raise Not_found
+	
