@@ -16,7 +16,6 @@
 
 (*i*)
 open Hashcons
-open Bitv
 open Mpa
 (*i*)
 
