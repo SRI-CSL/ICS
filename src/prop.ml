@@ -215,7 +215,7 @@ let to_prop p =
   let module Table = Hashtbl.Make(
     struct
       type t = prp
-      let equal = equal
+      let equal = (==)
       let hash = Hashtbl.hash_param 4 4
     end)
   in
