@@ -11,49 +11,62 @@
  * benefit corporation.
  *)
 
-type t = string
+type t = string * int
 
+module StringHash = Hashtbl.Make(
+  struct
+    type t = string
+    let equal = (=)
+    let hash = Hashtbl.hash_param 4 4
+  end)
 
-let of_string =
-  let ht = Hashtbl.create 107 in
-    fun s ->
-      try
-	Hashtbl.find ht s
-      with
-	  Not_found ->
-            Hashtbl.add ht s s; s
+let current = ref 0
+let table = StringHash.create 117
 
-let eq = (==)
+let _ = Tools.add_at_reset (fun () -> current := 0)
+let _ = Tools.add_at_reset (fun () -> StringHash.clear table)
 
-let to_string s = s
+let of_string str =
+  try
+    StringHash.find table str
+  with
+      Not_found ->
+	let n = (str, !current) in
+	  incr current;
+          StringHash.add table str n; n
 
-let eq = (=)
+let eq (s, i) (t, j) =     (* s = t *)
+  assert(if s == t then s = t else not(s = t));
+  (s == t)
 
-let cmp n m =
-  Pervasives.compare n m
+let to_string (s, _) = s
 
-let pp fmt s =
+let compare (s, i) (t, j) =    (* Pervasives.compare s t *)
+  assert(if i == j then s = t else not(s = t));
+  if i < j then -1
+  else if i == j then 0
+  else 1
+
+let pp fmt (s, _) =
   Format.fprintf fmt "%s" s
 
-let hash = Hashtbl.hash
-
-type name = t  (* avoid type-check error below *)
+let hash (_, i) = i
 
 module Set = Set.Make(
   struct
-    type t = name
-    let compare = Pervasives.compare
+    type t = string * int
+    let compare = compare
   end)
 
 module Map = Map.Make(
   struct
-    type t = name
-    let compare = Pervasives.compare
+    type t = string * int
+    let compare = compare
   end)
 
 module Hash = Hashtbl.Make(
   struct
-    type t = name
+    type t = string * int
     let equal = eq
     let hash = hash
   end)
