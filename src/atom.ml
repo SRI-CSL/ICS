@@ -126,7 +126,7 @@ end
 
 module Nonneg = struct
   type t = Term.t
-  let pp fmt a = Pretty.post Term.pp fmt (a, ">= 0")
+  let pp fmt a = Pretty.post Term.pp fmt (a, ">=0")
   let valid () = Arith.mk_zero ()
   let invalid () = Arith.mk_num (Mpa.Q.negone)
   let make a =
@@ -174,7 +174,7 @@ end
 module Pos = struct
 
   type t = Term.t
-  let pp fmt a = Pretty.post Term.pp fmt (a, "> 0")
+  let pp fmt a = Pretty.post Term.pp fmt (a, ">0")
 
   let destruct c = c
 
