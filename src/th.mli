@@ -35,6 +35,10 @@ val app : t        (* Theory of function abstraction and application. *)
 val arr : t        (* Array theory. *)
 val bvarith : t    (* Theory of bitvector interpretation(s). *)
 
+val to_int : t -> int
+
+val of_int : int -> t
+
 (*s Only [u] is fully uninterpreted. *)
 
 val is_fully_uninterp : t -> bool
