@@ -154,7 +154,7 @@ extern "C" {
 	void sat_print_statistics() {
 		if (sat_solver == NULL)
 			return;
-		cerr << "Statistics...\n";
+		cerr << "statistics...\n";
 		cerr << "  number of formulas: " << sat_formula_manager->get_num_formulas() << endl;
 		cerr << "  total solver time: " << SAT_total_solver_time << " secs\n";
 		cerr << "    preprocessor time: " << sat_solver->get_preprocessing_time() << " secs\n";
@@ -189,7 +189,7 @@ extern "C" {
 		if (SAT_implication_graph_optimization)
 			cerr << "  number of assignments produced by implication graph optimization: " 
 					 << sat_solver->get_num_implication_graph_optimization_assignments() << endl;
-		sat_formula_manager->dump_mem_info();
+		// sat_formula_manager->dump_mem_info();
 	}
 
   int ics_sat(LPFormulaId root_id, bool use_proof_objs) {
