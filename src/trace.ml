@@ -97,26 +97,30 @@ let rec whitespace level n =
 
 let indent = ref 0
 
-let func level =
-  fun name pp qq f a ->
-    try  
-      whitespace level !indent;
-      indent := !indent + 1;
-      call level name a pp;
-      let b = f a in
-	indent := !indent - 1;
+let func level name pp qq f a =
+  if is_active level then
+    begin
+      try  
 	whitespace level !indent;
-	exit level name b qq;
-	b
-    with
-      | exc -> 
-	  begin
-	    indent := !indent - 1;
-	    whitespace level !indent;
-	    (if is_active level then
-	       Format.eprintf "Exit: %s@." (Printexc.to_string exc));
-	    raise exc
-	  end
+	indent := !indent + 1;
+	call level name a pp;
+	let b = f a in
+	  indent := !indent - 1;
+	  whitespace level !indent;
+	  exit level name b qq;
+	  b
+      with
+	| exc -> 
+	    begin
+	      indent := !indent - 1;
+	      whitespace level !indent;
+	      (if is_active level then
+		 Format.eprintf "Exit: %s@." (Printexc.to_string exc));
+	      raise exc
+	    end
+    end
+  else
+    f a
 
 let proc level = 
   let qq fmt () = Format.fprintf fmt "()" in 
