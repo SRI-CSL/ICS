@@ -15,9 +15,9 @@ To compile ICS, you need to install first:
 Installation:
 -------------
 
-Edit the Makefile if the Ocaml compiler is not in your path.
-
-Then compile with `make'. 
+autoconf configure.in > configure
+./configure
+make
 
 Credits:
 --------
