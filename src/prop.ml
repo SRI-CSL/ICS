@@ -23,7 +23,7 @@ type t =
   | Ite of t * t * t
   | Neg of t
 
-type dt
+type prp = t
 
 let get p = p
 
@@ -45,24 +45,59 @@ let rec pp fmt = function
   | Ite(p, q, r) ->
       Pretty.mixfix "if" pp "then" pp "else" pp "end" fmt (p, q, r)
 
-let mk_true = True
-let mk_false = False
-let mk_var n = Var(n)
+
+let rec equal p q =
+  match p, q with
+    | True, True ->
+	true
+    | False, False -> 
+	true
+    | Var(x), Var(y) -> 
+	Name.eq x y
+    | Atom(a), Atom(b) -> 
+	Atom.equal a b
+    | Disj(pl), Disj(ql) ->
+	(try List.for_all2 equal pl ql with Invalid_argument _ -> false)
+    | Iff(p1, q1), Iff(p2, q2) ->
+	equal p1 p2 && equal q1 q2
+    | Neg(p1), Neg(p2) -> 
+	equal p1 p2
+    | Ite(p1, q1, r1), Ite(p2, q2, r2) ->
+	equal p1 p2 && equal q1 q2 && equal r1 r2
+    | _ -> 
+	false
+	
+let mk_true = 
+  True
+
+let mk_false = 
+  False
+
+let mk_var n = 
+  Var(n)
+
 let mk_disj = function
   | [] -> False
   | pl -> Disj(pl)
+
 let mk_poslit a =
   match Atom.atom_of a with
     | Atom.TT -> True
     | Atom.FF -> False
     | _ ->  Atom(a)
-let mk_neglit a = mk_poslit (Atom.negate Arith.mk_neg a)
+
+let mk_neglit a = 
+  mk_poslit (Atom.negate Arith.mk_neg a)
+
 let mk_iff p q = Iff(p, q)
+
 let mk_ite p q r = Ite(p, q, r)
 let mk_neg p = Neg(p)
+
 let mk_conj = function
   | [] -> True
   | pl -> mk_neg (mk_disj (List.map mk_neg pl))
+
 let is_true = function True -> true | _ -> false
 let is_false = function False -> true | _ -> false
 let is_var = function Var _ -> true | _ -> false
@@ -177,7 +212,22 @@ let var_to_id = mk_icsat_id
 
 (** Translate propositional formula to one understood by ICSAT. *)
 let to_prop p =
+  let module Table = Hashtbl.Make(
+    struct
+      type t = prp
+      let equal = equal
+      let hash = Hashtbl.hash_param 4 4
+    end)
+  in
+  let memo = Table.create 5 in
   let rec translate p =
+    try
+      Table.find memo p
+    with
+	Not_found ->
+	  let p' = do_translate p in
+	    Table.add memo p p'; p'
+  and do_translate p =
     match p with
       | True -> 
 	  icsat_mk_true()
@@ -188,13 +238,20 @@ let to_prop p =
       | Atom(a) -> 
 	  atom_to_id a
       | Disj(pl) ->
-	  icsat_mk_or (List.map translate pl)
+	  let pl' =  List.map translate pl in
+	    icsat_mk_or pl'
       | Iff(p, q) ->
-	  icsat_mk_iff (translate p) (translate q)
+	  let p' = translate p in
+	  let q' = translate q in
+	    icsat_mk_iff p' q'
       | Ite(p, q, r) ->
-	  icsat_mk_ite (translate p) (translate q) (translate r)
+	  let p' = translate p in
+	  let q' = translate q in
+	  let r' = translate r in
+	    icsat_mk_ite p' q' r'
       | Neg(p) ->
-	  icsat_mk_not (translate p)
+	  let p' = translate p in
+	    icsat_mk_not p'
   in
     translate p
 
