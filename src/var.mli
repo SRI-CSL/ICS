@@ -29,6 +29,9 @@ val (<<<) : t -> t -> bool
 (*s Constructors. *)
 
 val mk_var : Name.t -> t
+
+val k : int ref
+
 val mk_fresh : Name.t -> int option -> t
 
 (*s Recognizers. *)
