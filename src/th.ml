@@ -60,7 +60,7 @@ and shostak_to_string i =
     | BV -> "bv"
     | COP -> "cop"
     | SET -> "pset"
-    | APP -> "l"
+    | APP -> "cl"
 
 and can_to_string i =
   match i with
@@ -75,7 +75,7 @@ let of_string = function
   | "bv" -> bv
   | "cop" -> cop
   | "nl" -> nl
-  | "l" -> app
+  | "cl" -> app
   | "arr" -> arr
   | "pset" -> set
   | str -> raise (Invalid_argument (str ^ ": no such theory"))

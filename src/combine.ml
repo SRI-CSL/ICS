@@ -152,6 +152,8 @@ let find s = function
   | Shostak(APP) -> L.find s.app
   | Can(ARR) -> Arr.find s.arr
 
+let extend = ref false
+
 let inv (p, s) a =
   match Term.App.theory_of a with
     | Uninterpreted -> U.inv s.u a
@@ -160,9 +162,17 @@ let inv (p, s) a =
     | Shostak(BV) -> Bv.inv s.bv a
     | Shostak(COP) -> Cop.inv s.cop a
     | Shostak(SET) -> Pset.inv s.pset a
-    | Can(NL) -> Nl.inv s.nl a
     | Shostak(APP) -> L.inv s.app a
-    | Can(ARR) -> Arr.uninterp (p, s.arr) a
+    | Can(ARR) -> 
+	if !extend then 
+	  Arr.uninterp_with_chaining (p, s.arr) a
+	else 
+	  Arr.uninterp (p, s.arr) a
+    | Can(NL) -> 
+	if !extend then 
+	  Nl.uninterp_with_chaining (p, s.nl) a
+	else 
+	  Nl.uninterp (p, s.nl) a
 
 let dep s = function
   | Uninterpreted -> U.dep s.u
@@ -227,7 +237,7 @@ let name (p, s) i a =
 
 (** {6 Predicates} *)
 
-let cheap = ref false
+let cheap = ref true
 
 let is_equal ((p, s) as cfg) a b =
   if Term.eq a b then
@@ -236,21 +246,7 @@ let is_equal ((p, s) as cfg) a b =
     Partition.is_equal p a b
 
 let is_diseq ((p, s) as cfg) a b =
-  try
-    let i = Term.pure_of (a, b) in
-      if i = Th.la then 
-	La.is_diseq (p, s.a) a b
-      else if i = Th.cop then 
-	Cop.is_diseq (p, s.cop) a b
-      else if i = Th.bv then 
-	Bv.is_diseq (p, s.bv) a b
-      else if i = Th.set then 
-	Pset.is_diseq (p, s.pset) a b
-      else 
-	None
-  with
-      Not_found ->
-	Partition.is_diseq p a b
+  Partition.is_diseq p a b
       
 
 (** Test if terms [a] and [b] are equal or disequal in [s]. *)
@@ -302,14 +298,7 @@ let rec sigma cfg f al =
       | Sym.Bv(op) ->  inj Bitvector.sigma op al
       | Sym.Coproduct(op) -> inj Coproduct.sigma op al
       | Sym.Propset(op) -> inj Propset.sigma op al
-      | Sym.Fun(op) -> 
-	  let rhos = ref [] in
-	  let sigma' g bl =
-	    let (b, rho) = sigma cfg g bl in
-	      rhos := rho :: !rhos; b
-	  in
-	  let a = Apply.with_simplifier sigma' (Apply.sigma op) al in
-	    (a, Jst.dep !rhos)
+      | Sym.Cl(op) -> inj Apply.sigma op al
       | Sym.Pp(op) -> inj Pprod.sigma op al
       | Sym.Uninterp _ -> inj Term.App.mk_app f al
       | Sym.Arrays(op) -> 
@@ -430,8 +419,6 @@ and abstract_term ((p, s) as cfg) a =
     match a with
       | Term.Var _ ->  
 	  of_var a
-      | Term.App(f, _, _) when Sym.Fun.is_abs f -> (* abstract lambda terms. *)
-	  name cfg Th.app a
       | Term.App(f, al, _) ->
 	  let j = Sym.theory_of f in
 	  let (bl, rhos) = of_args j al in    (* roughly, [rhok |- bk = ak] *) 
@@ -441,7 +428,7 @@ and abstract_term ((p, s) as cfg) a =
 	    else 
 	      sigma cfg f bl 
 	  in
-	    if i = Th.u || i = Th.arr || i <> j then
+	    if i = Th.u || i = Th.arr || i = Th.nl || i <> j then
 	      let (x, tau) = name cfg j c in  (* [tau |- x = c] *)
 	      let sigma = Jst.dep3 tau rho rhos in
 		(x, sigma)                    (* [sigma |- x = a] *)
@@ -502,22 +489,16 @@ let dismerge (p, s) d =
   else 
     let d = Fact.Diseq.to_var (name (p, s)) d in
       Partition.dismerge p d;
-      Arr.dismerge (p, s.arr) d;
       Bv.dismerge (p, s.bv) d
 	
 
 let propagate_equal ((p, s) as cfg) e =
-  let (a, b, rho) = Fact.Equal.destruct e in
-    match is_diseq cfg a b with
-      | Some(tau) -> 
-	  raise(Jst.Inconsistent(Jst.dep2 rho tau))
-      | None -> 
-	  (if Fact.Equal.is_var e then
-	     merge None cfg e
-	   else if Fact.Equal.is_pure Th.bv e then
-	     merge (Th.inj Th.bv) cfg e
-	   else if Fact.Equal.is_pure Th.la e then
-	     Nl.propagate (p, s.a, s.nl) e)
+  if Fact.Equal.is_var e then
+    merge None cfg e
+  else if Fact.Equal.is_pure Th.bv e then
+    merge (Th.inj Th.bv) cfg e
+  else if Fact.Equal.is_pure Th.la e then
+    Nl.propagate (p, s.a, s.nl) e
 
 let propagate_diseq cfg d =
   let (a, b, rho) = Fact.Diseq.destruct d in

@@ -186,8 +186,6 @@ module Symtab = struct
 	  let k1 = mk_fresh () and k2 = mk_fresh () in
 	  let rho' = (x, (k1, k2)) :: rho in
 	    (k1, k2, rho')
-
-
   
 end 
 
@@ -202,7 +200,7 @@ let rec solve e =
   let sl2 = post rho sl1 in
     sl2
 
-(** Preprocess the input equality [e] to replace ach term of the
+(** Preprocess the input equality [e] to replace each term of the
   form [car(x)] by [k1] with the solution [x = cons(k1, k2)] added
   to [sl], and similarly,[cdr(x)] can be replaced with [k2], for
   fresh [k2]. This completely eliminates [car] and [cdr] from the
@@ -234,8 +232,7 @@ and pre (a, b) =
   
   Either a variable in [el] or a rhs in [sl] is eliminated (by Subst), or the 
   size of [el] decreases, so the corresponding lexicographic measure yields 
-  termination.
-*)
+  termination. *)
 and solvel (el, sl) =
   match el with
     | [] -> sl

@@ -40,7 +40,7 @@ let choose p apply y =
   else
     raise Not_found
 
-(** Iterate over the [x]'s satisfying [p] in the equivalence 
+(** Iterate over the [x]'s satisfying [f] in the equivalence 
   class of [y]. *)
 let iter_if p f y =
   let f' x = try f x with Not_found -> () in

@@ -35,10 +35,14 @@ val d_update : Term.t -> Term.t * Term.t * Term.t
 
 val d_select : Term.t -> Term.t * Term.t
 
+val d_create : Term.t -> Term.t
+
 val d_select_update : Term.t -> Term.t * Term.t * Term.t * Term.t
    (** [d_select a] returns [(b, i, x, j)] if [a] is of the form [a[i:=x][j]]. *)
 
 type equalRel = Term.t -> Term.t -> Three.t
+
+val is_interp : Term.t -> bool
 
 
 (** {6 Constructors} *)
@@ -70,3 +74,19 @@ val map: equalRel -> (Term.t -> Term.t) -> Term.t -> Term.t
 val splits: Term.t -> Term.Set2.t
   (** [splits a] accumulates all pairs [(i, j)] such that [b[i:=x][j]]
     is a subterm of [a]. *)
+
+(** {6 Flat terms} *)
+
+module Flat : sig
+
+  val is : Term.t -> bool
+
+  val mk_create : Term.t -> Term.t
+
+  val mk_update : Term.t -> Term.t -> Term.t -> Term.t
+
+  val mk_select : Term.t -> Term.t -> Term.t
+
+  val apply : Term.Equal.t -> Term.t -> Term.t
+
+end

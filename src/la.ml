@@ -104,23 +104,10 @@ let replace_zero_slacks =
   with [ei] of the form [xi = ai] such that [xi] are variables in [e], all
   the [xi] are pairwise disjoint, no [xi] occurs in any of the [ai]. *)
 let solve =
-
-
   Trace.func "la'" "Solve"  
     Fact.Equal.pp 
     (Pretty.list Fact.Equal.pp)
     (Fact.Equal.equivn Arith.solve)
-
-(**  Solve for an unrestricted variable if possible. *)
-let resolve e =
-  let (a, b, rho) = Fact.Equal.destruct e in
-    if is_unrestricted_var a then Some(e) else
-      try
-	let (x, c) = Arith.qsolve (a, b) in 
-	let e = Atom.Equal.make (x, c) in
-	  Some(Fact.Equal.of_equal (e, rho))
-      with
-	  Exc.Valid -> None
 
 
 (** [apply e a], for [e] is of the form [x = b], applies the
@@ -492,29 +479,6 @@ let d_num s x =
     (p, rho)
 
 
-(** Two linear arithmetic terms [a], [b] are diseq if either
-  - the interpreted terms [S[a]] and [S[b]] are disequal in the theory
-    [LA] of linear arithmetic or
-  - [S^-1(a)], [S^-1(b)] are variables disequal in the partition. *)
-let rec is_diseq cfg a b =
-  assert(Term.is_pure Th.la a);
-  assert(Term.is_pure Th.la b);
-  Jst.Pred2.orelse
-    (is_diseq1 cfg)
-    (is_diseq2 cfg)
-    a b
-
-and is_diseq1 (_, s) =
-  Jst.Pred2.apply
-    (replace s)
-    (Jst.Pred2.inj Arith.is_diseq)
-
-and is_diseq2 ((p, _) as cfg) =
-  Jst.Pred2.apply
-    (uninterp cfg)
-    (Partition.is_diseq p)
-    
-
 
 (** {6 Basic Updates} *)
 
@@ -766,7 +730,6 @@ and process_nonneg ((_, s) as cfg) nn =
   initialize();
   Trace.msg "la" "Process" nn Fact.Nonneg.pp;
   let nn = Fact.Nonneg.map (replace s) nn in
-    Trace.msg "la" "Process" nn Fact.Nonneg.pp;
     process_nonneg1 cfg nn;
     finalize cfg
 
@@ -879,7 +842,7 @@ and maximize ((_, s) as cfg) zeros =
 	   maximize1 cfg zeros (k, a, rho)
        with
 	   Not_found -> ())
-    zeros
+    zeros     (* zeros need to be sorted starting with least one. *)
 
 
 and maximize1 ((_, s) as cfg) zeros (k, a, rho) =   (* [rho |- k = a] *)
@@ -895,8 +858,9 @@ and maximize1 ((_, s) as cfg) zeros (k, a, rho) =   (* [rho |- k = a] *)
   else 
     let (_, y) = Arith.Monomials.Pos.least a in
       assert(not(is_unbounded s y));
-      pivot cfg y;
-      maximize cfg zeros
+      pivot cfg y;             (** following loops sometimes :-( *)
+      let (b, tau) = S.find t s k in
+	maximize1 cfg zeros (k, b, tau)
 
 
 and set_to_zero cfg (x, a, rho) =
@@ -975,7 +939,7 @@ let rec is_nonpos cfg a =
 and process_pos ((_, s) as cfg) c =
   initialize ();
   let c = Fact.Pos.map (replace s) c in 
-    Trace.msg "la'" "Process" c Fact.Pos.pp;
+    Trace.msg "la" "Process" c Fact.Pos.pp;
     (let (a, rho) = Fact.Pos.destruct c in           (* [rho |- a >= 0] *)
       dismerge1 cfg (Fact.Diseq.make (a, Arith.mk_zero(), Jst.dep1 rho));
       process_nonneg1 cfg (Fact.Nonneg.make (a, Jst.dep1 rho)));
@@ -1212,8 +1176,8 @@ let rec upper ((p, s) as cfg) a =
 	max_term_top (b, a, rho)     (* [rho |- a = b] *)
 
 
-(** Update [s] such that [x] is a dependent variable whenever
-  this variable occurs in [s] *)
+(** Update [s] such that [x] is a dependent variable whenever this variable 
+  occurs in [s] *)
 and make_dependent ((_, s) as cfg) x =
  (*  assert(is_restricted_var x); *)
   let is_true _ = true in
@@ -1348,21 +1312,40 @@ module Finite = struct
 	  Found(fin) -> fin
 end 
 
+type mode = Max | Min
+
 
 (** {6 Model Generation} *)
 
-(** If [x] is a slack variable, we make [x] a dependent variable and maximize
-  [find t x].  If [find t x] is unbounded, we return infinity.  
-  If [x] is a nonslack, then we make [x] dependent in R, decompose
-  [find r x] into [w + u], where the variables in [w] are restricted and 
-  those in [u] unrestricted.  We can then maximize [w] to [a], and return 
-  [a] + [u].   If there are any numeric disequalities [x<>ni], then we 
-  pick the largest compatible [ni].  If this coincides with [x], then 
-  we choose, [x - epsilon] as the value for [x].  *)
-  
-type mode = Max | Min
+(** Given a pair [(s, d)] with [s] a tableau and [d] variable disequalities
+  - Start with the zero assignment to all independent in [s] to obtain a
+  ground substitution [s0], also replace all [s]-dependent variables in [d]
+  to obtain [(s0, s[d])].
+  - Take the disequalities and separately solve them as equalities with an
+  ordering [<<] where [unrestricted << unbounded << slacks << integer slacks]
+  to obtain [(s0, d')] with [d'] equals [solve(s)(s[d])]. Now all the disequalities 
+  in [d'] are of the form [x <> e].  
+  - Start with the highest (w.r.t. [<<]] variable disequality that is falsified.
+  That is, find highest [x] such that [s0(x) = s[e]] for [x <> e] in [d'].
+  - If [x] is a slack variable, maximize [x] in [s] to obtain [m' - sl'] with
+  [sl'] a positive combination of slack variables. Plug in values for slack
+  variables to obtain [m' - sl' = m' - s0[sl'] = m - sl]. Thus, [m] is the
+  maximum value of [x] (which we know is not [0]). 
+  Also, find all the points [v0], [v1],..., such that [x<>v0],[ x<>v1],....
+  - If [x] is an integer variable, pick the minimum integer below [m] that is
+    different from [v0], [v1],.... 
+  - If [x] is real, pick the minimum [n] of [m], [v0], [v1]..., and let the 
+     new value of [x] be [(x + n)/2].  
+  Now plug this value into the other disequalities and continue.  The idea behind the 
+  ordering is that the scarce resources (integers, slacks) are given priority in 
+  choice of values. *)
+
+
 
 let rec model ((_, s) as cfg) xl =
+  failwith "to do"
+
+(*
   try
     Format.eprintf "\nWarning: model generation is work in progress...@?";
     let s = S.copy s in             (* protect state against updates. *)
@@ -1428,3 +1411,4 @@ and interp_of_unrestricted ((_, s) as cfg) (x, mode) =
 	     Arith.mk_num (Q.add n (Arith.constant_of w'))
 	   with
 	       Not_found -> Arith.mk_neginf())
+*)

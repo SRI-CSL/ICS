@@ -380,15 +380,6 @@ val sym_mk_mult : unit -> sym
 val sym_is_mult : sym -> bool
   (** [sym_is_mult f] holds iff [f] represents the nonlinear multiplication symbol. *)
 
-val sym_mk_expt : int -> sym
-  (** [sym_mk_expt n] constructs the 'exponentiation by [n]' symbol. *)
-
-val sym_is_expt : sym -> bool
-  (** [sym_is_expt f] holds iff [f] represents an exponentiation symbol. *)
-
-val sym_d_expt : sym -> int
-  (** [sym_d_expt f] returns [n] if [f] represents the 'exponentiation by [n]' symbol. *)
-
 
 (** Symbols from the theory of {b function abstraction and application} include
   - function abstraction
@@ -404,11 +395,26 @@ val sym_mk_apply : unit -> sym
 val sym_is_apply : sym -> bool
   (** [sym_is_apply f] holds iff [f] represents the function application symbol. *)
 
-val sym_mk_abs : unit -> sym
-  (** [sym_mk_abs()] constructs the symbol for function abstraction. *)
+val sym_mk_s : unit -> sym
+  (** [sym_mk_s()] constructs the symbol for the [S] combinator. *)
 
-val sym_is_abs : sym -> bool
-  (** [sym_is_abs f] holds iff [f] represents the function abstraction symbol. *)
+val sym_is_s : sym -> bool
+  (** [sym_is_s f] holds iff [f] represents the [S] combinator. *)
+
+
+val sym_mk_k : unit -> sym
+  (** [sym_mk_s()] constructs the symbol for the [K] combinator. *)
+
+val sym_is_k : sym -> bool
+  (** [sym_is_k f] holds iff [f] represents the [K] combinator. *)
+
+
+val sym_mk_i : unit -> sym
+  (** [sym_mk_i()] constructs the symbol for the [I] combinator. *)
+
+val sym_is_i : sym -> bool
+  (** [sym_is_i f] holds iff [f] represents the [I] combinator. *)
+
 
 
 (** Symbols from the theory of {b arrays} include
@@ -669,13 +675,6 @@ val term_mk_multl : term list -> term
   (** [term_mk_multl [a1;...;an]] constructs a nonlinear term for representing the 
     multiplication [a1 * ... * an]. *)
 
-val term_mk_expt : int -> term -> term   
-  (** [term_mk_expt n a] constructs a nonlinear term for represening [a] raised
-    to the [n], [n] an arbitrary integer. *)
-
-val term_mk_div :  term -> term -> term
-  (** [term_mk_div a b] is equivalent to [term_mk_mult a (term_mk_expt b (-1))]. *)
-  
 
 (** {b Function application} *)
 

@@ -494,8 +494,6 @@ let rec dom_of a =
   with
       Not_found -> Term.Var.dom_of a
 
-let dom_of = Trace.func "foobar" "Arith.dom_of" Term.pp Dom.pp dom_of
-
 let is_int a =
   try
     Dom.sub (dom_of a) Dom.Int

@@ -95,32 +95,6 @@ module Var = struct
 		ExternalHash.add table (n, d) a; a
 
 
-  (** Constructing hashconsed binding variables *)
-  let mk_free = 
-    let table = Hashtbl.create 17 in
-    let _ =  Tools.add_at_reset (fun () -> Hashtbl.clear table) in 
-      fun k ->
-	try
-	  Hashtbl.find table k
-	with
-	    Not_found ->
-	      let x = Var.mk_free k in
-	      let a = Index.create x in
-		Hashtbl.add table k a; a
-
-
-  (** Constructing hashconsed reification variable, which are
-    2nd-order variables for uninterpreted function symbols. *)
-  let mk_reify = 
-    let table = Name.Hash.create 17 in
-    let _ =  Tools.add_at_reset (fun () -> Name.Hash.clear table) in 
-      fun f ->
-	try
-	  Name.Hash.find table f
-	with
-	    Not_found ->
-	      let a = Index.create (Var.mk_reify f) in
-		Name.Hash.add table f a; a
 		  
 
   (** Global variable for creating fresh variables. *)
@@ -217,7 +191,10 @@ module Var = struct
 	  assert(if n <> m then not(eq x y) else eq x y);
 	  if n < m then -1 else if n == m then 0 else 1
       | _ ->
-	  invalid_arg("Term.Var.compare: getting unique index of nonvariable term ")
+	  invalid_arg("Term.Var.compare: getting unique index of nonvariable term " ^ 
+		      to_string x ^
+		      " or " ^
+		      to_string y)
 
   module Set = Set.Make(
     struct
@@ -241,8 +218,10 @@ module Var = struct
   let is_rename = function Var(x, _) -> Var.is_rename x | _ -> false
   let is_fresh i = function Var(x, _) -> Var.is_fresh i x | _ -> false
   let is_internal = function Var(x, _) -> Var.is_internal x | _ -> false
-  let is_free = function Var(x, _) -> Var.is_free x | _ -> false
-  let is_reify = function Var(x, _) -> Var.is_reify x | _ -> false
+ 
+  let d_external = function
+    | Var(x, _) -> Var.d_external x 
+    | _ -> raise Not_found
 
 
   (** {7 Accessors} *)
@@ -406,8 +385,11 @@ let is_equal a b =
   if eq a b then Three.Yes else 
     match a, b with                
       | App(c, [], _), App(d, [], _) 
-	  when Sym.theory_of c = Sym.theory_of d -> Three.No
-      | _ -> Three.X
+	  when Sym.theory_of c = Sym.theory_of d 
+	    && not(Th.is_uninterpreted (Sym.theory_of c))
+	    -> Three.No
+      | _ -> 
+	  Three.X
 
 (** Mapping over list of terms. Avoids unnecessary consing. *)
 let rec mapl f l =

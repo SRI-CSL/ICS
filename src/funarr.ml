@@ -17,6 +17,10 @@ let d_interp = function
   | App(sym, al, _) -> (Sym.Array.get sym, al)
   | _ -> raise Not_found
 
+let is_interp = function
+  | App(sym, _, _) when Sym.Array.is sym -> true
+  | _ -> false
+
 let d_update a =
   match d_interp a with
     | Sym.Update, [b; i; x] -> (b, i, x)
@@ -25,6 +29,11 @@ let d_update a =
 let d_select a =
   match d_interp a with
     | Sym.Select, [a; j] -> (a, j)
+    | _ -> raise Not_found
+
+let d_create a =
+  match d_interp a with
+    | Sym.Create, [a] -> a
     | _ -> raise Not_found
 
 
@@ -129,3 +138,51 @@ let rec splits a =
 	  Term.Set2.empty)
   with
       Not_found -> Term.Set2.empty
+
+
+
+module Flat = struct
+
+  let is = function
+    | Term.Var _ -> true
+    | Term.App(f, al, _) ->
+	Sym.Array.is f && List.for_all Term.is_var al
+
+  let mk_create a =
+    assert(Term.is_var a);
+    mk_create a
+
+  let mk_update a i x =
+    assert(Term.is_var a);
+    assert(Term.is_var i);
+    assert(Term.is_var x);
+    update a i x
+
+  let mk_select a j =
+    assert(Term.is_var a);
+    assert(Term.is_var j);
+    select a j
+	
+	
+  (** Replace a variable [x] by [y] in a flat term [a]. *)
+  let apply (x, y) a =
+    assert(Term.Equal.is_var (x, y));
+    assert(is a);
+    let subst z = if Term.eq x z then y else z in
+      try
+	(match d_interp a with
+	   | Sym.Create, [z] -> 
+	       let z' = subst z in
+		 if z == z' then z else mk_create z'
+	   | Sym.Update, [z1; z2; z3] ->
+	       let z1' = subst z1 and z2' = subst z2 and z3' = subst z3 in
+		 if z1 == z1' && z2 == z2' && z3 == z3' then a else mk_update z1' z2' z3'
+	   | Sym.Select, [z1; z2] ->
+	       let z1' = subst z1 and z2' = subst z2 in
+		 if z1 == z1' && z2 == z2' then a else mk_select z1' z2'
+	   | _ -> 
+	       subst a)
+      with
+	  Not_found -> subst a
+	    
+end

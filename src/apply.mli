@@ -36,23 +36,23 @@
   unique for terms without any [cases].
 *)
 
-
-val with_simplifier : (Sym.t -> Term.t list -> Term.t) -> ('a -> 'b) -> 'a -> 'b
-  (** [with_simplifier sigma f a] applies [f] to [a] in a context where 
-    normalization [sigma] is used to simplify applications of function 
-    symbols [f] to arguments. As default, all term constructors below
-    use {!Term.App.mk_app}. *)
+val d_interp : Term.t -> Sym.cl * Term.t list
 
 val mk_apply : Term.t -> Term.t -> Term.t
   (** [mk_apply c a al] builds an application with range type [c] by
     applying term [a] to an argument term [b].  In addition, it 
     performs beta-reduction. *)
 
-val mk_abs : Term.t -> Term.t
-  (** [mk_abs a] lamgbda-abstracts [a]. All free occurrences in [a] of 
+val mk_s : unit -> Term.t
+val mk_k : unit -> Term.t
+val mk_i : unit -> Term.t
+val mk_c : unit -> Term.t
+
+val abstract : Name.t -> Term.t -> Term.t
+  (** [abstract x a] lamgda-abstracts [a]. All free occurrences in [a] of 
     free variables  of the form [!0] are bound by this abstraction. *)
 
-val sigma : Sym.apply -> Term.t list -> Term.t
+val sigma : Sym.cl -> Term.t list -> Term.t
   (** Depending on the function symbol [f], [sigma f al] uses the constructors
     {!Apply.mk_apply} and {!Apply.mk_abs} to compute the normal-form of applying [f] to the 
     arguments [al]. *)
@@ -61,6 +61,8 @@ val map: (Term.t -> Term.t) -> Term.t -> Term.t
   (** [map f a] applies the term transformer [f] to each uninterpreted 
     subterm of [a] and rebuilds the term [a] by using the simplifying constructors
     [mk_apply] and [mk_abs]. *)
+
+val apply : (Term.t * Term.t) -> Term.t -> Term.t
 
 val solve : Term.Equal.t -> Term.Equal.t list
   (** Work in progress. Not yet used in an essential way. *)

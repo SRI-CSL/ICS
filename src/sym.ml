@@ -22,7 +22,7 @@ and sym =
   | Coproduct of coproduct
   | Bv of bv
   | Pp of pprod
-  | Fun of apply
+  | Cl of cl
   | Arrays of arrays 
   | Propset of propset
 
@@ -46,13 +46,15 @@ and bv =
   | Conc of int * int
   | Sub of int * int * int
 
-and pprod = 
-  | Mult
-  | Expt of int
+and pprod = Mult
 
-and apply = 
+and cl = 
   | Apply
-  | Abs
+  | S
+  | K 
+  | I
+  | C
+  | Reify of t * int
 
 and arrays = Create | Select | Update
 
@@ -71,7 +73,7 @@ let theory_of (sym, _) =
     | Coproduct _ -> Th.cop
     | Arrays _ -> Th.arr
     | Pp _ -> Th.nl
-    | Fun _ -> Th.app
+    | Cl _ -> Th.app
     | Propset _ -> Th.set
 
 let genidx =
@@ -107,6 +109,9 @@ module Uninterp = struct
 
   let pp p fmt (f, al) = 
     Pretty.apply p fmt (Name.to_string f, al)
+
+  let to_string f =
+    Name.to_string f
 
 end
 
@@ -171,7 +176,12 @@ module Arith = struct
 	Pretty.infix Mpa.Q.pp "*" p fmt (q, x)
     | _ -> 
 	invalid_arg "Ill-formed application in linear arithmetic"
-	  
+
+  let to_string = function
+    | Num q ->  Pretty.to_string Mpa.Q.pp q
+    | Add -> "+"
+    | Multq(q) -> Format.sprintf "%s*" (Pretty.to_string Mpa.Q.pp q)
+
 end
 
 module Product = struct
@@ -204,6 +214,11 @@ module Product = struct
 	Pretty.apply p fmt ("cdr", [a])
     | _ ->
 	invalid_arg "Ill-formed application in product theory"
+
+  let to_string = function
+    | Cons -> "cons"
+    | Car -> "car"
+    | Cdr -> "cdr"
 end
 
 module Coproduct = struct
@@ -229,17 +244,15 @@ module Coproduct = struct
   let is_outl = function Coproduct(Out(Left)), _ -> true | _ -> false
   let is_outr = function Coproduct(Out(Right)), _ -> true | _ -> false
 
-  let pp p fmt = function
-    | In(Left), [a] -> 
-	Pretty.apply p fmt ("inl", [a])
-    | In(Right), [a] -> 
-	Pretty.apply p fmt ("inr", [a])
-    | Out(Left), [a] -> 
-	Pretty.apply p fmt ("outl", [a])
-    | Out(Right), [a] -> 
-	Pretty.apply p fmt ("outr", [a])
-    | _ -> 
-	invalid_arg "Ill-formed application in coproduct theory"
+
+  let to_string = function
+    | In(Left) -> "inl"
+    | In(Right) -> "inr"
+    | Out(Left) -> "outl"
+    | Out(Right) -> "outr"
+
+  let pp p fmt (f, al) = 
+    Pretty.apply p fmt (to_string f, al)
 
 end
 
@@ -251,32 +264,12 @@ module Pprod = struct
 
   let equal f g =
     match f, g with
-      | Expt(n), Expt(m) -> n = m
       | Mult, Mult -> true
-      | _ -> false
   
   let mk_mult = (Pp(Mult), 8)
 
-  let mk_expt = 
-    let table = Hashtbl.create 17 in
-    let _ =  Tools.add_at_reset (fun () -> Hashtbl.clear table) in
-      fun n ->
-	try
-	  Hashtbl.find table n
-	with
-	    Not_found ->
-	      let hsh = genidx() in
-	      let op = (Pp(Expt(n)), hsh) in
-		Hashtbl.add table n op; op
-
   let is = function Pp _, _ -> true | _ -> false
-  let is_expt = function Pp(Expt _), _ -> true | _ -> false
   let is_mult = function Pp(Mult), _ -> true | _ -> false
-
-  let d_expt (sym, _) = 
-    match sym with
-      | Pp(Expt(n)) -> n
-      | _ -> raise Not_found
 
   let pp p fmt = 
     function
@@ -284,11 +277,9 @@ module Pprod = struct
 	  Pretty.string fmt "1"
       | Mult, al ->
 	  Pretty.infixl p "*" fmt al
-      | Expt(n), [a] ->
-	  let op = Format.sprintf "^%d" n in
-	    p fmt a; Pretty.string fmt op
-      | _ ->
-	  invalid_arg "Ill-formed application in the theory of products"
+
+  let to_string = function
+    | Mult -> "*"
 
 end 
 
@@ -381,6 +372,11 @@ module Bv = struct
       | _ ->
 	  invalid_arg "Ill-formed application in bitvector theory"
 
+  let to_string = function 
+    | Const(b) ->  Format.sprintf "0b%s" (Bitv.to_string b)
+    | Conc(n, m) -> Format.sprintf "conc[%d,%d]" n m 
+    | Sub(n, i, j) ->  Format.sprintf "sub[%d,%d,%d]" n i j
+
   let width b =
     match b with
       | Const(c) -> Bitv.length c
@@ -430,42 +426,15 @@ module Array = struct
 		   Pretty.apply p fmt ("update", [a; i; x]))
 	| _ ->
 	    invalid_arg "Ill-formed application in theory of arrays"
+
+  let to_string = function
+    | Create -> "create"
+    | Select -> "select"
+    | Update -> "update"
 	    
 end
 
-module Fun = struct
-
-  let get = function 
-    | Fun(op), _ -> op
-    | _ -> raise Not_found
-
-  let equal f g =
-    match f, g with
-      | Apply, Apply -> true
-      | Abs, Abs -> true
-      | _ -> false
-
-  let abs = (Fun(Abs), 111)
-
-  let apply = (Fun(Apply), 112)
-
-  let pp p fmt = 
-    function
-      | Apply, [a; b] -> 
-	  let op = Format.sprintf "apply" in 
-	    Pretty.string fmt "(";
-	    Pretty.infix p "$" p fmt (a, b);
-	    Pretty.string fmt ")"
-      | Abs, [a] -> 
-	  Pretty.apply p fmt ("lambda",  [a])
-      | _ ->
-	  invalid_arg "Ill-formed application in theory of functions"
-
-  let is = function Fun _, _ -> true | _ -> false
-  let is_abs = function Fun(Abs), _ -> true | _ -> false
-  let is_apply = function Fun(Apply), _ -> true | _ -> false
-
-end
+type tsym = t   (* nickname *)
 
 
 module Propset = struct
@@ -490,6 +459,11 @@ module Propset = struct
   let is_full = function Propset(Full), _ -> true | _ -> false
   let is_ite = function Propset(Ite), _ -> true | _ ->false
 
+  let to_string = function
+    | Empty -> "empty"
+    | Full -> "full"
+    | Ite -> "ite"
+
   let pp p fmt (op, al) =
     let arg = p fmt and str = Pretty.string fmt in
       match (op, al) with
@@ -503,6 +477,97 @@ module Propset = struct
 	    invalid_arg "Ill-formed application in theory of propositional sets"    
 end
 
+
+module Cl = struct
+
+  let get = function 
+    | Cl(op), _ -> op
+    | _ -> raise Not_found
+
+  let is = function Cl _, _ -> true | _ -> false
+    
+  let equal f g =
+    match f, g with
+      | Apply, Apply -> true
+      | S, S -> true
+      | K, K -> true
+      | I, I -> true
+      | C, C -> true
+      | Reify(f, n), Reify(g, m) -> (f == g) && n = m  (* symbols are hash-consed. *)
+      | _ -> false
+	  
+  let s = (Cl(S), 111)
+  let k = (Cl(K), 110)
+  let i = (Cl(I), 109)
+  let c = (Cl(C), 108)
+
+  let reify =
+    let module Hash = Hashtbl.Make(
+      struct
+	type t = tsym * int
+	let equal (f, n) (g, m) =  f == g && n = m
+	let hash (f, _) = hash f
+      end) 
+    in
+    let ht = Hash.create 17 in
+    let _ = Tools.add_at_reset (fun () -> Hash.clear ht) in
+      fun (f, n) ->
+	assert(not(is f));
+	try
+	  Hash.find ht (f, n)
+	with
+	    Not_found ->
+	      let op = (Cl(Reify(f, n)), genidx()) in
+		Hash.add ht (f, n) op; op
+
+  let apply = (Cl(Apply), 112)
+
+  let rec pp p fmt = 
+    function
+      | Apply, al -> 
+	  let op = Format.sprintf "apply" in 
+	    Pretty.string fmt "(";
+	    Pretty.infixl p " $ " fmt al;
+	    Pretty.string fmt ")"
+      | S, [] -> 
+	  Pretty.string fmt "S"
+      | K, [] ->
+	  Pretty.string fmt "K"
+      | I, [] ->
+	  Pretty.string fmt "I"
+      | C, [] ->
+	  Pretty.string fmt "C"
+      | Reify(f, _), [] ->
+	  let str = Format.sprintf "'%s'" (to_string f) in
+	    Pretty.string fmt str
+      | _ ->
+	  invalid_arg "Ill-formed application in theory of functions"
+
+  and to_string (sym, _) = 
+    match sym with
+      | Uninterp(op) -> Uninterp.to_string op
+      | Arith(op) -> Arith.to_string op
+      | Product(op) -> Product.to_string op
+      | Bv(op) -> Bv.to_string op
+      | Coproduct(op) -> Coproduct.to_string op
+      | Arrays(op) -> Array.to_string op
+      | Pp(op) -> Pprod.to_string op
+      | Propset(op) -> Propset.to_string op
+      | Cl(op) -> invalid_arg "Reified combinatory logic symbol"
+      
+
+  let is_s = function Cl(S), _ -> true | _ -> false
+  let is_k = function Cl(K), _ -> true | _ -> false
+  let is_i = function Cl(I), _ -> true | _ -> false
+  let is_c = function Cl(C), _ -> true | _ -> false
+  let is_reify = function Cl(Reify _), _ -> true | _ -> false
+  let is_apply = function Cl(Apply), _ -> true | _ -> false
+
+  let d_reify = function Cl(Reify(f, n)), _ -> (f, n) | _ -> raise Not_found
+
+end
+
+
 let equal (f, _) (g, _) =
  match f, g with
    | Uninterp(op1), Uninterp(op2) -> Uninterp.equal op1 op2
@@ -512,7 +577,7 @@ let equal (f, _) (g, _) =
    | Coproduct(op1), Coproduct(op2) -> Coproduct.equal op1 op2
    | Arrays(op1), Arrays(op2) -> Array.equal op1 op2
    | Pp(op1), Pp(op2) -> Pprod.equal op1 op2
-   | Fun(op1), Fun(op2) -> Fun.equal op1 op2
+   | Cl(op1), Cl(op2) -> Cl.equal op1 op2
    | Propset(op1), Propset(op2) -> Propset.equal op1 op2
    | _ -> false
   
@@ -527,7 +592,7 @@ let pp p fmt ((sym, _),  al) =
     | Coproduct(op) -> Coproduct.pp p fmt (op, al)
     | Arrays(op) -> Array.pp p fmt (op, al)
     | Pp(op) -> Pprod.pp p fmt (op, al)
-    | Fun(op) -> Fun.pp p fmt (op, al)
+    | Cl(op) -> Cl.pp p fmt (op, al)
     | Propset(op) -> Propset.pp p fmt (op, al)
 
 

@@ -25,26 +25,8 @@
 *)
 
 
-
-(** {6 Ordering.} *)
-
-val cmp : Term.t -> Term.t -> int
-  (** Total ordering on power products. Let [pp] be of the form
-    [x1^n1*...*xk^nk] and [qq] of the form [y1^m1*...*yl^ml] then
-    [cmp pp qq] is [0] iff [k = l], [Term.eq xi yi], and [ni = mi]. *)
-
-val min : Term.t -> Term.t -> Term.t
-
-val max : Term.t -> Term.t -> Term.t
-
-
-(** {6 Recognizers} *)
-
 val is_interp : Term.t -> bool
   (** [is_interp a] holds iff [a] is of the form described above. *)
-
-val is_one : Term.t -> bool
-  (** [is_one a] holds if [a] is syntactically equal to [mk_one]. *)
 
 val is_diophantine : Term.t -> bool
   (** Are all variables interpreted over the integers. *)
@@ -53,37 +35,15 @@ val is_nonneg : Term.t -> bool
   (** [is_nonneg a] holds iff [a >= 0] holds. *)
 
 
-(** {6 Constructors.} *)
-
-val mk_one : Term.t
-  (** Power product for representing the number [1]. This is different      
-    from different form {!Arith.mk_one}. *)
-
-
 val mk_mult : Term.t -> Term.t -> Term.t
   (** [mk_mult pp qq] multiplies the power products [pp] and [qq] to
     obtain a new power product. *)
 
+val d_mult : Term.t -> Term.t * Term.t
 
-val mk_multl : Term.t list -> Term.t
-  (** [mk_multl [a0;...;an]] iterates the binary constructor [mk_mult] above
-    to [mk_mult a1 [mk_multl [a1;...;an]]]  with [mk_multl []] equal to [mk_one]. *)
-
-
-val mk_expt : int -> Term.t -> Term.t
-  (** [mk_expt n pp] constructs a power product for representing the 
-    power product [pp] raised to the integer exponent [n]. *)
-
-val mk_inv : Term.t -> Term.t
-  (** [mk_inv pp] returns an inverse power product [qq] such that
-    {!mk_mult}[(pp, qq)] is {!mk_one}. *)
-
-(** {6 Normal form} *)
+val mk_expt : Term.t -> int -> Term.t
 
 val of_list : (Term.t * int) list -> Term.t
-
-
-(** {6 Canonizer} *)
 
 val sigma : Sym.pprod -> Term.t list -> Term.t
 
@@ -91,68 +51,13 @@ val map: (Term.t -> Term.t) -> Term.t -> Term.t
 
 val apply : Term.Equal.t -> Term.t -> Term.t
 
-
-(** {6 Iterators} *)
+val decompose : Term.t -> (Term.t * int) * Term.t option
 
 val iter : (Term.t -> int -> unit) -> Term.t -> unit
 
 val fold : (Term.t -> int -> 'a -> 'a) -> Term.t -> 'a -> 'a
 
-val choose : Term.t -> Term.t
-  (** Choose an arbitrary variable. May raise [Not_found]. *)
-
-val nonneg : Term.t -> Term.t
-  (** [nonneg a] returns a simplified power product [b] such 
-    that [a >= 0] iff [b >= 0]. For example, [x^2 >= 0] is reduced
-    to [1 >= 0]. *)
-
-val pos : Term.t -> Term.t
-  (** [pos a] returns a simplified power product [b] such 
-    that [a > 0] iff [b > 0]. For example, [x^3 > 0] is reduced
-    to [x > 0]. *)
-
-(** {6 Comparisons} *)
-
-val gcd : Term.t -> Term.t -> Term.t * Term.t * Term.t
-  (** [gcd pp qq] computes the greatest common divisor of the power products
-    [pp] and [qq]. It returns a triple of power products [(p, q, g)] 
-    such that [g] divides both [pp] and [qq], it is the largest such [g],
-    and [mk_mult p pp] and [mk_mult q qq] are equal to [g].  *)
-
-
-val lcm : Term.t * Term.t -> Term.t * Term.t * Term.t
-  (** Least common multiple [lcm pp qq] yields [(p, q, lcm)] such that
-    [p * lcm = pp], [q * lcm = qq], and [lcm] is the smallest such
-    power product. *)
-
-val div : Term.t * Term.t -> Term.t option
-  (** Divisibility test [div pp qq] returns largest [Some(mm)] such that
-    [pp * mm = qq] and [None] if no such [mm] exists. *)
-
-
-val split : Term.t -> Term.t * Term.t
-  (** [split pp] splits a power product [pp] into a pair [(nn, dd)] of
-    a numerator [nn] and a denumerator [dd], such that [pp] equals
-    [mk_div nn dd]. *)
-
-val numerator : Term.t -> Term.t
-
-val denumerator : Term.t -> Term.t
-
-val nonneg_denumerator : Term.t -> Term.t
-
-val destruct : Term.t -> Term.t * int
-
-val split_nonneg : Term.t -> Term.t * Term.t
-  (** [split a] splits [a] into [b], [c] such that [a = b * c] and [b >= 0]. *)
-
-
-(** {7 Partitions} *)
-
-val partition: (Term.t -> int -> bool) -> Term.t -> Term.t * Term.t
-
-
-(** {6 Abstract Constraint Computation} *)
+val divide : Term.t -> (Term.t * int) -> Term.t
 
 val dom : (Term.t -> Dom.t) ->  Sym.pprod -> Term.t list -> Dom.t
   (** [tau lookup op al] returns a constraint in {!Cnstrnt.t} given a [lookup]

@@ -42,6 +42,8 @@
 type t
   (** Representation type for function symbols. *) 
 
+type tsym = t (** nickname *)
+
 
 val theory_of : t -> Th.t
   (** [theory_of f] returns the theory of type {!Th.t} associated with [f]. *)
@@ -203,11 +205,9 @@ end
 
 (** Function symbols of the theory {!Th.nl} of nonlinear arithmetic
   or {i power products} are
-  - [Mult] for nonlinear multiplication,
-  - [Expt(n)] for exponentiation with integer [n]. *)
+  - [Mult] for nonlinear multiplication *)
 type pprod = 
   | Mult
-  | Expt of int
 
 (** Operation on function symbols of the product theory {!Th.nl}. 
   - [mk_mul], [mk_expt n], [mk_outl] are the function symbols
@@ -225,12 +225,9 @@ type pprod =
   symbol. *)
 module Pprod : sig
   val mk_mult : t
-  val mk_expt : int -> t  
   val get : t -> pprod
   val is : t -> bool
   val is_mult : t -> bool
-  val is_expt : t -> bool
-  val d_expt : t -> int
   val pp : 'a Pretty.printer -> (pprod * 'a list) Pretty.printer
 end
 
@@ -320,14 +317,18 @@ module Array : sig
 end
 
 
-(** {6 Applicaton and Abstraction} *)
+(** {6 Combinatory Logic} *)
 
 (** Function symbols of the theory {!Th.app} of functions
   - [Apply of function application, and
-  - [Abs] of function abstraction. *)
-type apply = 
+  - combinators [S], [K], [I] *)
+type cl = 
   | Apply
-  | Abs
+  | S
+  | K
+  | I
+  | C
+  | Reify of t * int
 
    
 (** Operation on function symbols of the product theory {!Th.app}. 
@@ -341,14 +342,23 @@ type apply =
   argument list [al] depending on the value of {!Pretty.flag}. See 
   also {!Pretty.apply}. It assumes applications to [Apply(.)] to be
   {i binary} and [Abs] is {i unary}. *)
-module Fun : sig
-  val get : t -> apply
+module Cl : sig
+  val get : t -> cl
   val apply : t
-  val abs : t
+  val s : t
+  val k : t
+  val i : t
+  val c : t
+  val reify : tsym * int -> t
   val is : t -> bool
   val is_apply : t -> bool
-  val is_abs : t -> bool
-  val pp : 'a Pretty.printer -> (apply * 'a list) Pretty.printer
+  val is_s : t -> bool
+  val is_k : t -> bool
+  val is_i : t -> bool
+  val is_c : t -> bool
+  val is_reify : t -> bool
+  val d_reify : t -> tsym * int
+  val pp : 'a Pretty.printer -> (cl * 'a list) Pretty.printer
 end
 
 (** {6 Theory of propositional sets} *)
@@ -379,7 +389,7 @@ type sym =
   | Coproduct of coproduct
   | Bv of bv
   | Pp of pprod
-  | Fun of apply
+  | Cl of cl
   | Arrays of arrays 
   | Propset of propset
 

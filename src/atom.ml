@@ -15,17 +15,16 @@ open Mpa
 
 let crossmultiply = ref false
 
+let to_option f a =
+  try Some(f a) with Not_found -> None
+
 module Equal = struct
    type t = Term.t * Term.t
    let lhs (a, _) = a
    let rhs (_, b) = b
    let pp = Pretty.infix Term.pp "=" Term.pp
-   let make (a, b) =   
-     let cm e = if !crossmultiply then Nonlin.crossmultiply e else e in
-       Term.orient (cm (a, b))
-   let make_inorder (a, b) =   
-     let cm e = if !crossmultiply then Nonlin.crossmultiply e else e in
-       cm (a, b)
+   let make (a, b) =  Term.orient (a, b)
+   let make_inorder (a, b) =  (a, b)
    let destruct e = e
    let both_sides p (a, b) = p a && p b
    let is_var = both_sides Term.is_var
@@ -68,11 +67,34 @@ module Diseq = struct
      (a, Arith.d_num b)
    let is_var (a, b) = Term.is_var a && Term.is_var b
    let vars_of (a, b) = Term.Var.Set.union (Term.vars_of a) (Term.vars_of b)
+   let unsat () = (Arith.mk_zero(), Arith.mk_one())
+   let valid () = (Arith.mk_zero(), Arith.mk_zero())
    let make ((a, b) as d) =
-     let cm d = if !crossmultiply then Nonlin.crossmultiply d else d in
-     let build d = Term.orient (cm d) in
+     let build (a, b) =  (* do some normalizations such as [-x <> 0 == x <> 0]. *)
+       match to_option Arith.d_num a, to_option Arith.d_num b with
+	 | None, None ->
+	     Term.orient (a, b)
+	 | Some(q'), None -> 
+	     let (p', b') = Arith.mono_of b in  (* [q' <> p' * b'] *)
+	       if Mpa.Q.is_neg p' then
+		 (Arith.mk_num (Mpa.Q.minus q'), (Arith.mk_multq (Mpa.Q.minus p') b'))
+	       else 
+		 Term.orient (a, b)
+	 | None, Some(p') -> 
+             let (q', a') = Arith.mono_of a in  (* [q' * a' <> p'] *)
+	       if Mpa.Q.is_neg q' then
+		 let a'' = Arith.mk_multq (Mpa.Q.minus q') a' in
+		 let b'' = Arith.mk_num (Mpa.Q.minus p') in
+		   Term.orient (a'', b'')
+	       else 
+		 Term.orient (a, b)
+	 | Some(q'), Some(p') -> 
+	     if Mpa.Q.equal q' p' then unsat() else valid()
+     in
      if is_var d then
        build d
+     else if Term.is_var a && Arith.is_num b then
+       build (a, b)
      else if is_diophantine d then
        let lcm =                     (* least common multiple of denominators *)
 	 Mpa.Q.abs                   (* of the coefficients in [a] and [b]. *)
@@ -82,14 +104,14 @@ module Diseq = struct
 		 (Arith.lcm_of_denominators b)))
        in
        let (a', b') =                (* all coefficients are integer now. *)
-	 if Mpa.Q.is_one lcm then Term.orient (a, b) else 
+	 if Mpa.Q.is_one lcm then (a, b) else 
 	   (Arith.mk_multq lcm a, Arith.mk_multq lcm b)
-	 in
-       let q', c' = Arith.destruct (Arith.mk_sub a' b') in  (* [q' + c' <> 0] *)
+       in
+       let (q', c') = Arith.destruct (Arith.mk_sub a' b') in (* [q' + c' <> 0] *)
 	 if Mpa.Q.is_nonneg q' then
-	   (Arith.mk_neg c', Arith.mk_num q')               (* ==> [-c' <> q'] *)
+	   build (Arith.mk_neg c', Arith.mk_num q')         (* ==> [-c' <> q'] *)
 	 else 
-	   (c', Arith.mk_num (Mpa.Q.minus q'))              (* ==> [c' <> -q'] *)
+	   build (c', Arith.mk_num (Mpa.Q.minus q'))        (* ==> [c' <> -q'] *)
      else 
        build d
    let map2 (id, h) (f, g) ((a, b) as d) =
@@ -104,11 +126,19 @@ end
 
 module Nonneg = struct
   type t = Term.t
-  let pp fmt a = Pretty.post Term.pp fmt (a, ">= 0")
+  let pp fmt a = Pretty.post Term.pp fmt (a, "<= 0")
   let make a =
-    let nonneg a =   
-      let b = if Pprod.is_interp a then Pprod.nonneg a else a in
-	if !crossmultiply then Nonlin.crossmultiply_nonneg b else b
+    let nonneg a =
+      let al = 
+	Pprod.fold
+	  (fun x n acc ->     
+	     if n mod 2 == 0 || Term.Var.is_slack x then 
+	       acc 
+	     else
+	       (x, 1) :: acc)
+	  a []
+      in
+	Pprod.of_list (List.rev al)
     in
       try
 	let (q, x) = Arith.d_multq a in
@@ -140,15 +170,19 @@ module Pos = struct
 
   let holds = Arith.is_pos
 
-  let make a =            
-    try
-      let (q, x) = Arith.d_multq a in
-	if Mpa.Q.is_pos q then x 
-	else 
-	  if Pprod.is_interp a then Pprod.pos a else a
-    with
-	Not_found ->
-	  if Pprod.is_interp a then Pprod.pos a else a
+  let make a =    
+    let pos a =
+      match Pprod.decompose a with 
+	| ((y, n), None) when not(n mod 2 == 0) -> y
+	| _ -> a
+    in
+      try
+	let (q, x) = Arith.d_multq a in
+	  if Mpa.Q.is_pos q then x else
+	    if Pprod.is_interp a then pos a else a
+      with
+	  Not_found ->
+	    if Pprod.is_interp a then pos a else a
 
   let map (id, h) f a =
     let (a', rho') = f a in            

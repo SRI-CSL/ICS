@@ -119,7 +119,8 @@ let config_of s = (s.p, s.eqs)
 (** Processing a fact. *)
 let rec process s ((atm, rho) as fct) =
   match Atom.atom_of atm with
-    | Atom.TT -> ()
+    | Atom.TT -> 
+	() (* skip *)
     | Atom.FF -> 
 	raise(Jst.Inconsistent(rho))
     | Atom.Equal(a, b) -> 
@@ -127,12 +128,15 @@ let rec process s ((atm, rho) as fct) =
 	let th = Fact.Equal.theory_of e in
 	  Combine.merge th (s.p, s.eqs) e
     | Atom.Diseq(a, b) -> 
-	Combine.dismerge (s.p, s.eqs) (Fact.Diseq.make (a, b, rho))
+	let d = Fact.Diseq.make (a, b, rho) in
+	  Combine.dismerge (s.p, s.eqs) d
     | Atom.Nonneg(a) -> 
-	Combine.process_nonneg (s.p, s.eqs) (Fact.Nonneg.make (a, rho))
+	let nn = Fact.Nonneg.make (a, rho) in
+	  Combine.process_nonneg (s.p, s.eqs) nn
     | Atom.Pos(a) -> 
-	Combine.process_pos (s.p, s.eqs) (Fact.Pos.make (a, rho))
-
+	let pp = Fact.Pos.make (a, rho) in
+	  Combine.process_pos (s.p, s.eqs) pp
+	    
 
 (** Propagate newly deduced facts. *)   
 let rec close_star s =
@@ -202,7 +206,16 @@ end
 
 let simplify s = 
   Trace.func "rule" "Simplify" Atom.pp Fact.pp
-    (Combine.simplify (s.p, s.eqs))
+    (fun a -> 
+       try
+	 Combine.extend := true;
+	 let res = Combine.simplify (s.p, s.eqs) a in
+	   Combine.extend := false;
+	   res
+       with
+	   exc -> 
+	     Combine.extend := false;
+	     raise exc)
 
 let process s = 
   Trace.proc "rule" "Process" Fact.pp (process s)
@@ -210,8 +223,9 @@ let process s =
 let abstract s =
   Trace.func "rule" "Abstract" Atom.pp Fact.pp
     (Combine.abstract (s.p, s.eqs))
-
+    
 let add s atm =
+  let s = copy s in             (* Protect state against updates. *)
   let ((atm', rho') as fct') = simplify s atm in
     if Atom.is_true atm' then
       Status.Valid(rho')
@@ -223,7 +237,6 @@ let add s atm =
 	 Fact.Diseqs.clear();
 	 Fact.Nonnegs.clear();
 	 Term.Var.k := s.upper;        (* Install fresh variable index *)
-	 let s = copy s in             (* Protect state against updates *)
 	 let (atm'', rho'') = abstract s atm' in
 	 let fct'' = (atm'', Jst.dep3 rho' rho'' (Jst.axiom atm)) in
 	   process s fct''; 

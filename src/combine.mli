@@ -93,6 +93,10 @@ val sigma : config -> Sym.t -> Term.t list -> Term.t * Jst.t
 val can : config -> Jst.Eqtrans.t
 
 val cheap : bool ref
+  (** Cheap simplification *)
+
+val extend : bool ref
+  (** Destructive updates in canonizer *)
 
 val simplify : config -> Atom.t -> Fact.t
 

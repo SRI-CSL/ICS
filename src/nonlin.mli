@@ -19,21 +19,10 @@
 
 val mk_mult : Term.t -> Term.t -> Term.t
 
+val mk_expt : Term.t -> int -> Term.t
+
 val mk_multl : Term.t list -> Term.t
-
-val mk_expt : int -> Term.t -> Term.t
-
-val mk_div : Term.t -> Term.t -> Term.t
-
-val mk_inv : Term.t -> Term.t
 
 val map : Term.map
 
 val apply : Term.Equal.t -> Term.t -> Term.t
-
-(** {6 Cross multiplication} *)
-
-val crossmultiply : Term.Equal.t -> Term.Equal.t
-
-val crossmultiply_nonneg : Term.t -> Term.t
-

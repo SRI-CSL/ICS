@@ -82,12 +82,6 @@ module Var : sig
       domain restriction [d], and  [mk_fresh th Some(i) d] creates the theory-specific
       fresh variable of index [i] with optional domain restriction [d]. See also {!Var.mk_fresh}. *)
 
-  val mk_free : int -> t
-    (** [mk_free i] creates a deBruijn index for bound variables. *)
- 
-  val mk_reify : Sym.uninterp -> t
-    (** [mk_reify f] creates a 2nd-order variable for an uninterpreted function symbol. *)
-
 
   (** Variables are partitioned into {i renaming}, {i external}, {i fresh}, {i free},
     and {i slack variables}, and the following recognizers can be used to test membership
@@ -96,8 +90,9 @@ module Var : sig
   val is_rename : t -> bool
   val is_external : t -> bool
   val is_fresh : Th.t -> t -> bool
-  val is_free : t -> bool
   val is_slack : t -> bool
+
+  val d_external : t -> Name.t * Var.Cnstrnt.t
 
   (** Slacks are subpartitioned into {i zero} and {i nonnegative} slacks. *)
   val is_zero_slack : t -> bool

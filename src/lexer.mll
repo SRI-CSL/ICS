@@ -45,6 +45,7 @@ let keyword =
       "empty", EMPTY; "full", FULL; "union" , UNION; "inter", INTER; "diff", DIFF;
       "sub", SUBSET;
       "tt", TT; "ff", FF;
+      "S", S; "K", K; "I", I; "C", C;
       "inr", INR; "inl", INL; "outr", OUTR; "outl", OUTL;
       "inj", INJ; "out", OUT;
       "hd", HEAD; "tl", TAIL;

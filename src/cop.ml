@@ -73,26 +73,6 @@ let name = S.name
 let replace s =
   Jst.Eqtrans.replace Coproduct.map (find s)
 
- 
-(** Two coproduct terms [a], [b] are diseq if either
-  - the interpreted terms [S[a]] and [S[b]] are disequal in the theory
-    [COP] of coproducts or
-  - [S^-1(a)], [S^-1(b)] are variables disequal in the partition. *)
-let rec is_diseq cfg =
-  Jst.Pred2.orelse
-    (is_diseq1 cfg)
-    (is_diseq2 cfg)
-
-and is_diseq1 (_, s) =
-  Jst.Pred2.apply
-    (replace s)
-    (Jst.Pred2.inj Coproduct.is_diseq)
-
-and is_diseq2 ((p, _) as cfg) =
-  Jst.Pred2.apply
-    (uninterp cfg)
-    (Partition.is_diseq p)
-
 
 let merge ((p, s) as cfg) e =  
   let e' = Fact.Equal.map (replace s) e in

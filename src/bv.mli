@@ -56,9 +56,6 @@ val is_independent : t -> Term.t -> bool
   (** [is_independent s y] holds iff [y] occurs in some [a] such 
     that [x = a] in [s]. *)
 
-val is_diseq : Partition.t * t -> Jst.Pred2.t
-  (** [is_diseq (p, s) a b] holds iff [a <> b] follows from [(p, s)]. *) 
-
 val fold : (Term.t -> Term.t * Jst.t -> 'a -> 'a) -> t -> 'a -> 'a
   (** [fold f s e] applies [f x (a, rho)] for each [x = a] with justification
     [rho] in [s] and accumulates the result starting with [e]. The order of

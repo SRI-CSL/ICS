@@ -69,8 +69,6 @@ type t =
   | External of Name.t * Cnstrnt.t
   | Rename of Name.t * int * Cnstrnt.t
   | Fresh of Th.t * int * Cnstrnt.t
-  | Bound of int
-  | Reify of Sym.uninterp
 
 and slack = Zero | Nonneg of Dom.t
 
@@ -90,8 +88,6 @@ let mk_external n d = External(n, d)
 let mk_slack k sl = Slack(k, sl)
 let mk_rename n k d = Rename(n, k, d)
 let mk_fresh th k d = Fresh(th, k, d)
-let mk_free k = Bound(k)
-let mk_reify f = Reify(f)
 
 
 (** {6 Accessors} *)
@@ -106,10 +102,6 @@ let name_of = function
       Name.of_string (Format.sprintf "%s!%d" "k" i)
   | Fresh(th, i, _) -> 
       Name.of_string (Format.sprintf "%s!%d" (Th.to_string th) i)
-  | Bound(n) ->
-      Name.of_string (Format.sprintf "!%d" n)
-  | Reify(f) -> 
-      Name.of_string (Format.sprintf "?%s" (Name.to_string f))
 
 let cnstrnt_of x =
   let c = match x with
@@ -118,7 +110,6 @@ let cnstrnt_of x =
     | External(_, c) -> c
     | Fresh(_, _, c) -> c
     | Rename(_, _, c) -> c
-    | _ -> Unconstrained
   in
     if c = Unconstrained then raise Not_found else c
 
@@ -189,14 +180,6 @@ let rec cmp x y =
 	  if c1 != 0 then c1 else 
 	    let c2 = Pervasives.compare i j in
 	      if c2 != 0 then c2 else Name.compare n m
-    | Rename _, _ -> -1
-    | Reify(f), Reify(g) ->
-	Name.compare f g
-    | Reify _, _ -> -1
-    | _, Reify _ -> 1
-    | Bound(i), Bound(j) -> 
-	Pervasives.compare i j
-    | Bound _ , _ -> 1
 
 
 let (<<<) x y = (cmp x y <= 0)
@@ -206,23 +189,19 @@ let (<<<) x y = (cmp x y <= 0)
 
 let is_var = function External _ -> true | _ -> false
 let is_rename = function Rename _ -> true | _ -> false
-let is_free = function Bound _ -> true | _ -> false
 let is_slack sl = function Slack(_, sl') when sl = sl' -> true | _ -> false
 let is_nonneg_slack = function Slack(_, Nonneg _) -> true | _ -> false
 let is_zero_slack = function Slack(_, Zero) -> true | _ -> false
 let is_fresh th = function Fresh(th', _, _) when th = th' -> true | _ -> false
-let is_reify = function Reify _ -> true | _ -> false
 
 let is_internal = function
   | Slack _ -> true
   | Rename _ -> true
-  | Fresh _ -> true
-  | Reify _ -> true
   | _ -> false
 
-let d_free = function
-  | Bound(i) -> i
-  | _ -> assert false
+let d_external = function
+  | External(x, c) -> (x, c)
+  | _ -> raise Not_found
 
 
 (** {6 Pretty Printer} *)

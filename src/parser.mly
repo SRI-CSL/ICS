@@ -61,7 +61,7 @@ let name_of_rename = Name.of_string "v"
 %token TRUE FALSE
 %token PLUS MINUS TIMES DIVIDE EXPT
 %token LESS GREATER LESSOREQUAL GREATEROREQUAL  
-%token UNSIGNED APPLY LAMBDA
+%token UNSIGNED APPLY LAMBDA S K I C
 %token WITH CONS CAR CDR NIL
 %token INL INR OUTL OUTR
 %token INJ OUT 
@@ -91,6 +91,7 @@ let name_of_rename = Name.of_string "v"
 %nonassoc IN NOTIN
 %nonassoc LCUR
 %nonassoc LBRA
+%nonassoc COLON
 %nonassoc prec_unary
 
 %type <Term.t> termeof
@@ -180,7 +181,6 @@ var:
 	      Not_found -> Term.Var.mk_var $1 Var.Cnstrnt.Unconstrained }
 | name LCUR cnstrnt RCUR 
          { Term.Var.mk_var $1 $3 }
-| FREE   { Term.Var.mk_free $1 }
 ;
 
 
@@ -197,7 +197,11 @@ list:
 
 apply: 
   term APPLY term               { Apply.mk_apply $1 $3 }
-| LAMBDA LPAR term RPAR         { Apply.mk_abs $3 }
+| LAMBDA name COLON term        { Apply.abstract $2 $4 }
+| S                             { Apply.mk_s () }
+| K                             { Apply.mk_k () }
+| I                             { Apply.mk_i () }
+| C                             { Apply.mk_c () }
 ;
 
 boolean: 
@@ -211,8 +215,7 @@ arith:
 | term MINUS term               { Arith.mk_sub $1 $3 }
 | MINUS term %prec prec_unary   { Arith.mk_neg $2 }
 | term TIMES term               { Nonlin.mk_mult $1 $3 }
-| term DIVIDE term              { Nonlin.mk_div $1 $3 }
-| term EXPT int                 { Nonlin.mk_expt $3 $1 }
+| term EXPT int                 { Nonlin.mk_expt $1 $3 }
 ;
 
 product:

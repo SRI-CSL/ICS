@@ -261,15 +261,6 @@ let _ = Callback.register "sym_mk_mult" sym_mk_mult
 let sym_is_mult = Sym.Pprod.is_mult
 let _ = Callback.register "sym_is_mult" sym_is_mult
 
-let sym_mk_expt = Sym.Pprod.mk_expt
-let _ = Callback.register "sym_mk_expt" sym_mk_expt
-
-let sym_is_expt = Sym.Pprod.is_expt
-let _ = Callback.register "sym_is_expt" sym_is_expt
-
-let sym_d_expt = Sym.Pprod.d_expt
-let _ = Callback.register "sym_d_expt" sym_d_expt
-
 let sym_mk_bv_const s = Sym.Bv.mk_const (Bitv.from_string s)
 let _ = Callback.register "sym_mk_bv_const" sym_mk_bv_const
 
@@ -307,17 +298,30 @@ let _ = Callback.register "sym_mk_select" sym_mk_select
 let sym_is_update = Sym.Array.is_update
 let _ = Callback.register "sym_is_update" sym_is_update
 
-let sym_mk_apply () = Sym.Fun.apply
+let sym_mk_apply () = Sym.Cl.apply
 let _ = Callback.register "sym_mk_apply" sym_mk_apply
 
-let sym_is_apply = Sym.Fun.is_apply
+let sym_is_apply = Sym.Cl.is_apply
 let _ = Callback.register "sym_is_apply" sym_is_apply
 
-let sym_mk_abs () = Sym.Fun.abs
-let _ = Callback.register "sym_mk_abs" sym_mk_abs
+let sym_mk_s () = Sym.Cl.s
+let _ = Callback.register "sym_mk_s" sym_mk_s
 
-let sym_is_abs = Sym.Fun.is_abs
-let _ = Callback.register "sym_is_abs" sym_is_abs
+let sym_is_s = Sym.Cl.is_s
+let _ = Callback.register "sym_is_s" sym_is_s
+
+let sym_mk_k () = Sym.Cl.k
+let _ = Callback.register "sym_mk_k" sym_mk_k
+
+let sym_is_k = Sym.Cl.is_k
+let _ = Callback.register "sym_is_k" sym_is_k
+
+let sym_mk_i () = Sym.Cl.i
+let _ = Callback.register "sym_mk_i" sym_mk_i
+
+let sym_is_i = Sym.Cl.is_i
+let _ = Callback.register "sym_is_i" sym_is_i
+
 
 let sym_mk_empty () = Sym.Propset.mk_empty
 let _ = Callback.register "sym_mk_empty" sym_mk_empty
@@ -612,10 +616,6 @@ let rec term_mk_multl = function
   | a :: b :: l -> term_mk_multl (term_mk_mult a b :: l)
 let _ = Callback.register "term_mk_multl" term_mk_multl
 
-let term_mk_expt = Nonlin.mk_expt 
-let _ = Callback.register "term_mk_expt" term_mk_expt
-
-
 
 let term_mk_create  = Funarr.mk_create
 let _ = Callback.register "term_mk_create" term_mk_create
@@ -625,9 +625,6 @@ let _ = Callback.register "term_mk_update" term_mk_update
 
 let term_mk_select = Funarr.mk_select Term.is_equal
 let _ = Callback.register "term_mk_select" term_mk_select
-
-let term_mk_div = Nonlin.mk_div
-let _ = Callback.register "term_mk_div" term_mk_div
 
 let term_mk_apply = Apply.mk_apply
 let _ = Callback.register "term_mk_apply" term_mk_apply

@@ -53,7 +53,7 @@ val is_empty : t -> bool
 val interp : Partition.t * t -> Jst.Eqtrans.t
 val uninterp : Partition.t * t -> Jst.Eqtrans.t
 
-val copy : t -> t
+val uninterp_with_chaining :  Partition.t * t -> Jst.Eqtrans.t
 
 val name : Partition.t * t -> Jst.Eqtrans.t
 
@@ -61,6 +61,7 @@ val merge : Partition.t * t -> Fact.Equal.t -> unit
 
 val propagate : Partition.t * La.t * t -> Fact.Equal.t -> unit
 
+val copy : t -> t
 
 (** {6 Pretty-printing} *)
 

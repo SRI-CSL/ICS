@@ -13,10 +13,29 @@
 
 open Mpa
 
+exception Found of Term.t * Jst.t
+
 let nl = Th.inj Th.nl
 
-(** Deducing constraints from equalities [x = a], with [a] a power 
-  product, as a side effect on updates in the equality set. *)
+(** A {i flat} term is of the form [x * y]. *)
+let is_flat a =
+  try
+    let (x, y) = Pprod.d_mult a in
+      Term.is_var x && Term.is_var y
+  with
+      Not_found -> false
+
+(** A {i pure} term is of the form [x] or [x1 * (x2 * (x3 * ... * xn))] *)
+let rec is_pure a =
+  try
+    let (x, b) = Pprod.d_mult a in
+      Term.is_var x && is_pure b
+  with
+      Not_found -> true
+
+(** Deducing constraints from equalities [x = a], with [a] a
+  binary multiplication term  [a1 * a2], as a side effect on updates in 
+  the equality set. *)
 module Deduce: (Eqs.EXT with type t = unit) =
 struct
   type t = unit
@@ -25,19 +44,26 @@ struct
   let do_at_restrict _ _ = ()
   let do_at_add (p, (), _) (x, a, rho) =   (* [rho |- x = a] *)
     let (y, tau) = Partition.find p x in   (* [tau |- x = y] *)
-      if Pprod.is_one a then
-	let e = Fact.Equal.make (y, Arith.mk_one(), Jst.dep2 rho tau) in
-	  Fact.Eqs.push nl e
-      else if Term.Var.is_slack y then
-	let (b, c) = Pprod.split a in
-	  assert(Pprod.is_nonneg b);
-	  if Pprod.is_one c then () else     (* deduce [c >= 0]. *)
-	    let nn =  Fact.Nonneg.make (c, Jst.dep2 rho tau) in
-	      Fact.Nonnegs.push nl nn
-      else                                   
-	if Pprod.is_nonneg a then            (* deduce [y >= 0]. *)
-	  let nn = Fact.Nonneg.make (y, Jst.dep2 rho tau) in
-	    Fact.Nonnegs.push nl nn
+      try
+	let (a1, a2) = Pprod.d_mult a in
+	  (match Term.Var.is_slack a1, Term.Var.is_slack a2 with
+	    | true, true ->
+		if not(Term.Var.is_slack y) then
+		  let nn = Fact.Nonneg.make (y, Jst.dep2 rho tau) in
+		    Fact.Nonnegs.push nl nn
+	    | true, false -> 
+		if Term.Var.is_slack y then 
+		  let nn = Fact.Nonneg.make (a2, Jst.dep2 rho tau) in
+		    Fact.Nonnegs.push nl nn
+	    | false, true -> 
+		if Term.Var.is_slack y then 
+		  let nn = Fact.Nonneg.make (a1, Jst.dep2 rho tau) in
+		    Fact.Nonnegs.push nl nn
+	    | false, false -> 
+		())
+      with
+	  Not_found -> ()
+
 end
 
 module Eqs = Eqs.Make(
@@ -62,47 +88,6 @@ let dep = Eqs.dep
 
 let fold = Eqs.fold
 
-  
-(** Search for largest match on rhs. For example, if [a] is
- of the form [x * y] and there is an equality [u = x^2 * y],
- then [inv s a] returns [u * x] if there is no larger
- rhs which matches [a]. *)
-let rec inv s a =
-  let rec inv_plus (b, rho) =         (* [rho |- a = b] *)
-    try 
-      let (c, sigma) = inv1 s b in    (* [sigma |- y = z] *)
-	assert(not(Term.eq b c));
-	let tau = Jst.dep2 rho sigma in
-	  inv_plus (c, tau)
-    with 
-	Not_found -> (b, rho)
-  in
-    inv_plus (inv1 s a)
-
-and inv1 s pp =
-  try
-    let x = Pprod.choose pp in  (* arbitrary variable. *)
-    let lookup = ref None in
-      Eqs.Dep.iter s
-	(fun e ->
-	   let (u, qq, rho) = Fact.Equal.destruct e in  (* [rho |- u = qq] *)
-	     match Pprod.div (qq, pp) with
-	       | None -> ()
-	       | Some(mm) ->                            (* [qq * mm = pp] *)
-		   (match !lookup with                  (* thus: [rho |- u * mm = pp]. *)
-		      | Some(_, _, mm') when Pprod.cmp mm mm' < 0 -> ()
-		      | _ -> lookup := Some(rho, u, mm)))
-	x;
-      (match !lookup with
-	| Some(rho, u, mm) -> 
-	    let pp' = Pprod.mk_mult u mm in
-	      if Term.eq pp pp' then raise Not_found else (pp', rho)
-	| None ->
-	    raise Not_found)
-  with
-      Not_found ->  (* [pp] a representation of [1]. *)
-	Eqs.inv s pp
-
 let is_dependent = Eqs.is_dependent
 let is_independent = Eqs.is_independent
 
@@ -111,40 +96,122 @@ let copy = Eqs.copy
 let name ((p, _) as cfg) = 
   Jst.Eqtrans.compose (Partition.find p) (Eqs.name cfg) 
 
-(** Canonization by interpreting dependent variables
-  followed by a reduction using Groebner-like cuts. *)
-let rec can cfg =
-  Jst.Eqtrans.compose
-    (Jst.Eqtrans.totalize (uninterp cfg))
-    (Jst.Eqtrans.totalize (interp cfg))
 
-and interp (p, s) a = 
+(** Introduce a pure term [a] to the term universe. The
+  result is a canonical variable, which is equal to [a] in a 
+  extended configuration obtained by destructive updates. *)
+let rec pure2var ((p, _) as cfg) a =
+  assert(is_pure a);
+  try
+    let (x, b) = Pprod.d_mult a in
+    let (y, rho) = pure2var cfg b in
+    let a' = Pprod.mk_mult x y in
+    let (z, tau) = name cfg a' in
+      (z, Jst.dep2 rho tau)
+  with
+      Not_found -> Partition.find p a
+
+
+(** Process an equality [e] over pure terms
+  - by flattening of the left-hand and right-hand side of [e],
+  - by merging the resulting variable equality in partition [p], and
+  - by fusing the variable equality on right-hand side. *)
+let rec process ((p, _) as cfg) e =
+  Trace.msg "nl" "Process" e Fact.Equal.pp;
+  assert(Fact.Equal.both_sides is_pure e);
+  let e = Fact.Equal.map (pure2var cfg) e in
+    assert(Fact.Equal.is_var e);
+    Partition.merge p e;      
+    Eqs.fuse cfg [e]
+	    
+let interp (p, s) a = 
   if Term.is_var a then
     Partition.choose p (apply s) a
   else 
     Jst.Eqtrans.id a
 
-and uninterp (p, s) a =
+let uninterp (p, s) a =
   try
     Jst.Eqtrans.compose (Partition.find p) (inv s) a
   with
       Not_found -> Partition.find p a
 
+let rec uninterp_with_chaining (p, s) a =
+  Trace.msg "nl" "Uninterp" a Term.pp;
+  close (p, s) a;
+  uninterp (p, s) a
+  
+(** Locally apply forward chaining for a term [a] of
+  the form [x1 * ... * xn].  
+  - For all pairs [x], [y] in [a],  
+  - let [a'] be [a / (x * y)],
+  - for all [z] such that [z = x * y] in [s], and
+  - for all [z' = z] in [p], [z' =/= z], and [b' <> x * y] 
+    such that [z' = b'] in [s],
+  process the equality [a = z * a' = z' * a' = b' * a']. *)
+and close cfg a =
+  Pprod.iter 
+    (fun x n -> 
+       assert(n >= 1);
+       Pprod.iter
+          (fun y m -> 
+	     assert(m >= 1); 
+	     close1 cfg a (x, y);
+	     if n > 1 then close1 cfg a (x, x);
+	     if m > 1 then close1 cfg a (y, y))
+          a)
+    a
 
-(** [replace s a] substitutes dependent variables [x]
-  in [a] with their right hand side [b] if [x = b] in [s].
-  The result is canonized using {!Pprod.map}. *)
-let replace cfg =
-  Jst.Eqtrans.replace Pprod.map (interp cfg)
+and close1 ((p, s) as cfg) a (x, y) =
+  try
+    let (z, rho) = choose s (x, y) in            (* [rho |- z = x * y] *)
+    let a' =                                     (* [|- a = a' * x * y] *)
+      if Term.eq x y then 
+	Pprod.divide a (x, 2)
+      else 
+	Pprod.divide (Pprod.divide a (x, 1)) (y, 1)
+    in
+      Partition.iter_if p
+	(fun z' -> 
+	   if not(Term.eq z z') then
+	     match Partition.is_equal p z z' with (* [tau |- z = z'] *)
+	       | Some(tau) ->                     (* [sigma |- z' = b'] *)
+		   let (b', sigma) = Eqs.apply s z' in
+		   let theta = Jst.dep3 rho tau sigma in
+		   let e' = Fact.Equal.make (a, Pprod.mk_mult a' b', theta) in
+		     process cfg e'
+	       | None -> 
+		   ()) (* should not happen *)
+	z
+  with
+      Not_found -> ()
 
 
-(** Processing an equality. *)
-let merge cfg e = 
-  assert(Fact.Equal.is_pure Th.nl e);
+(** Choose a [z] with [z = x * y] in [s]. *)
+and choose s (x, y) =
+  let (x, y) = Term.orient (x, y) in   (* now [x << y] *)
+    try
+      Eqs.Dep.iter s
+	(fun e ->
+	   let (z, a, rho) = Fact.Equal.destruct e in
+	     try
+	       let (x', y') = Pprod.d_mult a in
+		 if Term.eq x x' && Term.eq y y' then 
+		   raise(Found(z, rho))
+	     with
+		 Not_found -> ())
+	x;
+      raise Not_found;
+    with
+	Found(z, rho) -> (z, rho)	
+
+
+
+(** Processing a variable equality. *)
+and merge cfg e =
   Trace.msg "nl" "Merge" e Fact.Equal.pp;
-  let e = Fact.Equal.map (replace cfg) e in
-  let e = Fact.Equal.map_lhs (Eqs.name cfg) e in  (* not necessarily canonical name. *)
-    Eqs.compose cfg [e]
+  assert(Fact.Equal.is_var e);
+  Eqs.fuse cfg [e]
 
 
 (** Propagate an equality [x = a], where [a] is a linear
