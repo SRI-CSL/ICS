@@ -39,11 +39,11 @@ let equal_width_of a b =
 
 %}
 
-%token DROP CAN ASSERT EXIT SAVE RESTORE REMOVE FORGET RESET SYMTAB SIG VALID UNSAT
+%token DROP CAN ABSTRACT ASSERT EXIT SAVE RESTORE REMOVE FORGET RESET SYMTAB SIG VALID UNSAT
 %token TYPE SIGMA
 %token SOLVE HELP DEF TOGGLE SET TRACE UNTRACE CMP FIND USE INV SOLUTION PARTITION
 %token SHOW CNSTRNT SYNTAX COMMANDS SPLIT
-%token DISEQ CTXT GC
+%token DISEQ CTXT
 %token EOF
 
 %token ARITH TUPLE
@@ -72,7 +72,6 @@ let equal_width_of a b =
 %token WITH CONS CAR CDR NIL
 %token DISJ XOR IMPL BIIMPL CONJ NEG
 %token PROJ
-%token UNSIGNED
 
 %right DISJ XOR IMPL
 %left BIIMPL CONJ
@@ -121,27 +120,26 @@ rat:
 name: IDENT            { Name.of_string $1 }
 
 funsym: 
-  name                                   { Sym.mk_uninterp $1 }
-| PLUS                                   { Sym.mk_add }
-| TIMES                                  { Sym.mk_mult }
-| DIVIDE                                 { Sym.mk_div }
-| EXPT LBRA INTCONST RBRA                { Sym.mk_expt $3 }
-| TUPLE                                  { Sym.mk_tuple }
-| PROJ LBRA INTCONST COMMA INTCONST RBRA { Sym.mk_proj $3 $5 }
-| CONS                                   { Sym.mk_tuple  }
-| CAR                                    { Sym.mk_proj 0 2 }
-| CDR                                    { Sym.mk_proj 1 2 }
-| CONC LBRA INTCONST COMMA INTCONST RBRA               { Sym.mk_bv_conc $3 $5 }
-| SUB LBRA INTCONST COMMA INTCONST COMMA INTCONST RBRA { Sym.mk_bv_sub $3 $5 $7 }
-| BWITE LBRA INTCONST RBRA                             { Sym.mk_bv_bitwise $3 }
+  name                                   { Sym.Uninterp($1) }
+| PLUS                                   { Sym.Arith(Sym.Add) }
+| TIMES                                  { Sym.Uninterp(Name.of_string "mult") }
+| DIVIDE                                 { Sym.Uninterp(Name.of_string "div") }
+| TUPLE                                  { Sym.Tuple(Sym.Product) }
+| PROJ LBRA INTCONST COMMA INTCONST RBRA { Sym.Tuple(Sym.Proj($3, $5)) }
+| CONS                                   { Sym.Tuple(Sym.Product)  }
+| CAR                                    { Sym.Tuple(Sym.Proj(0, 2)) }
+| CDR                                    { Sym.Tuple(Sym.Proj(1, 2)) }
+| CONC LBRA INTCONST COMMA INTCONST RBRA               { Sym.Bv(Sym.Conc($3, $5)) }
+| SUB LBRA INTCONST COMMA INTCONST COMMA INTCONST RBRA { Sym.Bv(Sym.Sub($3, $5, $7)) }
+| BWITE LBRA INTCONST RBRA                             { Sym.Bv(Sym.Bitwise($3)) }
 ;
 
 constsym: 
-  rat       { Sym.mk_num $1 }
-| NIL       { Sym.mk_tuple }
-| TRUE      { Sym.mk_bv_const (Bitv.from_string "1") }
-| FALSE     { Sym.mk_bv_const (Bitv.from_string "0") }  
-| BVCONST   { Sym.mk_bv_const (Bitv.from_string $1) }
+  rat       { Sym.Arith(Sym.Num($1)) }
+| NIL       { Sym.Tuple(Sym.Product) }
+| TRUE      { Sym.Bv(Sym.Const(Bitv.from_string "1")) }
+| FALSE     { Sym.Bv(Sym.Const(Bitv.from_string "0")) }  
+| BVCONST   { Sym.Bv(Sym.Const(Bitv.from_string $1)) }
 ;
 
 
@@ -175,28 +173,43 @@ app:
 arith:
 | term PLUS term                   { Arith.mk_add $1 $3 }
 | term MINUS term                  { Arith.mk_sub $1 $3 }
-| term TIMES term                  { Arith.mk_mult $1 $3 }
-| term DIVIDE term                 { Builtin.mk_div (Istate.current()) $1 $3 }
 | MINUS term %prec prec_unary      { Arith.mk_neg $2 }
-| term EXPT INTCONST               { Arith.mk_expt $3 $1 }
+| term TIMES term                  { Simplify.mk_mult (Istate.current()) ($1, $3) }
+| term DIVIDE term                 { Simplify.mk_div (Istate.current()) ($1, $3) }
+| term EXPT rat                    { Simplify.mk_expt (Istate.current()) $3 $1 }
 ;
 
 
 array:
-  term LBRA term ASSIGN term RBRA { Builtin.mk_update (Istate.current()) $1 $3 $5 }
-| term LBRA term RBRA             { Builtin.mk_select (Istate.current()) $1 $3 } 
+  term LBRA term ASSIGN term RBRA { Simplify.mk_update (Istate.current()) ($1, $3, $5) }
+| term LBRA term RBRA             { Simplify.mk_select (Istate.current()) ($1, $3) } 
 ;
 
 
 bv:
   term BVCONC term   { match Istate.width_of $1, Istate.width_of $3 with
-			  | Some(n), Some(m) -> Bitvector.mk_conc n m $1 $3
-			  | Some _, _ -> raise (Invalid_argument (Term.to_string $3 ^ " not a bitvector."))
-			  | _ -> raise (Invalid_argument (Term.to_string $1 ^ " not a bitvector.")) }
+			  | Some(n), Some(m) -> 
+			      if n < 0 then
+				raise (Invalid_argument ("Negative length of " ^ Term.to_string $1))
+			      else if m < 0 then
+				raise (Invalid_argument ("Negative length of " ^ Term.to_string $3))
+			      else 
+				Bitvector.mk_conc n m $1 $3
+			  | Some _, _ -> 
+			      raise (Invalid_argument (Term.to_string $3 ^ " not a bitvector."))
+			  | _ -> 
+			      raise (Invalid_argument (Term.to_string $1 ^ " not a bitvector.")) }
 | term LBRA INTCONST COLON INTCONST RBRA 
                       { match Istate.width_of $1 with
-			  | Some(n) -> Bitvector.mk_sub n $3 $5 $1
-			  | None ->  raise (Invalid_argument (Term.to_string $1 ^ " not a bitvector.")) }
+			  | Some(n) -> 
+			      if n < 0 then
+				raise(Invalid_argument ("Negative length of " ^ Term.to_string $1))
+			      else if not(0 <= $3 && $3 <= $5 && $5 < n) then
+				raise(Invalid_argument ("Invalid extraction from " ^ Term.to_string $1))
+			      else 
+				Bitvector.mk_sub n $3 $5 $1
+			  | None ->  
+			      raise (Invalid_argument (Term.to_string $1 ^ " not a bitvector.")) }
 | term BWAND term     { Bitvector.mk_bwconj (equal_width_of $1 $3) $1 $3 }
 | term BWOR term      { Bitvector.mk_bwdisj (equal_width_of $1 $3) $1 $3 }
 | term BWIMP term     { Bitvector.mk_bwimp (equal_width_of $1 $3) $1 $3 }
@@ -264,6 +277,8 @@ signature:
 command: 
   CAN atom                  { Result.Atom(Istate.can $2) }
 | CAN term                  { Result.Term(Istate.cant $2) }
+| ABSTRACT term             { Result.Term(Istate.abstract_term $2) }
+| ABSTRACT atom             { Result.Atom(Istate.abstract_atom $2) }
 | ASSERT optname atom       { Result.Process(Istate.process $2 $3) }
 | DEF name ASSIGN term      { Result.Unit(Istate.def $2 $4) }
 | SIG name COLON signature  { Result.Unit(Istate.sgn $2 $4) }
@@ -284,7 +299,6 @@ command:
 				| None -> raise (Invalid_argument (Name.to_string $2 ^ "not in symbol table")) }
 | CTXT optname              { Result.Atoms(Istate.ctxt_of $2) }
 | SIGMA term                { Result.Term($2) }
-| GC                        { Result.Name(Istate.compress()) }
 | term CMP term             { Result.Int(Term.cmp $1 $3) }
 | SHOW optname              { Result.Context(Istate.get_context $2) }
 | FIND optname th term      { Result.Term(Istate.find $2 $3 $4) }
@@ -297,7 +311,7 @@ command:
 				| None -> Result.Cnstrnt(None) }
 | DISEQ optname term        { Result.Terms(Istate.diseq $2 $3) }
 | SPLIT optname             { Result.Atoms(Istate.split()) }
-| SOLVE ith term EQUAL term { failwith "to be done" }		
+| SOLVE ith term EQUAL term { Result.Solution(Istate.solve $2 ($3, $5)) }		
 | TRACE identlist           { Result.Unit(List.iter Trace.add $2) }
 | UNTRACE                   { Result.Unit(Trace.reset ()) }
 | help                      { Result.Unit($1) }
@@ -307,9 +321,9 @@ identlist :
   IDENT                     { [$1] }
 | identlist COMMA IDENT     { $3 :: $1 }
 
-ith: IDENT            { Interp.of_name $1 } /* may raise [Invalid_argument]. */
+ith: IDENT { Sym.interp_theory_of_name $1 } /* may raise [Invalid_argument]. */
 		
-th: IDENT             { Theories.of_name $1 } /* may raise [Invalid_argument]. */
+th: IDENT  { Sym.theory_of_name $1 } /* may raise [Invalid_argument]. */
 
 help:
   HELP                      { Help.on_help () }
