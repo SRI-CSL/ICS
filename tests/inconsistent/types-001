@@ -1,2 +1,2 @@
-assert integer(x).
-assert x=y; x+y=1.
+assert x in int.
+assert x=y & x+y=1.

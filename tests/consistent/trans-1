@@ -1,2 +1,2 @@
-assert x=y; y=z. 
+assert x=y &  y=z. 
 check x=z.

@@ -1,2 +1,6 @@
 % BUG: no more checked!
 % check integer_pred(x) => not (1 < x && x < 2).
+
+assert x in int.
+
+check not(1 < x & x < 2).
