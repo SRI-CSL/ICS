@@ -18,7 +18,7 @@ i*)
 open Term
 (*i*)
 
-let iscod a =
+let is_cod a =
   not(is_var a) &&
   List.for_all is_var (args_of a)
 
@@ -26,14 +26,20 @@ let iscod a =
 
 type t = {
   v : Term.t Map.t;
-  u : Term.t Map.t;
+  inv : Term.t Map.t;
+  find : Term.t Map.t;
   use : Set.t Map.t
 }
 
-let v_of s = s.v
-let u_of s = s.u
+let partition s = s.v
 let use_of s = s.use
 
+let find s x = 
+  try
+    Map.find x s.find
+  with 
+      Not_found -> x
+ 
 
 (*s Use list of a variable *)
 
@@ -91,14 +97,8 @@ let solution s =
        let x' = v s x in
        let b' = inst s b in
        (x',b') :: acc)                (* variable on lhs. *)
-    s.u
+    s.inv
     []
-
-
-(*s Partitioning. *)
-
-let partition s =
-  Map.fold (fun x y acc -> (x,y) :: acc) s.v []
 
 
 (*s Variable equality modulo [s]. *)
@@ -121,23 +121,23 @@ let choose p s =
 
 (*s Lookup. *)
 
-let u s a = 
+let inv s a = 
   if is_var a then 
     v s a
   else if is_const a then
-    v s (Map.find a s.u)
+    v s (Map.find a s.inv)
   else 
     let f, l = destruct a in
     let b =
       choose
 	(fun y ->
-	   (* assert(iscod y); *)
+	   assert(is_cod y);
 	   let g, m = destruct y in
 	   (Sym.eq f g) && 
 	   try List.for_all2 (veq s) l m with Invalid_argument _ -> false)
 	(use s (List.hd l))
     in
-    v s (Map.find b s.u)
+    v s (Map.find b s.inv)
 
 
 (*s Merging two equivalence classes. Make sure that whenever 
@@ -161,7 +161,8 @@ let union s x y =
 
 let empty = {
   v = Map.empty;
-  u = Map.empty; 
+  inv = Map.empty;
+  find = Map.empty; 
   use = Map.empty
 }
 
@@ -170,11 +171,12 @@ let empty = {
 
 
 let rec add a b s =
-  let (u',use') = addu a b (s.u, s.use) in
-  {s with u = u'; use = use'}
+  let (inv',find',use') = addu a b (s.inv, s.find, s.use) in
+  {s with inv = inv'; find = find'; use = use'}
 
-and addu a b (u,use) =
-  (Map.add a b u,
+and addu a b (inv, find, use) =
+  (Map.add a b inv,
+   Map.add b a find,
    List.fold_left 
      (fun acc x -> 
 	try 
@@ -194,7 +196,7 @@ and addu a b (u,use) =
 let restrict a s = 
   Trace.msg 6 "Restrict(u)" a Term.pp;
   {s with 
-     u = Map.remove a s.u;
+     inv = Map.remove a s.inv;
      use = List.fold_left
 	     (fun acc x ->
 		try
@@ -214,8 +216,9 @@ let rec can s a =
   if is_var a then
     v s a
   else  
-    let b = mk_app (sym_of a) (List.map (can s) (args_of a)) in
-    try v s (u s b) with Not_found -> b
+    let f, l = Term.destruct a in
+    let b = mk_app f (List.map (can s) l) in
+    try v s (inv s b) with Not_found -> b
 
 
 
@@ -247,8 +250,8 @@ let merge e s =
 	   Set.fold
 	     (fun y (s2,xl2) ->
 		if congruent s2 x y then 
-		  let a' = u s2 x in   (* [u] never raises [Not_found] here. *)
-		  let b' = u s2 y in
+		  let a' = inv s2 x in   (* [inv] never raises [Not_found] here. *)
+		  let b' = inv s2 y in
 		  if eq a' b' then 
 		    (s2, xl2) 
 		  else 
@@ -283,6 +286,7 @@ let is_label x = Set.mem x !labels
 (*s Adding an entry [f(c1,...,cn) |-> c] for [c] fresh. *)
 
 let extend a s =
+  assert(is_cod a);
   Trace.call 5 "Extend(u)" a Term.pp;
   let c = mk_label () in
   Trace.exit 5 "Extend(u)" c Term.pp;
@@ -293,14 +297,14 @@ let extend a s =
  with their canonical representatives w.r.t. to [v] *)
 
 let compress s =  
-  let (u',use') = 
+  let (inv',find',use') = 
     Map.fold 
       (fun x y acc ->
 	 let x' = inst s x in
 	 let y' = inst s y in
 	 addu x' y' acc)
-      s.u 
-      (Map.empty, Map.empty)
+      s.inv 
+      (Map.empty, Map.empty, Map.empty)
   in
   let v' = 
     Map.fold
@@ -311,7 +315,7 @@ let compress s =
 	   acc)
       s.v s.v
   in 
-  {v = v'; u = u'; use = use'}
+  {v = v'; inv = inv'; find = find'; use = use'}
 
 
 (*s Pretty-printing. *)
@@ -320,10 +324,11 @@ let pp fmt s =
   if not(Map.empty == s.v) then
     begin
       Pretty.string fmt "v:"; 
-      Pretty.solution Term.pp fmt (partition s);
+      let ps = Term.Map.fold (fun x y acc -> (x,y) :: acc) (partition s) [] in
+      Pretty.solution Term.pp fmt ps;
       Pretty.string fmt "\n"
     end;
-  if not(Map.empty == s.u) then
+  if not(Map.empty == s.inv) then
     begin
       Pretty.string fmt "u:"; 
       Pretty.solution Term.pp fmt (solution s);

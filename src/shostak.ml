@@ -66,13 +66,13 @@ let is_diseq s a b =
 
 let inv i s = 
   match i with
-    | Theories.Uninterp -> Cc.u s.u 
+    | Theories.Uninterp -> Cc.inv s.u 
     | Theories.Interp(i) -> Th.inv i s.i
 
 let find i s x =
   match i with
-    | Theories.Interp(i) -> (try Th.find i s.i x with Not_found -> x)
-    | Theories.Uninterp -> x
+    | Theories.Interp(i) -> Th.find i s.i x
+    | Theories.Uninterp ->  x
 
 let use i s = 
   match i with
@@ -91,7 +91,7 @@ let solution e s =
 
 (*s Variable partitioning. *)
 
-let partition s = Cc.v_of s.u
+let partition s = Cc.partition s.u
 
 
 (*s Abstracting a term [a] in theory [i]. *)
@@ -109,11 +109,8 @@ let abs s a =
 (*s Canonization of terms. *)
 
 let rec can_t s a =
-  Trace.call 7 "Can" a Term.pp;
   let (s',a') = can_term s a in
-  let (s'',a'') = if is_var a' then (s', a') else abs s' a' in
-  Trace.exit 7 "Can" a'' Term.pp;
-  (s'',a'')
+  if is_var a' then (s', a') else abs s' a'
 
 and can_term s a =
   if is_var a then
@@ -134,7 +131,9 @@ and can_list i s l =
     (fun x (s, l) ->
        let (s', x') = can_term s x in
        let x'' = find i s x' in (*i not [s'] i*)
-       if Term.is_var x'' || i = Theories.index x'' then
+       if Term.is_var x'' || 
+          (i <> Theories.Uninterp && i = Theories.index x'') 
+       then
 	 (s', x'' :: l)
        else 
 	 let (s'', x''') = abs s' x'' in
@@ -213,14 +212,14 @@ and can_c s c a =
 	  let (s,y) = can_t s (Arith.mk_num q) in
 	  (s, Atom.mk_equal x y)
       | None ->
-	  (match cnstrnt s a with
+	  (match cnstrnt s x with
 	     | None -> 
 		 (s, Atom.mk_in c x)
 	     | Some(d) -> 
 		 (match Cnstrnt.cmp c d with
-		    | Binrel.Same | Binrel.Sub -> 
+		    | Binrel.Sub -> 
 			(s, Atom.mk_in c x)
-		    | Binrel.Super ->
+		    | (Binrel.Super | Binrel.Same) ->
 			(s, Atom.mk_true)
 		    | Binrel.Disjoint ->
 			(s, Atom.mk_false)
@@ -272,7 +271,6 @@ and mergel s es =
     mergel s' (Veqs.union es' acc')
 
 and merge1 s e =
-  Trace.msg 2 "Merge" e Veq.pp;
   let (u',el') = Cc.merge e s.u 
   and (i',el'') = Th.merge e s.i
   and d' = D.merge e s.d in
@@ -280,12 +278,10 @@ and merge1 s e =
    Veqs.union el' el'')
 
 and add s c x =
-  Trace.msg 2 "Add" (x,c) (Pretty.infix Term.pp "in" Cnstrnt.pp);
   let (i',es') = Th.add (x,c) s.i in
   mergel {s with i = i'} es'
 
 and diseq s (x,y) =
-  Trace.msg 2 "Diseq" (x,y) (Pretty.infix Term.pp "<>" Term.pp);
   {s with d = D.add (x,y) s.d}
 
 (*s Compression. *)
