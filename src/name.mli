@@ -11,39 +11,43 @@
  * benefit corporation.
  *)
 
-(** Datatype of names. There is a string associated with every name.
+(** Datatype of names
   
   @author Harald Ruess
+
+  There is a string associated with every name, and equality on
+  names is decided in constant time.
 *)
 
 type t
-
+  
 val of_string : string -> t
   (** [of_string s] constructs a name with associated string [s]. *)
-
+  
 val to_string : t -> string
   (** [to_string n] returns the string associated with [n]. *)
-
+  
 val eq : t -> t -> bool
   (** [eq n m] holds if the strings associated with [n] and [m] are
     equal. This test has constant runtime. *)
 
-val cmp : t -> t -> int
+val compare : t -> t -> int
   (** If [s] ([t]) is the string associated to [n] ([m]), then
-    [cmp n m] is just [Pervasives.compare s t]. *)
+    [compare n m] equals [0] iff [eq n m]. Furthermore, if [compare n m]
+    equals [i], then [compare m n] equals [-i]. *)
   
 val pp : t Pretty.printer
   (** Pretty-printing of names. *)
-
+  
 val hash : t -> int
   (** Return hash values for names [n]. Not injective. *)
-
+  
 module Set : (Set.S with type elt = t)
   (** Sets of names. *)
-
+  
 module Map : (Map.S with type key = t)
   (** Maps with names in the domain. *)
-
+  
 module Hash :  (Hashtbl.S with type key = t)
   (** Hash table with names as keys. *)
-
+  
