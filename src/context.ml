@@ -177,10 +177,12 @@ let umap f a =
     | App(g, l) ->  mk_app g (mapl f l)
 
 let u_fuse (x, a) s =
+  assert (is_var x);
   let (p', u') =  Solution.fuse umap (s.p, s.u) [(x, a)] in
   {s with p = p'; u = u'}
 
 let u_compose (x, a) s =
+  assert (is_var x);
   let (p', u') =  Solution.compose umap (s.p, s.u) [(x, a)] in
   {s with p = p'; u = u'}
 
@@ -216,6 +218,7 @@ let rec extend s a =
 		| None -> assert false
 		| Some(x', b') -> 
 		    let (p', a') = 
+		      assert(is_var x');
 		      Solution.compose Arith.map (s.p, s.a) [(x', b')] 
 		    in
 		      (x, {s with p = p'; a = a'})
@@ -253,7 +256,7 @@ let diseq d s =
 
 (*s Close. *)
 
-let maxclose = ref 1024 (* no bound given (as long as there is no overflow) *)
+let maxclose = ref 10 (* no bound given (as long as there is no overflow) *)
 
 let rec close s =
   (repeat 0 close1 &&& normalize) s
@@ -269,8 +272,6 @@ and close1 n s =
     s
 
 and repeat loops f s =
-  Trace.msg "tac" "Repeat" loops Pretty.number;
-  Trace.msg "tac" "with max" !maxclose Pretty.number;
   let t = f loops s in
     if is_confluent t then 
       t
@@ -281,6 +282,7 @@ and repeat loops f s =
 	Format.eprintf "\nWarning: Upper bound reached.@.";
 	t
       end
+
 and is_confluent s = 
   let (vfocus, dfocus, cfocus) = Partition.changed s.p in
   Set.is_empty vfocus &&
@@ -311,6 +313,7 @@ and tuple_prop (x, y) s =
   Trace.msg "t" "Prop" (x, y) Term.pp_equal;
   let fuse (x, y) s = 
     Trace.msg "t" "Fuse" (x, y) Term.pp_equal;
+    assert(is_var x);
     let (p', t') = Solution.compose Tuple.map (s.p, s.t) [(x, y)] in
     {s with t = t'; p = p'}
   in
@@ -380,8 +383,9 @@ and arith_prop (x, y) s =
 
 and arith_fuse (x, y) s =  
  Trace.msg "a" "Fuse" (x, y) Term.pp_equal;
- let (p', a') = Solution.compose Arith.map (s.p, s.a) [(x, y)] in
- {s with a = a'; p = p'}
+  assert(is_var x);
+  let (p', a') = Solution.compose Arith.map (s.p, s.a) [(x, y)] in
+    {s with a = a'; p = p'}
 
 and arith_compose (a, b) s = 
   Trace.msg "a" "Compose" (a, b) Term.pp_equal;
@@ -390,6 +394,7 @@ and arith_compose (a, b) s =
       | None -> s
       | Some(x', b') ->  
 	  Trace.msg "a" "Solve" (x', b') Term.pp_equal;
+	  assert(is_var x');
 	  let (p', a') = Solution.compose Arith.map (s.p, s.a) [x', b'] in
 	  {s with a = a'; p = p'}
   with
@@ -602,6 +607,7 @@ and deduce_from_c focus s =
   let s = {s with p = {s.p with Partition.c = C.reset (c_of s)}} in
   Set.fold
     (fun x s -> 
+       assert(is_var x);
        Trace.msg "tac" "Deduce(c)" x Term.pp;
        try
 	 let i = C.apply (c_of s) (V.find (v_of s) x) in
@@ -651,6 +657,7 @@ and singleton_infer (x, i) s =
     | None ->
 	s
     | Some(q) ->
+	assert(is_var x);
 	let (p', a') = Solution.compose Arith.map (s.p, s.a) [x, Arith.mk_num q] in
 	{s with a = a'; p = p'}
 
