@@ -226,23 +226,39 @@ value icsat_mk_atom(value x1, value x2) {
   CAMLreturn(Val_int(sat_mk_atom(Int_val(x1), Int_val(x2))));
 }
 
-LPFormulaId * tmp_array = NULL;
-int array_size = 0;
+/* LPFormulaId * tmp_array = NULL; */
+/* int array_size = 0; */
 
-void set_array_size(int size) {
-  if (size > array_size) {
-    if (tmp_array != NULL)
-      free(tmp_array);
-    tmp_array = (LPFormulaId *) malloc(sizeof(LPFormulaId)*size);
-    array_size = size;
-  }
+/* void set_array_size(int size) { */
+/*   if (size > array_size) { */
+/*     if (tmp_array != NULL) */
+/*       free(tmp_array); */
+/*     tmp_array = (LPFormulaId *) malloc(sizeof(LPFormulaId)*size); */
+/*     array_size = size; */
+/*   } */
+/* } */
+
+value icsat_mk_or2(value x1, value x2) {
+  CAMLparam2(x1, x2);
+	LPFormulaId tmp_array[2];
+	tmp_array[0] = Int_val(x1);
+	tmp_array[1] = Int_val(x2);
+	CAMLreturn(Val_int(sat_mk_or(2, tmp_array)));
 }
 
-value icsat_mk_or(value x1) {  /* to do */
+value icsat_mk_and2(value x1, value x2) {
+  CAMLparam2(x1, x2);
+	LPFormulaId tmp_array[2];
+	tmp_array[0] = Int_val(x1);
+	tmp_array[1] = Int_val(x2);
+	CAMLreturn(Val_int(sat_mk_and(2, tmp_array)));
+}
+
+value icsat_mk_or(value x1) {
   CAMLparam1(x1);
   int len = icsat_length(x1);
   int i;
-  set_array_size(len);
+  LPFormulaId tmp_array[len];
   for(i = 0; i < len; i++) {
     tmp_array[i] = icsat_head(x1);
     x1 = icsat_tail(x1);
@@ -254,7 +270,7 @@ value icsat_mk_and(value x1) {
   CAMLparam1(x1);
   int len = icsat_length(x1);
   int i;
-  set_array_size(len);
+	LPFormulaId tmp_array[len];
   for(i = 0; i < len; i++) {
     tmp_array[i] = icsat_head(x1);
     x1 = icsat_tail(x1);
