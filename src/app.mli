@@ -18,6 +18,9 @@
 
 val sigma : Sym.t -> Term.t list -> Term.t
 
+val lazy_sigma : Term.t -> Sym.t -> Term.t list -> Term.t
+
+
 
 (*s [is_uninterp a] holds iff the function symbol of [a] is
  uninterpreted (see module [Sym]). *)

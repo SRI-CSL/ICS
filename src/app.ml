@@ -20,6 +20,14 @@ open Term
 
 let sigma f l =
   Term.mk_app f l
+
+let lazy_sigma a f l =
+  assert(not(is_var a) && Sym.eq (sym_of a) f);
+  let m = args_of a in
+  if try List.for_all2 eq l m with Invalid_argument _ -> false then
+    a
+  else 
+    sigma f l
 	  
 let is_uninterp a =
   not(Term.is_var a) &&
