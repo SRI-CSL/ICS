@@ -23,7 +23,6 @@ let is_interp = function
   | App(Tuple _, _) -> true
   | _ -> false
 
-
 (*s Destructors. *)
 
 let d_tuple = function
@@ -53,12 +52,22 @@ let mk_tuple =
   let product = Tuple(Product) in
     function
       | [x] -> x
-      | l -> Term.mk_app product l
+      | ([x; y] as xl) ->
+	  (match x, y with
+	     | App(Tuple(Proj(0,2)), [z1]), 
+	       App(Tuple(Proj(1,2)), [z2]) when Term.eq z1 z2 ->
+		 z1
+	     | _ ->
+		 Term.mk_app product xl)
+      | xl -> 
+	  Term.mk_app product xl
 
 let mk_proj i n a =
-  match d_tuple a with
-    | Some(xl) -> List.nth xl i
-    | None -> Term.mk_app (Tuple(Proj(i, n))) [a]
+  match a with
+    | App(Tuple(Product), xl) ->
+	List.nth xl i
+    | _ -> 
+	Term.mk_app (Tuple(Proj(i, n))) [a]
 
 
 (*s Apply term transformer [f] at uninterpreted positions. *)
@@ -112,47 +121,44 @@ let rec solve (a, b) =
 and solvel el sl =
   match el with
     | [] -> sl
-    | (a,b) :: el1 ->
-	if Term.eq a b then 
-	  solvel el1 sl
-	else if is_var a then
-	  if Term.occurs a b then
-	    raise Exc.Inconsistent
-	  else 
-	    solvel el1 (add (a, b) sl)
-	else 
-	  match d_proj a with
-	    | Some(i,n,x) ->
-		solvel (proj_solve i n x b :: el1) sl
-	    | None ->
-		(match d_proj b with
-		   | Some(j,n,y) ->
-		       solvel (proj_solve j n y a :: el1) sl
-		   | None ->
-		       (match d_tuple a, d_tuple b with
-			  | Some(al), Some(bl) ->
-			      solvel (tuple_tuple_solve al bl @ el1) sl
-			  | Some(al), None ->
-			      if is_consistent b al then
-				solvel el1 (add (b,a) sl)
-			      else 
-				raise Exc.Inconsistent
-			  | None, Some(bl) ->
-			      if is_consistent a bl then
-				solvel el1 (add (a,b) sl)
-			      else
-				raise Exc.Inconsistent
-			  | None, None ->
-			      let sl1 = add (Term.orient(a,b)) sl in
-			      solvel el1 sl1))
+    | (a, b) :: el1 ->
+	solve1 (a, b) el1 sl 
 
-and is_consistent a bl =
-  not(List.exists (fun y -> Term.eq a y) bl)
+and solve1 (a, b) el sl = 
+  if Term.eq a b then 
+    solvel el sl
+  else if Term.is_var b then
+    solvevar (b, a) el sl
+  else match a with
+    | App(Tuple(Proj(i, n)), [x]) -> 
+	solvel (proj_solve i n x b :: el) sl
+    | App(Tuple(Product), xl) ->
+	solvel (tuple_solve xl b el) sl 
+    | _ -> 
+	solvevar (a, b) el sl
 
-(*s [solve ((s0,...,sn), (t0,...,tn)) = [(s0,t0),...(sn,tn)] *)  
+and solvevar (x, b) el sl =
+  if is_var b then
+    solvel el (add (Term.orient (x, b)) sl)
+  else if Term.occurs x b then
+    raise Exc.Inconsistent
+  else 
+    solvel el (add (x, b) sl)
+	
+(*s [(a0,...,a{n-1}) = b] iff [a0 = proj{0,n}(b)] and ... 
+ and [a{n-1} = proj{n-1, n}(b)] *)
 
-and tuple_tuple_solve al bl = 
-   List.fold_right2 (fun a b acc -> add (a, b) acc) al bl []
+and tuple_solve al b acc = 
+  let n = List.length al in
+  let rec loop i al acc =
+    match al with
+      | [] -> acc
+      | a :: al' ->
+	  let b' = mk_proj i n b in
+          let acc' = (a, b') :: acc in
+	    loop (i + 1) al' acc'
+  in
+  loop 0 al acc
 
 (*s [solve (proj i n s, t) = (s, \list{c0,...,t,...cn-1})]
      where [ci] are fresh, [s] at [i]-th position. *)
@@ -161,22 +167,19 @@ and proj_solve i n s t =
   let rec args j acc =
     if j = -1 then acc
     else
-      let a =
-	if i = j
-	then t
-	else
-	  mk_fresh () (* equals [mk_proj j n s] *)
-      in
+      let a = if i = j then t else mk_fresh () in (* fresh var equals [mk_proj j n s] *)
       args (j - 1) (a :: acc)
   in
   (s, mk_tuple (args (n - 1) []))
 
-and add ((a : Term.t), b) el =
+and add (a, b) el =
   if Term.eq a b then 
     el
   else
-    let el' = List.map (fun (x,y) -> (x, subst1 y a b)) el in 
-    (a,b) :: el'
+    (a, b) :: (substl a b el)
+
+and substl a b = 
+  List.map (fun (x, y) -> (x, subst1 y a b))
 
 and subst1 a x b =      (* substitute [x] by [b] in [a]. *)
   map (fun y -> if Term.eq x y then b else y) a
