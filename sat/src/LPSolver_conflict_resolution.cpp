@@ -359,6 +359,8 @@ void LPSolver::explain_ics_inconsistency(unsigned int f_idx)
 {
 	clock_t start = clock();	
 
+	num_ics_detected_inconsistencies++;
+
 	if (ics_interface.use_ics_explain()) {
   	if (ics_interface.is_explained()) {
 	  	pair<int *,int> explanation = ics_interface.explain();
@@ -382,9 +384,6 @@ void LPSolver::explain_ics_inconsistency(unsigned int f_idx)
 	  }
 	}
 		
-	
-	num_ics_detected_inconsistencies++;
-
 	queue<unsigned int> & to_do = tmp_queue;
 	to_do.reset();
 	assert(check_marks());
