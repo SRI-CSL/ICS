@@ -1,4 +1,4 @@
-### configuration part (done by ./configure) ################################
+### configuration part (done by ./configure) ###############################
 
 OCAMLSTDLIB = `ocamlc -v | tail -1 | cut -f 4 -d " "`
 
