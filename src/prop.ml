@@ -18,10 +18,10 @@ type t =
   | False
   | Var of Name.t
   | Atom of Atom.t
-  | Disj of t list
-  | Iff of t * t
-  | Ite of t * t * t
-  | Neg of t
+  | Disj of t list * int
+  | Iff of t * t * int
+  | Ite of t * t * t * int
+  | Neg of t * int
 
 type prp = t
 
@@ -36,21 +36,28 @@ let rec pp fmt = function
       Name.pp fmt x
   | Atom(a) -> 
       Atom.pp fmt a
-  | Disj(pl) -> 
+  | Disj(pl, _) -> 
       Pretty.infixl pp " | " fmt pl
-  | Iff(p, q) -> 
+  | Iff(p, q, _) -> 
       Pretty.infix pp " <=> " pp fmt (p, q)
-  | Neg(p) -> 
+  | Neg(p, _) -> 
       Pretty.string fmt "~("; pp fmt p; Pretty.string fmt ")"
-  | Ite(p, q, r) ->
+  | Ite(p, q, r, _) ->
       Pretty.mixfix "if" pp "then" pp "else" pp "end" fmt (p, q, r)
 
-let hash p = 
-  Hashtbl.hash_param 4 4 p
+let hash = function
+  | True -> 0
+  | False -> 1
+  | Var(n) -> Name.hash n
+  | Atom(a) -> Atom.index_of a
+  | Disj(_, hsh) -> hsh
+  | Iff(_, _, hsh) -> hsh
+  | Neg(_, hsh) -> hsh
+  | Ite(_, _, _, hsh) -> hsh
 
 
 let rec equal p q =
-  p == q ||
+  hash p == hash q &&
   (match p, q with
      | True, True ->
 	 true
@@ -60,16 +67,18 @@ let rec equal p q =
 	 Name.eq x y
      | Atom(a), Atom(b) -> 
 	 Atom.equal a b
-     | Disj(pl), Disj(ql) ->
+     | Disj(pl, _), Disj(ql, _) ->
 	 (try List.for_all2 equal pl ql with Invalid_argument _ -> false)
-     | Iff(p1, q1), Iff(p2, q2) ->
+     | Iff(p1, q1, _), Iff(p2, q2, _) ->
 	 equal p1 p2 && equal q1 q2
-     | Neg(p1), Neg(p2) -> 
+     | Neg(p1, _), Neg(p2, _) -> 
 	 equal p1 p2
-     | Ite(p1, q1, r1), Ite(p2, q2, r2) ->
+     | Ite(p1, q1, r1, _), Ite(p2, q2, r2, _) ->
 	 equal p1 p2 && equal q1 q2 && equal r1 r2
      | _ -> 
 	 false)
+
+let eq = (==)
 
 let is_true = function
   | True -> true
@@ -82,7 +91,7 @@ let mk_false =
   False
 
 let mk_var n = 
-  let table = Name.Hash.create 17 in 
+  let table = Name.Hash.create 57 in 
   let _ = Tools.add_at_reset (fun () -> Name.Hash.clear table) in
     try
       Name.Hash.find table n
@@ -99,7 +108,7 @@ let mk_poslit =
       let hash = Atom.index_of
     end)
   in
-  let memo = Table.create 17 in
+  let memo = Table.create 57 in
   let _ = Tools.add_at_reset (fun () -> Table.clear memo) in
     fun a -> 
       try
@@ -121,7 +130,7 @@ let mk_neglit =
       let hash = Atom.index_of
     end)
   in
-  let memo = Table.create 17 in
+  let memo = Table.create 57 in
   let _ = Tools.add_at_reset (fun () -> Table.clear memo) in
     fun a -> 
       try
@@ -135,11 +144,11 @@ let mk_neg =
   let module Table = Hashtbl.Make(
     struct
       type t = prp
-      let equal = (==)
+      let equal = eq
       let hash = hash
     end)
   in
-  let memo = Table.create 5 in
+  let memo = Table.create 57 in
   let _ = Tools.add_at_reset (fun () -> Table.clear memo) in
     fun p -> 
       try
@@ -147,7 +156,7 @@ let mk_neg =
       with
 	  Not_found -> 
 	    let np = match p with
-	      | Neg(q) -> q
+	      | Neg(q, _) -> q
 	      | Atom(a) -> 
 		  (match Atom.atom_of a with
 		     | Atom.TT ->
@@ -163,25 +172,34 @@ let mk_neg =
 			 let b = Atom.mk_pos (Arith.mk_neg t) in
 			   mk_poslit b      (* [not(t >= 0)] iff [-t > 0]. *)
 		     | Atom.Equal _ -> 
-			 Neg(p))
+			 let hsh = (1234 + hash p) land 0x3FFFFFFF in
+			   Neg(p, hsh))
 	      | _ -> 
-		  Neg(p)
+		  let hsh = (1234 + hash p) land 0x3FFFFFFF in
+		    Neg(p, hsh)
 	    in
 	      Table.add memo p np; np
+
 
 let mk_disj =
   let rec simplify acc = function
     | [] -> acc
     | True :: _ -> [True]
     | False :: pl -> simplify acc pl
-    | Disj(ql) :: pl -> simplify acc (ql @ pl)
+    | Disj(ql, _) :: pl -> simplify acc (ql @ pl)
     | p :: pl -> simplify (p :: acc) pl  
+  in
+  let sort = 
+    let cmp p q = 
+      Pervasives.compare (hash p) (hash q) 
+    in
+      List.sort cmp 
   in
   let module Table = Hashtbl.Make(
     struct
       type t = prp list
       let equal pl ql =
-	try List.for_all2 (==) pl ql with Invalid_argument _ -> false
+	try List.for_all2 eq pl ql with Invalid_argument _ -> false
       let hash pl =
 	(List.fold_left (fun h p -> h + hash p) 1 pl) land 0x3FFFFFFF
     end)
@@ -196,37 +214,61 @@ let mk_disj =
 	    let disj = match simplify [] pl with
 	      | [] -> False
 	      | [p] -> p
-	      | pl -> Disj(pl)
+	      | pl -> 
+		  let pl = sort pl in
+		  let hsh = (List.fold_left (fun h p -> h + hash p) 1 pl) land 0x3FFFFFFF in
+		    Disj(pl, hsh)
 	    in
 	      Table.add memo pl disj; disj
 
-let mk_conj pl =
+let mk_conj =
   let rec simplify acc = function
     | [] -> acc
     | True :: pl -> simplify acc pl
     | False :: _ -> [False]
     | p :: pl -> simplify (p :: acc) pl  
   in
-    match simplify [] pl with
-      | [] -> True
-      | [p] -> p	
-      | pl ->  mk_neg (mk_disj (List.map mk_neg pl))  
+  let module Table = Hashtbl.Make(
+    struct
+      type t = prp list
+      let equal pl ql =
+	try List.for_all2 eq pl ql with Invalid_argument _ -> false
+      let hash = function
+	| [p1; p2] -> (hash p1 + hash p2) land 0x3FFFFFFF
+	| [p1; p2; p3] -> (hash p1 + hash p2 + hash p3) land 0x3FFFFFFF
+	| pl -> (List.fold_left (fun h p -> h + hash p) 1 pl) land 0x3FFFFFFF
+    end)
+  in
+  let memo = Table.create 57 in
+  let _ = Tools.add_at_reset (fun () -> Table.clear memo) in
+    fun pl -> 
+      try
+	Table.find memo pl
+      with
+	  Not_found -> 
+	    let conj = match simplify [] pl with
+	      | [] -> True
+	      | [p] -> p	
+	      | pl ->
+		  mk_neg (mk_disj (List.map mk_neg pl))
+	    in
+	      Table.add memo pl conj; conj
 
 let mk_iff =
   let module Table = Hashtbl.Make(
     struct
       type t = prp * prp
       let equal (p1, q1) (p2, q2) = 
-	p1 == p2 && q1 == q2
+	eq p1 p2 && eq q1 q2
       let hash (p, q) = (hash p + hash q) land 0x3FFFFFFF
     end)
  in
- let memo = Table.create 5 in
+ let memo = Table.create 57 in
  let _ = Tools.add_at_reset (fun () -> Table.clear memo) in
   fun p q ->                                     (* order arguments *)
-    let (p, q) = if hash p <= hash q then (p, q) else (q, p) in 
+    let ((p, q) as pq) = if hash p <= hash q then (p, q) else (q, p) in 
       try
-	Table.find memo (p, q)
+	Table.find memo pq
       with
 	  Not_found -> 
 	    let iff = match p with
@@ -237,36 +279,39 @@ let mk_iff =
 		     | True -> p
 		     | False -> mk_neg p
 		     | _ -> 
-			 if equal p q then True else
-			   Iff(p, q))
+			 if eq p q then True else
+			   let hsh = (hash p + hash q) land 0x3FFFFFFF in
+			     Iff(p, q, hsh))
 	    in
-	      Table.add memo (p, q) iff; iff
+	      Table.add memo pq iff; iff
 
 let mk_ite = 
  let module Table = Hashtbl.Make(
     struct
       type t = prp * prp * prp
       let equal (p1, q1, r1) (p2, q2, r2) = 
-	p1 == p2 && q1 == q2 && r1 == r2
+	eq p1 p2 && eq q1 q2 && eq r1 r2
       let hash (p, q, r) =
 	(hash p + hash q + hash r) land 0x3FFFFFFF
     end)
  in
- let memo = Table.create 5 in
+ let memo = Table.create 57 in
   let _ = Tools.add_at_reset (fun () -> Table.clear memo) in
     fun p q r -> 
-      try
-	Table.find memo (p, q, r) 
-      with
-	  Not_found -> 
-	    let ite = match p with
-	      | True -> q
-	      | False -> r
-	      | _ -> 
-		  if q == r then q else
-		    Ite(p, q, r)
-	    in
-	      Table.add memo (p, q, r) ite; ite
+      let pqr = (p, q, r) in
+	try
+	  Table.find memo pqr
+	with
+	    Not_found -> 
+	      let ite = match p with
+		| True -> q
+		| False -> r
+		| _ -> 
+		    if eq q r then q else
+		      let hsh = (hash p + hash q + hash r) land 0x3FFFFFFF in
+			Ite(p, q, r, hsh)
+	      in
+		Table.add memo pqr ite; ite
 
 
 let is_true = function True -> true | _ -> false
@@ -280,10 +325,10 @@ let is_neg = function Neg _ -> true | _ -> false
 
 let d_var = function Var(x) -> x | _ -> invalid_arg "wrong propositional argument"
 let d_atom = function Atom(a) -> a | _ -> invalid_arg "wrong propositional argument"
-let d_disj = function Disj(dl) -> dl | _ -> invalid_arg "wrong propositional argument"
-let d_iff = function Iff(p, q) -> (p, q) | _ -> invalid_arg "wrong propositional argument"
-let d_ite = function Ite(p, q, r) -> (p, q, r) | _ -> invalid_arg "wrong propositional argument"
-let d_neg = function Neg(p) -> p | _ -> invalid_arg "wrong propositional argument"
+let d_disj = function Disj(dl, _) -> dl | _ -> invalid_arg "wrong propositional argument"
+let d_iff = function Iff(p, q, _) -> (p, q) | _ -> invalid_arg "wrong propositional argument"
+let d_ite = function Ite(p, q, r, _) -> (p, q, r) | _ -> invalid_arg "wrong propositional argument"
+let d_neg = function Neg(p, _) -> p | _ -> invalid_arg "wrong propositional argument"
 
 
 (** {6 Translations to/from ICSAT propositions} *)
@@ -440,7 +485,7 @@ let is_model_of propval atomval =
  let module Table = Hashtbl.Make(
    struct
      type t = prp
-     let equal = (==)
+     let equal = eq
      let hash = hash
    end)
  in
@@ -464,24 +509,24 @@ let is_model_of propval atomval =
     | Atom(a) -> 
 	assert(Atom.Map.mem a atomval);
 	Atom.Map.find a atomval
-    | Disj([p; q]) ->
+    | Disj([p; q], _) ->
 	let ep = eval p in
 	  (match ep with
 	     | T -> T
 	     | _ -> eval q)
-    | Disj(pl) ->
+    | Disj(pl, _) ->
 	let el = List.map eval pl in
 	  disjl el
-    | Iff(p, q) ->
+    | Iff(p, q, _) ->
 	equiv (eval p) (eval q)
-    | Ite(p, q, r) ->
+    | Ite(p, q, r, _) ->
 	let ep = eval p in
 	  (match ep with
 	     | T -> (eval q)
 	     | F -> (eval r)
 	     | _ -> 
 		 conditional ep (eval q) (eval r))
-    | Neg(p) ->
+    | Neg(p, _) ->
 	neg (eval p)
  in
    eval
@@ -514,19 +559,19 @@ let to_prop p =
 	  var_to_id x
       | Atom(a) -> 
 	  atom_to_id a
-      | Disj(pl) ->
+      | Disj(pl, _) ->
 	  let pl' =  List.map translate pl in
 	    icsat_mk_or pl'
-      | Iff(p, q) ->
+      | Iff(p, q, _) ->
 	  let p' = translate p in
 	  let q' = translate q in
 	    icsat_mk_iff p' q'
-      | Ite(p, q, r) ->
+      | Ite(p, q, r, _) ->
 	  let p' = translate p in
 	  let q' = translate q in
 	  let r' = translate r in
 	    icsat_mk_ite p' q' r'
-      | Neg(p) ->
+      | Neg(p, _) ->
 	  let p' = translate p in
 	    icsat_mk_not p'
   in
