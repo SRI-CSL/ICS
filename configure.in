@@ -3,8 +3,6 @@ dnl ICS autoconf input
 dnl make sure we are using a recent autoconf version
 AC_PREREQ(2.50)
 
-AC_SUBST(SYSTEM_LIBS)
-SYSTEM_LIBS=
 AC_DEFUN([CSL_CHECK_DOT_A_LIB],
 [ 	
 AC_MSG_NOTICE([Trying to find a usable $1])
@@ -225,7 +223,7 @@ CSL_CHECK_DOT_A_LIB(libgmp.a, $with_gmp,
 dnl ICS CERTIFICATE Libraries
 posixos=`./os`
 if test "$posixos" = "sunos"; then
-	 AC_CHECK_LIB(socket, htonl, SYSTEM_LIBS="-lsocket $SYSTEM_LIBS", AC_MSG_ERROR([*** SOCKET library not found. ***]))
+	 AC_CHECK_LIB(socket, htonl, LIBS="-lsocket $LIBS", AC_MSG_ERROR([*** SOCKET library not found. ***]))
 fi
 CSL_CHECK_DOT_A_LIB(libssl.a libcrypto.a, $with_openssl, 
    [	
@@ -257,6 +255,20 @@ CSL_CHECK_DOT_A_LIB(libssl.a libcrypto.a, $with_openssl,
 			return 0;				
 	 ],
  	 AC_MSG_ERROR([*** Could not find OpenSSL. ***]))
+
+dnl OCAML requires the libraries specified using -l to be inside -ccopt
+olibs=$LIBS
+LIBS=""
+AC_SUBST(MINUS_L_LIBS)
+MINUS_L_LIBS=""
+for curr_lib in $olibs; do 
+  prefix=`echo $curr_lib | cut -c -2`
+  if test "$prefix" = "-l"; then
+		MINUS_L_LIBS="$MINUS_L_LIBS $curr_lib"
+  else
+    LIBS="$LIBS $curr_lib"
+  fi
+done
 
 dnl UPDATE Flags
 if test -n "$CDEBUGFLAG"; then
