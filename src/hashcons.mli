@@ -13,6 +13,7 @@ type 'a t
 val create : int -> 'a t
 val clear : 'a t -> unit
 val hashcons : 'a t -> 'a -> 'a hashed
+val (===) : 'a hashed -> 'a hashed -> bool
 val iter : ('a hashed -> unit) -> 'a t -> unit
 val stat : 'a t -> unit
 
@@ -32,6 +33,7 @@ module type S =
     val create : int -> t
     val clear : t -> unit
     val hashcons : t -> key -> key hashed
+    val (===) : key hashed -> key hashed -> bool
     val iter : (key hashed -> unit) -> t -> unit
     val stat : t -> unit
   end

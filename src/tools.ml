@@ -22,6 +22,8 @@ let verbose_level = ref 0
 
 let set_verbose n = verbose_level := n
 
+let get_verbose () = !verbose_level
+
 let verbose n f x =
   if !verbose_level >= n then begin f x; Format.print_flush () end
 
@@ -50,4 +52,13 @@ let profile str f =
     calls := !calls + 1;
     y
 
+(*s Print to a string *)
 
+let pp_to_string pp x =
+  pp Format.str_formatter x;
+  Format.flush_str_formatter ()
+
+
+(*s Type for comparison. *)
+
+type cmp = Less | Equal | Greater

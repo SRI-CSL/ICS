@@ -17,6 +17,8 @@ HEVEA = @HEVEA@
 OCAMLWEB = @OCAMLWEB@
 OCAMLWEBSTY = $$HOME/tex/ocamlweb.sty
 
+WEBHOME = $$HOME/internal_html/ics
+
 ### end of configuration part ################################################
 
 ifeq ($(MAKELEVEL),0)
@@ -47,15 +49,18 @@ LIBS = -cclib "-lunix $(LIBGMPA)"
 
 COBJS = mlgmp.o
 
-CMO = cmp.cmo hashcons.cmo hasht.cmo ptset.cmo \
-      ptmap.cmo tools.cmo seqs.cmo \
-      gmp.cmo mpa.cmo bitv.cmo exc.cmo term.cmo var.cmo \
-      tset.cmo tmap.cmo pretty.cmo bdd.cmo \
-      euclid.cmo poly.cmo arith.cmo bool.cmo \
-      atom.cmo prop.cmo state.cmo \
-      tuple.cmo arrays.cmo conc.cmo bv.cmo \
-      sets.cmo morphisms.cmo solve.cmo \
-      sign.cmo typ.cmo process.cmo can.cmo dp.cmo ics.cmo
+CMO = cmp.cmo gmp.cmo mpa.cmo \
+      hashcons.cmo hasht.cmo \
+      ptset.cmo ptmap.cmo \
+      tools.cmo binrel.cmo \
+      trace.cmo \
+      interval.cmo \
+      bitv.cmo term.cmo exc.cmo\
+      cnstrnt.cmo var.cmo bdd.cmo \
+      euclid.cmo poly.cmo sets.cmo bool.cmo conc.cmo bv.cmo pretty.cmo arith.cmo \
+      tuple.cmo app.cmo \
+      funsym.cmo subst.cmo \
+      state.cmo solve.cmo process.cmo can.cmo ics.cmo
 
 CMI = $(CMO:.cmo=.cmi)
 
@@ -67,7 +72,7 @@ SRC = $(addprefix $(SRCDIR)/,$(CMO:.cmo=.ml))
 all: $(OBJDIR) $(LIBDIR) $(BINDIR)
 	$(MAKE) -C $(OBJDIR) -f ../../Makefile all-chdir
 
-all-chdir: ics $(LIBDIR)/libics.so $(LIBDIR)/libics.a ics.byte $(OBJDIR)/ics-pvs.lisp 
+all-chdir: ics # $(LIBDIR)/libics.so $(LIBDIR)/libics.a ics.byte $(OBJDIR)/ics-pvs.lisp 
 	@echo 
 	@echo ICS Build complete
 	@echo 
@@ -208,40 +213,70 @@ cprofile:
 	$(BINDIR)/ics.byte $(CPROFFILE)
 	$(MAKE) process.prof
 
-### literate programming
+### Manual
 
-OCAMLWEBARGS = $(DOCDIR)/intro.tex \
-               $(DOCDIR)/ics.tex $(SRCDIR)/ics.mli \
-               $(DOCDIR)/terms.tex $(SRCDIR)/term.mli \
-               $(DOCDIR)/algo.tex $(SRCDIR)/process.mli \
-               $(SRCDIR)/process.ml \
-               $(SRCDIR)/poly.mli $(SRCDIR)/poly.ml \
-               $(SRCDIR)/state.mli $(SRCDIR)/state.ml \
-               $(SRCDIR)/cmd.mli $(SRCDIR)/cmd.ml \
-               $(DOCDIR)/theo.tex $(SRCDIR)/term.ml $(SRCDIR)/arith.mli \
-               $(SRCDIR)/tuple.mli $(SRCDIR)/tuple.ml \
-               $(SRCDIR)/arrays.mli $(SRCDIR)/arrays.ml \
-               $(DOCDIR)/misc.tex $(SRCDIR)/tools.mli \
-               $(SRCDIR)/main.ml
+manual: $(DOCDIR)/manual.ps.gz $(DOCDIR)/manual.pdf  $(DOCDIR)/manual.html
+	cp $(DOCDIR)/manual.ps.gz $(DOCDIR)/manual.pdf  $(DOCDIR)/manual.html $(WEBHOME)
 
-manual: $(DOCDIR)/manual.ps  $(DOCDIR)/manual.html
-	cp  $(DOCDIR)/manual.ps  $(DOCDIR)/manual.html $$HOME/internal_html/ics
+$(DOCDIR)/manual.dvi: $(DOCDIR)/manual.tex
+	(cd $(DOCDIR); (latex ./manual.tex  && latex ./manual.tex))
 
-doc:  $(DOCDIR)/doc.ps  $(DOCDIR)/doc.html
-	cp  $(DOCDIR)/doc.ps  $(DOCDIR)/doc.html $$HOME/internal_html/ics
+$(DOCDIR)/manual.ps:  $(DOCDIR)/manual.dvi
 
-$(DOCDIR)/doc.dvi:  $(DOCDIR)/doc.tex  $(DOCDIR)/dep.ps
+$(DOCDIR)/manual.ps.gz:  $(DOCDIR)/manual.ps
+	gzip -f $(DOCDIR)/manual.ps
+
+$(DOCDIR)/manual.pdf:  $(DOCDIR)/manual.tex
+
+$(DOCDIR)/manual.html: $(DOCDIR)/manual.tex
+	$(HEVEA) $(OCAMLWEBSTY) $(DOCDIR)/manual.tex -o $(DOCDIR)/manual.html
+
+
+### Documention
+
+OCAMLWEBARGS = \
+	$(DOCDIR)/intro.tex \
+               $(DOCDIR)/ics.tex \
+                  $(SRCDIR)/ics.mli \
+               $(DOCDIR)/terms.tex \
+                  $(SRCDIR)/term.mli \
+               $(DOCDIR)/algo.tex \
+                  $(SRCDIR)/process.mli $(SRCDIR)/process.ml \
+                  $(SRCDIR)/poly.mli $(SRCDIR)/poly.ml \
+                  $(SRCDIR)/state.mli $(SRCDIR)/state.ml \
+                  $(SRCDIR)/cmd.mli $(SRCDIR)/cmd.ml \
+               $(DOCDIR)/theo.tex \
+                  $(SRCDIR)/term.ml $(SRCDIR)/arith.mli \
+                  $(SRCDIR)/tuple.mli $(SRCDIR)/tuple.ml \
+                  $(SRCDIR)/arrays.mli $(SRCDIR)/arrays.ml \
+               $(DOCDIR)/misc.tex \
+                  $(SRCDIR)/tools.mli \
+                  $(SRCDIR)/main.ml
+
+doc:  $(DOCDIR)/doc.ps.gz $(DOCDIR)/doc.pdf $(DOCDIR)/doc.html
+	cp $(DOCDIR)/doc.ps.gz $(DOCDIR)/doc.pdf $(DOCDIR)/doc.html $(WEBHOME)
+
+$(DOCDIR)/doc.dvi: $(DOCDIR)/doc.tex  $(DOCDIR)/dep.ps
+	(cd $(DOCDIR); (latex ./doc.tex  && latex ./doc.tex))
 
 $(DOCDIR)/doc.ps:  $(DOCDIR)/doc.dvi  $(DOCDIR)/dep.ps
 
+$(DOCDIR)/doc.ps.gz:  $(DOCDIR)/doc.ps
+	gzip -f $(DOCDIR)/doc.ps
+
+$(DOCDIR)/doc.pdf:  $(DOCDIR)/doc.tex
+
 $(DOCDIR)/doc.tex: $(OCAMLWEBARGS) Makefile
-	$(OCAMLWEB) -o $(DOCDIR)/doc.tex $(OCAMLWEBARGS)
+	$(OCAMLWEB) --no-preamble -o $(DOCDIR)/doc-input.tex $(OCAMLWEBARGS)
 
 $(DOCDIR)/doc.html: $(DOCDIR)/doc.tex
 	$(HEVEA) $(OCAMLWEBSTY) $(DOCDIR)/doc.tex -o $(DOCDIR)/doc.html
 
 $(DOCDIR)/dep.ps: $(SRC)
 	$(OCAMLDEP) -native $(SRC) | ocamldot -lr | dot -Tps > $(DOCDIR)/dep.ps
+
+$(DOCDIR)/dep.gif: $(DOCDIR)/dep.ps
+
 
 ### Emacs tags
 
@@ -257,13 +292,19 @@ tags:
 
 ### Generic rules
 
-.SUFFIXES: .ml .mli .cmi .cmo .cmx .mll .mly .prof .tex .dvi .ps .html
+.SUFFIXES: .ml .mli .cmi .cmo .cmx .mll .mly .prof .tex .dvi .ps .html .gif .pdf
 
 .tex.dvi:
 	latex $< && latex $<
 
 .dvi.ps: 
 	dvips $< -o $@
+
+.ps.gif: 
+	pstogif $< -o $@
+
+.tex.pdf:
+	pdflatex $< && pdflatex $<
 
 .tex.html:
 	$(HEVEA) $< -o $@
@@ -312,7 +353,7 @@ lexer.ml:  lexer.mll
 parser.mli parser.ml: parser.mly
 
 # Dependencies
-.depend:   # $(SRC)
+.depend: $(SRC)
 	$(OCAMLDEP) *.mli *.ml > .depend
 
 

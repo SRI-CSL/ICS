@@ -1,6 +1,5 @@
 
 (*i*)
-open Prop
 open Ics
 open Lexer
 open Parser
@@ -13,7 +12,6 @@ open Format
 let stat_flag = ref false
 let timing_flag = ref false
 let disable_prompt_flag = ref false
-
 			    
 (*s Exiting the system (on Ctrl-C or Ctrl-D) *)
 
@@ -29,9 +27,8 @@ let inconsistent () = printf "F\n@?"
 let parse_error () = eprintf "Syntax Error\n@?"
 
 let usage () =
-  eprintf "ICS interpreter. Copyright (c) 2000 SRI International.\n";
-  eprintf "  Ctrl-c or Ctrl-d to stop or exit.\n\n@?"
-
+  eprintf "ICS: Integrated Canonizer and Solver. Copyright (c) 2001 SRI International.\n";
+  eprintf "\nType 'help.' for help about help, and 'Ctrl-d' to exit.\n\n@?"
     
 (*s Batch mode. Read commands from files. *)
 
@@ -87,13 +84,13 @@ let repl () =
 let args () =
   let files = ref [] in
   Arg.parse
-      [ "-s", Arg.Set stat_flag, "  Print statistics";
-	"-t", Arg.Set timing_flag, "  Print timings";
-	"-v", Arg.Int set_verbose, "Verbose level";
+      [ "-s", Arg.Set stat_flag,           "  Print statistics";
+	"-t", Arg.Set timing_flag,         "  Print timings";
+	"-v", Arg.Int set_verbose,         "  Verbose levels 0,1,2,...";
 	"-p", Arg.Set disable_prompt_flag, "  Disable printing of prompt"
       ]
       (fun f -> files := f :: !files)
-      "usage: ics [-stp] [files]";
+      "usage: ics [-stvp] [files]";
   List.rev !files
 
 let main () =
@@ -102,6 +99,14 @@ let main () =
     | l -> batch l
 
 let _ = Printexc.catch main ()
+
+
+
+
+
+
+
+
 
 
 

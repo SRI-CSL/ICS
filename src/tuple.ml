@@ -4,35 +4,29 @@ open Hashcons
 open Term
 (*i*)
 
-let rec occurs s t =
-  s == t ||
-  match t.node with
-    | Tuple t -> (match t with
-		    | Proj (_,_,t) -> s == t || occurs s t
-		    | Tup tl -> List.exists (occurs s) tl)
-    | _ -> false
-
 (*s Smart constructors *)
 
 let tuple = function
   | [x] -> x
   | [] -> assert false
-  | l' -> hc (Tuple (Tup l'))
+  | l' -> hc(Tuple(Tup l'))
 
 let proj i n s =
   match s.node with
-    | Tuple t -> (match t with
-		    | Tup l -> List.nth l i
-		    | Proj(j,m,a) -> hc (Tuple(Proj(i + j,n + m,a))))
-    | _ -> hc (Tuple (Proj (i,n,s)))
+    | Tuple t ->
+	(match t with
+	   | Tup l -> List.nth l i
+	   | Proj(j,m,a) -> hc (Tuple(Proj(i + j,n + m,a))))
+    | _ ->
+	hc(Tuple(Proj(i,n,s)))
 
 
 (*s Solving tuples. *) 
 
 let add ((a,b) as e) el =
-  if a == b then el
+  if a === b then el
   else match b.node with
-    | Tuple(Tup l) when List.exists (fun y -> a == y) l ->
+    | Tuple(Tup l) when List.exists (fun y -> a === y) l ->
 	raise (Exc.Inconsistent "Tuple solver")
     | _ -> e :: el
 
@@ -64,19 +58,13 @@ let proj_solve i n s t =
   add (s, tuple (args (n - 1) [])) []
 
 let solve ((a,b) as e) =
-  match a.node,b.node with
-    | Tuple(Tup al), Tuple(Tup bl) -> tuple_tuple_solve al bl
-    | Tuple(Tup al), _ -> tuple_solve b al
-    | Tuple(Proj (i,n,a)), _ -> proj_solve i n a b
-    | _ -> assert false
-
-
-
-
-
-
-
-
-
-
-
+  try
+    let l = match a.node,b.node with
+      | Tuple(Tup al), Tuple(Tup bl) -> tuple_tuple_solve al bl
+      | Tuple(Tup al), _ -> tuple_solve b al
+      | Tuple(Proj (i,n,a)), _ -> proj_solve i n a b
+      | _ -> assert false
+    in
+    Some l
+  with
+      Exc.Inconsistent _ -> None

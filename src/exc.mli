@@ -6,5 +6,3 @@
 exception Inconsistent of string
   
 exception Valid
-
-

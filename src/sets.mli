@@ -1,22 +1,55 @@
+   
+val empty : Term.tag -> Term.t
+val full : Term.tag -> Term.t
 
-(*i*)
-open Term
-(*i*)
-
-val occurs: term -> term -> bool
+    (*s Finite set and arithmetic set constraints. *)
     
-val empty : tag -> term
-val full : tag -> term
-    
-val mem : term -> term -> term
-    
-val ite : tag -> term -> term -> term -> term
+val finite : Term.tnode Ptset.t -> Term.t       
+val cnstrnt : Cnstrnt.t -> Term.t
 
-val inter : tag -> term -> term -> term
-val union : tag -> term -> term -> term
-val compl : tag -> term -> term
-val diff : tag -> term -> term -> term
-val sym_diff : tag -> term -> term -> term
+    
+    (*s Set inclusion and set equality. *)
+    
+val sub : Term.tag -> Term.t -> Term.t -> Term.t
+val equal : Term.tag -> Term.t -> Term.t -> Term.t
 
-val solve : tag -> term * term -> (term * term) list
-val solve_deq : tag -> term * term -> (term * term) list
+    
+    (*s Set connective, including recognizers and destructors. *)
+      
+val ite : Term.tag -> Term.t -> Term.t -> Term.t -> Term.t
+
+val inter : Term.tag -> Term.t -> Term.t -> Term.t
+val union : Term.tag -> Term.t -> Term.t -> Term.t
+val compl : Term.tag -> Term.t -> Term.t
+val diff : Term.tag -> Term.t -> Term.t -> Term.t
+val sym_diff : Term.tag -> Term.t -> Term.t -> Term.t
+val equal : Term.tag -> Term.t -> Term.t -> Term.t
+
+val is_compl : Term.t -> bool
+val is_inter : Term.t -> bool
+val is_union : Term.t -> bool
+val is_sym_diff : Term.t -> bool
+val is_sub : Term.t -> bool
+val is_equal : Term.t -> bool
+
+val d_compl : Term.t -> Term.t
+val d_inter : Term.t -> Term.t * Term.t
+val d_union : Term.t -> Term.t * Term.t
+val d_sym_diff : Term.t -> Term.t * Term.t
+val d_sub : Term.t -> Term.t * Term.t
+val d_equal: Term.t -> Term.t * Term.t
+
+    
+    (*s Solving equalities over terms built up from set connectors. *)
+
+val solve : Term.tag -> Term.eqn -> Term.eqn list option
+
+
+
+
+
+
+
+
+
+

@@ -120,3 +120,46 @@ let rec fold f s accu = match s with
   | Leaf k -> f k accu
   | Branch (_,_,t0,t1) -> fold f t0 (fold f t1 accu)
 
+	
+exception Found
+
+let filter p s =
+  fold (fun x acc -> if p x then add x acc else acc) s empty
+    
+let inter s1 s2 = filter (fun x -> mem x s2) s1
+		    
+let to_list s = fold (fun x acc -> x :: acc) s []
+	  
+let exists p s =
+  try
+    iter (fun a -> if p a then raise Found) s;
+    false
+  with
+      Found -> true
+
+let for_all p s =
+  not (exists (fun x -> not (p x)) s)
+	  
+let sub s1 s2 =
+  for_all (fun x -> mem x s2) s1
+
+let equal s1 s2 =
+  sub s1 s2 && sub s2 s1
+    
+let pp p fmt s =
+  let rec loop = function
+    | [] -> ()
+    | [a] -> p fmt a
+    | a :: l -> p fmt a; Format.fprintf fmt "@ , @ "; loop l
+  in
+  Format.fprintf fmt "@[{"; loop (to_list s); Format.fprintf fmt "}@]"
+	
+
+
+
+
+
+
+
+
+

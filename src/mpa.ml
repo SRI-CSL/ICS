@@ -22,9 +22,10 @@ module Z = struct
   let le x y = Z.cmp x y <= 0
   let gt x y = Z.cmp x y > 0
   let ge x y = Z.cmp x y >= 0
-
+		  
   let to_string z = Z.string_from z 10
-  let pp x = Format.print_string (Z.string_from x 10)
+ 
+  let pp fmt x = Format.fprintf fmt "%s" (Z.string_from x 10)
 end
 
 module Q = struct
@@ -87,7 +88,7 @@ module Q = struct
     with Not_found ->
       Q.from_z (Gmp.Z.from_string s 10)
 
-  let pp x = Format.print_string (to_string x)
+  let pp fmt x = Format.fprintf fmt "%s" (to_string x)
 
 end
 

@@ -3,6 +3,15 @@
 open Hashcons
 (*i*)
 
+module type Var = sig
+  type tnode
+  type t = tnode hashed
+  val fresh : unit -> t
+end
+
+
+module Make(X: Var) = struct
+
 (*s A concatenation normal form is simply an n-ary concatenation
     of basic bitvectors. Hereby, a basic bitvector is either a
     constant, an extraction, or a bitwise conditional operator.
@@ -10,7 +19,7 @@ open Hashcons
 
 type basic_node =
   | Const of Bitv.t
-  | Sub of Term.term * int * int * int
+  | Sub of X.t * int * int * int
   | Ite of basic * basic * basic
 
 and basic = basic_node hashed
@@ -19,26 +28,28 @@ type t = basic list                   (* concatenation normal form *)
 
 (*s Pretty printing *)
 
-let rec pp_basic b = match b.node with
-  | Const(c) ->
-      Format.print_string (Bitv.to_string c)
-  | Sub(x,n,i,j) ->
-      Pretty.term x; Format.printf "[";
-      Format.print_int n; Format.printf ","; 
-      Format.print_int i; Format.printf ","; 
-      Format.print_int j;
-      Format.print_string "]"
-  | Ite(b1,b2,b3) ->
-     Format.printf "bvite ";
-      pp_basic b1;
-      Format.printf " then ";
-      pp_basic b2;
-      Format.printf " then ";
-      pp_basic b3;
-      Format.printf " end"
-      
-let pp =
-  Pretty.list_sep (fun () -> Format.printf " ++ ") pp_basic
+let rec pp_basic xpp fmt b =
+  match b.node with
+    | Const(c) ->
+	Format.fprintf fmt "%s" (Bitv.to_string c)
+    | Sub(x,n,i,j) ->
+	xpp fmt x; Format.fprintf fmt "[%d,%d,%d]" n i j
+    | Ite(b1,b2,b3) ->
+	Format.fprintf fmt "bvite "; pp_basic xpp fmt b1; Format.fprintf fmt " then ";
+	pp_basic xpp fmt b2; Format.fprintf fmt " then "; pp_basic xpp fmt b3; Format.fprintf fmt " end"
+
+let pp_basic2 xpp fmt (b1,b2) =
+  pp_basic xpp fmt b1; Format.fprintf fmt " = "; pp_basic xpp fmt b2
+	  
+let pp xpp fmt bv =
+  let rec pp_conc = function
+    | [] -> ()
+    | [b] -> pp_basic xpp fmt b
+    | b :: l -> pp_basic xpp fmt b; Format.fprintf fmt "@ ++@ "; pp_conc l
+  in
+  pp_conc bv
+
+let pp xpp fmt bv = failwith "to do"
        	
 (* Length of concatenation normal forms *)
 		
@@ -61,25 +72,22 @@ module HashBasic = Hashcons.Make(
 	| Const c, Const d ->
 	    compare c d = 0
 	| Sub(t1,n1,l1,u1), Sub(t2,n2,l2,u2)  ->
-	    t1 == t2 && n1 = n2 && l1 = l2 && u1 = u2			     
+	    t1 === t2 && n1 = n2 && l1 = l2 && u1 = u2			     
 	| Ite(x1,y1,z1), Ite(x2,y2,z2) ->
-	    x1 == x2 && y1 == y2 && z1 == z2
+	    x1 === x2 && y1 === y2 && z1 === z2
 	| _ -> false
     let hash = Hashtbl.hash
   end)
 
 let hc_basic : basic_node -> basic =
-  let ht = HashBasic.create 251 in
+  let ht = HashBasic.create 107 in
   Tools.add_at_exit (fun () -> Format.print_string "Basic bv  : "; HashBasic.stat ht);
   Tools.add_at_reset (fun () -> HashBasic.clear ht);
   HashBasic.hashcons ht
 
 let mk_const c = hc_basic (Const c)
 let mk_eps () = mk_const (Bitv.from_string "")
-let mk_sub x n i j =
-  hc_basic (Sub (x,n,i,j))
-
-let eq_basic = (==)
+let mk_sub x n i j = hc_basic (Sub (x,n,i,j))
 	
 (* Test if a basic bitvector occurs in a concatenation normal form *)
 
@@ -87,7 +95,7 @@ let occursb y b =
   let rec occ b =
     match b.node with
       | Const _ -> false
-      | Sub(x,_,_,_) -> y == x
+      | Sub(x,_,_,_) -> y === x
       | Ite(b1,b2,b3) -> occ b1 || occ b2 || occ b3
   in
   occ b
@@ -111,8 +119,22 @@ module Bvbdd = Bdd.Make(
     let is_low = function {node=Const b} -> Bitv.all_zeros b | _ -> false
     let is_ite = function {node=Ite _} -> true | _ -> false 
     let destructure_ite = function {node=Ite(x,y,z)} -> Some(x,y,z) | _ -> None 
-    let fresh n = mk_sub (Var.fresh "b" []) n 0 (n-1)
+    let fresh n = mk_sub (X.fresh ()) n 0 (n-1)
   end)
+
+let is_bw_neg  = Bvbdd.is_neg
+let is_bw_conj = Bvbdd.is_conj
+let is_bw_disj = Bvbdd.is_disj
+let is_bw_xor  = Bvbdd.is_xor
+let is_bw_imp = Bvbdd.is_imp
+let is_bw_iff = Bvbdd.is_iff
+
+let d_bw_neg = Bvbdd.d_neg 
+let d_bw_conj = Bvbdd.d_conj 
+let d_bw_disj = Bvbdd.d_disj
+let d_bw_xor = Bvbdd.d_xor
+let d_bw_imp = Bvbdd.d_imp
+let d_bw_iff = Bvbdd.d_iff 
 
 let mk_apply b1 b2 b3 =
   assert (lengthb b1 = lengthb b2 && lengthb b2 = lengthb b3);
@@ -137,7 +159,7 @@ let inj n x =
   atom (mk_sub x n 0 (n-1))
 
 let fresh n =
-  inj n (Var.fresh "b" [])
+  inj n (X.fresh ())
 
   
 			   
@@ -164,7 +186,7 @@ let add b bl =
     | Const c, {node=Const d} :: bl' ->
 	(mk_const (Bitv.append c d)) :: bl'
     | Sub(x,n,i,j), {node=Sub(x',n',i',j')} :: bl'
-	when x == x' && i' = j+1 ->
+	when x === x' && i' = j+1 ->
 	  assert (n = n');
 	  (mk_sub x n i j') :: bl'
     | _ -> b :: bl
@@ -270,11 +292,14 @@ let rec solve l1 l2 =
 
 and solveb b1 b2 =
   assert (lengthb b1 = lengthb b2);
-  if eq_basic b1 b2 then [] else
+  if b1 === b2 then [] else
   match b1.node, b2.node with
     | Const c, Const d ->
-	if compare c d = 0 then [] else raise (Exc.Inconsistent "Bitvector solver")
-    | Sub(x,n,i,j), Sub(y,m,k,l) when x == y ->
+	if compare c d = 0 then
+	  []
+	else
+	  raise (Exc.Inconsistent "Bitvector solver")
+    | Sub(x,n,i,j), Sub(y,m,k,l) when x === y ->
 	assert(n = m);
         if i < k then
            solve_extr x n i j k l
@@ -310,6 +335,10 @@ and solve_extr x n i j k l =
      
 and solve_ite b1 b2 =
   let n = lengthb b1 in
-  let bbl = Bvbdd.solve n (Bvbdd.iff n b1 b2) in
-  List.fold_right (fun (b1,b2) acc -> solveb b1 b2 @ acc) bbl []
+  match Bvbdd.solve n (Bvbdd.iff n b1 b2) with
+    | Some(bbl) -> 
+	List.fold_right (fun (b1,b2) acc -> solveb b1 b2 @ acc) bbl []
+    | None ->
+	raise (Exc.Inconsistent "Bitvector solver")
 
+end

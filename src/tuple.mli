@@ -1,15 +1,9 @@
 
-(*i*)
-open Term
-(*i*)
-
-val occurs: term -> term -> bool
-
 (*s Smart constructors *)
 
-val tuple : term list -> term
-val proj : int -> int -> term -> term
+val tuple : Term.t list -> Term.t
+val proj : int -> int -> Term.t -> Term.t
 
 (*s Solver for equation on tuples. \label{tuple} *)
 
-val solve : term * term -> (term * term) list
+val solve : Term.eqn -> Term.eqn list option

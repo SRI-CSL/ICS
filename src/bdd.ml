@@ -1,6 +1,5 @@
 
 (*i*)
-open Term
 open Hashcons
 (*i*)
 
@@ -23,10 +22,6 @@ module Make(Ite : ITE) = struct
 
   open Ite
 
-(*s Equality of BDDs. *)
-  
-  let eq_bdd b1 b2 = (b1 == b2)
-
 (*s Atomic terms are interpred as a positive literal *)
 
   let simplify b =
@@ -45,7 +40,7 @@ module Make(Ite : ITE) = struct
 
   let cofactors tg x s =
     match d_ite tg s with
-      | Some (y,s1,s2) when x == y -> (s1,s2)
+      | Some (y,s1,s2) when x === y -> (s1,s2)
       | _ -> (s,s)
       
   let maxvar x y =
@@ -61,7 +56,7 @@ module Make(Ite : ITE) = struct
   module H3 = Hasht.Make(
     struct
       type t = bdd * bdd * bdd
-      let equal (a1,a2,a3) (b1,b2,b3) = a1 == b1 & a2 == b2 & a3 == b3
+      let equal (a1,a2,a3) (b1,b2,b3) = a1 === b1 & a2 === b2 & a3 === b3
       let hash (b1,b2,b3) = b1.tag + b2.tag + b3.tag
 
     end)
@@ -78,7 +73,7 @@ module Make(Ite : ITE) = struct
       H3.add ht s3 b; b 
 
   and build_fun tg (s1,s2,s3) =
-    if eq_bdd s2 s3 then s2
+    if s2 === s3 then s2
     else if is_high s2 && is_low s3 then s1
     else if is_high s1 then s2
     else if is_low s1 then s3
@@ -90,7 +85,7 @@ module Make(Ite : ITE) = struct
 	  let (p3,n3) = cofactors tg x s3 in
 	  let p = build tg (p1,p2,p3) in
 	  let n = build tg (n1,n2,n3) in
-	  if eq_bdd p n then p else ite tg x p n
+	  if p === n then p else ite tg x p n
       | _ -> assert false
 
   (*s Derived constructors. *)
@@ -101,26 +96,123 @@ module Make(Ite : ITE) = struct
   let xor tg s1 s2  = build tg (s1,neg tg s2,s2)
   let imp tg s1 s2  = build tg (s1,s2,high tg)
   let iff tg s1 s2  = build tg (s1,s2,neg tg s2)
-     
-(*s Returns either an equivalent solved form
-    or raises the Inconsistent exception if not solvable.
-    Based on the equation:
+
+  (*s Derived recognizers. *)
+			
+  let is_neg b =
+    match destructure_ite b with
+      | Some(_,p,n) -> is_low p && is_high n
+      | None -> false
+   
+  let is_conj b =
+    match destructure_ite b with
+      | Some(_,_,n) -> is_low n
+      | None -> false
+
+  let is_disj b =
+    match destructure_ite b with
+      | Some(_,p,_) -> is_high p
+      | None -> false
+
+  let is_xor b =
+    match destructure_ite b with
+      | Some(_,p,n) ->
+	  (match destructure_ite p with
+	     | Some(x',p',n') -> is_low p' && is_high n' && x' === n
+	     | None -> false)
+      | None -> false
+
+  let is_imp b =
+    match destructure_ite b with
+      | Some(_,_,n) -> is_high n
+      | None -> false
+
+  let is_iff b =
+    match destructure_ite b with
+      | Some(_,p,n) ->
+	  (match destructure_ite n with
+	     | Some(x',p',n') -> is_low p' && is_high n' && p === x'
+	     | None -> false)
+      | None -> false
+
+ (*s Derived deconstructors. *)
+			
+  let d_neg b =
+    match destructure_ite b with
+      | Some(x,p,n) when is_low p && is_high n -> x
+      | _ -> raise (Invalid_argument "Bdd.d_neg: not a negation")
+   
+  let d_conj b =
+    match destructure_ite b with
+      | Some(x,p,n) when is_low n -> (x,p)
+      | _ -> raise (Invalid_argument "Bdd.d_conj: not a conjunction")
+
+  let d_disj b =
+    match destructure_ite b with
+      | Some(x,p,n) when is_high p -> (x,n)
+      | _ -> raise (Invalid_argument "Bdd.d_conj: not a disjunction")
+
+  let d_xor b =
+    match destructure_ite b with
+      | Some(x,p,n) ->
+	  (match destructure_ite p with
+	     | Some(x',p',n') when is_low p' && is_high n' && x' === n -> (x,n)
+	     | _ -> raise (Invalid_argument "Bdd.d_xor: not an exclusive or"))
+      | _ -> raise (Invalid_argument "Bdd.d_xor: not an exclusive or")
+	    
+  let d_imp b =
+    match destructure_ite b with
+      | Some(x,p,n) when is_high n -> (x,p)
+      | _ -> raise (Invalid_argument "Bdd.d_imp: not an implication")
+
+  let d_iff b =
+    match destructure_ite b with
+      | Some(x,p,n) ->
+	  (match destructure_ite n with
+	     | Some(x',p',n') when is_low p' && is_high n' && p === x' -> (x,p)
+	     | _ -> raise (Invalid_argument "Bdd.d_imp: not an equivalence"))
+      | _ -> raise (Invalid_argument "Bdd.d_imp: not an equivalence")      
+
+      
+  (* Based on the equation:
        [ite(x,p,n) = (p or n) and exists delta. x = (p and (n => delta))]
-  *)
+   *)
+
+  let solve1 tg s =
+    if is_low s then
+      None
+    else if is_high s then
+      Some []
+    else
+      match destructure_ite s with
+	| Some(x,p,n) ->
+	    let e = conj tg p (imp tg n (fresh tg)) in
+	    if x === e then
+	      Some [disj tg p n, high tg]
+	    else
+	      Some [disj tg p n, high tg; x, e]
+	| _ -> assert false
+
+	      
+	      (*s Returns either an equivalent solved form
+		or raises the Inconsistent exception if not solvable.
+		Based on the equation:
+		[ite(x,p,n) = (p or n) and exists delta. x = (p and (n => delta))]
+	      *)
 
   let subst tg s x t =
     let rec sub s = 
       if is_high s or is_low s then s
       else match d_ite tg s with
 	| Some(y,p,n) ->
-	    if x == y then build tg (t,sub p,sub n) else s
+	    if x === y then build tg (t,sub p,sub n) else s
 	| None ->
-	    if s == x then t else s
+	    if s === x then t else s
     in
     sub s
 
   let add tg x t e =
-    if eq_bdd x t then e else
+    if x === t then e else
       (x,t) :: (List.map (fun (y,s) -> (y, subst tg s x t)) e)
       
   let solve tg s =
@@ -136,40 +228,34 @@ module Make(Ite : ITE) = struct
 	      let e' = add tg x t' e in
 	      let s' = disj tg p n in
 	      if is_low s' then
-		raise (Exc.Inconsistent "BDD solver")
+		raise (Exc.Inconsistent "Bdd solver")
 	      else if is_high s' then
 		e'
+	      else if is_ite s' then
+		triangular_solve s' e'
 	      else
-		triangular_solve (disj tg p n) e'
+		add tg s' (high tg) e'
 	| None ->
 	    add tg s (high tg) e
     in
     if is_low s then
-      raise (Exc.Inconsistent "BDD solver")
+      None
     else if is_high s then
-      []
+      Some []
     else
-      triangular_solve s []
+      try
+	Some(triangular_solve s [])
+      with
+	  Exc.Inconsistent _ -> None
 
-  let solve1 tg s =
-    if is_low s then
-      raise (Exc.Inconsistent "BDD solver")
-    else if is_high s then
-      []
-    else
-      match destructure_ite s with
-	| Some(x,p,n) ->
-	    let x1 = imp tg x p in
-	    let x2 = imp tg (neg tg n) x in
-	    let t = high tg in
-	    let x1' = x1 (* subst tg x1 x2 t *) in
-	    let x2' = x2 (* subst tg x2 x1 t *) in
-	    if is_high x1' then [x2',t]
-	    else if is_high x2' then [x1',t]
-	    else [x1',t; x2',t]
-	| _ -> assert false
-	
 end
+
+
+
+
+
+
+
 
 
 

@@ -22,5 +22,3 @@ val map : ('b -> 'c) -> ('a,'b) t -> ('a,'c) t
 val fold : ('a hashed -> 'b -> 'c -> 'c) -> ('a,'b) t -> 'c -> 'c
 
 
-
-

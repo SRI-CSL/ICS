@@ -5,82 +5,149 @@ open Hashcons
 open Bitv
 (*i*)
 
-(*s Types of terms.  *)
+(*s Constraints. *)
 
-type cnstrnt = Int | Real | Pos | Neg | Nonneg | Nonpos
+type nonreal =
+  | Boolean
+  | Predicate
+  | Cartesian
+  | Bitvector
+  | Other
+
+module Nonreals: (Set.S with type elt = nonreal) 
+
+type cnstrnt =
+  | Top
+  | Sub of Nonreals.t * Interval.t
+  | Bot
+  
+(*s Types of terms. *)
 
 type variable = string
 
 type tag = int
 
-type term =
-    term_node hashed
+type t = tnode hashed
 
-and term_node =
+and tnode =
   | Var of variable
-  | App of term * term list
-  | Update of term * term * term
-  | Equal of term * term
-  | Cnstrnt of cnstrnt * term
+  | App of t * t list
+  | Update of t * t * t
   | Arith of arith
   | Tuple of tuple
   | Bool of prop
   | Set of set
   | Bv of bv
-      
+
 and arith =
   | Num of Q.t
-  | Times of term list
-  | Plus of term list
-    
+  | Add of t list
+  | Multq of Q.t * t
+  | Mult of t list
+  | Div of t * t
+  
 and prop =
   | True
   | False
-  | Ite of term * term * term
-  | Forall of variable list * term
-  | Exists of variable list * term
+  | Equal of t * t  
+  | Ite of t * t * t
+  | Forall of variable list * t
+  | Exists of variable list * t
 
 and set =
   | Empty of tag
   | Full of tag
-  | SetIte of tag * term * term * term
+  | Finite of terms
+  | Cnstrnt of cnstrnt
+  | SetIte of tag * t * t * t
       
 and tuple =
-  | Tup of term list
-  | Proj of int * int * term
+  | Tup of t list
+  | Proj of int * int * t
 
 and bv =
   | Const of Bitv.t
   | Conc of fixed list
+  | BvToNat of t
   | Extr of fixed * int * int
   | BvIte of fixed * fixed * fixed
-
-and fixed = int * term
  
-(*s Constructors. The constructors of the above types should not be used
-    directly, and the following functions have to be used instead.
-    There are two reasons: first, the following functions perform hash-consing,
-    sharing the common subterms whenever it is possible; secondly, they
-    prevent the construction of ill-formed terms like 
-    [(NotArith (Arith a))] or [(Arith (NotArith a))]. *)
+and fixed = int * t
 
-val hc : term_node -> term
+and terms = tnode Ptset.t
 
-(*s Equality and comparison of terms.  Due to internal hash-consing,
-    equality is always done in constant time $O(1)$. Comparison
-    functions are split into two categories: fast ones using internal
-    tagging with unique integers, and structural ones. The former are
-    session-dependent and the latter are not. *)
+type eqn = t * t
+ 
+(*s Hashconsing of terms. Terms constructed this way can be compared using (==) *)
 
-val fast_cmp : term -> term -> int
-val cmp : term -> term -> int
+val hc : tnode -> t
 
-val is_const : term -> bool
+(*s Fast comparison is done in constant time, but is session-dependent,
+    since it uses physical addresses. In constrast, [cmp] is session-independent
+    but requires linear time
+ *)
 
-val is_uninterpreted : term -> bool
+val fast_cmp : t -> t -> int
+val cmp : t -> t -> int
+
+val is_const : t -> bool
+
+(*s Some functions for distinguishing between interpreted and uninterpreted terms. *)
+
+val is_uninterpreted : t -> bool
+
+val iter_uninterpreted : (t -> unit) -> t -> unit
+
+val occurs_interpreted : t -> t -> bool
+
+val is_ground : t -> bool 
     
-(*s Caches for functions over terms. *)
+(*s Caches for functions over ts. *)
 		  
-val cache : int -> (term -> 'a) -> (term -> 'a)
-val cache2 : int -> (term*term -> 'a) -> (term*term -> 'a)    
-val cachel : int -> (term list -> 'a) -> (term list -> 'a)    
+val cache : int -> (t -> 'a) -> (t -> 'a)
+val cache2 : int -> (t*t -> 'a) -> (t*t -> 'a)    
+val cachel : int -> (t list -> 'a) -> (t list -> 'a)
+
+(*s Set of terms *)
+
+type term = t
+    
+module Set : sig
+  type t = terms
+  val empty : t
+  val mem : term -> t -> bool
+  val add : term -> t -> t
+  val singleton: term -> t
+  val sub : t -> t -> bool
+  val is_empty : t -> bool
+  val remove : term -> t -> t
+  val union : t -> t -> t
+  val inter : t -> t -> t
+  val iter : (term -> unit) -> t -> unit
+  val iter2 : (term -> term -> unit) -> t -> unit
+  val fold : (term -> 'a -> 'a) -> t -> 'a -> 'a
+  val map : (term -> term) -> t -> t
+  val exists : (term -> bool) -> t -> bool
+  val for_all : (term -> bool) -> t -> bool
+  val filter : (term -> bool) -> t -> t
+  val to_list : t -> term list
+  val choose : (term -> bool) -> t -> term
+  val destructure : t -> term * t
+end
+
+(*s Finite maps with terms as domain *)
+
+module Map : sig
+  type 'a t
+  val empty : 'a t
+  val is_empty : 'a t -> bool 
+  val add : term -> 'a -> 'a t -> 'a t
+  val find : term -> 'a t -> 'a
+  val remove : term -> 'a t -> 'a t
+  val mem :  term -> 'a t -> bool
+  val iter : (term -> 'a -> unit) -> 'a t -> unit
+  val map : ('a -> 'b) -> 'a t -> 'b t
+  val fold : (term -> 'a -> 'b -> 'b) -> 'a t -> 'b -> 'b
+  val choose : (term -> term -> bool) -> term t -> term * term
+  val to_list : 'a t -> (term * 'a) list
+end

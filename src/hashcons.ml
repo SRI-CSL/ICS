@@ -89,6 +89,8 @@ let hashcons h node =
     add h hkey hnode;
     hnode
 
+let (===) = (==)
+
 let iter f h =
   let rec bucket_iter = function
     | Empty -> ()
@@ -133,6 +135,7 @@ module type S =
     val create : int -> t
     val clear : t -> unit
     val hashcons : t -> key -> key hashed
+    val (===) : key hashed -> key hashed -> bool
     val iter : (key hashed -> unit) -> t -> unit
     val stat : t -> unit
   end
@@ -183,7 +186,18 @@ module Make(H : HashedType) : (S with type key = H.t) =
 	add h hkey hnode;
 	hnode
 
+    let (===) = (==)
+
     let iter = iter
 
     let stat = stat
   end
+
+
+
+
+
+
+
+
+

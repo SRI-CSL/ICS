@@ -1,12 +1,9 @@
-(*i*)
-open Term
-(*i*)
 
-val var : variable -> term
+val var : Term.variable -> Term.t
   
-val is_var : term -> bool
+val is_var : Term.t -> bool
 
-val create : variable -> term
+val create : Term.variable -> Term.t
 
-val fresh : variable  -> term list -> term
+val fresh : Term.variable  -> Term.t list -> Term.t
     

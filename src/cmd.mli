@@ -3,21 +3,23 @@
 open Ics
 (*i*)
 
-val state : unit -> State.t
-  
 val sigma : term -> unit
-val solve : term * term -> unit
+val solve : term option -> term * term -> unit
 val process : term -> unit
-val processl : term list -> unit
 val reset : unit -> unit
 val drop : unit -> unit
-val compare : term * term -> unit
+val less : term * term -> unit
 val verbose : int -> unit
 val find : term option -> unit
 val use : term option -> unit
-val universe : term option -> unit
+val ext : term option -> unit
+val ctxt : unit -> unit
+val cnstrnt: term option -> unit
+val uninterp : term option -> unit
 val can : term -> unit
+val simp : term -> unit
 val norm : term -> unit
 val check : term -> unit
-val polarity : term -> unit
-val typ : term -> unit
+val help : unit -> unit
+val help_syntax : unit -> unit
+val help_commands : unit -> unit

@@ -1,7 +1,4 @@
 
-(*i*)
-open Term
-(*i*)
 
 (*s The solver for the combined theory.
     If neither [a] nor [b] contain uninterpreted terms
@@ -27,4 +24,4 @@ open Term
     does only occur as a proper subterm of an uninterpreted term, namely
     [x + 2]. *)
 
-val solve : term option -> term * term -> (term * term) list
+val solve : Term.t option -> State.t -> Term.eqn -> Subst.t
