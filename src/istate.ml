@@ -1163,7 +1163,11 @@ let do_sat =
     (fun p ->
        match Prop.sat !current p with
 	 | None -> 
-	     Out.inconsistent ()
+	     let rho = Justification.dependencies [] in
+	       if !batch then (* Exit in batch mode when inconsistency is detected *)
+		 raise(Justification.Inconsistent(rho))
+	       else
+		 Out.inconsistent ()
 	 | Some(rho, s') -> 
 	     let n = fresh_state_name () in
 	       symtab := Symtab.add n (Symtab.State(s')) !symtab;
