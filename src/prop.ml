@@ -227,7 +227,7 @@ let _ = Callback.register "add_scratch_context" add_scratch_context
 
 (** Calling external SAT solver *)
 
-external icsat_sat : t -> bool = "icsat_sat"
+external icsat_sat : prop -> bool = "icsat_sat"
 
 let init s = 
   icsat_initialize();    (* Initialize SAT solver *)
@@ -246,7 +246,7 @@ let rec sat s p =
   try
     init s;
     let result = 
-      if icsat_sat p then 
+      if icsat_sat (to_prop p) then 
 	Some(assignment p Atom.Set.empty)
       else 
 	None
