@@ -617,7 +617,8 @@ let _ = Callback.register "assignment_pp" assignment_pp
 let assignment_valuation x = x.Prop.Assignment.valuation
 let _ = Callback.register "assignment_valuation" assignment_valuation
 
-let assignment_literals x = failwith "to do" (* x.Prop.Assignment.literals *)
+let assignment_literals x = 
+  Atom.Set.elements x.Prop.Assignment.literals
 let _ = Callback.register "assignment_literals" assignment_literals
 
 let prop_sat s p =
@@ -713,24 +714,19 @@ let _ = Callback.register "context_empty" context_empty
 let context_ctxt_of s = Context.ctxt_of s
 let _ = Callback.register "context_ctxt_of" context_ctxt_of
 
-let context_use s = failwith "to do"
+let context_use i s a =
+  Term.Var.Set.elements (Combine.E.dep i (Context.eqs_of s) a)
 let _ = Callback.register "context_use" context_use
 
-let context_inv i s a = failwith "to do"
-(*
-  let (bs, _) = Context.inv s a in
+let context_inv i s a =
+  let (bs, _) = Combine.E.inv (Context.config_of s) a in
     bs
-*)
+
 let _ = Callback.register "context_inv" context_inv
 
-let context_find s = failwith "to do" (* Context.find *)
+let context_find i s = Combine.E.find (Context.config_of s) i
 let _ = Callback.register "context_find" context_find
 
-let context_apply s = failwith "to do" (* Context.apply *)
-let _ = Callback.register "context_apply" context_apply
-
-let context_mem i s = failwith "to do"
-let _ = Callback.register "context_mem" context_mem
 
 let context_pp s = Context.pp Format.std_formatter s; Format.print_flush()
 let _ = Callback.register "context_pp" context_pp
@@ -778,7 +774,7 @@ let _ = Callback.register "d_consistent" d_consistent
 let process = Context.add
 let _ = Callback.register "process" process   
 
-let split s = failwith "to do"
+let split s = failwith "split: to do"
 let _ = Callback.register "split" split
 
 
