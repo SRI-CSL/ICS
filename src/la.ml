@@ -199,7 +199,7 @@ let occurs_negatively x e  =
 
 (** {6 Solution Sets} *)
 
-let is_diseq_num  a b =
+let is_diseq_num a b =
   try 
     not(Mpa.Q.equal (Arith.d_num a) (Arith.d_num b))
   with
@@ -419,7 +419,7 @@ let d_num s x =
     (p, rho)
 
 (** Test if [x] and [q] are known to be disequal. *)
-let is_num_diseq s x q =
+let is_num_diseq (_, s) x q =
   try
     let (p, rho) = d_num s x in
       if not(Mpa.Q.equal q p) then
@@ -682,8 +682,11 @@ and add_to_t ((_, s) as cfg) e =
 and try_isolate_unbounded s e =
   let is_unb (_, x) =  is_unbounded s x in
   let a = Fact.Equal.rhs_of e in
-  let (_, y) = Arith.Monomials.Pos.choose is_unb a in
-    isolate y e
+    if Mpa.Q.is_nonpos (Arith.constant_of a) then
+      let (_, y) = Arith.Monomials.Pos.choose is_unb a in
+	isolate y e
+    else 
+      raise Not_found
 
 
 and pivot ((_, s) as cfg) y =
@@ -863,6 +866,11 @@ and is_diseq cfg (a, b) =
   with
       Justification.Inconsistent(rho) -> Some(rho)
 
+(* this loops...
+and is_num_diseq cfg a q =
+  is_diseq cfg (a, Arith.mk_num q)
+*)
+
 
 (** {6 Processing Disequalities} *)
 
@@ -940,12 +948,12 @@ and case_process_ge cfg =
        let nn = Fact.Nonneg.make (Arith.mk_sub a b, dummy) in
 	 protect cfg process_nonneg nn)
   
-and contiguous_diseq_segment (p, s) (e, n) = 
+and contiguous_diseq_segment ((p, s) as cfg) (e, n) = 
   Trace.call "la" "Contigous" (e, n) (Pretty.pair Term.pp Mpa.Q.pp);
   let taus = ref [] in
   let rec upper max =                           (* [rho |- e <> n] *)
     let max' = Q.add max Q.one in
-      match is_num_diseq s e max' with 
+      match is_num_diseq cfg e max' with 
 	| Some(tau) ->                       (* [tau |- e <> max'] *)
 	    taus := tau :: !taus;
 	    upper max'             (* only succeeds finitely often *)   
@@ -954,7 +962,7 @@ and contiguous_diseq_segment (p, s) (e, n) =
   in
   let rec lower min =
     let min' = Q.sub min Q.one in
-      match is_num_diseq s e min' with
+      match is_num_diseq cfg e min' with
 	| Some(tau) -> 
 	    taus := tau :: !taus;
 	    lower min'
