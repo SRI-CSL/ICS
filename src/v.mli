@@ -38,6 +38,16 @@ val find : t -> Term.t -> Term.t
 
 val find' : t -> Term.t -> t * Term.t
 
+(*s [changed s] returns the set of variables [x] with a new
+ canonical representative, where 'new' is relative to the last
+ [reset s]. *)
+
+val changed : t -> Term.Set.t
+
+val reset : t -> t
+
+val unchanged : t -> t -> bool
+
 (*s Variable equality modulo [s]. *)
 
 val eq : t -> Term.t -> Term.t -> bool
@@ -47,22 +57,9 @@ val eq : t -> Term.t -> Term.t -> bool
 val empty : t
 
 
-(*s A representation of the set of variables whose [find] changes. *)
-
-type focus
-
-module Focus: sig
-  val empty : focus
-  val is_empty : focus -> bool
-  val singleton : Term.t * t -> focus
-  val add : Term.t * t ->  focus -> focus
-  val union : focus -> focus -> focus
-  val fold : (Term.t -> 'a -> 'a) -> focus -> 'a -> 'a
-end
-
 (*s Adding a variable equality [x = y] to a context [s]. *)
 
-val merge : Fact.equal -> t -> t * focus
+val merge : Fact.equal -> t -> t
 
 (*s Pretty-printing. *)
 
