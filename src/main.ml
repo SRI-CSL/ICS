@@ -32,7 +32,7 @@ let disable_pretty_print_flag = ref false
 let end_of_transmission = ref ""
 let disable_compactify_flag = ref false
 let disable_nonlin_flag = ref false
-let maxloops_flag = ref !Context.maxclose
+let maxloops_flag = ref !Rule.maxclose
 let portnum_flag = ref None
      
 (*s Interactive toplevel. Read commands from standard input and evaluate them. *)
@@ -97,11 +97,9 @@ let args () =
 
 let rec main () =
   let l = args () in
-    (if !disable_compactify_flag then
-       Context.compactify := false);
     (if !disable_nonlin_flag then
        Shostak.nonlinear := false);
-    Context.maxclose := !maxloops_flag;
+    Rule.maxclose := !maxloops_flag;
     match !portnum_flag with
       | None ->   
 	  (match l with
