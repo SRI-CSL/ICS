@@ -106,8 +106,8 @@ fi)
 
 dnl optionally give path, otherwise use cwd
 AC_MSG_CHECKING(icspath)
-AC_ARG_WITH(icspath, [ --with-icspath=/path/to/ics ])
-AC_ARG_WITH(gmp, [ --with-gmp=/path/to/gmp ])
+AC_ARG_WITH(icspath, [  --with-icspath=/path/to/ics ])
+AC_ARG_WITH(gmp, [  --with-gmp=/path/to/gmp ])
 if test "x$with_icspath" = "x"; then
   ICSPATH=`pwd`
 else
@@ -119,7 +119,7 @@ fi
 AC_MSG_RESULT($ICSPATH)
 AC_SUBST(ICSPATH)
 
-AC_ARG_WITH(debug, [ --with-debug=0|1|2|...])
+AC_ARG_WITH(debug, [  --with-debug=0|1|2|...])
   DEBUG=0
 AC_MSG_RESULT($DEBUG)
 AC_SUBST(DEBUG)
@@ -127,6 +127,11 @@ AC_SUBST(DEBUG)
 ICSVERSION=`date`
 AC_MSG_RESULT($ICSVERSION)
 AC_SUBST(ICSVERSION)
+
+AC_ARG_WITH(cxx, [  --with-cxx=g++          Specify a C++ compiler to be used],
+if test -n "$withval"; then
+	 CXX="$withval"
+fi)
 
 dnl Check for programs
 
@@ -136,6 +141,7 @@ AC_PROG_CXX
 AC_PROG_MAKE_SET
 AC_PROG_RANLIB
 AC_CHECK_PROG(AR, ar, ar) 
+CXX=g++-2
 # are on AIX needs to know the object file format
 case "$target" in
   powerpc64*-*-aix*)
@@ -221,6 +227,7 @@ CSL_CHECK_DOT_A_LIB(libgmp.a, $with_gmp,
 )
 
 dnl ICS CERTIFICATE Libraries
+AC_SUBST(posixos)
 posixos=`./os`
 if test "$posixos" = "sunos"; then
 	 AC_CHECK_LIB(socket, htonl, LIBS="-lsocket $LIBS", AC_MSG_ERROR([*** SOCKET library not found. ***]))
@@ -255,6 +262,12 @@ CSL_CHECK_DOT_A_LIB(libssl.a libcrypto.a, $with_openssl,
 			return 0;				
 	 ],
  	 AC_MSG_ERROR([*** Could not find OpenSSL. ***]))
+
+dnl SET ICS_CYGWIN define when cygwin
+if test "$posixos" = "cygwin"; then
+  CPPFLAGS="-DICS_CYGWIN $CPPFLAGS"
+fi
+
 
 dnl OCAML requires the libraries specified using -l to be inside -ccopt
 olibs=$LIBS

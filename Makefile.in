@@ -27,7 +27,7 @@ includedir = @includedir@
 LIBS=@LIBS@
 MINUS_L_LIBS=@MINUS_L_LIBS@
 CPPFLAGS=@CPPFLAGS@
-
+posixos=@posixos@
 ### end of configuration part ###
 
 
@@ -74,6 +74,9 @@ OBJS = ics_all.o ics_stub.o ocaml-signals.o mlgmp41.o icsat.o licensing.o verify
 LISPERROROBJ = ics_lisp_error.o
 
 FOREIGNCMO = dynarray.cmo ptset.cmo ptmap.cmo rbset.cmo gmp41.cmo 
+
+LIBS_WITH_CCLIB=$(LIBS:%=-cclib %)
+MINUS_L_LIBS_WITH_CCLIB=$(MINUS_L_LIBS:%=-cclib %)
 
 CORECMO = three.cmo \
       mpa.cmo \
@@ -146,12 +149,15 @@ ICSAT= $(SATDIR)/lib/$(ARCH)/icsat.a
 
 ### Top level ###
 
-ifeq ($(ARCH), powerpc-apple-darwin6.6)
+ifeq ($(posixos),darwin)
+  TARGETS=$(BINDIR)/ics $(LIBDIR)/libics.a $(BINDIR)/ics.byte $(LIBDIR)/ics.cmxa 
+else
+ifeq ($(posixos),cygwin)
   TARGETS=$(BINDIR)/ics $(LIBDIR)/libics.a $(BINDIR)/ics.byte $(LIBDIR)/ics.cmxa 
 else
   TARGETS=$(BINDIR)/ics $(LIBDIR)/libics.a $(BINDIR)/ics.byte $(LIBDIR)/ics.cmxa $(LIBDIR)/libicsall.so   
 endif
-
+endif
 
 .PHONY : all all-chdir
 all: $(OBJDIR) $(LIBDIR) $(BINDIR) $(INCDIR) $(ICSAT)
@@ -196,13 +202,13 @@ $(LIBDIR)/libics.a: $(OBJS)
 	$(LD) -r -o $@ $(OBJS) $(ICSAT) \
         $(LIBCPP) \
 	$(OCAMLSTDLIB)/libunix.a \
-        $(LIBS) $(LIBGCCA) \
+        $(LIBS) $(MINUS_L_LIBS) $(LIBGCCA) \
 	$(OCAMLSTDLIB)/libasmrun.a
 
 $(LIBDIR)/ics.cmxa: $(OBJS) $(ICSAT) $(LISPERROROBJ)
 	(cd $(OBJDIR); \
 	 $(OCAMLMKLIB) -custom -linkall -o ics unix.cma $(OBJS) $(OBJDIR)/$(CMX) $(SATDIR)/obj/$(ARCH)/*.o \
-	               -cclib $(LIBGMPA) -cclib -licsat -cclib $(LIBCPP); \
+	               $(LIBS_WITH_CCLIB) $(MINUS_L_LIBS_WITH_CCLIB) -cclib -licsat -cclib $(LIBCPP); \
          cp ics.cmxa ics.cmi ics.a $(LIBDIR); \
 	 cp $(ICSAT) $(LIBDIR)/libicsat.a)
 
@@ -210,7 +216,8 @@ $(LIBDIR)/ics.cmxa: $(OBJS) $(ICSAT) $(LISPERROROBJ)
 $(LIBDIR)/libicsall.so: $(OBJS) $(ICSAT)
 	$(CC) -shared -o $(LIBDIR)/libicsall.so $(OBJS) \
 	  $(OCAMLSTDLIB)/libunix.a \
-	  $(LIBGMPA) \
+	  $(LIBS) \
+	  $(MINUS_L_LIBS) \
           $(ICSAT) \
           $(LIBCPP) \
           $(OBJDIR)/ics_lisp_error.o \

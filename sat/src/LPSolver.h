@@ -18,6 +18,7 @@
 #include"ics_interface.h"
 #include"lisp.h"
 #include<hash_set.h>
+#include<time.h>
 
 #define TICK_FREQUENCY 2000
 

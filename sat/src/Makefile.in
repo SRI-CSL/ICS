@@ -41,7 +41,7 @@ $(OBJ_DIR):
 
 $(LIB_DIR)/$(ICSAT): $(OBJS)
 	rm -f $(LIB_DIR)/$(ICSAT)
-	$(AR) scr $(LIB_DIR)/$(ICSAT) $(OBJS)    # $(RANLIB) $(LIB_DIR)/$(ICSAT)
+	$(AR) scr $(LIB_DIR)/$(ICSAT) $(OBJS)
 
 .PHONY: icsat
 

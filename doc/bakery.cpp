@@ -7,6 +7,7 @@
      demoura - Aug 8, 2002: Created.
 
   Comiling using static library:
+     g++ -o bakery -L ../lib/i686-pc-linux-gnu/ -I ../obj/i686-pc-linux-gnu/ -lics bakery.cpp
      g++-2 -o bakery -L ../lib/i686-pc-cygwin/ -I ../obj/i686-pc-cygwin/ -lics bakery.cpp
 
   Compiling using dynamic library:
