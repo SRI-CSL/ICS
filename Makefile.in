@@ -160,7 +160,7 @@ ics.fasl: ics.lisp
 	@ALLEGRO@ -e '(let ((excl:*cltl1-in-package-compatibility-p* t)) \
 	(compile-file "ics.lisp") (excl:exit))'
 
-GENERATED = lexer.ml parser.mli parser.ml
+GENERATED = lexer.ml lexer.mli parser.mli parser.ml
 
 ### Chameleon
 
