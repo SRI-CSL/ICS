@@ -69,7 +69,7 @@ let equal_width_of a b =
 %token TRUE FALSE
 %token PLUS MINUS TIMES DIVIDE EXPT
 %token LESS GREATER LESSOREQUAL GREATEROREQUAL  
-%token FLOOR CEILING SIN COS UNSIGNED 
+%token FLOOR CEILING SIN COS UNSIGNED APPLY 
 %token WITH CONS CAR CDR NIL
 %token DISJ XOR IMPL BIIMPL CONJ NEG
 %token PROJ
@@ -128,7 +128,6 @@ funsym:
 | DIVIDE                                 { Sym.div }
 | TUPLE                                  { Sym.product }
 | FLOOR                                  { Sym.floor }
-| CEILING                                { Sym.ceiling }
 | SIN                                    { Sym.sin }
 | COS                                    { Sym.cos }
 | UNSIGNED                               { Sym.unsigned }
@@ -139,6 +138,11 @@ funsym:
 | CONC LBRA INTCONST COMMA INTCONST RBRA               { Sym.Bv(Sym.Conc($3, $5)) }
 | SUB LBRA INTCONST COMMA INTCONST COMMA INTCONST RBRA { Sym.Bv(Sym.Sub($3, $5, $7)) }
 | BWITE LBRA INTCONST RBRA                             { Sym.Bv(Sym.Bitwise($3)) }
+| APPLY range                            { Sym.apply $2 }
+;
+
+range:                              { None }
+| LBRA INTCONST COMMA cnstrnt RBRA  { Some(Sym.Real($2, $4)) }
 ;
 
 constsym: 
