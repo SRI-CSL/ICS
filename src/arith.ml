@@ -266,7 +266,7 @@ let rec solve_for pred (a,b) =
     if Q.is_zero q then None else raise(Exc.Inconsistent)
   else
     try
-      let ((p,x), ml) = destructure pred l in
+      let ((p, x), ml) = destructure pred l in
       assert(not(Q.is_zero p));             (*s case [q + p * x + ml = 0] *)
       let b = mk_multq (Q.minus (Q.inv p)) (of_poly q ml) in
       if Term.eq x b then 
@@ -294,7 +294,7 @@ and destructure pred l =
    let rec loop acc l =   
      match l with 
        | m :: ml ->
-	   let (p,x) = mono_of m in
+	   let (p, x) = mono_of m in
 	   if pred x then
 	     ((p, x), List.rev acc @ ml)
 	   else
