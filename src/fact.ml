@@ -194,7 +194,7 @@ module Diseq = struct
   let pp fmt d = pp fmt (inj d)
 
   let is_diophantine (a, b, _) =
-    Arith.is_diophantine a && Arith.is_diophantine b
+    Arith.is_diophantine a && Arith.is_num b
 
   let is_var (a, b, _) =
     Term.is_var a && Term.is_var b
