@@ -13,13 +13,40 @@ OFLAGS =
 
 LIBS    = -cclib -lstr
 
+ifeq ($(MAKELEVEL),0)
+   ARCH := $(shell ../bin/config.guess)
+   export ARCH
+endif
+
 ### targets
 
 CMO = mli_parser.cmo mli_lexer.cmo chameleon.cmo
 CMX = $(CMO:.cmo=.cmx)
 
+.PHONY : all 
+
+all: $(ARCH)
+	$(MAKE) -C $(ARCH) -f ../Makefile chameleon
+
 chameleon: $(CMX)
 	$(OCAMLOPT) -o $@ str.cmxa $(CMX) $(LIBS)
+
+$(ARCH):
+	mkdir $(ARCH)
+
+.PRECIOUS : chameleon.ml mli_lexer.mll mli_parser.mly mli_types.mli
+
+chameleon.ml: ../src/chameleon.ml
+	@ln -sf ../src/$(@F) .
+
+mli_lexer.mll: ../src/mli_lexer.mll
+	@ln -sf ../src/$(@F) .
+
+mli_parser.mly: ../src/mli_parser.mly
+	@ln -sf ../src/$(@F) .
+
+mli_types.mli: ../src/mli_types.mli
+	@ln -sf ../src/$(@F) .
 
 GENERATED = mli_parser.ml mli_parser.mli mli_lexer.ml
 
@@ -52,15 +79,14 @@ GENERATED = mli_parser.ml mli_parser.mli mli_lexer.ml
 
 ### clean and depend
 
-archclean::
-	rm -f *.cmx *.o *.so *.a
-
 clean::
-	rm -f *~ *.cm[iox] *.o
-	rm -f $(GENERATED)
-	rm -f chameleon
+	rm -rf $(ARCH)
 
-depend: $(GENERATED)
-	$(OCAMLDEP) *.mli *.ml > .depend
+mli_parser.cmi: mli_types.cmi 
+chameleon.cmo: mli_lexer.cmo mli_types.cmi 
+chameleon.cmx: mli_lexer.cmx mli_types.cmi 
+mli_lexer.cmo: mli_parser.cmi 
+mli_lexer.cmx: mli_parser.cmx 
+mli_parser.cmo: mli_types.cmi mli_parser.cmi 
+mli_parser.cmx: mli_types.cmi mli_parser.cmi 
 
-include .depend
