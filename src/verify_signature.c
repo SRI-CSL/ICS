@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <assert.h>
 #include <string.h>
@@ -17,6 +18,7 @@
 //      returns the length of sig. 
 int read_message_and_signature (char* sysname, char* msg, unsigned char* sig) {
   FILE *fp;
+  int fd;
   char envstr[100];
   char sysuppercase[10];
   char syslowercase[10];
@@ -65,7 +67,32 @@ file you should have received in email after registering at
     exit(1);
   }
 
-  // Try and open it
+
+  // Try and open it using open, so we can use read to find out if it
+  // is a directory (is there a better way?)
+  if ((fd = open(datafile, O_RDONLY))==-1) {
+    fprintf(stderr, "There was a problem opening the file pointed to by the\n\
+%s environment variable:\n  %s: %s\nThis environment variable must be \
+set to a file you should have\nreceived in email after registering at \
+%s.csl.sri.com\n", envstr, datafile, strerror(errno), syslowercase);
+    exit(1);
+  }
+
+  // Now we read from it, to check if it is a directory
+  if ((size = read(fd, data, 1)) == -1) {
+    fprintf(stderr, "There was a problem reading the file pointed to by the\n\
+%s environment variable:\n  %s: %s\nThis environment variable must be \
+set to a file you should have\nreceived in email after registering at \
+%s.csl.sri.com\n", envstr, datafile, strerror(errno), syslowercase);
+    exit(1);
+  }
+  else {
+    // read was OK, close the file
+    close(fd);
+  }
+
+  // Now fopen the file, so we can use fgets to read lines rather than
+  // some number of chars.
   if ((fp = fopen(datafile, "r"))==NULL) {
     fprintf(stderr, "There was a problem opening the file pointed to by the\n\
 %s environment variable:\n  %s: %s\nThis environment variable must be \
@@ -173,6 +200,10 @@ int verify_signature (char* sysname) {
   int verified;
   unsigned int cnt = 0;
 
+  static int dsa_verified = 0;
+
+  if (dsa_verified) return 1;
+
   // Get the message and signature
   cnt = read_message_and_signature(sysname, msg, sig);
 
@@ -212,7 +243,6 @@ int verify_signature (char* sysname) {
 
   if (verified == 1) {
     fprintf(stderr, "%s\n", msg);
-    return 1;
   }
   else if (verified == 0) {
     fprintf(stderr, "The license certificate %s was not verified\n",
@@ -224,4 +254,6 @@ int verify_signature (char* sysname) {
     ERR_print_errors_fp(stderr);
     exit(1);
   }
+  dsa_verified = 1;
+  return 1;
 }
