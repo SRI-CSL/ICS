@@ -112,9 +112,6 @@ let norm a =
   let b = Ics.norm !current a in
   Format.printf "@["; Ics.term_pp b; Format.printf "@]@."
 
-let simp a =
-  let b = Ics.simplify a in
-  Format.printf "@["; Ics.term_pp b; Format.printf "@]@."
      
 let can a =
   let b = Ics.can !current a in

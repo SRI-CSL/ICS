@@ -58,7 +58,7 @@ let rec appl a l =
 	     | Finite(s) ->
 		 finite s (Tuple.tuple l)
 	     | SetIte(_,s1,s2,s3) ->
-		 Bool.ite(appl a [s1], appl a [s2], appl a [s3]))
+		 Bool.ite(appl s1 l, appl s2 l, appl s3 l))
       | _ ->
 	  hc(App(a,l))
 

@@ -42,8 +42,6 @@ and prop =
   | False
   | Equal of t * t  
   | Ite of t * t * t
-  | Forall of variable list * t
-  | Exists of variable list * t
 
 and set =
   | Empty of tag
@@ -157,10 +155,6 @@ module HashTerm = Hashcons.Make(
 		   s1 === s2 && t1 === t2
 	       | Ite (a1,b1,c1), Ite (a2,b2,c2) ->
 		   a1 === a2 && b1 === b2 && c1 === c2
-	       | Forall (xl,p), Forall (yl,q) ->
-		   p === q && (try List.for_all2 (==) xl yl with Invalid_argument _ -> false)
-	       | Exists (xl,p), Exists (yl,q) ->
-		   p === q && (try List.for_all2 (==) xl yl with Invalid_argument _ -> false) 
 	       | _ -> false) 
 	| Bv t1, Bv t2 ->
 	    (match t1,t2 with
@@ -293,10 +287,21 @@ let fast_cmp x y = x.tag - y.tag
     [Pervasives.compare] function directly. We have to write our own
     structural comparison functions, with the help of [Tools.gen_compare]. *)
 
-let rec cmp x y = Cmp.generic
-  (function
-     | Var s1, Var s2 ->
-	 Pervasives.compare s1 s2
+let is_fresh_name s =
+  assert(s <> "");
+  String.get s 0 = '_'
+
+let rec cmp x y =
+  match x.node, y.node with
+     | Var s1, Var s2 ->                            (* fresh variables are larger. *)
+	 (match is_fresh_name s1, is_fresh_name s2 with
+	    | true, false -> 1
+	    | false, true -> -1
+	    | _ -> Pervasives.compare s1 s2)
+     | Var s1, _ when is_fresh_name s1 ->
+	 1
+     | _, Var s2 when is_fresh_name s2 ->
+	 -1   
      | App (s1,l1), App (s2,l2) -> 
 	 Cmp.lexico2 cmp s1 s2 (Cmp.list cmp) l1 l2
      | Update(x1,y1,z1), Update(x2,y2,z2) ->
@@ -309,9 +314,10 @@ let rec cmp x y = Cmp.generic
 	 cmp_set_node t1 t2
      | Bool t1,  Bool t2  ->
 	 cmp_prop_node t1 t2
-     | Bv b1, Bv b2   ->
+     | Bv b1, Bv b2 ->
 	 cmp_bv b1 b2
-     | _ -> assert false) x.node y.node
+     | _ ->
+	 Pervasives.compare x y
 
 and cmp_arith a1 a2 = Cmp.generic
    (function
@@ -335,10 +341,6 @@ and cmp_prop_node x y = Cmp.generic
 	Cmp.lexico2
 	  cmp a1 a2 
 	  (Cmp.lexico2 cmp b1 b2 cmp) c1 c2
-    | Forall (xl,p), Forall (yl,q) ->
-	Cmp.lexico2
-	  (Cmp.list Pervasives.compare) xl yl
-	  cmp p q
     | _ -> assert false) x y
 
 and cmp_prop x y = cmp_prop_node x.node y.node
@@ -517,8 +519,7 @@ let occurs_interpreted a b =
 	  | Bool x ->
 	      (match x with
 		 | True | False | Equal _ -> false
-		 | Ite(x,y,z) -> occ x || occ y || occ z
-		 | _ -> assert false)
+		 | Ite(x,y,z) -> occ x || occ y || occ z)
 	  | Set x ->
 	      (match x with
 		 | Empty _ | Full _ | Finite _ | Cnstrnt _ -> false
@@ -558,8 +559,7 @@ let rec is_ground a =
 	  (match x with
 	     | True | False -> true
 	     | Equal(x,y) -> is_ground x && is_ground y
-	     | Ite(x,y,z) -> is_ground x && is_ground y && is_ground z
-	     | _ -> assert false)
+	     | Ite(x,y,z) -> is_ground x && is_ground y && is_ground z)
       | Set x ->
 	  (match x with
 	     | Empty _ | Full _ | Cnstrnt _ -> true
@@ -638,7 +638,6 @@ let fold f t v0 =
       | False -> acc
       | Equal (x,y)   -> f t (fold_term x (fold_term y acc))
       | Ite(p,q,r)  -> f t (fold_term p (fold_term q (fold_term r acc)))
-      | Forall _ | Exists _ -> assert false
   and fold_arith x acc =
     match x with
       | Num _ -> acc
@@ -722,7 +721,3 @@ let iter f a  =
 	     | Tup l -> List.iter loop l)
   in
   loop a
- 
-
-
-

@@ -25,31 +25,6 @@ type basic_node =
 and basic = basic_node hashed
 
 type t = basic list                   (* concatenation normal form *)
-
-(*s Pretty printing *)
-
-let rec pp_basic xpp fmt b =
-  match b.node with
-    | Const(c) ->
-	Format.fprintf fmt "%s" (Bitv.to_string c)
-    | Sub(x,n,i,j) ->
-	xpp fmt x; Format.fprintf fmt "[%d,%d,%d]" n i j
-    | Ite(b1,b2,b3) ->
-	Format.fprintf fmt "bvite "; pp_basic xpp fmt b1; Format.fprintf fmt " then ";
-	pp_basic xpp fmt b2; Format.fprintf fmt " then "; pp_basic xpp fmt b3; Format.fprintf fmt " end"
-
-let pp_basic2 xpp fmt (b1,b2) =
-  pp_basic xpp fmt b1; Format.fprintf fmt " = "; pp_basic xpp fmt b2
-	  
-let pp xpp fmt bv =
-  let rec pp_conc = function
-    | [] -> ()
-    | [b] -> pp_basic xpp fmt b
-    | b :: l -> pp_basic xpp fmt b; Format.fprintf fmt "@ ++@ "; pp_conc l
-  in
-  pp_conc bv
-
-let pp xpp fmt bv = failwith "to do"
        	
 (* Length of concatenation normal forms *)
 		
@@ -123,7 +98,6 @@ module Bvbdd = Bdd.Make(
   end)
 
 
-
 let mk_apply b1 b2 b3 =
   assert (lengthb b1 = lengthb b2 && lengthb b2 = lengthb b3);
   match b1.node, b2.node, b3.node with
@@ -146,9 +120,11 @@ let one n  = const (Bitv.create n true)
     extraction [mk_sub(x,0,n-1)]. *)
 
 let inj n x =
+  assert (n >= 0);
   atom (mk_sub x n 0 (n-1))
 
 let fresh n =
+  assert (n >= 0);
   inj n (X.fresh ())
   
 			   

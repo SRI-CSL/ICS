@@ -73,11 +73,23 @@ let mem a c =
 	    
 (*s Apply a constraint. *)
   
-let app c a =
+let rec app c a =
   match mem a c with
     | Yes ->
 	tt()
     | No ->
 	ff()
     | X ->
-	hc(App(hc(Set(Cnstrnt(c))),[a]))
+	match a.node with
+	  | Bool(Ite(x,y,z)) ->
+	      let a = app c x in
+	      (match a.node with
+		 | Bool(True) -> app c y
+		 | Bool(False) -> app c z
+		 | _ ->
+		     let b1 = app c y in
+		     let b2 = app c z in
+		     if b1 === b2 then b1 else
+		       hc(Bool(Ite(a,b1,b2))))
+	  | _ ->
+	      hc(App(hc(Set(Cnstrnt(c))),[a]))

@@ -39,16 +39,16 @@ let rec list_sep sep f = function
 		 (*s Pretty-printing constraints. *)
 
 let pp_low fmt = function
-  | Interval.Neginf -> Format.fprintf fmt "( "
+  | Interval.Neginf -> Format.fprintf fmt "(-inf "
   | Interval.Low(k,q) -> Format.fprintf fmt "%s" (if k = Interval.Strict then "(" else "["); Q.pp fmt q
 
 let pp_high fmt = function
-  | Interval.Posinf -> Format.fprintf fmt " )"
+  | Interval.Posinf -> Format.fprintf fmt " inf)"
   | Interval.High(k,q) -> Q.pp fmt q; Format.fprintf fmt "%s" (if k = Interval.Strict then ")" else "]")
 
 let pp_interval fmt (dom,i,j) =
   let domstr = match dom with
-    | Interval.Real -> ""
+    | Interval.Real -> "real"
     | Interval.Int -> "int"
     | Interval.NonintReal -> "nonintreal"
   in

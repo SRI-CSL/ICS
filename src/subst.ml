@@ -125,9 +125,7 @@ let norm s a =
 	     | Equal(x,y) ->
 		 hom2 t Bool.equal repl (x,y)
 	     | Ite(x,y,z) ->
-		 hom3 t Bool.ite repl (x,y,z)
-	     | _ ->
-		 assert false)
+		 hom3 t Bool.ite repl (x,y,z))
       | Arith a ->
 	  (match a with
 	     | Num _ ->

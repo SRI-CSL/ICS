@@ -20,6 +20,7 @@ let is_solvable a =
 	false
 
 let arith_solve x s (a,b) =
+(*i  Disable integer solver for the time being.
   let add_cnstrnt =
     State.add_cnstrnt s Interval.int
   in
@@ -30,6 +31,7 @@ let arith_solve x s (a,b) =
     List.iter add_cnstrnt kl;
     rho
   else
+i*)
     Arith.qsolve x (a,b)
 
 let solve x s e =
@@ -94,8 +96,6 @@ let solve x s e =
 	  let x = Bool.iff (hc(Bool(a))) b in
 	  let l = Bool.solve x in
 	  solvel rho (l @ el)
-      | _ ->
-	  assert false
 
   and true_solve rho b el =      (*s Solve equations of the form [true = b] *)  
     match b.node with
@@ -142,7 +142,7 @@ let solve x s e =
 	    let n = Interval.value_of cd in
 	    solvel rho ((x,Arith.num n) :: el)
 	  else if Arith.is_arith x then
-	    let k = Var.fresh "z" (Some(x)) in
+	    let k = Var.fresh "_k" (Some(x)) in
 	    State.add_cnstrnt s cd k;
 	    solvel rho ((x,k) :: el)         (*i Order [(x,k)] important. i*)
 	  else
@@ -192,9 +192,9 @@ let solve x s e =
 		     solvel (Subst.add (a',b') rho) el
 		   else (match a'.node,b'.node with
 			   | Bool x, _ ->
-			       bool_solve rho (x,b) el
+			       bool_solve rho (x,b') el
 			   | _, Bool y ->
-			       bool_solve rho (y,a) el
+			       bool_solve rho (y,a') el
 			   | Update (u,i,s), Update (v,j,t)
 			       when u === v && i === j ->
 				 if u === v && i === j
@@ -207,23 +207,26 @@ let solve x s e =
 			   | _, Cond(x,y,z) ->
 			       cond_solve rho (x,y,z) b' el
 			   | Arith(Num _ | Multq _ | Add _), _ ->
-			       solvel rho (arith_solve x s (a,b) @ el)
+			       solvel rho (arith_solve x s (a',b') @ el)
 			   | _, Arith(Num _ | Multq _ | Add _) ->
-			       solvel rho (arith_solve x s (b,a) @ el)
+			       solvel rho (arith_solve x s (b',a') @ el)
 			   | Set _, _ ->
-			       solvel rho (Sets.solve 0 (a,b) @ el)
+			       solvel rho (Sets.solve 0 (a',b') @ el)
 			   | _, Set _ ->
-			       solvel rho (Sets.solve 0 (b,a) @ el)
+			       solvel rho (Sets.solve 0 (b',a') @ el)
 			   | Tuple _, _ ->
-			       solvel rho (Tuple.solve (a,b) @ el)
+			       solvel rho (Tuple.solve (a',b') @ el)
 			   | _, Tuple _ ->
-			       solvel rho (Tuple.solve (b,a) @ el)
-			   | Bv _, _ ->
-			       solvel rho (Tuple.solve (a,b) @ el)
+			       solvel rho (Tuple.solve (b',a') @ el)
+			(*i   | Bv _, _ ->
+			       let n = Bv.width a' in 
+			       solvel rho (Bv.solve n (a',b') @ el)
 			   | _, Bv _ ->
-			       solvel rho (Bv.solve (b,a) @ el)
+			       let n = Bv.width b' in
+			       solvel rho (Bv.solve n (b',a') @ el)
+			    i*)
 			   | _ ->
-			       failwith "Incompleteness in solver; to be fixed..."))
+			       solvel (Subst.add (a',b') rho) el))
 		
   in
   solvel Subst.empty [e]
@@ -282,7 +285,8 @@ and  unwind x (a,b) =
 	  let b' = List.assq a l in
 	  unwind x (a,b')
       | Bv _ ->
-	  let l = Bv.solve (a,b) in
+	  let n = Bv.width a in
+	  let l = Bv.solve n (a,b) in
 	  let b' = List.assq a l in
 	  unwind x (a,b')
       | _ ->

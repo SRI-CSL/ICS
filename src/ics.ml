@@ -903,7 +903,6 @@ let _ = Callback.register "process" process
 let sigma st t = t
 let norm s t = Subst.norm (State.to_subst s) t
 let can = Can.can
-let simplify = Can.simplify
 
 let is_solvable =
   Solve.is_solvable
@@ -917,7 +916,6 @@ let solution = Solve.solution
     
 let _ = Callback.register "norm" norm 
 let _ = Callback.register "can" can
-let _ = Callback.register "simplify" simplify
 let _ = Callback.register "is_solvable" is_solvable
 let _ = Callback.register "solve" solve
 let _ = Callback.register "solution" solution

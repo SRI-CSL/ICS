@@ -147,8 +147,10 @@ let addq q  = mapq (Q.add q)
 		
 (*s Adding Polynomials *)
 
-let add2 (a,b) =
-  of_poly(Poly.add2 (to_poly a) (to_poly b))
+let add2 =
+  Bool.binary_lift_ite 
+    (fun (a,b) ->
+       of_poly(Poly.add2 (to_poly a) (to_poly b)))
 	
 let addl l =
   let plus l =
@@ -312,37 +314,41 @@ let normalize p =
   let p'' = Poly.divq gcd p' in
   Poly.destructure p''
 
-let lt (x,y) =
-  let p = Poly.sub (to_poly x) (to_poly y) in
-  if Poly.is_zero p then
-    hc(Bool False)
-  else if Poly.is_num p then
-    let c = Poly.num_of p in
-    if Q.lt c Q.zero then hc(Bool True) else hc(Bool False)
-  else
-    let (p',q') = normalize p in
-    if Q.ge (Poly.leading p') Q.zero then
-      let c = Interval.lt Interval.Real (Q.minus q') in
-      Cnstrnt.app c (of_poly p')
-    else
-      let c = Interval.gt Interval.Real q' in
-      Cnstrnt.app c (of_poly (Poly.neg p'))
+let lt =
+  Bool.binary_lift_ite
+    (fun (x,y) ->
+       let p = Poly.sub (to_poly x) (to_poly y) in
+       if Poly.is_zero p then
+	 hc(Bool False)
+       else if Poly.is_num p then
+	 let c = Poly.num_of p in
+	 if Q.lt c Q.zero then hc(Bool True) else hc(Bool False)
+       else
+	 let (p',q') = normalize p in
+	 if Q.ge (Poly.leading p') Q.zero then
+	   let c = Interval.lt Interval.Real (Q.minus q') in
+	   Cnstrnt.app c (of_poly p')
+	 else
+	   let c = Interval.gt Interval.Real q' in
+	   Cnstrnt.app c (of_poly (Poly.neg p')))
 
-let le (x,y) =
-  let p = Poly.sub (to_poly x) (to_poly y) in
-  if Poly.is_zero p then
-    hc(Bool True)
-  else if Poly.is_num p then
-    let c = Poly.num_of p in
-    if Q.le c Q.zero then hc(Bool True) else hc(Bool False)
-  else
-    let (p',q') = normalize p in
-    if Q.ge (Poly.leading p') Q.zero then
-      let c = Interval.le Interval.Real (Q.minus q') in
-      Cnstrnt.app c (of_poly p')
-    else
-      let c = Interval.ge Interval.Real q' in
-      Cnstrnt.app c (of_poly (Poly.neg p'))
+let le =
+  Bool.binary_lift_ite
+    (fun (x,y) ->
+       let p = Poly.sub (to_poly x) (to_poly y) in
+       if Poly.is_zero p then
+	 hc(Bool True)
+       else if Poly.is_num p then
+	 let c = Poly.num_of p in
+	 if Q.le c Q.zero then hc(Bool True) else hc(Bool False)
+       else
+	 let (p',q') = normalize p in
+	 if Q.ge (Poly.leading p') Q.zero then
+	   let c = Interval.le Interval.Real (Q.minus q') in
+	   Cnstrnt.app c (of_poly p')
+	 else
+	   let c = Interval.ge Interval.Real q' in
+	   Cnstrnt.app c (of_poly (Poly.neg p')))
 
 	
  (*s Computes the gcd of two ordered power products. *)

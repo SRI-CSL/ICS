@@ -139,24 +139,32 @@ let add_ctxt s e =
  
 let add_cnstrnt s c a =
  (* assert(a === find s a); *)
-  let ext =
-    try
-      fst(Term.Map.find a s.inv)
-    with
-	Not_found -> Term.Set.empty
-  in
-  s.inv <- Term.Map.add a (ext,c) s.inv
+  Trace.call 5 "Update cnstrnt" (c,a)
+    (fun fmt (c,a) -> Pretty.term fmt a; Format.fprintf fmt "@ in@ "; Pretty.cnstrnt fmt c);
+  let c' = Interval.inter (cnstrnt s a) c in
+  if Interval.is_bot c' then
+    raise Exc.Inconsistent
+  else
+    let ext =
+      try
+	fst(Term.Map.find a s.inv)
+      with
+	  Not_found -> Term.Set.empty
+    in
+    s.inv <- Term.Map.add a (ext,c') s.inv
 
-let rec add_eqn s c (a,b) =
+let rec add_eqn s c ((a,b) as e) =
+  Trace.call 5 "Update eqn" e Pretty.eqn;
   update_old s c a;
   let extb = ext s b in
   let extb' = Term.Set.add a extb in
   if not(extb == extb') then
     s.inv <- Term.Map.add b (extb', c) s.inv;
-  s.find <- Subst.add (a,b) s.find;
+  s.find <- Subst.add e s.find;
   add_use s b;
   add_funsym s a;
   add_funsyms s b        (* Add uninterpreted subterms of b which occur interpreted in b. *)
+  
 
 and update_old s c a =
   try

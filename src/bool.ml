@@ -34,14 +34,18 @@ let ff () = hc(Bool(False))
   holds for any given non-quantified Boolean connective. *)
 
 let is_tt t =
-  match t.node with Bool(True) -> true | _ -> false
+  match t.node with
+    | Bool(True) -> true
+    | _ -> false
 
 let is_ff t =
-  match t.node with Bool(False) -> true | _ -> false
+  match t.node with
+    | Bool(False) -> true
+    | _ -> false
     
 let is_ite t = 
   match t.node with 
-    | Bool Ite _ -> true 
+    | Bool(Ite _) -> true 
     | _ -> false
  
 (*s Destructuring of conditional terms. *)
@@ -50,19 +54,6 @@ let d_ite a =
   match a.node with
     | Bool(Ite(x,y,z)) -> (x,y,z)
     | _ -> assert false  
-
-
-
-let ite a b c =                      (*s ite(a,b,c) *)
-  match Atom.conj a b, Atom.neg_conj a c with
-    | Some(x), Some(y) ->
-	(match Atom.disj x y with
-	   | Some(z) -> z
-	   | None -> hc(Bool(Ite(x,tt(),y))))
-    | _ ->
-	hc(Bool(Ite(a,b,c)))
-
-
 
 (* Building up BDDs *)
 
@@ -74,20 +65,26 @@ module BDD = Bdd.Make(
     let compare = fast_cmp
     let high _ = tt()
     let low _ = ff()
-    let ite _ = ite
+    let ite _ a b c =
+      match Atom.conj a b, Atom.neg_conj a c with
+	| Some(x), Some(y) ->
+	    (match Atom.disj x y with
+	       | Some(z) -> z
+	       | None -> hc(Bool(Ite(x,tt(),y)))) 
+	| _ ->
+	    hc(Bool(Ite(a,b,c)))
     let is_high = is_tt
     let is_low = is_ff
     let is_ite = is_ite
     let destructure_ite p =
       match p.node with
-	| Bool(Ite(x,y,z)) -> Some(x,y,z)
-	| _ -> None
-    let fresh _ = Var.fresh "z" None   
+	| Bool(Ite(x,y,z)) ->
+	    Some(x,y,z)
+	| _ ->
+	    None
+    let fresh _ = Var.fresh "_b" None   
   end)
-
-	
-
-	    
+    
 let ite = BDD.build ()     
 let neg = BDD.neg ()
 let conj = BDD.conj ()
@@ -121,9 +118,6 @@ let d_xor = BDD.d_xor
 let d_imp = BDD.d_imp
 let d_iff = BDD.d_iff
 
-
-let forall xl p = hc (Bool(Forall (xl, p)))
-let exists xl p = hc (Bool(Exists (xl, p)))
 
 
 (*s Constructor for conditionals. *)
@@ -181,7 +175,7 @@ let rec equal (a,b) =
       | Bool(True), Bool(Equal(x,y)) ->
 	  equal(x,y)
       | _ ->
-	  if Term.cmp a b <= 0 then
+	  if Term.cmp a b > 0 then
 	    hc(Bool(Equal(a,b)))
 	  else
 	    hc(Bool(Equal(b,a)))
