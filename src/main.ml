@@ -64,7 +64,6 @@ and usage () =
 (** {6 Batch level processing} *)
 
 and batch l =
-  usage();
   disable_prompt_flag := true;
   List.iter 
     (fun x -> 

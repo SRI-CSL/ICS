@@ -141,8 +141,6 @@ let is_negatable = function
   | In _ -> false
   | _ -> true
 
-let _ = Callback.register "atom_is_negatable" is_negatable
-
 let negate = function
   | True -> mk_false
   | False -> mk_true
@@ -176,8 +174,6 @@ let vars_of = function
 
 let list_of_vars a = 
   Term.Set.elements (vars_of a)
-
-let _ = Callback.register "atom_list_of_vars" list_of_vars
 
 let occurs x a =
   let rec term_occurs = function

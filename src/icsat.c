@@ -122,7 +122,7 @@ int icsat_is_connected(int x1, int x2) {
 
 void icsat_atom_pp(int x1) {
   static value * closure = NULL;
-  if (closure == NULL) { closure = caml_named_value("atom_pp"); }
+  if (closure == NULL) { closure = caml_named_value("prop_atom_pp"); }
   callback(*closure, Val_int(x1));
 }
 
