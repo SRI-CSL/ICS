@@ -54,6 +54,16 @@ let rec fold f a e =
     | _ ->
 	f a 1 e
 
+let rec iter f a =
+  match a with
+    | Term.App(Pp(Mult), xl) ->
+	List.iter (iter f) xl
+    | Term.App(Pp(Expt(n)), [x]) ->
+	f x n
+    | _ ->
+	f a 1
+
+
 
 (** {6 Constructors.} *)
 
