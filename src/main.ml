@@ -30,6 +30,9 @@ let disable_prompt_flag = ref false
 let disable_usage_flag = ref false
 let disable_pretty_print_flag = ref false
 let end_of_transmission = ref ""
+let disable_compactify_flag = ref false
+let enable_nonlin_flag = ref false
+let maxloops_flag = ref !Context.maxclose
 let portnum_flag = ref None
      
 (*s Interactive toplevel. Read commands from standard input and evaluate them. *)
@@ -82,7 +85,10 @@ let args () =
 	"-prompt", Arg.Set disable_prompt_flag,   "Disable printing of prompt";
         "-pp", Arg.Set disable_pretty_print_flag, "Disable Pretty-Printing of terms";
         "-usage", Arg.Set disable_usage_flag,     "Disable printing of usage message";
+        "-compactify", Arg.Set disable_compactify_flag, "Disable compactification";
+	"-nonlin", Arg.Set enable_nonlin_flag, "Enable Interpretation of nonlinear arithmetic";
         "-eot", Arg.String (fun str -> end_of_transmission := str), "Print string argument after each transmission";
+	"-maxloops", Arg.Int (fun n -> maxloops_flag := n), "Run in server mode";
         "-server", Arg.Int (fun portnum -> portnum_flag := Some(portnum)), "Run in server mode";
       ]
       (fun f -> files := f :: !files)
@@ -91,13 +97,18 @@ let args () =
 
 let rec main () =
   let l = args () in
-  match !portnum_flag with
-    | None ->   
-	(match l with
-	   | [] -> repl (Ics.channel_stdin ())
-	   | l -> batch l)
-    | Some(portnum) ->
-	server portnum
+    (if !disable_compactify_flag then
+       Context.compactify := false);
+    (if !enable_nonlin_flag then
+       Simplify.nonlinear := true);
+    Context.maxclose := !maxloops_flag;
+    match !portnum_flag with
+      | None ->   
+	  (match l with
+	     | [] -> repl (Ics.channel_stdin ())
+	     | l -> batch l)
+      | Some(portnum) ->
+	  server portnum
 
 let _ = Printexc.catch main ()
 
