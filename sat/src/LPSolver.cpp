@@ -1266,6 +1266,7 @@ bool LPSolver::check_counter_example_main_loop(LPFormulaId f_id)
 			ics_result = ics_interface.assert_formula_in_scratch_state(f_idx);
 		else
 			ics_result = ics_interface.assert_formula_in_scratch_state(-f_idx);
+		
 		if (!ics_result) {
 			assert(false);
 			return false;
