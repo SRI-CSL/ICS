@@ -68,12 +68,6 @@ fi
 
 AC_CHECK_LIB(gmp,__gmpz_cmp, , AC_MSG_WARN(Cannot find the GMP library.))
 
-
-AC_CHECK_PROG(ALLEGRO,allegro6.0,allegro6.0,no)
-if test "$ALLEGRO" = no ; then
-        AC_MSG_WARN(Cannot find allegro6.0 -- but not mandatory)
-fi
-
 dnl Finally create all the generated files
 AC_SUBST(GMPPATH)
 AC_OUTPUT(Makefile chameleon/Makefile ics)
