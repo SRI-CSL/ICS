@@ -146,11 +146,11 @@ let rec merge p e =
     merge1 p e                                (* domains. *)
 	
 and merge1 p e =
-  let e' = Fact.Equal.map (find p) e in         (* Merge with old canonical forms. *)
+  let e' = Fact.Equal.map (find p) e in   (* Merge with old canonical forms. *)
     p.d <- D.merge e' p.d;
-    p.v <- V.merge e p.v;
-    let e'' = Fact.Equal.map_rhs (find p) e' in (* now propagate new canonical form. *)
-      p.d <- D.merge e'' p.d
+    p.v <- V.merge e' p.v;
+    let e'' = Fact.Equal.map_rhs (find p) e' in (* Propagate new can form *)
+      p.d <- D.merge e'' p.d                    (* into disequalities. *)
 
 
 (** Add a disequality of the form [x <> y]. *)
