@@ -107,13 +107,13 @@ let is_diseq s x y =
 
 
 (** Adding a disequality over variables *)
-let add deq s =
-  let (x, y, rho) = Fact.Diseq.destruct deq in
+let add d s =
+  let (x, y, rho) = Fact.Diseq.destruct d in
     match is_diseq s x y with
       | Some _ -> s
       | None ->
-	  Trace.msg "d" "Add(d)" deq Fact.Diseq.pp;
-	  Fact.Diseqs.push None deq;      (* new disequality *)
+	  Trace.msg "d" "Add(d)" d Fact.Diseq.pp;
+	  Fact.Diseqs.push None d;      (* new disequality *)
 	  let dx' = Set.add (y, rho) (diseqs s x)
 	  and dy' = Set.add (x, rho) (diseqs s y) in
 	    Term.Map.add x dx'
@@ -129,7 +129,8 @@ let rec merge e s =
 	  let sigma = Justification.contradiction rho tau in
 	    raise(Justification.Inconsistent(sigma))
       | None -> 
-	  let dx = diseqs s x and dy = diseqs s y in
+	  let dx = diseqs s x 
+	  and dy = diseqs s y in
 	  let s' = 
 	    let dxy = Set.union dx dy in
 	      if dy == dxy then
@@ -142,7 +143,7 @@ let rec merge e s =
 		 let dz = diseqs s z in
 		   try
 		     let dz' = Set.remove (assoc x dz) dz in
-		     let sigma = Justification.subst_equal (z, y) tau [rho] in
+		     let sigma = Justification.subst_diseq (z, y) tau [rho] in
 		     let dz'' = Set.add (y, sigma) dz' in  (* [sigma|-z<>y] *)
 		       Term.Map.add z dz'' s
 		   with
