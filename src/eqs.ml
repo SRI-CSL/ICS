@@ -94,6 +94,7 @@ module type TH = sig
   val th : Th.t
   val nickname : string
   val apply : Term.Equal.t -> Term.t -> Term.t
+  val is_infeasible : Justification.Pred2.t
 end
 
 type effects = 
@@ -267,18 +268,29 @@ module Make(Th: TH): SET = struct
      Trace.msg Th.nickname "Update" e Fact.Equal.pp; 
      let (x, b, rho) = Fact.Equal.destruct e in
        assert(Term.is_var x);
-       (try  
-	  let (b', rho') = apply s x in 
-	    (* s.dep <- Use.remove_but b x b' s.dep; *)  (* this needs to be fixed. *)
-	    s.dep <- Use.remove x b' s.dep;
-	    s.dep <- Use.add x b s.dep;
-	    !do_restrict (x, b, rho')
-	with 
-	    Not_found ->
-              s.dep <- Use.add x b s.dep);
-       s.find <- Term.Map.add x (b, rho) s.find;
-       s.inv <- Term.Map.add b x s.inv;
-       !do_add (x, b, rho)
+       match Th.is_infeasible x b with
+	 | None ->
+	     (try                  (* restrict, then update. *)
+		let (b', rho') = apply s x in 
+		  s.dep <- Use.remove_but b x b' s.dep;  (* this needs to be fixed. *)
+		  (* s.dep <- Use.remove x b' s.dep; *)
+		  s.dep <- Use.add x b s.dep; 
+		  !do_restrict (x, b, rho');
+		  s.find <- Term.Map.add x (b, rho) s.find;
+		  s.inv <- Term.Map.add b x s.inv;
+		  !do_add (x, b, rho)
+	      with 
+		  Not_found ->     (* extend *)
+		    begin
+		      s.dep <- Use.add x b s.dep;
+		      s.find <- Term.Map.add x (b, rho) s.find;
+		      s.inv <- Term.Map.add b x s.inv;
+		      !do_add (x, b, rho)
+		    end)
+	 | Some(tau) -> 
+	     let sigma = Justification.dependencies [rho; tau] in
+	       raise(Justification.Inconsistent(tau))
+
 	 
    let remove (p, s) x =
      try
@@ -482,14 +494,16 @@ module MakeIndex(Th: TH)(Idx : INDEX): SET = struct
 
 end
 
-
-(** {6 Solution sets with constant index} *)
-
+(** {6 Constant extensions} *)
 
 module type CNSTNT = sig
   val is_const : Term.t -> bool
   val is_diseq : Term.t -> Term.t -> bool
 end 
+
+
+
+(** {6 Solution sets with constant index} *)
 
 
 module MakeIndexCnstnt(Th: TH)(Idx: INDEX)(C: CNSTNT) = struct
@@ -624,6 +638,11 @@ module MakeIndexCnstnt1(Th: TH)(Idx1: INDEX1)(C: CNSTNT) =
   MakeIndexCnstnt(Th)(OfIndex1(Idx1))(C)
 
 
+module MakeIndex1(Th: TH)(Idx1: INDEX1) = 
+  MakeIndex(Th)(OfIndex1(Idx1))
+
+
+
 
 module Idx0: INDEX = struct
   let max = 0
@@ -754,32 +773,42 @@ let other =
     | Left -> Right
     | Right -> Left
 
-module type EFFECTS2 = sig
-  type left
-  type right
-  val do_at_update : tag -> Partition.t * left * right -> equality -> unit
-  val do_at_restrict : tag -> Partition.t * left * right -> equality -> unit
-end
-
-
 module Union
   (Left: SET)
   (Right: SET)
-  (Effects2: EFFECTS2 with type left = Left.t with type right = Right.t) =
+  (C: CNSTNT) =
 struct
 
-  type t = { left : Left.t; right : Right.t }
+  type t = { left : Left.t; right : Right.t; mutable cnstnt : Term.Set.t }
       
   let eq s t = Left.eq s.left t.left && Right.eq s.right t.right
 		 
-  let pp fmt s = Left.pp fmt s.left; Right.pp fmt s.right
-    
-  let empty = { left = Left.empty; right = Right.empty}
+  let pp fmt s = 
+    Left.pp fmt s.left;
+    Right.pp fmt s.right;
+    if !pp_index && not(Term.Set.is_empty s.cnstnt) then 
+      begin
+	Format.fprintf fmt "\ncnstnt: ";
+	Pretty.set Term.pp fmt (Term.Set.elements s.cnstnt)
+      end 
+      
+  let empty = { 
+    left = Left.empty; 
+    right = Right.empty; 
+    cnstnt = Term.Set.empty
+  }
 		
-  let copy s = {left = Left.copy s.left; right = Right.copy s.right}
-		 
-  let is_empty s = Left.is_empty s.left && Right.is_empty s.right
-		     
+  let copy s = {
+    left = Left.copy s.left; 
+    right = Right.copy s.right; 
+    cnstnt = s.cnstnt
+  }
+		                                                    
+  let is_empty s = 
+    Left.is_empty s.left && 
+    Right.is_empty s.right
+	
+	     
   (** Depending on value of [tag] apply either [f_left] to left part of
     state or [f_right] to the right part. *)
   let case_tag f_left f_right tag s =
@@ -797,7 +826,10 @@ struct
   let inv = case_tag Left.inv Right.inv
   let dep = case_tag Left.dep Right.dep
   let index = case_tag Left.index Right.index
-  let cnstnt = case_tag Left.cnstnt Right.cnstnt
+  let cnstnt s = s.cnstnt
+
+  let apply2 s x =
+    try apply Left s x with Not_found -> apply Right s x
 
   module Dep = struct
     let iter = case_tag Left.Dep.iter Right.Dep.iter
@@ -811,9 +843,7 @@ struct
 
   (** Combined effects *)
   let effects tag (p, s) = 
-    let do_at_update tag ((x, a, rho) as e) =
-
-      Effects2.do_at_update tag (p, s.left, s.right) e;
+    let do_at_add tag ((x, a, rho) as e) =
       (try                           (* establish confluence *)
 	 (match tag with
 	    | Right ->
@@ -827,11 +857,26 @@ struct
 		  Partition.merge p (Fact.Equal.make (x, y, sigma));
 		  Left.restrict effects0 (p, s.left) x)  (* restrict [x = a] in [Left] *)
        with
-	   Not_found -> ())
-    and do_at_restrict tag =
-      Effects2.do_at_restrict tag (p, s.left, s.right)
+	   Not_found -> ());
+      if C.is_const a then
+	s.cnstnt <- Term.Set.add x s.cnstnt;
+      Term.Set.iter                    (* [rho |- x = a] *)
+	(fun y ->
+	   try
+	     let (b, tau) = apply2 s y in  (* [tau |- y = b] *)
+	       assert(C.is_const b && not(y == b));
+	       if C.is_diseq a b then       (* [sigma |- x <> y] *)
+		 let sigma = Justification.dependencies [rho; tau] in
+		 let d = Fact.Diseq.make (x, y, sigma) in
+		   Partition.dismerge p d
+	   with
+	       Not_found -> ())
+	(cnstnt s)
+    and do_at_restrict tag (x, a, _) =
+      if C.is_const a then
+	s.cnstnt <- Term.Set.remove x s.cnstnt
     in
-      (do_at_update tag, do_at_restrict tag)
+      (do_at_add tag, do_at_restrict tag)
 
 
   (** Depending on [tag] call either the update function [f_left]
