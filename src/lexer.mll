@@ -36,7 +36,7 @@ let keyword =
       "conc", CONC; "sub", SUB; 
       "bwite", BWITE; "bwand", BWAND; "bwor", BWOR;
       "bwxor", BWXOR; "bwnot", BWNOT;
-      "drop", DROP; "can", CAN; "assert", ASSERT; "exit", EXIT; 
+      "drop", DROP; "can", CAN; "assert", ASSERT; "abstract", ABSTRACT; "exit", EXIT; 
       "valid", VALID; "unsat", UNSAT;
       "save", SAVE; "restore", RESTORE; "remove", REMOVE; "forget", FORGET;
       "reset", RESET; "sig", SIG; "type", TYPE; "def", DEF;
@@ -45,7 +45,7 @@ let keyword =
       "find", FIND; "inv", INV; "use", USE; "solution", SOLUTION; "partition", PARTITION;
       "syntax", SYNTAX; "commands", COMMANDS; "ctxt", CTXT; "diseq", DISEQ; 
       "show", SHOW; "symtab", SYMTAB; "cnstrnt", CNSTRNT; "split", SPLIT;
-      "gc", GC; "true", TRUE; "false", FALSE
+      "true", TRUE; "false", FALSE
     ];
   fun s ->
     try Hashtbl.find kw_table s with Not_found -> IDENT s
