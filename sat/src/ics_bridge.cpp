@@ -262,6 +262,9 @@ extern "C" {
 	void sat_set_assertion_frequency(int freq) {
 		SAT_assertion_frequency = freq;
 	}
+	int sat_get_assertion_frequency() {
+		return SAT_assertion_frequency;
+	}
 	void sat_set_validate_counter_example(bool flag) {
 		SAT_validate_counter_example = flag;
 	}
