@@ -28,8 +28,8 @@ let is_builtin a =
 (*s Division. *)
 
 let mk_div s a b =
-  let a = Context.find Theories.a s a in
-  let b = Context.find Theories.a s b in
+  let a = Context.find Sym.A s a in
+  let b = Context.find Sym.A s b in
   match Arith.d_num b with
     | Some(q) ->
 	Arith.mk_multq (Mpa.Q.inv q) a
@@ -39,7 +39,7 @@ let mk_div s a b =
 (*s Unsigned interpretation. *)
 
 let rec mk_unsigned s a =
-  let a = Context.find Theories.bv s a in  (* look for bitvector interpretation. *)
+  let a = Context.find Sym.BV s a in  (* look for bitvector interpretation. *)
   if is_var a then
     Term.mk_app Sym.mk_unsigned [a]
   else 
@@ -82,7 +82,7 @@ let mk_update s a i e =
   Term.mk_app Sym.mk_update [a;i;e]
 
 let rec mk_select s a x =
-  let a = Context.find Theories.u s a in
+  let a = Context.find Sym.U s a in
   if is_var a then
     Term.mk_app Sym.mk_select [a;x]
   else
@@ -99,7 +99,7 @@ let rec mk_select s a x =
 (* Sine and Cosine *)
 
 let rec mk_sin s a =
-  let a = Context.find Theories.a s a in
+  let a = Context.find Sym.A s a in
   match Arith.d_add a with
     | Some([x;y]) ->
 	Arith.mk_add (Arith.mk_mult (mk_sin s x) (mk_cos s y))
@@ -108,14 +108,14 @@ let rec mk_sin s a =
 	Term.mk_app Sym.mk_sin [a]
 
 and mk_cos s a =   
-  let a = Context.find Theories.a s a in
+  let a = Context.find Sym.A s a in
   Term.mk_app Sym.mk_cos [a]
 
 
 (*s Floor function. *)
 
 let mk_floor s a = 
-  let a = Context.find Theories.a s a in
+  let a = Context.find Sym.A s a in
   let ms = Arith.monomials a in
   let (ints,nonints) = List.partition (Context.is_int s) ms in
   let nonint' = Arith.mk_addl nonints in
@@ -126,7 +126,7 @@ let mk_floor s a =
   Arith.mk_addl (fl :: ints)
 
 let mk_ceiling s a = 
-  let a = Context.find Theories.a s a in
+  let a = Context.find Sym.A s a in
   Term.mk_app Sym.mk_ceiling [a]
  
 
