@@ -38,25 +38,7 @@
      [app (SetIte(s1,s2,s3)) l] & = & [ite (app a \list{s1}) (app a \list{s2}) (app a \list{s3})]
      \end{tabular} *)
 
-val app: Term.t -> Term.t list -> Term.t
+val uninterp: Term.domain option -> Term.props option -> Term.t -> Term.t list -> Term.t
 
-    (*s [update a i u] is a constructor for updating function [a] at position [i] with
-      value [u]. It employs the simplification\\
-        \begin{tabular}{lcl}
-        [update (update b j v) j u] & = & update b i u \\
-        \end{tabular} *)
-	 
-val update : Term.t * Term.t * Term.t -> Term.t
-
-    (*s [finite s a] builds the set membership test [app a (Finite s)] with the
-      additional simplifications that
-      \begin{tabular}{lcll}
-     [app Finite(s) l] & = & tt() & if [l] is a member in [s] \\
-     [app Finite(s) l] & = & ff() & if [l] is not in [s] and [l] is known to be disjoint form [s] \\
-     \end{tabular} *) 
-
-val finite : Term.terms -> Term.t -> Term.t
-
-
-
-
+val sigma : Term.sym -> Term.t list -> Term.t
+ 

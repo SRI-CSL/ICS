@@ -19,69 +19,76 @@ open Term
 (*i*)
 
 let deriv_diseq i j =
-  Bool.diseq i j === Bool.tt()
-
-let finite s x =
-  if Term.Set.mem x s then
-    Bool.tt()
-  else if Term.Set.for_all (deriv_diseq x) s  then
-    Bool.ff()
-  else
-    hc(App(Sets.finite s,[x]))
+  Atom.diseq(i,j) === Bool.tt()
 
 
 
    (*s Function application. *)
 
-let rec appl a l =
-  if l = [] then a
+let rec appl dom props a l =
+  if l = [] then 
+      a
   else
     match a.node with
-      | App(b,m) ->                  (* Uncurrying *)
-	  appl b (m @ l)
-      | Update(b,j,v) ->
+      | App({node=Builtin(Update)},[b;j;v]) ->
 	  let i = Tuple.tuple l in
-	  if i === j then
-	    v
-	  else if deriv_diseq i j then
-	    appl b l
-	  else    
-	    Bool.cond(Bool.equal(i,j), v, appl b l)
-      | Set s ->
-	  (match s with
-	     | Empty _ ->
-		 Bool.ff()
-	     | Full _ ->
-		 Bool.tt()
-	     | Cnstrnt(c) ->
-		 Cnstrnt.app c (Tuple.tuple l)
-	     | Finite(s) ->
-		 finite s (Tuple.tuple l)
-	     | SetIte(_,s1,s2,s3) ->
-		 Bool.ite(appl s1 l, appl s2 l, appl s3 l))
+	  update_app dom (b,j,v) i
+      | App({node=Uninterp(b,None,None)},m) ->
+	  appl None None b (m @ l)
       | _ ->
-	  hc(App(a,l))
-
-let app a l =
-  Bool.nary_lift_ite (appl a) l
-
-let update =
-  let rec upd (a,i,u) =
-    match a.node with
-      | Update(b,j,v) when i === j  ->
-	  upd (b,i,u)
-      | _ ->
-	  hc(Update(a,i,u))
-    in
-    Bool.ternary_lift_ite upd
-	 
+	  let l' = normalize props a l in
+	  mk_uninterp dom props a l'
 
 
+and normalize props a l =
+  let flatten a l =
+    List.fold_right 
+      (fun x acc ->
+	 match x.node with
+	   | App({node=Uninterp(y,_,_)}, l) when a === y -> 
+		 l @ acc
+	   | _ -> 
+	       x :: acc)
+      l
+      []  
+  in
+  match props with
+    | None -> l
+    | Some(A) ->
+	flatten a l
+    | Some(AC) ->
+	Sort.list (<<<) (flatten a l)
+    | Some(C) ->
+	Sort.list  (<<<) l
+
+and update_app dom (b,j,v) i =
+  if i === j then
+    v
+  else if deriv_diseq i j then
+    appl dom None b [i]
+  else    
+    Bool.ite(Atom.equal(i,j), v, appl dom None b [i])
 
 
+let uninterp dom props a =
+  Bool.nary_lift_ite (appl dom props a)
 
-
-
+let sigma f l =
+  match f.node with
+    | Uninterp(a,d,p) ->
+	uninterp d p a l
+    | Interp(sym) ->
+	(match sym with
+	   | Arith(op) -> Arith.sigma op l
+	   | Tuple(op) -> Tuple.sigma op l
+           | Bool(op) -> Bool.sigma op l)
+    | Pred(p) ->
+	(match p, l with
+	   | Equal, [x;y] -> Atom.equal (x,y)
+	   | Cnstrnt(c), [x] -> Atom.cnstrnt c x
+	   | _ -> assert false)
+    | Builtin(f) -> 
+	Builtin.sigma f l
 
 
 
