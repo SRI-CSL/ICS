@@ -23,7 +23,11 @@ let index a =
   assert(not(Term.is_var a));
   match Interp.index (Term.sym_of a) with
     | Some(i) -> Interp(i)
-    | None -> Uninterp
+    | None -> 
+	if C.is_slack a then
+	  Interp(Interp.A)
+	else 
+	  Uninterp
 
 let name_of = function
   | Uninterp -> "u"
