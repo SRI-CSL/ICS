@@ -206,14 +206,22 @@ let mem q i =
 let pp fmt i =
   let (a,alpha) = Endpoint.destruct i.lo in
   let (b,beta) = Endpoint.destruct i.hi in
-  Format.fprintf fmt "@[";
-  Dom.pp fmt i.dom;
-  Format.fprintf fmt "%s" (if alpha && Extq.is_q a then "[" else "(");
-  Extq.pp fmt a;
-  Format.fprintf fmt "..";
-  Extq.pp fmt b;
-  Format.fprintf fmt "%s@]" (if beta && Extq.is_q b then "]" else ")")
-	
+    if Extq.destruct a = Extq.Neginf &&
+       Extq.destruct b = Extq.Posinf && 
+       Endpoint.is_strict i.lo &&
+       Endpoint.is_strict i.hi 
+    then
+      Dom.pp fmt i.dom
+    else
+      begin
+	Format.fprintf fmt "";
+	Dom.pp fmt i.dom;
+	Format.fprintf fmt "%s" (if alpha && Extq.is_q a then "[" else "(");
+	Extq.pp fmt a;
+	Format.fprintf fmt "..";
+	Extq.pp fmt b;
+	Format.fprintf fmt "%s" (if beta && Extq.is_q b then "]" else ")")
+      end
 
 (* Union and intersection of intervals. *)
 
