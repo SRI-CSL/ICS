@@ -26,7 +26,6 @@ let disable_usage_flag = ref false
 let disable_pretty_print_flag = ref false
 let end_of_transmission = ref ""
 let disable_compactify_flag = ref false
-let disable_nonlin_flag = ref false
 let maxloops_flag = ref !Rule.maxclose
 let portnum_flag = ref None
      
@@ -50,7 +49,7 @@ let rec repl inch =
 
 and prompt () =
   if not(!disable_prompt_flag) then 
-    Format.eprintf "\n%d ics> @?" !Tools.linenumber
+    Format.eprintf "\nics> @?"
 
 and usage () =
   if not(!disable_usage_flag) then
@@ -98,15 +97,30 @@ and server portnum =
 let args () =
   let files = ref [] in
   Arg.parse
-      [ "-timings", Arg.Set timing_flag,          "Print timings";
-	"-prompt", Arg.Set disable_prompt_flag,   "Disable printing of prompt";
-        "-pp", Arg.Set disable_pretty_print_flag, "Disable Pretty-Printing of terms";
-        "-usage", Arg.Set disable_usage_flag,     "Disable printing of usage message";
-        "-compactify", Arg.Set disable_compactify_flag, "Disable compactification";
-	"-nonlin", Arg.Set disable_nonlin_flag, "Disable Interpretation of nonlinear arithmetic";
-        "-eot", Arg.String (fun str -> end_of_transmission := str), "Print string argument after each transmission";
-	"-maxloops", Arg.Int (fun n -> maxloops_flag := n), "Run in server mode";
-        "-server", Arg.Int (fun portnum -> portnum_flag := Some(portnum)), "Run in server mode";
+      [ "-timings", Arg.Set timing_flag,          
+	"Print timings";
+	"-prompt", Arg.Set disable_prompt_flag,   
+	"Disable printing of prompt";
+        "-pp", Arg.Set disable_pretty_print_flag, 
+	"Disable Pretty-Printing of terms";
+	"-fme", Arg.Set Rule.fme,   
+	"Enable complete Fourier-Motzkin elimnation.";
+	"-trace", Arg.String Ics.trace_add,
+	"Trace level";
+        "-usage", Arg.Set disable_usage_flag,     
+	"Disable printing of usage message";
+        "-compactify", Arg.Set disable_compactify_flag,
+	"Incomplete Fourier-Motzkin";
+        "-fme", Arg.Clear(Rule.fme), 
+	"Use integer solver";
+        "-integer-solve", Arg.Set(Context.integer_solve),  
+	"Disable compactification";
+        "-eot", Arg.String (fun str -> end_of_transmission := str), 
+	"Print string argument after each transmission";
+	"-maxloops", Arg.Int (fun n -> maxloops_flag := n), 
+	"Upper bound on loops";
+        "-server", Arg.Int (fun portnum -> portnum_flag := Some(portnum)), 
+	"Run in server mode";
       ]
       (fun f -> files := f :: !files)
       "usage: ics [-h] [-timings] [-prompt] [-pp] [-usage] [-eot <string>] [-server <portnum>] [files]";
