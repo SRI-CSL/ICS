@@ -20,20 +20,31 @@ open Sym
 open Context
 (*i*)
 
+(*s Fold over all partitions of a list [l]. *)
+
+let rec partitions_fold l f e = 
+  match l with
+    | [] -> 
+	f ([], []) e
+    | x :: xl ->
+	List.fold_left
+	  (fun acc (l1, l2) ->
+	     f ((x ::l1), l2) (f (l1, (x :: l2)) acc))
+	[] 
+	(partitions_fold xl f e)
+
+
+(*s Deduce new constraints from an equality. *)
 
 let rec deduce e s =
   Trace.msg "deduce" "Deduce" e Fact.pp_equal;
   let (x, b, _) = Fact.d_equal e in
     assert(is_var x);
     match b with
-      | Var _ ->
-	  of_var x b s
-      | App(Builtin(op), yl) ->
-	  of_builtin x (op, yl) s
-      | App(Arith(op), yl) ->
-	  of_linarith x (op, yl) s
-      | _ ->
-	  s
+      | Var _ -> of_var x b s
+      | App(Pp(pp), yl) -> of_pprod x (pp, yl) s
+      | App(Arith(op), yl) -> of_linarith x (op, yl) s
+      | _ -> s
 
 and infer x i s =
   let c' = Fact.mk_cnstrnt x i None in
@@ -44,7 +55,6 @@ and infer x i s =
 (*s Deduce new constraints from an equality of the form [x = b],
  where [x] is a variable. *)
 
-
 and of_var x y s =
   try
     let i = c s x and j = c s y in
@@ -52,32 +62,27 @@ and of_var x y s =
   with
       Not_found -> s
 
-and of_builtin x (op, yl) s =
+and of_pprod x (op, yl) s =
   Trace.msg "deduce" "Deduce(u)" x Term.pp;
-  match op, yl with
-    | Mult, _ -> 
-	of_mult x yl s
-    | Div, [y1; y2] -> 
-	of_div x (y1, y2) s
-    | Expt, [n1; y2] -> 
-	of_expt x (n1, y2) s
-    | _ -> 
-	s
-
-and of_mult x yl s =
-  let i = try Cnstrnt.multl (List.map (c s) yl) with Not_found -> Cnstrnt.mk_real in
-    infer x i s
-
-and of_div x (y1, y2) s =
-  let i = try Cnstrnt.div (c s y1) (c s y2) with Not_found -> Cnstrnt.mk_real in
-    infer x i s
-
-and of_expt x (n, y) s = 
-  if Arith.is_q Mpa.Q.two n then
-    let i = try Cnstrnt.expt 2 (c s y) with Not_found -> Cnstrnt.mk_real in
-      infer x i s
-  else 
-    s
+  let j = Pp.tau (c s) op yl in
+  try
+    let i = c s x in
+      match Cnstrnt.cmp i j with
+	| Binrel.Same ->
+	    s
+	| Binrel.Disjoint ->
+	    raise Exc.Inconsistent
+	| Binrel.Sub ->
+	    s
+	| Binrel.Super ->
+	    infer x i s
+	| Binrel.Singleton(q) ->
+	    infer x (Cnstrnt.mk_singleton q) s
+	| Binrel.Overlap(ij) ->
+	    infer x ij s
+      with
+	  Not_found ->
+	    infer x j s
 
 and of_linarith x (op, yl) s =
   Trace.msg "deduce" "Deduce(a)" (x, Arith.sigma op yl) Term.pp_equal;
@@ -166,41 +171,18 @@ and partition_unbounded s =
     (List.partition (is_unbounded s))
 
 and extend (yl, zl) s =                      (* [yl + zl = 0]. *)
-  let a = Arith.mk_addl yl in
-  let a = v s (try inv Theories.A s a with Not_found -> a) in  
-  let i' = Cnstrnt.multq Mpa.Q.negone (cnstrnt_of_monomials s zl) in
-    if is_var a then
-      infer a i' s
-    else
-      let k = Name.of_string "k" in 
-      let x = Var(Var.mk_fresh k None) in
-      let e =  Fact.mk_equal x a None in
-	Trace.msg "deduce" "Extend" e Fact.pp_equal;
-	let s' = infer x i' s in
-	  union Theories.A e (fuse Theories.A e s')    (* this is not quite right. Should be a compose,
-but this looped, at least without the canonizer; canonizer not a good idea either. *)
-
-
-and canarith s = function
-  | App(Arith(op), l) ->
-      (match op, l with
-	 | Num(q), [] -> 
-	     lookup s (Arith.mk_num q)
-	 | Multq(q), [x] -> 
-	     lookup s (Arith.mk_multq q (find Theories.A s (canarith s x)))
-	 | Add, [x; y] -> 
-	     let a' = find Theories.A s (canarith s x) 
-	     and b' = find Theories.A s (canarith s y) in
-	       lookup s (Arith.mk_add a' b')
-	 | Add, _ :: _ :: _ -> 
-	     let interp a = find Theories.A s (canarith s a) in
-	     let l' =  mapl interp l in
-	       lookup s (Arith.mk_addl l')
-	 | _ -> 
-	     assert false)
-  | x -> v s x
-      
-
+  let a = Can.term s (Arith.mk_addl yl) in
+    if Arith.is_num a then 
+      s 
+    else 
+      let i' = Cnstrnt.multq Mpa.Q.negone (cnstrnt_of_monomials s zl) in
+	if is_var a then
+	  infer a i' s
+	else
+	  let x = Var(Var.mk_slack None) in
+	  let e =  Fact.mk_equal x a None in
+	    Trace.msg "deduce" "Extend" e Fact.pp_equal;
+	    compose Th.la e (infer x i' s)
 
 
 (*s Propagate constraints for [ml = 0] for each variable [x] in [b].
@@ -208,7 +190,7 @@ and canarith s = function
   [x in -1/q * (j + k)] is derived, where [pre in j] and
   [post' in k]. Following should be optimized. *)
 
-
+                                                          (* this needs to be done for every subterm. *)
 and propagate_zero ml =
   Trace.msg "deduce" "Propagate" ml (Pretty.list Term.pp);
   let rec loop j post s = 
@@ -218,12 +200,21 @@ and propagate_zero ml =
 	  let (q, x) = Arith.mono_of m in
 	  let qinv = Mpa.Q.inv q in
 	  let k =  cnstrnt_of_monomials s post' in
-          let j' = try Cnstrnt.add (Cnstrnt.multq qinv (c s x)) j with Not_found -> Cnstrnt.mk_real in
+          let j' = 
+	    try Cnstrnt.add (Cnstrnt.multq qinv (c s x)) j 
+	    with Not_found -> Cnstrnt.mk_real in
           let i' = Cnstrnt.multq (Mpa.Q.minus qinv) (Cnstrnt.add j k) in
 	  let s' = infer x i' s in
 	    loop j' post' s'
   in
     loop Cnstrnt.mk_zero ml
+
+(*
+and propagate ml s =                           (* [ml = 0]. Solve for every "subterm" in [ml].  *)
+  Trace.msg "deduce" "Propagate" ml (Pretty.list Term.pp);
+  fold_partitions
+    (fun (ml1, ml2) ->
+*)      
 
 
 (*s And now also propagate the integer information. *)
@@ -240,16 +231,15 @@ and of_add_int x ml s =
     | [App(Arith(Multq(q)), [x])] when Mpa.Q.is_integer q ->
 	infer x Cnstrnt.mk_int s
     | ql -> 
-	let a = Arith.mk_addl ql in
-	let a = v s (try inv Theories.A s a with Not_found -> a) in
-	  if is_var a then
-	    infer a Cnstrnt.mk_int s
-	  else 
-	    try
-	      let y = inv Theories.A s a in   
-		infer y Cnstrnt.mk_int s
-	    with
-		Not_found -> s   (* do not introduce new names for now. *)
+	let a = Can.term s (Arith.mk_addl ql) in
+	  match Arith.d_num a with
+	    | Some(q) ->
+		if Mpa.Q.is_integer q then s else raise Exc.Inconsistent
+	    | _ ->
+		if is_var a then
+		  infer a Cnstrnt.mk_int s
+		else 
+		  s   (* do not introduce new names for now. *)
 
 	   
 and is_int s m = 

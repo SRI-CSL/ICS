@@ -338,8 +338,7 @@ let _ = Callback.register "term_is_false" term_is_false
 (*s Nonlinear terms. *)
 
 
-let term_mk_mult a b = 
-  Sig.mult Context.empty (a, b)
+let term_mk_mult = Sig.mk_mult
 let _ = Callback.register "term_mk_mult" term_mk_mult
 
 let rec term_mk_multl = function
@@ -349,31 +348,28 @@ let rec term_mk_multl = function
 let _ = Callback.register "term_mk_multl" term_mk_multl
 
 
-let term_mk_expt q a = 
-  Sig.expt Context.empty (Arith.mk_num q) a
+let term_mk_expt = Sig.mk_expt 
 let _ = Callback.register "term_mk_expt" term_mk_expt
 
 
 (*s Builtin applications. *)
 
-let term_mk_unsigned a = Sig.unsigned Context.empty a
+let term_mk_unsigned = Bvarith.mk_unsigned
 let _ = Callback.register "term_mk_unsigned" term_mk_unsigned
 
-let term_mk_update a b c = Sig.update Context.empty (a, b, c)
+let term_mk_update  = Arr.mk_update 
 let _ = Callback.register "term_mk_update" term_mk_update
 
-let term_mk_select a b = Sig.select Context.empty (a, b)
+let term_mk_select = Arr.mk_select
 let _ = Callback.register "term_mk_select" term_mk_select
 
-let term_mk_div a b = Sig.div Context.empty (a, b)
+let term_mk_div = Sig.mk_div
 let _ = Callback.register "term_mk_div" term_mk_div
 
-let term_mk_apply = 
-  Sig.apply Context.empty None
+let term_mk_apply = Apply.mk_apply None
 let _ = Callback.register "term_mk_apply" term_mk_apply
 
-let term_mk_arith_apply c = 
-  Sig.apply Context.empty (Some(c))
+let term_mk_arith_apply c = Apply.mk_apply (Some(c))
 let _ = Callback.register "term_mk_arith_apply" term_mk_arith_apply
 
 
@@ -447,16 +443,16 @@ let _ = Callback.register "context_empty" context_empty
 let context_ctxt_of s = (Atom.Set.elements (Context.ctxt_of s))
 let _ = Callback.register "context_ctxt_of" context_ctxt_of
 
-let context_u_of s = Context.eqs_of s Theories.U
+let context_u_of s = Context.eqs_of s Th.u
 let _ = Callback.register "context_u_of" context_u_of
 
-let context_a_of s = Context.eqs_of s Theories.A
+let context_a_of s = Context.eqs_of s Th.la
 let _ = Callback.register "context_a_of" context_a_of
 
-let context_t_of s = Context.eqs_of s Theories.T
+let context_t_of s = Context.eqs_of s Th.p
 let _ = Callback.register "context_t_of" context_t_of
 
-let context_bv_of s =  Context.eqs_of s Theories.BV
+let context_bv_of s =  Context.eqs_of s Th.bv
 let _ = Callback.register "context_bv_of" context_bv_of
 
 let context_pp s = Context.pp Format.std_formatter s; Format.print_flush()
@@ -512,7 +508,7 @@ let _ = Callback.register "split" split
 
 (*s Normalization functions *)
 
-let can = Shostak.can
+let can = Can.atom
 let _ = Callback.register "can" can
 
 

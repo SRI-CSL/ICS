@@ -85,7 +85,8 @@ let is_neg (i, _) =
 	  else 
 	    Mpa.Q.le q Mpa.Q.zero
       | _ -> false
-  
+
+
 
 (*s Membership. *)
 
