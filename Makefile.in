@@ -41,7 +41,7 @@ ifeq ($(MAKELEVEL),0)
 	LIBDIR = ./lib/$(ARCH)
 	SRCDIR = ./src
 	DOCDIR = ./doc
-        WEBDIR = ./www.icansolve.com
+  WEBDIR = ./www.icansolve.com
 	LABDIR = /csl/ics
 	SATDIR = ./sat
 else
@@ -50,7 +50,7 @@ else
 	LIBDIR = ../../lib/$(ARCH)
 	SRCDIR = ../../src
 	DOCDIR = ../../doc
-        WEBDIR = ../../www.icansolve.com
+  WEBDIR = ../../www.icansolve.com
 	LABDIR = /csl/ics
 	SATDIR = ../../sat
 endif
@@ -126,7 +126,7 @@ SRC = $(addprefix $(SRCDIR)/,$(CMO:.cmo=.ml))
 SRCMLI = $(addprefix $(SRCDIR)/,$(CMO:.cmo=.mli))
 
 ### ICSAT Library ###
-ICSAT= $(SATDIR)/lib/icsat.a
+ICSAT= $(SATDIR)/lib/$(ARCH)/icsat.a
 
 
 .PHONY : all all-chdir ocaml-lib

@@ -93,6 +93,19 @@ if test "$OCAMLDOC" = true ; then
 	AC_MSG_WARN(Cannot find ocamldoc -- but not mandatory, since only used for generating documentation.)
 fi
 
+AC_SUBST(SHELL)
+AC_CHECK_PROG(SHELL,[bash --version],bash,no)
+if test "$SHELL" = no; then
+	 AC_MSG_ERROR([Cannot find the program (shell) `bash'.])
+fi
+
+AC_SUBST(SED)
+AC_CHECK_PROG(SED,[sed --version],sed,no)
+if test "$SED" = no; then
+	 AC_MSG_ERROR([Cannot find the program `sed'.])
+fi
+
+
 
 dnl Check for library
 

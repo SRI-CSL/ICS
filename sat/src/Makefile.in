@@ -1,21 +1,23 @@
 # /* Copyright (c) SRI International 2002. */
-SHELL = /bin/sh
+SHELL=@SHELL@
 
 #### configuration part
-CC = @CC@
-CXX = @CXX@
-CFLAGS = @CFLAGS@
-CXXFLAGS = @CXXFLAGS@
+CC=@CC@
+CXX=@CXX@
+CFLAGS=@CFLAGS@
+CXXFLAGS=@CXXFLAGS@
 RANLIB=@RANLIB@
+SED=@SED@
 ####
 
-LIB_DIR= ../lib
-ICSAT= icsat.a
+ARCH := $(shell ../../config.guess)
+export ARCH
 
-#SOURCES= util.cpp fmessage.cpp safealloc.cpp UString.cpp StringBuffer.cpp errormsg.cpp error.cpp symbols.cpp \
-#         LPException.cpp LPFormula.cpp fast-allocator.cpp LPSolver.cpp LPSolver_constraint_propagation.cpp \
-#				 LPSolver_branching.cpp LPSolver_backtrack.cpp LPSolver_invariants.cpp LPSolver_internalization.cpp LPSolver_conflict_resolution.cpp \
-#				 LPSolver_polarity_optimization.cpp LPSolver_implication_graph_optimization.cpp LPSolver_lookahead.cpp lazy-prover-front-end.cpp 
+LIB_DIR= ../lib/$(ARCH)
+OBJ_DIR= ../obj/$(ARCH)
+SED_OBJ_DIR=..\/obj\/$(ARCH)
+
+ICSAT= icsat.a
 
 SOURCES= LPFormula.cpp error.cpp ics_interface.cpp util.cpp safealloc.cpp UString.cpp \
 				 fmessage.cpp StringBuffer.cpp errormsg.cpp error.cpp LPException.cpp LPFormula.cpp fast-allocator.cpp LPSolver.cpp \
@@ -25,9 +27,15 @@ SOURCES= LPFormula.cpp error.cpp ics_interface.cpp util.cpp safealloc.cpp UStrin
 
 ### ics_interface.cpp
 
-OBJS= $(SOURCES:.cpp=.o) 
+OBJS= $(SOURCES:%.cpp=$(OBJ_DIR)/%.o)
 
-all: $(LIB_DIR)/$(ICSAT) 
+all: $(LIB_DIR) $(OBJ_DIR) $(LIB_DIR)/$(ICSAT) 
+
+$(LIB_DIR):
+	mkdir -p $(LIB_DIR)
+
+$(OBJ_DIR):
+	mkdir -p $(OBJ_DIR)
 
 $(LIB_DIR)/$(ICSAT): $(OBJS)
 	rm -f $(LIB_DIR)/$(ICSAT)
@@ -36,25 +44,24 @@ $(LIB_DIR)/$(ICSAT): $(OBJS)
 
 .PHONY: icsat
 
-%.o : %.c
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $<
+$(OBJ_DIR)/%.o : %.c
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c -o $@ $<
 
-%.o : %.cpp
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $<
+$(OBJ_DIR)/%.o : %.cpp
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c -o $@ $<
 
-%.d: %.cpp
+$(OBJ_DIR)/%.d: %.cpp
 	@echo Making dependency file \'$@\' ... 
-	@ $(SHELL) -ec '$(CC) -MM $(CPPFLAGS) $< | sed '\''s/\($*\)\.o[ :]*/\1.o $@ : /g'\'' > $@; [ -s $@ ] || rm -f $@'
-	@ sed -e "s/msgs.h//g;s/consts.h//g" $@ > $@.DEP.TMP
-	@ mv $@.DEP.TMP $@
+	@mkdir -p $(OBJ_DIR)
+	@$(SHELL) -ec '$(CXX) -MM $(CPPFLAGS) $< | $(SED) '\''s/\($*\)\.o[ :]*/$(SED_OBJ_DIR)\/\1.o $(SED_OBJ_DIR)\/\1.d : /g'\'' > $@; [ -s $@ ] || rm -f $@'
+	@$(SED) -e "s/msgs.h//g;s/consts.h//g" $@ > $@.DEP.TMP
+	@mv $@.DEP.TMP $@
 
-include $(SOURCES:.cpp=.d)
+include $(SOURCES:%.cpp=$(OBJ_DIR)/%.d)
 
 clean:
 	rm -f $(LIB_DIR)/$(ICSAT)
-	rm -f *.o
-	rm -f *.d
-	rm -f a.out
+	rm -f $(OBJ_DIR)/*
 	rm -f core
 
 
