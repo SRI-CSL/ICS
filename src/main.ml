@@ -71,8 +71,8 @@ let args () =
         "Print statistics for SAT solver";
         "-footprint", set_true Ics.set_footprint,
         "Traces generated facts on stderr";
-	"-integersolve", set_true Ics.set_integer_solve,
-        "Enables Solving for the integers"
+	"-integersolve", set_false Ics.set_integer_solve,
+        "Disables Solving for the integers"
       ]
       (fun f -> files := f :: !files)
       "Usage: ics [args] <seqence-of-batch-files>";
