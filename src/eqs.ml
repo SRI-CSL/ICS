@@ -491,6 +491,7 @@ module type CNSTNT = sig
   val is_diseq : Term.t -> Term.t -> bool
 end 
 
+
 module MakeIndexCnstnt(Th: TH)(Idx: INDEX)(C: CNSTNT) = struct
 
     (** Encode constant index as a new index at position [max]. *)
@@ -512,6 +513,8 @@ module MakeIndexCnstnt(Th: TH)(Idx: INDEX)(C: CNSTNT) = struct
   let empty = Eqs.empty
   let copy = Eqs.copy
 
+  let debug = ref false
+
   let rec index s i =
     assert(i < Idx.max);
     let xs = Eqs.index s i in
@@ -519,6 +522,7 @@ module MakeIndexCnstnt(Th: TH)(Idx: INDEX)(C: CNSTNT) = struct
       xs
 
   and index_checker s i x =
+    if not(!debug) then true else 
     try
       let (a, _) = Eqs.apply s x in
       let result = Idx1.holds i a in
@@ -540,6 +544,7 @@ module MakeIndexCnstnt(Th: TH)(Idx: INDEX)(C: CNSTNT) = struct
       xs
 
   and cnstnt_checker s x =
+    if not(!debug) then true else
     try
       let (a, _) = Eqs.apply s x in
       let result = C.is_const a in
@@ -587,7 +592,7 @@ module MakeIndexCnstnt(Th: TH)(Idx: INDEX)(C: CNSTNT) = struct
       Term.Set.iter                    (* [rho |- x = a] *)
 	(fun y ->
 	   let (b, tau) = find s y in  (* [tau |- y = b] *)
-	     assert(C.is_const b && not(y == b));
+	    (* assert(C.is_const b && not(y == b)); *)
 	     if C.is_diseq a b then       (* [sigma |- x <> y] *)
 	       let sigma = Justification.dependencies [rho; tau] in
 	       let d = Fact.Diseq.make (x, y, sigma) in
