@@ -296,8 +296,6 @@ let is_pos a =
     else
       Three.X
 
-let is_nonneg =
-  Trace.func "foo6" "Arith.is_nonnneg" Term.pp Pretty.three is_nonneg
 
 (** {6 Constructors} *)
 
@@ -480,11 +478,6 @@ let qsolve ((a, b) as e) =
 		       (mk_addl ml))
 	  in
 	    Some(x, b)
-
-let qsolve =
-  Trace.func "foo10" "Solve" Term.Equal.pp (Pretty.option Term.Equal.pp)
-    qsolve
-	
 
 (** {6 Integer solver} *)
 

@@ -264,13 +264,16 @@ let process_nonneg (p, s) =
   La.process_nonneg (p, s.a) 
 
 let process_diseq (p, s) d =
-  if Fact.Diseq.is_diophantine d then
-    La.process_diseq (p, s.a) d;
-  if Fact.Diseq.is_var d then
-    begin
-      Bv.process_diseq (p, s.bv) d;
-      Cop.process_diseq (p, s.cop) d
-    end 
+  try
+    if Fact.Diseq.is_diophantine d then
+      La.process_diseq (p, s.a) d;
+    if Fact.Diseq.is_var d then
+      begin
+	Bv.process_diseq (p, s.bv) d;
+	Cop.process_diseq (p, s.cop) d
+      end 
+  with
+      Not_found -> failwith "Error: Not found in process_diseq"
 
 let merge (p, s) i e =
   assert(Fact.Equal.is_var e);
