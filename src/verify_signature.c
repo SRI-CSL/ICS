@@ -76,9 +76,8 @@ int read_message_and_signature (char* sysname, char* msg, unsigned char* sig) {
 	strcat(envstr, "_LICENSE_CERTIFICATE");
 	datafile = getenv(envstr);
 	if (!datafile) {
-		fprintf(stderr,
-						"%s environment variable must be set to a
- file you should have received in email after registering at
+		fprintf(stderr,"%s environment variable must be set to a\
+ file you should have received in email after registering at\
  %s.csl.sri.com\n",
 			 envstr, syslowercase);
 		exit(1);
