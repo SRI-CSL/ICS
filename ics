@@ -3,7 +3,7 @@
 # Script for starting ICS 
 #
 
-ICSPATH=.
+ICSPATH=/homes/ruess/ics
 ARCH=`$ICSPATH/bin/config.guess`
 
-exec $ICSPATH/bin/$ARCH/ics $*
+exec $ICSPATH/bin/$ARCH/ics.byte $*
