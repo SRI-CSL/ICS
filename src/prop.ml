@@ -92,7 +92,11 @@ let mk_neglit a =
 let mk_iff p q = Iff(p, q)
 
 let mk_ite p q r = Ite(p, q, r)
-let mk_neg p = Neg(p)
+
+let mk_neg p = 
+  match p with
+    | Neg(q) -> q
+    | _ -> Neg(p)
 
 let mk_conj = function
   | [] -> True
@@ -194,7 +198,6 @@ let atom_to_id a =
 	  atom_to_id_tbl := Atom.Map.add a id !atom_to_id_tbl; 
 	  id
 
-
 (** Identification [n <-> i] of variable names [n] in a 
   propositional formula with consecutive indices as required by ICSAT. *)
 let vartbl = Name.Hash.create 17 (* internal [id] of ICSAT for a variable *)
@@ -208,6 +211,113 @@ let mk_icsat_id x =
 	  Name.Hash.add vartbl x id; id
 
 let var_to_id = mk_icsat_id
+
+type valuation = T | F | X    (* true, false, don't care *)
+
+let disj u v =
+  match u, v with
+    | T, _ -> T
+    | _, T -> T
+    | F, _ -> v
+    | _, F -> u
+    | X, X -> X
+
+let rec disjl = function
+  | [] -> F
+  | [v] -> v
+  | v :: vl -> disj v (disjl vl)
+
+let equiv u v =
+  match u, v with
+    | X, _ -> X
+    | _, X -> X
+    | T, T -> T
+    | F, F -> T
+    | _ -> F
+
+let conditional u v w = 
+  match u, v, w with
+    | T, _, _ -> v
+    | F, _, _ -> w
+    | _ when v = w -> v
+    | X, _, _ when v <> w -> X
+    | _ -> invalid_arg "ite"
+
+let neg = function
+  | T -> F
+  | F -> T
+  | X -> X
+
+
+let current_boolean_valuation () =
+  Name.Hash.fold
+    (fun x id acc ->
+       match icsat_get_assignment id with
+	 | (-1) -> Name.Map.add x F acc
+	 | 0 -> Name.Map.add x X acc                   (* don't care *)
+	 | 1 -> Name.Map.add x T acc       
+	 | _ -> failwith "ICSAT: invalid return value of icsat_get_assignment")
+    vartbl Name.Map.empty
+
+let current_atom_valuation () = 
+  Atom.Map.fold
+    (fun a id acc ->
+       (match icsat_get_assignment id with
+	  | (-1) -> Atom.Map.add a F acc  
+	  | 0 -> Atom.Map.add a X acc
+	  | 1 -> Atom.Map.add a T acc    
+	  | _ -> failwith "ICSAT: invalid return value of icsat_get_assignment"))
+    !atom_to_id_tbl Atom.Map.empty
+
+let is_model_of propval atomval =
+ let module Table = Hashtbl.Make(
+   struct
+     type t = prp
+     let equal = (==)
+     let hash = Hashtbl.hash_param 4 4
+   end)
+ in
+ let memo = Table.create 5 in
+ let rec eval p =
+   try
+     Table.find memo p
+   with
+       Not_found -> 
+	 let e = do_eval p in
+	   Table.add memo p e; e
+ and do_eval p = 
+   match p with
+    | True -> 
+	T
+    | False -> 
+	F
+    | Var(x) -> 
+	assert(Name.Map.mem x propval);
+	Name.Map.find x propval
+    | Atom(a) -> 
+	assert(Atom.Map.mem a atomval);
+	Atom.Map.find a atomval
+    | Disj([p; q]) ->
+	let ep = eval p in
+	  (match ep with
+	     | T -> T
+	     | _ -> eval q)
+    | Disj(pl) ->
+	let el = List.map eval pl in
+	  disjl el
+    | Iff(p, q) ->
+	equiv (eval p) (eval q)
+    | Ite(p, q, r) ->
+	let ep = eval p in
+	  (match ep with
+	     | T -> (eval q)
+	     | F -> (eval r)
+	     | _ -> 
+		 conditional ep (eval q) (eval r))
+    | Neg(p) ->
+	neg (eval p)
+ in
+   eval
 
 
 (** Translate propositional formula to one understood by ICSAT. *)
@@ -518,6 +628,7 @@ let rec sat s p =
 	if icsat_sat (to_prop p) mode then
 	  begin
 	    debug_output();
+	    check_assignment p;
 	    Some(assignment(), top())
 	  end 
 	else 
@@ -545,6 +656,20 @@ and debug_output () =
            Atom.pp fmt a; 
 	   Pretty.string fmt ".")
 	!bl
+
+and check_assignment p = 
+  if !validate_explanations then
+    let propval = current_boolean_valuation ()
+    and atomval = current_atom_valuation () in
+      match is_model_of propval atomval p with
+	| T -> 
+	    Format.eprintf "Ok: assignment validation succeeds.@.";
+	| F -> 
+	    Format.eprintf "Fatal error: assignment falsifies formula.@.";
+	    exit (1)
+	| X -> 
+	    Format.eprintf "Warning: not sure about status of assignment.@.";
+	    ()
 
         
 and assignment () =
