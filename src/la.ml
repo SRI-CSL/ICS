@@ -129,6 +129,11 @@ let resolve e =
 	    Some(Fact.Equal.make (x, c, tau))
 
 
+let resolve = 
+  Trace.func "la" "Resolve"  Fact.Equal.pp (Pretty.option Fact.Equal.pp)
+    resolve
+
+
 (** [apply e a], for [e] is of the form [x = b], applies the
   substition [x := b] to [a]  *)
 let apply1 = 
@@ -447,18 +452,15 @@ let d_num s x =
     (p, rho)
 
 (** Test if [x] and [q] are known to be disequal. *)
-let is_num_diseq (p, s) x q =
-  let q = Arith.mk_num q in
-    try
-      let (y, rho) = inv s q in        (* [rho |- y = q]. *)
-	(match Partition.is_diseq p x y with
-	   | Some(tau) ->              (* [tau |- x <> y] *)
-	       let sigma = Justification.subst_diseq (x, q) tau [rho] in
-		 Some(sigma)
-	   | None -> 
-	       None)
-    with
-	Not_found -> None
+let is_num_diseq s x q =
+  try
+    let (p, rho) = d_num s x in
+      if not(Mpa.Q.equal q p) then
+	Some(rho)
+      else 
+	None
+  with
+      Not_found -> None
 
 (** {6 Basic Updates} *)
 
@@ -538,17 +540,14 @@ let compose1 tag cfg e =
 let rec process_equal ((p, s) as cfg) e =  
   let e = Fact.Equal.map (replace s) e in
     Trace.msg "la" "Process" e Fact.Equal.pp;
-    match solve e with
-      | [] -> ()
-      | e :: el -> 
-	  process_solved cfg e;           (* because of resolving, dependent variables *)
-	  List.iter                       (* must be plugged in again for all but the  *)
-	    (fun e ->                     (* first equality. *)
-	       let e = Fact.Equal.map (replace s) e in
-		 match resolve e with
-		   | None -> ()
-		   | Some(e) -> process_solved cfg e)
-	    el
+    let el = solve e in (* because of resolving, dependent variables *)
+      List.iter         (* must be plugged in again. *)
+	(fun e ->                    
+	   let e = Fact.Equal.map (replace s) e in
+	     match resolve e with
+	       | None -> ()
+	       | Some(e) -> process_solved cfg e)
+	el
       
 and process_solved ((p, s) as cfg) e = 
   let (x, a, rho) = Fact.Equal.destruct e in
@@ -556,7 +555,7 @@ and process_solved ((p, s) as cfg) e =
     if is_unrestricted_var x then 
       compose1 r cfg e
     else if is_unrestricted_var a then   (* variable equalities [k = x]. *)
-      begin
+      begin                              (* note: this case can be deleted. *)
 	Partition.merge p e;
 	fuse1 r cfg e
       end 
@@ -978,7 +977,7 @@ and contiguous_diseq_segment (p, s) (e, n) =
   let taus = ref [] in
   let rec upper max =                           (* [rho |- e <> n] *)
     let max' = Q.add max Q.one in
-      match is_num_diseq (p, s) e max' with 
+      match is_num_diseq s e max' with 
 	| Some(tau) ->                       (* [tau |- e <> max'] *)
 	    taus := tau :: !taus;
 	    upper max'             (* only succeeds finitely often *)   
@@ -987,7 +986,7 @@ and contiguous_diseq_segment (p, s) (e, n) =
   in
   let rec lower min =
     let min' = Q.sub min Q.one in
-      match is_num_diseq (p, s) e min' with
+      match is_num_diseq s e min' with
 	| Some(tau) -> 
 	    taus := tau :: !taus;
 	    lower min'
