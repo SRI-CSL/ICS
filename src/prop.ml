@@ -338,6 +338,12 @@ let stackpp () =
   Stack.iter (fun (s, _) -> Context.pp Format.std_formatter s) stack
 let _ = Callback.register "prop_stackpp" stackpp
 
+let explanation = ref []
+
+let explain () = !explanation
+let _ = Callback.register "prop_explain" explain
+
+
 let add i =
   let a = id_to_atom i in
     Trace.call "rule" "Add" a Atom.pp;
@@ -346,7 +352,9 @@ let add i =
 	  (let (s, al) = Stack.pop stack in
 	     push (s, a :: al);
 	     1)
-      | Context.Status.Inconsistent _ -> 0
+      | Context.Status.Inconsistent(rho) -> 
+	  explanation := Atom.Set.elements (Justification.axioms_of rho);
+	  0
       | Context.Status.Ok(s) -> 
 	  (let (_, al) = Stack.pop stack in
 	     push (s, a :: al);

@@ -1163,11 +1163,11 @@ let do_sat =
     (fun p ->
        match Prop.sat !current p with
 	 | None -> 
-	     let rho = Justification.dependencies [] in
+	     let rho = Justification.oracle "SAT" in
 	       if !batch then (* Exit in batch mode when inconsistency is detected *)
 		 raise(Justification.Inconsistent(rho))
 	       else
-		 Out.inconsistent ()
+		 Out.unsat rho
 	 | Some(rho, s') -> 
 	     let n = fresh_state_name () in
 	       symtab := Symtab.add n (Symtab.State(s')) !symtab;

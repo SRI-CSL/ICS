@@ -116,6 +116,9 @@ val const : Term.t * Term.t -> t -> t -> t
 val posint : Term.t -> t -> t -> t
   (* If [j1 |- a in int], [j2 |- a > 0], then [posint a j1 j2 |- a >= 0]. *)
 
+val oracle : string -> t
+  (** Because an oracle says so. *)
+
 val dom : Term.t * Dom.t -> t list -> t
 
 

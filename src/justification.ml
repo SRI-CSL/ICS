@@ -409,8 +409,11 @@ let cnstrnt0 (a, sgn) =
     | Dep -> mk_dependency0
     | Yes -> mk_apply0 (failwith "Dom0: to do")
 
-
-
+let oracle str =
+  match !proofmode with
+    | No -> mk_none()
+    | Dep -> mk_dependency0
+    | Yes -> mk_apply0 (failwith "Oracle: to do")
 
 
 let notsign (a, sgn) j = 
