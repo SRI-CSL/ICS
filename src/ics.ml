@@ -402,8 +402,6 @@ let term_mk_dom_var str dom =
 let _ = Callback.register "term_mk_dom_var" term_mk_dom_var
 
 
-
-
 (** Uninterpred function application and function update. *)     
 let term_mk_uninterp x l =
   let f = Sym.Uninterp.make (Name.of_string x) in
