@@ -201,24 +201,6 @@ module Nonneg = struct
 end
 
 
-(** {6 Positivity constraints} *)
-
-module Pos = struct
-
-  type t = Atom.Pos.t * Jst.t
-      
-  let pp fmt (p, rho) =   pp_justification fmt rho; Atom.Pos.pp fmt p
-  let destruct (p, rho) = (Atom.Pos.destruct p, rho)
-  let of_pos (p, rho) = (p, rho)
-  let make (a, rho) = (Atom.Pos.make a, rho)  
-			
-  let map f ((p, rho) as pos) =
-    let a = Atom.Pos.destruct p in
-    let (a', alpha') = f a in
-      if a == a' then pos else
-	(Atom.Pos.make a', Jst.dep2 rho alpha')
-end
-
 
 (** {6 Facts} *)
 

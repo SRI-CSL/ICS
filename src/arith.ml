@@ -107,6 +107,9 @@ let is_num a =
 let is_zero = is_q Q.zero
 let is_one = is_q Q.one
 
+let is_nonneg_num a =
+  try let q = d_num a in Mpa.Q.is_nonneg q with Not_found -> false
+
 let rec is_diophantine a =
   try
     (match d_interp a with

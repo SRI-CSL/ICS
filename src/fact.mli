@@ -108,17 +108,6 @@ module Nonneg : sig
 end 
 
 
-(** {6 Positive Constraint Facts} *)
-
-module Pos : sig
-  type t
-  val pp : t Pretty.printer
-  val make : Term.t * Jst.t -> t
-  val destruct : t -> Term.t * Jst.t
-  val map : Jst.Eqtrans.t -> t -> t          
-end 
-              
-
 
 (** {6 Stack of facts} *)
 

@@ -134,8 +134,10 @@ let rec process s ((atm, rho) as fct) =
 	let nn = Fact.Nonneg.make (a, rho) in
 	  Combine.process_nonneg (s.p, s.eqs) nn
     | Atom.Pos(a) -> 
-	let pp = Fact.Pos.make (a, rho) in
-	  Combine.process_pos (s.p, s.eqs) pp
+	let nn = Fact.Nonneg.make (a, rho) 
+	and dd = Fact.Diseq.make (a, Arith.mk_zero(), rho) in
+	  Combine.process_nonneg (s.p, s.eqs) nn;
+	  Combine.dismerge (s.p, s.eqs) dd
 	    
 
 (** Propagate newly deduced facts. *)   

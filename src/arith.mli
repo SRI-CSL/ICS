@@ -124,6 +124,9 @@ val is_zero : Term.t -> bool
 val is_one : Term.t -> bool
   (** [is_one a] holds iff [a] is equal to [mk_one]. *)
 
+val is_nonneg_num : Term.t -> bool
+  (** [is_nonneg_num a] holds iff [a] represents a nonnegative number. *)
+
 val is_diophantine : Term.t -> bool
   (** [is_diophantine a] holds iff all variables in [a] are integer. *)
 

@@ -63,8 +63,6 @@ val abstract : config -> Atom.t -> Fact.t
 
 val process_nonneg : config -> Fact.Nonneg.t -> unit
 
-val process_pos : config -> Fact.Pos.t -> unit
-
 val merge :  Th.t option -> config -> Fact.Equal.t -> unit
 
 val dismerge :  config -> Fact.Diseq.t -> unit

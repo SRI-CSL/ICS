@@ -45,7 +45,7 @@ open Mpa
   - [p] for variable partitionings of type {!Partition.t},
   - [e] for equality facts ({!Fact.Equal.t}), [d] for disequality 
     facts ({!Fact.Diseq.t}), and [c] for arithmetic constraints such as
-    constraints of type {!Fact.Nonneg.t} and {!Fact.Pos.t}, and
+    constraints of type {!Fact.Nonneg.t}, and
   - Greek letters for justifications ({!Jst.t}).
 *)
 
@@ -393,6 +393,12 @@ let mk_zero_slack a rho =
   let k = Term.Var.mk_slack None Var.Zero in
     (k, rho)
 
+(** Create fresh {i rename} variable *)
+let mk_rename cfg a rho =
+  let (d, tau) = dom_of cfg a in
+  let u = Term.Var.mk_rename (Name.of_string "v") None (Var.Cnstrnt.mk_real(d)) in
+    (u, Jst.dep2 rho tau)
+
 
 (** {6 Iterators} *)
 
@@ -444,13 +450,36 @@ let protect (p, s) f a =
       (f (p', s')) a
 
 
-(** Return a variable for a term [a], possibly extending [R]
-  with a fresh variable if [a] is not already a rhs of [T]. *)
+(** Return a variable for a term [a], possibly extending [S]
+  with a fresh variable if [a] is not already a rhs.  Applies
+  [replace s] in order to eliminate all dependent variables. *)
 let name ((p, s) as cfg) a =
-  try
-    S.inv t s a
-  with
-      Not_found -> S.name r cfg a
+  let (b, rho) = replace s a in 
+    try
+      let (c, tau) = inv s b in
+	(c, Jst.dep2 rho tau)
+    with
+	Not_found ->
+	  if Arith.is_zero b then
+	    let (k0, tau) = mk_zero_slack b rho in
+	    let e = Fact.Equal.make (k0, b, tau) in
+	      begin
+		S.update t cfg e;
+		(k0, tau)
+	      end 
+	  else if Arith.is_nonneg b = Three.Yes then
+	    let (k, tau) = mk_nonneg_slack cfg b rho in
+	    let e = Fact.Equal.make (k, b, tau) in
+	      begin
+		S.update t cfg e;
+		(k, tau)
+	      end 
+	  else 
+	    let (v, tau) = mk_rename cfg b rho in
+	    let e = Fact.Equal.make (v, b, tau) in
+	      S.update r cfg e;
+	      (v, tau)
+		  
 
 (** Fusing a list of solved equalities into solution set for mode [m]. *)
 let fuse1 tag cfg e =

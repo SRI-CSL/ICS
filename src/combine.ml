@@ -257,7 +257,6 @@ let is_equal_or_diseq cfg =
     (is_equal cfg) 
     (is_diseq cfg)
    
-
 let rec is_pos (p, s) a = 
   let is_pos0 = Jst.Three.of_three Atom.Pos.holds in
     if !cheap || not(Term.is_pure Th.la a) then is_pos0 a else 
@@ -268,7 +267,6 @@ let rec is_pos (p, s) a =
 	   (La.is_nonpos (p, s.a)))
 	a
 
-	
 let rec is_nonneg (p, s) a =
   if !cheap || not(Term.is_pure Th.la a) then 
     is_nonneg0 a 
@@ -501,13 +499,6 @@ let process_diseq (p, s) d =
 
 let process_nonneg (p, s) =
   La.process_nonneg (p, s.a) 
-
-let process_pos (p, s) pp =
-  let (a, rho) = Fact.Pos.destruct pp in
-  let nn = Fact.Nonneg.make (a, rho) 
-  and dd = Fact.Diseq.make (a, Arith.mk_zero(), rho) in
-    process_nonneg (p, s) nn;
-    process_diseq (p, s) dd
   
 
 let dismerge (p, s) d =
