@@ -105,7 +105,8 @@ module type SET = sig
   val empty : t
   val is_empty : t -> bool
   val is_dependent : t -> Term.t -> bool
-  val is_independent : t -> Term.t -> bool
+  val is_independent : t -> Term.t -> bool  
+  val iter : (Term.t -> Term.t * Jst.t -> unit) -> t -> unit
   val fold : (Term.t -> Term.t * Jst.t -> 'a -> 'a) -> t -> 'a -> 'a
   val to_list : t -> (Term.t * Term.t) list
   val apply : t -> Jst.Eqtrans.t
@@ -132,12 +133,14 @@ end
 
 (** {6 Extensions} *)
 
+type find = (Term.t * Jst.t) Term.Var.Map.t
+
 module type EXT = sig
   type t
   val empty : t
   val pp : t Pretty.printer
-  val do_at_add :  Partition.t * t -> equality -> t
-  val do_at_restrict : Partition.t * t -> equality -> t
+  val do_at_add :  Partition.t * t * find -> equality -> t
+  val do_at_restrict : Partition.t * t * find -> equality -> t
 end
 
 module Ext0: (EXT with type t = unit) =
@@ -156,10 +159,12 @@ module CombineExt(Left: EXT)(Right: EXT): EXT with type t = Left.t * Right.t =
       Left.pp fmt l; Right.pp fmt r
     let empty = 
       (Left.empty, Right.empty)
-    let do_at_add (p, (l, r)) e =
-      (Left.do_at_add (p, l) e, Right.do_at_add (p, r) e)
-    let do_at_restrict (p, (l, r)) e =
-      (Left.do_at_restrict (p, l) e, Right.do_at_restrict (p, r) e)
+    let do_at_add (p, (l, r), s) e =
+      (Left.do_at_add (p, l, s) e, 
+       Right.do_at_add (p, r, s) e)
+    let do_at_restrict (p, (l, r), s) e =
+      (Left.do_at_restrict (p, l, s) e, 
+       Right.do_at_restrict (p, r, s) e)
   end
 
 
@@ -206,6 +211,7 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
   let is_independent s x =
     not(Term.Var.Set.is_empty (dep s x))
  
+  let iter f s = Term.Var.Map.iter f s.find
   let fold f s = Term.Var.Map.fold f s.find
 
   let to_list s = fold (fun x (b, rho) acc -> (x, b, rho) :: acc) s []
@@ -358,18 +364,18 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
 	    let (b', rho') = apply s x in 
 	      s.dep <- Use.remove_but b x b' s.dep; 
 	      s.dep <- Use.add x b s.dep; 
-	      s.ext <- Ext.do_at_restrict (p, s.ext) (x, b, rho');
+	      s.ext <- Ext.do_at_restrict (p, s.ext, s.find) (x, b, rho');
 	      s.find <- Term.Var.Map.add x (b, rho) s.find; 
 	      s.inv <- Term.Map.remove b' s.inv; (* don't forget to remove this. *)
 	      s.inv <- Term.Map.add b x s.inv;
-	      s.ext <- Ext.do_at_add (p, s.ext) (x, b, rho)
+	      s.ext <- Ext.do_at_add (p, s.ext, s.find) (x, b, rho)
 	  with 
 	      Not_found ->     (* extend *)
 		begin
 		  s.dep <- Use.add x b s.dep;
 		  s.find <- Term.Var.Map.add x (b, rho) s.find;
 		  s.inv <- Term.Map.add b x s.inv;
-		  s.ext <- Ext.do_at_add (p, s.ext) (x, b, rho)
+		  s.ext <- Ext.do_at_add (p, s.ext, s.find) (x, b, rho)
 		end));
        assert(synchronized s)
 	    
@@ -386,7 +392,7 @@ module Make(Th: TH)(Ext: EXT): (SET with type ext = Ext.t) = struct
 	 assert(not(Term.Var.Map.mem x s.find));
 	 assert(not(Term.Map.mem b s.inv));
 	 s.dep <- Use.remove x b s.dep; 
-	 s.ext <- Ext.do_at_restrict (p, s.ext) (x, b, rho);  
+	 s.ext <- Ext.do_at_restrict (p, s.ext, s.find) (x, b, rho);  
 	 assert(synchronized s)
      with
 	 Not_found -> ()
@@ -513,9 +519,9 @@ module Idx2Ext(Idx: INDEX): (EXT with type t = Term.Var.Set.t) =
       Format.fprintf fmt "\n%s: " Idx.name;
       Pretty.set Term.pp fmt (Term.Var.Set.elements s)
     let empty = Term.Var.Set.empty 
-    let do_at_add (p, s) (x, a, _) = 
+    let do_at_add (p, s, _) (x, a, _) = 
       if Idx.holds a then Term.Var.Set.add x s else s
-    let do_at_restrict (p, s) (x, a, _) =
+    let do_at_restrict (p, s, _) (x, a, _) =
       Term.Var.Set.remove x s
 end
 
@@ -551,7 +557,7 @@ module Cnstnt2Ext(Cnstnt: CNSTNT): (EXT with type t = cnstnt) =
 	       (** Generate disequalities [x <> y] for constant equalities 
 		 [x = a] and [y = b] with [a <> b]. *)
     let th = Th.inj Cnstnt.th
-    let do_at_add (p, s) (x, a, rho) = 
+    let do_at_add (p, s, _) (x, a, rho) = 
       Term.Var.Map.iter                     (* [rho |- x = a] *)
 	(fun y (b, tau) ->                  (* [tau |- y = b] *)
 	   if Cnstnt.is_diseq a b then      (* [sigma |- x <> y] *)
@@ -560,7 +566,7 @@ module Cnstnt2Ext(Cnstnt: CNSTNT): (EXT with type t = cnstnt) =
 	       Fact.Diseqs.push th d)
       s;
       if Cnstnt.is_const a then Term.Var.Map.add x (a, rho) s else s
-    let do_at_restrict (_, s) (x, a, _) =
+    let do_at_restrict (_, s, _) (x, a, _) =
       if Cnstnt.is_const a then Term.Var.Map.remove x s else s
 end
 
@@ -588,7 +594,8 @@ module type SET2 = sig
   val is_empty : t -> bool
   type tag = Left | Right
   val is_dependent : tag -> t -> Term.t -> bool
-  val is_independent :  tag -> t -> Term.t -> bool
+  val is_independent :  tag -> t -> Term.t -> bool 
+  val iter :  tag -> (Term.t -> Term.t * Jst.t -> unit) -> t -> unit
   val fold :  tag -> (Term.t -> Term.t * Jst.t -> 'a -> 'a) -> t -> 'a -> 'a
   val to_list :  tag -> t -> (Term.t * Term.t) list
   val apply :  tag -> t -> Jst.Eqtrans.t
@@ -658,6 +665,7 @@ struct
 
   let is_dependent = case_tag Left.is_dependent Right.is_dependent
   let is_independent = case_tag Left.is_independent Right.is_independent
+  let iter tag f = case_tag (Left.iter f) (Right.iter f) tag
   let fold tag f = case_tag (Left.fold f) (Right.fold f) tag
   let to_list = case_tag Left.to_list Right.to_list
   let apply = case_tag Left.apply Right.apply

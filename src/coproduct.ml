@@ -90,7 +90,7 @@ let mk_outl a =
 	Term.App.mk_app Sym.Coproduct.mk_outl [a]
 
 let mk_inX = function Sym.Left -> mk_inl | Sym.Right -> mk_inr
-let mk_outX = function Sym.Left -> mk_outr | Sym.Right -> mk_outl
+let mk_outX = function Sym.Left -> mk_outl | Sym.Right -> mk_outr
 
 (** Generalize injection. *)
 let rec mk_inj i a = 
@@ -177,6 +177,12 @@ and solvel el sl =
 and solve1 (a, b) el sl = 
   if Term.eq a b then                              (* [Triv] *)
     solvel el sl
+  else if Term.is_var a && Term.is_var b  then
+    solvel el (compose (Term.orient (a, b)) sl)
+  else if Term.is_var a && not(Term.subterm a b) then
+    solvel el (compose (a, b) sl)
+  else if Term.is_var b && not(Term.subterm b a) then
+    solvel el (compose (b, a) sl)
   else 
     match destruct a, destruct b with
       | Some(Sym.In(x), a'), Some(Sym.In(y), b') -> 

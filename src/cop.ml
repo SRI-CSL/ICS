@@ -14,34 +14,31 @@
 open Mpa
 
 
-module Cop = Eqs.Make0(
+(** As a side effect, generate disequalities from rhs. *)
+module Diseqs: Eqs.EXT = struct
+  type t = unit
+  let empty = ()
+  let pp _ () = ()
+  let do_at_restrict _ _ = ()
+  let do_at_add (p, (), find) (x, a, rho) =   (* [rho |- x = a] *)
+    Term.Var.Map.iter
+      (fun y (b, tau) ->                      (* [tau |- y = b] *)
+	 if Coproduct.is_diseq a b then       (* [a <> b] in [COP]. *)
+	   let sigma = Jst.dep2 rho tau in
+	   let d = Fact.Diseq.make (x, y, sigma) in
+	     Partition.dismerge p d)
+      find
+end
+
+module Cop = Eqs.Make(
   struct
     let th = Th.cop
     let nickname = Th.to_string Th.cop
     let map = Coproduct.map
     let is_infeasible _ = false
   end)
+  (Diseqs)
 
-
-(** As a side effect, generate disequalities from rhs. *)
-(*
-module Diseqs = struct
-  type ext = unit
-  let empty = ()
-  let pp _ () = ()
-  let eq () () = true
-  let do_at_restrict _ _ = ()
-  let do_at_add (p, (), s) (x, a, rho) =   (* [rho |- x = a] *)
-    Cop.fold
-      (fun y (b, tau) _ ->                 (* [tau |- y = b] *)
-	 if Term.eq x y then () else 
-	   if Coproduct.is_diseq a b then  (* [a <> b] in [COP]. *)
-	     let sigma = Justification.oracle "cop" [rho; tau] in
-	     let d = Fact.Diseq.make (x, y, sigma) in
-	       Partition.dismerge p d)
-      s () 
-end
-*)
 
 module S = Cop
 

@@ -395,6 +395,10 @@ let fold f s e =
   S.fold r f s 
     (S.fold t f s e)
 
+let iter f s = 
+  S.iter r f s;
+  S.iter t f s
+
 
 (** {6 Predicates} *)
 
@@ -895,7 +899,7 @@ and process_nondiophantine_diseq ((p, s) as cfg) d =
 	  | Some(tau) ->                           (* [tau |- x = 0] *)
 	      ()
 	  | None -> 
-	      ()
+	      ()   (* to do *)
 	
 (** Whenever we add [e<>n], we calculate the largest contiguous segment [N] 
   containing [n] such that [e<>m] for [m] in [N], then with 
@@ -1103,13 +1107,16 @@ module Finite = struct
       {lo = lo; hi = hi; diseqs = ds}
 
   let rec of_var cfg x = 
-    if not(Term.Var.is_int x) then 
-      raise Unbounded
-    else 
-      let (hi, _) = sup cfg x
-      and (lo, _) = inf cfg x in
-      let ds = integer_diseqs_between cfg x (lo, hi) in
-	make (Mpa.Q.floor lo, Mpa.Q.floor (Mpa.Q.add lo Mpa.Q.one), ds)
+    try
+      (if not(Term.Var.is_int x) then 
+	 raise Unbounded
+       else 
+	 let (hi, _) = sup cfg x
+	 and (lo, _) = inf cfg x in
+	 let ds = integer_diseqs_between cfg x (lo, hi) in
+	   make (Mpa.Q.floor lo, Mpa.Q.floor (Mpa.Q.add lo Mpa.Q.one), ds))
+    with
+	Unbounded -> raise Not_found
 	
   and integer_diseqs_between ((p, s) as cfg) x (lo, hi) =
     D.Set.fold
@@ -1125,28 +1132,41 @@ module Finite = struct
       (Partition.diseqs p x)
       Zset.empty
 
-  (** Construct bindings [x |-> fin] for the subset of [xs] with finite
-    interpretation. *)
-  let of_vars cfg xs =
-    Term.Var.Set.fold
-      (fun x acc ->
-	 try
-	   let fin = of_var cfg x in
-	     Term.Var.Map.add x fin acc
-	 with
-	     Unbounded -> acc)
-      xs
+  
+  exception Found of t
 
-  let of_config ((_, s) as cfg) =
-    let of_equal x (a, _) = 
-      let xs = Term.Var.Set.add x (Term.vars_of a) in
-	of_vars cfg xs
-    in
-      fold of_equal s Term.Var.Map.empty
+  (** Find a finite interpretation for one of the variables [x] in [a]. *)
+  let of_term cfg a =
+    try
+      (Term.iter
+	 (fun x ->
+	    try
+	      let fin = of_var cfg x in raise(Found(fin))
+	    with 
+		Not_found -> ())
+	 a);
+      raise Not_found
+    with
+	Found(fin) -> fin
 
   let split ((_, s) as cfg) =
-    raise Not_found  (* to do *)
-	
+    let of_equal (x, a) = 
+      try
+	let fin = of_var cfg x in
+	  raise(Found(fin))
+      with
+	  Not_found -> 
+	    (try
+	       let fin = of_term cfg a in
+		 raise(Found(fin))
+	     with
+		 Not_found -> ())
+    in
+      try                    
+	iter (fun x (a, _) -> of_equal (x, a)) s;
+	raise Not_found
+      with
+	  Found(fin) -> fin
 end 
 
 

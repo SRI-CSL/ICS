@@ -95,6 +95,7 @@ let option pp fmt =
 let break = ref true
 	
 let list (pre, sep, post) pp fmt l =
+  let separator = List.length l > 3 in
   let rec iter l =
     match l with
       | [] -> ()
@@ -103,7 +104,7 @@ let list (pre, sep, post) pp fmt l =
       | x :: l -> 
 	  pp fmt x; 
 	  string fmt sep; 
-	  if !break then fprintf fmt "@, " else (); 
+	  if !break && separator then fprintf fmt "@, " else (); 
 	  iter l
   in
     match !flag with

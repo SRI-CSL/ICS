@@ -82,6 +82,10 @@ module type SET = sig
     (** [is_independent s x] holds iff [x] is a variable in some [a] with
       [y = a] in [s]. *)
 
+  val iter : (Term.t -> Term.t * Jst.t -> unit) -> t -> unit
+    (** [unit f s] applies [f x (a, rho)] for each [x = a] with justification
+      [rho] in [s]. The order of application is unspecified. *)
+
   val fold : (Term.t -> Term.t * Jst.t -> 'a -> 'a) -> t -> 'a -> 'a
     (** [fold f s e] applies [f x (a, rho)] for each [x = a] with justification
       [rho] in [s] and accumulates the result starting with [e]. The order of
@@ -179,14 +183,15 @@ end
 
 (** {6 Extensions} *)
 
+type find = (Term.t * Jst.t) Term.Var.Map.t
 type equality = Term.t * Term.t * Jst.t
 
 module type EXT = sig
   type t
   val empty : t
   val pp : t Pretty.printer
-  val do_at_add :  Partition.t * t -> equality -> t
-  val do_at_restrict : Partition.t * t -> equality -> t
+  val do_at_add :  Partition.t * t * find -> equality -> t
+  val do_at_restrict : Partition.t * t * find -> equality -> t
 end
 
 module CombineExt(Left: EXT)(Right: EXT): EXT
@@ -274,6 +279,7 @@ module type SET2 = sig
   type tag = Left | Right
   val is_dependent : tag -> t -> Term.t -> bool
   val is_independent :  tag -> t -> Term.t -> bool
+  val iter :  tag -> (Term.t -> Term.t * Jst.t -> unit) -> t -> unit
   val fold :  tag -> (Term.t -> Term.t * Jst.t -> 'a -> 'a) -> t -> 'a -> 'a
   val to_list :  tag -> t -> (Term.t * Term.t) list
   val apply :  tag -> t -> Jst.Eqtrans.t

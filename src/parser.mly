@@ -29,7 +29,7 @@ let name_of_rename = Name.of_string "v"
 %token DROP CAN SIMPLIFY ASSERT EXIT SAVE RESTORE REMOVE FORGET RESET SYMTAB SIG VALID UNSAT
 %token TYPE SIGMA
 %token SOLVE HELP DEF PROP TOGGLE SET GET TRACE UNTRACE CMP FIND USE INV SOLUTION PARTITION MODEL
-%token SHOW SIGN DOM SYNTAX COMMANDS SPLIT SAT ECHO
+%token SHOW SIGN DOM SYNTAX COMMANDS SPLIT SAT ECHO CHECK
 %token DISEQ CTXT 
 %token IN NOTIN TT FF DEF
 %token EOF QUOTE
@@ -347,6 +347,7 @@ command:
 | UNTRACE                   { Istate.do_untrace None }
 | UNTRACE identlist         { Istate.do_untrace (Some($2)) }
 | SAT optname prop          { Istate.do_sat ($2, $3) }
+| CHECK optname             { Istate.do_check_sat $2 }
 | MODEL optname optvarspecs { Istate.do_model ($2, List.rev $3) }
 | ECHO STRING               { Format.eprintf "%s@." $2 }
 | GET varname               { Istate.do_get $2 }
@@ -431,6 +432,7 @@ help:
 | HELP UNTRACE              { Istate.do_help (Istate.Command("untrace")) }
 | HELP SAT                  { Istate.do_help (Istate.Command("sat")) }
 | HELP MODEL                { Istate.do_help (Istate.Command("model")) }
+| HELP CHECK                { Istate.do_help (Istate.Command("check")) }
 | HELP ECHO                 { Istate.do_help (Istate.Command("echo")) }
 | HELP GET                  { Istate.do_help (Istate.Command("get")) }
 | HELP SUP                  { Istate.do_help (Istate.Command("sup")) }

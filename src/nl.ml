@@ -23,7 +23,7 @@ struct
   let empty = ()
   let pp _ _ = ()
   let do_at_restrict _ _ = ()
-  let do_at_add (p, ()) (x, a, rho) =      (* [rho |- x = a] *)
+  let do_at_add (p, (), _) (x, a, rho) =   (* [rho |- x = a] *)
     let (y, tau) = Partition.find p x in   (* [tau |- x = y] *)
       if Pprod.is_one a then
 	let e = Fact.Equal.make (y, Arith.mk_one(), Jst.dep2 rho tau) in

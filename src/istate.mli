@@ -224,6 +224,9 @@ val do_unsat : Name.t option * Atom.t list -> unit
 val do_model : Name.t option *  (Term.t * La.mode option) list -> unit
   (** Model construction. *)
 
+val do_check_sat : Name.t option -> unit
+  (** Model construction. *)
+
 (** {6 Context Manipulations} *)
 
 val do_save : Name.t option -> unit

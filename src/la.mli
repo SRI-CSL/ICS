@@ -197,12 +197,10 @@ module Finite : sig
     interpretation [fin] for [x] such that [x] is
     interpreted in [D(fin)] or raises [Unbounded]. *)
 
-  val of_config : config -> t Term.Var.Map.t
-  (** [of_config (p, s)] returns a map of finite domain
-    interpretations for all variables in [s] with a 
-    finite interpretation. *)
-
   val split : config -> t
+  (** [of_config (p, s)] returns a finite domain
+    interpretations for one of the variables in [s] with a 
+    finite interpretation. *)
 	
 end 
 

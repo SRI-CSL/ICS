@@ -22,13 +22,14 @@
   - left coinjection ({!Sym.Coproduct.outl}), and
   - right coinjection ({!Sym.Coproduct.outr}).
   
-  The {i equality theory} [COP] is the set of equalities which
-  can be derived using the usual equality rules and the universally
-  quantified equations
+  The {i theory} [COP] is the set of equalities and disequalities
+  which can be derived using the usual equality and disequality 
+  rules and the universally quantified rules
   - [inl(outl(a)) = a]
   - [inr(outr(a)) = a]
   - [outr(inr(a)) = a]
   - [outl(inl(a)) = a]
+  - [inl(a) <> inr(b)]
 
   A term is said to be {i canonical} in [COP], if it does not
   contain a term, which is of the form of any of the lhs above.
@@ -44,10 +45,6 @@
   variables. Such terms are said to {i occur uninterpreted}.
 *)
 
-
-(** {6 Predicates} *)
-
-
 val is_interp : Term.t -> bool
   (** [in_interp a] holds if the top-level function symbol is 
     in the signature of [COP]. *)
@@ -59,9 +56,6 @@ val is_pure : Term.t -> bool
 val is_diseq : Term.t -> Term.t -> bool
    (** [is_diseq a b] holds if the prefixes of injections 
      of [a] and [b] are different. *)
-
-
-(** {6 Constructors} *)
 
 val mk_inl : Term.t -> Term.t
   (** For canonical [a], [mk_inl a] constructs a canonical term 
@@ -94,10 +88,6 @@ val mk_out : int -> Term.t -> Term.t
     - [mk_out i a = mk_outr (mk_out (i - 1) x)] if [i > 1]
     - Otherwise, the value of [mk_out] is unspecified. *)
 
-
-
-(** {6 Iterators} *)
-
 val map: (Term.t -> Term.t) -> Term.t -> Term.t
   (** [map f a] homomorphically applies [f] at uninterpreted positions 
     of [a] and returns the corresponding canonical term. More precisely,
@@ -109,16 +99,10 @@ val apply : Term.Equal.t -> Term.t -> Term.t
   (** [apply (x, b) for uninterpreted occurrences of [x] in [a] 
     with [b], and normalizes. *)
 
-
-(** {6 Canonizer} *)
-
 val sigma : Sym.coproduct -> Term.t list -> Term.t
   (** [sigma op [a]] applies [mk_inl a] if [op] is equal to
     the [inl] symbol. Similarly for all the symbols.  Notice
     that the argument list is required to be unary. *)
-
-
-(** {6 Solver} *)
 
 val solve : Term.t * Term.t -> (Term.t * Term.t) list
   (** Given an equality [a = b], [solve(a, b)] 

@@ -34,30 +34,83 @@
   arithmetic, tuples, and lists.
 *)
 
-(** {6 Configuration} *)
+
+(** The following flags determine the current {i configuration} of ICS. *)
 
 val set_profile : bool -> unit
+  (** Enable profiling of used time and memory resources for selected
+    functions. Used mainly for debugging. *)
+
 val set_pretty : string -> unit
+  (** Determine pretty-printing.
+    - [mixfix] enables pretty-printing in mixfix and infix form,
+    - [prefix] disables mixfix and infix printing, and
+    - [sexpr] enables printing in terms of S-expressions 
+      of the form {i (:op arg1 ... argn)}. *)
+
 val set_compactify : bool -> unit
+  (** [set_compactify false] disables garbage collection of
+    internally generated variables (default [true]). *)
+
 val set_verbose : bool -> unit
+  (** Using [set_verbose true], the SAT solver reports all kinds
+    of statistics and progress reports (default [false]). *)
+
 val set_remove_subsumed_clauses : bool -> unit
+  (** Internal configuration of the SAT solver. *)
+
 val set_validate: bool -> unit
+  (** With [set_validate] set to [true], the SAT solver validates
+    all generated assignments and all justifications for inconsistencies. *)
+
 val set_polarity_optimization: bool -> unit
+  (** Internal configuration of the SAT solver. *)
+
 val set_clause_relevance : int -> unit
+  (** Internal configuration of the SAT solver. *)
+
 val set_cleanup_period : int -> unit
+  (** Internal configuration of the SAT solver. *)
+
 val set_num_refinements : int -> unit
+  (** Internal configuration of the SAT solver. *)
+
 val set_statistic : bool -> unit
+  (** Enable/Disable SAT solver to print statistics (default [false]). *)
+
 val set_justifications : bool -> unit
+  (** Print justifications of internally generated facts (default [false]). *)
+
 val set_integer_solve : bool -> unit
+  (** Enable/disable integer solver (default [true]). Disabling the 
+    integer solver makes the procedure incomplete, but (usually) faster. *)
+
 val set_crossmultiply : bool -> unit
+  (** Enable/disable crossmultiplication (default [false]). When enabled,
+    it is the responsibility of the user of this interface to make sure
+    that an expression is never divided by [0]. Otherwise, results are
+    unspecified. *)
+
 val set_proofmode : string -> unit
+  (** ICS supports various proof modes.
+    - [No] disables generation of justifications
+    - [Dep] enables generation of dependencies (default).
+    - [Yes] enables generation of proof terms (disabled in ICS 2.0). *)
+
 val set_gc_mode : string -> unit
+  (** Various settings for garbage collection
+    - [Lazy] delay garbage collection
+    - [Eager] garbage collection. *)
+
 val set_gc_space_overhead : int -> unit
+  (** GC will work more if [space_overhead] is smaller (default 80). *)
+
 val set_gc_max_overhead : int -> unit
+  (** Controlling heap compaction (default 500), [gc_max_overhead >= 1000000] disables compaction. *)
+
 val set_reduce_explanation: bool -> unit
+  (** Enable/disable reduction of justifications of inconsistencies in SAT solver (default [false]). *)
 
-
-(** {6 Channels} *)
 
 type inchannel = in_channel
     (** [inchannel] is the type of input channels. *)
@@ -86,8 +139,6 @@ val outchannel_of_string : string -> outchannel
     raises [Sys_error] in case such a channel can not be opened. *)
 
 
-(** {6 Multi-precision arithmetic} *)
-
 type q
   (** Type for representing the rational numbers. *)
 
@@ -109,16 +160,10 @@ val string_of_num : q -> string
 val num_of_string : string -> q
   (** [num_of_string s] constructs a rational, whenever
     [s] is of the form [n/m] where [n] and [m] are integers. *)
-    
-
-(** {6 Names} *)
-
-(** Names. [name_of_string] and [name_to_string] coerce between the
- datatypes of strings and names.  These coercions are inverse to each
- other.  [name_eq] tests for equality of names in constant time. *)
+  
 
 type name
-  (** Representation of strings. *)
+  (** Representation of strings with constant equality test. *)
 
 val name_of_string : string -> name
   (** [name_of_string str] constructs a name [n] from a string
@@ -133,19 +178,9 @@ val name_eq : name -> name -> bool
     are equal.  This equality test is constant in the length of strings. *)
 
 
-(** {6 Arithmetic Constraints} *)
-
-(** An {b arithmetic constraint} consists of 
-  - a domain restriction, and 
-  - a sign restriction.
-  A real number satisfies such a constraint if it satisfies both
-  - the domain restriction and
-  - the sign restriction.
-  To each constraint [s] we associate the set [D(s)] of reals satisfying
-  these requirements. *)
-
-
 type dom
+  (** Arithmetic Constraints *)
+
 
 val dom_mk_int : unit -> dom
 val dom_mk_real : unit -> dom
@@ -154,22 +189,17 @@ val dom_is_int : dom -> bool
 val dom_is_real : dom -> bool
 
 
-
-(** {6 Theories} *)
-
-(** A {b theory} is associated with each function symbol of terms.
- - [u]    Theory of uninterpreted function symbols.
- - [la]   Linear arithmetic theory.
- - [p]    Product theory.
- - [bv]   Bitvector theory.
- - [cop]  Coproducts.
- - [nl]   Power products. 
- - [app]  Theory of function abstraction and application. 
- - [arr]  Array theory. 
- - [pset] Theory of propositional sets
-*)
-
 type th
+  (** A {b theory} is associated with each function symbol of terms.
+    - [u]    Theory of uninterpreted function symbols.
+    - [la]   Linear arithmetic theory.
+    - [p]    Product theory.
+    - [bv]   Bitvector theory.
+    - [cop]  Coproducts.
+    - [nl]   Power products. 
+    - [app]  Theory of function abstraction and application. 
+    - [arr]  Array theory. 
+    - [pset] Theory of propositional sets *)
 
 val th_to_string : th -> string
   (** [th_to_string th] returns the unique name associated to theory [th]. *)
@@ -179,16 +209,20 @@ val th_of_string : string -> th
    otherwise the result is unspecified. *)
 
 
-(** {6 Function Symbols} *)
-
 type sym
+  (** Representation of function symbols. Function symbols
+    are partitioned into
+    - {i uninterpreted} function symbols (of theory [u]) and
+    - {i interpreted} function symbols from the theories 
+      [la], [p], [bv], [cop], [nl], [cop], [app], [arr], and [pset] above. *)
 
 val sym_theory_of : sym -> th
   (** [sym_theory_of f] returns the theory [th] associated with
     the function symbol [f]. *)
 
 val sym_eq : sym -> sym -> bool
-  (** [sym_eq] tests for equality of two function symbols. *)
+  (** [sym_eq] tests, in constant time, for equality of two function 
+    symbols. *)
 
 val sym_cmp : sym -> sym -> int
   (** [sym_cmp f g] provides a total ordering on function symbols.
@@ -197,7 +231,6 @@ val sym_cmp : sym -> sym -> int
     - [0], then [f] is equal to [g] and {!Ics.sym_eq}[(f, g)], and
     - a positive numbe, then [f] is said to be larger than [g]. *)
 
-(** {b Uninterpreted} function symbols *)
 
 val sym_is_uninterp : sym -> bool
   (** [sym_is_uninterp f] holds iff [f] is an uninterpreted
@@ -207,6 +240,7 @@ val sym_d_uninterp : sym -> name
   (** [sym_d_uninterp f] returns the name associated with
     an uninterpreted function symbol [f]. This accessor is
     undefined if {!Ics.sym_is_uninterp}[(f)] does not hold. *)
+
 
 (** {b Linear arithmetic} function symbols are either 
   - {i numerals} for representing all rational numbers, 
@@ -244,9 +278,9 @@ val sym_d_multq : sym -> q
     {!Ics.sym_d_multq} does not hold. *)
 
 
-(** Symbols of the {b product theory} consist of
-  - tupling
-  - projections of the [i]-th component in a tuple of length [n]. *)
+(** Symbols of the {b product theory} [p] consist of
+  - consing
+  - and first and second projections [car], [cdr]. *)
 
 val sym_mk_cons : unit -> sym
   (** [sym_mk_cons()] constructs the symbol for tupling. *)
@@ -338,8 +372,7 @@ val sym_d_bv_sub : sym -> int * int * int
 
 (** Symbols from the theory of {b power products} include
   - Multi-ary nonlinear multiplication symbol
-  - Exponentiation with an integer.
-*)
+  - Exponentiation with an integer. *)
 
 val sym_mk_mult : unit -> sym
   (** [sym_mk_mult()] constructs the nonlinear multiplication symbol. *)
@@ -419,18 +452,6 @@ val sym_is_ite : sym -> bool
  (** [sym_is_ite f] holds iff [f] represents the conditional set constructor. *)
 
 
-(** {6 Variables} *)
-
-(** The set of all variables is partitioned into different {b kinds} of variables, namely
-  - {i external},
-  - {i fresh}, and 
-  - {b bound} variables.  
-  
-  There is a name of type {!Name.t} associated with each variable. Names for 
-  fresh variables are always of the form ["x!i"], where [x] is an arbitrary string 
-  and [i] is an integer string. The name associated with a bound variable is of the 
-  form ["!i"] for an integer [i].
-*)
 
 
 (** {6 Terms} *)
@@ -492,7 +513,7 @@ val term_mk_uninterp : string -> term list -> term
 (** {b Linear arithmetic terms} are built-up from rational constants,
   linear multiplication of a rational with a variable, and n-ary
   addition. 
-
+  
   Linear arithmetic terms are always normalized as a {b sum-of-product}
   [q0 + q1*x1+...+qn*xn] where the [qi] are rational constants and the
   [xi] are variables (or any other term not interpreted in this
@@ -501,18 +522,18 @@ val term_mk_uninterp : string -> term list -> term
   occurs at most once. In addition, [qi], for [i > 0], is never zero.
   If [qi] is one, we just write [xi] instead of [qi * xi], and if [q0]
   is zero, it is simply omitted in the sum-of-product above.
-
-include rational constants built from
- [term_mk_num q], linear multiplication [term_mk_multq q a],
- addition [term_mk_add a b] of two terms, n-ary 
- addition [term_mk_addl al] of a list of terms [al],
- subtraction [term_mk_sub a b] of term [b] from term [a],
- negation [term_mk_unary_minus a], multiplication
- [term_mk_mult a b], and exponentiation [term_mk_expt n a].
- These constructors build up arithmetic terms in a canonical
- form as defined in module [Arith]. [term_is_arith a] holds
- iff the toplevel function symbol of [a] is any of the 
- function symbols interpreted in the theory of arithmetic. *)
+  
+  Terms in this theory include rational constants built from
+  [term_mk_num q], linear multiplication [term_mk_multq q a],
+  addition [term_mk_add a b] of two terms, n-ary 
+  addition [term_mk_addl al] of a list of terms [al],
+  subtraction [term_mk_sub a b] of term [b] from term [a],
+  negation [term_mk_unary_minus a], multiplication
+  [term_mk_mult a b], and exponentiation [term_mk_expt n a].
+  These constructors build up arithmetic terms in a canonical
+  form as defined in module [Arith]. [term_is_arith a] holds
+  iff the toplevel function symbol of [a] is any of the 
+  function symbols interpreted in the theory of arithmetic. *)
 
 
 val term_is_arith : term -> bool
@@ -574,12 +595,12 @@ val term_mk_proj : int -> term -> term
   - bitvector constants (with adjacent constants merged)
   - single extractions from uninterpreted terms in this theory
   - bitvector BDDs, which are BDDs with nodes consisting of one
-    of the above classes of terms. 
-
+  of the above classes of terms. 
+  
   The constructors below all construct concatenation normal forms,
   whenever their arguments are in this form.
 *)
-
+  
 val term_mk_bvconst : string -> term
   (** [term_mk_bvconst str] constructs a bitvector constant. *)
 
@@ -593,8 +614,7 @@ val term_mk_bvconc : int * int -> term -> term -> term
     of bitvector terms [a] of width [n] with [b] of width [m]. *)
 
 
-
-(** {b Boolean Term Constants.} *)
+(** {b Boolean Constants.} are [true] and [false]. *)
     
 val term_mk_true  : unit -> term
   (** The propositional constant [term_mk_true()] is encoded
@@ -611,7 +631,9 @@ val term_is_false : term -> bool
   (** [term_is_false a] holds iff [a] is term equal to [term_mk_false()]. *)
 
 
-(** {b Coproducts} *)
+(** {b Coproducts} consist of
+  - injections [inj n]
+  - outjections [out n]. *)
 
 val term_mk_inj : int -> term -> term
   (** [term_mk_inj n a] constructs a term for [n]-ary injection. *)
@@ -620,43 +642,57 @@ val term_mk_out : int -> term -> term
   (** [term_mk_out n a] constructs a term for [n]-ary outjection. *)
 
 
-(** {b Arrays} *)
+(** {b Array terms} are built up from
+  - constant arrays
+  - updates of arrays
+  - lookup of arrays. *)
+ 
+val term_mk_create : term -> term
+  (** [term_mk_create a] represents an array with elements [a]. *)
 
 val term_mk_update : term -> term -> term -> term
+  (** [term_mk_update a i x] represent an array [a] updated at position [i]
+    with value [x]. *)
+
 val term_mk_select :  term -> term -> term
+  (** [term_mk_select a j] represents the value of array [a] at position [j]. *)
 
 
-(** {b Power products} *)
+(** {b Nonlinear terms} are sum-of-products with power products 
+  [a1^n1 * ... an^nk] with [ai] terms and [ni] integers at uninterpreted positions. *)
+
+val term_mk_mult : term -> term -> term
+  (** [term_mk_mult a b] constructs a nonlinear term for representing the multiplication
+    of [a] and [b]. *)
+
+val term_mk_multl : term list -> term
+  (** [term_mk_multl [a1;...;an]] constructs a nonlinear term for representing the 
+    multiplication [a1 * ... * an]. *)
+
+val term_mk_expt : int -> term -> term   
+  (** [term_mk_expt n a] constructs a nonlinear term for represening [a] raised
+    to the [n], [n] an arbitrary integer. *)
 
 val term_mk_div :  term -> term -> term
-val term_mk_mult : term -> term -> term
-val term_mk_multl : term list -> term
-val term_mk_expt : int -> term -> term   
-  (* [term_mk_expt n x] represent [x^n]. *)
+  (** [term_mk_div a b] is equivalent to [term_mk_mult a (term_mk_expt b (-1))]. *)
+  
 
 (** {b Function application} *)
 
 val term_mk_apply : term -> term -> term
-
-
-(** {6 Set of terms} *)
+  (** [term_mk_apply a b] represents the application of [a], viewed as a function,
+    to the argument [b]. *)
 
 type terms
+  (** Representation of a set of terms. *)
 
 val terms_of_list : term list -> terms
+  (** Constructing a set of terms from a list of terms. *)
 
 val terms_to_list : terms -> term list
+  (** Converting a set of terms into a list of terms. *)
 
 
-(** {6 Atoms} *)
-
-(** Atoms. [atom_mk_true()] is the trivially true atom,
- [atom_mk_false()] is the trivially false atom, and 
- given terms [a], [b], the constructor [mk_equal a b]
- constructs an equality constraint, [mk_diseq a b] a 
- disequality constraint, and [atom_mk_in a c] constructs
- a membership constraint for [a] and a arithmetic constraint [c]. 
- Atoms are printed to [stdout] using [atom_pp]. *)
 
 type atom
   (** An {b atom} is either
@@ -669,37 +705,56 @@ type atom
       with the constraint [c] of type {!Ics.cnstrnt}. *)
 
 val atom_pp : atom -> unit
+  (** Pretty-printing an atom to [stdout]. *)
 
 val atom_of_string : string -> atom
+  (** Parsing a string to obtain an atom. *)
+
 val atom_to_string : atom -> string
+  (** Printing an atom to a string. *)
      
 val atom_mk_true : unit -> atom
+  (** Constructing the trivially true atom. *)
+
 val atom_mk_false : unit -> atom
+  (** Constructing an unsatisfiable atom. *)
+
 val atom_mk_equal  : term -> term -> atom
+  (** [atom_mk_equal a b] constructs an atom for representing
+    the equality between [a] and [b]. *)
+
 val atom_mk_diseq  : term -> term -> atom
+  (** [atom_mk_diseq a b] constructs an atom for representing
+    the disequality of [a] and [b]. *)
 
 val atom_mk_le : term -> term -> atom
+  (** [atom_mk_le a b] constructs an atom for representing [a <= b]. *)
+
 val atom_mk_lt : term -> term -> atom
+ (** [atom_mk_lt a b] constructs an atom for representing [a < b]. *)
+
 val atom_mk_ge : term -> term -> atom
+  (** [atom_mk_ge a b] constructs an atom for representing [a >= b]. *)
+
 val atom_mk_gt : term -> term -> atom
+  (** [atom_mk_gt a b] constructs an atom for representing [a > b]. *)
 
-val atom_is_negatable : atom -> bool
 val atom_negate : atom -> atom
+  (** Constructs the negation of an atom. *)
 
 
-
-(** {6 Justifications} *)
 
 type justification
+  (** A {i justification} is either
+    - a tag [Unjustified] or
+    - a set of context atoms. *)
 
 val justification_pp : justification -> unit
+  (** Print a justification to [stdout]. *)
 
-
-(** {6 Logical Context} *)
- 
 
 type context
-  (** A logical context represents a conjunction of atoms. *)
+  (** A {i logical context} represents a conjunction of atoms. *)
 
 val context_pp : context -> unit
   (** Pretty-printing a context to standard output. *)
@@ -739,14 +794,18 @@ val context_empty : unit -> context
   (** [context_empty()] represents the empty logical context. *)
 
 type status
-  (** Inhabitants of type status are used as return values for {!Ics.process}. *)
+  (** Inhabitants of type status are used as return values for {!Ics.process}.
+    There are three possible outcomes.
+    - [Redundant] implies the argument [a] in {!Ics.process}[s a] is valid in context [s].
+    - [Inconsistent] implies the argument [a] conjoined with [s] in {!Ics.process}[s a] is inconsistent.
+    - [Consistent] neither a redundancy nor an inconsistency could be detected. *)
     
 val is_consistent   : status -> bool
 val is_redundant    : status -> bool
 val is_inconsistent : status -> bool
 
 val d_consistent : status -> context
-  (** In case [is_consistent st] holds, [d_consistent st] returns a new context. *)
+  (** In case [is_consistent st] holds, [d_consistent st] returns the extended context. *)
     
 val process : context -> atom -> status
   (** The operation [process s a] adds a new atom [a] to a logical context [s].
@@ -787,25 +846,49 @@ val dom : context -> term -> dom * justification
     If no such constraint can be deduced, [None] is returned. *)
 
 
-
-(** {6 Propositions} *)
-
 type prop
+  (** Representation of propositional formulas with propositional variables
+    and atoms as literals. *)
 
 val prop_pp : prop -> unit
+  (** Printing a propositional formula. *)
  
 val prop_mk_true : unit -> prop
+  (** The trivially true propositional formula. *)
+
 val prop_mk_false : unit -> prop
+  (** The trivially false propositional formula. *)
+
 val prop_mk_var : name -> prop
+  (** Constructing a propositional variable. *)
+
 val prop_mk_poslit : Atom.t -> prop
+  (** Injecting an atom into a propositional formula. *)
+
 val prop_mk_neglit : Atom.t -> prop
+ (** Injecting a negated atom into a propositional formula. *)
+
 val prop_mk_ite : prop -> prop -> prop -> prop
+ (** [prop_mk_ite p q r] constructs a propositional formula
+   equivalent to [prop_mk_disj (prop_mk_conj p q) (prop_mk_conj (prop_mk_neg p) r)]. *)
+
 val prop_mk_conj : prop list -> prop
+  (** [prop_mk_conj p q] constructs a representation of the conjunction of [p] and [q]. *)
+
 val prop_mk_disj : prop list -> prop
+ (** [prop_mk_disj p q] constructs a representation of the disjunction of [p] and [q]. *)
+
 val prop_mk_iff : prop -> prop ->prop
+ (** [prop_mk_iff p q] constructs a representation of the equivalence of [p] and [q]. *)
+
 val prop_mk_neg : prop -> prop
+ (** [prop_mk_neg p] constructs a representation of the negation of [p]. *)
 
+val prop_mk_let : name -> prop -> prop -> prop
+  (** [prop_mk_let x p q] constructs a structure-shared representation of the formula
+    where [x] is replaced by [p] in [q]. *)
 
+(** Exactly one of the following recognizers is true for a propositional formula. *)
 val prop_is_true : prop -> bool
 val prop_is_false : prop -> bool
 val prop_is_var : prop -> bool
@@ -816,6 +899,8 @@ val prop_is_iff : prop -> bool
 val prop_is_neg : prop -> bool
 val prop_is_let : prop -> bool
 
+(** If the corresponding recognizer above holds, propositional formulas may
+  be destructured using the following. *)
 val prop_d_var : prop -> name
 val prop_d_atom : prop -> atom
 val prop_d_ite : prop -> prop * prop * prop
@@ -825,20 +910,26 @@ val prop_d_neg : prop -> prop
 val prop_d_let : prop -> name * prop * prop
 
 
-(** {6 Propositional Satisfiability} *)
 
 type assignment
+  (** Representation of assignments for propositional formulas. *)
 
 val assignment_pp : assignment -> unit
+  (** Pretty-printing assignments. *)
 
 val assignment_valuation : assignment -> (name * bool) list
-val assignment_literals : assignment -> atom list
+  (** Assignments to propositional variables. *)
 
+val assignment_literals : assignment -> atom list
+  (** Assignment to nonpropositional literas. *)
 
 val prop_sat : context -> prop -> assignment option
+  (** [prop_sat s p] determines if the propositional formula 
+    [p] is satisfiable in context [s].  It returns
+    - [None], if [p] is unsatisfiable,
+    - [Some(ms)], if [p] is satisfiable; in this case, [ms] 
+    implicitly represents a set of candidate models. *)
 
-
-(** {6 Commands} *)
 
 (** An imperative state [istate] does not only include a logical 
  context of type [state] but also a symbol table and input and 
@@ -871,7 +962,6 @@ val cmd_batch : inchannel -> int
 val flush : unit -> unit
 
 
-(** {6 Controls}. *)
 
 val reset : unit -> unit
   (** [reset()] clears all the global tables. This does not only 
@@ -887,8 +977,6 @@ val do_at_exit : unit -> unit
 val sleep : int -> unit
   (** Sleeping for a number of seconds. *)
 
-
-(** {6 Tracing} *)
 
 (** Rudimentary control on trace messages, which are 
  sent to [stderr]. These functions are mainly included
@@ -910,16 +998,14 @@ val trace_get : unit -> string list
     (** [trace_get()] returns the set of active trace levels. *)
 
 
-(** {6 Lists} *)
-
+(** {i Lists} *)
 val is_nil : 'a list -> bool
 val cons : 'a -> 'a list -> 'a list
 val head : 'a list -> 'a
 val tail : 'a list -> 'a list
 
 
-(** {6 Pairs} *)
-
+(** {i Pairs} *)
 val pair : 'a -> 'b -> 'a * 'b
   (** [pair a b] builds a pair [(a,b)]. *)
   
@@ -930,31 +1016,24 @@ val snd : 'a * 'b -> 'b
   (** [snd p] returns [b] if [p] is equal to some [pair _ b]. *)
 
 
-(** {6 Triples}  *)
-
+(** {i Triples}  *)
 val triple : 'a -> 'b -> 'c -> 'a * 'b * 'c
 val fst_of_triple : 'a * 'b *'c -> 'a
 val snd_of_triple : 'a * 'b *'c -> 'b
 val third_of_triple : 'a * 'b *'c -> 'c
 
 
-(** {6 Quadruples} *)
-  
+(** {i Quadruples} *)
 val fst_of_quadruple : 'a * 'b * 'c *'d -> 'a
 val snd_of_quadruple : 'a * 'b * 'c *'d -> 'b
 val third_of_quadruple : 'a * 'b * 'c *'d -> 'c
 val fourth_of_quadruple : 'a * 'b * 'c *'d -> 'd
 
-
-(** {6 Option types} *)
-      
 (** Options. An element of type ['a option] either satisfies
  the recognizer [is_some] or [is_none].  In case, [is_some]
  holds, a value of type ['a] can be obtained by [value_of].  *)
-
 val is_some : 'a option -> bool
 val is_none : 'a option -> bool
-
 val value_of : 'a option -> 'a
 
 

@@ -277,27 +277,43 @@ let is_valid =
   in
     loop
 
-(* to do... *)
-let rec check s =
-  try
-    (match Combine.split (s.p, s.eqs) with
-       | Combine.Split.Finint(fin) -> 
-	   invalid_arg "to do"
-       | Combine.Split.Equal(i, j) -> 
-	   let e = Atom.mk_equal (i, j)
-	   and d = Atom.mk_diseq (i, j) in
-             (match add s e with
-		| Status.Valid _ -> true
-		| Status.Inconsistent _ ->
-		    (match add s d with
-		       | Status.Valid _ -> true
-		       | Status.Inconsistent _ -> false
-		       | Status.Ok(s') -> check s')
-		| Status.Ok(s') ->
-		    check s' || 
-		    (match add s d with
-		       | Status.Valid _ -> true
-		       | Status.Inconsistent _ -> false
-		       | Status.Ok(s'') -> check s'')))
-  with
-      Not_found -> true
+(* Check if [s] is satisfiable after case-splittiing. *)
+let check_sat s =
+  let error_valid_arg s a =
+    invalid_arg (
+      Format.sprintf "Fatal Error: %s \n valid in case split for\n%s@."
+		   (Atom.to_string a)
+		   (Pretty.to_string pp s))
+  in
+  let rec check splits s =
+    try
+      (match Combine.split (s.p, s.eqs) with
+	 | Combine.Split.Finint(fin) -> 
+	     invalid_arg "Splits on integers: to do"
+	 | Combine.Split.Equal(i, j) -> 
+	     let e = Atom.mk_equal (i, j)
+	     and d = Atom.mk_diseq (i, j) in
+               (match add s e with
+		  | Status.Inconsistent _ ->
+		      (match add s d with
+			 | Status.Inconsistent _ -> None
+			 | Status.Ok(s') -> check (d :: splits) s'
+			 | Status.Valid _ -> error_valid_arg s d)
+		  | Status.Ok(s') ->
+		      (match check (e :: splits) s' with
+			 | None -> 
+			     (match add s d with
+				| Status.Inconsistent _ -> None
+				| Status.Ok(s'') -> check (d :: splits) s''  
+				| Status.Valid _ -> error_valid_arg s d)
+			 | Some(s'', splits'') -> 
+			     Some(s'', splits''))
+		  | Status.Valid _ -> 
+		      error_valid_arg s e))
+    with
+	Not_found -> Some(splits, s)
+  in
+    check [] s
+
+
+		 

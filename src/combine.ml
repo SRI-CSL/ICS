@@ -552,7 +552,10 @@ end
 let split (p, s) =
   try
     let (i, j) = Arr.split (p, s.arr) in
+      Trace.msg "spl" "Split" (i, j) Term.Equal.pp;
       Split.Equal(i, j)
   with
-      Not_found -> 
-	Split.Finint(La.Finite.split (p, s.a))
+      Not_found ->
+	let fin = La.Finite.split (p, s.a) in
+	  Trace.msg "spl" "Split" fin La.Finite.pp;
+	  Split.Finint(fin)

@@ -28,7 +28,11 @@
   - if [i<>j], [k<>j], [a[i:=x] = b[k:=y]], then [a[j] = b[j]]
   - if [i<>j], [a[i:=x]= b[j:=y]] then [a[j] = y]
 
-  is used to keep configurations {i confluent}. 
+  is used to keep configurations {i confluent}. The first
+  forward-chaining is a generalization of 
+  - if [a[i:=x] = b[i:=y]], then [x = y]
+  which would already be complete but it identifies more equalities
+  without case-splitting.
 *)
 
 
@@ -216,7 +220,7 @@ and deduce ((p, _) as c) e = merge c e
           for [u = a[i:=x]],
           for [v = b[j:=y]] with [u =V v], 
           for [k] such that [k<>i], [k<>j], 
-             add a[j] = b[j]
+             add a[k] = b[k]
   - (3a) whenever [u'] is merged with [v'], then
             for  [u = a[i:=x]] and [v = b[k:=y]] with [i <> k], [u =V u'], [v =V v'],
             add [a[k] = y].
@@ -255,21 +259,25 @@ and deduce_2b ((p, s) as c) (i, rho') =
   update_index_iter c i
     (fun (rho, u, (a, i', x)) ->              (* [rho |- u = a[i := x]] *)
        assert(Term.eq i i');
+       Trace.msg "foobar" "1. 2b" (u, Funarr.mk_update Term.is_equal a i x) Term.Equal.pp;
        D.Set.iter
 	 (fun (j, tau) ->                     (* [tau |- i <> j] *)
 	    D.Set.iter 
 	    (fun (k, sigma) ->                (* [sigma |- j <> k] *)
 	       update_index_iter c k
 	       (fun (theta, v, (b, k', y)) -> (* [theta |- v = b[k := y]] *)
+		  Trace.msg "foobar" "2. 2b" (v, Funarr.mk_update Term.is_equal b k y) Term.Equal.pp;
 		  assert(Term.eq k k');
 		  if not(Term.eq u v) then
 		    match Partition.is_equal p u v with
 		      | None -> ()
 		      | Some(ups) ->          (* [ups |- u = v] *)
+			  Trace.msg "foobar" "2b" (u, v) Term.Equal.pp;
 			  let a' = mk_select a j 
 			  and b' = mk_select b j in
 			  let ups' = Jst.dep [rho'; rho; tau; sigma; theta; ups] in
 			  let e' = Fact.Equal.make (a', b', ups') in
+			    Trace.msg "foobar" "2b" e' Fact.Equal.pp;
 			    deduce c e'))
 	    (Partition.diseqs p j))
          (Partition.diseqs p i))
@@ -353,8 +361,12 @@ let split ((p, s) as cfg) =
 		try
 		  let (b, _) = apply s u in
 		  let (_, i, _) = Funarr.d_update b in
-		  let (i, j) = Term.orient (i, j) in
-		    raise (Found (i, j))
+		    match Partition.is_equal_or_diseq p i j with
+		      | Jst.Three.X -> 
+			  let (i, j) = Term.orient (i, j) in
+			    raise (Found (i, j))
+		      | _ -> 
+			  ()
 		with
 		    Not_found -> ())
 	     u'
@@ -364,4 +376,3 @@ let split ((p, s) as cfg) =
      raise Not_found)
   with
       Found(i, j) -> (i, j)
-

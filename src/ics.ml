@@ -477,8 +477,6 @@ let _ = Callback.register "atom_mk_gt" atom_mk_gt
 let atom_mk_ge a b = Atom.mk_ge (a, b)
 let _ = Callback.register "atom_mk_ge" atom_mk_ge
 
-let atom_is_negatable = Atom.is_negatable
-let _ = Callback.register "atom_is_negatable" atom_is_negatable
 
 let atom_negate = Atom.negate
 let _ = Callback.register "atom_negate" atom_negate
@@ -527,6 +525,9 @@ let _ = Callback.register "prop_mk_iff" prop_mk_iff
 
 let prop_mk_neg = Prop.mk_neg
 let _ = Callback.register "prop_mk_neg" prop_mk_neg
+
+let prop_mk_let = Prop.mk_let
+let _ = Callback.register "prop_mk_let" prop_mk_let
 
 let prop_is_true = Prop.is_true
 let _ = Callback.register "prop_is_true" prop_is_true
@@ -605,6 +606,11 @@ let _ = Callback.register "term_mk_multl" term_mk_multl
 
 let term_mk_expt = Nonlin.mk_expt 
 let _ = Callback.register "term_mk_expt" term_mk_expt
+
+
+
+let term_mk_create  = Funarr.mk_create
+let _ = Callback.register "term_mk_create" term_mk_create
 
 let term_mk_update  = Funarr.mk_update Term.is_equal
 let _ = Callback.register "term_mk_update" term_mk_update

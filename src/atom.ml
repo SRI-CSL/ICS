@@ -175,8 +175,8 @@ let is_false = function FF, _ -> true | _ -> false
 
 let pp fmt (atm, i) =   (* this causes an occasional segmentation fault (why???) *)
   match atm with 
-    | TT -> Pretty.string fmt "TT"
-    | FF -> () (* Pretty.string fmt "FF" *)
+    | TT -> Pretty.string fmt "tt"
+    | FF -> Pretty.string fmt "ff"
     | Equal(a, b) -> Equal.pp fmt (a, b)
     | Diseq(a, b) -> Diseq.pp fmt (a, b)
     | Nonneg(a) -> Nonneg.pp fmt a

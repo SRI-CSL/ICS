@@ -246,6 +246,13 @@ module Out = struct
 	Pretty.list Atom.pp fmt hyps;
 	Format.fprintf fmt "@?"
 
+ let splits atms =
+    if !batch then nothing () else 
+      let fmt = !outchannel in
+	Format.fprintf fmt "\n:splits "; 
+	Pretty.list Atom.pp fmt atms;
+	Format.fprintf fmt "@?"
+
   let incomplete () = 
     if !batch then nothing () else 
       Format.fprintf !outchannel ":incomplete@?"
@@ -678,11 +685,13 @@ let do_ctxt =
 	 | Some(n) -> Context.ctxt_of (context_of n)
        in
 	 Out.hypotheses hyps)
-    {args = "<ident>";
+    {args = "[@<ident>]";
      short = "Output logical context."; 
      description = 
-          "Return the set of atoms asserted in the current logical context.
-           These atoms are not necessarily in canonical form."; 
+          "'ctxt' returns the set of atoms asserted in the current 
+           logical context, and 'ctxt@s' returns the set of asserted
+           atoms in state 's' from the symbol table. These atoms are not necessarily 
+           in canonical form."; 
      examples = []; 
      seealso = ""}
 
@@ -720,7 +729,7 @@ let do_can =
         context. If proof generation is enabled, then also a justification of the
         equality between 'a' and 'can a' is returned. There are no side effects.";
      examples = [];
-     seealso = ""}
+     seealso = "simplify"}
     
 
     
@@ -888,9 +897,8 @@ let do_process1 =
          An <atom> is asserted to the specified context. If <ident> 
          is omitted, then the current context is used, and otherwise
          the context of name <ident> in the symbol table is extended.
-         There are three possible outcomes. First, <atom> is inconsistent with 
-         respect to the current context.
-         In this case, assert leaves the current context
+         There are three possible outcomes. First, <atom> is inconsistent with respect 
+         to the current context. In this case, assert leaves the current context
          unchanged and outputs ':unsat' on the standard
          output. <atom> is valid in the current context. Again, the
          the current context is left unchanged and ':valid' is output.
@@ -906,7 +914,7 @@ let do_process1 =
        :ok s2
        ics> assert u = v.
        :unsat", "The conjunction of these three assertions is inconsistent"]; 
-     seealso = ""}
+     seealso = "symtab, split"}
 
 let do_process (n, al) =
   let t = get_context n in
@@ -959,6 +967,27 @@ let do_model =
     {args = "[@<ident>]  <nameset>";
      short = "Assignment with domain <nameset>, extendable to a model."; 
      description = "" ; 
+     examples = []; 
+     seealso = ""}
+
+let do_check_sat =
+  Command.register "check"
+    (fun n ->
+       let s = get_context n in
+	 match Context.check_sat s with
+	   | None ->
+	       Out.prop_unsat ()
+	   | Some(splits', s') ->   
+	       let sn = fresh_state_name() in
+		 symtab := Symtab.add sn (Symtab.State(s')) !symtab;
+		   Out.ok sn;
+		   Out.splits splits')
+    {args = "[@<ident>]";
+     short = "Perform complete case-split.";
+     description = "Check returns  ':unsat' if all case-splits fail and ':ok s'
+       if one complete case split is found to be satisfiable. In the latter case,
+       's' is a new name in the symbol table for the extension of the current
+       context with all the case splits.";
      examples = []; 
      seealso = ""}
 

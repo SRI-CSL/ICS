@@ -87,3 +87,9 @@ val is_inconsistent : t -> Atom.t list -> bool
 val is_valid : t -> Atom.t list -> bool
   (** [is_valid s al] is [true] iff the conjunction of 
     atoms in [al] is valid in [s]. *)
+
+val check_sat : t -> (Atom.t list * t) option
+  (** [check_sat s] performs case-splitting and returns
+    - [Some(splits', s')] if there is a complete case-splitting path [splits']
+    yielding a satisfiable extension [s'] of [s].
+    - [None] if all case-splittinig paths yield an inconsistent context. *)

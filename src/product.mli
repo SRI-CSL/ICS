@@ -11,14 +11,19 @@
  * benefit corporation.
  *)
 
-(** Theory of tuples.
+(** Theory of products.
 
   @author Harald Ruess
 
   The {i signature} [P] of pairs consists of
-  - [cons], the constructor of arity two.
+  - [cons], the product constructor of arity two.
   - [car] of arity one, projection on first component.
   - [cdr] of arity one, projection to second component.
+
+  A term [a] is {i pure} in [P] if it is a variable or 
+  built-up completely from [cons(b, c)], [car(b)], [cdr(b)] 
+  with [b], [c] interpreted. Nonpure terms are treated
+  as variables.
 
   The {i theory} [P] of pairs consists of the equalities which
   can be derived using the usual equality rules and the universally
@@ -29,20 +34,15 @@
 
   A term is said to be {i canonical} in [P], if it does not
   contain any redex of the form [car(cons(.,.))],  [cdr(cons(.,.))],
-  or [cons(car(s), cdr(s))]. For [a], [b] in canonical form: [a = b]
+  or [cons(car(.), cdr(.))]. For [a], [b] in canonical form: [a = b]
   holds in [P] iff [a] is syntactically equal to [b] (that is,
   {!Term.eq}[a b] holds).
 
   This module provides
-  - constructors [mk_car], [mk_cdr], [mk_cons] for building 
-    up canonical terms in [P].
-  - a solver [solve] for solving equalities in [P].
-
-  All terms with a toplevel symbol not in [P] are treated as variables.
+  - constructors {!Product.mk_car}, {!Product.mk_cdr}, and
+    {!Product.mk_cons} for building up canonical terms in [P].
+  - a solver {!Product.solve} for solving equalities in [P].
 *)
-
-
-(** {6 Recognizers} *)
 
 val is_interp : Term.t -> bool
   (** [in_interp a] holds if the top-level function symbol is 
@@ -51,9 +51,6 @@ val is_interp : Term.t -> bool
 val is_pure : Term.t -> bool
   (** [is_pure a] holds if every function symbol in [a] is in [P];
     that is, only variables occur at uninterpreted positions. *)
-
-
-(** {6 Constructors} *)
 
 val mk_cons : Term.t -> Term.t -> Term.t
   (** Given canonical terms [a], [b], [mk_cons a b] constructs a
@@ -76,9 +73,6 @@ val mk_proj : int -> Term.t -> Term.t
   (** [mk_proj i a] projects the term [ai] in a tuple 
     of the form  [(a1, ((a2, ...)...), an)]. *)
 
-
-(** {6 Iterators} *)  
-
 val map: (Term.t -> Term.t) -> Term.t -> Term.t
   (** [map f a] applies [f] at uninterpreted positions of [a]
     an builds a canonical term from the results.  More precisely,
@@ -93,22 +87,16 @@ val apply: Term.Equal.t -> Term.t -> Term.t
   (** [apply (x, b) a] replaces uninterpreted occurrences 
     of [x] in [a] with [b], and returns a canonical form. *)
 
-
-(** {6 Canonization} *)
-
 val sigma : Sym.product -> Term.t list -> Term.t
   (** [sigma op l] applies the function symbol [op] from the pair 
     theory to the list [l] of argument terms to build a canonical
     term equal to [op(l)]. *)
 
-
-(** {6 Solver} *)
-
 val solve : Term.Equal.t -> Term.Equal.t list
   (** Given an equality [a = b], the pair solver [solve(a, b)] 
     - raises the exception {!Exc.Inconsistent} iff the equality 
     [a = b] does not hold in [P], or
-   - returns a solved list of equalities [x1 = a1;...;xn = an] 
+    - returns a solved list of equalities [x1 = a1;...;xn = an] 
     with [xi] variables in [a] or [b], the [xi] are pairwise disjoint, 
     and no [xi] occurs in any of the [ai]. The [ai] are all in
     canonical form, and they might contain newly generated variables
