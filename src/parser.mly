@@ -69,8 +69,11 @@ let equal_width_of a b =
 %token TRUE FALSE
 %token PLUS MINUS TIMES DIVIDE EXPT
 %token LESS GREATER LESSOREQUAL GREATEROREQUAL  
-%token FLOOR CEILING SIN COS UNSIGNED APPLY 
+%token UNSIGNED APPLY 
 %token WITH CONS CAR CDR NIL
+%token INL INR OUTL OUTR
+%token INJ OUT 
+%token HEAD TAIL LISTCONS
 %token DISJ XOR IMPL BIIMPL CONJ NEG
 %token PROJ
 
@@ -82,6 +85,7 @@ let equal_width_of a b =
 %left DIVIDE
 %left TIMES
 %right EXPT
+%left LISTCONS
 %right BVCONC
 %right BWOR BWXOR BWIMP
 %left BWAND BWIFF
@@ -127,9 +131,6 @@ funsym:
 | TIMES                                  { Sym.mult }
 | DIVIDE                                 { Sym.div }
 | TUPLE                                  { Sym.product }
-| FLOOR                                  { Sym.floor }
-| SIN                                    { Sym.sin }
-| COS                                    { Sym.cos }
 | UNSIGNED                               { Sym.unsigned }
 | PROJ LBRA INTCONST COMMA INTCONST RBRA { Sym.Tuple(Sym.Proj($3, $5)) }
 | CONS                                   { Sym.product  }
@@ -142,12 +143,11 @@ funsym:
 ;
 
 range:                              { None }
-| LBRA INTCONST COMMA cnstrnt RBRA  { Some(Sym.Real($2, $4)) }
+| LBRA cnstrnt RBRA                 { Some($2) }
 ;
 
 constsym: 
   rat       { Sym.Arith(Sym.Num($1)) }
-| NIL       { Sym.Tuple(Sym.Product) }
 | TRUE      { Sym.Bv(Sym.Const(Bitv.from_string "1")) }
 | FALSE     { Sym.Bv(Sym.Const(Bitv.from_string "0")) }  
 | BVCONST   { Sym.Bv(Sym.Const(Bitv.from_string $1)) }
@@ -162,7 +162,9 @@ term:
 | arith            { $1 }     /* infix/mixfix syntax */
 | array            { $1 }
 | bv               { $1 }
+| coproduct        { $1 }
 | boolean          { $1 }
+| list             { $1 }
 ;
 
 var:
@@ -180,6 +182,14 @@ var:
 app: 
   funsym LPAR termlist RPAR     { Istate.sigma $1 (List.rev $3) }
 | constsym                      { Istate.sigma $1 [] }
+
+list: 
+  term LISTCONS term            { Coproduct.mk_inj 1 (Tuple.mk_tuple [$1; $3]) }
+| HEAD LPAR term RPAR           { Tuple.mk_proj 0 2 (Coproduct.mk_out 1 $3) }
+| TAIL LPAR term RPAR           { Tuple.mk_proj 1 2 (Coproduct.mk_out 1 $3) }
+| NIL                           { Coproduct.mk_inj 0 (Tuple.mk_tuple []) }
+
+
      
 arith:
 | term PLUS term                { Arith.mk_add $1 $3 }
@@ -187,8 +197,16 @@ arith:
 | MINUS term %prec prec_unary   { Arith.mk_neg $2 }
 | term TIMES term               { Sig.mult (Istate.current()) ($1, $3) }
 | term DIVIDE term              { Sig.div (Istate.current()) ($1, $3) }
-| term EXPT term                { Sig.expt (Istate.current()) $3 $1}
+| term EXPT term                { Sig.expt (Istate.current()) $3 $1 }
 ;
+
+coproduct:
+  INL LPAR term RPAR                    { Coproduct.mk_inl $3 }
+| INR LPAR term RPAR                    { Coproduct.mk_inr $3 }
+| OUTL LPAR term RPAR                   { Coproduct.mk_outl $3 }
+| OUTR LPAR term RPAR                   { Coproduct.mk_outr $3 }
+| INJ LBRA INTCONST RBRA LPAR term RPAR { Coproduct.mk_inj $3 $6 }
+| OUT LBRA INTCONST RBRA LPAR term RPAR { Coproduct.mk_out $3 $6 }
 
 
 array:
@@ -236,13 +254,13 @@ boolean:
 
 
 atom:
-  term EQUAL term                   { Atom.mk_equal $1 $3 }
-| term DISEQ term                   { Atom.mk_diseq $1 $3 }
+  term EQUAL term                   { Atom.mk_equal (Fact.mk_equal $1 $3 None)}
+| term DISEQ term                   { Atom.mk_diseq (Fact.mk_diseq $1 $3 None) }
 | term LESS term                    { Atom.mk_lt $1 $3 }
 | term GREATER term                 { Atom.mk_lt $3 $1 }
 | term LESSOREQUAL term             { Atom.mk_le $1 $3 }
 | term GREATEROREQUAL term          { Atom.mk_le $3 $1 }
-| term IN cnstrnt                   { Atom.mk_in $3 $1 }
+| term IN cnstrnt                   { Atom.mk_in (Fact.mk_cnstrnt $1 $3 None) }
 ;
 
 
@@ -332,7 +350,7 @@ command:
 				| None -> Result.Cnstrnt(None) }
 | DISEQ optname term        { Result.Terms(Istate.diseq $2 $3) }
 | SPLIT optname             { Result.Atoms(Istate.split()) }
-| SOLVE ith term EQUAL term { Result.Solution(Istate.solve $2 ($3, $5)) }		
+| SOLVE th term EQUAL term  { Result.Solution(Istate.solve $2 ($3, $5)) }		
 | TRACE identlist           { Result.Unit(List.iter Trace.add $2) }
 | UNTRACE                   { Result.Unit(Trace.reset ()) }
 | help                      { Result.Unit($1) }
@@ -342,9 +360,8 @@ identlist :
   IDENT                     { [$1] }
 | identlist COMMA IDENT     { $3 :: $1 }
 
-ith: IDENT { Sym.interp_theory_of_name $1 } /* may raise [Invalid_argument]. */
 		
-th: IDENT  { Sym.theory_of_name $1 } /* may raise [Invalid_argument]. */
+th: IDENT  { Theories.of_string $1 } /* may raise [Invalid_argument]. */
 
 help:
   HELP                      { Help.on_help () }

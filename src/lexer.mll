@@ -32,7 +32,7 @@ let keyword =
       "bot", BOT; "int", INT; "nonint", NONINT; "real", REAL; "top", TOP;
       "bitvector", BV; "with", WITH;
       "proj", PROJ;
-      "cons", CONS; "car", CAR; "cdr", CDR; "nil", NIL;
+      "cons", CONS; "car", CAR; "cdr", CDR;
       "conc", CONC; "sub", SUB; "ite", BWITE;
       "drop", DROP; "can", CAN; "assert", ASSERT; "abstract", ABSTRACT; "exit", EXIT; 
       "valid", VALID; "unsat", UNSAT;
@@ -44,8 +44,10 @@ let keyword =
       "syntax", SYNTAX; "commands", COMMANDS; "ctxt", CTXT; "diseq", DISEQ; 
       "show", SHOW; "symtab", SYMTAB; "cnstrnt", CNSTRNT; "split", SPLIT;
       "true", TRUE; "false", FALSE;
-      "floor", FLOOR; "ceiling", CEILING; "sin", SIN; "cos", COS; "unsigned", UNSIGNED;
-      "apply", APPLY
+      "inr", INR; "inl", INL; "outr", OUTR; "outl", OUTL;
+      "inj", INJ; "out", OUT;
+      "hd", HEAD; "tl", TAIL;
+      "unsigned", UNSIGNED; "apply", APPLY
     ];
   fun s ->
     try Hashtbl.find kw_table s with Not_found -> IDENT s
@@ -111,6 +113,8 @@ rule token = parse
   | '~'        { NEG }
   | '_'        { UNDERSCORE } 
   | "<<"       { CMP }
+  | "::"       { LISTCONS }
+  | "[]"       { NIL }
   | '.'        { DOT }
   | '@'        { KLAMMERAFFE }
   | eof        { EOF }  
