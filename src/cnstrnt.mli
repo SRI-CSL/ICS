@@ -36,6 +36,14 @@ val dom_of : t -> Dom.t
 
 val is_finite : t -> bool
 
+(*s Constraint extension contains only positive numbers. *)
+
+val is_pos : t -> bool
+
+(* Constraint extension contains only negative numbers. *)
+
+val is_neg : t -> bool
+
 (*s Derived Constructors. *)
 
 val mk_real : t
@@ -58,6 +66,10 @@ val is_empty : t -> bool
 val is_full : t -> bool
 
 val d_singleton : t -> Mpa.Q.t option
+
+val d_lower : t -> (Dom.t * bool * Mpa.Q.t) option
+
+val d_upper : t -> (Dom.t * Mpa.Q.t * bool) option
 
 (*s Equality. *)
 
@@ -98,6 +110,9 @@ val mk_oo : Dom.t -> Q.t -> Q.t -> t
 val mk_oc : Dom.t -> Q.t -> Q.t -> t
 val mk_co : Dom.t -> Q.t -> Q.t -> t
 val mk_cc : Dom.t -> Q.t -> Q.t -> t
+
+val mk_lower : Dom.t -> Q.t * bool -> t
+val mk_upper : Dom.t -> bool * Q.t -> t
 
 val mk_lt : Dom.t -> Q.t -> t
 val mk_le : Dom.t -> Q.t -> t
