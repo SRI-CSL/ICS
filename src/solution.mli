@@ -106,6 +106,8 @@ val restrict : Term.t -> t -> t
 
 val union : Term.t * Term.t -> t -> t
 
+val update : Term.t * Term.t -> Partition.t * t -> Partition.t * t
+
 
 (*s [name s a] returns the variable [x] if there is
  an equation [x = a] in [s].  Otherwise, it creates a 
