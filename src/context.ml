@@ -144,7 +144,7 @@ let dom s a =
     | App(Arith(op), xl) -> of_arith op xl
     | App(Pp(op), xl) -> of_pprod op xl
     | App(Bvarith(op), xl) -> of_bvarith op xl
-    | a -> if is_intvar a then Dom.Int else if is_realvar a then Dom.Real else raise Not_found
+    | a -> if is_intvar a then Dom.Int else if is_realvar a then Dom.Real else of_term (apply Th.la s a)
   and of_arith op xl =
     try
       match op, xl with
