@@ -23,13 +23,13 @@
 *)
 
 type t =  
-  | Slack of int * Dom.t * slack
+  | Slack of int * slack
   | External of Name.t * Dom.t option
   | Rename of Name.t * int  * Dom.t option
   | Fresh of Th.t * int * Dom.t option
   | Bound of int   
 
-and slack = Zero | Nonneg
+and slack = Zero | Nonneg of Dom.t
       
 
 (** {6 Destructors} *)
@@ -75,8 +75,7 @@ val mk_rename : Name.t -> int -> Dom.t option -> t
     constructs a rename variable with associated name ["n!i"]; there are no
     side effects on {!Var.k}. *)
 
-val mk_slack : int -> Dom.t -> slack -> t
-
+val mk_slack : int -> slack -> t
 
 val mk_fresh : Th.t -> int -> Dom.t option -> t
 
@@ -94,6 +93,10 @@ val is_rename : t -> bool
 
 val is_slack : slack -> t -> bool
   (** [is_cnstrnt x] holds iff [x] is a slack variable. *)
+
+val is_zero_slack : t -> bool
+
+val is_nonneg_slack : t -> bool
 
 
 val is_fresh : Th.t -> t -> bool
