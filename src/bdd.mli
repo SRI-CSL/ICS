@@ -131,16 +131,3 @@ module Make(Ite : ITE) : sig
  
 end
 
-
-
-
-
-
-
-
-
-
-
-
-
-
