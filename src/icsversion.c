@@ -15,8 +15,8 @@ char* flags = COMPILATION_FLAGS;
 void print_version() {
   CAMLparam0();
   fprintf(stdout, "ICS %s (%s, %s)", version, arch, date); 
-  if (debug == 1) {
-    fprintf(stdout, "\nDebugging enabled.");
+  if (debug > 0) {
+    fprintf(stdout, "\nDebugging enabled; level = %d.", debug);
   };
   fflush(stdout);
   CAMLreturn0;
@@ -25,8 +25,8 @@ void print_version() {
 void eprint_version() {
   CAMLparam0();
   fprintf(stderr,"ICS %s (%s, %s)", version, arch, date); 
-  if (debug == 1) {
-    fprintf(stderr,"\nDebugging enabled.");
+  if (debug > 0) {
+    fprintf(stderr,"\nDebugging enabled; level = %d.", debug);
   };
   fflush(stderr);
   CAMLreturn0;

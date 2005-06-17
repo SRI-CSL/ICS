@@ -1,15 +1,35 @@
+(*
+ * The contents of this file are subject to the ICS(TM) Community Research
+ * License Version 2.1 (the ``License''); you may not use this file except in
+ * compliance with the License. You may obtain a copy of the License at
+ * http://www.icansolve.com/license.html.  Software distributed under the
+ * License is distributed on an ``AS IS'' basis, WITHOUT WARRANTY OF ANY
+ * KIND, either express or implied. See the License for the specific language
+ * governing rights and limitations under the License.  The Licensed Software
+ * is Copyright (c) SRI International 2004.  All rights reserved.
+ * ``ICS'' is a trademark of SRI International, a California nonprofit public
+ * benefit corporation.
+ *)
 
 (** Finite sets over ordered types.
 
-   This module implements the set data structure, given a total ordering
-   function over the set elements. All operations over sets
-   are purely applicative (no side-effects).
+  This module implements a finite set data structure, given a total 
+  ordering function over the set elements. The implementation uses
+  {i Splay trees} for dynamic balancing of binary tree representations.
+  
+  Set operations such as insertion or deletion are {i destructive}. 
+
+  Insertion of a new element, for example, is of {i amortized} 
+  logarithmic cost.
+
+  @author Harald Ruess
 *)
 
-(** Input signature of the functor {!Set.Make}. *)
+(** Input signature of the functor {!Sets.Make}. *)
 module type OrderedType = sig
   type t
     (** The type of the set elements. *)
+
   val compare : t -> t -> int
     (** A total ordering function over the set elements
       This is a two-argument function [f] such that
@@ -17,12 +37,13 @@ module type OrderedType = sig
       [f e1 e2] is strictly negative if [e1] is smaller than [e2],
       and [f e1 e2] is strictly positive if [e1] is greater than [e2].
       Example: a suitable ordering function is
-      the generic structural comparison function {!Pervasives.compare}. *)
+      the generic structural comparison function [Pervasives.compare]. *)
+
   val pp : Format.formatter -> t -> unit
     (** Printer for type [t]. *)
 end
 
-(** Output signature of the functor {!Set.Make}. *)
+(** Output signature of the functor {!Sets.Make}. *)
 module type S = sig
   type elt
     (** The type of the set elements. *)
@@ -43,6 +64,10 @@ module type S = sig
     (** [mem x s] tests whether [x] belongs to the set [s]. *)
 
   val copy : t -> t
+    (** [copy s] returns a set [s'] such that [s] and [s'] are
+      equal and operations on [s'] do not affect [s] in the sense
+      that new elements are added or deleted. Copy allocates 
+      at most one new ocaml value. *)
     
   val add: elt -> t -> unit
     (** [add x s] returns a set containing all elements of [s],
@@ -88,7 +113,10 @@ module type S = sig
     (** Return the list of all elements of the given set.
       The returned list is sorted in increasing order with respect
       to the ordering [Ord.compare], where [Ord] is the argument
-      given to {!Set.Make}. *)
+      given to {!Sets.Make}. *)
+
+  val of_list : elt list -> t
+    (** Return a set with the elements in the argument list. *)
     
   val min_elt: t -> elt
     (** Return the smallest element of the given set
@@ -96,8 +124,8 @@ module type S = sig
       [Not_found] if the set is empty. *)
     
   val max_elt: t -> elt
-    (** Same as {!Set.S.min_elt}, but returns the largest element of the
-      given set. *)
+    (** Same as {!Sets.S.min_elt}, but returns the largest element 
+      of the given set. *)
 
   val choose: t -> elt
     (** Return one element of the given set, or raise [Not_found] if
@@ -105,14 +133,34 @@ module type S = sig
       but equal elements will be chosen for equal sets. *)
     
   val choose_if: (elt -> bool) -> t -> elt
+    (** [choose_if p s] returns [x] when [mem x s] and [p x] holds;
+      otherwise [Not_found] is raised. *)
     
   val pp : Format.formatter -> t -> unit
+    (** Pretty-print a set on given formatter. *)
+
+  val equal : t -> t -> bool
+    (** [equal s1 s2] iff [s1] and [s2] as sets are equa. *)
 end
 
 
-(** Functor building an implementation of the set structure
-  given a totally ordered type.  The implementation uses 
-  balanced binary trees, and is therefore reasonably efficient: 
-  insertion and membership take time logarithmic in the size of the set, 
-  for instance. *)
-module Make(Ord : OrderedType) : S with type elt = Ord.t
+module Make(Ord : OrderedType) : (S with type elt = Ord.t)
+  (** Functor building an implementation of the set structure
+    given a totally ordered type. *)
+
+
+(**/**)
+
+(** Following for debugging only. *)
+module Test : sig
+  val numofprobes : int ref
+    (** Number of probes in a {!Sets.Test.run} simulation. *)
+  val numofsets : int ref
+    (** Maximum number of different sets in a {!Sets.Test.run} simulation. *)
+  val maxelt : int ref
+    (** Maximum element in a set. *)
+  val init : unit -> unit 
+    (** Seeding random generators for {!Sets.Test.run}. *)
+  val run : unit -> unit 
+    (** Run a random simulation. *)
+end

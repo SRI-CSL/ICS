@@ -83,6 +83,8 @@ module Q : sig
   val of_int : int -> t
   val of_ints : int -> int -> t
 
+  val random : unit -> t
+
   val min : t -> t -> t
   val max : t -> t -> t
 

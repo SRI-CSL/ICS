@@ -11,16 +11,12 @@
  * benefit corporation.
  *)
 
-(** Datatype of names.
-  
+(** {i Datatype of names}
+
+  A {i name} is a string with constant time equality test. This 
+  is achieved by associating a unique integer with every string.
+
   @author Harald Ruess
-
-  A name is a string with constant time equality test. This is
-  achieved by associating a unique integer with every string.
-
-  Notice that {!Tools.do_at_reset} flushes data structures
-  internal to this module and therefore invalidates any use of names. 
-  In particular, names should never be used in global variables.
 *)
 
 
@@ -33,24 +29,30 @@ val to_string : t -> string
 val of_string : string -> t
   (** [of_string s] constructs a name with associated string [s]. *) 
 
-val fresh : string -> t
+val of_int : int -> t
+  (* [of_int i] is the same as [of_string (Pervasives.string_of_int i)]. *)
+
+val fresh : unit -> t
   (** [fresh s] return a name [n] with [to_string n] of the form [s!k]
     with [k] an integer. *)
 
-val idx : t -> int
-  (** Returns a unique identifier for a name [n]; that is,
-    [to_string n = to_string m] iff [idx n = idx m]. *)
+val hash : t -> int
+  (** Returns a hash value for a name [n]; that is,
+    [to_string n = to_string m] implies [hash n = hash m]. *)
   
-val eq : t -> t -> bool
-  (** [eq n m] holds iff [to_string n] equals [to_string m]. 
+val equal : t -> t -> bool
+  (** [equal n m] holds iff [to_string n] equals [to_string m]. 
     This equality test has constant runtime. *)
 
 val compare : t -> t -> int
   (** If [s] ([t]) is the string associated to [n] ([m]), then
-    [compare n m] equals [0] iff [eq n m]. Furthermore, if [compare n m]
-    equals [i], then [compare m n] equals [-i]. *)
+    [compare n m] equals [0] iff [equal n m]. Furthermore, 
+    if [compare n m] equals [i], then [compare m n] equals [-i]. *)
 
-val pp : t Pretty.printer
+val length : t -> int
+  (** Length of a name. *)
+
+val pp : Format.formatter -> t -> unit
   (** Pretty-printing of names. *)
 
 module Set : (Set.S with type elt = t)

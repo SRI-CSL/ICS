@@ -1,6 +1,6 @@
 (*
  * The contents of this file are subject to the ICS(TM) Community Research
- * License Version 2.0 (the ``License''); you may not use this file except in
+ * License Version 2.1 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
  * http://www.icansolve.com/license.html.  Software distributed under the
  * License is distributed on an ``AS IS'' basis, WITHOUT WARRANTY OF ANY
@@ -10,516 +10,388 @@
  * ``ICS'' is a trademark of SRI International, a California nonprofit public
  * benefit corporation.
  *)
- 
-module type T = sig
-  val th : Theory.t 
-  val can : Term.interp
-  val solve : Term.t -> Term.t -> Term.Set.t * Term.Subst.t
-  val disjunction : ((Judgement.equal -> unit) -> unit) -> Judgement.disjunction
-end
 
-module type CONFIG = sig
-  type t  
-  val is_empty : t -> bool  
-  val empty : unit -> t  
-  val pp : Format.formatter -> t -> unit  
-  val is_fresh : t -> Term.t -> bool
-  val in_dom : t -> Term.t -> bool
-  val in_cod : t -> Term.t -> bool
-  val dep : t -> Term.t -> Dep.Set.t
-  val occ : t -> Term.t -> bool
-  val iter : t -> (Judgement.equal -> unit) -> unit
-  val model : t -> Term.Model.t
-  module Apply : sig
-    val get : t -> Term.t -> Term.t
-    val justify : t -> Term.t -> Judgement.equal
-  end 
-  module Inv : sig
-    val get : t -> Term.t -> Term.t
-    val justify : t -> Term.t -> Judgement.equal
-  end 
-  module Replace : sig
-    val get : t -> Term.t -> Term.t
-    val justify : t -> Term.t -> Judgement.equal
-  end 
-  module Diseq : sig
-    val test : t -> Term.t -> Term.t -> bool
-    val justify : t -> Term.t -> Term.t -> Judgement.diseq
-  end
-  module Equal : sig
-    val test : t -> Term.t -> Term.t -> bool
-    val justify : t -> Term.t -> Term.t -> Judgement.equal
-  end
+module type VAR = sig
+  type t
+  val equal : t -> t -> bool
+  val compare : t -> t -> int
+  val hash : t -> int
+  val pp : Format.formatter -> t -> unit
+  val fresh : unit -> t
 end 
 
+module type TERM = sig
+  type var
+  type t
+  val equal : t -> t -> bool
+  val diseq : t -> t -> bool
+  val compare : t -> t -> int
+  val hash : t -> int
+  val pp : Format.formatter -> t -> unit
+  val is_var : t -> bool
+  val of_var : var -> t
+  val to_var : t -> var
+  val iter : (var -> unit) -> t -> unit
+  val map : (var -> t) -> t -> t
+  val for_all : (var -> bool) -> t -> bool
+  val occurs : var -> t -> bool
+  val choose : t -> var
+  module Subst : Subst.S with type var = var and type trm = t
+  exception Unsat
+  val solve : t -> t -> Subst.t
+end
+
+module type V = sig
+  type var
+  val find : var -> var
+  val canonical : var -> bool
+  val equal : var -> var -> bool
+  val diseq : var -> var -> bool
+  val union : var -> var -> unit
+  val separate : var -> var -> unit
+end
+
 module type INFSYS = sig
-  type config
-  val current : unit -> config
-  val initialize : config -> unit
-  val finalize : unit -> config
+  type var
+  type trm
+  type t   
+  module Subst : (Subst.S with type var = var and type trm = trm)
+  val config : unit -> Subst.t
+  val pp : Format.formatter -> unit
+  val can : trm -> trm
+  val find : var -> trm
+  val inv : trm -> var
+  val dom : var -> bool
+  val cod : var -> bool 
+  val local : var -> bool
+  val empty : t  
+  val is_empty : unit -> bool 
+  val unchanged : unit -> bool
+  val initialize : t -> unit
   val reset : unit -> unit
-  val is_unchanged : unit -> bool
-  val abstract : Term.t -> Judgement.atom -> unit 
-  val process_equal : Judgement.equal -> unit
-  val process_diseq : Judgement.diseq -> unit
-  val propagate_equal : Term.t -> unit
-  val propagate_diseq : Judgement.diseq -> unit
-  val branch : unit -> Judgement.disjunction option
+  val current : unit -> t
+  val canonical : trm -> bool
+  val diseq : var -> var -> bool
+  val processEq : trm -> trm -> unit
+  val alias : trm -> var
+  val propagate : var -> var -> unit
+  val confluent : unit -> bool
   val normalize : unit -> unit
+  val close : unit -> unit
 end
 
-module type COMPONENT = sig
-  val th : Theory.t
-  module Config : CONFIG
-  module Infsys : (INFSYS with type config = Config.t)
-end
-
-module Make(Sh: T): COMPONENT = struct
-
-  let th = Sh.th
-
-  module Map = Term.Map
-  module Set = Term.Set
-    
-  let is_pure = Term.is_pure th
-
-  let is_diseq t1 t2 = 
-    try 
-      let _ = Sh.solve t1 t2 in 
-	false 
-    with 
-      | Exc.Inconsistent -> true
-      | _ -> false
-	  
-  let is_equal t1 t2 = 
-    try 
-      let _ = Sh.solve t1 t2 in 
-	false 
-    with 
-      | Exc.Valid -> true
-      | _ -> false
-
-  let map f t = 
-    assert(is_pure t);
-    let f' t = try f t with Not_found -> t in
-    let rec mapf t =
-      try
-	let g = Term.sym_of t and a = Term.args_of t in
-	let a' = Term.Args.map mapf a in
-	  if Term.Args.eq a a' then t else Sh.can g a'
-      with
-	  Not_found -> f' t
-    in
-      mapf t
-	
-  let is_solved e = 
-    let x = e#lhs and t = e#rhs in
-      Term.is_var x && not(Term.occurs x t)
-	
-  (** Proof theory for a Shostak theory. *)
-  module J = struct
-    
-    let mk_refl = Judgement.mk_refl
-    let mk_sym = Judgement.mk_sym
-    let mk_join = Judgement.mk_join
-    let mk_trans = Judgement.mk_trans
-    let mk_alias = Judgement.mk_alias
-    let mk_bot = Judgement.mk_bot
-    let mk_replace_in_atom = Judgement.mk_replace_in_atom
-    let mk_replace_in_equal e1 e2 = Judgement.mk_replace_in_equal [e1; e2]
-    let mk_replace_in_diseq = Judgement.mk_replace_in_diseq 
-    let mk_transform_equal = Judgement.mk_transform_equal
-    let mk_transform_rhs_equal = Judgement.mk_transform_rhs_equal
-    let mk_transform_diseq = Judgement.mk_transform_diseq
-			       
-    let is_refl e = (e#lhs == e#rhs)
+module Make
+  (Var: VAR)
+  (Term: TERM with type var = Var.t)
+  (V: V with type var = Var.t) = 
+struct
+  type var = Var.t
+  type trm = Term.t
       
-    let th = Theory.to_string th
-	       
-    (** If [e{i} |- x{i} = c{i}], then [apply [e{1};...;e{n}] |- t1 t2],
-      where the canonical [b] is equal to [a[x{1}/c{1};...;x{n}/c{n}]] in the theory. *)
-    class apply e t1 t2 = (object
-      inherit Judgement.Top.equal
-      method lhs = t1
-      method rhs = t2
-      method name = Format.sprintf "replace[%s]" th 
-      method hyps = Judgement.mk_singleton (e:>Judgement.atom)
-    end: Judgement.equal)
+  module Subst = Subst.Make(Var)(Term)   
+  module Locals = Sets.Make(Var)
+  module Dep = Powermaps.Make(Var)
     
-    let mk_apply e t =
-      let lookup x = if Term.eq x e#lhs then e#rhs else x in
-      let t' = map lookup t in
-	if t == t' then Judgement.mk_refl t else
-	  new apply e t t'
-	    
-    (** If [e |- t1 = t2] and [(x = t) in solve(t1 = t2)],
-      then [solve e x t |- x = t]. *)
-    class solve (e: Judgement.equal) (x: Term.t) (t: Term.t) = object
-      inherit Judgement.Top.equal
-      method lhs = x
-      method rhs = t
-      method name = Format.sprintf "solve[%s]" th
-      method hyps = Judgement.mk_singleton(e:>Judgement.atom)
-    end
-
-    let mk_solve e x t = new solve e x t
-	  
-    (** If [e |- t1 = t2] with [t1 = t2] [th]-invalid,
-      then [contra_equal e |- false]. *)
-    class inconsistent (e: Judgement.equal) = (object
-      inherit Judgement.Top.unsat
-      method hyps = Judgement.mk_singleton (e:>Judgement.atom)
-      method name = Format.sprintf "solve[%s]" th
-      method validate = is_diseq e#lhs e#rhs
-    end : Judgement.unsat)
-
-    let mk_inconsistent e = new inconsistent e
-
-  end
-
-  (** Configurations of a Shostak inference system. *)
-  module Config = struct
-
-    type t = {
-      mutable solset : Solset.t;
-      mutable fresh : Set.t
-    }
-
-    let is_empty s = Solset.is_empty s.solset
-		       
-    let empty() = {
-      solset = Solset.empty();
-      fresh = Set.empty()
-    }
-		    
-    let copy s = {
-      solset = Solset.copy s.solset;
-      fresh = Set.copy s.fresh
-    }
-		   
-    let is_fresh s x = Set.mem x s.fresh
-			 
-    let in_dom s x = Solset.in_dom x s.solset
-    let in_cod s x = Solset.in_cod x s.solset
-    let is_dependent s x = Solset.in_dom x s.solset   
-    let not_is_dependent s x = not (is_dependent s x)  
-    let is_independent s x = Solset.in_cod x s.solset
-    let occ s x = is_dependent s x || is_independent s x  
-    let not_occ s x =  not (occ s x)
-		
-    module Apply = struct    
-      let get s x = (Solset.apply s.solset x)#rhs
-      let justify s = Solset.apply s.solset
-    end 
-
-    module Inv = struct
-      let get s t = (Solset.inv s.solset t)#lhs
-      let justify s = Solset.apply s.solset
-    end
-	  
-    let dep s = Solset.dep s.solset
+  type t = {
+    subst : Subst.t;
+    dep : Dep.t;
+    locals : Locals.t;
+  }
+      
+  let empty = {
+    subst = Subst.empty();
+    dep = Dep.empty();
+    locals = Locals.empty();
+  }
 		  
-    let model s = Solset.model s.solset
-		    
-    let pp fmt s = Solset.pp fmt s.solset
-		     
-    let invariant s =
-      Solset.is_solved s.solset
-	
-    let is_canonical v s =
-      Solset.is_canonical v s.solset
-	
-    let extend s e = 
-      Solset.extend s.solset e
-	
-    let restrict s x = 
-      Solset.restrict s.solset x
-	
-    let update s e =
-      Solset.update s.solset e
-	
-    let normalize s =
-      Set.iter
-	(fun x -> 
-	   if not(is_independent s x) then
-	     Set.remove x s.fresh)
-	s.fresh
-	
-    let iter s f = Solset.iter f s.solset
-
-    module Replace = struct
-
-      let get s t =
-	let lookup y = (Solset.apply s.solset y)#rhs in
-	  map lookup t 
-
-      (** Iterate on all hypothesis of [t = Replace.get s t]. *)
-      let iter f s t =
-	assert(is_pure t);
-	let apply_to_dom x = 
-	  try f (Solset.apply s.solset x) with Not_found -> ()
-	in
-	  Term.iter apply_to_dom t
-
-      (** Hypotheses for [t = Replace.get s t]. *)
-      let hyps s t = 
-	let acc = Judgement.Equals.empty () in
-	  iter (fun e -> Judgement.Equals.add e acc) s t;
-	  acc
-	
-      class replace es t t' = 
-	(object
-	   inherit Judgement.Top.equal
-	   method lhs = t
-           method rhs = t'
-           method name = Format.sprintf "replace[%s]" (Theory.to_string th)
-           method hyps = Judgement.equals_to_atoms es
-	 end: Judgement.equal)
-	
-      let justify s t = 
-	let t' = get s t in
-	  new replace (hyps s t) t t'
-
-    end
-      
-    module Diseq = struct
-
-      let test s t1 t2 =
-	try
-	  let _ = Sh.solve (Replace.get s t1) (Replace.get s t2) in
-	    false
-	with
-	  | Exc.Inconsistent -> true  (* could be memoized. *)
-	  | _ -> false
-
-      class diseq es t1 t2 = 
-	(object
-           inherit Judgement.Top.unsat
-	   method lhs = t1
-	   method rhs = t2
-	   method name = Format.sprintf "diseq[%s]" (Theory.to_string th)
-           method hyps = Judgement.equals_to_atoms es
-	 end : Judgement.diseq)
-	
-      let justify s t1 t2 = 
-	assert(test s t1 t2);
-	let es1 = Replace.hyps s t1 and es2 = Replace.hyps s t2 in
-	  Judgement.Equals.union es1 es2;
-	  new diseq es2 t1 t2
-
-    end 
-
-    module Equal = struct
-
-      let test s t1 t2 = 
-	Term.eq (Replace.get s t1) (Replace.get s t2)
-
-      let justify s t1 t2 = 
-	assert(test s t1 t2);
-	let e1 = Replace.justify s t1      (* [e1 |- t1 = t]. *)
-	and e2 = Replace.justify s t2 in   (* [e2 |- t2 = t]. *)
-	  Judgement.mk_join e1 e2
-
-    end 
-      
-  end 
-
-  module Infsys = struct
-
-    type config = Config.t
-
-    (** Configuration of inference system. *)
-    let s = ref (Config.empty())
-    let unchanged = ref true
-		      
-    let current () = !s
-		       
-    let initialize s0 =
-      assert(Config.invariant s0);
-      unchanged := true; 
-      s := s0
-	
-    let reset () =
-      initialize (Config.empty())
-	
-    let protect () =     (* copy before first update. *)
-      if !unchanged then 
-	(unchanged := false; s := Config.copy !s)
-	
-    let finalize () = !s
-			
-    let is_unchanged () = !unchanged
-			    
-    (** Replace dependent variables in [s] with corresponding
-      right hand sides (assumed to be canonical). *)
-    let replace t =
-      Config.Replace.justify !s t
-	  
-    (** Basic manipulations of configuration. *)
-    module Update = struct
-      
-      let install ks = 
-	protect (); Term.Set.union ks !s.Config.fresh
-	  
-      let restrict x =
-	assert(Term.is_var x);
-	if Config.in_dom !s x then 
-	  (protect(); Config.restrict !s x)
-	
-      let alias e =
-	assert(is_solved e);
-	assert(not(Config.occ !s e#lhs)); 
-	assert(not(Term.is_var e#rhs));
-	protect(); Config.extend !s e
-	  
-      let rec extend e =         (* [e |- x = a] with [x] fresh. *)
-	assert(is_solved e);
-	assert(not(Config.occ !s e#lhs));
-	if Term.is_var e#rhs then deduce e else 
-	  try
-	    let e' = Config.Inv.justify !s e#rhs in
-	      protect(); deduce (J.mk_join e e')
-	  with
-	      Not_found -> protect(); Config.extend !s e
-		
-      and deduce e = 
-	assert(Term.is_var e#lhs && Term.is_var e#rhs);
-	if Config.is_fresh !s e#rhs then fuse e else
-	  if Config.is_fresh !s e#lhs then fuse (J.mk_sym e) else
-	    V.Infsys.process_equal e
-	      
-      and update e =                            (* [e |- x = b]. *)
-	assert(is_solved e);
-	assert(not(Config.occ !s e#lhs));
-	assert(not(Term.is_var e#rhs));
-	if Term.is_var e#rhs then (restrict e#lhs; deduce e) else 
-	  try
-	    let e' = Config.Inv.justify !s e#rhs in
-	      deduce (J.mk_join e e')
-	  with
-	      Not_found -> protect(); Config.update !s e
-		
-      and fuse e =                               (* [e |- x = b]. *)
-	assert(Config.invariant !s);
-	let instr y = 
-	  try
-	    let e' = Config.Apply.justify !s y in (* [e' |- y = a]. *)
-	    let e''= J.mk_transform_rhs_equal (J.mk_apply e) e' in  
-	      update e''                     (* ==> [y = a[x:=b]. *)
-	  with
-	      Not_found -> invalid_arg "imprecise dependency"
-	in
-	  try 
-	    Dep.Set.iter instr (Config.dep !s e#lhs);
-            assert(Config.invariant !s);
-	  with
-	      Not_found -> ()
-		
-      let compose e =
-	assert(is_solved e);
-	assert(not(Config.occ !s e#lhs));
-	fuse e;
-	extend e;
-	assert(Config.invariant !s)
-	  
-    end 
-      
-    (** Return a variable [x] for a term [t] with [x = t] in the (possibly extended) 
-      current solution set. *)
-    let var_of_pure t =
-      assert(is_pure t);
-      if Term.is_var t then J.mk_refl t else 
-	try Config.Inv.justify !s t with Not_found ->
-	  let v = Term.mk_fresh_var "v" in
-	  let e = J.mk_alias v t in
-	    Update.alias e;
-	    e
-	      
-    let abstract t a =
-      assert(is_pure t);
-      let e = var_of_pure t in   (* [e |- y = t] for some variable [y]. *)
-	assert(Term.is_var e#lhs);
-	G.Infsys.put (J.mk_replace_in_atom (J.mk_sym e) a)
-	  
-    let rec process_equal e =
-      assert(is_pure e#lhs && is_pure e#rhs);
-      let e = J.mk_transform_equal replace e in
-	try
-	  let ks, sl = Sh.solve e#lhs e#rhs in
-	    Term.Subst.iter
-	      (fun x t -> Update.compose (J.mk_solve e x t))
-	      sl;
-	    Update.install ks
-	with
-	  | Exc.Inconsistent -> 
-	      raise(Judgement.Unsat(J.mk_inconsistent e))
-	  | Exc.Incomplete -> 
-	      Update.deduce (J.mk_transform_equal var_of_pure e)
-	  | Exc.Valid -> ()
-	      
-    let process_diseq d =                      (* [d |- a <> b]. *)
-      assert(is_pure d#lhs && is_pure d#rhs);
-      let d' = J.mk_transform_diseq replace d in
-	V.Infsys.process_diseq
-	  (J.mk_transform_diseq var_of_pure d')
-	  
-    let rec propagate_equal x =
-      if Config.is_empty !s then () else
-	if Config.occ !s x then
-	  let _, e = V.Infsys.can x in   
-	    assert(Term.eq x e#lhs && (not(Term.eq x e#rhs)));
-	    propagate_equal1 e
-	      
-    and propagate_equal1 e =                     (* [e |- x = y]. *)
-      assert(not(Term.eq e#lhs e#rhs));
-      let x = e#lhs in
-	(try
-	   let e1 = Config.Inv.justify !s x in  (* [e1 |- x = t]. *)
-	     Config.restrict !s x;  
-	     let e' = J.mk_join (J.mk_sym e) (J.mk_sym e1) in
-	       process_equal e'             (* ==> [e' |- y = t]. *)
-	 with                
-	     Not_found -> 
-	       Dep.Set.iter
-	       (fun z ->
-	          try                   (* [e2 |- z = t[x]]. *)
-		    let e2 = Config.Apply.justify !s z in
-		      Config.restrict !s z;
-		      process_equal (J.mk_transform_rhs_equal (J.mk_apply e) e2);
-		  with
-		      Not_found -> ())
-	       (Config.dep !s x));
-	assert(not(Config.occ !s x))
-	  
-   
-    let rec propagate_diseq d =              (* [d |- t1 <> t2]. *)
-      let t1 = d#lhs and t2 = d#rhs in
-      if Config.is_empty !s then () else
-	if Config.Equal.test !s t1 t2 then    (* [e |- t1 = t2]. *)
-	  let e = Config.Equal.justify !s t1 t2 in
-	    raise(Judgement.Unsat(Judgement.mk_contra e d))
-	      
-    let rec branch () = 
-      try
-	let cl = Sh.disjunction (Config.iter !s)  in
-	  Some(cl)
-      with
-	  Not_found -> None
-	    
-    let normalize () =
-      assert(Config.invariant !s);
-      assert(Config.is_canonical (V.Infsys.current()) !s);
-      Config.normalize !s
-	
+  let init = ref empty
+	       
+  module Config = struct
+    module Subst = Config.Subst(Subst)
+    module Dep = Config.Powermap(Dep)
+    module Locals = Config.Set(Locals)
   end
 
+  let config = Config.Subst.current
+
+  let pp fmt = Subst.pp fmt (Config.Subst.current())
+
+  let is_local x = 
+    Term.is_var x && Locals.mem (Term.to_var x) (Config.Locals.current())
+
+  let wfBinding x t = 
+    let rho = Config.Subst.current() in
+      not(is_local (Term.of_var x)) &&
+      Term.for_all (fun x -> not(Subst.dom x rho)) t
+
+  let confluent () = 
+    Config.Subst.for_all
+      (fun x t -> 
+	 V.canonical x &&
+	 Term.for_all V.canonical t)
+
+  let rec well_formed () = 
+    let debug = ref true in
+    let check name pred = 
+      if not !debug then pred() else 
+	pred() ||
+	(Format.eprintf "\nERROR: well_formedness check %s failed. 
+                           Current state: \n" name;
+	 pp Format.err_formatter;
+	 Format.eprintf "\n@?";
+	 false)
+    in
+    check "isSolved" isSolved &&
+    check "isInverseFunctional" isInverseFunctional &&
+    check "depWF" depWF 
+
+  and isSolved () = 
+    let rho = Config.Subst.current() in
+    Subst.for_all wfBinding rho
+
+  and isInverseFunctional () = 
+    let for_all p = Subst.for_all p (Config.Subst.current()) in
+      for_all (fun x t -> 
+	(for_all (fun y s -> 
+	   Var.equal x y || not(Term.equal s t))))
+
+  and depWF () =
+    let rho = Config.Subst.current() in
+    let dep = Config.Dep.current() in
+      Dep.for_all 
+	(fun y dy -> 
+	   (Dep.Values.for_all
+	      (fun x -> 
+		 Subst.dom x rho &&
+		 Term.occurs y (Subst.lookup rho x))
+	     dy))
+	dep
+		     
+  let initialize s =
+    init := s; 
+    Config.Subst.initialize s.subst;
+    Config.Dep.initialize s.dep;
+    Config.Locals.initialize s.locals;
+    assert(well_formed());
+    assert(confluent())
+	
+  let unchanged = Config.Subst.unchanged
+		    
+  let current () =
+    assert(confluent());
+    if unchanged() then !init else { 
+      subst = Config.Subst.current(); 
+      dep = Config.Dep.current(); 
+      locals = Config.Locals.current() 
+    }
+      
+  let reset () = initialize empty
+		   
+  let dom x = Subst.dom x (Config.Subst.current())
+  let cod y = Dep.mem y (Config.Dep.current())
+  let local y = Locals.mem y (Config.Locals.current())
+  let occ x = dom x || cod x
+  let is_empty () = Subst.is_empty (Config.Subst.current())
+  let find x = Subst.lookup (Config.Subst.current()) x
+  let deps x = Dep.find x (Config.Dep.current())
+
+  let canonical = 
+    let independent x = 
+      not(dom x) && 
+      V.canonical x 
+    in
+      Term.for_all independent
+		 
+  let can t =
+    let applyVar x = 
+      let findv y = 
+	let y' = V.find y in
+	  if Var.equal y y' then raise Not_found else Term.of_var y'
+      in
+	try
+	  let t = find x in
+	  let t' = Term.map findv t in
+	    assert(canonical t');
+	    t'
+	with
+	    Not_found -> Term.of_var (V.find x)
+    in
+    let s = Term.map applyVar t in
+      assert(canonical s);
+      s
+
+  exception Ground
+  let chooseVar t = 
+    try Term.choose t with Not_found -> raise Ground
+		      
+  (** For nonground terms, dependency index is used to compute inverse lookup. *)
+  exception Found of var
+  let rec inv t = 
+    try
+      let y = chooseVar t in
+	invNonGround y t
+    with
+	Ground -> Subst.inv (Config.Subst.current()) t
+
+  and invNonGround y t = 
+    assert(Term.occurs y t);
+    let checkInv x = 
+      assert(dom x);
+      if Term.equal t (find x) then raise(Found(x))
+    in
+      try
+	Dep.Values.iter checkInv (deps y);
+	raise Not_found
+      with
+	  Found(x) -> x
+
+  let restrict x =
+    assert(well_formed());
+    try
+      let t = find x in
+	Config.Subst.remove x;
+	Term.iter (Config.Dep.rem x) t;
+	assert(well_formed());
+    with
+	Not_found -> ()
+	    
+  let extend x t = 
+    try
+      let y = inv t in
+	V.union x y
+    with
+	Not_found -> 
+	  Config.Subst.update x t;
+	  Term.iter (Config.Dep.add x) t;
+	  assert(well_formed())
+
+  let replace u t t' = 
+    assert(dom u);
+    assert(Term.equal t (find u));
+    assert(Term.for_all (fun x -> not(dom x)) t');
+    assert(well_formed());
+    if Term.is_var t' && not(is_local t') then
+      let v = Term.to_var t' in
+	restrict u; V.union u v;
+	assert(well_formed())
+    else 
+      try
+	let v = inv t' in
+	  restrict u; V.union u v;
+	  assert(well_formed())
+      with
+	  Not_found -> 
+	    Config.Subst.update u t';
+	    Term.iter (fun y -> if not(Term.occurs y t') then Config.Dep.rem u y) t;
+	    Term.iter (Config.Dep.add u) t';
+	    assert(well_formed())
+
+  let getScopus acc rho = 
+    Stacks.clear acc;
+    let add1 y = 
+      if Stacks.mem Var.equal y acc then () else
+	Stacks.push y acc
+    in
+    let add x _ = 
+      Dep.Values.iter add1 (deps x) 
+    in
+      Term.Subst.iter add rho
+			 
+  let fuse =
+    let scopus = Stacks.create () in
+      fun rho -> 
+	let fuse1 x = 
+	  assert(dom x);
+	  let s = find x in
+	  let s' = Term.Subst.apply rho s in
+	    replace x s s'
+	in
+	  getScopus scopus rho;
+	  while not(Stacks.is_empty scopus) do
+	    fuse1 (Stacks.pop scopus)
+	  done
+	   
+  let compose rho =
+    assert(well_formed());
+    fuse rho;
+    Term.Subst.iter extend rho
+
+  let diseq x y = 
+    assert(confluent());
+    try
+      let s = find x and t = find y in
+        Term.diseq s t
+    with
+	Not_found -> false
+	  
+  let alias t = 
+    assert(confluent());
+    if Term.is_var t then V.find (Term.to_var t) else
+      let t = can t in
+	assert(canonical t);
+	try V.find (inv t) with Not_found -> 
+	  let v = Var.fresh () in
+	    extend v t;
+	    v
+	  
+  let rec processEq s t =
+    assert(confluent());
+    let s = can s and t = can t in
+      if Term.equal s t then () else
+	if Term.diseq s t then raise Term.Unsat else
+	  addEq s t
+
+  and addEq s t = 
+    let rho = Term.solve s t in
+    let installFresh _ r = 
+      let install x = 
+	if not(Term.occurs x s) && not(Term.occurs x t) then
+	  Config.Locals.add x
+      in
+	Term.iter install r
+    in
+      Term.Subst.iter installFresh rho;
+      compose rho
+	    
+  let rec propagate x y =
+    assert(not(V.canonical x));
+    assert(V.canonical y);
+    assert(V.equal x y);
+    try
+      let s = find x in
+	restrict x;
+	(try
+	  let t = find y in
+	    if not(Term.equal s t) then 
+	      addEq s t
+	with
+	    Not_found -> addEq (Term.of_var y) s)
+    with
+	Not_found -> 
+	  let t = try find y with Not_found -> Term.of_var y in
+	    fuse (Term.Subst.singleton x t)
+
+  let normalize () =
+    assert(confluent());
+    Locals.iter
+      (fun z -> 
+	 assert(not(dom z));
+	 if not(cod z) then
+	   Config.Locals.remove z)
+      (Config.Locals.current())
+	   
+  let close () = 
+    let rho = Config.Subst.current() in
+      Subst.iter
+	(fun u _ -> 
+	   Subst.iter 
+	     (fun v _ -> 
+		if not(Var.equal u v) && 
+		  not(V.diseq u v) && 
+		  diseq u v &&
+		  not(V.diseq u v)
+		then 
+		  V.separate u v)     
+	   rho)
+	rho
 end
-
-
-
-
-
-
-
-
-

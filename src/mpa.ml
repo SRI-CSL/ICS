@@ -11,11 +11,7 @@
  * benefit corporation.
  *)
 
-(** Multi-precision arithmetic using the [gmp] library. *)
-
-
 module Z = struct
-
   open Big_int
 
   type t = big_int
@@ -50,18 +46,16 @@ module Z = struct
  
   let pp fmt x = 
     Format.fprintf fmt "%s" (to_string x)
-
 end
 
 
 module Q = struct
-
   open Num
   
   type t = num
 
   let of_int = num_of_int
-  let of_ints x y = div_num (num_of_int x) (num_of_int y)
+  let of_ints x y = div_num (num_of_int x) (num_of_int y)   
 
   let zero = of_int 0
   let one = of_int 1
@@ -75,6 +69,18 @@ module Q = struct
   let div = div_num
   let inv = div one
 
+  let maxRandom = ref 20
+
+  let random = 
+    let initialized = ref false in
+      fun () -> 
+	if not(!initialized) then 
+	  (Random.self_init(); initialized := true);
+	let d = Random.int !maxRandom 
+	and n = Random.int !maxRandom in
+	  if n = 0 then of_int d else
+	    of_ints d n
+ 
   let compare = compare_num
 
   let equal = eq_num

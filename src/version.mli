@@ -16,12 +16,9 @@
   @author Harald Ruess
 *)
 
-val print : unit -> unit
-  (** Print version number on standard output. *)
+val version : string
 
-val eprint : unit -> unit
-
-val debug : unit -> int
+val debug : int ref
   (** Level of debugging.
     - [0] no debugging
     - [1] debugging information turned on. *)

@@ -11,7 +11,7 @@
  * benefit corporation.
  *)
 
-(** Datatype of stacks
+(** {i Datatype of stacks.}
 
   @author Harald Ruess
 *)
@@ -25,6 +25,9 @@ exception Empty
 
 val create : unit -> 'a t
   (** Return a new stack, initially empty. *)
+
+val top : 'a t -> 'a 
+  (** [top s] returns the top of the stack for nonempty stack [s]. *)
 
 val push : 'a -> 'a t -> unit
   (** [push x s] adds the element [x] at the top of stack [s]. *)
@@ -47,8 +50,18 @@ val iter : ('a -> unit) -> 'a t -> unit
     from the element at the top of the stack to the element at the
     bottom of the stack. The stack itself is unchanged. *)
 
+val map : ('a -> 'a) -> 'a t -> unit
+  (** [map f s] applies [f] to all elements [a] in [s] and replaces [a] with [f a]. *)
+
 val to_list : 'a t -> 'a list
   (** [to_list s] collects elements of stack in a list. *)
 
 val mem : ('a -> 'a -> bool) -> 'a -> 'a t -> bool
   (** [mem eq a s] tests if there is [b] in [s] such that [eq a b]. *)
+
+val for_all : ('a -> bool) -> 'a t -> bool
+  (** [for_all p s] tests if [p a] holds for each element [a] on stack [s]. *)
+
+val sort : ('a -> 'a -> int) -> 'a t -> unit
+  (** [Stacks.sort cmp s] sorts the elements of the stack [s] with [top s] the smallest 
+    element according to the comparison function [cmp]. *)

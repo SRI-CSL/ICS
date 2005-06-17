@@ -19,66 +19,117 @@
 
 type 'a t = {
   mutable arr : 'a array;
-  mutable top : int
+  mutable top : int;
+  mutable size: int
 }
+
+let well_formed s = 
+  s.top < s.size &&
+  s.size = Array.length s.arr
 
 let length s = s.top + 1
 
 exception Empty
 
-let initial_size = 2
+let initial_size = 4
 
-let create () = {
-  arr = Array.make initial_size (Obj.magic 0);
-  top = -1;
-}
+let create () = 
+  let s = {
+    arr = Array.make initial_size (Obj.magic 0);
+    top = -1;
+    size = initial_size
+  }
+  in
+    assert(well_formed s);
+    s
 
-let clear s = (s.top <- (-1))
+let clear s = 
+  assert(well_formed s);
+  (s.top <- (-1))
 
-let is_empty s = (s.top == -1)
+let is_empty s =
+  assert(well_formed s);
+  (s.top == -1)
+
+let top s = 
+  assert(well_formed s);
+  if is_empty s then raise Empty else
+    Array.get s.arr s.top
 
 let rec push x s = 
-  if s.top >= Array.length s.arr then
-    resize s;
-  assert(s.top < Array.length s.arr); 
-  s.top <- s.top + 1;
-  Array.unsafe_set s.arr s.top x
+  assert(well_formed s);
+  if s.top = s.size - 1 then resize s;
+  s.top <- s.top + 1; 
+  assert(s.top < s.size); 
+  Array.set s.arr s.top x
 
 and resize s =
-  let l' = 2 * (Array.length s.arr) in
-  let arr' = Array.create l' (Obj.magic 0) in
-    for i = 0 to s.top do 
-      Array.unsafe_set arr' i (Array.unsafe_get s.arr i) 
+  assert(well_formed s);
+  let size' = 2 * s.size in
+  let arr' = Array.create size' (Obj.magic 0) in
+    assert(s.top < size');
+    for i = 0 to s.top do
+      Array.set arr' i (Array.get s.arr i)
     done;
-    s.arr <- arr'
+    s.arr <- arr';
+    s.size <- size';
+    assert(well_formed s);
+    assert(s.top < s.size - 1)
 
 let pop s =
+  assert(well_formed s);
   if s.top < 0 then raise Empty else
-    let x = Array.unsafe_get s.arr s.top in
+    let x = Array.get s.arr s.top in
       s.top <- s.top - 1;
       x
 
 let iter f s = 
+  assert(well_formed s);
   for i = 0 to s.top do
-    f (Array.unsafe_get s.arr i)
+    f (Array.get s.arr i)
   done
 
 let to_list s = 
+  assert(well_formed s);
   let l = ref [] in
     for i = 0 to s.top do
-      l := Array.unsafe_get s.arr i :: !l
+      l := Array.get s.arr i :: !l
     done;
     !l
 
-exception Yes
+let map f s =
+  assert(well_formed s);
+  for i = 0 to s.top do
+    let a = Array.get s.arr i in
+    let b = f a in
+      if a == b then () else
+	Array.set s.arr i b
+  done
 
+exception Mem
 let mem eq a s =
+  assert(well_formed s);
   try
     for i = s.top downto 0 do
-      if eq a (Array.unsafe_get s.arr i) then
-	raise Yes
+      if eq a (Array.get s.arr i) then
+	raise Mem
     done;
     false
   with
-      Yes -> true
+      Mem -> true
 
+exception Counterexample
+let for_all p s =   
+  assert(well_formed s);
+  try
+    for i = s.top downto 0 do
+      if not (p (Array.get s.arr i)) then
+	raise Counterexample
+    done;
+    true
+  with
+      Counterexample -> false
+
+let sort cmp s = 
+  Array.sort cmp s.arr
+  

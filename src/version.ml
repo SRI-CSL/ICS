@@ -11,12 +11,20 @@
  * benefit corporation.
  *)
 
-external print : unit -> unit = "print_version"
+(*
+external print_version: unit -> unit = "print_version"
+*)
 
-external eprint : unit -> unit = "eprint_version"
-  
-external debug : unit -> int = "debug_value"
-  
+open Unix
 
+let date = gmtime (time())
+ 
+let version = Format.sprintf "ICS 2.1 (%d:%d:%d GMC, %d/%d/%d)" 
+		date.tm_sec
+		date.tm_min
+		date.tm_hour
+		date.tm_mday
+		date.tm_mon
+		(date.tm_year + 1900)
 
-
+let debug = ref 0

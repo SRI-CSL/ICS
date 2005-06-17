@@ -11,35 +11,29 @@
  * benefit corporation.
  *)
 
-(** Theories
+(** Theory names.
   
   @author Harald Ruess
 *)
 
-type t
+type t = 
+  | Top
+  | U
+  | A 
+  | P 
+  | F
 
-val eq : t -> t -> bool
+val equal : t -> t -> bool
+
+val sub : t -> t -> bool
 
 val pp : Format.formatter -> t -> unit
-
-val create : string -> t
-
-val of_string : string -> t
-  (** [of_string n] returns theory identifier [i]
-    if [to_string i] equals to [n]; otherwise the 
-    result is undefined. *)
 
 val to_string : t -> string
   (** [to_string i] returns a name for theory [i]. *)
 
-module Description : sig
-
-  val add : t -> string -> unit
-
-  val get : t -> string
-    (** Return informal description of the argument theory. *)
-
-end
+val description : t -> string
+  (** Return a description of the theory. *)
 
 module Set : (Set.S with type elt = t)
   (** Finite sets of theories. *)
@@ -49,3 +43,13 @@ module Map : (Map.S with type key = t)
   
 module Hash :  (Hashtbl.S with type key = t)
   (** Hash table with theories as keys. *)
+
+module type T = sig
+  val theory : t
+end
+
+module Top: T
+module U: T
+module A: T
+module P: T
+module F: T

@@ -1,6 +1,6 @@
 (*
  * The contents of this file are subject to the ICS(TM) Community Research
- * License Version 2.0 (the ``License''); you may not use this file except in
+ * License Version 2.1 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
  * http://www.icansolve.com/license.html.  Software distributed under the
  * License is distributed on an ``AS IS'' basis, WITHOUT WARRANTY OF ANY
@@ -11,126 +11,156 @@
  * benefit corporation.
  *)
 
-
-(** Variable partitioning.
-
-  A {b variable partition} consists of a
-  - set of variable equalities [x = y], 
-  - a set of variable disequalities [x <> y].
+(** {i Inference system for the theory of pure identity.}
+   
+  This module provides an inference system for
+  - building up {i union-find} structures for finite conjunctions of
+  variable equalities [E] and variable disequalities [D], and for
+  - deciding the {i uniform word problems} [V |= E,D => x = y] 
+  and [V |= E,D => x <> y] in the {i theory of pure identify}. 
 
   @author Harald Ruess
 *)
 
+(** Input signature for {!Partition.Make}. *)
+module type VAR = sig
+  type t
+    (** Representation of variables. *)
 
-type t
-(** Type [t] for representing a partitioning consists of 
-  - a set of variable equalities of type {!V.t}
-  - a set of variable disequalities of type {!D.t}
+  val equal : t -> t -> bool
+    (** Equality on variables. *)
 
-  The variable disequalities are always kept in canonical form w.r.t the
-  variable equalities. *)
+  val compare : t -> t -> int
+    (** A total ordering on variables. 
+      This is a two-argument function [f] such that
+      [f x y] is [0] iff [equal x y], and 
+      [f x y] is strictly negative if [x] is smaller than [y],
+      and [f x y] is strictly positive if [y] is greater than [x]. *)
 
+  val preference : t -> t -> int
+    (** A partial ordering on variables. [prefence x y] is said to 
+      be {i defined} if it does not throw [Not_found]. If [preference x y] is 
+      defined, then [preference y x] is also assumed to be defined 
+      and [preference x y > 0] iff [preference y x < 0]. *)
 
-val v_of : t -> V.t
-(** Accessing the variable equalities of a partitioning. *)
-  
+  val hash : t -> int
+    (** Nonnegative hash value of a variable. *)
 
-val d_of : t -> D.t
-(** Accessing the variable disequalities of a partititioning. *)
+  val pp : Format.formatter -> t -> unit
+    (** Pretty-printing a variable. *)
+end
 
+(** {i Inference system} for online processing of variable equalities
+  and variable disequalities. The configuations of the inference
+  system represent the conjunction of a finite set [E] of equalities
+  and a finite set [D] of disequalities. [E] induces an equivalence
+  class [=E]on variables with [x =E y] iff [E |= x = y] in the
+  theory of pure identity. *)
+module type INFSYS = sig
+  type var
+    (** Representation of variables. *)
 
-val eq : t -> t -> bool
-(** [eq s t] holds if the respective equality, disequality, and constraint parts
-  are identical, that is, stored in the same memory location. *)
+  module Disequalities : (Sets.S with type elt = var * var)
+    (** Finite set of variables disequalities. *)
 
+  module Equalities : (Maps.S with type key = var and type value = var)
+    (** Finite set of variable equalities [x = y] represented as a map 
+      [x |-> y] with [x], [y] variables. As an invariant, if
+      [Var.preference x y > 0], then there is no binding [y |-> x] 
+      in such a map. *)
 
-val pp : t Pretty.printer
-(** Pretty-printing a partitioning. *)
+  type t
+    (** Representation of configurations. *)
 
+  val equalities : unit -> Equalities.t
+    (** Returns a representation of the set of variable equalities in the 
+      current configuration. *)
 
-val is_empty : t -> bool
+  val disequalities: unit -> Disequalities.t 
+    (** Returns a representation of the set of variable disequalities in the 
+      current configuration. *)
 
+  val current : unit -> t  
+    (** Returns a representation of the current configuration. *)
 
-val find : t -> Jst.Eqtrans.t
-(** [find s x] returns the canonical representative of the equivalence
-  class in the partitioning [s] containing the variable [x]. *)
+  val reset : unit -> unit 
+    (** Reset the current configuration to the [empty] configuration. 
+      [reset()] is synonymous with [initialize empty]. *)
 
+  val initialize : t -> unit  
+    (** Initialize the current configuration with the argument 
+      configuration. *)
 
-val diseqs : t -> Term.t -> D.Set.t
-(** [diseqs s x] returns the set of all variable [y] disequal to [x] as stored
-  in the variable disequality part [d] of the partitioning [s].  Disequalities as
-  obtained from the constraint part [c] are not necessarily included. *)
+  val unchanged : unit -> bool
+    (** [unchanged()] holds iff the current configuration is logically 
+      equivalent with the initial configuration as set by [initialize] 
+      or [reset]. *)
 
-val cnstrnt : t -> Term.t -> Cnstrnt.t * Jst.t
-  (** [cnstrnt s x] returns a domain constraint on [x], or raises [Not_found]
-    if the interpretation of [x] is unconstrained. *)
+  val find : var -> var
+    (** [find x] returns the canonical representative [y] for the 
+      equivalence class [=E] containing [x]. In particular, 
+      [canonical (find x)] holds. *) 
 
+  val canonical : var -> bool
+    (** [canonical x] if [x] is the canonical representative of the equivalence
+      class generated by the current variable equalities. *)
 
-val is_canonical : t -> Term.t -> bool
+  module Varset : (Sets.S with type elt = var)
+    (** Representation of a set of variables. *)
 
+  val deqs : var -> Varset.t
+    (** [y] in [deqs x] iff [E,D |= x <> y]. This set is not necessarily 
+      minimal as it may contain [y], [y'] with [v =E v']. *)
 
-val is_int : t -> Jst.Pred.t
+  val eqs : var -> Varset.t
+    (** [y] in [eqs x] iff [E |= x = y]. *)
 
+  val equal : var -> var -> bool
+    (** [equal x y] holds iff [E |= x = y]. *)
 
-val is_equal : t -> Jst.Pred2.t
+  val diseq : var -> var -> bool
+    (** [diseq x y] holds iff [E,D |= x <> y]. *)
 
+  val empty : t  
+    (** The empty configuration. *)
 
-val is_diseq : t -> Jst.Pred2.t
+  exception Unsat
+  val union : (var -> var -> unit) -> var -> var -> unit
+    (** [union x y] extends the current equalities [E] to [E'] such 
+      that [E' |= x = y] or throws [Unsat] if [x = y] is inconsistent 
+      with the current configuration [(E, D)].
 
+      More specifically, if [E |= x = y], then the current configuration is 
+      unchanged, that is [E' = E] and [unchanged()] still continues to 
+      hold. 
 
-val is_equal_or_diseq : t -> Jst.Rel2.t
+      For [x], [y] canonical, if [preference x y] holds, then [x] 
+      is chosen as a canonical representative of the extended equivalence 
+      class. *)
 
+  val separate : var -> var -> unit 
+    (** [separate x y] adds the disequality [x <> y] to the current 
+      configuration [(E, D)] or throws [Unsat] if [E, D |= x = y]. 
+      If [E, D |= x <> y], then the current configuration
+      is left unchanged. *)
 
-val choose : t -> Jst.Eqtrans.t -> Jst.Eqtrans.t
-  (** [choose p apply x] chooses an [x'] such that [apply x'] does
-    not raise [Not_found]. If there is no such [x'], then [Not_found]
-    is raised. *)
+  val iterEquiv : (var -> unit) -> var -> unit
+    (** [iterEquiv f x] applies [f y] for each [y] with [x =E y].  
+      This operation is linear in the number of equalities in [E]. Since no
+      specific indices are being used, this iteration also requires iterating
+      over all noncanonical variables [z] with [z =E x], and should therefore
+      be avoided. *)
 
+  val chooseEquiv : (var -> bool) -> var -> var
+    (** [chooseEquiv f x] chooses [y] with [f y] and [x =E y].
+      If there is no such [y], then [Not_found] is raised. *)
 
-val iter_if : t -> (Term.t -> unit) -> Term.t -> unit
+  val iterDiseqs : (var -> var -> unit) -> var -> unit
+    (** [iterDiseqs f x] applies [f x' y'] with [x' =E x], [y'] canonical,
+      and [E, D |= x' <> y']. [f x' y'] is called at most once for any such
+      disequality, and the order of application is unspecified. *)
+end
 
-
-val fold : t -> (Fact.Equal.t -> 'a -> 'a) -> Term.t -> 'a -> 'a
-
-
-val empty : t
-(** The [empty] partition. *)
-
-
-val merge : t -> Fact.Equal.t -> unit
-(** [merge e s] adds a new variable equality [e] of the form [x = y] into
-  the partition [s]. If [x] is already equal to [y] modulo [s], then [s]
-  is unchanged; if [x] and [y] are disequal in [s], then the 
-  exception [Exc.Inconsistent] is raised; otherwise, the equality [x = y] is added to 
-  [s] to obtain [s'] such that [v s' x] is identical to [v s' y]. *)
-
-
-val dismerge : t -> Fact.Diseq.t -> unit
-(** [diseq d s] adds a disequality of the form [x <> y] to [s]. If [x = y] is
-  already known in [s], that is, if [is_equal s x y] yields [Three.Yes], then
-  an exception [Exc.Inconsistent] is raised; if [is_equal s x y] equals [Three.No]
-  the result is unchanged; otherwise, [x <> y] is added using [D.add]. *)
-
-
-val gc: (Term.t -> bool) -> t -> unit
-  (** [gc p s] removes all noncanonical, internal variables [x] with [p x].
-    [diseq] destructive updates the input partition [s]. *)
-
-
-val fresh_equal : t -> Fact.Equal.t
-  (** Chooses a "fresh" variable equality. Each such equality is returned
-    at most once. In case there are no fresh variable equalities, [Not_found]
-    is raised. *)
-
-
-val fresh_diseq : t -> Fact.Diseq.t
-  (** Chooses a "fresh" variable disequality. Each such disequality is returned
-    at most once. In case there are no fresh variable disequalities, [Not_found]
-    is raised. *)
-
-
-val copy : t -> t
-  (** [copy p] copies [p] to a partition which is observationally 
-    equal to [p].  It is used to protect partitions against destructive
-    updates. That is, if [p'] is [copy p], then destructive updates in [p'] do not 
-    affect [p]. *)
+(** {i Inference system for the theory of pure identity}
+  for variables [Var.t]. *)
+module Make(Var: VAR): (INFSYS with type var = Var.t)

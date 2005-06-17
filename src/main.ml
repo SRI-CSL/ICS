@@ -1,6 +1,6 @@
 (*
  * The contents of this file are subject to the ICS(TM) Community Research
- * License Version 2.0 (the ``License''); you may not use this file except in
+ * License Version 2.1 (the ``License''); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
  * http://www.icansolve.com/license.html.  Software distributed under the
  * License is distributed on an ``AS IS'' basis, WITHOUT WARRANTY OF ANY
@@ -11,171 +11,153 @@
  * benefit corporation.
  *)
 
-(** ICS command line interpreter. *)
-
 let _ = Sys.catch_break true
+
+let usage () =
+  Format.eprintf "\n%s" (Ics.version());
+  Format.eprintf "\nType 'help help.' for help about help, and 'Ctrl-d' to exit.@."
+
+let set_gc_alarm () =
+  let _ = 
+    Gc.create_alarm 
+      (fun () -> Format.eprintf "\nICS: major collection...@.") 
+  in
+    ()
+
+let set_gc_mode str =   
+  let control= Gc.get() in
+    match str with
+      | "lazy" -> Gc.set {control with Gc.space_overhead = 10000; Gc.max_overhead = 1000000}
+      | "eager" -> Gc.set {control with Gc.space_overhead = 10; Gc.max_overhead = 100}
+      | str -> raise(Invalid_argument "no such GC option")
+
+let set_gc_space_overhead overhead =  
+  let control = Gc.get () in
+    Gc.set {control with Gc.space_overhead = overhead}
+
+let set_gc_max_overhead overhead = 
+  let control = Gc.get () in
+    Gc.set {control with Gc.max_overhead = overhead}
+
 
 (** {6 Arguments} *)
 
 let timing_flag = ref false
-let portnum_flag = ref None
-
+let smt_flag = ref false
+let smt_incomplete_flag = ref false
+let config_flag = ref false
+let prompt = ref "ics>"
 
 let args () =
   let files = ref [] in
-  let set_true set = Arg.Unit (fun () -> set (Ics.tt()))
-  and set_false set = Arg.Unit (fun () -> set (Ics.ff())) in
-  let arg_string f =
-    let f' str = f (Ics.intern str) in
-      Arg.String f'
-  in
-    Arg.parse
-      [ "-timings", Arg.Set timing_flag,          
-	"Print timings";
-	"-profiles", Arg.Set Tools.profiling,          
-	"Print profiles";
-(*
-	"-prompt", arg_string Ics.set_prompt,
-	"Set prompt";
-        "-pp", arg_string Ics.set_pretty,
-	"Pretty-printing mode ([mixfix | prefix | sexpr]) ";	
-	"-nohelp", Arg.Clear Help.enabled,
-	"Disable help feature";
-	"-show_explanations", set_true Ics.set_show_explanations,
-	"Display explanations generated for SAT solver on stderr";
-        "-version", Arg.Unit (fun () -> Version.print(); exit 0),
-        "Display version number";
-        "-compactify",  set_true Ics.set_compactify,
-	"Disable compactification in SAT solver";
-	"-proofmode", arg_string Ics.set_proofmode,
-	"Set proofmode to [No | Dep]";
-        "-eot", arg_string Ics.set_eot, 
-	"Print string argument after each transmission";
-        "-server", Arg.Int (fun portnum -> portnum_flag := Some(portnum)), 
-	"Run in server mode";
-	"-verbose", set_true Ics.set_verbose,
-        "Verbose flag for SAT solver";
-	"-progress", Arg.Set Istate.progress,
-        "Print progress in batch mode";
-	"-remove_subsumed_clauses", set_true Ics.set_remove_subsumed_clauses,
-        "Removing subsumed clauses in SAT solver";
-	"-validate", set_true Ics.set_validate,
-        "Validate SAT assignments and explanations (for debugging)";
-	"-polarity_optimization", set_true Ics.set_polarity_optimization,
-        "Optimizations for SAT solver based on polarities";
-	"-clause_relevance", Arg.Int(Ics.set_clause_relevance),
-        "Deletion of conflict clauses (default 50) in SAT";
-        "-cleanup_period", Arg.Int(Ics.set_cleanup_period),
-        "Garbage collection for SAT after number of conflicts (default 2000)";
-	"-frequency", Arg.Int(Ics.set_assertion_frequency),
-        "Minimal frequency of asserting ground atoms in SAT solver";
-        "-statistics", set_true Ics.set_statistic,
-        "Print statistics for SAT solver";
-	"-integersolve", set_false Ics.set_integer_solve,
-        "Disables Solving for the integers (incomplete)";
-	"-gc_space_overhead",  Arg.Int(Ics.set_gc_space_overhead),
+    (Arg.parse
+      [ "-version", Arg.Unit(fun() -> Format.eprintf "%s@." (Ics.version()); exit 0),
+        "Display version number.";
+        "-footprint", Arg.Unit(fun() -> Ics.footprint := true),
+        "Print progress in debugging mode(Default: false).";
+	"-explain", Arg.Unit(fun() -> Ics.unsatCores := true),
+        "Compute unsatisfiable cores.";
+	"-prompt", Arg.String (fun s -> prompt := s), 
+	"Set interactive prompt (Default: ics>).";
+	"-gc_alarm", Arg.Unit set_gc_alarm,
+	"Output message when garbage collecting.";
+	"-timing", Arg.Unit(fun() -> timing_flag := true),
+	"Output timings (Default: false)";
+	"-smt", Arg.Unit(fun ()-> smt_flag := true),
+	"Process SMT format";
+	"-smtIncomplete", Arg.Unit(fun ()-> smt_flag := true; smt_incomplete_flag := true),
+	"Process SMT format but no implicant computation";
+	"-completeTests", Arg.Unit(fun() -> Ics.completeTests := true),
+	"Have a complete but expensive validity test (Default: false).";
+	"-config", Arg.Unit(fun() -> config_flag := true),
+	"Print final configuration in batch mode (Default: false).";
+	"-doMinimize", Arg.Unit(fun() -> Ics.doMinimize := true),
+	"Enable minimization when constructing arithmetic inequality constraints (Default: false).";
+	"-gc_space_overhead",  Arg.Int(set_gc_space_overhead),
         "GC will work more if [space_overhead] is smaller (default 80)";
-	"-gc_max_overhead", Arg.Int(Ics.set_gc_max_overhead),
+	"-gc_max_overhead", Arg.Int(set_gc_max_overhead),
         "Controlling heap compaction (default 500), [gc_max_overhead >= 1000000] disables compaction";
-	"-gc", arg_string (Ics.set_gc_mode),
-	"Coarse-grained control over GC (lazy, eager)"
-*)
+	"-gc", Arg.String (set_gc_mode),
+	"Coarse-grained control over GC (lazy, eager)";
       ]
       (fun f -> files := f :: !files)
-      "Usage: ics [args] <file> ... <file>";
+      "Usage: ics [args] <file> ... <file>");
     List.rev !files
 
-
-(** {6 Interactive Mode} *)
-
-let rec repl () =
+let rec repl inch =
   usage ();
+  while true do
+    Format.fprintf Format.std_formatter "\n%s @?" !prompt;
+    try
+      evalCmd inch
+    with
+      exc -> 
+	Format.fprintf Format.std_formatter ":exception %s@." 
+	   (Printexc.to_string exc)
+  done
+
+and evalCmd inch = 
+  try Parser.command Lexer.token (Lexing.from_channel inch) with
+    | Parsing.Parse_error -> 
+	Format.fprintf Format.std_formatter ":parse_error" 
+    | End_of_file -> exit 0
+    | Sys.Break -> exit 1
+    | Failure("drop") -> raise (Failure "drop")
+
+let rec batch name =
+  Format.printf "\nBatch Input: %s@?" name;
   try
-    Ics.cmd_rep ()
+    let inch = Pervasives.open_in name in
+    let status, time = processBatch inch in
+      Format.printf "\n Status: @?";
+      if !timing_flag then Format.printf "\n%s processed in %f seconds.@?" name time;
+      if !config_flag then (Format.printf "\nFinal configuration: \n"; Ics.ppConfig());  
   with
-    | Failure "drop" ->
-	()
+      exc -> 
+ 	let msg = Printexc.to_string exc in
+	  Format.printf ":error %s@." msg
+
+and processBatch inch = 
+  let start = (Unix.times()).Unix.tms_utime in
+  let status = repl inch in
+  let time = (Unix.times()).Unix.tms_utime -. start in
+    status, time
+
+let rec smt name = 
+  Format.eprintf "\nSMT Batch Input: %s@?" name;
+  try
+    let inch = Pervasives.open_in name in
+    let status, time = smtProcess inch in
+      Format.printf "\nStatus: "; 
+      SmtBench.Ast.ppStatus Format.std_formatter status;  
+      if !timing_flag then Format.printf "\n%s processed in %f seconds.@?" name time;
+      if !config_flag then 
+	(Format.printf "\nFinal configuration: \n"; Ics.ppConfig());  
+      Format.eprintf "\n@?"
+  with
+    | Parsing.Parse_error -> 	
+	Format.fprintf Format.std_formatter ":parserError on linenumber %d@?" 
+	  !SmtLexer.linenumber
     | exc -> 
-	Format.eprintf "%s@." (Printexc.to_string exc);
-	Ics.cmd_rep ()
+ 	let msg = Printexc.to_string exc in
+	  Format.fprintf Format.std_formatter ":error %s@?" msg
 
-and usage () =
-  begin
-    Version.eprint (); 
-    Format.eprintf "\nType 'help help.' for help about help, and 'Ctrl-d' to exit.@."
-  end
+and smtProcess inch = 
+  let start = (Unix.times()).Unix.tms_utime in
+    SmtBench.Fill.reset(); 
+    SmtLexer.linenumber := 0;
+    SmtParser.benchmark SmtLexer.token (Lexing.from_channel inch);
+    let b = SmtBench.Fill.finalize() in
+    let status = SmtBench.decide !smt_incomplete_flag b in	
+    let time = (Unix.times()).Unix.tms_utime -. start in
+      status, time
 
-
-(** {6 Batch Mode} *)
-
-and batch names =
-  let empty = Ics.intern "" in
-    Ics.set (Ics.intern "prompt") empty;
-    List.iter batch1 names
-
-and batch1 name =
-  Ics.set (Ics.intern "inchannel") (Ics.intern name);
-  let exit_code = 
-    if !timing_flag then
-      let start = (Unix.times()).Unix.tms_utime in
-      let code = Ics.cmd_batch () in
-      let time = (Unix.times()).Unix.tms_utime -. start in
-	Format.eprintf "\n%s processed in %f seconds.@." name time;
-	code
-    else 
-      Ics.cmd_batch ()
-  in
-    if exit_code <> 0 then
-      begin
-	Tools.do_at_exit();
-	exit exit_code
-      end 
-    
-
-(** {6 Server Mode} *)
-
-and server portnum = 
-  let addr = Unix.inet_addr_any in
-  let sockaddr = Unix.ADDR_INET (addr, portnum) in
-  Unix.establish_server 
-    (fun inch outch ->
-       let formatter = Format.formatter_of_out_channel outch in
-(* to do
-	 Ics.set_inchannel inch;
-	 Ics.set_outchannel formatter;
-*)
-	 Ics.cmd_rep ())
-    sockaddr
-
-let rec main () =
-  Ics.init(0);
-  try
-    let l = args () in
-      (match !portnum_flag with
-	 | None ->   
-	     (match l with
-		| [] -> repl ()
-		| l -> batch l)
-	 | Some(portnum) ->
-	     server portnum);
-      if !Tools.profiling then                  (* print gc statistics *)
-	begin
-	  Format.eprintf "\nGC statistics:\n";
-	  Gc.print_stat stderr
-	end;
-      Format.eprintf "@.";
-      Tools.do_at_exit();
-      exit 0
-  with
-      exc ->
-	Format.eprintf "%s@." (Printexc.to_string exc);
-	Tools.do_at_exit();
-	exit (-1)
-	  
+let main () =
+  match args() with
+    | [] -> 
+	repl stdin
+    | l -> 
+	if !smt_flag then List.iter smt l else
+          List.iter batch l
+	    
 let _ = Printexc.catch main ()
-
-
-
-
-
-

@@ -11,71 +11,90 @@
  * benefit corporation.
  *)
 
-type t = string
+type t = {
+  mutable name : string;
+  mutable hash : int;
+}
 
-let pp fmt s =
-  Format.fprintf fmt "%s" s
+type name = t  (* nickname *)
 
-let hash = Hashtbl.hash_param 4 4
+let pp fmt n =
+  Format.fprintf fmt "%s@?" n.name
+
+let hash n =
+  if n.hash >= 0 then n.hash else
+    let h = Hashtbl.hash_param 4 4 n.name in
+      n.hash <- h; h
+
+let length n = String.length n.name
 
 module Table = Weak.Make(
   struct
-    type t = string
-    let equal = (=)
+    type t = name
+    let equal n m = (n.name = m.name)
     let hash = hash
   end)
 
 let table = Table.create 117
-
-let _ = 
-  Tools.add_at_exit 
-    (fun () -> 
-       let (length, entries, _, smallest, median, biggest) = Table.stats table in
-	 if entries > 0 then
-	   Format.eprintf 
-	     "\nName hash: length = %d; entries = %d; smallest = %d; median = %d; biggest = %d"
-	        length entries smallest median biggest)
     
-let of_string str =
-  Table.merge table str
+let of_string =
+  let dummy = { name = Obj.magic 0; hash = -1 } in
+    fun str ->
+      dummy.name <- str; 
+      dummy.hash <- -1;
+      try Table.find table dummy with Not_found -> 
+	let n = { name = str; hash = dummy.hash } in
+	  Table.add table n; n
 
-let is_defined str =
-  Table.mem table str
-
-let fresh str =
-  let rec loop i =
-    let s = str ^ "!" ^ string_of_int i in
-      if is_defined s then loop (i+1) else of_string s
-  in
-    loop 0
+let of_int i = 
+  of_string (string_of_int i)
+	    
+let is_defined =
+  let dummy = { name = Obj.magic 0; hash = -1 } in
+    fun str -> 
+      dummy.name <- str;
+      Table.mem table dummy
+    
+let fresh =
+  let str = "v" in
+    fun () ->
+      let rec loop i =
+	let s = str ^ "!" ^ string_of_int i in
+	  if is_defined s then loop (i+1) else of_string s
+      in
+	loop 0
   
-let to_string s = s
-
-let idx s = hash s
+let to_string n = n.name
 			 
-let eq = (==)
+let equal = (==)
+
+let compare n m = 
+  if n == m then 0 else
+    Pervasives.compare n m
   
-let compare s t =
-  if s == t then 0 else Pervasives.compare s t
+let fast_compare n m =
+  if n == m then 0 else
+    if hash n > hash m then 1 else -1
 		    
 module Set = Set.Make(
   struct
-    type t = string
-    let compare = compare
+    type t = name
+    let compare = fast_compare
   end)
   
 module Map = Map.Make(
   struct
-    type t = string
-    let compare = compare
+    type t = name
+    let compare = fast_compare
   end)
   
 module Hash = Hashtbl.Make(
   struct
-    type t = string
-    let equal = eq
-    let hash = idx
+    type t = name
+    let equal = equal
+    let hash = hash
   end)
+
 
 
 

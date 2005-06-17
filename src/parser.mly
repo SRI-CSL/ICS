@@ -13,95 +13,633 @@
  * Author: Harald Ruess
  */
 
-/*s Module [Parser]: parser for ICS syntactic categories. */
+/* Module [Parser]: parser for ICS terms, formulas, and commands. */
 
 %{
 
-(** Command parser. *)
+  let fmt = Format.std_formatter
 
+  (** Symbol table with bindings [i |-> s], where [i] is
+    an index and [s] a decision procedure state. *)
+  module Symtab = struct
+    let symtab = Hashtbl.create 7
+    let max = ref 0
+    let reset () = 
+      max := 0;
+      Hashtbl.clear symtab
+    let extend s = 
+      let i = !max in
+	incr max;
+	Hashtbl.add symtab i s;
+	i
+    let find i = Hashtbl.find symtab i
+    let mem i = Hashtbl.mem symtab i
+    let rec pp () =
+      Format.fprintf fmt "@[";
+      Hashtbl.iter ppBinding symtab;
+      Format.fprintf fmt "@]"
+    and ppIndex i = 
+      Format.fprintf fmt "s!%d" i
+    and ppBinding i s = 
+      ppIndex i;
+      Format.fprintf fmt " |-> ";
+      Ics.pp fmt s
+    let remove i = 
+      Hashtbl.remove symtab i
+  end
+
+  (** Undo stack holds previous states. *)
+  module Undo = struct
+    let stack = Stacks.create()
+    let reset() = Stacks.clear stack
+    let push s = Stacks.push s stack
+    let pop () = Stacks.pop stack
+    let is_empty() = Stacks.is_empty stack
+  end
+
+  module Ebnf = struct
+    type nt = 
+      | Digit | Alpha | Int | Rat | Ident | Funsym | Var | Term
+      | Propvar | Predsym | Theory | Fml | Termseq
+
+    let  (nt_to_string, string_to_nt) = 
+      let l = [
+	Digit, "digit";
+	Alpha, "alpha";
+	Int, "int";
+	Rat, "rat";
+	Ident, "ident";
+	Funsym, "funsym";
+	Var, "var";
+	Term, "term";
+	Propvar, "propvar";
+	Predsym, "predsym";
+	Theory, "theory";
+	Fml, "fml";
+	Termseq, "termseq"
+      ]
+      in
+	((fun nt -> List.assoc nt l), 
+	 (fun s -> 
+	    let rec loop = function
+	      | [] -> raise Not_found
+	      | (nt, s') :: l' -> if s = s' then nt else loop l'
+	    in
+	      loop l))
+
+    type t =
+      | None
+      | Nt of nt
+      | String of string
+      | Char of char
+      | Range of char * char
+      | Opt of t
+      | Seq of t list
+      | Choice of t list
+      | Star of t
+      | Plus of t
+
+    let rec to_string = function
+      | None -> "_"
+      | Nt(nt) -> Format.sprintf "<%s>" (nt_to_string nt)
+      | Char(c) -> Format.sprintf "'%c'" c
+      | String(s) -> Format.sprintf "\"%s\"" s
+      | Opt(t) -> "[" ^ to_string t ^"]"
+      | Star(t) -> Format.sprintf "(%s)*" (to_string t)
+      | Plus(t) -> Format.sprintf "(%s)+" (to_string t)
+      | Range(l, h) -> Format.sprintf "[%c..%c]" l h
+      | Seq(tl) ->
+	  let rec loop = function
+	    | [] -> ""
+	    | [t] -> to_string t
+	    | t :: tl -> to_string t ^ " ; " ^ loop tl
+	  in
+	    "(" ^ loop tl ^ ")"
+      | Choice(tl) -> 
+	  let rec loop = function
+	    | [] -> ""
+	    | [t] -> to_string t
+	    | t :: tl -> to_string t ^ " | " ^ loop tl
+	  in
+	    "(" ^ loop tl ^ ")"
+
+    let digit = Range('0','9')
+
+    let alpha = Seq [Range('a','z'); Range('A','Z')]
+
+    let int = 
+      Seq [Choice [Nt Digit; Nt Alpha]; Star (Nt Digit)]
+
+    let rat = 
+      Seq [Nt Int; Char '/'; Nt Int]
+
+    let ident = 
+      Seq [Nt Alpha; Star (Choice [Nt Alpha; Nt Digit])]
+
+    let funsym = Nt Ident
+
+    let var = 
+      Choice [Nt Ident; Seq [Char '!'; Nt Int]]
+
+    let term = 
+      Choice [
+	Nt Var;
+	Seq [Nt Funsym; Char '('; Nt Termseq; Char ')'];
+        Seq [Char '('; Nt Term; Char ')']; 
+        Nt Int;
+	Nt Rat;
+        Seq [Nt Term; Char '+'; Nt Term];
+	Seq [Nt Term; Char '-'; Nt Term];
+	Seq [Nt Term; Char '-'; Nt Term];
+	Seq [Char '-'; Nt Term];	 
+	Seq [Nt Int; Char '*'; Nt Term];
+	Seq [Nt Rat; Char '*'; Nt Term];
+	Seq [Char '<'; Plus (Nt Term); Char '>'];
+	Seq [String "proj"; Char '['; Nt Int; Char ','; Nt Int; Char ']'; Char '('; Nt Term; Char ')'];
+	Seq [Nt Term; Char '['; Nt Term; Char ']'];
+        Seq [Nt Term; Char '['; Nt Term; String ":="; Nt Term; Char ']']
+      ]
+
+    let termseq = 
+      Seq [Nt Term; Star(Seq[Char ','; Nt Term])]
+
+    let theory = Choice [Char 'a'; Char 'f'; Char 'u'; Char 't']
+
+    let propvar = Nt Ident
+
+    let predsym = Nt Ident
+
+    let fml = 
+      Choice [
+	Nt Propvar;
+	Seq [Nt Predsym; Char '('; Nt Termseq; Char ')'];
+        Seq [String "real"; Char '('; Nt Term; Char ')' ];
+	Seq [Nt Term; Char '='; Nt Term];
+	Seq [Nt Term; String "<>"; Nt Term];
+	Seq [Nt Term; Char '>'; Nt Term];
+	Seq [Nt Term; Char '<'; Nt Term];
+	Seq [Nt Term; String ">="; Nt Term];
+	Seq [Nt Term; String "<="; Nt Term];
+	Seq [Nt Term; String "<="; Nt Term];
+	Seq [Char '['; Nt Fml; Char ']'];
+	Seq [Nt Fml; Char '&'; Nt Fml];
+	Seq [Nt Fml; Char '|'; Nt Fml];
+	Seq [Nt Fml; String "<=>"; Nt Fml];
+	Seq [Nt Fml; String "#"; Nt Fml];
+	Seq [Nt Fml; String "=>"; Nt Fml];
+	Seq [String "~"; Nt Fml];
+	Seq [String "if"; Nt Fml; String "then"; Nt Fml; String "else"; Nt Fml; String "end"]
+      ]
+
+    type descr = {
+      explain : string;
+      ebnf : t;
+    }
+
+    let descriptions = function
+      | Digit -> { 
+	  explain = "Digit";
+	  ebnf = digit
+	}
+      | Alpha -> { 
+	  explain = "Characters";
+	  ebnf = alpha
+	}
+      | Int -> { 
+	  explain = "Natural numbers (< max_int)";
+	  ebnf = int
+	}
+      | Rat ->{ 
+	  explain = "Rational numbers";
+	  ebnf = rat
+	}
+      | Ident ->{ 
+	  explain = "Identifiers";
+	  ebnf = ident
+	}
+      | Funsym -> { 
+	  explain = "Uninterpreted function symbols";
+	  ebnf = funsym
+	}
+      | Var -> { 
+	  explain = "A variable is either an external or an internal variable. \
+                     External variables are identifiers, whereas internal variables are integer indices. \
+                     Internal variables are usually generated by running the ICS inference system.";
+	  ebnf = var
+	}
+      | Term -> { 
+	  explain = "A term is either a variable or an application of a theory-specific function symbols to term arguments.";
+	  ebnf = term
+	}
+      | Propvar -> { 
+	  explain = "Propositional variables (predicate symbols of arity [0]. ";
+	  ebnf = propvar
+	}
+      | Predsym -> { 
+	  explain = "Uninterpreted predicate symbols of arity [1].";
+	  ebnf = predsym
+	}
+      | Theory -> { 
+	  explain = "Theories supported by ICS: \
+                     'a' is linear arithmetic; \
+                     't' the theory of tuples and projections; \
+                     'f' is the theory of functional arrays; \
+                     'u' is the theory of equality on uninterpreted function symbols.";
+	  ebnf = theory
+	}
+      | Fml -> { 
+	  explain = "Propositional constraint formulas";
+	  ebnf = fml
+	}
+      | Termseq ->  {
+	  explain = "Nonempty term sequence";
+	  ebnf = termseq
+	}
+
+    let description nt = 
+      let name = nt_to_string nt in
+      let descr = descriptions nt in
+	Format.fprintf fmt "NONTERMINAL\n   <%s>\n" name;
+	Format.fprintf fmt "DEFINITION\n    %s\n" (to_string descr.ebnf);
+	Format.fprintf fmt "DESCRIPTION\n    %s\n" (descr.explain);
+	Format.fprintf fmt "@?"
+    end
+
+  module Cmd = struct
+	    
+    type description = {
+      short: string;
+      args : Ebnf.t;
+      description : string;
+      examples : string list;
+      seealso : string list;
+    }
+
+    let descriptions = [
+      "assert", {
+	short = "Conjoin current context with argument formula";
+	args = Ebnf.Nt Ebnf.Fml;
+	description =  
+          "The argument formula <fml> is conjoined with the current context. \
+         There are three possible outcomes. First, <fml> is found to be \
+         inconsistent with the current context. In this case, [assert]  \
+         leaves the current context unchanged and outputs [:unsat]. \
+         Second, if <fml> is detected to be valid in the current context, \
+         then [:valid] is output.  Third, in case <fml> has neither been \
+         demonstrated to be valid nor inconsistent in the specified context, \
+         the current context is modified in such a way that the configuration \
+         is equivalent to <fml> conjoined with the old logical context. \
+         Notice that [assert] is incomplete in detecting inconsistencies, \
+         and the [status] of modified contexts might be [:unknown]. In these \
+         cases [resolve] must be called explicitly to resolve whether the \
+         current context is satisfiable or not. ";
+	examples = [ "assert f(v) = v."; 
+                     "assert f(u) = u - 1.";
+                     "assert u = v."];
+	seealso = ["resolve"; "status"];
+      };
+      "can", {
+	short = "Canonize term wrt current context";
+	args = Ebnf.Nt Ebnf.Term;
+	description = "";
+	examples = [];
+	seealso = [];
+      };
+      "inf", {
+	short = "Return an infimum of argument term";
+	args = Ebnf.Nt Ebnf.Term;	
+	description = "";
+	examples = [];
+	seealso = [];
+      };
+      "sup", {
+	short = "Return a supremum of argument term";
+	args = Ebnf.Nt Ebnf.Term;
+	description = "";
+	examples = [];
+	seealso = [];
+      };
+      "alias", {
+	short = "Return a name for argument term";
+	args = Ebnf.Nt Ebnf.Term;	
+	description = "";
+	examples = [];
+	seealso = [];
+      };
+      "reset", {
+	short = "Reinitialize to empty configuration";
+	args = Ebnf.None;	
+	description = "";
+	examples = [];
+	seealso = [];
+      };
+      "save", {
+	short =  "Save current state in symbol table";
+	args = Ebnf.None;	
+	description = "";
+	examples = [];
+	seealso = [];
+      };
+      "restore", {
+	short = "Set current context to argument context";
+	args = Ebnf.Nt Ebnf.Int;
+	description = "";
+	examples = [];
+	seealso = [];
+      };
+      "remove", {
+	short = "Remove argument state from symbol table";
+	args = Ebnf.Nt Ebnf.Int;
+	description = "";
+	examples = [];
+	seealso = [];
+      };
+      "forget", {
+	short = "Reinitialize current context to empty context";
+	args = Ebnf.None;
+	description = "";
+	examples = [];
+	seealso = [];
+      };
+      "simplify", {
+	short = "Simplify argument formula wrt current context";
+	args = Ebnf.Nt Ebnf.Fml;	
+	description = "";
+	examples = [];
+	seealso = [];
+      };
+      "config", {
+	short = "Return current configuration";
+	args = Ebnf.None;	
+	description = "";
+	examples = [];
+	seealso = [];
+      };
+      "find", {
+	short = "Return theory-specific interpretation of argument variabe";
+	args = Ebnf.Seq([Ebnf.Nt Ebnf.Theory; Ebnf.Nt Ebnf.Var]);
+	description = "";
+	examples = [];
+	seealso = [];
+      };
+      "inv", {
+	short = "Inverse of find";
+	args = Ebnf.Nt Ebnf.Term;	
+	description = "";
+	examples = [];
+	seealso = [];
+      };
+      "context", {
+	short = "Return current context";
+	args = Ebnf.None;	
+	description = "";
+	examples = [];
+	seealso = [];
+      };
+      "diseqs", {
+	short = "Disequalities of current configuration";
+	args = Ebnf.Choice([Ebnf.None; Ebnf.Nt Ebnf.Var]);
+	description = "";
+	examples = [];
+	seealso = [];
+      };
+      "equals", {
+	short = "Equalities of current configuration";
+	args = Ebnf.Choice([Ebnf.None; Ebnf.Nt Ebnf.Var; Ebnf.Nt Ebnf.Theory]);
+	description = "";
+	examples = [];
+	seealso = [];
+      };
+      "literals", {
+	short = "Valid literals in current configuration";
+	args = Ebnf.None;	
+	description = "";
+	examples = [];
+	seealso = [];
+      };
+      "renames", {
+	short = "Renames in current configuration";
+	args = Ebnf.None;	
+	description = "";
+	examples = [];
+	seealso = [];
+      };
+      "prop", {
+	short = "Propositional formula of current configuration";
+	args = Ebnf.None;
+	description = "";
+	examples = [];
+	seealso = [];
+      };
+      "slacks", {
+	short = "Slack variables of current configuration";
+	args = Ebnf.None;	
+	description = "";
+	examples = [];
+	seealso = [];
+      };
+      "constants", {
+	short = "Constant equalities of current configuration";
+	args = Ebnf.None;
+	description = "";
+	examples = [];
+	seealso = [];
+      };
+      "regular", {
+	short = "Regular arithmetic solution set of current configuration";
+	args = Ebnf.None;	
+	description = "";
+	examples = [];
+	seealso = [];
+      };
+      "tableau", {
+	short = "Tableau solution set of current configuration";
+	args = Ebnf.None;
+	description = "";
+	examples = [];
+	seealso = [];
+      };
+      "exit", {
+	short = "Exit ICS interpreter";
+	args = Ebnf.None;	
+	description = "";
+	examples = [];
+	seealso = [];
+      };
+      "drop", {
+	short = "Drop into Ocaml interpreter (bytecode only)";
+	args = Ebnf.None;
+	description = "";
+	examples = [];
+	seealso = [];
+      };
+      "echo", {
+	short = "Print argument string";
+	args = Ebnf.Nt Ebnf.Ident;
+	description = "";
+	examples = [];
+	seealso = [];
+      };
+      "valid", {
+	short = "Test if argument formula is valid in current context";
+	args = Ebnf.Nt Ebnf.Fml;	
+	description = "";
+	examples = [];
+	seealso = [];
+      };
+      "unsat", {
+	short = "Test if argument formula is unsatisfiable in current context";
+	args = Ebnf.Nt Ebnf.Fml;
+	description = "";
+	examples = [];
+	seealso = [];
+      };
+      "symtab", {
+	short = "Examine symbol table";
+	args = Ebnf.Opt(Ebnf.Nt Ebnf.Int);
+	description = "";
+	examples = [];
+	seealso = [];
+      };
+      "resolve", {
+	short = "Run inference system to completion";
+	args = Ebnf.None;
+	description = "";
+	examples = [];
+	seealso = [];
+      };
+      "undo", {
+	short = "Undo last modification of current context";
+	args = Ebnf.None;
+	description = "";
+	examples = [];
+	seealso = [];
+      };
+      "help", {
+	short = "Print some help information";
+	args = Ebnf.Opt(Ebnf.Nt Ebnf.Ident);
+	description = "";
+	examples = [];
+	seealso = [];
+      };
+      "status", {
+	short = "Return status of current context";
+	args = Ebnf.None;
+	description = "";
+	examples = [];
+	seealso = [];
+      }
+    ]
+
+  let shortDescription cmd = (List.assoc cmd descriptions).short
+
+  let description cmd = 
+    let descr = List.assoc cmd descriptions in
+      Format.fprintf fmt "NAME\n   %s --- %s \n" cmd descr.short;
+      Format.fprintf fmt "SYNOPSIS\n   %s %s\n" cmd (Ebnf.to_string descr.args);
+      let longDescr = descr.description in
+      let seeAlso = descr.seealso in
+      let examples = descr.examples in
+	if longDescr <> "" then
+	  Format.fprintf fmt "DESCRIPTION\n %s\n" longDescr;
+	if seeAlso <> [] then
+	  begin
+	    Format.fprintf fmt "SEE ALSO\n   ";
+	    let rec loop = function
+	      | [] -> ()
+	      | [str] -> Format.fprintf fmt "%s" str
+              | str :: strl -> Format.fprintf fmt "%s" str; Format.fprintf fmt ", "; loop strl
+	    in
+	      loop seeAlso
+	  end;
+	if examples <> [] then
+	  begin  
+	    Format.fprintf fmt "EXAMPLES";
+	    let rec loop = function
+	      | [] -> ()
+              | str :: strl -> Format.fprintf fmt "\n  %s" str; loop strl
+	    in
+	      loop examples
+	  end;
+	Format.fprintf fmt "@?"
+
+end 
+
+  let status_to_string = function
+    | Ics.Sat(impl) -> if Ics.Formula.is_true impl then "sat" else Format.sprintf "sat(%s)" (Ics.Formula.to_string impl)
+    | Ics.Unsat _ -> "unsat"
+    | Ics.Unknown -> "unknown"
+
+  let string_to_theory = function
+    | "a" | "A" -> Ics.A
+    | "t" | "T" -> Ics.T
+    | "f" | "F" -> Ics.F
+    | "u" | "U" -> Ics.U
+    | str -> invalid_arg("No such theory: " ^ str)
+
+  let doProcess fml = 
+    try 
+      Ics.process fml;
+      (match Ics.status() with
+	| Ics.Sat _ -> Format.fprintf fmt ":sat@?"
+	| _ -> Format.fprintf fmt ":ok@?")
+    with
+	Ics.Unsatisfiable -> 
+	  Format.fprintf fmt ":unsat@?"
 %}
 
-%token DROP CAN SIMPLIFY ASSERT EXIT SAVE RESTORE REMOVE FORGET RESET SYMTAB SIG VALID UNSAT
-%token TYPE SIGMA
-%token SOLVE HELP DEFTERM DEFPROP DEFTHEORY TOGGLE SET GET CMP FIND USE INV SOLUTION PARTITION
-%token SHOW SIGN SYNTAX COMMANDS RESOLVE SAT ECHO UNDO LOAD
-%token CONFIG STATUS EVAL REGISTER
-%token DISEQ CTXT 
-%token IN NOTIN TT FF
-%token EOF QUOTE
-
+%token EOF
 %token <string> IDENT
-%token <string> STRING
-%token <Mpa.Z.t> INTCONST
-%token <Mpa.Q.t> RATCONST
-%token <Name.t> PROPVAR
+%token <int> INTCONST
 
-%token IN
-%token BOT INT NONINT REAL BV TOP
-%token INF NEGINF
-%token ALBRA ACLBRA CLBRA
+%token LPAR RPAR LBRA RBRA
+%token COLON COMMA BANG ASSIGN
 
-%token LPAR RPAR LBRA RBRA LCUR RCUR PROPLPAR PROPRPAR UNDERSCORE KLAMMERAFFE
-%token COLON COMMA DOT DDOT ASSIGN TO ENDMARKER BACKSLASH
-%token EMPTY FULL UNION INTER COMPL DIFF
-
-%token <string> BVCONST 
-%token <string * int> FRESH
-
-%token CONC SUB BWITE BWAND BWOR BWXOR BWIMP BWIFF BWNOT
-%token BVCONC 
-%token EQUAL DISEQ SUBSET EQUAL2 MOD
-%token TRUE FALSE
 %token PLUS MINUS TIMES DIVIDE EXPT
-%token LESS GREATER LESSOREQUAL GREATEROREQUAL  
-%token UNSIGNED APPLY LAMBDA S K I C
-%token WITH CONS CAR CDR NIL
-%token INL INR OUTL OUTR
-%token INJ OUT 
-%token HEAD TAIL LISTCONS
-%token PROPVAR DISJ XOR IMPL BIIMPL CONJ NEG
+%token CONS CAR CDR
+%token DEF
+
+%token EQUAL DISEQ
+%token LESS GREATER LESSOREQUAL GREATEROREQUAL REAL INTEGER
+%token DISJ XOR IMPL BIIMPL CONJ NEG
 %token IF THEN ELSE END
 %token PROJ
-%token CREATE
-%token SUP INF
-%token THEORY SIGNATURE AXIOMS BEGIN DESCRIPTION
-%token REDUCE REWRITE
 
-%nonassoc REDUCE REWRITE
+%nonassoc LBRA
 %right DISJ XOR IMPL
 %left BIIMPL CONJ
-%nonassoc EQUAL EQUAL2 DISEQ SUBSET LESS GREATER LESSOREQUAL GREATEROREQUAL MOD
-%left APPLY
-%right UNION
-%right INTER, DIFF
-%nonassoc COMPL
+%nonassoc EQUAL DISEQ LESS GREATER LESSOREQUAL GREATEROREQUAL
 %left MINUS PLUS 
 %left DIVIDE
 %left TIMES
 %right EXPT
-%right LISTCONS
-%right BVCONC
-%right BWOR BWXOR BWIMP
-%left BWAND BWIFF
-%nonassoc TO
-%nonassoc IN NOTIN
-%nonassoc LCUR
-%nonassoc LBRA
-%nonassoc COLON
 %nonassoc prec_unary
 
-%type <Funsym.t> funsymeof
-%type <Term.t> termeof
-%type <Atom.t> atomeof
-%type <Prop.t> propeof
+%type <Ics.Term.t> termeof
+%type <Ics.Formula.t> fmleof
+%type <Ics.Term.t> term
+%type <Ics.Formula.t> fml
+%type <unit> command
 %type <unit> commands
 %type <unit> commandseof
 %type <unit> commandsequence
 
-%start funsymeof
+%token DOT
+%token ASSERT CAN INF SUP ALIAS
+%token RESET SAVE RESTORE REMOVE FORGET
+%token SIMPLIFY CONFIG FIND INV CONTEXT
+%token ECHO EXIT DROP
+%token VALID SYMTAB RESOLVE STATUS UNDO HELP 
+%token EQUALS DISEQS LITERALS RENAMES PROP SLACKS CONSTANTS REGULAR TABLEAU
+
+%token DEF PROP SIG SAT
+
+
 %start termeof
-%start atomeof
-%start propeof
+%start fmleof
+%start term
+%start fml
+%start command
 %start commands
 %start commandseof
 %start commandsequence
@@ -109,11 +647,93 @@
 
 %%
 
-funsymeof : funsym EOF       { $1 }
 termeof : term EOF           { $1 }
-atomeof : atom EOF           { $1 }
-propeof : prop EOF           { $1 }
+fmleof : fml EOF             { $1 }
 commandseof : command EOF    { () }
+
+
+/*** Terms ***/
+
+term:
+  var              { Ics.var $1 }
+| app              { $1 }
+| LPAR term RPAR   { $2 }
+| arith            { $1 }
+| tuple            { $1 }
+| array            { $1 }
+;
+
+var: IDENT         { Ics.Var.of_string $1 }
+| BANG INTCONST    { Ics.Var.internal $2 }
+
+app: IDENT LPAR termlist RPAR 
+                   { let f = Ics.Funsym.of_string $1 in
+		     let t = Ics.tuple $3 in
+		       Ics.apply f t }
+
+arith:
+  INTCONST                                              { Ics.constz $1 }
+| INTCONST DIVIDE INTCONST                           { Ics.constq $1 $3 }
+| term PLUS term                                        { Ics.add $1 $3 }
+| term MINUS term                                       { Ics.sub $1 $3 }
+| MINUS term %prec prec_unary                            { Ics.minus $2 }
+| INTCONST TIMES term                  { Ics.multq (Ics.Q.of_int $1) $3 }
+| INTCONST DIVIDE INTCONST TIMES term { Ics.multq (Ics.Q.make $1 $3) $5 }
+;
+
+tuple:
+  CONS LPAR term COMMA term RPAR          { Ics.pair $3 $5 }
+| LESS termlist GREATER                  { Ics.tuple $2 }
+| CAR LPAR term RPAR                     { Ics.proj 0 2 $3 }
+| CDR LPAR term RPAR                     { Ics.proj 1 2 $3 }
+| PROJ LPAR INTCONST COMMA INTCONST RPAR LPAR term RPAR  
+                                       { Ics.proj $3 $5 $8 }
+;
+
+termlist:                                 { [] }
+| term                                  { [$1] }
+| term COMMA termlist               { $1 :: $3 }  
+;                    /* avoid reversing list. */
+
+array: 
+  term LBRA term RBRA                   { Ics.lookup $1 $3 }
+| term LBRA term ASSIGN term RBRA    { Ics.update $1 $3 $5 }
+;
+
+
+/*** Formulas ***/
+
+atom: 
+  IDENT             { Ics.posvar (Ics.Propvar.of_string $1) }
+| IDENT LPAR termlist RPAR 
+                        { let p = Ics.Predsym.uninterp $1 in
+		          let t = Ics.tuple $3 in
+			    Ics.poslit p t                  }
+| REAL LPAR term RPAR                        {Ics.isReal $3 }
+| INTEGER LPAR term RPAR                    {Ics.isInteger $3 }
+| term EQUAL term                            { Ics.eq $1 $3 }
+| term DISEQ term                           { Ics.deq $1 $3 }
+| term LESS term                             { Ics.lt $1 $3 }
+| term GREATER term                          { Ics.gt $1 $3 }
+| term LESSOREQUAL term                      { Ics.le $1 $3 }
+| term GREATEROREQUAL term                   { Ics.ge $1 $3 }
+;
+
+
+fml:
+  LBRA fml RBRA                                    { $2 } 
+| atom                                             { $1 }
+| fml CONJ fml                      { Ics.andthen $1 $3 }
+| fml DISJ fml                       { Ics.orelse $1 $3 }
+| fml BIIMPL fml                      { Ics.equiv $1 $3 }
+| fml XOR fml                           { Ics.xor $1 $3 }
+| fml IMPL fml                      { Ics.implies $1 $3 }
+| NEG fml %prec prec_unary                 { Ics.neg $2 }
+| IF fml THEN fml ELSE fml END       { Ics.ite $2 $4 $6 }
+;
+
+
+/*** Commands ***/
 
 commands : 
   command DOT     { () }
@@ -125,385 +745,186 @@ commandsequence :
 | command DOT                    { () }
 | EOF                            { raise End_of_file }
 
-
- 
-int: INTCONST  { $1 }
-
-rat:
-  INTCONST    { Mpa.Q.of_z $1 }
-| RATCONST    { $1 }
-;
-
-name: IDENT  { Name.of_string $1 }
-
-namelist:    
-  name                { [$1] }
-| name COMMA namelist { $1 :: $3 }   /* avoid reversing list */
-;
-
-
-term:
-  var              { $1 }
-| app              { $1 }
-| LPAR term RPAR   { $2 }
-| arith            { $1 }     /* infix/mixfix syntax */
-| array            { $1 }
-| bv               { $1 }
-| product          { $1 }
-| boolean          { $1 }
-| coproduct        { $1 }
-| list             { $1 }
-| cl               { $1 }
-| propset          { $1 }
-;
-
-
-var: name          { Term.mk_var $1 }
-
-app: 
-  name LPAR appargs RPAR        
-    { let n = $1 and args = $3 in
-	try
-	  let xl, a = Symtab.Get.term n (List.length args) in
-	    failwith "to do"
-	    (* Term.replace_star a xl args *)
-	with
-	    Not_found -> 
-	      (match args with
-		 | [] -> U.mk_const n 
-		 | [b] -> U.mk_app n b
-		 | bl -> U.mk_app n (Product.mk_tuple bl)) }
-| funsym LPAR appargs RPAR      { Term.sigma $1 (Term.Args.of_list $3) }
-;
-
-funsym: name LCUR theory RCUR   { Funsym.create $3 $1 }
-
-theory: IDENT                   { Theory.of_string $1 }
-
-appargs:                        { [] }
-| term                          { [$1] }
-| term COMMA appargs            { $1 :: $3 }   /* avoid reversing list. */
-;
-
-list: 
-  term LISTCONS term            { Coproduct.mk_iterated_inj 1 (Product.mk_cons $1 $3) }
-| HEAD LPAR term RPAR           { Product.mk_car (Coproduct.mk_iterated_out 1 $3) }
-| TAIL LPAR term RPAR           { Product.mk_cdr (Coproduct.mk_iterated_out 1 $3) }
-| NIL                           { Coproduct.mk_iterated_inj 0 (Bitvector.mk_eps()) }
-;
-
-cl: 
-  term APPLY term               { Apply.mk_apply $1 $3 }
-| S                             { Apply.mk_s () }
-| K                             { Apply.mk_k () }
-| I                             { Apply.mk_i () }
-| C                             { Apply.mk_c () }
-/*
-| LAMBDA namelist COLON term    { let nl = List.rev $2 in   (* in reverse order! *)
-				  let body = $4 in
-				  let rec abstract_star acc = function
-				    | [] -> assert false
-				    | [n] -> Apply.abstract n acc
-				    | n :: nl -> abstract_star (Apply.abstract n acc) nl
-				  in 
-				  abstract_star body nl }
- */
-;
-
-boolean: 
-  TRUE                          { Boolean.mk_true() }
-| FALSE                         { Boolean.mk_false() }
-;
-     
-arith:
-  rat                           { Linarith.mk_num $1 }
-| term PLUS term                { Format.eprintf "\nArg1 %s" (Term.to_string $1);
-				  Format.eprintf "\nArg2 %s@." (Term.to_string $3); 
-                                  Linarith.mk_add $1 $3 }
-| term MINUS term               { Linarith.mk_sub $1 $3 }
-| MINUS term %prec prec_unary   { Linarith.mk_neg $2 }
-| term TIMES term               { Nonlin.mk_mult $1 $3 }
-| term DIVIDE term              { Nonlin.mk_div $1 $3 }
-| term EXPT int                 { Nonlin.mk_expt $1 (Mpa.Z.to_int $3) }
-;
-
-product:
-  CONS LPAR term COMMA term RPAR { Product.mk_cons $3 $5 }
-| CAR LPAR term RPAR             { Product.mk_car $3 }
-| CDR LPAR term RPAR             { Product.mk_cdr $3 }
-;
-
-coproduct:
-  INL LPAR term RPAR                    { Coproduct.mk_in Coproduct.Left $3 }
-| INR LPAR term RPAR                    { Coproduct.mk_in Coproduct.Right  $3 }
-| OUTL LPAR term RPAR                   { Coproduct.mk_out Coproduct.Left  $3 }
-| OUTR LPAR term RPAR                   { Coproduct.mk_out Coproduct.Right  $3 }
-| INJ LBRA INTCONST RBRA LPAR term RPAR { Coproduct.mk_iterated_inj (Mpa.Z.to_int $3) $6 }
-| OUT LBRA INTCONST RBRA LPAR term RPAR { Coproduct.mk_iterated_out (Mpa.Z.to_int $3) $6 }
-;
-
-array:
-  CREATE LPAR term RPAR           { Funarr.mk_create $3 }
-| term LBRA term ASSIGN term RBRA { Funarr.mk_update $1 $3 $5 }
-| term LBRA term RBRA             { Funarr.mk_select $1 $3 }
-;
-
-
-propset:
-  EMPTY                          { Propset.mk_empty() }
-| FULL                           { Propset.mk_full() }
-| term UNION term                { Propset.mk_union $1 $3 }
-| term INTER term                { Propset.mk_inter $1 $3 }
-| COMPL term %prec prec_unary    { Propset.mk_compl $2 }
-;
-
-
-bv: 
-  BVCONST               { Bitvector.mk_const (Bitv.from_string $1)  }
-| bvconc                { let n, m, a, b = $1 in Bitvector.mk_conc n m a b  }
-| bvsub                 { let n, i, j, a = $1 in Bitvector.mk_sub n i j a }
-;
-
-bvsub: 
-| SUB LBRA INTCONST COMMA INTCONST COMMA INTCONST RBRA LPAR term RPAR 
-    { (Mpa.Z.to_int $3, Mpa.Z.to_int $5, Mpa.Z.to_int $7, $10) }
-/*
-| term LBRA INTCONST COLON INTCONST RBRA 
-     { 
-        match Istate.width_of $1 with
-	 | Some(n) -> 
-	     if n < 0 then
-	       raise(Invalid_argument ("Negative length of " ^ Term.to_string $1))
-	     else if not(0 <= $3 && $3 <= $5 && $5 < n) then
-	       raise(Invalid_argument ("Invalid extraction from " ^ Term.to_string $1))
-	     else 
-	       Bitvector.mk_sub n $3 $5 $1
-	 | None ->  
-	     raise (Invalid_argument (Term.to_string $1 ^ " not a bitvector.")) }
-*/
-;
-
-bvconc: 
-  CONC LBRA INTCONST COMMA INTCONST RBRA LPAR term COMMA term RPAR  
-    { (Mpa.Z.to_int $3, Mpa.Z.to_int $5, $8, $10) }
-/*
-| term BVCONC term  
-    { match Istate.width_of $1, Istate.width_of $3 with
-	| Some(n), Some(m) -> 
-	    if n < 0 then invalid_arg ("Negative length of " ^ Term.to_string $1)
-	    else if m < 0 then invalid_arg ("Negative length of " ^ Term.to_string $3)
-	    else (n, m, $1, $3)
-	 | Some _, _ -> invalid_arg (Term.to_string $3 ^ " not a bitvector.")
-	 | _ -> invalid_arg (Term.to_string $1 ^ " not a bitvector.") }
-*/
-;
-
-
-atom: 
-  FF                            { Atom.mk_false }
-| TT                            { Atom.mk_true }
-| term EQUAL term               { Atom.mk_equal $1 $3 }
-| term DISEQ term               { Atom.mk_diseq $1 $3 }
-| term LESS term                { Linarith.Atom.mk_lt $1 $3 }
-| term GREATER term             { Linarith.Atom.mk_gt $1 $3 }
-| term LESSOREQUAL term         { Linarith.Atom.mk_le $1 $3 }
-| term GREATEROREQUAL term      { Linarith.Atom.mk_ge $1 $3 }
-| term SUBSET term              { Atom.mk_equal (Propset.mk_inter $1 $3) $1 }
-| term IN cnstrnt               { Atom.mk_cnstrnt $1 $3 }
-;
-
-conjunction:                    { [] }
-| term EQUAL2 term MOD INTCONST { Linarith.Atom.mk_modeq $1 $3 $5 }
-| conjunction COMMA atom        { $3 :: $1 }
-;
-
-prop:
-  LBRA prop RBRA                  { $2 } 
-| name                            { try 
-				      let _, p = Symtab.Get.prop $1 0 in p
-				    with
-					Not_found -> Prop.mk_var $1 }
-| atom                            { Prop.mk_poslit $1 }
-| prop CONJ prop                  { Prop.mk_conj2 $1 $3 }
-| prop DISJ prop                  { Prop.mk_disj2 $1 $3 }
-| prop BIIMPL prop                { Prop.mk_iff $1 $3 }
-| prop XOR prop                   { Prop.mk_neg (Prop.mk_iff $1 $3) }
-| prop IMPL prop                  { Prop.mk_disj2 (Prop.mk_neg $1) $3 }
-| NEG prop %prec prec_unary       { Prop.mk_neg $2 }
-| IF prop THEN prop ELSE prop END { Prop.mk_ite $2 $4 $6 }
-;
-
-cnstrnt: 
-  INT                    { Cnstrnt.Int }
-| NONINT                 { Cnstrnt.Nonint }
-| REAL                   { Cnstrnt.Real }
-| BV LBRA INTCONST RBRA  { Cnstrnt.Bitvector(Mpa.Z.to_int $3) }
-;
-
-
-
-/*** Commands ***/
-
 command:
-  CAN optname term           { Istate.do_can ($2, $3) }
-| ASSERT optname atom        { Istate.do_process1 ($2, $3) }
-| ASSERT optname conjunction { Istate.do_process ($2, $3) }
-| DEFTERM name optargs ASSIGN term { Istate.do_define ($2, Istate.Term($3, $5)) }
-| DEFPROP name optargs ASSIGN prop  { Istate.do_define ($2, Istate.Prop($3, $5)) }
-| DEFTHEORY name ASSIGN spec       { Istate.do_define ($2, Istate.Spec($4)) }
-| RESET                      { Istate.do_reset () }
-| SAVE optname               { Istate.do_save($2) }
-| RESTORE name               { Istate.do_restore $2 }
-| REMOVE name                { Istate.do_remove $2 }
-| FORGET                     { Istate.do_forget() }
-| EXIT                       { raise End_of_file }
-| DROP                       { raise (Failure "drop") }
-| SYMTAB optname             { Istate.do_symtab $2 }
-| CTXT optname               { Istate.do_ctxt $2 }
-| CONFIG optname             { Istate.do_config $2 }
-| STATUS optname             { Istate.do_status $2 }
-| SIGMA term                 { Istate.do_sigma $2 }
-| term CMP term              { Istate.do_cmp ($1, $3) }
-| SHOW optname               { Istate.do_show ($2, None) }
-| SHOW optname eqth          { Istate.do_show ($2, (Some($3))) }
-| FIND optname th term       { Istate.do_find ($2, Some $3, $4) }
-| INV optname th term        { Istate.do_inv ($2, $3, $4) }
-| USE optname th term        { Istate.do_dep ($2, $3, $4) }
-| RESOLVE optname            { Istate.do_resolve $2 }
-| EVAL optname atom          { Istate.do_eval ($2, $3) }
-| SOLVE term EQUAL term      { Istate.do_solve ($2, $4) }		
-| SAT optname prop           { Istate.do_sat ($2, $3) }
-| ECHO STRING                { Format.eprintf "%s@." $2 }
-| GET optname                { Istate.do_get($2) }
-| name ASSIGN value          { Istate.do_set ($1, $3)}
-| UNDO                       { Istate.do_undo () }
-| LOAD optname IDENT         { Istate.do_load ($2, $3) } 
-| help                       { $1 }
+  CAN term         { Format.fprintf fmt ":term ";
+                     Ics.Term.pp fmt $2;
+		     Format.fprintf fmt "@?" }
+| SIMPLIFY fml     { Format.fprintf fmt ":fml ";
+                     Ics.Formula.pp fmt $2;
+		     Format.fprintf fmt "@?" }
+| VALID fml        { if Ics.valid $2 then
+		       Format.fprintf fmt ":true@?"
+		     else
+		       Format.fprintf fmt ":false@?" }
+| ASSERT fml       { doProcess $2 }
+| RESOLVE          { let st = Ics.resolve() in
+		     let res = status_to_string st in
+		       Format.fprintf fmt ":%s@?" res }
+| INF term         { try
+		       let inf = Ics.inf $2 in
+			 Format.fprintf fmt ":inf %s @?" (Ics.Q.to_string inf)
+		     with
+			 Not_found -> Format.fprintf fmt ":none@?" }
+| SUP term         { try
+		       let sup = Ics.sup $2 in
+			 Format.fprintf fmt ":sup%s @?" (Ics.Q.to_string sup)
+		     with
+			 Not_found-> Format.fprintf fmt ":none@?" }
+| ALIAS term       { Format.fprintf fmt ":alias ";
+                     Ics.Var.pp fmt (Ics.alias $2);
+		     Format.fprintf fmt "@?" }
+| RESET            { Ics.reset(); 
+		     Symtab.reset(); 
+		     Undo.reset();
+		     Format.fprintf fmt ":unit@?" }
+| SAVE             { let s = Ics.current() in
+                     let i = Symtab.extend s in
+		       Undo.push s;
+		       Format.fprintf fmt ":state ";
+		       Symtab.ppIndex i;
+		       Format.fprintf fmt "@?" }
+| RESTORE index    { try
+		       let s = Symtab.find $2 in
+			 Undo.push (Ics.current());
+			 Ics.initialize s;
+			 Format.fprintf fmt ":unit@?"
+		     with
+			 Not_found -> 
+			   Format.fprintf fmt 
+			      ":error(symtab) unknown state %i@?" $2}
+| REMOVE index     { Symtab.remove $2;
+		     Format.fprintf fmt ":unit@?" }
+| FORGET           { let s = Ics.current() in
+		       Undo.push s;
+		       Ics.reset();
+		       Format.fprintf fmt ":unit@?" }
+| UNDO             { if Undo.is_empty() then 
+		       Format.fprintf fmt ":none@?" 
+		     else
+		       let s = Undo.pop() in
+			 Ics.initialize s;
+			 Format.fprintf fmt ":unit@?" }
+| STATUS           { let res = status_to_string (Ics.status()) in
+		       Format.fprintf fmt ":%s@?" res }
+| CONTEXT          { Format.fprintf fmt ":context ";
+		     Ics.ppContext();
+		     Format.fprintf fmt "@?" }
+| CONFIG           { Format.fprintf fmt ":config\n";
+		     Ics.ppConfig();
+		     Format.fprintf fmt "@?" }
+| EQUALS IDENT     { try
+		       let th = string_to_theory $2 in
+			 Format.fprintf fmt ":formulas ";
+			 Ics.Formulas.pp fmt (Ics.theoryEquals th);
+			 Format.fprintf fmt "@?"
+		     with
+			 Invalid_argument _ -> 
+			   let xs = Ics.V.eqs (Ics.Var.of_string $2) in
+			     Format.fprintf fmt ":vars ";
+			     Ics.V.Varset.pp fmt xs;
+			     Format.fprintf fmt "@?" }
+| EQUALS           { Format.fprintf fmt "\n:map"; 
+		     Ics.Vareqs.pp fmt (Ics.varEquals());
+		     Format.fprintf fmt "@?" }
+| DISEQS var       { let xs = Ics.V.deqs $2 in
+		       Format.fprintf fmt ":vars ";
+		       Ics.V.Varset.pp fmt xs;
+		       Format.fprintf fmt "@?" }
+| DISEQS           { Format.fprintf fmt "\n:formulas"; 
+		     Ics.Formulas.pp fmt (Ics.varDiseqs());
+		     Format.fprintf fmt "@?" }
+| LITERALS         { Format.fprintf fmt "\n:formulas"; 
+		     Ics.Formulas.pp fmt (Ics.literals());
+		     Format.fprintf fmt "@?" }
+| RENAMES          { Format.fprintf fmt "\n:formulas"; 
+		     Ics.Rename.pp fmt (Ics.renames());
+		     Format.fprintf fmt "@?" }
+| PROP             { Format.fprintf fmt "\n:formula"; 
+		     Ics.Formula.pp fmt (Ics.prop());
+		     Format.fprintf fmt "@?" }
+| SLACKS           { Format.fprintf fmt "\n:vars"; 
+		     Ics.Vars.pp fmt (Ics.slacks());
+		     Format.fprintf fmt "@?" }
+| CONSTANTS        { Format.fprintf fmt "\n:formulas"; 
+		     Ics.Formulas.pp fmt (Ics.constantEquals());
+		     Format.fprintf fmt "@?" }
+| REGULAR          { Format.fprintf fmt "\n:formulas"; 
+		     Ics.Formulas.pp fmt (Ics.regularEquals());
+		     Format.fprintf fmt "@?" }
+| TABLEAU          { Format.fprintf fmt "\n:formulas"; 
+		     Ics.Formulas.pp fmt (Ics.tableauEquals());
+		     Format.fprintf fmt "@?" }
+| FIND theory var  { try
+		       let t = Ics.find $2 $3 in
+			 Format.fprintf fmt ":term ";
+			 Ics.Term.pp fmt t;
+			 Format.fprintf fmt "@?"
+		     with
+			 Not_found -> 
+			   Format.fprintf fmt ":none@?" }
+| INV term         { try
+		       let x = Ics.inv $2 in
+			 Format.fprintf fmt ":term ";
+			 Ics.Var.pp fmt x;
+			 Format.fprintf fmt "@?"
+		     with
+			 Not_found -> 
+			   Format.fprintf fmt ":none@?" }
+| SYMTAB           { Format.fprintf fmt ":symtab ";
+		     Symtab.pp();
+		     Format.fprintf fmt "@?" }
+| SYMTAB index    { try
+		       let s = Symtab.find $2 in
+			 Format.fprintf fmt ":state ";
+			 Ics.pp fmt s;
+			 Format.fprintf fmt "@?"
+		     with
+			 Not_found -> 
+			   Format.fprintf fmt ":none@?" }
+| EXIT             { raise End_of_file }
+| DROP             { failwith "drop" }
+| ECHO IDENT       { Format.fprintf fmt "%s@?" $2 }
+| HELP IDENT       { try
+		       let short = Cmd.shortDescription $2 in
+			 Format.fprintf fmt ":string %s@?" short
+		     with
+			 Invalid_argument _ -> 
+			   Format.fprintf fmt ":none@?" }
+| HELP HELP        { Format.fprintf fmt 
+		       "Use 'help cmd' for help on command 'cmd'@?" }
+| HELP nt          { Ebnf.description $2 }
+| HELP             { failwith "help: to do" }
+| oldcmd           { $1 }
 ;
 
-optargs:                     { [] }
-| LPAR namelist RPAR         { $2 }
+index : INTCONST   { $1 }
 
-value : IDENT                { $1 }
-| TRUE                       { "true" }
-| FALSE                      { "false" }
+theory : IDENT     { match $1 with
+		       | "a" | "A" -> Ics.A
+		       | "t" | "T" -> Ics.T
+		       | "f" | "F" -> Ics.F
+		       | "u" | "U" -> Ics.U
+		       | _ -> invalid_arg("No such theory: " ^ $1) }
 ;
 
-optname:                     { None }
-| KLAMMERAFFE name           { Some($2) }
-;
-		
-th: IDENT                   { Theory.of_string $1 } /* may raise [Invalid_argument]. */
+nt : LESS IDENT GREATER      { try Ebnf.string_to_nt $2 with Not_found -> 
+				 invalid_arg(Format.sprintf "No such nonterminal <%s>" $2) }
 
-eqth : IDENT                { if $1 = "v" then None else Some(Theory.of_string $1) }
-
-
-optth:                      { None }
-| th                        { Some($1) }
-;
-
-/*** Specifications ***/
-
-spec: 
-  THEORY IDENT description SIGNATURE signature AXIOMS axioms END 
-    { let th = Theory.create $2 in
-      let signature = $5 th in         (* evaluate funsyms and axioms *)
-      let chains, rewrites = $7 th in  (* in a context [th]. *)
-	Spec.make th signature rewrites chains }
-
-description:               { "" }
-| DESCRIPTION STRING       { $2 }
+/* Following included for compatibility with older ICS. */
+oldcmd:
+| DEF IDENT ASSIGN term     { doProcess (Ics.eq (Ics.var (Ics.Var.of_string $2)) $4) }
+| PROP IDENT ASSIGN fml    { let p = Ics.Propvar.of_string $2 in
+			       doProcess (Ics.equiv (Ics.posvar p) $4) }
+| SIG idents COLON REAL      { List.iter 
+				 (fun x -> 
+				    doProcess 
+				    (Ics.isReal 
+				       (Ics.var (Ics.Var.of_string x))))
+			         $2 }
+| SAT fml                    { doProcess $2 }
 ;
 
-signature: 
-  defsym                   { fun th -> Funsym.Set.singleton ($1 th) }
-| signature COMMA defsym   { fun th -> Funsym.Set.add ($3 th) ($1 th) }
-;
-
-defsym: name               { fun th -> Funsym.create th $1 } 
-
-
-axioms:                    { fun _ -> [], [] }           
-| chain                    { fun th -> [$1 th], [] }
-| rewrite                  { fun th -> [], [$1 th] }
-| axioms COMMA chain       { fun th -> let cl, rl = $1 th in ($3 th :: cl),  rl }
-| axioms COMMA rewrite     { fun th -> let cl, rl = $1 th in cl, ($3 th :: rl) }
-;
-
-chain: axiomid hyps REDUCE chainatom            
-                           { fun th -> Axioms.Chain.make $1 ($2 th) ($4 th) }
-
-rewrite : axiomid hyps REWRITE lapp EQUAL lterm 
-                           { fun th -> Axioms.Rewrite.make $1 ($2 th) ($4 th) ($6 th) }
-
-axiomid : IDENT COLON      { Name.of_string $1 }
-
-hyps:                      { fun _ -> [] }
-| chainatom                { fun th -> [$1 th ] }
-| hyps COMMA chainatom     { fun th -> $3 th :: $1 th }
-;
-
-chainatom: 
-| lterm EQUAL lterm        { fun th -> Axioms.Atom.mk_equal ($1 th) ($3 th) }
-| lterm DISEQ lterm        { fun th -> Axioms.Atom.mk_diseq ($1 th) ($3 th) }
-;
-
-lterm:       
-  lvar                     { fun _ -> Axioms.Lterm.mk_var $1 }
-| lapp                     { fun th -> let f, al = $1 th in Axioms.Lterm.mk_app f al }
-;
-   
-lvar: IDENT                  { $1 }
-
-lapp: name LPAR lterms RPAR  { fun th -> Funsym.create th $1, ($3 th) }
-
-lterms: list_of_lterms       { fun th -> List.rev ($1 th) }
-
-list_of_lterms:              { fun _ -> [] }
-| lterm                      { fun th -> [$1 th] }
-| list_of_lterms COMMA lterm { fun th -> $3 th :: $1 th }    
-;    
-
-/*** Help command ***/
-
-help:
-  HELP                      { Istate.do_help Istate.All }
-| HELP CAN                  { Istate.do_help (Istate.Command("can")) }
-| HELP HELP                 { Istate.do_help (Istate.Command("help")) }
-| HELP SIMPLIFY             { Istate.do_help (Istate.Command("simplify")) }
-| HELP ASSERT               { Istate.do_help (Istate.Command("assert")) }
-| HELP DEFTERM              { Istate.do_help (Istate.Command("def")) }
-| HELP DEFPROP              { Istate.do_help (Istate.Command("def")) }
-| HELP DEFTHEORY            { Istate.do_help (Istate.Command("def")) }
-| HELP RESET                { Istate.do_help (Istate.Command("reset")) }
-| HELP SAVE                 { Istate.do_help (Istate.Command("save")) }
-| HELP RESTORE              { Istate.do_help (Istate.Command("restore")) }
-| HELP REMOVE               { Istate.do_help (Istate.Command("remove")) }
-| HELP FORGET               { Istate.do_help (Istate.Command("forget")) }
-| HELP EXIT                 { Istate.do_help (Istate.Command("exit")) }
-| HELP DROP                 { Istate.do_help (Istate.Command("drop")) }
-| HELP SYMTAB               { Istate.do_help (Istate.Command("symtab")) }
-| HELP CTXT                 { Istate.do_help (Istate.Command("ctxt")) }
-| HELP SIGMA                { Istate.do_help (Istate.Command("sigma")) }
-| HELP CMP                  { Istate.do_help (Istate.Command("cmp")) }
-| HELP SHOW                 { Istate.do_help (Istate.Command("show")) }
-| HELP FIND                 { Istate.do_help (Istate.Command("find")) }
-| HELP INV                  { Istate.do_help (Istate.Command("inv")) }
-| HELP USE                  { Istate.do_help (Istate.Command("use")) }
-| HELP SOLVE                { Istate.do_help (Istate.Command("solve")) }
-| HELP SAT                  { Istate.do_help (Istate.Command("sat")) }
-| HELP MODEL                { Istate.do_help (Istate.Command("model")) }
-| HELP RESOLVE              { Istate.do_help (Istate.Command("resolve")) }
-| HELP ECHO                 { Istate.do_help (Istate.Command("echo")) }
-| HELP GET                  { Istate.do_help (Istate.Command("get")) }
-| HELP SUP                  { Istate.do_help (Istate.Command("sup")) }
-| HELP INF                  { Istate.do_help (Istate.Command("inf")) }
-| HELP ASSIGN               { Istate.do_help (Istate.Command("set")) }
-| HELP LESS IDENT GREATER   { Istate.do_help (Istate.Nonterminal($3)) }
-| HELP UNDO                 { Istate.do_help (Istate.Command("undo")) }
-| HELP LOAD                 { Istate.do_help (Istate.Command("load")) }
-| HELP THEORY               { Istate.do_help (Istate.Command("theory")) }
-;
-
-
-%%
+idents:                                { [] }
+| IDENT                              { [$1] }
+| idents COMMA IDENT             { $3 :: $1 }  
+;              
