@@ -1,4 +1,4 @@
-ICS 2.0: Integrated Canonizer and Solver
+ICS 2.1:  Integrated Canonizer and Solver
 ========================================
 
 Decision procedure for the combination of t
@@ -19,13 +19,8 @@ Requirements:
 
 To compile ICS, you need to install first:
  
- - Objective Caml version 3.06 or later
+ - Objective Caml version 3.08 or later
    Available at http://caml.inria.fr
-
- - GNU MP version 4.1 or later
-   Is part of the distribution of at least some Unix systems
-   Available at http://www.swox.com/gmp/
-
 
 
 Installation from sources  
@@ -40,7 +35,7 @@ commands in a directory of your choice.
 
 An executable is build using the the commands.
     
-      $ ./configure [--with-gmp=/path/to/gmp] [--prefix=/path/to/binaries]
+      $ ./configure [--prefix=/path/to/binaries]
       $ make
 
 'configure' creates the Makefile from corresponding file Makefile.in,
@@ -68,19 +63,6 @@ Problems
 
 Configure does not find required programs. In this case check your PATH variable.
 
-Sometimes, the path to an appropriate GMP has to be given explicitly when configure
-does not find one. E.g. ./configure --with-gmp=/local  if there is an appropriate
-GMP library in /local/lib
-
-
-Credits
---------
-
-Main code by Harald Ruess with help from Jean-Christophe Filliâtre,
-Sam Owre, and N. Shankar.
-
-GMP ocaml interface was originally written by David Monniaux, 
-and patched for ocaml 3.00 by Jean-Christophe Filliâtre.
 
 Changes: 
 --------

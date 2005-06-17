@@ -143,7 +143,7 @@ ocamlc_version=`$OCAMLC -v | sed -e 's,[[^0-9.]],,g'`
 maj_ocamlc_version=`echo $ocamlc_version | cut -d. -f 1`
 min_ocamlc_version=`echo $ocamlc_version | cut -d. -f 2`
 if test $maj_ocamlc_version -lt 3 -o \( $maj_ocamlc_version -eq 3 -a $min_ocamlc_version -lt 4 \); then
-   AC_MSG_ERROR(Wrong version of $OCAMLC: $ocamlc_version - need at least 3.04)
+   AC_MSG_ERROR(Wrong version of $OCAMLC: $ocamlc_version - need at least 3.08)
 else
    AC_MSG_RESULT($ocamlc_version)
 fi
@@ -192,43 +192,6 @@ if test "$SED" = no; then
 fi
 
 
-dnl ICS CERTIFICATE Libraries
-AC_SUBST(posixos)
-posixos=`./os`
-if test "$posixos" = "sunos"; then
-	 AC_CHECK_LIB(socket, htonl, LIBS="-lsocket $LIBS", AC_MSG_ERROR([*** SOCKET library not found. ***]))
-fi
-CSL_CHECK_DOT_A_LIB(libssl.a libcrypto.a, $with_openssl, 
-   [	
-    #include<openssl/dsa.h>
-		#include<openssl/evp.h>
-		#include<openssl/pem.h>
-		#include<openssl/err.h>
-		extern char * DSA_version;
-		extern char * SSL_version_str;
-		void check_version(char * ver) {
-			char * str = strdup(ver);
-			char * delim = " .\tABCDEFGHIJKLMNOPQRSTUVZWYZabcdefghijklmnopqrstuvzwyz,.?!@#$%^&*\"'/";
-			char * curr = strtok(str, delim);
-			int major = curr ? atoi(curr) : -1;
-			int minor;
-			int patch;
-			curr = strtok(0, delim);
-			minor = curr ? atoi(curr) : -1;
-			curr = strtok(0, delim);
-			patch = curr ? atoi(curr) : -1;
-			if (major < 0) exit(1);
-			if (major == 0 && minor < 9) exit(1);
-			if (major == 0 && minor == 9 && patch < 7) exit(1);
-		}
-   ],
-   [
-			check_version(DSA_version);
-			check_version(SSL_version_str);
-			return 0;				
-	 ],
- 	 AC_MSG_ERROR([*** Could not find OpenSSL. ***]))
-
 dnl SET ICS_CYGWIN define when cygwin
 if test "$posixos" = "cygwin"; then
   CPPFLAGS="-DICS_CYGWIN $CPPFLAGS"
@@ -263,6 +226,6 @@ gxx_major=`$CXX --version | sed -e '2,$d' | sed -e 's/[[^0-9\.]]//g' | sed -e 's
 if test $gxx_major -ge 3; then CXXFLAGS="-Wno-deprecated $CXXFLAGS"; fi
 
 dnl Finally create all the generated files
-AC_OUTPUT(Makefile chameleon/Makefile ics sat/Makefile sat/src/Makefile install.sh BIN-INSTALL)
+AC_OUTPUT(Makefile ics install.sh BIN-INSTALL)
 
 chmod a+x ics

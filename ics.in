@@ -6,14 +6,10 @@
 ICSPATH=@ICSPATH@
 ARCH=`$ICSPATH/config.guess`
 
-if test -z "$ICS_LICENSE_CERTIFICATE"; 
-then ICS_LICENSE_CERTIFICATE=$ICSPATH/certificate; 
-export ICS_LICENSE_CERTIFICATE; fi;
-
-if [ "$1" = "-bytecode" ]; then
-  shift
-  cd $ICSPATH/obj/$ARCH
-  exec $ICSPATH/bin/$ARCH/ics.byte $@
+if [ "$1" = "-byte" ]; then
+    shift
+    cd $ICSPATH/obj/$ARCH
+    exec $ICSPATH/bin/$ARCH/ics.byte $@
 else
-  exec $ICSPATH/bin/$ARCH/ics $@
+    exec $ICSPATH/bin/$ARCH/ics $@
 fi
