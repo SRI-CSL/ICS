@@ -1,0 +1,298 @@
+(*
+ * The contents of this file are subject to the ICS(TM) Community Research
+ * License Version 2.1 (the ``License''); you may not use this file except in
+ * compliance with the License. You may obtain a copy of the License at
+ * http://www.icansolve.com/license.html.  Software distributed under the
+ * License is distributed on an ``AS IS'' basis, WITHOUT WARRANTY OF ANY
+ * KIND, either express or implied. See the License for the specific language
+ * governing rights and limitations under the License.  The Licensed Software
+ * is Copyright (c) SRI International 2003, 2004.  All rights reserved.
+ * ``ICS'' is a trademark of SRI International, a California nonprofit public
+ * benefit corporation.
+ *)
+
+
+module type VAR = Type.ORDERED
+
+module type TRM = sig
+  type t
+  val equal : t -> t -> bool
+  val compare : t -> t -> int
+  val hash : t -> int
+  val pp : Format.formatter -> t -> unit
+  type var
+  val of_var : var -> t
+  val iter : (var -> unit) -> t -> unit
+  val map : (var -> t) -> t -> t
+end
+
+module type S = sig
+  type var
+  type trm
+  type t
+  val pp : Format.formatter -> t -> unit
+  val equal : t -> t -> bool   
+  val apply : t -> trm -> trm 
+  val lookup : t -> var -> trm
+  val inv : t -> trm -> var
+  val dom : var -> t -> bool
+  val empty : unit -> t
+  val is_empty : t -> bool
+  val singleton : var -> trm -> t
+  val copy : t -> t
+  val fuse : t -> var -> trm -> unit
+  val add : t -> var -> trm -> unit
+  val update : t -> var -> trm -> unit
+  val remove : t -> var -> unit
+  val compose : t -> t -> unit
+  val disjoint : t -> t -> bool
+  val fold : (var -> trm -> 'a -> 'a) -> t -> 'a -> 'a
+  val iter : (var -> trm -> unit) -> t -> unit
+  val exists : (var -> trm -> bool) -> t -> bool
+  val for_all : (var -> trm -> bool) -> t -> bool
+  val choose : (var -> trm -> bool) -> t -> var * trm
+end
+
+
+module Make(Var: VAR)(Trm: TRM with type var = Var.t) = struct
+  type var = Trm.var
+  type trm = Trm.t
+
+  exception Violation
+  let for_all p t =
+    let test x = if not(p x) then raise Violation in
+      try Trm.iter test t; true with Violation -> false
+	
+  exception Witness
+  let exists p t =
+    let test x = if p x then raise Witness in
+      try Trm.iter test t; false with Witness -> true
+	
+  let occurs x =
+    let eqx = Var.equal x in
+      exists eqx
+	
+  let ground = 
+    let all _ = true in
+      fun t -> not (exists all t)
+	
+  let replace x s t =
+    if Trm.equal (Trm.of_var x) s then t else
+      let repl z = if Var.equal x z then s else Trm.of_var z in
+	Trm.map repl t
+	
+  module Map = Maps.Make(Var)(Trm)
+
+  type t = Map.t
+
+  let of_map rho = rho
+
+  let well_formed rho = 
+    Map.for_all 
+      (fun x _ -> 
+	 (Map.for_all 
+	    (fun _ t -> not(occurs x t)) rho))
+      rho
+
+  let dom = Map.mem
+  let cod x = Map.exists (fun _ t -> occurs x t)
+
+  let apply rho =
+    let lookup x = 
+      try Map.find x rho with Not_found -> Trm.of_var x
+    in
+      Trm.map lookup
+
+  let lookup rho x = 
+    Map.find x rho
+
+  let inv rho t = 
+    let invt _ = Trm.equal t in
+      fst(Map.choose invt rho)
+
+  let empty = Map.empty 
+
+  let is_empty = Map.is_empty
+
+  let disjoint rho tau = 
+    Map.for_all 
+      (fun x _ -> 
+	 Map.for_all
+	   (fun y _ -> not(Var.equal x y)) tau)
+      rho
+
+  let ground = 
+    Map.for_all (fun _ t -> ground t) 
+
+  let singleton x t = 
+    let rho = Map.empty () in
+      Map.set x t rho;
+      assert(well_formed rho);
+      rho
+
+  let copy = Map.copy
+	       
+  let fuse =
+    let domChange = Stacks.create () 
+    and codChange = Stacks.create () in
+      fun rho y b ->
+	assert(well_formed rho);
+	assert(not(occurs y b));
+	assert(for_all (fun x -> not(dom x rho)) b);  
+	if not(Trm.equal (Trm.of_var y) b) then
+	  begin
+	    Stacks.clear domChange;
+	    Stacks.clear codChange;
+	    Map.iter
+	      (fun x a ->
+		 if occurs y a then
+		   let a' = replace y b a in
+		     assert(not(occurs y a'));
+		     Stacks.push x domChange;
+		     Stacks.push a' codChange)
+	      rho;
+	    while not(Stacks.is_empty domChange) do
+	      let x = Stacks.pop domChange in
+	      let b = Stacks.pop codChange in
+		Map.set x b rho
+	    done;
+	    assert(not(cod y rho));
+	    assert(well_formed rho)
+	  end
+	
+  let add rho y b =
+    assert(well_formed rho);
+    assert(not(occurs y b));
+    assert(for_all (fun x -> not(dom x rho)) b);
+    assert(not(dom y rho));
+    if not(Trm.equal (Trm.of_var y) b) then
+      begin
+	fuse rho y b;
+	Map.set y b rho;
+	assert(dom y rho);
+	assert(not(cod y rho));
+	assert(well_formed rho)
+      end 
+
+  let compose rho tau = 
+    assert(disjoint rho tau);
+    Map.iter (add rho) tau
+
+  let update rho x t = 
+    assert(not(occurs x t));
+    Map.set x t rho
+
+  let remove rho y = 
+    Map.remove y rho
+    
+  let pp = Map.pp
+
+  let fold = Map.fold
+  let iter = Map.iter
+  let exists = Map.exists
+  let for_all = Map.for_all
+  let choose = Map.choose
+  let equal = Map.equal
+end
+
+(** For debugging only. *)
+module Test = struct
+  module Var = struct
+    type t = int
+    let equal = (=)
+    let compare = Pervasives.compare
+    let hash x = x
+    let pp fmt = Format.fprintf fmt "%d"
+    let max = 8
+    let random() = Random.int max
+  end 
+  module Term = struct
+    type var = Var.t
+    type t = 
+      | Var of var
+      | App of string * t list 
+    let equal = (=)
+    let rec pp fmt = function
+      | Var(i) -> Format.fprintf fmt "x[%d]" i
+      | App(f, al) -> 
+	  Format.fprintf fmt "(%s" f;
+	  List.iter (pp fmt) al;
+	Format.fprintf fmt ")"
+    let hash = Hashtbl.hash
+    let compare = Pervasives.compare
+    let of_var x = Var(x)
+    let rec iter f = function
+      | Var(x) -> f x
+      | App(_, al) -> List.iter (iter f) al
+    let rec map f = function
+      | Var(x) -> f x
+      | App(g, al) -> 
+	  let bl = List.map (map f) al in
+	    App(g, bl)
+    let maxdepth = 7
+    let maxargs = 3
+    let maxsize = ref 15
+    let rec random() = 
+      let size = ref 0 in
+      let funsym() = 
+	Format.sprintf "f[%d]" (Random.int 5)
+      in
+      let args() = 
+	let rec loop acc = function
+	  | 0 -> acc
+	  | i -> 
+	      if !size > !maxsize then acc else
+		begin
+		  size := !size + 1;
+		  loop (random() :: acc) (i - 1)
+		end
+	in
+	  loop [] (Random.int maxargs) 
+      in
+	if Random.int 2 mod 2 = 0 then 
+	  of_var(Var.random())
+	else
+	  let f = funsym() and al = args() in
+	    App(f, al)
+  end 
+
+  module Subst = Make(Var)(Term)
+
+  module Heap = struct
+    let max = 1000
+    let heap = Array.create 1000 (Subst.empty())
+    let ptr = ref 0
+    let alloc() = 
+      if !ptr < max then
+	let i = !ptr in
+	  incr ptr
+    let random () = Random.int !ptr
+    let get i = Array.get heap i
+  end
+
+  let empty () =
+    Heap.alloc()
+
+  let add () = 
+    let i = Heap.random() 
+    and x = Var.random()
+    and t = Term.random() in
+      Subst.add (Heap.get i) x t
+
+  let compose () = 
+    let i = Heap.random() 
+    and j = Heap.random() in
+      Subst.compose (Heap.get i) (Heap.get j)
+
+  let maxruns = ref 10000
+
+  let run () = 
+    for i = 0 to !maxruns do
+      match Random.int 3 with
+	| 0 -> empty()
+	| 1 -> add()
+	| 2 -> compose()
+	| _ -> ()
+    done
+end
+
