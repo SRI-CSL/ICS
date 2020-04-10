@@ -166,7 +166,6 @@ module Tuple(Var: VAR) = struct
   let equalTuple a b = 
     arrayForAll2 (==) a.args b.args
 
-  exception Witness
   let rec diseq s t = 
       match s, t with
 	| Tuple a, Tuple b when Array.length a.args <>  Array.length b.args -> true
@@ -411,7 +410,6 @@ module Tuple(Var: VAR) = struct
     in
       iterf
 
-  exception Witness
   let exists p t = 
     let test x = if p x then raise Witness in
       try iter test t; false with Witness -> true
