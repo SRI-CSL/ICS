@@ -679,7 +679,7 @@ module Make (Var : VAR) = struct
       type t = bool
 
       let equal = ( = )
-      let random () = Random.int max_int mod 2 == 0
+      let random () = Random.bool ()
 
       let pp fmt = function
         | true -> Format.fprintf fmt "true"
