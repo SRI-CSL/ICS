@@ -22,6 +22,7 @@
  * SOFTWARE.
  *)
 
+open Ics
 
 module Logic = struct
   type t = 
