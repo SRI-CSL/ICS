@@ -39,7 +39,7 @@ module type S = sig
   val dim : t -> int
   val get : t -> int -> elt
   val sub : t -> int -> int -> t
-  val postfix : t -> int -> t
+  val postfix : int -> t -> t
   val const : int -> elt -> t
   val add : t -> t -> t
   val map : (elt -> elt) -> t -> t
