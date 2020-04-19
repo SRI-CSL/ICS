@@ -139,7 +139,6 @@ and eval_cmd inch =
       Format.fprintf Format.std_formatter ":parse_error"
   | End_of_file -> exit 0
   | Sys.Break -> exit 1
-  | Failure "drop" -> raise (Failure "drop")
 
 let rec batch name =
   Format.printf "\nBatch Input: %s@?" name ;
