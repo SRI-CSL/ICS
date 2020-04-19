@@ -193,7 +193,7 @@ module Tuple (Var : VAR) = struct
     equal a.arg t
     || match a.arg with Proj b -> diseq_proj b t | _ -> false
 
-  let rec compare s t =
+  let compare s t =
     if s == t then 0
     else
       match (s, t) with
@@ -268,7 +268,7 @@ module Tuple (Var : VAR) = struct
     type tuple = t
     type t = tuple
 
-    let rec equal s t =
+    let equal s t =
       hash s = hash t
       &&
       match (s, t) with
@@ -384,7 +384,7 @@ module Tuple (Var : VAR) = struct
     let module Cache = Weak.Make (struct
       type t = term
 
-      let rec equal s t =
+      let equal s t =
         assert (is_proj s) ;
         assert (is_proj t) ;
         match (s, t) with

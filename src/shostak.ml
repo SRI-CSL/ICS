@@ -358,7 +358,7 @@ struct
     Term.Subst.iter install_fresh rho ;
     compose rho
 
-  let rec propagate x y =
+  let propagate x y =
     assert (not (V.canonical x)) ;
     assert (V.canonical y) ;
     assert (V.equal x y) ;

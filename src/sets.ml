@@ -601,7 +601,7 @@ module Splay (Ord : OrderedType) = struct
   let b1 = ref !b
   let b2 = ref !b
 
-  let rec add k s =
+  let add k s =
     assert (well_formed s) ;
     assert (
       b := to_balanced s ;

@@ -442,7 +442,7 @@ module Make (Var : VAR) = struct
           b )
 
   (** The positive cofactor of [b] wrt. variable [p] is [b\[p:=True\]]. *)
-  let rec cofactor_pos b p =
+  let cofactor_pos b p =
     assert (ordered b) ;
     let rec cofactor b =
       assert (ordered b) ;
@@ -466,7 +466,7 @@ module Make (Var : VAR) = struct
     b'
 
   (** The negative cofactor of [b] wrt. variable [p] is [b\[p:=False\]]. *)
-  let rec cofactor_neg b p =
+  let cofactor_neg b p =
     assert (ordered b) ;
     let rec cofactor b =
       assert (ordered b) ;

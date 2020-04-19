@@ -53,7 +53,7 @@ module Flat (Var : VAR) = struct
   let lookup a i = Lookup (a, i)
 
   let map f =
-    let rec mapf t =
+    let mapf t =
       match t with
       | Update (a, i, x) ->
           let a' = f a and i' = f i and x' = f x in

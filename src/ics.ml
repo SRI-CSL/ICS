@@ -533,7 +533,7 @@ module Formula = struct
   let pretty = ref true
   let maxdepth = ref (-1)
 
-  let rec pp fmt = function
+  let pp fmt = function
     | Equal (s, t) ->
         Term.pp fmt s ;
         Format.fprintf fmt " = " ;
@@ -2168,7 +2168,7 @@ let uninterp p t =
     else Formula.mk_apply p t
   with Not_found -> Formula.mk_apply p t
 
-let rec poslit p t =
+let poslit p t =
   let t = can t in
   match p with
   | Predsym.Arith Predsym.Arith.Nonneg -> nonneg t

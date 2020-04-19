@@ -113,7 +113,7 @@ module Particular (Q : RAT) = struct
       If equation (2) has no integral solution, then neither has (1).
       Otherwise, if [x,x2,...,xn] is an integral solution of (2), then
       [d*x, e*x,x2,...,xn] gives an integral solution of (1). *)
-  let rec solve cl b =
+  let solve cl b =
     let rec loop = function
       | [] -> assert false
       | [c0] -> (c0, [b / c0])

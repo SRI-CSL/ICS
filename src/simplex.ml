@@ -1246,7 +1246,7 @@ struct
 
   exception Unbounded
 
-  let rec bland t p =
+  let bland t p =
     assert (restricted p) ;
     let pos_bounded x c = C.compare c C.zero > 0 && bounded t x in
     try

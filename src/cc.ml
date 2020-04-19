@@ -219,7 +219,7 @@ struct
       Config.Dep.set y (Varset.add u (dep y)) ;
       u
 
-  let rec close x y =
+  let close x y =
     assert (not (V.canonical x)) ;
     assert (V.canonical y) ;
     assert (V.equal x y) ;
