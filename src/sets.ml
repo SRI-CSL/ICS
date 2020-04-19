@@ -58,7 +58,7 @@ module type S = sig
   val equal : t -> t -> bool
 end
 
-module Balanced (Ord : OrderedType) = struct
+module Balanced (Ord : OrderedType) : S with type elt = Ord.t = struct
   type elt = Ord.t
 
   module S = Set.Make (Ord)

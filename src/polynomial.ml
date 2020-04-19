@@ -222,8 +222,6 @@ module Make (C : COEFF) (X : INDETERMINATE) = struct
     Map.fold fm p.monomials (fc p.constant)
 
   module Interp = struct
-    type t = X.t -> C.t
-
     let apply rho x =
       try rho x
       with _ ->

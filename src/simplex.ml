@@ -306,9 +306,6 @@ struct
     let compare = Pervasives.compare
     let hash = P.hash
     let pp = P.pp
-
-    type var = Var.t
-
     let of_var = P.indet
 
     let iter f =
@@ -396,9 +393,6 @@ struct
       variable and [p] is a polynomial with the additional restriction that
       [p] is not an unrestricted variable. *)
   module R = struct
-    type var = Var.t
-    type poly = P.t
-
     module Deps = Powermaps.Make (Var)
     module Subst0 = Maps.Make (Var) (C)
     module Constant = Subst0
@@ -769,9 +763,6 @@ struct
   end
 
   module T = struct
-    type var = Var.t
-    type poly = P.t
-
     module Deps = Powermaps.Make (Var)
 
     type t = {subst: Subst.t; dep: Dep.t}

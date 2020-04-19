@@ -38,8 +38,6 @@ module type RAT = sig
 end
 
 module Particular (Q : RAT) = struct
-  type q = Q.t
-
   open Q
 
   let ( - ) a b = a + neg b
@@ -155,9 +153,6 @@ end
     the vector space of solutions [xl] of the equation [al * xl = 0] would
     be appropriate. *)
 module Solve (Q : RAT) (P : POLYNOMIAL with type q = Q.t) = struct
-  type q = Q.t
-  type poly = P.t
-
   open Q
   module Particular = Particular (Q)
 
