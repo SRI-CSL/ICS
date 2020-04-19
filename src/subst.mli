@@ -168,3 +168,11 @@ end
     and codomain [Trm.t]. *)
 module Make (Var : VAR) (Trm : TRM with type var = Var.t) :
   S with type var = Var.t and type trm = Trm.t
+
+(**/**)
+
+(** Following for debugging only. *)
+module Test : sig
+  val run : unit -> unit
+  (** Run a random simulation. *)
+end
