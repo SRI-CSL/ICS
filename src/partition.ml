@@ -73,7 +73,6 @@ module Make (Var : VAR) = struct
 
   module Varmap = Maps.Make (Var) (Var)
   module Varset = Sets.Make (Var)
-  module Vars = Setunion.Make (Var)
   module Parent = Varmap
   module Diseqs = Maps.Make (Var) (Varset)
   module Rank = Maps.Make (Var) (Int)

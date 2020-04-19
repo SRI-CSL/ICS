@@ -495,15 +495,6 @@ module Make (Var : VAR) = struct
       Format.eprintf "\nWarning(%s): %s@?" (to_string b)
         (Printexc.to_string exc)
 
-  module Fml = struct
-    type t = bdd
-
-    let pp = pp
-    let hash = hash
-    let compare = compare
-    let equal = equal
-  end
-
   (** Build a BDD using Shannon expansion:
       [ite(p,pos,neg) = p & cofactor_pos(pos,p) | ~p & cofactor_neg(neg,p)]. *)
   module Build = struct
@@ -903,17 +894,6 @@ module Test = struct
     let pp fmt i = Format.fprintf fmt "x[%d]" i
     let compare = Pervasives.compare
     let random () = Random.int !maxvar
-  end
-
-  module Atom = struct
-    type termvar = int
-    type propvar = int
-    type t = int
-
-    let mk_equal x y = 0
-    let mk_diseq x y = 1
-    let mk_posvar p = 2
-    let mk_negvar p = 3
   end
 
   module Fml = Make (Var)

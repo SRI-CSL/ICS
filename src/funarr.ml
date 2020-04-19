@@ -158,7 +158,6 @@ struct
 
   module Find = Maps.Make (Var) (Flat)
   module Dep = Powermaps.Make (Var)
-  module Deps = Dep.Values
 
   type t = {find: Find.t; dep: Dep.t}
 

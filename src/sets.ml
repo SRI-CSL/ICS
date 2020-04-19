@@ -127,6 +127,11 @@ module Balanced (Ord : OrderedType) = struct
   let well_formed _ = true
 end
 
+(* silence unused warning *)
+let () =
+  let open Balanced (Int) in
+  ()
+
 module Splay (Ord : OrderedType) = struct
   type elt = Ord.t
 

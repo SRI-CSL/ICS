@@ -210,9 +210,6 @@ end)
 (** {i Set of term variables} *)
 module Vars = Sets.Make (Var)
 
-(** {i Pairs of term variables.} *)
-module Var2 = Type.Product (Var) (Var)
-
 (** {i Unintepreted function symbols.} *)
 module Funsym = Name
 
