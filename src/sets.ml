@@ -760,7 +760,7 @@ module Test = struct
   module Ints = Make (struct
     type t = int
 
-    let compare = Pervasives.compare
+    let compare = Stdlib.compare
     let pp fmt i = Format.fprintf fmt "%d" i
   end)
 

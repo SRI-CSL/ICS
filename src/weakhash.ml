@@ -70,7 +70,7 @@ module Make (H : HASH) : S with type key = H.t = struct
   let create m =
     let m = max 31 (min m Sys.max_array_length) in
     { keys= Weak.create m
-    ; vals= Array.create m bot
+    ; vals= Array.make m bot
     ; entries= 0
     ; deleted= D.empty }
 
@@ -252,7 +252,7 @@ module Make (H : HASH) : S with type key = H.t = struct
     if m' <= m then failwith "Weakhash.resize : out of memory."
     else (
       t.keys <- Weak.create m' ;
-      t.vals <- Array.create m' bot ;
+      t.vals <- Array.make m' bot ;
       t.deleted <- D.empty ;
       let body j =
         match Weak.get keys j with

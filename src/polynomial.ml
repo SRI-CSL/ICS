@@ -204,7 +204,7 @@ module Make (C : COEFF) (X : INDETERMINATE) = struct
     else if
       C.equal p1.constant p2.constant && Map.equal p1.monomials p2.monomials
     then 0
-    else Pervasives.compare p1 p2
+    else Stdlib.compare p1 p2
 
   let diseq p1 p2 =
     assert (well_formed p1) ;
@@ -776,7 +776,7 @@ module Test = struct
     type t = int
 
     let equal = ( == )
-    let compare = Pervasives.compare
+    let compare = Stdlib.compare
     let hash i = i
     let pp fmt i = Format.fprintf fmt "x[%d]" i
     let fresh () = Random.int 34

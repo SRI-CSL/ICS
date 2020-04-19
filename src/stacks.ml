@@ -64,7 +64,7 @@ let rec push x s =
 and resize s =
   assert (well_formed s) ;
   let size' = 2 * s.size in
-  let arr' = Array.create size' (Obj.magic 0) in
+  let arr' = Array.make size' (Obj.magic 0) in
   assert (s.top < size') ;
   for i = 0 to s.top do
     arr'.(i) <- s.arr.(i)

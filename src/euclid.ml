@@ -60,12 +60,12 @@ module Particular (Q : RAT) = struct
       Now it is obvious that [a * x0 + b * y0 = (a, b)]. *)
   let euclid a0 b0 =
     let rec loop k a b c d e f =
-      if eq zero a & not (eq zero b) then (b, d, f)
-      else if eq zero b & not (eq zero a) then (a, c, e)
-      else if k mod 2 = 0 & not (eq zero b) then
+      if eq zero a && not (eq zero b) then (b, d, f)
+      else if eq zero b && not (eq zero a) then (a, c, e)
+      else if k mod 2 = 0 && not (eq zero b) then
         let u = floor (a / b) in
         loop (succ k) (a - (u * b)) b (c - (u * d)) d (e - (u * f)) f
-      else if k mod 2 = 1 & not (eq zero a) then
+      else if k mod 2 = 1 && not (eq zero a) then
         let v = floor (b / a) in
         loop (succ k) a (b - (v * a)) c (d - (v * c)) e (f - (v * e))
       else invalid_arg "Euclid: unreachable"

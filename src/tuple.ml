@@ -202,15 +202,13 @@ module Tuple (Var : VAR) = struct
       | (Tuple _ | Proj _), Var _ -> 1
       | _ ->
           let hs = hash s and ht = hash t in
-          if hs < ht then -1
-          else if hs > ht then 1
-          else Pervasives.compare s t
+          if hs < ht then -1 else if hs > ht then 1 else Stdlib.compare s t
 
   let compare_proj p q =
-    let c = Pervasives.compare p.index q.index in
+    let c = Stdlib.compare p.index q.index in
     if c <> 0 then c
     else
-      let d = Pervasives.compare p.width q.width in
+      let d = Stdlib.compare p.width q.width in
       if d <> 0 then d else compare p.arg q.arg
 
   let rec pp fmt t =
@@ -260,7 +258,7 @@ module Tuple (Var : VAR) = struct
     fun n ->
       try Hashtbl.find table n
       with Not_found ->
-        let a = {args= Array.create n arb; hash= -1} in
+        let a = {args= Array.make n arb; hash= -1} in
         Hashtbl.add table n a ;
         a
 

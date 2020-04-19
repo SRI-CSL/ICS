@@ -420,7 +420,7 @@ module Predsym = struct
       | Diseq0 -> 911
       | Int -> 1357
 
-    let compare = Pervasives.compare
+    let compare = Stdlib.compare
 
     let sub p q =
       match (p, q) with
@@ -503,7 +503,7 @@ module Predsym = struct
     equal p q
     || match (p, q) with Arith p, Arith q -> Arith.sub p q | _ -> false
 
-  let compare = Pervasives.compare
+  let compare = Stdlib.compare
 
   let disjoint p q =
     match (p, q) with
@@ -581,7 +581,7 @@ module Formula = struct
     if hp < hq then -1
     else if hp > hq then 1
     else if equal p q then 0
-    else Pervasives.compare p q
+    else Stdlib.compare p q
 
   let mk_equal =
     let module Cache = Weakhash.Make (Term2) in

@@ -265,7 +265,7 @@ module Make (Var : VAR) = struct
     if h1 > h2 then 1
     else if h1 < h2 then -1
     else if b1 == b2 then 0
-    else Pervasives.compare b1 b2
+    else Stdlib.compare b1 b2
 
   let infix = ref false
 
@@ -384,7 +384,7 @@ module Make (Var : VAR) = struct
       hash_node n
 
     let pp = pp
-    let compare = Pervasives.compare
+    let compare = Stdlib.compare
   end
 
   let mk_posvar =
@@ -892,7 +892,7 @@ module Test = struct
     let equal = ( = )
     let hash i = i
     let pp fmt i = Format.fprintf fmt "x[%d]" i
-    let compare = Pervasives.compare
+    let compare = Stdlib.compare
     let random () = Random.int !maxvar
   end
 

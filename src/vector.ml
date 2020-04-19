@@ -64,7 +64,7 @@ module Make (E : ELT) = struct
 
   let const n e =
     assert (0 <= n && n < Sys.max_array_length) ;
-    Array.create n e
+    Array.make n e
 
   let pp fmt a =
     let n = dim a in

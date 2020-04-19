@@ -303,7 +303,7 @@ struct
     type t = P.t
 
     let equal = P.equal
-    let compare = Pervasives.compare
+    let compare = Stdlib.compare
     let hash = P.hash
     let pp = P.pp
     let of_var = P.indet

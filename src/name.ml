@@ -75,7 +75,7 @@ let fresh =
 
 let to_string n = n.name
 let equal = ( == )
-let compare n m = if n == m then 0 else Pervasives.compare n m
+let compare n m = if n == m then 0 else Stdlib.compare n m
 
 let fast_compare n m =
   if n == m then 0 else if hash n > hash m then 1 else -1

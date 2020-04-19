@@ -206,7 +206,7 @@ module Test = struct
     type t = int
 
     let equal = ( = )
-    let compare = Pervasives.compare
+    let compare = Stdlib.compare
     let hash x = x
     let pp fmt = Format.fprintf fmt "%d"
     let max = 8
@@ -227,7 +227,7 @@ module Test = struct
           Format.fprintf fmt ")"
 
     let hash = Hashtbl.hash
-    let compare = Pervasives.compare
+    let compare = Stdlib.compare
     let of_var x = Var x
 
     let rec iter f = function
@@ -268,7 +268,7 @@ module Test = struct
 
   module Heap = struct
     let max = 1000
-    let heap = Array.create 1000 (Subst.empty ())
+    let heap = Array.make 1000 (Subst.empty ())
     let ptr = ref 0
 
     let alloc () =

@@ -143,7 +143,7 @@ and eval_cmd inch =
 let rec batch name =
   Format.printf "\nBatch Input: %s@?" name ;
   try
-    let inch = Pervasives.open_in name in
+    let inch = Stdlib.open_in name in
     let status, time = process_batch inch in
     Format.printf "\n Status: @?" ;
     if !timing_flag then
@@ -164,7 +164,7 @@ and process_batch inch =
 let rec smt name =
   Format.eprintf "\nSMT Batch Input: %s@?" name ;
   try
-    let inch = Pervasives.open_in name in
+    let inch = Stdlib.open_in name in
     let status, time = smt_process inch in
     Format.printf "\nStatus: " ;
     SmtBench.Ast.pp_status Format.std_formatter status ;
