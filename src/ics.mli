@@ -738,6 +738,7 @@ val proj : int -> int -> Term.t -> Term.t
 
 val left : Term.t -> Term.t
   (** The {i left projection} [left t] is synonymous with [proj 0 2 t]. *)
+
 val right : Term.t -> Term.t
   (** The {i right projection} [right t] is synonymous with [proj 1 2 t]. *)
 

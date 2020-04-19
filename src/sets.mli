@@ -166,12 +166,16 @@ module Make(Ord : OrderedType) : (S with type elt = Ord.t)
 module Test : sig
   val numofprobes : int ref
     (** Number of probes in a {!Sets.Test.run} simulation. *)
+
   val numofsets : int ref
     (** Maximum number of different sets in a {!Sets.Test.run} simulation. *)
+
   val maxelt : int ref
     (** Maximum element in a set. *)
+
   val init : unit -> unit 
     (** Seeding random generators for {!Sets.Test.run}. *)
+
   val run : unit -> unit 
     (** Run a random simulation. *)
 end

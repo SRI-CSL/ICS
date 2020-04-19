@@ -46,13 +46,18 @@
 module type COEFF = sig
   type t
     (** Representation type for coefficients. *)
+
   val equal : t -> t -> bool
     (** Equivalence relation on coefficients. *)
+
   val compare : t -> t -> int
+
   val hash : t -> int
     (** Nonnegative hash value, such that [equal p q] implies [hash p = hash q]. *)
+
   val pp : Format.formatter -> t -> unit
     (** Pretty-printing of coefficients. *)
+
   val zero : t
   val one : t
   val add : t -> t -> t
@@ -70,15 +75,20 @@ end
 module type INDETERMINATE = sig
   type t
     (** Representation of indeterminates. *)
+
   val equal : t -> t -> bool  
     (** Equivalence relation on coefficients. *)
+
   val compare : t -> t -> int
     (** [compare x y] is [0] whenever [equal x y] holds. 
       Furthermore, [compare x y < 0] iff [compare y x > 0]. *)
+
   val hash : t -> int 
     (** Nonnegative hash value, such that [equal p q] implies [hash p = hash q]. *)
+
   val pp : Format.formatter -> t -> unit
     (** Pretty-printing of indeterminates. *)
+
   val fresh : unit -> t
 end
 

@@ -93,6 +93,7 @@ end
 module type APPLY = sig
   type funsym
     (** Representation of uninterpreted function symbols. *)
+
   type var
     (** Representation of term variables. *)
 

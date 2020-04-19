@@ -93,6 +93,7 @@ end
 module type PARTITION = sig
   type var
     (** Representation of variables. *)
+
   val find : var -> var
     (** [find x] returns the {i canonical representative} of
       the equivalence class modulo [E] containing [x]. *)

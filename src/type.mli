@@ -57,6 +57,7 @@ module type ORDERED = sig
       [compare e1 e2] is zero iff [equal e1 e2] and [compare e1 e2]
       is negative iff [compare e2 e1] is positive. A total order [<<]
       might be defined as [e1 << e2] iff [compare  e1 e2 <= 0]. *)
+
   val hash : t -> int
     (** Nonnegative hash function. *)
 
@@ -75,6 +76,7 @@ module type PRODUCT = sig
 
   type t
     (** Representation type of pairs. *)
+
   val make : elt1 -> elt2 -> t
     (** [make e1 e2] constructs a pair [(e1, e2)]. *)
 

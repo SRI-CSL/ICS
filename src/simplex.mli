@@ -121,8 +121,10 @@ module type INFSYS = sig
     module Slacks : (Sets.S with type elt = var)
     type t
       (** Representation of a set of slack variables. *)
+
     val current : unit -> Slacks.t
       (** Return the current set of slack variables. *)
+
     val mem : var -> bool
       (** [mem x] holds iff [x] is a member of the current set of 
 	slack variables. *)
@@ -176,6 +178,7 @@ module type INFSYS = sig
 
     val dom : var -> bool
       (** [dom x] holds iff there is an equality [x = t] in [R]. *)
+
     val cod : var -> bool
       (** [cod y] holds iff there is an equality [x = p] with [y] 
 	in [vars(p)] in [R]. *)

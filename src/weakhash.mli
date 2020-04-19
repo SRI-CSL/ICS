@@ -60,6 +60,7 @@ module type S =
   sig
     type key
       (** Representation of keys. *)
+
     type 'a t
       (** Representation of a hash table as a finite function with 
 	bindings [k |-> v] with [k] a [key] and value [v] of type ['a]. *)

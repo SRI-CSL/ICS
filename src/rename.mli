@@ -46,6 +46,7 @@ module type PROPVAR = sig
 
   val hash : t -> int
     (** Nonnegative hash value of a variable. *)
+
   val pp : Format.formatter -> t -> unit
     (** Pretty-printing a variable. *)
 

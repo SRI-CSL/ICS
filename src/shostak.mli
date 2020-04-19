@@ -201,8 +201,10 @@ end
 module type INFSYS = sig
   type var
     (** Representation of variables. *)
+
   type trm
     (** Representation of terms. *)
+
   type t   
     (** Representation of configurations which consist of
       finite sets of solved equality sets (see [config] below). *)
