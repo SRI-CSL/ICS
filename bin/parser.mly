@@ -109,7 +109,6 @@
       | Plus of t
 
     let rec to_string = function
-      | None -> "_"
       | Nt(nt) -> Format.sprintf "<%s>" (nt_to_string nt)
       | Char(c) -> Format.sprintf "'%c'" c
       | String(s) -> Format.sprintf "\"%s\"" s
@@ -131,6 +130,7 @@
 	    | t :: tl -> to_string t ^ " | " ^ loop tl
 	  in
 	    "(" ^ loop tl ^ ")"
+      | None -> "_"
 
     let digit = Range('0','9')
 
