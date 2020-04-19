@@ -283,7 +283,7 @@ module Test = struct
       ()
 
   let run () =
-    for i = 0 to !num_of_tests do
+    for _ = 0 to !num_of_tests do
       test ()
     done
 end

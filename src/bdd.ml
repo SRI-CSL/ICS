@@ -992,7 +992,7 @@ module Test = struct
       | 8 | 9 -> Ops.mk_disj ()
       | _ -> ()
     in
-    for i = 0 to !numofprobes do
+    for _ = 0 to !numofprobes do
       apply ()
     done ;
     Format.eprintf "bdd: self test ok.@?"

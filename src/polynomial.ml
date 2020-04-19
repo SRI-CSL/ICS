@@ -901,7 +901,7 @@ module Test = struct
       | 8 -> Ops.solve0 ()
       | _ -> Ops.addm ()
     in
-    for i = 0 to !numofprobes do
+    for _ = 0 to !numofprobes do
       apply ()
     done ;
     Format.eprintf "sets: self test ok.@?"

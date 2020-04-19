@@ -852,7 +852,7 @@ module Test = struct
       done
     in
     Ints.debug := true ;
-    for i = 0 to !numofprobes do
+    for _ = 0 to !numofprobes do
       apply () ;
       check ()
     done ;

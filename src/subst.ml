@@ -293,7 +293,7 @@ module Test = struct
   let maxruns = ref 10000
 
   let run () =
-    for i = 0 to !maxruns do
+    for _ = 0 to !maxruns do
       match Random.int 3 with
       | 0 -> empty ()
       | 1 -> add ()
