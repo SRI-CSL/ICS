@@ -862,7 +862,6 @@ module Test = struct
 
     let neg () =
       let p = Random.poly () in
-      let q = P.neg p in
       Heap.alloc (P.neg p)
 
     let sub () =

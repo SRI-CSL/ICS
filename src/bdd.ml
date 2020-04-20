@@ -276,9 +276,9 @@ module Make (Var : VAR) = struct
   let maxdepth = ref (-1)
 
   let rec pp (infix_curr, shared_curr, maxdepth_curr) fmt b =
-    let save_infix = !infix in
-    let save_shared = !shared in
-    let save_maxdepth = !maxdepth in
+    let[@warning "-26"] save_infix = !infix in
+    let[@warning "-26"] save_shared = !shared in
+    let[@warning "-26"] save_maxdepth = !maxdepth in
     infix := infix_curr ;
     shared := shared_curr ;
     maxdepth := maxdepth_curr ;
@@ -340,7 +340,6 @@ module Make (Var : VAR) = struct
     Format.flush_str_formatter ()
 
   let occurs x =
-    let eqx = Var.equal x in
     let rec occx b =
       if is_const b then false
       else Var.equal x b.guard || occx b.pos || occx b.neg

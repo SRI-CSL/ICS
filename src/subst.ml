@@ -273,7 +273,7 @@ module Test = struct
 
     let alloc () =
       if !ptr < max then
-        let i = !ptr in
+        let[@warning "-26"] i = !ptr in
         incr ptr
 
     let random () = Random.int !ptr

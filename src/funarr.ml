@@ -305,7 +305,6 @@ struct
     let alias x t =
       if !debug then (
         let stderr = Format.err_formatter in
-        let varpp = Var.pp Format.err_formatter in
         Format.eprintf "\nAlias(F): " ;
         Var.pp stderr x ;
         Format.eprintf " = " ;

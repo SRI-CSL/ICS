@@ -1298,12 +1298,13 @@ struct
     minimized_nonneg p || (restricted p && minimized_nonneg (min p))
 
   let is_diseq0_var p =
-    try
-      let x = P.d_indet p in
-      let z = R.inv_const C.zero in
-      (* V.Varset.mem x (V.deqs z) *)
-      false
-    with _ -> false
+    (* try
+     *   let x = P.d_indet p in
+     *   let z = R.inv_const C.zero in
+     *   (* V.Varset.mem x (V.deqs z) *)
+     *   false
+     * with _ -> *)
+    false
 
   let is_diseq0 p =
     let p = can p in

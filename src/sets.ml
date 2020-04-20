@@ -779,7 +779,7 @@ module Test = struct
     in
     let sets = Array.make !numofsets (Ints.empty ()) in
     let genelt () = Random.int !maxelt in
-    let genidx () = Random.int !max in
+    let[@warning "-26"] genidx () = Random.int !max in
     let lookup i = sets.(i) in
     let getset () =
       let i = Random.int !max in

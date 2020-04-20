@@ -181,7 +181,7 @@ module Make (Var : VAR) = struct
     with Not_found -> false
 
   let well_formed () =
-    let p = parent () and d = diseqs () in
+    let[@warning "-26"] p = parent () and d = diseqs () in
     let ordered () = true
     and canonized () =
       Diseqs.for_all (fun x ys -> canonical x && not (Varset.is_empty ys)) d
