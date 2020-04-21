@@ -204,11 +204,6 @@ module Test = struct
   let max_rat = ref 17
   let random_dim () = Random.int !max_num_of_variables + 1
 
-  let random_int () =
-    let n = Random.int !max_rat in
-    let sign = Random.int 2 = 0 in
-    if sign then Q.of_int n else Q.of_int (-n)
-
   let random_rat () =
     let n = Random.int !max_rat + 1 in
     let d = Random.int !max_rat + 1 in

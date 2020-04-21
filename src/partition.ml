@@ -217,7 +217,7 @@ module Make (Var : VAR) = struct
 
   (** Least common ancestor of [x] and [y] by stepwise descending along find
       structure. Assumes, [x] and [y] are congruent modulo [s].*)
-  let lca x y =
+  let[@warning "-32"] lca x y =
     assert (equal x y) ;
     let rec descend x y =
       assert (equal x y) ;
@@ -233,13 +233,15 @@ module Make (Var : VAR) = struct
   module Disequalities = Sets.Make (struct
     type t = var * var
 
-    let equal (x1, y1) (x2, y2) = Var.equal x1 x2 && Var.equal y1 y2
+    let[@warning "-32"] equal (x1, y1) (x2, y2) =
+      Var.equal x1 x2 && Var.equal y1 y2
 
     let compare (x1, y1) (x2, y2) =
       let c = Var.compare x1 x2 in
       if c <> 0 then c else Var.compare y1 y2
 
-    let hash (x, y) = (Var.hash x + Var.hash y) land 0x3FFFFFFF
+    let[@warning "-32"] hash (x, y) =
+      (Var.hash x + Var.hash y) land 0x3FFFFFFF
 
     let pp fmt (x, y) =
       Format.fprintf fmt "@[" ;

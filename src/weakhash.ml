@@ -99,14 +99,6 @@ module Make (H : HASH) : S with type key = H.t = struct
         eprintf " |-> " ;
         val_print v ;
         eprintf "@?" )
-
-    let rem k v =
-      if !debug <> 0 then (
-        eprintf "\nWeakhash.add: " ;
-        key_print k ;
-        eprintf " |-> " ;
-        val_print v ;
-        eprintf "@?" )
   end
 
   (** [with_protected f a] disables garbage collection of values while

@@ -39,7 +39,6 @@ module Q = struct
   let make x y = div_num (num_of_int x) (num_of_int y)
   let zero = of_int 0
   let one = of_int 1
-  let two = of_int 2
   let add = add_num
   let sub = sub_num
   let minus = minus_num
@@ -59,14 +58,12 @@ module Q = struct
   let is_nonneg x = ge x zero
   let is_nonpos x = le x zero
   let of_z = num_of_big_int
-  let to_z = big_int_of_num
   let ratio x = Ratio.cautious_normalize_ratio (ratio_of_num x)
   let denominator x = Ratio.denominator_ratio (ratio x)
   let numerator x = Ratio.numerator_ratio (ratio x)
   let is_integer = is_integer_num
   let hash = Hashtbl.hash
   let to_string = string_of_num
-  let of_string = num_of_string
   let pp fmt x = Format.fprintf fmt "%s" (to_string x)
   let max_random = ref 20
 
@@ -251,7 +248,7 @@ module Term = struct
     pp Format.str_formatter t ;
     Format.flush_str_formatter ()
 
-  let well_formed = function
+  let[@warning "-32"] well_formed = function
     | Var _ | Uninterp _ -> true
     | Arith p -> not (Polynomial.is_indet p)
     | Tuple t -> not (Tuple.is_var t)
@@ -384,7 +381,7 @@ module Term = struct
       false
     with Witness -> true
 
-  let contains_fresh = exists Var.is_fresh
+  let[@warning "-32"] contains_fresh = exists Var.is_fresh
 end
 
 module Term2 = Type.Product (Term) (Term)
@@ -476,7 +473,7 @@ module Predsym = struct
 
   let array = Array
 
-  let theory = function
+  let[@warning "-32"] theory = function
     | Uninterp _ -> U
     | Arith _ -> A
     | Tuple _ -> T
@@ -652,12 +649,9 @@ module Formula = struct
 
   let mk_prop =
     let module Prop = struct
-      type t = Bdd.t
+      include Bdd
 
       let pp = Bdd.pp (!pretty, !pretty, !maxdepth)
-      let compare = Bdd.compare
-      let equal = Bdd.equal
-      let hash = Bdd.hash
     end in
     let module Cache = Weakhash.Make (Prop) in
     let cache = Cache.create 7 in
@@ -670,7 +664,7 @@ module Formula = struct
         p
 
   let mk_true = mk_prop Bdd.mk_true
-  let mk_false = mk_prop Bdd.mk_false
+  let[@warning "-32"] mk_false = mk_prop Bdd.mk_false
 end
 
 module Formulas = Sets.Make (Formula)
@@ -757,24 +751,24 @@ module Footprint = struct
     if !footprint then Format.eprintf "implicant(%d)@?" n
 end
 
-module type INFSYS = sig
-  type t
-
-  val empty : t
-  val initialize : t -> unit
-  val current : unit -> t
-  val unchanged : unit -> bool
-  val find : theory -> Var.t -> Term.t
-  val inv : Term.t -> Var.t
-  val can : Term.t -> Var.t
-  val equal : Term.t -> Term.t -> bool
-  val diseq : Term.t -> Term.t -> bool
-  val alias : Term.t -> Var.t
-  val process : Formula.t -> unit
-  val prop_eq : Var.t -> unit
-  val prop_deq : Var.t -> Var.t -> unit
-  val normalize : unit -> unit
-end
+(* module type INFSYS = sig
+ *   type t
+ * 
+ *   val empty : t
+ *   val initialize : t -> unit
+ *   val current : unit -> t
+ *   val unchanged : unit -> bool
+ *   val find : theory -> Var.t -> Term.t
+ *   val inv : Term.t -> Var.t
+ *   val can : Term.t -> Var.t
+ *   val equal : Term.t -> Term.t -> bool
+ *   val diseq : Term.t -> Term.t -> bool
+ *   val alias : Term.t -> Var.t
+ *   val process : Formula.t -> unit
+ *   val prop_eq : Var.t -> unit
+ *   val prop_deq : Var.t -> Var.t -> unit
+ *   val normalize : unit -> unit
+ * end *)
 
 (** Names for inference system signatures. *)
 module type PARTITION = Partition.INFSYS with type var = Var.t
@@ -1666,7 +1660,6 @@ let term2poly = function
 let poly2term p =
   try Term.of_var (V.find (A.inv p)) with Not_found -> Term.of_poly p
 
-let zero () = A.alias Term.Polynomial.zero
 let do_normalize = ref true
 let is_sat () = R.is_empty () || P.is_valid ()
 let is_unsat () = match !curr_status with Unsat _ -> true | _ -> false
@@ -1823,10 +1816,6 @@ let inf t =
 let bigint k = poly2term (Term.Polynomial.constant (Q.of_z k))
 let constz k = poly2term (Term.Polynomial.constant (Q.of_int k))
 
-let zero =
-  let z = Term.Polynomial.constant (Q.of_int 0) in
-  fun () -> poly2term z
-
 let constq n d =
   let q = Q.make n d in
   poly2term (Term.Polynomial.constant q)
@@ -1842,7 +1831,6 @@ let mult c t =
     in
     poly2term p
 
-let multz n = mult (Q.of_int n)
 let multq = mult
 
 let addc c t =
@@ -1907,11 +1895,6 @@ let apply f t =
   with Not_found -> Term.of_apply (Term.Uninterp.make f n)
 
 let constant f = apply f (nil ())
-
-let term2array = function
-  | Term.Var n -> F.find n
-  | Term.Array a -> a
-  | _ -> raise Not_found
 
 let array2term a =
   try Term.of_var (V.find (F.inv a)) with Not_found -> Term.of_array a
@@ -2450,9 +2433,7 @@ let resolve () =
 
 let complete_tests = ref false
 
-let rec implied fml = valid fml || valid_complete fml
-
-and valid_complete fml =
+let valid_complete fml =
   assert (closed ()) ;
   let check p =
     try
@@ -2461,3 +2442,5 @@ and valid_complete fml =
     with Unsatisfiable -> true
   in
   apply_with (current ()) check fml
+
+let[@warning "-32"] implied fml = valid fml || valid_complete fml

@@ -123,8 +123,6 @@ module Balanced (Ord : OrderedType) : S with type elt = Ord.t = struct
     Format.fprintf fmt "}"
 
   let equal s1 s2 = S.equal s1.root s2.root
-  let debug = ref false
-  let well_formed _ = true
 end
 
 (* silence unused warning *)

@@ -227,7 +227,7 @@ module Make (C : COEFF) (X : INDETERMINATE) = struct
       with _ ->
         raise (Invalid_argument (Format.sprintf "Partial Interpretation"))
 
-    let random xs =
+    let[@warning "-32"] random xs =
       let module Finite = Maps.Make (X) (C) in
       let acc = Finite.empty () in
       let gen x =
@@ -326,7 +326,7 @@ module Make (C : COEFF) (X : INDETERMINATE) = struct
     assert (well_formed p) ;
     try Map.find x p.monomials with Not_found -> C.zero
 
-  let dom x p = not (C.equal C.zero (coeff x p))
+  let[@warning "-32"] dom x p = not (C.equal C.zero (coeff x p))
 
   exception Found
 
@@ -421,7 +421,7 @@ module Make (C : COEFF) (X : INDETERMINATE) = struct
     let x, _ = Map.choose is_true p.monomials in
     x
 
-  let monomial c x =
+  let[@warning "-32"] monomial c x =
     if C.equal C.zero c then zero
     else if C.equal C.one c then indet x
     else make C.zero (Map.singleton x c)
@@ -466,7 +466,7 @@ module Make (C : COEFF) (X : INDETERMINATE) = struct
       q
 
   let incr = addc C.one
-  let decr = addc (C.minus C.one)
+  let[@warning "-32"] decr = addc (C.minus C.one)
 
   let addm c x p =
     assert (well_formed p) ;
@@ -604,7 +604,7 @@ module Make (C : COEFF) (X : INDETERMINATE) = struct
       Map.remove x mp' ;
       make d' mp'
 
-  let subst p x q =
+  let[@warning "-32"] subst p x q =
     assert (well_formed p) ;
     assert (well_formed q) ;
     assert (not (mem x q)) ;
@@ -722,6 +722,8 @@ end
 
 (** Following for debugging only. *)
 module Test = struct
+  [@@@warning "-32"]
+
   module C = struct
     open Num
 

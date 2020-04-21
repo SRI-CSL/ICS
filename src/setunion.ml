@@ -56,8 +56,6 @@ module Make (Elt : ELT) = struct
   type t = Empty | Singleton of Elt.t | Add of Elt.t * t | Union of t * t
 
   let equal = ( = )
-  let compare = Stdlib.compare
-  let hash = Hashtbl.hash
 
   let rec mem x = function
     | Empty -> false

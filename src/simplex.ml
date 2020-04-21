@@ -299,23 +299,7 @@ struct
       true
   end
 
-  module Term = struct
-    type t = P.t
-
-    let equal = P.equal
-    let compare = Stdlib.compare
-    let hash = P.hash
-    let pp = P.pp
-    let of_var = P.indet
-
-    let iter f =
-      let f_c _ = () and f_m x _ = f x in
-      P.iter f_c f_m
-
-    let map = P.map
-  end
-
-  module Subst = Maps.Make (Var) (Term)
+  module Subst = Maps.Make (Var) (P)
   module Dep = Powermaps.Make (Var)
 
   module S = struct
@@ -342,9 +326,9 @@ struct
     S.add k ;
     k
 
-  let slacks = S.current
+  let[@warning "-32"] slacks = S.current
 
-  let extern p =
+  let[@warning "-32"] extern p =
     let extern_m x _ = not (is_slack x) in
     P.Map.for_all extern_m p.P.monomials
 
@@ -362,7 +346,10 @@ struct
 
   let maximized_at_zero p = C.equal (P.const p) C.zero && maximized p
   let maximized_neg p = C.compare (P.const p) C.zero < 0 && maximized p
-  let maximized_nonpos p = C.compare (P.const p) C.zero <= 0 && maximized p
+
+  let[@warning "-32"] maximized_nonpos p =
+    C.compare (P.const p) C.zero <= 0 && maximized p
+
   let minimized_nonneg p = C.compare (P.const p) C.zero >= 0 && minimized p
   let minimized_pos p = C.compare (P.const p) C.zero > 0 && minimized p
 

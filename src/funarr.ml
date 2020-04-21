@@ -180,7 +180,7 @@ struct
   let dom x = Config.Find.mem x
   let lookup = Config.Find.find
 
-  let well_formed () =
+  let[@warning "-32"] well_formed () =
     let dep_ok j u =
       dom u
       &&

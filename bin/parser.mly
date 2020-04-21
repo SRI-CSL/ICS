@@ -42,7 +42,6 @@
 	Hashtbl.add symtab i s;
 	i
     let find i = Hashtbl.find symtab i
-    let mem i = Hashtbl.mem symtab i
     let rec pp () =
       Format.fprintf fmt "@[";
       Hashtbl.iter pp_binding symtab;
@@ -542,7 +541,8 @@
 
   let short_description cmd = (List.assoc cmd descriptions).short
 
-  let description cmd = 
+
+  let[@warning "-32"] description cmd = 
     let descr = List.assoc cmd descriptions in
       Format.fprintf fmt "NAME\n   %s --- %s \n" cmd descr.short;
       Format.fprintf fmt "SYNOPSIS\n   %s %s\n" cmd (Ebnf.to_string descr.args);

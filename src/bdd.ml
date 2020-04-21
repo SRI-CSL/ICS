@@ -60,9 +60,6 @@ module type FML = sig
   val and_elim : t -> var list * var list * t
 end
 
-let ( ==> ) p q = if p then q else true
-let debug = ref false
-
 module Make (Var : VAR) = struct
   type var = Var.t
 
@@ -160,8 +157,6 @@ module Make (Var : VAR) = struct
 
   let ( >>= ) x y =
     if dynamic_order then Ge.holds x y else Var.compare x y >= 0
-
-  let memvar x = List.exists (Var.equal x)
 
   type t =
     {mutable guard: Var.t; mutable pos: t; mutable neg: t; mutable hash: int}
@@ -381,9 +376,6 @@ module Make (Var : VAR) = struct
     let hash n =
       assert (not (is_const n)) ;
       hash_node n
-
-    let pp = pp
-    let compare = Stdlib.compare
   end
 
   let mk_posvar =
@@ -733,9 +725,9 @@ module Make (Var : VAR) = struct
       valid2 msg "imp" (fun v1 v2 v -> (if v1 then v2 else true) = v)
 
     let xor msg = valid2 msg "xor" (fun _ _ _ -> true)
-    let equiv msg = valid1 msg "equiv" (fun v1 v -> v1 = v)
+    let[@warning "-32"] equiv msg = valid1 msg "equiv" (fun v1 v -> v1 = v)
 
-    let implies msg =
+    let[@warning "-32"] implies msg =
       valid1 msg "implies" (fun v1 v -> if v1 then v else true)
   end
 
@@ -902,7 +894,7 @@ module Test = struct
     let heap = Array.make !maxheap mk_false
     let max = ref 1
 
-    let reset = function
+    let[@warning "-32"] reset = function
       | [] ->
           max := 1 ;
           heap.(0) <- mk_false
@@ -929,13 +921,13 @@ module Test = struct
   end
 
   module Ops = struct
-    let mk_true () =
+    let[@warning "-32"] mk_true () =
       if not (Heap.full ()) then (
         Format.eprintf "\ntrue <-- ()@?" ;
         let i = Heap.alloc mk_true in
         Format.eprintf "\ntrue[%d] --> %s@?" i (to_string mk_true) )
 
-    let mk_false () =
+    let[@warning "-32"] mk_false () =
       if not (Heap.full ()) then (
         Format.eprintf "\nfalse <-- ()@?" ;
         let i = Heap.alloc mk_false in

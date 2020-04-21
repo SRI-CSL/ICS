@@ -73,7 +73,7 @@ end
 
 exception Witness
 
-let array_exists p a =
+let[@warning "-32"] array_exists p a =
   let test s = if p s then raise Witness in
   try
     Array.iter test a ;
@@ -559,8 +559,8 @@ module Tuple (Var : VAR) = struct
       module Proj = struct
         type t = proj
 
-        let equal = equal_proj
-        let hash = hash_proj
+        let[@warning "-32"] equal = equal_proj
+        let[@warning "-32"] hash = hash_proj
         let compare = compare_proj
         let pp = pp_proj
       end
@@ -589,8 +589,6 @@ module Tuple (Var : VAR) = struct
           assert (not (Subst.dom x)) ;
           Subst.add x (tuple fresh_args) ;
           Table.find p !current
-
-      let get () = !current
     end in
     let rec preprocess t =
       match t with

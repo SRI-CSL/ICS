@@ -49,7 +49,6 @@ module T = struct
   let equal = equal
   let compare = compare
   let hash = index
-  let pp = pp
 end
 
 module Map = Map.Make (T)

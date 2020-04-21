@@ -107,8 +107,6 @@ module Make (Var : VAR) (Trm : TRM with type var = Var.t) = struct
 
   type t = Map.t
 
-  let of_map rho = rho
-
   let well_formed rho =
     Map.for_all
       (fun x _ -> Map.for_all (fun _ t -> not (occurs x t)) rho)
@@ -135,7 +133,7 @@ module Make (Var : VAR) (Trm : TRM with type var = Var.t) = struct
       (fun x _ -> Map.for_all (fun y _ -> not (Var.equal x y)) tau)
       rho
 
-  let ground = Map.for_all (fun _ t -> ground t)
+  let[@warning "-32"] ground = Map.for_all (fun _ t -> ground t)
 
   let singleton x t =
     let rho = Map.empty () in
@@ -240,7 +238,7 @@ module Test = struct
           let bl = List.map (map f) al in
           App (g, bl)
 
-    let maxdepth = 7
+    let _maxdepth = 7
     let maxargs = 3
     let maxsize = ref 15
 

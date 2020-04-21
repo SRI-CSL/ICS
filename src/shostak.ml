@@ -200,7 +200,7 @@ struct
   let dom x = Subst.dom x (Config.Subst.current ())
   let cod y = Dep.mem y (Config.Dep.current ())
   let local y = Locals.mem y (Config.Locals.current ())
-  let occ x = dom x || cod x
+  let[@warning "-32"] occ x = dom x || cod x
   let is_empty () = Subst.is_empty (Config.Subst.current ())
   let find x = Subst.lookup (Config.Subst.current ()) x
   let deps x = Dep.find x (Config.Dep.current ())

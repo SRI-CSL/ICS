@@ -68,7 +68,6 @@ module Map (M : Maps.S) = struct
     initialize empty
 
   let current () = !curr
-  let pp fmt = M.pp fmt !curr
   let unchanged () = !init == !curr
   let find x = M.find x !curr
   let mem x = M.mem x !curr
@@ -83,7 +82,7 @@ module Map (M : Maps.S) = struct
       protect () ;
       M.remove x !curr )
 
-  let replace x y =
+  let[@warning "-32"] replace x y =
     protect () ;
     curr := M.replace !curr x y
 end
@@ -101,7 +100,6 @@ module Subst (S : Subst.S) = struct
 
   let reset () = initialize empty
   let current () = !curr
-  let pp fmt = S.pp fmt !curr
   let unchanged () = !init == !curr
   let lookup x = S.lookup !curr x
   let apply t = S.apply !curr t
@@ -147,7 +145,6 @@ module Powermap (M : Powermaps.S) = struct
   let unchanged () = !init == !curr
   let find x = M.find x !curr
   let mem x = M.mem x !curr
-  let is_empty = mem
   let is_singleton x = M.Values.cardinal (find x) = 1
   let protect () = if !init == !curr then curr := M.copy !curr
 
