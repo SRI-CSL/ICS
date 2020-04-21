@@ -876,7 +876,7 @@ module Test = struct
       let p = Random.poly () in
       try
         Format.eprintf "\nsolve <-- %s@?" (to_string p) ;
-        let x, q = P.solve0 p in
+        let x, _q = P.solve0 p in
         Format.eprintf "\nsolve --> %s = %s@?"
           (to_string (P.indet x))
           (to_string p) ;

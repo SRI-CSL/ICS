@@ -732,7 +732,7 @@ module Make (Var : VAR) = struct
     let imp msg =
       valid2 msg "imp" (fun v1 v2 v -> (if v1 then v2 else true) = v)
 
-    let xor msg = valid2 msg "xor" (fun v1 v2 v -> true)
+    let xor msg = valid2 msg "xor" (fun _ _ _ -> true)
     let equiv msg = valid1 msg "equiv" (fun v1 v -> v1 = v)
 
     let implies msg =
@@ -965,14 +965,14 @@ module Test = struct
       Format.eprintf "\nconj[%d] --> %s@?" i1 (to_string b)
 
     let mk_conj () =
-      let i1, b1 = Heap.random () and i2, b2 = Heap.random () in
+      let _i1, b1 = Heap.random () and i2, b2 = Heap.random () in
       Format.eprintf "\nconj <-- %s %s @?" (to_string b1) (to_string b2) ;
       let b = mk_conj b1 b2 in
       if is_ite b then Heap.set i2 b ;
       Format.eprintf "\nconj[%d] --> %s@?" i2 (to_string b)
 
     let mk_disj () =
-      let i1, b1 = Heap.random () and i2, b2 = Heap.random () in
+      let _i1, b1 = Heap.random () and i2, b2 = Heap.random () in
       Format.eprintf "\ndisj <-- %s %s @?" (to_string b1) (to_string b2) ;
       let b = mk_disj b1 b2 in
       if is_ite b then Heap.set i2 b ;

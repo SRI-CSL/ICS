@@ -44,7 +44,7 @@ let set_gc_mode str =
         {control with Gc.space_overhead= 10000; Gc.max_overhead= 1000000}
   | "eager" ->
       Gc.set {control with Gc.space_overhead= 10; Gc.max_overhead= 100}
-  | str -> raise (Invalid_argument "no such GC option")
+  | str -> raise (Invalid_argument ("no such GC option " ^ str))
 
 let set_gc_space_overhead overhead =
   let control = Gc.get () in
@@ -144,7 +144,7 @@ let rec batch name =
   Format.printf "\nBatch Input: %s@?" name ;
   try
     let inch = Stdlib.open_in name in
-    let status, time = process_batch inch in
+    let time = process_batch inch in
     Format.printf "\n Status: @?" ;
     if !timing_flag then
       Format.printf "\n%s processed in %f seconds.@?" name time ;
@@ -157,9 +157,8 @@ let rec batch name =
 
 and process_batch inch =
   let start = (Unix.times ()).Unix.tms_utime in
-  let status = repl inch in
-  let time = (Unix.times ()).Unix.tms_utime -. start in
-  (status, time)
+  repl inch ;
+  (Unix.times ()).Unix.tms_utime -. start
 
 let rec smt name =
   Format.eprintf "\nSMT Batch Input: %s@?" name ;

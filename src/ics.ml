@@ -119,7 +119,6 @@ struct
       assert (x >= 0) ;
       x
 
-    let equal x y = ( == )
     let compare x y = if x == y then 0 else if x > y then 1 else -1
     let to_string x = Format.sprintf "%s!%d" Fresh.name x
     let pp fmt x = Format.fprintf fmt "%s@?" (to_string x)
@@ -256,7 +255,7 @@ module Term = struct
     | Var _ | Uninterp _ -> true
     | Arith p -> not (Polynomial.is_indet p)
     | Tuple t -> not (Tuple.is_var t)
-    | Array a -> true
+    | Array _ -> true
 
   let equal = ( == ) (* hashconsing constructors *)
 
@@ -1922,7 +1921,7 @@ let lookup a i =
   match a with
   | Term.Array (Term.Array.Update (_, j, y)) when V.equal i j ->
       Term.of_var y
-  | Term.Array (Term.Array.Update (b, j, y)) when V.diseq i j ->
+  | Term.Array (Term.Array.Update (b, j, _)) when V.diseq i j ->
       array2term (Term.Array.lookup b i)
   | _ -> array2term (Term.Array.lookup (alias a) i)
 
@@ -1930,7 +1929,7 @@ let rec update a i x =
   let i = alias i in
   let x = alias x in
   match a with
-  | Term.Array (Term.Array.Update (b, j, y)) when V.equal i j ->
+  | Term.Array (Term.Array.Update (b, j, _)) when V.equal i j ->
       update_var b i x
   | Term.Array (Term.Array.Update (b, j, y))
     when Var.compare i j > 0 && V.diseq i j ->
@@ -2017,7 +2016,7 @@ and valid_array t =
   | Term.Array _ -> true
   | _ -> false
 
-and valid_neglit p t = false
+and valid_neglit _p _t = false
 
 let tt = Formula.mk_prop Formula.Bdd.mk_true
 let ff = Formula.mk_prop Formula.Bdd.mk_false

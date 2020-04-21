@@ -491,7 +491,7 @@ struct
       assert (dom v') ;
       if not (Var.equal u v') then
         match lookup v' with
-        | Flat.Update (a, i', y) when V.equal v v' && V.equal i i' ->
+        | Flat.Update (a, i', _y) when V.equal v v' && V.equal i i' ->
             deduce u (alias_update a i x)
         | _ -> ()
     in

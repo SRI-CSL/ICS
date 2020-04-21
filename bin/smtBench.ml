@@ -266,7 +266,9 @@ let decide incomplete_flag b =
     | Predapply (p, [t]) -> Ics.poslit (predsym p) (trm2ics t)
     | Predapply (p, tl) ->
         Ics.poslit (predsym p) (Ics.tuple (List.map trm2ics tl))
-    | Distinct tl -> Ics.tt
+    | Distinct _ ->
+        (* ToDo: handle distinct *)
+        Ics.tt
     | Neg p -> Ics.neg (fml2ics p)
     | Conj pl ->
         let rec conj acc = function

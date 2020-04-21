@@ -121,7 +121,7 @@ module Particular (Q : RAT) = struct
           | e, x :: xs -> (gcd2 d e, (e1 * x) :: (e2 * x) :: xs)
           | _ -> assert false )
     in
-    let ((d, xs) as res) = loop cl in
+    let ((d, _xs) as res) = loop cl in
     assert (not (Q.eq d Q.zero)) ;
     assert (Q.eq (gcd cl) d) ;
     if is_int (b / d) then res else raise Unsolvable
@@ -164,7 +164,7 @@ module Solve (Q : RAT) (P : POLYNOMIAL with type q = Q.t) = struct
     let rec loop al zl =
       match (al, zl) with
       | [_], [_] -> zl
-      | a0 :: (a1 :: al'' as al'), z0 :: z1 :: zl'' ->
+      | a0 :: (a1 :: _al'' as al'), z0 :: z1 :: zl'' ->
           let k = P.fresh () in
           let e0 = P.add z0 (P.multq (a1 / d) k) in
           let e1 = P.add z1 (P.multq (neg a0 / d) k) in
@@ -264,7 +264,7 @@ module Test = struct
     let cl, b = random_equality () in
     out_equality cl b ;
     try
-      let d, sl = Euclid.solve cl b in
+      let _d, sl = Euclid.solve cl b in
       out_solution sl ;
       assert (List.length sl = List.length cl) ;
       let eval = Euclid.product sl cl in

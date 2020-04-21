@@ -798,7 +798,7 @@ module Test = struct
       Format.eprintf " --> %s@?" (set_to_string (lookup i))
     in
     let union () =
-      let s1, i1 = getset () and s2, i2 = getset () in
+      let s1, _i1 = getset () and s2, i2 = getset () in
       Format.eprintf "\nunion[%d] %s %s@?" i2 (set_to_string s1)
         (set_to_string s2) ;
       Ints.union s1 s2 ;

@@ -941,7 +941,7 @@ val complete_tests : bool ref
 val valid : Formula.t -> bool
 (** If [valid fml] holds, then [fml] is valid in the current state. The
     contraposite, however, does not hold in general. The completeness of
-    [valid] is influenced by the flats {!Ics.do_minimize} and
+    [valid] is influenced by the flags {!Ics.do_minimize} and
     {!Ics.complete_tests}.
 
     - If {!Ics.do_minimize} is unset, then more formulas are detected to be

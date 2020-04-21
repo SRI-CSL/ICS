@@ -90,7 +90,7 @@ module Make (H : HASH) : S with type key = H.t = struct
     open Format
 
     let key_print = H.pp err_formatter
-    let val_print v = Format.eprintf "???"
+    let val_print _ = Format.eprintf "???"
 
     let add k v =
       if !debug <> 0 then (
@@ -285,7 +285,7 @@ module Make (H : HASH) : S with type key = H.t = struct
       resize t ;
       add_aux t k u
 
-  and output t k u =
+  and output t k _u =
     Format.eprintf "Error: " ;
     H.pp Format.err_formatter k ;
     Format.eprintf " already in weak hash table@?" ;

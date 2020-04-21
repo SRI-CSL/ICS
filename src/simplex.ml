@@ -1297,7 +1297,7 @@ struct
     let p = can p in
     minimized_nonneg p || (restricted p && minimized_nonneg (min p))
 
-  let is_diseq0_var p =
+  let is_diseq0_var _p =
     (* try
      *   let x = P.d_indet p in
      *   let z = R.inv_const C.zero in
@@ -1372,7 +1372,7 @@ struct
     let rec inc_bounded () =
       assert (Trace.inc_bounded (Focus.to_list ())) ;
       let changed = ref false in
-      let rec inspect_entry0 u p =
+      let rec inspect_entry0 _u p =
         assert (C.equal (P.const p) C.zero) ;
         posvar_iter inspect_posvar p
       and inspect_posvar v =
