@@ -133,7 +133,7 @@ module type INFSYS = sig
 
   exception Unsat
 
-  val union : (var -> var -> unit) -> var -> var -> unit
+  val union : propagate_deq:(var -> var -> unit) -> var -> var -> unit
   (** [union x y] extends the current equalities [E] to [E'] such that
       [E' |= x = y] or throws [Unsat] if [x = y] is inconsistent with the
       current configuration [(E, D)].

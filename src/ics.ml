@@ -833,7 +833,7 @@ module Union = struct
         if !footprint then Footprint.equal x y ;
         critical := true ;
         (* let dx = V.deqs x and dy = V.deqs y in *)
-        V.union !propagate_deq x y ;
+        V.union ~propagate_deq:!propagate_deq x y ;
         assert (V.canonical x || V.canonical y) ;
         if V.canonical y then !propagate_eq x y else !propagate_eq y x ;
         critical := false

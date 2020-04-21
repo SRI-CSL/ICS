@@ -59,7 +59,7 @@ module type INFSYS = sig
 
   exception Unsat
 
-  val union : (var -> var -> unit) -> var -> var -> unit
+  val union : propagate_deq:(var -> var -> unit) -> var -> var -> unit
   val separate : var -> var -> unit
   val iter_equiv : (var -> unit) -> var -> unit
   val choose_equiv : (var -> bool) -> var -> var
@@ -283,7 +283,7 @@ module Make (Var : VAR) = struct
     let n = Varset.cardinal xs and m = Varset.cardinal ys in
     if n >= m then cmb xs ys else cmb ys xs
 
-  let merge_d propagate x y =
+  let merge_d ~propagate_deq x y =
     assert (equal x y) ;
     try
       let xs = Diseqs.find x (diseqs ()) in
@@ -294,23 +294,23 @@ module Make (Var : VAR) = struct
         assert (not (Varset.is_empty xys)) ;
         Config.Diseqs.set y xys ;
         Varset.iter
-          (fun x -> if not (Varset.mem x ys) then propagate y x)
+          (fun x -> if not (Varset.mem x ys) then propagate_deq y x)
           xys
       with Not_found ->
         Config.Diseqs.set y xs ;
-        Varset.iter (propagate y) xs
+        Varset.iter (propagate_deq y) xs
     with Not_found -> ()
 
-  let merge f x y =
+  let merge ~propagate_deq x y =
     assert (canonical x) ;
     assert (canonical y) ;
     assert (not (equal x y)) ;
     Config.Parent.set x y ;
     Config.Rank.remove x ;
-    merge_d f x y ;
+    merge_d ~propagate_deq x y ;
     assert (not (canonical x))
 
-  let union f x y =
+  let union ~propagate_deq x y =
     assert (well_formed ()) ;
     let x = find x and y = find y in
     let rx = rk x and ry = rk y in
@@ -320,18 +320,18 @@ module Make (Var : VAR) = struct
       try
         let p = Var.preference x y in
         if p < 0 then (
-          merge f x y ;
+          merge ~propagate_deq x y ;
           if rx > ry then Config.Rank.set y rx
           else if rx = ry then Config.Rank.set y (ry + 1) )
         else (
-          merge f y x ;
+          merge ~propagate_deq y x ;
           if ry > rx then Config.Rank.set x ry
           else if ry = rx then Config.Rank.set x (rx + 1) )
       with Not_found ->
-        if rx > ry then merge f x y
-        else if ry > rx then merge f y x
+        if rx > ry then merge ~propagate_deq x y
+        else if ry > rx then merge ~propagate_deq y x
         else (
-          merge f x y ;
+          merge ~propagate_deq x y ;
           Config.Rank.set y (ry + 1) ) ) ;
     assert (well_formed ())
 
