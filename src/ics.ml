@@ -864,8 +864,6 @@ module Separate = struct
     Stacks.clear lhs ;
     Stacks.clear rhs
 
-  let propagate : (Var.t -> Var.t -> unit) ref = ref (fun _ _ -> ())
-
   let delay x y =
     Stacks.push x lhs ;
     Stacks.push y rhs
@@ -874,7 +872,7 @@ module Separate = struct
     if !footprint then Footprint.diseq x y ;
     critical := true ;
     V.separate x y ;
-    !propagate x y ;
+    !propagate_deq x y ;
     critical := false
 
   let process x y =
