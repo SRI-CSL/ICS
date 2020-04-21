@@ -798,22 +798,12 @@ module Popen = Prop.Make (Propvar) (Formula.Bdd)
     is safe to apply it. *)
 let critical = ref false
 
-(** Various propagators. They will be initialized after all the inference
-    systems have been closed. This should instead be done using recursive
-    modules, but I was not able to make this work in ocaml 3.08. *)
-let propagate_eq : (Var.t -> Var.t -> unit) ref = ref (fun _ _ -> ())
-
-let propagate_deq : (Var.t -> Var.t -> unit) ref = ref (fun _ _ -> ())
-let propagate_valid0 : (Propvar.t -> unit) ref = ref (fun _ -> ())
-let propagate_unsat0 : (Propvar.t -> unit) ref = ref (fun _ -> ())
-
-let propagate_valid1 : (Predsym.t -> Var.t -> unit) ref =
-  ref (fun _ _ -> ())
-
-let propagate_unsat1 : (Predsym.t -> Var.t -> unit) ref =
-  ref (fun _ _ -> ())
-
-module Union = struct
+module rec Union : sig
+  val process : Var.t -> Var.t -> unit
+  val closed : unit -> bool
+  val close : unit -> unit
+  val reset : unit -> unit
+end = struct
   let lhs = Stacks.create ()
   let rhs = Stacks.create ()
 
@@ -825,6 +815,17 @@ module Union = struct
     Stacks.push x lhs ;
     Stacks.push y rhs
 
+  let propagate x y =
+    assert (V.canonical y) ;
+    assert (not (V.canonical x)) ;
+    assert (V.equal x y) ;
+    U.close x y ;
+    A.propagate_eq x y ;
+    L1.propagate_eq x y ;
+    T.propagate x y ;
+    F.propagate_eq x y ;
+    R.propagate_eq x y
+
   let process_critical x y =
     let x = V.find x and y = V.find y in
     if V.equal x y then ()
@@ -833,9 +834,9 @@ module Union = struct
         if !footprint then Footprint.equal x y ;
         critical := true ;
         (* let dx = V.deqs x and dy = V.deqs y in *)
-        V.union ~propagate_deq:!propagate_deq x y ;
+        V.union ~propagate_deq:Separate.propagate x y ;
         assert (V.canonical x || V.canonical y) ;
-        if V.canonical y then !propagate_eq x y else !propagate_eq y x ;
+        if V.canonical y then propagate x y else propagate y x ;
         critical := false
       with exc ->
         critical := false ;
@@ -856,7 +857,13 @@ module Union = struct
     done
 end
 
-module Separate = struct
+and Separate : sig
+  val propagate : Var.t -> Var.t -> unit
+  val process : Var.t -> Var.t -> unit
+  val closed : unit -> bool
+  val close : unit -> unit
+  val reset : unit -> unit
+end = struct
   let lhs = Stacks.create ()
   let rhs = Stacks.create ()
 
@@ -868,11 +875,16 @@ module Separate = struct
     Stacks.push x lhs ;
     Stacks.push y rhs
 
+  let propagate x y =
+    let x = V.find x and y = V.find y in
+    F.propagate_deq x y ;
+    R.propagate_deq x y
+
   let process_critical x y =
     if !footprint then Footprint.diseq x y ;
     critical := true ;
     V.separate x y ;
-    !propagate_deq x y ;
+    propagate x y ;
     critical := false
 
   let process x y =
@@ -890,10 +902,19 @@ module Separate = struct
     done
 end
 
-module Valid0 = struct
+and Valid0 : sig
+  val process : Propvar.t -> unit
+  val closed : unit -> bool
+  val close : unit -> unit
+  val reset : unit -> unit
+end = struct
   let vars = Stacks.create ()
   let reset () = Stacks.clear vars
   let delay x = Stacks.push x vars
+
+  let propagate p =
+    P.propagate_valid p ;
+    R.propagate_valid0 p
 
   let process_critical x =
     if L0.is_valid x then ()
@@ -902,7 +923,7 @@ module Valid0 = struct
       if !footprint then Footprint.valid0 x ;
       critical := true ;
       L0.process_valid x ;
-      !propagate_valid0 x ;
+      propagate x ;
       critical := false )
 
   let process x =
@@ -919,10 +940,19 @@ module Valid0 = struct
     done
 end
 
-module Unsat0 = struct
+and Unsat0 : sig
+  val process : Propvar.t -> unit
+  val closed : unit -> bool
+  val close : unit -> unit
+  val reset : unit -> unit
+end = struct
   let vars = Stacks.create ()
   let reset () = Stacks.clear vars
   let delay x = Stacks.push x vars
+
+  let propagate p =
+    P.propagate_unsat p ;
+    R.propagate_unsat0 p
 
   let process_critical x =
     if L0.is_unsat x then ()
@@ -931,7 +961,7 @@ module Unsat0 = struct
       if !footprint then Footprint.unsat0 x ;
       critical := true ;
       L0.process_unsat x ;
-      !propagate_unsat0 x ;
+      propagate x ;
       critical := false )
 
   let process x =
@@ -948,7 +978,7 @@ module Unsat0 = struct
     done
 end
 
-module L1 : LITERAL = L1open (struct
+and L1 : LITERAL = L1open (struct
   type var = Var.t
 
   let find = V.find
@@ -959,7 +989,12 @@ module L1 : LITERAL = L1open (struct
   let separate = Separate.process
 end)
 
-module Valid1 = struct
+and Valid1 : sig
+  val process : Predsym.t -> Var.t -> unit
+  val closed : unit -> bool
+  val close : unit -> unit
+  val reset : unit -> unit
+end = struct
   let preds = Stacks.create ()
   let args = Stacks.create ()
 
@@ -971,6 +1006,11 @@ module Valid1 = struct
     Stacks.push p preds ;
     Stacks.push x args
 
+  let propagate p x =
+    match p with
+    | Predsym.Arith p -> Add.arith p (Term.Polynomial.indet x)
+    | _ -> R.propagate_valid1 p x
+
   let process_critical p x =
     let x = V.find x in
     if L1.valid p x then ()
@@ -979,7 +1019,7 @@ module Valid1 = struct
       if !footprint then Footprint.valid1 p x ;
       critical := true ;
       L1.process_pos p x ;
-      !propagate_valid1 p x ;
+      propagate p x ;
       critical := false )
 
   let process p x =
@@ -997,7 +1037,12 @@ module Valid1 = struct
     done
 end
 
-module Unsat1 = struct
+and Unsat1 : sig
+  val process : Predsym.t -> Var.t -> unit
+  val closed : unit -> bool
+  val close : unit -> unit
+  val reset : unit -> unit
+end = struct
   let preds = Stacks.create ()
   let args = Stacks.create ()
 
@@ -1009,6 +1054,11 @@ module Unsat1 = struct
     Stacks.push p preds ;
     Stacks.push x args
 
+  let propagate p x =
+    match p with
+    | Predsym.Arith p -> Add.negarith p (Term.Polynomial.indet x)
+    | _ -> R.propagate_unsat1 p x
+
   let process_critical p x =
     let x = V.find x in
     if L1.unsat p x then ()
@@ -1017,7 +1067,7 @@ module Unsat1 = struct
       if !footprint then Footprint.unsat1 p x ;
       critical := true ;
       L1.process_neg p x ;
-      !propagate_unsat1 p x ;
+      propagate p x ;
       critical := false )
 
   let process p x =
@@ -1036,7 +1086,8 @@ module Unsat1 = struct
 end
 
 (** Closing inference systems. *)
-module rec U : CC = Uopen (struct
+
+and U : CC = Uopen (struct
   type var = Var.t
 
   let find = V.find
@@ -1120,72 +1171,28 @@ and P : PROP = Popen (struct
   let unsat = Unsat0.process
 end)
 
-let add_arith p t =
-  match p with
-  | Predsym.Arith.Nonneg -> A.process_nonneg t
-  | Predsym.Arith.Pos -> A.process_pos t
-  | Predsym.Arith.Equal0 -> A.process_eq0 t
-  | Predsym.Arith.Diseq0 -> A.process_deq0 t
-  | Predsym.Arith.Real -> L1.process_pos Predsym.real (A.alias t)
-  | Predsym.Arith.Int -> L1.process_pos Predsym.integer (A.alias t)
+and Add : sig
+  val arith : Predsym.Arith.t -> A.poly -> unit
+  val negarith : Predsym.Arith.t -> A.poly -> unit
+end = struct
+  let arith p t =
+    match p with
+    | Predsym.Arith.Nonneg -> A.process_nonneg t
+    | Predsym.Arith.Pos -> A.process_pos t
+    | Predsym.Arith.Equal0 -> A.process_eq0 t
+    | Predsym.Arith.Diseq0 -> A.process_deq0 t
+    | Predsym.Arith.Real -> L1.process_pos Predsym.real (A.alias t)
+    | Predsym.Arith.Int -> L1.process_pos Predsym.integer (A.alias t)
 
-let add_negarith p t =
-  match p with
-  | Predsym.Arith.Nonneg -> A.process_pos (Term.Polynomial.minus t)
-  | Predsym.Arith.Pos -> A.process_nonneg (Term.Polynomial.minus t)
-  | Predsym.Arith.Equal0 -> A.process_deq0 t
-  | Predsym.Arith.Diseq0 -> A.process_eq0 t
-  | Predsym.Arith.Real -> L1.process_neg Predsym.real (A.alias t)
-  | Predsym.Arith.Int -> L1.process_neg Predsym.integer (A.alias t)
-
-(* use following hack since recursive modules in ocaml 3.08 are pathetic.
-   Instead the modules [Union] through [Valid1] should be part of the
-   recursive modules above. *)
-let _ =
-  propagate_eq :=
-    fun x y ->
-      assert (V.canonical y) ;
-      assert (not (V.canonical x)) ;
-      assert (V.equal x y) ;
-      U.close x y ;
-      A.propagate_eq x y ;
-      L1.propagate_eq x y ;
-      T.propagate x y ;
-      F.propagate_eq x y ;
-      R.propagate_eq x y
-
-let _ =
-  propagate_deq :=
-    fun x y ->
-      let x = V.find x and y = V.find y in
-      F.propagate_deq x y ;
-      R.propagate_deq x y
-
-let _ =
-  propagate_valid0 :=
-    fun p ->
-      P.propagate_valid p ;
-      R.propagate_valid0 p
-
-let _ =
-  propagate_unsat0 :=
-    fun p ->
-      P.propagate_unsat p ;
-      R.propagate_unsat0 p
-
-let _ =
-  propagate_valid1 :=
-    fun p x ->
-      match p with
-      | Predsym.Arith p -> add_arith p (Term.Polynomial.indet x)
-      | _ -> R.propagate_valid1 p x
-
-let _ =
-  propagate_unsat1 :=
-    fun p x ->
-      match p with
-      | Predsym.Arith p -> add_negarith p (Term.Polynomial.indet x)
-      | _ -> R.propagate_unsat1 p x
+  let negarith p t =
+    match p with
+    | Predsym.Arith.Nonneg -> A.process_pos (Term.Polynomial.minus t)
+    | Predsym.Arith.Pos -> A.process_nonneg (Term.Polynomial.minus t)
+    | Predsym.Arith.Equal0 -> A.process_deq0 t
+    | Predsym.Arith.Diseq0 -> A.process_eq0 t
+    | Predsym.Arith.Real -> L1.process_neg Predsym.real (A.alias t)
+    | Predsym.Arith.Int -> L1.process_neg Predsym.integer (A.alias t)
+end
 
 type status = Sat of Formula.t | Unsat of Formula.t list | Unknown
 
@@ -1684,6 +1691,9 @@ let add_diseq s t =
     | _ ->
         let x = alias s and y = alias t in
         Separate.process x y
+
+let add_arith = Add.arith
+let add_negarith = Add.negarith
 
 let add_poslit p t =
   match p with
