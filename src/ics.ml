@@ -81,9 +81,6 @@ module Name = Name
 
 let k = ref 0
 
-(** {i Empty structure} *)
-module type UNIT = sig end
-
 module Intern (Fresh : sig
   val name : string
 end) =
@@ -750,25 +747,6 @@ module Footprint = struct
   let implicant_candidate n =
     if !footprint then Format.eprintf "implicant(%d)@?" n
 end
-
-(* module type INFSYS = sig
- *   type t
- * 
- *   val empty : t
- *   val initialize : t -> unit
- *   val current : unit -> t
- *   val unchanged : unit -> bool
- *   val find : theory -> Var.t -> Term.t
- *   val inv : Term.t -> Var.t
- *   val can : Term.t -> Var.t
- *   val equal : Term.t -> Term.t -> bool
- *   val diseq : Term.t -> Term.t -> bool
- *   val alias : Term.t -> Var.t
- *   val process : Formula.t -> unit
- *   val prop_eq : Var.t -> unit
- *   val prop_deq : Var.t -> Var.t -> unit
- *   val normalize : unit -> unit
- * end *)
 
 (** Names for inference system signatures. *)
 module type PARTITION = Partition.INFSYS with type var = Var.t
