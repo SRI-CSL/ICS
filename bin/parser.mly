@@ -815,7 +815,7 @@ command:
 		     Ics.pp_context();
 		     Format.fprintf fmt "@?" }
 | CONFIG           { Format.fprintf fmt ":config\n";
-		     Ics.pp_config ();
+		     Ics.pp_config Format.std_formatter ();
 		     Format.fprintf fmt "@?" }
 | EQUALS IDENT     { try
 		       let th = string_to_theory $2 in

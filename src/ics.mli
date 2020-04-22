@@ -602,8 +602,8 @@ val status : unit -> status
 val pp_context : unit -> unit
 (** Print the current logical context on [stdout]. *)
 
-val pp_config : unit -> unit
-(** Print the current configuration on [stdout]. *)
+val pp_config : Format.formatter -> unit -> unit
+(** Print the current configuration. *)
 
 (** {9:termconstr Term constructors} *)
 
