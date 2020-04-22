@@ -749,6 +749,7 @@ module Footprint = struct
 end
 
 (** Names for inference system signatures. *)
+
 module type PARTITION = Partition.INFSYS with type var = Var.t
 
 module type SIMPLEX =
@@ -978,17 +979,6 @@ end = struct
     done
 end
 
-and L1 : LITERAL = L1open (struct
-  type var = Var.t
-
-  let find = V.find
-  let canonical = V.canonical
-  let equal = V.equal
-  let diseq = V.diseq
-  let union = Union.process
-  let separate = Separate.process
-end)
-
 and Valid1 : sig
   val process : Predsym.t -> Var.t -> unit
   val closed : unit -> bool
@@ -1087,32 +1077,16 @@ end
 
 (** Closing inference systems. *)
 
-and U : CC = Uopen (struct
+and Interface : sig
   type var = Var.t
 
-  let find = V.find
-  let canonical = V.canonical
-  let equal = V.equal
-  let diseq = V.diseq
-  let union = Union.process
-end)
-
-and A : SIMPLEX = Aopen (struct
-  type var = Var.t
-
-  let find x = V.find x
-  let canonical x = V.canonical x
-  let equal x y = V.equal x y
-  let diseq x y = V.diseq x y
-  let is_real x = L1.valid Predsym.real x
-  let is_integer x = L1.valid Predsym.integer x
-  let union x y = Union.process x y
-  let separate x y = Separate.process x y
-  let real x = L1.process_pos Predsym.real x
-  let integer x = L1.process_pos Predsym.integer x
-end)
-
-and T : TUPLE = Topen (struct
+  val find : var -> var
+  val canonical : var -> bool
+  val equal : var -> var -> bool
+  val diseq : var -> var -> bool
+  val union : var -> var -> unit
+  val separate : var -> var -> unit
+end = struct
   type var = Var.t
 
   let find = V.find
@@ -1121,19 +1095,28 @@ and T : TUPLE = Topen (struct
   let diseq = V.diseq
   let union = Union.process
   let separate = Separate.process
+end
+
+and L1 : LITERAL = L1open (Interface)
+and U : CC = Uopen (Interface)
+
+and A : SIMPLEX = Aopen (struct
+  include Interface
+
+  let is_real x = L1.valid Predsym.real x
+  let is_integer x = L1.valid Predsym.integer x
+  let real x = L1.process_pos Predsym.real x
+  let integer x = L1.process_pos Predsym.integer x
 end)
 
-and F : FUNARR = Fopen (struct
-  type var = Var.t
+and T : TUPLE = Topen (Interface)
 
-  let find = V.find
-  let canonical = V.canonical
-  let equal = V.equal
-  let diseq = V.diseq
+and F : FUNARR = Fopen (struct
+  include Interface
+
   let choose_equiv = V.choose_equiv
   let iter_equiv = V.iter_equiv
   let iter_diseqs = V.iter_diseqs
-  let union = Union.process
 
   let ite (x, y) (a, b) (c, d) =
     let z = Formula.Bdd.mk_posvar (R.alias_equal x y) in
@@ -1145,14 +1128,11 @@ and F : FUNARR = Fopen (struct
 end)
 
 and R : RENAME = Ropen (struct
+  include Interface
+
   type propvar = Propvar.t
   type predsym = Predsym.t
-  type var = Var.t
 
-  let find = V.find
-  let canonical = V.canonical
-  let equal = V.equal
-  let diseq = V.diseq
   let equiv = P.process_union
   let disjoint = P.process_separate
   let implies = P.process_sub
@@ -1160,8 +1140,6 @@ and R : RENAME = Ropen (struct
   let unsat0 = Unsat0.process
   let valid1 = Valid1.process
   let unsat1 = Unsat1.process
-  let union = Union.process
-  let separate = Separate.process
 end)
 
 and P : PROP = Popen (struct
@@ -1194,6 +1172,8 @@ end = struct
     | Predsym.Arith.Int -> L1.process_neg Predsym.integer (A.alias t)
 end
 
+(* silence spurious unused module warning *)
+type _t = Interface.var
 type status = Sat of Formula.t | Unsat of Formula.t list | Unknown
 
 type t =
