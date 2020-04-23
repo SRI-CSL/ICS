@@ -179,7 +179,7 @@ module Make (Var : VAR) = struct
   let is_false b = b == mk_false
   let is_valid = is_true
   let is_unsat = is_false
-  let is_const b = b == mk_true || b = mk_false
+  let is_const b = is_true b || is_false b
   let is_ite b = not (is_const b)
   let is_posvar b = is_ite b && is_true b.pos && is_false b.neg
   let is_negvar b = is_ite b && is_false b.pos && is_true b.neg
