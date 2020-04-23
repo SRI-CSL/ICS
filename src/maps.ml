@@ -64,7 +64,7 @@ module type S = sig
   val pp : Format.formatter -> t -> unit
 end
 
-module Make (Key : OrderedType) (Val : EqType) = struct
+module MakeGraph (Key : OrderedType) (Val : EqType) : S = struct
   type key = Key.t
   type value = Val.t
 
@@ -235,6 +235,72 @@ module Make (Key : OrderedType) (Val : EqType) = struct
     assert (well_formed m2) ;
     (* not really. *)
     Graph.subset m1 m2 && Graph.subset m2 m1
+end
+
+(* [@warning "-60"] *)
+let () =
+  let open MakeGraph (Int) (Int) in
+  ()
+
+module Make (Key : OrderedType) (Val : EqType) :
+  S with type key = Key.t and type value = Val.t = struct
+  module M = Map.Make (Key)
+
+  type key = Key.t
+  type value = Val.t
+  type t = value M.t ref
+
+  let empty () = ref M.empty
+  let is_empty m = M.is_empty !m
+  let singleton k v = ref (M.singleton k v)
+  let is_singleton m = M.cardinal !m = 1
+  let find k m = M.find k !m
+  let set k v m = m := M.add k v !m
+  let remove k m = m := M.remove k !m
+  let copy m = ref !m
+  let mem k m = M.mem k !m
+  let iter f m = M.iter f !m
+  let fold f m s = M.fold f !m s
+  let cardinal m = M.cardinal !m
+  let map f m = ref (M.map f !m)
+
+  let replace m k l =
+    match find k m with
+    | exception Not_found -> m
+    | v ->
+        let m' = copy m in
+        remove k m' ;
+        set l v m' ;
+        m'
+
+  let for_all f m = M.for_all f !m
+  let exists f m = M.exists f !m
+
+  exception Found of key * value
+
+  let choose_if f m =
+    try
+      iter (fun k v -> if f k v then raise (Found (k, v))) m ;
+      raise Not_found
+    with Found (k, v) -> (k, v)
+
+  let destruct f m =
+    let k, v = choose_if f m in
+    let m' = copy m in
+    remove k m' ;
+    (k, v, m')
+
+  let to_list m = M.bindings !m
+  let equal m n = M.equal Val.equal !m !n
+
+  let pp fmt m =
+    let pp_sep fmt () = Format.fprintf fmt ", " in
+    let pp_kv fmt (k, v) =
+      Format.fprintf fmt "@[%a |-> %a@]@?" Key.pp k Val.pp v
+    in
+    Format.fprintf fmt "@[{%a}@]@?"
+      (Format.pp_print_list ~pp_sep pp_kv)
+      (to_list m)
 end
 
 module Expt (T : OrderedType) = Make (T) (Sets.Make (T))
