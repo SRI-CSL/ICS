@@ -67,7 +67,7 @@ module Balanced (Ord : OrderedType) : S with type elt = Ord.t = struct
 
   let empty () = {root= S.empty}
   let singleton k = {root= S.add k S.empty}
-  let is_empty s = s.root == S.empty
+  let is_empty s = S.is_empty s.root
   let mem k s = S.mem k s.root
   let copy s = {root= s.root}
   let add k s = s.root <- S.add k s.root
@@ -124,11 +124,6 @@ module Balanced (Ord : OrderedType) : S with type elt = Ord.t = struct
 
   let equal s1 s2 = S.equal s1.root s2.root
 end
-
-(* silence unused warning *)
-let () =
-  let open Balanced (Int) in
-  ()
 
 module Splay (Ord : OrderedType) = struct
   type elt = Ord.t
@@ -749,12 +744,12 @@ module Splay (Ord : OrderedType) = struct
     s
 end
 
-module Make = Splay
-
 (**/**)
 
 (** Following for debugging only. *)
 module Test = struct
+  module Make = Splay
+
   module Ints = Make (struct
     type t = int
 
@@ -857,3 +852,5 @@ module Test = struct
     Ints.debug := debug_save ;
     Format.eprintf "sets: self test ok.@?"
 end
+
+module Make = Balanced
