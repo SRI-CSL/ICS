@@ -394,7 +394,7 @@ module Make (C : COEFF) (X : INDETERMINATE) = struct
     assert (well_formed p) ;
     let top _ _ = true in
     if C.equal C.zero p.constant && Map.is_singleton p.monomials then
-      let x, c = Map.choose top p.monomials in
+      let x, c = Map.choose_if top p.monomials in
       if C.equal C.one c then x else raise Nonindet
     else raise Nonindet
 
@@ -412,13 +412,13 @@ module Make (C : COEFF) (X : INDETERMINATE) = struct
   let coeff_of_monomial p =
     assert (is_monomial p) ;
     let is_true _ _ = true in
-    let _, c = Map.choose is_true p.monomials in
+    let _, c = Map.choose_if is_true p.monomials in
     c
 
   let indet_of_monomial p =
     assert (is_monomial p) ;
     let is_true _ _ = true in
-    let x, _ = Map.choose is_true p.monomials in
+    let x, _ = Map.choose_if is_true p.monomials in
     x
 
   let[@warning "-32"] monomial c x =

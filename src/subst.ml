@@ -123,7 +123,7 @@ module Make (Var : VAR) (Trm : TRM with type var = Var.t) = struct
 
   let inv rho t =
     let invt _ = Trm.equal t in
-    fst (Map.choose invt rho)
+    fst (Map.choose_if invt rho)
 
   let empty = Map.empty
   let is_empty = Map.is_empty
@@ -194,7 +194,7 @@ module Make (Var : VAR) (Trm : TRM with type var = Var.t) = struct
   let iter = Map.iter
   let exists = Map.exists
   let for_all = Map.for_all
-  let choose = Map.choose
+  let choose = Map.choose_if
   let equal = Map.equal
 end
 

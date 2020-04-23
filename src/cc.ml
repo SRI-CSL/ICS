@@ -194,7 +194,7 @@ struct
   let lookup u =
     let test v {Apply.funsym= _; Apply.arg= _y} = V.equal u v in
     let _, ({Apply.funsym= f; Apply.arg= y} as a) =
-      Find.choose test (Config.Find.current ())
+      Find.choose_if test (Config.Find.current ())
     in
     let y' = V.find y in
     if y == y' then a else Apply.make f y'

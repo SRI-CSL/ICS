@@ -57,7 +57,7 @@ module type S = sig
   val replace : t -> key -> key -> t
   val for_all : (key -> value -> bool) -> t -> bool
   val exists : (key -> value -> bool) -> t -> bool
-  val choose : (key -> value -> bool) -> t -> key * value
+  val choose_if : (key -> value -> bool) -> t -> key * value
   val destruct : (key -> value -> bool) -> t -> key * value * t
   val to_list : t -> (key * value) list
   val equal : t -> t -> bool
@@ -212,14 +212,14 @@ module Make (Key : OrderedType) (Val : EqType) = struct
       assert (not (mem x m)) ;
       m
 
-  let choose p m =
+  let choose_if p m =
     assert (well_formed m) ;
     let q (x, v) = p x v in
     Graph.choose_if q m
 
   let destruct p m =
     assert (well_formed m) ;
-    let x, v = choose p m in
+    let x, v = choose_if p m in
     let m' = copy m in
     remove x m' ;
     assert (well_formed m') ;

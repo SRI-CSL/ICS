@@ -133,8 +133,8 @@ module type S = sig
   val exists : (key -> value -> bool) -> t -> bool
   (** [exists p m] holds iff [p k v] for some binding [k |-> v] in map [m]. *)
 
-  val choose : (key -> value -> bool) -> t -> key * value
-  (** [choose p m] returns [(k, v)] if there is binding [k |-> v] in [m]
+  val choose_if : (key -> value -> bool) -> t -> key * value
+  (** [choose_if p m] returns [(k, v)] if there is binding [k |-> v] in [m]
       with [p k v]. Otherwise, [Not_found] is raised. *)
 
   val destruct : (key -> value -> bool) -> t -> key * value * t
