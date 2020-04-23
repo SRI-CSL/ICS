@@ -45,6 +45,7 @@ module type S = sig
   val is_empty : t -> bool
   val singleton : key -> value -> t
   val is_singleton : t -> bool
+  val choose : t -> key * value
   val find : key -> t -> value
   val set : key -> value -> t -> unit
   val remove : key -> t -> unit
@@ -112,6 +113,8 @@ module MakeGraph (Key : OrderedType) (Val : EqType) : S = struct
   let is_singleton m =
     assert (well_formed m) ;
     Graph.cardinal m = 1
+
+  let choose m = Graph.choose m
 
   (** Alternative implementation. *)
   module Balanced = Map.Make (Key)
@@ -254,6 +257,7 @@ module Make (Key : OrderedType) (Val : EqType) :
   let is_empty m = M.is_empty !m
   let singleton k v = ref (M.singleton k v)
   let is_singleton m = M.cardinal !m = 1
+  let choose m = M.choose !m
   let find k m = M.find k !m
   let set k v m = m := M.add k v !m
   let remove k m = m := M.remove k !m

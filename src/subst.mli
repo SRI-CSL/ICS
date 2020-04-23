@@ -30,7 +30,14 @@
     @author Harald Ruess *)
 
 (** {i Variables}. Used as input signature for {!Subst.Make}. *)
-module type VAR = Type.ORDERED
+module type VAR = sig
+  type t
+
+  val equal : t -> t -> bool
+  val compare : t -> t -> int
+  val hash : t -> int
+  val pp : Format.formatter -> t -> unit
+end
 
 (** {i Terms}. Used as input signature for {!Subst.Make}. *)
 module type TRM = sig

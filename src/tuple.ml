@@ -30,6 +30,7 @@ module type VAR = sig
   val hash : t -> int
   val pp : Format.formatter -> t -> unit
   val fresh : unit -> t
+  val dummy : t
 end
 
 module type T = sig
@@ -69,6 +70,7 @@ module type T = sig
   exception Unsat
 
   val solve : t -> t -> Subst.t
+  val dummy : t
 end
 
 exception Witness
@@ -104,15 +106,21 @@ let array_for_all2 p a b =
 module Tuple (Var : VAR) = struct
   type var = Var.t
 
-  type t = Var of var | Tuple of tuple | Proj of proj
+  module T = struct
+    type t = Var of var | Tuple of tuple | Proj of proj
 
-  and tuple = {mutable args: t array; mutable hash: int}
+    and tuple = {mutable args: t array; mutable hash: int}
 
-  and proj =
-    { mutable index: int
-    ; mutable width: int
-    ; mutable arg: t
-    ; mutable hashp: int }
+    and proj =
+      { mutable index: int
+      ; mutable width: int
+      ; mutable arg: t
+      ; mutable hashp: int }
+
+    let dummy = Tuple {args= [||]; hash= 0}
+  end
+
+  include T
 
   type term = t (* nickname *)
 
@@ -240,7 +248,7 @@ module Tuple (Var : VAR) = struct
     | _ -> invalid_arg "Tuple.to_var: argument not a variable."
 
   let of_var =
-    let module Cache = Weakhash.Make (Var) in
+    let module Cache = Weakhash.Make (Var) (T) in
     let universe = Cache.create 27 in
     fun x ->
       try Cache.find universe x
@@ -250,15 +258,14 @@ module Tuple (Var : VAR) = struct
         Cache.add universe x t ;
         t
 
-  let nil = Tuple {args= Array.make 0 (Obj.magic 0); hash= 0}
+  let nil = dummy
 
   let dummy_tuple =
-    let arb = Obj.magic 0 in
     let table = Hashtbl.create 4 in
     fun n ->
       try Hashtbl.find table n
       with Not_found ->
-        let a = {args= Array.make n arb; hash= -1} in
+        let a = {args= Array.make n dummy; hash= -1} in
         Hashtbl.add table n a ;
         a
 
@@ -394,7 +401,7 @@ module Tuple (Var : VAR) = struct
         match t with Proj p -> hash_proj p | _ -> assert false
     end) in
     let cache = Cache.create 7 in
-    let proj = {index= 0; width= 0; arg= Obj.magic 0; hashp= -1} in
+    let proj = {index= 0; width= 0; arg= dummy; hashp= -1} in
     let dummy = Proj proj in
     fun i n t ->
       assert (0 <= i && i < n && n < max_int) ;
@@ -446,8 +453,6 @@ module Tuple (Var : VAR) = struct
       true
     with Violation -> false
 
-  let dummy_array n = Array.make n (Obj.magic 0)
-
   let map f =
     let rec mapf t =
       match t with
@@ -470,7 +475,7 @@ module Tuple (Var : VAR) = struct
             else triple s1' s2' s3'
         | n ->
             assert (n >= 2) ;
-            let dummy = dummy_array n in
+            let dummy = Array.make n a.args.(0) in
             let changed = ref false in
             for i = 0 to n - 1 do
               let s = a.args.(i) in
@@ -524,8 +529,8 @@ module Tuple (Var : VAR) = struct
 
   let solve =
     let module Fresh = struct
-      let lhs = ref (Obj.magic 0)
-      let rhs = ref (Obj.magic 1)
+      let lhs = ref dummy
+      let rhs = ref dummy
 
       let init s t =
         lhs := s ;
@@ -576,7 +581,7 @@ module Tuple (Var : VAR) = struct
         try Table.find p !current
         with Not_found ->
           let i = p.index and n = p.width in
-          let fresh_args = Array.make n (Obj.magic 0) in
+          let fresh_args = Array.make n dummy in
           for j = 0 to n - 1 do
             let k = Var.fresh () in
             let q =
@@ -601,15 +606,17 @@ module Tuple (Var : VAR) = struct
             if s == s' then t else proj i n s'
       | Tuple a ->
           let n = Array.length a.args in
-          let changed = ref false in
-          let dummy = dummy_array n in
-          for j = 0 to n - 1 do
-            let s = a.args.(j) in
-            let s' = preprocess s in
-            dummy.(j) <- s' ;
-            if not (s == s') then changed := true
-          done ;
-          if !changed then tuple (Array.copy dummy) else t
+          if n = 0 then t
+          else
+            let changed = ref false in
+            let dummy = Array.make n a.args.(0) in
+            for j = 0 to n - 1 do
+              let s = a.args.(j) in
+              let s' = preprocess s in
+              dummy.(j) <- s' ;
+              if not (s == s') then changed := true
+            done ;
+            if !changed then tuple (Array.copy dummy) else t
     in
     let solve1 s t =
       match (s, t) with

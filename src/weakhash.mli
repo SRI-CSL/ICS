@@ -56,41 +56,44 @@ module type S = sig
   (** Representation of keys. *)
   type key
 
-  (** Representation of a hash table as a finite function with bindings
-      [k |-> v] with [k] a [key] and value [v] of type ['a]. *)
-  type 'a t
+  (** Representation of values. *)
+  type value
 
-  val create : int -> 'a t
+  (** Representation of a hash table as a finite function with bindings
+      [k |-> v] with [k] a [key] and value [v] of type [value]. *)
+  type t
+
+  val create : int -> t
   (** [create n] creates a hash table with no bindings. The parameter [n]
       indicates how much memory is allocated initially. *)
 
-  val count : 'a t -> int
+  val count : t -> int
   (** [count t] returns the number of bindings in hash table [t]. *)
 
-  val add : 'a t -> key -> 'a -> unit
+  val add : t -> key -> value -> unit
   (** [add t k v] adds a bindings [k |-> v] to [t]. It is assumed that there
       is no binding [k |-> w] in [t]! A [Failure] exception is raised if
       memory allocation fails, that is, the maximum array length has been
       exceeded. *)
 
-  val find : 'a t -> key -> 'a
+  val find : t -> key -> value
   (** [find t k] returns [v] if [t] contains a binding [k |-> v]; otherwise
       [Not_found] is raised. *)
 
-  val mem : 'a t -> key -> bool
+  val mem : t -> key -> bool
   (** [mem t k] holds iff there is a binding [k |-> v] in [t]. *)
 
-  val iter : (key -> 'a -> unit) -> 'a t -> unit
+  val iter : (key -> value -> unit) -> t -> unit
   (** [iter t f] applies [f k v] for all bindings [k |-> v] in [t]. The
       order of application is unspecified. *)
 
-  val fold : (key -> 'a -> 'b -> 'b) -> 'a t -> 'b -> 'b
+  val fold : (key -> value -> 'a -> 'a) -> t -> 'a -> 'a
   (** [fold f t e] returns
       [f k{1} v{1} (f k{2} v{2} ... (f k{n} v{n} e)...)] if [k{i} |-> v{i}]
       for [i = 1,...,n] are all the bindings in [t]. The order of
       accumulation is unspecified. *)
 
-  val to_list : 'a t -> (key * 'a) option list
+  val to_list : t -> (key * value) option list
   (** Represent the set of bindings [k |-> v] in [t] as a list with elements
       [(k, v)]. *)
 
@@ -101,18 +104,23 @@ module type S = sig
       - [del] is the number of deleted entries. *)
   type stats = {length: int; count: int; del: int}
 
-  val stats : 'a t -> stats
+  val stats : t -> stats
   (** Return statistics for a hash table. *)
 end
 
 (** Functor building an implementation of the weak hashtable signature. The
     functor [Weakhash.Make] returns a structure containing a type [key] of
-    keys and a type ['a t] of hash tables associating data of type ['a] to
-    keys of type [key]. This association is {i weak} in the sense that [key]
-    can be garbage collected even though it is a [key] in the hash table. On
-    garbage collection of [key], the association of [key] with its value is
-    deleted from the hash table. *)
-module Make (H : HASH) : S with type key = H.t
+    keys, a type [value] of values, and a type [t] of hash tables
+    associating data of type [value] to keys of type [key]. This association
+    is {i weak} in the sense that [key] can be garbage collected even though
+    it is a [key] in the hash table. On garbage collection of [key], the
+    association of [key] with its value is deleted from the hash table. *)
+module Make
+    (Key : HASH) (Value : sig
+      type t
+
+      val dummy : t
+    end) : S with type key = Key.t and type value = Value.t
 
 (**/**)
 

@@ -98,7 +98,7 @@ module Balanced (Ord : OrderedType) : S with type elt = Ord.t = struct
   exception Witness
 
   let choose_if p s =
-    let found = ref (Obj.magic 0) in
+    let found = ref (S.choose s.root) in
     let check k =
       if p k then (
         found := k ;
@@ -125,7 +125,12 @@ module Balanced (Ord : OrderedType) : S with type elt = Ord.t = struct
   let equal s1 s2 = S.equal s1.root s2.root
 end
 
-module Splay (Ord : OrderedType) = struct
+module Splay (Ord : sig
+  include OrderedType
+
+  val dummy : t
+end) =
+struct
   type elt = Ord.t
 
   let debug = ref false
@@ -148,7 +153,7 @@ module Splay (Ord : OrderedType) = struct
       ; mutable right: t
       ; mutable refcount: int }
 
-    let empty : t = Obj.magic None
+    let rec empty = {left= empty; elt= Ord.dummy; right= empty; refcount= 0}
     let is_empty n = n == empty
     let is_node s = not (s == empty)
 
@@ -589,7 +594,7 @@ module Splay (Ord : OrderedType) = struct
     assert (Balanced.equal (to_balanced s) (to_balanced s')) ;
     s'
 
-  let b = ref (Obj.magic 0) (* For debugging. *)
+  let b = ref Balanced.empty (* For debugging. *)
 
   let b1 = ref !b
   let b2 = ref !b
@@ -713,7 +718,7 @@ module Splay (Ord : OrderedType) = struct
   exception Found
 
   let choose_if =
-    let elt = ref (Obj.magic 0) in
+    let elt = ref Ord.dummy in
     fun p s ->
       assert (well_formed s) ;
       let test x =
@@ -755,6 +760,7 @@ module Test = struct
 
     let compare = Stdlib.compare
     let pp fmt i = Format.fprintf fmt "%d" i
+    let dummy = 0
   end)
 
   let numofprobes = ref 10000

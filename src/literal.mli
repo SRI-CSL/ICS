@@ -44,7 +44,14 @@
 
 (** {i Totally ordered set of variables.} Input signature for
     {!Literal.Make}. *)
-module type VAR = Type.ORDERED
+module type VAR = sig
+  type t
+
+  val equal : t -> t -> bool
+  val compare : t -> t -> int
+  val hash : t -> int
+  val pp : Format.formatter -> t -> unit
+end
 
 (** {i Monadic predicate symbols} have arity one. Input signature for
     {!Literal.Make}. *)

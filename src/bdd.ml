@@ -22,7 +22,15 @@
  * SOFTWARE.
  *)
 
-module type VAR = Type.ORDERED
+module type VAR = sig
+  type t
+
+  val equal : t -> t -> bool
+  val compare : t -> t -> int
+  val hash : t -> int
+  val pp : Format.formatter -> t -> unit
+  val dummy : t
+end
 
 module type FML = sig
   type var
@@ -163,18 +171,9 @@ module Make (Var : VAR) = struct
 
   type bdd = t (* nickname *)
 
-  let mk_false =
-    { guard= Obj.magic None
-    ; pos= Obj.magic None
-    ; neg= Obj.magic None
-    ; hash= 0 }
-
-  let mk_true =
-    { guard= Obj.magic None
-    ; pos= Obj.magic None
-    ; neg= Obj.magic None
-    ; hash= 1 }
-
+  let rec dummy = {guard= Var.dummy; pos= dummy; neg= dummy; hash= 0}
+  let mk_false = {dummy with hash= 0}
+  let mk_true = {dummy with hash= 1}
   let is_true b = b == mk_true
   let is_false b = b == mk_false
   let is_valid = is_true
@@ -379,8 +378,7 @@ module Make (Var : VAR) = struct
   end
 
   let mk_posvar =
-    let arb = Obj.magic None in
-    let dummy = {guard= arb; pos= mk_true; neg= mk_false; hash= -1} in
+    let dummy = {mk_true with hash= -1} in
     let module Cache = Weak.Make (Node) in
     let cache = Cache.create 17 in
     fun p ->
@@ -394,8 +392,7 @@ module Make (Var : VAR) = struct
         b
 
   let mk_negvar =
-    let arb = Obj.magic None in
-    let dummy = {guard= arb; pos= mk_false; neg= mk_true; hash= -1} in
+    let dummy = {mk_false with hash= -1} in
     let module Cache = Weak.Make (Node) in
     let cache = Cache.create 17 in
     fun p ->
@@ -410,9 +407,7 @@ module Make (Var : VAR) = struct
 
   (** Hashconsed construction of ITE terms. *)
   let hashconsed_ite =
-    let dummy =
-      {guard= Obj.magic 0; pos= mk_true; neg= mk_true; hash= -1}
-    in
+    let dummy = {mk_true with hash= -1} in
     let module Cache = Weak.Make (Node) in
     let cache = Cache.create 17 in
     fun g pos neg ->
@@ -496,6 +491,7 @@ module Make (Var : VAR) = struct
       let hash = hash
       let compare = compare
       let equal = equal
+      let dummy = dummy
     end
 
     module Triple = Type.Triple (Fml) (Fml) (Fml)
@@ -886,6 +882,7 @@ module Test = struct
     let pp fmt i = Format.fprintf fmt "x[%d]" i
     let compare = Stdlib.compare
     let random () = Random.int !maxvar
+    let dummy = -1
   end
 
   module Fml = Make (Var)

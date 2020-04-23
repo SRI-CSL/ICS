@@ -516,7 +516,7 @@ struct
     exception Found
 
     let inv_slack =
-      let found : Var.t ref = ref (Obj.magic 0) in
+      let found = ref Var.dummy in
       fun v ->
         assert (is_slack v) ;
         let test x =
@@ -531,7 +531,7 @@ struct
         with Found -> !found
 
     let inv_nonconst =
-      let found : Var.t ref = ref (Obj.magic 0) in
+      let found = ref Var.dummy in
       fun p ->
         assert (not (P.is_constant p)) ;
         let dx = deps (choose_var p) in
@@ -845,7 +845,7 @@ struct
     exception Found
 
     let inv =
-      let found : Var.t ref = ref (Obj.magic 0) in
+      let found = ref Var.dummy in
       fun p ->
         let us = deps (choose_var p) in
         let test_inv u =
@@ -1188,7 +1188,7 @@ struct
   (** Given a bounded [v] search for [u] such that [pivotable u v] according
       to Bland's rule. *)
   let bland_pivot =
-    let arbg = C.minus C.one and arbu = Obj.magic 0 in
+    let arbg = C.minus C.one and arbu = Var.dummy in
     let ming = ref arbg and minu = ref arbu in
     fun t v ->
       assert (bounded t v) ;

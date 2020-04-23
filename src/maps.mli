@@ -80,6 +80,7 @@ module type S = sig
 
   val singleton : key -> value -> t
   val is_singleton : t -> bool
+  val choose : t -> key * value
 
   val find : key -> t -> value
   (** [find x m] returns the current binding of [x] in [m], or raises

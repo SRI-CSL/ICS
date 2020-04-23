@@ -37,6 +37,7 @@ module type ORDERED = sig
   val compare : t -> t -> int
   val hash : t -> int
   val pp : Format.formatter -> t -> unit
+  val dummy : t
 end
 
 module type PRODUCT = sig
@@ -52,6 +53,7 @@ module type PRODUCT = sig
   val compare : t -> t -> int
   val hash : t -> int
   val pp : Format.formatter -> t -> unit
+  val dummy : unit -> t
 end
 
 module Product (Ordered1 : ORDERED) (Ordered2 : ORDERED) = struct
@@ -60,6 +62,7 @@ module Product (Ordered1 : ORDERED) (Ordered2 : ORDERED) = struct
   type t = {mutable lhs: elt1; mutable rhs: elt2}
 
   let make a b = {lhs= a; rhs= b}
+  let dummy () = {lhs= Ordered1.dummy; rhs= Ordered2.dummy}
 
   let fill p a b =
     p.lhs <- a ;
@@ -98,9 +101,9 @@ struct
   let make a b c = {arg1= a; arg2= b; arg3= c; hash= -1}
 
   let dummy () =
-    let arb1 = Obj.magic None
-    and arb2 = Obj.magic None
-    and arb3 = Obj.magic None in
+    let arb1 = Ordered1.dummy
+    and arb2 = Ordered2.dummy
+    and arb3 = Ordered3.dummy in
     make arb1 arb2 arb3
 
   let fill p a b c =

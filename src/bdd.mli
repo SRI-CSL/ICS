@@ -32,7 +32,15 @@
 (** For efficiency, package should be compiled with the [-noassert] option. *)
 
 (** {i Totally ordered set of variables.} *)
-module type VAR = Type.ORDERED
+module type VAR = sig
+  type t
+
+  val equal : t -> t -> bool
+  val compare : t -> t -> int
+  val hash : t -> int
+  val pp : Format.formatter -> t -> unit
+  val dummy : t
+end
 
 (** {i Reduced, ordered binary decision diagrams}.
 

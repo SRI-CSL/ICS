@@ -47,6 +47,7 @@ module type INDETERMINATE = sig
   val hash : t -> int
   val pp : Format.formatter -> t -> unit
   val fresh : unit -> t
+  val dummy : t
 end
 
 module type P = sig
@@ -110,6 +111,7 @@ module type P = sig
   val is_monomial : t -> bool
   val coeff_of_monomial : t -> coeff
   val indet_of_monomial : t -> indet
+  val dummy : t
 end
 
 module Make (C : COEFF) (X : INDETERMINATE) = struct
@@ -121,11 +123,22 @@ module Make (C : COEFF) (X : INDETERMINATE) = struct
   module Set = Sets.Make (X)
   module Map = Maps.Make (X) (C)
 
-  type t = {constant: C.t; monomials: Map.t; mutable hash: int}
+  module T = struct
+    type t = {constant: C.t; monomials: Map.t; mutable hash: int}
+
+    let dummy = {constant= C.zero; monomials= Map.empty (); hash= -1}
+  end
+
+  include T
 
   let ordered_monomials p =
     let n = Map.cardinal p.monomials in
-    let a = Array.make n (Obj.magic 0 : coeff * indet) in
+    let a =
+      if n = 0 then [||]
+      else
+        let x, c = Map.choose p.monomials in
+        Array.make n (c, x)
+    in
     let i = ref 0 in
     let add x c =
       assert (!i < n) ;
@@ -328,22 +341,24 @@ module Make (C : COEFF) (X : INDETERMINATE) = struct
 
   let[@warning "-32"] dom x p = not (C.equal C.zero (coeff x p))
 
-  exception Found
+  (* exception Found
+   * 
+   * let choose =
+   *   let coeff = ref (Obj.magic 0) and indet = ref (Obj.magic 0) in
+   *   fun f p ->
+   *     assert (well_formed p) ;
+   *     let choose_m x c =
+   *       if f x c then (
+   *         coeff := c ;
+   *         indet := x ;
+   *         raise Found )
+   *     in
+   *     try
+   *       Map.iter choose_m p.monomials ;
+   *       raise Not_found
+   *     with Found -> (!indet, !coeff) *)
 
-  let choose =
-    let coeff = ref (Obj.magic 0) and indet = ref (Obj.magic 0) in
-    fun f p ->
-      assert (well_formed p) ;
-      let choose_m x c =
-        if f x c then (
-          coeff := c ;
-          indet := x ;
-          raise Found )
-      in
-      try
-        Map.iter choose_m p.monomials ;
-        raise Not_found
-      with Found -> (!indet, !coeff)
+  let choose f p = Map.choose_if f p.monomials
 
   let make c m =
     let p = {constant= c; monomials= m; hash= -1} in
@@ -357,7 +372,7 @@ module Make (C : COEFF) (X : INDETERMINATE) = struct
 
   let constant =
     let empty = Map.empty () in
-    let module Cache = Weakhash.Make (C) in
+    let module Cache = Weakhash.Make (C) (T) in
     let table = Cache.create 17 in
     fun c ->
       try Cache.find table c
@@ -378,7 +393,7 @@ module Make (C : COEFF) (X : INDETERMINATE) = struct
     if Map.is_empty p.monomials then p.constant else raise Nonnum
 
   let indet =
-    let module Cache = Weakhash.Make (X) in
+    let module Cache = Weakhash.Make (X) (T) in
     let table = Cache.create 17 in
     fun x ->
       try Cache.find table x
@@ -782,6 +797,7 @@ module Test = struct
     let hash i = i
     let pp fmt i = Format.fprintf fmt "x[%d]" i
     let fresh () = Random.int 34
+    let dummy = 0
   end
 
   module P = Make (C) (X)

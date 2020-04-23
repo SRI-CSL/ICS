@@ -154,7 +154,7 @@ module Fill = struct
 
   let empty_bench () =
     { name= ""
-    ; logic= Obj.magic None
+    ; logic= QF_UF
     ; funsym_decls= Decls.empty
     ; predsym_decls= Decls.empty
     ; sort_decls= Sorts.empty

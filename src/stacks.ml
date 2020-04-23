@@ -36,9 +36,7 @@ exception Empty
 let initial_size = 4
 
 let create () =
-  let s =
-    {arr= Array.make initial_size (Obj.magic 0); top= -1; size= initial_size}
-  in
+  let s = {arr= [||]; top= -1; size= 0} in
   assert (well_formed s) ;
   s
 
@@ -54,10 +52,10 @@ let top s =
   assert (well_formed s) ;
   if is_empty s then raise Empty else s.arr.(s.top)
 
-let resize s =
+let resize x s =
   assert (well_formed s) ;
-  let size' = 2 * s.size in
-  let arr' = Array.make size' (Obj.magic 0) in
+  let size' = if s.size = 0 then initial_size else 2 * s.size in
+  let arr' = Array.make size' x in
   assert (s.top < size') ;
   for i = 0 to s.top do
     arr'.(i) <- s.arr.(i)
@@ -69,7 +67,7 @@ let resize s =
 
 let push x s =
   assert (well_formed s) ;
-  if s.top = s.size - 1 then resize s ;
+  if s.top = s.size - 1 then resize x s ;
   s.top <- s.top + 1 ;
   assert (s.top < s.size) ;
   s.arr.(s.top) <- x

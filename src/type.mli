@@ -61,6 +61,8 @@ module type ORDERED = sig
 
   val pp : Format.formatter -> t -> unit
   (** Printing an element onto the given formatter. *)
+
+  val dummy : t
 end
 
 (** {i Product types} for representing lexicographically ordered pairs
@@ -107,6 +109,8 @@ module type PRODUCT = sig
 
   val pp : Format.formatter -> t -> unit
   (** Printing an element onto the given formatter. *)
+
+  val dummy : unit -> t
 end
 
 (** {i Product types} for representing ordered pairs [(s, t)] with [s] of
@@ -137,7 +141,6 @@ module Triple (Ordered1 : ORDERED) (Ordered2 : ORDERED) (Ordered3 : ORDERED) : s
   val arg1 : t -> elt1
   val arg2 : t -> elt2
   val arg3 : t -> elt3
-  val dummy : unit -> t
   val equal : t -> t -> bool
   val compare : t -> t -> int
 
@@ -146,4 +149,6 @@ module Triple (Ordered1 : ORDERED) (Ordered2 : ORDERED) (Ordered3 : ORDERED) : s
 
   val pp : Format.formatter -> t -> unit
   (** Printing an element onto the given formatter. *)
+
+  val dummy : unit -> t
 end

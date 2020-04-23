@@ -32,26 +32,33 @@ end
 
 module type S = sig
   type key
-  type 'a t
+  type value
+  type t
 
-  val create : int -> 'a t
-  val count : 'a t -> int
-  val add : 'a t -> key -> 'a -> unit
-  val find : 'a t -> key -> 'a
-  val mem : 'a t -> key -> bool
-  val iter : (key -> 'a -> unit) -> 'a t -> unit
-  val fold : (key -> 'a -> 'b -> 'b) -> 'a t -> 'b -> 'b
-  val to_list : 'a t -> (key * 'a) option list
+  val create : int -> t
+  val count : t -> int
+  val add : t -> key -> value -> unit
+  val find : t -> key -> value
+  val mem : t -> key -> bool
+  val iter : (key -> value -> unit) -> t -> unit
+  val fold : (key -> value -> 'a -> 'a) -> t -> 'a -> 'a
+  val to_list : t -> (key * value) option list
 
   type stats = {length: int; count: int; del: int}
 
-  val stats : 'a t -> stats
+  val stats : t -> stats
 end
 
 let debug = ref 0
 
-module Make (H : HASH) : S with type key = H.t = struct
-  type key = H.t
+module Make
+    (Key : HASH) (Value : sig
+      type t
+
+      val dummy : t
+    end) : S with type key = Key.t and type value = Value.t = struct
+  type key = Key.t
+  type value = Value.t
 
   module D = Set.Make (struct
     type t = int
@@ -59,18 +66,16 @@ module Make (H : HASH) : S with type key = H.t = struct
     let compare i j = if i == j then 0 else if i < j then -1 else 1
   end)
 
-  let bot = Obj.magic 0
-
-  type 'a t =
+  type t =
     { mutable keys: key Weak.t
-    ; mutable vals: 'a array
+    ; mutable vals: value array
     ; mutable entries: int
     ; mutable deleted: D.t }
 
   let create m =
     let m = max 31 (min m Sys.max_array_length) in
     { keys= Weak.create m
-    ; vals= Array.make m bot
+    ; vals= Array.make m Value.dummy
     ; entries= 0
     ; deleted= D.empty }
 
@@ -89,7 +94,7 @@ module Make (H : HASH) : S with type key = H.t = struct
   module Trace = struct
     open Format
 
-    let key_print = H.pp err_formatter
+    let key_print = Key.pp err_formatter
     let val_print _ = Format.eprintf "???"
 
     let add k v =
@@ -157,7 +162,7 @@ module Make (H : HASH) : S with type key = H.t = struct
   (** Linear probing. *)
   let hash m k i =
     assert (i <= m) ;
-    let h' = H.hash k mod (max_int - m) in
+    let h' = Key.hash k mod (max_int - m) in
     assert (0 <= h' + i) ;
     (h' + i) mod m
 
@@ -170,7 +175,7 @@ module Make (H : HASH) : S with type key = H.t = struct
       let j = h i in
       assert (j < m) ;
       match Weak.get t.keys j with
-      | Some k' -> if H.equal k k' then true else repeat (i + 1)
+      | Some k' -> if Key.equal k k' then true else repeat (i + 1)
       | None -> if is_deleted t j then repeat (i + 1) else false
     in
     repeat 0
@@ -186,7 +191,7 @@ module Make (H : HASH) : S with type key = H.t = struct
         match Weak.get t.keys j with
         | Some k' ->
             (* atomic. *)
-            if H.equal k k' then (
+            if Key.equal k k' then (
               assert (Weak.check t.keys j) ;
               let v = t.vals.(j) in
               v )
@@ -202,7 +207,7 @@ module Make (H : HASH) : S with type key = H.t = struct
     with exc ->
       if !debug > 0 then
         let s =
-          H.pp Format.str_formatter x ;
+          Key.pp Format.str_formatter x ;
           Format.flush_str_formatter ()
         in
         Format.eprintf "\nWarning(weakhash %s): %s@?" s
@@ -223,7 +228,7 @@ module Make (H : HASH) : S with type key = H.t = struct
               t.entries <- t.entries - 1 ;
               if not !protect then
                 (* do not free value while *)
-                t.vals.(j) <- bot
+                t.vals.(j) <- t.vals.(0)
               (* executing protected code. *)
             in
             Weak.set t.keys j (Some k) ;
@@ -244,7 +249,7 @@ module Make (H : HASH) : S with type key = H.t = struct
     if m' <= m then failwith "Weakhash.resize : out of memory."
     else (
       t.keys <- Weak.create m' ;
-      t.vals <- Array.make m' bot ;
+      t.vals <- Array.make m' t.vals.(0) ;
       t.deleted <- D.empty ;
       let body j =
         match Weak.get keys j with
@@ -261,12 +266,12 @@ module Make (H : HASH) : S with type key = H.t = struct
 
   let output t k _u =
     Format.eprintf "Error: " ;
-    H.pp Format.err_formatter k ;
+    Key.pp Format.err_formatter k ;
     Format.eprintf " already in weak hash table@?" ;
     Format.eprintf " \n Elements(%d) " (count t) ;
     iter
       (fun k _ ->
-        H.pp Format.err_formatter k ;
+        Key.pp Format.err_formatter k ;
         Format.eprintf ", " )
       t ;
     Format.eprintf "\n@?"
@@ -298,16 +303,17 @@ module Test = struct
   let maxkey = ref 1000
 
   module Int = struct
-    type t = Int of int
+    type t = int
 
-    let value = function Int i -> i
-    let hash = function Int i -> i
-    let equal (Int i) (Int j) = i == j
-    let pp fmt = function Int i -> Format.fprintf fmt "<int %d>" i
-    let random () = Int (Random.int !maxkey)
+    let value = function i -> i
+    let hash = function i -> i
+    let equal i j = i == j
+    let pp fmt = function i -> Format.fprintf fmt "<int %d>" i
+    let random () = Random.int !maxkey
+    let dummy = 0
   end
 
-  module Table = Make (Int)
+  module Table = Make (Int) (Int)
 
   let table = Table.create !initsize
 

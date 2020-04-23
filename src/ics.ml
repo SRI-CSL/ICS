@@ -193,6 +193,7 @@ struct
     | Intern i -> Intern.pp fmt i
 
   let is_fresh = function Intern i -> i > !k | Extern _ -> false
+  let dummy = Intern (-1)
 end
 
 (** {i Term variables} *)
@@ -220,12 +221,18 @@ module Term = struct
   (** {i Functional Array Terms} *)
   module Array = Funarr.Flat (Var)
 
-  type t =
-    | Var of Var.t
-    | Uninterp of Uninterp.t
-    | Arith of Polynomial.t
-    | Tuple of Tuple.t
-    | Array of Array.t
+  module T = struct
+    type t =
+      | Var of Var.t
+      | Uninterp of Uninterp.t
+      | Arith of Polynomial.t
+      | Tuple of Tuple.t
+      | Array of Array.t
+
+    let dummy = Tuple Tuple.nil
+  end
+
+  include T
 
   let hash = function
     | Var x -> Var.hash x
@@ -291,7 +298,7 @@ module Term = struct
     | _ -> raise (Invalid_argument "not a variable")
 
   let of_var =
-    let module Cache = Weakhash.Make (Var) in
+    let module Cache = Weakhash.Make (Var) (T) in
     let universe = Cache.create 153 in
     fun x ->
       try Cache.find universe x
@@ -302,7 +309,7 @@ module Term = struct
         t
 
   let of_apply =
-    let module Cache = Weakhash.Make (Uninterp) in
+    let module Cache = Weakhash.Make (Uninterp) (T) in
     let table = Cache.create 107 in
     fun a ->
       try Cache.find table a
@@ -313,7 +320,7 @@ module Term = struct
         t
 
   let of_poly =
-    let module Cache = Weakhash.Make (Polynomial) in
+    let module Cache = Weakhash.Make (Polynomial) (T) in
     let table = Cache.create 107 in
     fun p ->
       try of_var (Polynomial.d_indet p)
@@ -328,7 +335,7 @@ module Term = struct
   let of_num c = of_poly (Polynomial.constant c)
 
   let of_tuple =
-    let module Cache = Weakhash.Make (Tuple) in
+    let module Cache = Weakhash.Make (Tuple) (T) in
     let table = Cache.create 107 in
     fun tt ->
       if Tuple.is_var tt then of_var (Tuple.to_var tt)
@@ -341,7 +348,7 @@ module Term = struct
           t
 
   let of_array =
-    let module Cache = Weakhash.Make (Array) in
+    let module Cache = Weakhash.Make (Array) (T) in
     let table = Cache.create 107 in
     fun tt ->
       try Cache.find table tt
@@ -426,12 +433,20 @@ module Predsym = struct
       | Equal0, Diseq0 -> true
       | Diseq0, Equal0 -> true
       | _ -> false
+
+    let dummy = Nonneg
   end
 
-  type t = Uninterp of Name.t | Arith of Arith.t | Tuple of int | Array
+  module T = struct
+    type t = Uninterp of Name.t | Arith of Arith.t | Tuple of int | Array
+
+    let dummy = Array
+  end
+
+  include T
 
   let uninterp =
-    let module Cache = Weakhash.Make (Name) in
+    let module Cache = Weakhash.Make (Name) (T) in
     let table = Cache.create 7 in
     fun str ->
       let n = Name.of_string str in
@@ -515,13 +530,19 @@ module Formula = struct
          conditions}. *)
   module Bdd = Bdd.Make (Propvar)
 
-  type t =
-    | Equal of Term.t * Term.t
-    | Diseq of Term.t * Term.t
-    | Poslit of Predsym.t * Term.t
-    | Neglit of Predsym.t * Term.t
-    | Arith of Predsym.Arith.t * Term.Polynomial.t
-    | Prop of Bdd.t
+  module T = struct
+    type t =
+      | Equal of Term.t * Term.t
+      | Diseq of Term.t * Term.t
+      | Poslit of Predsym.t * Term.t
+      | Neglit of Predsym.t * Term.t
+      | Arith of Predsym.Arith.t * Term.Polynomial.t
+      | Prop of Bdd.t
+
+    let dummy = Prop Bdd.mk_true
+  end
+
+  include T
 
   let pretty = ref true
   let maxdepth = ref (-1)
@@ -577,9 +598,9 @@ module Formula = struct
     else Stdlib.compare p q
 
   let mk_equal =
-    let module Cache = Weakhash.Make (Term2) in
+    let module Cache = Weakhash.Make (Term2) (T) in
     let table = Cache.create 107 in
-    let dummy = Term2.make (Obj.magic 0) (Obj.magic 0) in
+    let dummy = Term2.make Term.dummy Term.dummy in
     fun s t ->
       Term2.fill dummy s t ;
       try Cache.find table dummy
@@ -590,9 +611,9 @@ module Formula = struct
         e
 
   let mk_diseq =
-    let module Cache = Weakhash.Make (Term2) in
+    let module Cache = Weakhash.Make (Term2) (T) in
     let table = Cache.create 107 in
-    let dummy = Term2.make (Obj.magic 0) (Obj.magic 0) in
+    let dummy = Term2.make Term.dummy Term.dummy in
     fun s t ->
       Term2.fill dummy s t ;
       try Cache.find table dummy
@@ -604,9 +625,9 @@ module Formula = struct
 
   let mk_apply =
     let module Apply = Type.Product (Predsym) (Term) in
-    let module Cache = Weakhash.Make (Apply) in
+    let module Cache = Weakhash.Make (Apply) (T) in
     let table = Cache.create 7 in
-    let dummy = Apply.make (Obj.magic 0) (Obj.magic 0) in
+    let dummy = Apply.make Predsym.dummy Term.dummy in
     fun p t ->
       Apply.fill dummy p t ;
       try Cache.find table dummy
@@ -618,9 +639,9 @@ module Formula = struct
 
   let mk_negapply =
     let module Apply = Type.Product (Predsym) (Term) in
-    let module Cache = Weakhash.Make (Apply) in
+    let module Cache = Weakhash.Make (Apply) (T) in
     let table = Cache.create 7 in
-    let dummy = Apply.make (Obj.magic 0) (Obj.magic 0) in
+    let dummy = Apply.make Predsym.dummy Term.dummy in
     fun p t ->
       Apply.fill dummy p t ;
       try Cache.find table dummy
@@ -632,9 +653,9 @@ module Formula = struct
 
   let mk_arith =
     let module Apply = Type.Product (Predsym.Arith) (Term.Polynomial) in
-    let module Cache = Weakhash.Make (Apply) in
+    let module Cache = Weakhash.Make (Apply) (T) in
     let table = Cache.create 7 in
-    let dummy = Apply.make (Obj.magic 0) (Obj.magic 0) in
+    let dummy = Apply.make Predsym.Arith.dummy Term.Polynomial.dummy in
     fun p t ->
       Apply.fill dummy p t ;
       try Cache.find table dummy
@@ -650,7 +671,7 @@ module Formula = struct
 
       let pp = Bdd.pp (!pretty, !pretty, !maxdepth)
     end in
-    let module Cache = Weakhash.Make (Prop) in
+    let module Cache = Weakhash.Make (Prop) (T) in
     let cache = Cache.create 7 in
     fun b ->
       try Cache.find cache b
@@ -1842,7 +1863,7 @@ let tuple = function
   | [s; t; r] -> triple s t r
   | tl ->
       let (n : int) = List.length tl in
-      let a = Array.make n (Obj.magic 0) in
+      let a = Array.make n Term.Tuple.dummy in
       for i = 0 to n - 1 do
         let (t : Term.Tuple.t) = term2tuple (List.nth tl i) in
         a.(i) <- t

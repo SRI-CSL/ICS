@@ -46,7 +46,7 @@ end)
 let table = Table.create 117
 
 let of_string =
-  let dummy = {name= Obj.magic 0; hash= -1} in
+  let dummy = {name= ""; hash= -1} in
   fun str ->
     dummy.name <- str ;
     dummy.hash <- -1 ;
@@ -59,7 +59,7 @@ let of_string =
 let of_int i = of_string (string_of_int i)
 
 let is_defined =
-  let dummy = {name= Obj.magic 0; hash= -1} in
+  let dummy = {name= ""; hash= -1} in
   fun str ->
     dummy.name <- str ;
     Table.mem table dummy
