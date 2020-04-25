@@ -59,11 +59,11 @@
 
   (** Undo stack holds previous states. *)
   module Undo = struct
-    let stack = Stacks.create()
-    let reset() = Stacks.clear stack
-    let push s = Stacks.push s stack
-    let pop () = Stacks.pop stack
-    let is_empty() = Stacks.is_empty stack
+    let stack = Stack.create()
+    let reset() = Stack.clear stack
+    let push s = Stack.push s stack
+    let pop () = Stack.pop stack
+    let is_empty() = Stack.is_empty stack
   end
 
   module Ebnf = struct
