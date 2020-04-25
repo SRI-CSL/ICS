@@ -27,18 +27,24 @@
    (-w +a-4-9-18-30-40-42-44-48@50-66 -strict-formats -strict-sequence
      -error-style short -short-paths -bin-annot -keep-locs -keep-docs -opaque))
   (ocamlopt_flags
-   (-w -a)))
+   (-w -a))
+  (env-vars
+   (PPX_TRACE_ENABLED 1)))
  (_
   (flags
    (-w -a -error-style short -noassert -unsafe -unboxed-types))
+  (env-vars
+   (PPX_TRACE_ENABLED 0))
   (ocamlopt_flags (-O3))))
 
 (subdir
  src
  (library
   (public_name ics)
-  (libraries num unix zarith)
-  (flags (:standard))))
+  (libraries ppx_trace.trace num unix zarith)
+  (flags (:standard))
+  (preprocess
+   (pps ppx_trace))))
 
 (subdir
  bin
