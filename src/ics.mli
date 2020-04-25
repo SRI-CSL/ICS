@@ -109,6 +109,7 @@ module Q : sig
     (** Randomly choose a rational. *)
 end
 
+module Name = Name
 
 (** {i Term variables.} Variables are partitioned into {i external} 
   and {i internal} variables. 

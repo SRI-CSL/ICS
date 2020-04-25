@@ -123,6 +123,8 @@ module Q = struct
 	    make d n
 end
 
+module Name = Name
+
 let k = ref 0
 
 (** {i Empty structure} *)
