@@ -587,14 +587,10 @@ end
     | str -> invalid_arg("No such theory: " ^ str)
 
   let do_process fml = 
-    try 
-      Ics.process fml;
-      (match Ics.status() with
-	| Ics.Sat _ -> Format.fprintf fmt ":sat@?"
-	| _ -> Format.fprintf fmt ":ok@?")
-    with
-	Ics.Unsatisfiable -> 
-	  Format.fprintf fmt ":unsat@?"
+    match Ics.process fml with
+    | Ics.Sat _ -> Format.fprintf fmt ":sat@?"
+    | Ics.Unsat _ -> Format.fprintf fmt ":unsat@?"
+    | Ics.Unknown -> Format.fprintf fmt ":ok@?"
 %}
 
 %token EOF

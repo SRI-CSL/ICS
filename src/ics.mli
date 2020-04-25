@@ -955,11 +955,10 @@ val valid : Formula.t -> bool
 (** Indicates unsatisfiability of the current state. *)
 exception Unsatisfiable
 
-val process : Formula.t -> unit
-(** [process fml] adds [fml] to the current logical state. If [fml] is
-    detected to be inconsistent with this state, then {!Ics.Unsatisfiable}
-    is raised. [process] is {i incomplete} in that it does not detect all
-    such inconsistencies, but it is complete as long as the current
+val process : Formula.t -> status
+(** [process fml] adds [fml] to the current logical state and returns the
+    resulting status. [process] is {i incomplete} in that it does not detect
+    all inconsistencies, but it is complete as long as the current
     propositional formula [prop()] is trivially true. For completeness,
     {!Ics.resolve} needs to be called explicitly. *)
 

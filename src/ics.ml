@@ -1730,7 +1730,7 @@ let normalize () =
   A.normalize () ;
   T.normalize ()
 
-let process p =
+let process_exn p =
   assert (closed ()) ;
   if !footprint then Footprint.process p ;
   let add p =
@@ -1744,6 +1744,10 @@ let process p =
       assert (closed ()) )
   in
   apply_process add p
+
+let process p =
+  (try process_exn p with Unsatisfiable -> ()) ;
+  !curr_status
 
 let context () = !curr_context
 let status () = !curr_status
@@ -2287,7 +2291,7 @@ let rec xp b c a =
     let todo = ref pl in
     while !todo <> [] do
       try
-        process (List.hd !todo) ;
+        process_exn (List.hd !todo) ;
         todo := List.tl !todo
       with Unsatisfiable -> todo := []
     done ;
@@ -2353,7 +2357,7 @@ let process_implicant imp =
                 Formula.Bdd.mk_conj !learned (Formula.Bdd.mk_imp !ctxt curr)
             else (
               ctxt := Formula.Bdd.mk_conj !ctxt curr ;
-              process (Formula.mk_prop curr) )
+              process_exn (Formula.mk_prop curr) )
         | false, p ->
             let curr = Formula.Bdd.mk_negvar p in
             if L0.is_unsat p then
@@ -2361,7 +2365,7 @@ let process_implicant imp =
                 Formula.Bdd.mk_conj !learned (Formula.Bdd.mk_imp !ctxt curr)
             else (
               ctxt := Formula.Bdd.mk_conj !ctxt curr ;
-              process (Formula.mk_prop curr) )
+              process_exn (Formula.mk_prop curr) )
       done ;
       Implicant !ctxt
     with Unsatisfiable ->
@@ -2422,7 +2426,7 @@ let valid_complete fml =
   assert (closed ()) ;
   let check p =
     try
-      process (neg p) ;
+      process_exn (neg p) ;
       false
     with Unsatisfiable -> true
   in

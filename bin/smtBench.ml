@@ -355,10 +355,8 @@ let decide incomplete_flag b =
   let concl = fml2ics b.conclusion in
   let fml = Ics.implies hyps concl in
   (* to do: add constraints. *)
-  try
-    Ics.process fml ;
-    match if incomplete_flag then Ics.status () else Ics.resolve () with
-    | Ics.Sat _ -> Ast.Sat
-    | Ics.Unsat _ -> Ast.Unsat
-    | Ics.Unknown -> Ast.Unknown
-  with Ics.Unsatisfiable -> Ast.Unsat
+  let status = Ics.process fml in
+  match if incomplete_flag then status else Ics.resolve () with
+  | Ics.Sat _ -> Ast.Sat
+  | Ics.Unsat _ -> Ast.Unsat
+  | Ics.Unknown -> Ast.Unknown
