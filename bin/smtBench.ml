@@ -129,7 +129,8 @@ module Ast = struct
 
   type status = Unsat | Sat | Unknown
 
-  let pp_status fmt = function
+  let pp_status fmt status =
+    match (status : status) with
     | Unsat -> Format.fprintf fmt "Unsat"
     | Sat -> Format.fprintf fmt "Sat"
     | Unknown -> Format.fprintf fmt "Unknown"
@@ -149,7 +150,7 @@ module Ast = struct
 end
 
 module Fill = struct
-  open Ast
+  open! Ast
 
   let empty_bench () =
     { name= ""
@@ -356,7 +357,7 @@ let decide incomplete_flag b =
   try
     Ics.process fml ;
     match if incomplete_flag then Ics.status () else Ics.resolve () with
-    | Ics.Sat _ -> Sat
-    | Ics.Unsat _ -> Unsat
-    | Ics.Unknown -> Unknown
-  with Ics.Unsatisfiable -> Unsat
+    | Ics.Sat _ -> Ast.Sat
+    | Ics.Unsat _ -> Ast.Unsat
+    | Ics.Unknown -> Ast.Unknown
+  with Ics.Unsatisfiable -> Ast.Unsat
