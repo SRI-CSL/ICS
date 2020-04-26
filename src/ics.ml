@@ -660,11 +660,6 @@ module Footprint = struct
       Propvar.pp stderr p ;
       flush () )
 
-  let close () =
-    if !footprint then (
-      out "close" ;
-      flush () )
-
   let resolve () =
     if !footprint then (
       out "resolve" ;
@@ -1648,7 +1643,7 @@ let add_formula = function
 let rec close () =
   if closed () then ()
   else (
-    if !footprint then Footprint.close () ;
+    [%Trace.info "close"] ;
     Union.close () ;
     Separate.close () ;
     Valid0.close () ;
