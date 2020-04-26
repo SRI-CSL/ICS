@@ -132,6 +132,8 @@ module type INFSYS = sig
   val normalize : unit -> unit
 end
 
+let trace (k : Trace.pf -> _) = [%Trace.infok k]
+
 module Make (P : POLYNOMIAL) (V : INTERFACE with type var = P.indet) =
 struct
   module C = P.Coeff
@@ -165,140 +167,6 @@ struct
   type var = Var.t
   type coeff = C.t
 
-  module Trace = struct
-    let debug = ref true
-
-    open Format
-
-    let varpp = Var.pp err_formatter
-
-    let rec varlpp = function
-      | [] -> ()
-      | [x] -> varpp x
-      | x :: xl ->
-          varpp x ;
-          eprintf ", " ;
-          varlpp xl
-
-    let termpp = P.pp err_formatter
-    let constpp = P.Coeff.pp err_formatter
-
-    let slack x =
-      if !debug then (
-        eprintf "\nSlack(A): " ;
-        varpp x ;
-        eprintf "@?" ) ;
-      true
-
-    let union x y =
-      if !debug then (
-        eprintf "\nDeduce(A): " ;
-        varpp x ;
-        eprintf " = " ;
-        varpp y ;
-        eprintf "@?" ) ;
-      true
-
-    let separate x y =
-      if !debug then (
-        eprintf "\nDeduce(A): " ;
-        varpp x ;
-        eprintf " <> " ;
-        varpp y ;
-        eprintf "@?" ) ;
-      true
-
-    let real x =
-      if !debug then (
-        eprintf "\nDeduce(A): real(" ;
-        varpp x ;
-        eprintf ")@?" ) ;
-      true
-
-    let extend x p =
-      if !debug then (
-        eprintf "\nExtend(A): " ;
-        varpp x ;
-        eprintf " = " ;
-        termpp p ;
-        eprintf "@?" ) ;
-      true
-
-    let compose x p =
-      if !debug then (
-        eprintf "\nCompose(A): " ;
-        varpp x ;
-        eprintf " = " ;
-        termpp p ;
-        eprintf "@?" ) ;
-      true
-
-    let pivot x y =
-      if !debug then (
-        eprintf "\nPivot(A): " ;
-        varpp x ;
-        eprintf " " ;
-        varpp y ;
-        eprintf "@?" ) ;
-      true
-
-    let fuse_const x c =
-      if !debug then (
-        eprintf "\nFuse(A): " ;
-        varpp x ;
-        eprintf " = " ;
-        constpp c ;
-        eprintf "@?" ) ;
-      true
-
-    let fuse_var x y =
-      if !debug then (
-        eprintf "\nFuse(A): " ;
-        varpp x ;
-        eprintf " = " ;
-        varpp y ;
-        eprintf "@?" ) ;
-      true
-
-    let inc_bounded xl =
-      if !debug then (
-        eprintf "\nIncBounded(A): " ;
-        varlpp xl ;
-        eprintf "@?" ) ;
-      true
-
-    let inc_zeroes x p =
-      if !debug then (
-        eprintf "\nIncZeroes(A): " ;
-        varpp x ;
-        eprintf " = " ;
-        termpp p ;
-        eprintf "@?" ) ;
-      true
-
-    let set0 x =
-      if !debug then (
-        eprintf "\nSet0(A): " ;
-        varpp x ;
-        eprintf "@?" ) ;
-      true
-
-    let zbnd_star () =
-      if !debug then eprintf "\nzbnd(A) @?" ;
-      true
-
-    let max0 p =
-      if !debug then (
-        eprintf "\nMax0(A): " ;
-        termpp p ;
-        eprintf "@?" ) ;
-      true
-
-    let find_zeroes () =
-      if !debug then eprintf "\nfindZeroes(A) @?" ;
-      true
-  end
-
   module Subst = Maps.Make (Var) (P)
   module Dep = Powermaps.Make (Var)
 
@@ -322,7 +190,7 @@ struct
 
   let fresh_slack () =
     let k = Var.fresh () in
-    assert (Trace.slack k) ;
+    trace (fun {pf} -> pf "Slack(A): %a" Var.pp k) ;
     S.add k ;
     k
 
@@ -355,20 +223,20 @@ struct
 
   module Deduce = struct
     let union x y =
+      trace (fun {pf} -> pf "Deduce(A): %a = %a" Var.pp x Var.pp y) ;
       assert (not (is_slack x)) ;
       assert (not (is_slack y)) ;
-      assert (Trace.union x y) ;
       V.union x y
 
     let separate x y =
+      trace (fun {pf} -> pf "Deduce(A): %a <> %a" Var.pp x Var.pp y) ;
       assert (not (is_slack x)) ;
       assert (not (is_slack y)) ;
-      assert (Trace.separate x y) ;
       V.separate x y
 
     let real1 x =
+      trace (fun {pf} -> pf "Deduce(A): real(%a)" Var.pp x) ;
       assert (not (is_slack x)) ;
-      assert (Trace.real x) ;
       V.real x
 
     let real p =
@@ -603,7 +471,7 @@ struct
             assert (well_formed ()) ) )
 
     let fuse_const y c =
-      assert (Trace.fuse_const y c) ;
+      trace (fun {pf} -> pf "Fuse(A): %a = %a" Var.pp y P.Coeff.pp c) ;
       assert (not (dom y)) ;
       let fuse1 x =
         (* assert(dom x); *)
@@ -619,7 +487,7 @@ struct
       assert (not (cod y))
 
     let fuse_var y z =
-      assert (Trace.fuse_var y z) ;
+      trace (fun {pf} -> pf "Fuse(A): %a = %a" Var.pp y Var.pp z) ;
       assert (not (dom y)) ;
       assert (not (Var.equal y z)) ;
       let fuse1 x =
@@ -687,8 +555,8 @@ struct
         assert (well_formed ())
 
     let extend x p =
+      trace (fun {pf} -> pf "Extend(A): %a = %a" Var.pp x P.pp p) ;
       assert (not (is_slack x)) ;
-      assert (Trace.extend x p) ;
       assert (not (dom x)) ;
       try extend_const x (P.d_constant p)
       with P.Nonnum -> extend_nonconst x p
@@ -729,7 +597,7 @@ struct
       extend_const x c
 
     let compose x p =
-      assert (Trace.compose x p) ;
+      trace (fun {pf} -> pf "Compose(A): %a = %a" Var.pp x P.pp p) ;
       assert (not (dom x)) ;
       try compose_const x (P.d_constant p)
       with P.Nonnum -> compose_nonconst x p
@@ -1020,7 +888,7 @@ struct
       assert (R.well_formed ())
 
     let compose x p =
-      assert (Trace.compose x p) ;
+      trace (fun {pf} -> pf "Compose(A): %a = %a" Var.pp x P.pp p) ;
       assert (not (dom x)) ;
       assert (not (P.mem x p)) ;
       assert (restricted p) ;
@@ -1034,7 +902,7 @@ struct
             extend x p ) )
 
     let pivot u v =
-      assert (Trace.pivot u v) ;
+      trace (fun {pf} -> pf "Pivot(A): %a %a" Var.pp u Var.pp v) ;
       assert (dom u) ;
       assert (P.mem v (find u)) ;
       assert (not (dom v)) ;
@@ -1358,7 +1226,8 @@ struct
         variable [v] in [p] that occurs negatively in an entry that might be
         maximized at [0]. *)
     let rec inc_bounded () =
-      assert (Trace.inc_bounded (Focus.to_list ())) ;
+      trace (fun {pf} ->
+          pf "IncBounded(A): %a" (NS.List.pp ", " Var.pp) (Focus.to_list ()) ) ;
       let changed = ref false in
       let occurs_neg v =
         let test u =
@@ -1383,10 +1252,13 @@ struct
       in
       T.iter0 inspect_entry0 ;
       if !changed then inc_bounded ()
-      else assert (Trace.inc_bounded (Focus.to_list ()))
+      else
+        trace (fun {pf} ->
+            pf "IncBounded(A): %a" (NS.List.pp ", " Var.pp)
+              (Focus.to_list ()) )
 
     let rec max0 p =
-      assert (Trace.max0 p) ;
+      trace (fun {pf} -> pf "Max0(A): %a" P.pp p) ;
       assert (restricted p) ;
       let p = T.can p in
       if C.compare (P.const p) C.zero > 0 then p
@@ -1412,7 +1284,7 @@ struct
     (** [zbnd()] removes all entries [x = p] from the current [focus] with
         constant [p] non-zero or [p] unbounded wrt current [focus]. *)
     let rec zbnd_star () =
-      assert (Trace.zbnd_star ()) ;
+      trace (fun {pf} -> pf "zbnd(A)") ;
       let changed = ref false in
       let remove u =
         if Focus.mem u then (
@@ -1435,7 +1307,7 @@ struct
       if !changed then zbnd_star ()
 
     let set0 z =
-      assert (Trace.set0 z) ;
+      trace (fun {pf} -> pf "Set0(A): %a" Var.pp z) ;
       assert (is_slack z) ;
       ( try
           let p = T.find z in
@@ -1465,13 +1337,12 @@ struct
       with Not_found -> ()
 
     let find_zeroes () =
-      if not (is_empty ()) then (
-        assert (Trace.find_zeroes ()) ;
-        zbnd_star () ;
-        maxentries () )
+      if not (is_empty ()) then trace (fun {pf} -> pf "findZeroes(A)") ;
+      zbnd_star () ;
+      maxentries ()
 
     let inc_zeroes w p =
-      assert (Trace.inc_zeroes w p) ;
+      trace (fun {pf} -> pf "IncZeroes(A): %a = %a" Var.pp w P.pp p) ;
       assert (is_slack w) ;
       init_diff w (T.deps w) ;
       (* Initialize with the entries to be modified. *)
