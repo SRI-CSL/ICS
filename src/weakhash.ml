@@ -22,330 +22,355 @@
  * SOFTWARE.
  *)
 
+module type HASH = sig
+  type t
 
-module type HASH =
-  sig
-    type t  
-    val equal: t -> t -> bool
-    val hash: t -> int
-    val pp : Format.formatter -> t -> unit
-  end
+  val equal : t -> t -> bool
+  val hash : t -> int
+  val pp : Format.formatter -> t -> unit
+end
 
-module type S =
-  sig
-    type key
-    type 'a t
-    val create: int -> 'a t
-    val count : 'a t -> int
-    val add: 'a t -> key -> 'a -> unit
-    val find: 'a t -> key -> 'a
-    val mem : 'a t -> key -> bool
-    val iter: (key -> 'a -> unit) -> 'a t -> unit
-    val fold: (key -> 'a -> 'b -> 'b) -> 'a t -> 'b -> 'b
-    val to_list : 'a t -> (key * 'a) option list
-    type stats = { length : int; count : int; del: int }
-    val stats : 'a t -> stats
-  end
+module type S = sig
+  type key
+  type 'a t
+
+  val create : int -> 'a t
+  val count : 'a t -> int
+  val add : 'a t -> key -> 'a -> unit
+  val find : 'a t -> key -> 'a
+  val mem : 'a t -> key -> bool
+  val iter : (key -> 'a -> unit) -> 'a t -> unit
+  val fold : (key -> 'a -> 'b -> 'b) -> 'a t -> 'b -> 'b
+  val to_list : 'a t -> (key * 'a) option list
+
+  type stats = {length: int; count: int; del: int}
+
+  val stats : 'a t -> stats
+end
 
 let debug = ref 0
 
-module Make(H: HASH): (S with type key = H.t) = struct
-
+module Make (H : HASH) : S with type key = H.t = struct
   type key = H.t
 
-  module D = Set.Make(
-    struct
-      type t = int
-      let compare i j = if i == j then 0 else if i < j then -1 else 1
-    end)
+  module D = Set.Make (struct
+    type t = int
+
+    let compare i j = if i == j then 0 else if i < j then -1 else 1
+  end)
 
   let bot = Obj.magic 0
-      
-  type 'a t = {
-    mutable keys : key Weak.t;
-    mutable vals : 'a array;
-    mutable entries : int;
-    mutable deleted : D.t
-  }
+
+  type 'a t =
+    { mutable keys: key Weak.t
+    ; mutable vals: 'a array
+    ; mutable entries: int
+    ; mutable deleted: D.t }
 
   let create m =
     let m = max 31 (min m Sys.max_array_length) in
-      { keys = Weak.create m;
-	vals = Array.create m (bot);
-	entries = 0;
-	deleted = D.empty }
+    { keys= Weak.create m
+    ; vals= Array.create m bot
+    ; entries= 0
+    ; deleted= D.empty }
 
-  let length t = 
-    assert(Array.length t.vals = Weak.length t.keys);
+  let length t =
+    assert (Array.length t.vals = Weak.length t.keys) ;
     Array.length t.vals
 
   let count t = t.entries
 
-  type stats = { length : int; count : int; del: int }
-      
-  let stats t = {
-    length = length t;
-    count = count t;
-    del = D.cardinal t.deleted
-  }
+  type stats = {length: int; count: int; del: int}
 
+  let stats t = {length= length t; count= count t; del= D.cardinal t.deleted}
   let is_deleted t j = D.mem j t.deleted
-
   let protect = ref false
-
 
   module Trace = struct
     open Format
-    let keyPrint = H.pp err_formatter 
-    let valPrint v = Format.eprintf "???"
-    let add k v = if !debug<> 0 then (eprintf "\nWeakhash.add: "; keyPrint k; eprintf " |-> "; valPrint v; eprintf "@?")
-    let rem k v = if !debug<>0 then (eprintf "\nWeakhash.add: "; keyPrint k; eprintf " |-> "; valPrint v; eprintf "@?")
+
+    let key_print = H.pp err_formatter
+    let val_print v = Format.eprintf "???"
+
+    let add k v =
+      if !debug <> 0 then (
+        eprintf "\nWeakhash.add: " ;
+        key_print k ;
+        eprintf " |-> " ;
+        val_print v ;
+        eprintf "@?" )
+
+    let rem k v =
+      if !debug <> 0 then (
+        eprintf "\nWeakhash.add: " ;
+        key_print k ;
+        eprintf " |-> " ;
+        val_print v ;
+        eprintf "@?" )
   end
 
-  (** [with_protected f a] disables garbage collection of values 
-    while executing [f a].  As a consequence,  [Array.get t.vals j]
-    always produces a meaningful value, whenever [Weak.check t.keys j] holds. *)
+  (** [with_protected f a] disables garbage collection of values while
+      executing [f a]. As a consequence, [Array.get t.vals j] always
+      produces a meaningful value, whenever [Weak.check t.keys j] holds. *)
   let with_protected f a =
     try
-      protect := true;
+      protect := true ;
       let b = f a in
-	protect := false;
-	b
-    with
-	exc -> protect := false; raise exc
-     
-  let to_list t =  
+      protect := false ;
+      b
+    with exc ->
+      protect := false ;
+      raise exc
+
+  let to_list t =
     let m = length t in
     let l = ref [] in
-    let body j = 
-      let e =         
-	match Weak.get t.keys j with 
-	  | Some(k) ->    (* atomic. *)  
-	      assert(Weak.check t.keys j);
-	      Some(k, Array.get t.vals j)
-	  | None -> 
-	      None
+    let body j =
+      let e =
+        match Weak.get t.keys j with
+        | Some k ->
+            (* atomic. *)
+            assert (Weak.check t.keys j) ;
+            Some (k, t.vals.(j))
+        | None -> None
       in
-	l := e :: !l
+      l := e :: !l
     in
-      for j = 0 to m - 1 do with_protected body j done;
-      !l
-
+    for j = 0 to m - 1 do
+      with_protected body j
+    done ;
+    !l
 
   let iter f t =
     let m = length t in
-    let body j = 
-      match Weak.get t.keys j with 
-	| Some(k) ->         (* atomic. *)
-	    assert(not(is_deleted t j));
-	    let u = Array.get t.vals j in
-	      f k u
-	| None -> ()
+    let body j =
+      match Weak.get t.keys j with
+      | Some k ->
+          (* atomic. *)
+          assert (not (is_deleted t j)) ;
+          let u = t.vals.(j) in
+          f k u
+      | None -> ()
     in
-      for j = 0 to m - 1 do with_protected body j done
-      
+    for j = 0 to m - 1 do
+      with_protected body j
+    done
+
   let fold f t e =
     let acc = ref e in
     let f' k u = acc := f k u !acc in
-      iter f' t;
-      !acc
-	
+    iter f' t ;
+    !acc
+
   (** Linear probing. *)
-  let hash m k i = 
-    assert(i <= m);
+  let hash m k i =
+    assert (i <= m) ;
     let h' = H.hash k mod (max_int - m) in
-      assert(0 <= h' + i);
-      (h' + i) mod m 
+    assert (0 <= h' + i) ;
+    (h' + i) mod m
 
-
-  let mem t k = 
+  let mem t k =
     let m = length t in
     let h = hash m k in
-    let rec repeat i = 
-      i < m &&
+    let rec repeat i =
+      i < m
+      &&
       let j = h i in
-	assert(j < m);
-	match Weak.get t.keys j with
-	  | Some(k') -> if H.equal k k' then true else repeat (i + 1)
-	  | None -> if is_deleted t j then repeat (i + 1) else false
+      assert (j < m) ;
+      match Weak.get t.keys j with
+      | Some k' -> if H.equal k k' then true else repeat (i + 1)
+      | None -> if is_deleted t j then repeat (i + 1) else false
     in
-      repeat 0
+    repeat 0
 
-  let find t k = 
+  let find t k =
     let m = length t in
     let h = hash m k in
-    let rec repeat i = 
-      if i = m then raise Not_found else
-	let j = h i in
-	  assert(j < m);
-	  match Weak.get t.keys j with
-	    | Some(k') ->     (* atomic. *)
-		if H.equal k k' then 
-		  (assert(Weak.check t.keys j);
-		   let v = Array.get t.vals j in
-		     v)
-		else
-		  repeat (i + 1)
-	    | None ->
-		if is_deleted t j then 
-		  repeat (i + 1) 
-		else
-		  raise Not_found
+    let rec repeat i =
+      if i = m then raise Not_found
+      else
+        let j = h i in
+        assert (j < m) ;
+        match Weak.get t.keys j with
+        | Some k' ->
+            (* atomic. *)
+            if H.equal k k' then (
+              assert (Weak.check t.keys j) ;
+              let v = t.vals.(j) in
+              v )
+            else repeat (i + 1)
+        | None -> if is_deleted t j then repeat (i + 1) else raise Not_found
     in
-      with_protected repeat 0
+    with_protected repeat 0
 
   exception Overflow
 
-  let gc_finalise f x = 
-    try Gc.finalise f x with exc -> 
-      if !debug > 0 then 
-	let s =  H.pp Format.str_formatter x;  Format.flush_str_formatter () in
-	  Format.eprintf "\nWarning(weakhash %s): %s@?" s (Printexc.to_string exc)
-      
-  let add_aux t k u =        
+  let gc_finalise f x =
+    try Gc.finalise f x
+    with exc ->
+      if !debug > 0 then
+        let s =
+          H.pp Format.str_formatter x ;
+          Format.flush_str_formatter ()
+        in
+        Format.eprintf "\nWarning(weakhash %s): %s@?" s
+          (Printexc.to_string exc)
+
+  let add_aux t k u =
     let m = length t in
     let h = hash m k in
-    let rec repeat i = 
-      if i >= m then raise Overflow else
-	let j = h i in
-	  assert(j < length t);
-	  match Weak.get t.keys j with
-	    | None ->             
-		let remove _ = 
-		  t.deleted <- D.add j t.deleted; 
-		  t.entries <- t.entries - 1;
-		  if not(!protect) then           (* do not free value while *)
-		    Array.set t.vals j (bot)    (* executing protected code. *)
-		in
-		  Weak.set t.keys j (Some(k));  (* shadow values for [k] should be removed. *)
-		  Array.set t.vals j u; 
-		  if is_deleted t j then 
-		    t.deleted <- D.remove j t.deleted;
-		  t.entries <- t.entries + 1;
-		  gc_finalise remove k
-	    | Some _ -> 
-		repeat (i + 1)
-    in                    
-	repeat 0
+    let rec repeat i =
+      if i >= m then raise Overflow
+      else
+        let j = h i in
+        assert (j < length t) ;
+        match Weak.get t.keys j with
+        | None ->
+            let remove _ =
+              t.deleted <- D.add j t.deleted ;
+              t.entries <- t.entries - 1 ;
+              if not !protect then
+                (* do not free value while *)
+                t.vals.(j) <- bot
+              (* executing protected code. *)
+            in
+            Weak.set t.keys j (Some k) ;
+            (* shadow values for [k] should be removed. *)
+            t.vals.(j) <- u ;
+            if is_deleted t j then t.deleted <- D.remove j t.deleted ;
+            t.entries <- t.entries + 1 ;
+            gc_finalise remove k
+        | Some _ -> repeat (i + 1)
+    in
+    repeat 0
 
-  let resize t = 
+  let resize t =
     let m = length t in
     let keys = t.keys and vals = t.vals in
-    let m' = min (3*m/2 + 3) (Sys.max_array_length - 1) in
-      if !debug > 0 then
-	Format.eprintf "\nWeakhash.resize: %d@." m';
-      if m' <= m then failwith "Weakhash.resize : out of memory." else
-	begin
-	  t.keys <- Weak.create m';
-	  t.vals <- Array.create m' (bot);
-	  t.deleted <- D.empty;
-	  let body j  = 
-	    match Weak.get keys j with 
-	      | Some(k) -> (* atomic. *)
-		  assert(Weak.check keys j);
-		  let u = Array.get vals j in
-		    add_aux t k u
-	      | None -> ()
-	  in
-	  for j = 0 to m - 1 do with_protected body j done
-	end
-	  
+    let m' = min ((3 * m / 2) + 3) (Sys.max_array_length - 1) in
+    if !debug > 0 then Format.eprintf "\nWeakhash.resize: %d@." m' ;
+    if m' <= m then failwith "Weakhash.resize : out of memory."
+    else (
+      t.keys <- Weak.create m' ;
+      t.vals <- Array.create m' bot ;
+      t.deleted <- D.empty ;
+      let body j =
+        match Weak.get keys j with
+        | Some k ->
+            (* atomic. *)
+            assert (Weak.check keys j) ;
+            let u = vals.(j) in
+            add_aux t k u
+        | None -> ()
+      in
+      for j = 0 to m - 1 do
+        with_protected body j
+      done )
+
   let rec add t k u =
-    assert(Trace.add k u; true);
-    assert(if not(mem t k) then true else (output t k u; false));     (* avoid creating shadows. *)
+    assert (
+      Trace.add k u ;
+      true ) ;
+    assert (
+      if not (mem t k) then true
+      else (
+        output t k u ;
+        false ) ) ;
+    (* avoid creating shadows. *)
     if float_of_int t.entries /. float_of_int (length t) >= 0.7 then
-      resize t;         (* resize when load factor [>= 0.7]. *)
-    try add_aux t k u with Overflow -> 
-      resize t; 
+      resize t ;
+    (* resize when load factor [>= 0.7]. *)
+    try add_aux t k u
+    with Overflow ->
+      resize t ;
       add_aux t k u
 
-  and output t k u = 
-    Format.eprintf "Error: ";
-    H.pp Format.err_formatter k;
-    Format.eprintf " already in weak hash table@?";
-    Format.eprintf " \n Elements(%d) " (count t);
-    iter (fun k _ -> H.pp Format.err_formatter k; Format.eprintf ", ") t;
+  and output t k u =
+    Format.eprintf "Error: " ;
+    H.pp Format.err_formatter k ;
+    Format.eprintf " already in weak hash table@?" ;
+    Format.eprintf " \n Elements(%d) " (count t) ;
+    iter
+      (fun k _ ->
+        H.pp Format.err_formatter k ;
+        Format.eprintf ", " )
+      t ;
     Format.eprintf "\n@?"
-
-
 end
-
 
 (**/**)
 
 module Test = struct
-
   let maxruns = ref 10000
   let initsize = ref 5
   let maxkey = ref 1000
 
   module Int = struct
     type t = Int of int
-    let value = function Int(i) -> i
-    let hash = function Int(i) -> i
-    let equal (Int(i)) (Int(j)) = i == j
-    let pp fmt = function Int(i) -> Format.fprintf fmt "<int %d>" i
-    let random () = Int(Random.int !maxkey)
-  end 
 
-  module Table = Make(Int)
+    let value = function Int i -> i
+    let hash = function Int i -> i
+    let equal (Int i) (Int j) = i == j
+    let pp fmt = function Int i -> Format.fprintf fmt "<int %d>" i
+    let random () = Int (Random.int !maxkey)
+  end
+
+  module Table = Make (Int)
 
   let table = Table.create !initsize
 
   module Op = struct
+    let add () =
+      let x = Int.random () in
+      if not (Table.mem table x) then
+        let v = Int.value x in
+        try
+          Format.eprintf "\nAdd <-- %d %d@?" (Int.value x) v ;
+          Table.add table x v ;
+          Format.eprintf "\nAdd --> ()@?"
+        with exc ->
+          Format.eprintf "\nAdd[exit] %s@?" (Printexc.to_string exc)
 
-    let add () = 
-      let x = Int.random() in
-	if not(Table.mem table x) then 
-	  let v = Int.value x in
-	    try
-	      Format.eprintf "\nAdd <-- %d %d@?" (Int.value x) v;
-	      Table.add table x v;
-	      Format.eprintf "\nAdd --> ()@?"	
-	    with
-		exc ->  Format.eprintf "\nAdd[exit] %s@?" (Printexc.to_string exc)
-	  
-    let find () = 
-      let x = Int.random() in
-	Format.eprintf "\nFind <-- %d@?" (Int.value x);
-	try
-	  let v = Table.find table x in
-	    Format.eprintf "\nFind --> %d@?" v;
-	    ()
-	with
-	  | Not_found ->  Format.eprintf "\nFind --> ???@?"
-	  | exc ->  Format.eprintf "\nFind[exit] %s@?" (Printexc.to_string exc)
-	  
+    let find () =
+      let x = Int.random () in
+      Format.eprintf "\nFind <-- %d@?" (Int.value x) ;
+      try
+        let v = Table.find table x in
+        Format.eprintf "\nFind --> %d@?" v ;
+        ()
+      with
+      | Not_found -> Format.eprintf "\nFind --> ???@?"
+      | exc -> Format.eprintf "\nFind[exit] %s@?" (Printexc.to_string exc)
+
     let mem () =
-      let x = Int.random() in
-	Format.eprintf "\nMem <-- %d@?" (Int.value x);
-	try
-	  Format.eprintf "\nMem --> %s@?"
-	    (if Table.mem table x then "true" else "false")
-	with
-	    exc ->  Format.eprintf "\nMem[exit] %s@?" (Printexc.to_string exc)
+      let x = Int.random () in
+      Format.eprintf "\nMem <-- %d@?" (Int.value x) ;
+      try
+        Format.eprintf "\nMem --> %s@?"
+          (if Table.mem table x then "true" else "false")
+      with exc ->
+        Format.eprintf "\nMem[exit] %s@?" (Printexc.to_string exc)
 
-    let random () = 
+    let random () =
       match Random.int 4 with
-	| 0 -> add()
-	| 1 -> find()
-	| 2 -> mem()
-	| _ -> Gc.minor()
-  end 
+      | 0 -> add ()
+      | 1 -> find ()
+      | 2 -> mem ()
+      | _ -> Gc.minor ()
+  end
 
-  let rec run () = 
-    debug := 3;
+  let rec run () =
+    debug := 3 ;
     for i = 0 to !maxruns do
-      Op.random();
-      if i mod 100 = 0 then statistics()
-    done;
-    statistics()
+      Op.random () ;
+      if i mod 100 = 0 then statistics ()
+    done ;
+    statistics ()
 
-  and statistics () = 
-    Format.eprintf "\n\nStatistics: @?";
+  and statistics () =
+    Format.eprintf "\n\nStatistics: @?" ;
     let s = Table.stats table in
-      Format.eprintf "\n length = %d;\n count = %d; \n del = %d@?"
-	s.Table.length s.Table.count s.Table.del;
-      debug := 0
-
+    Format.eprintf "\n length = %d;\n count = %d; \n del = %d@?"
+      s.Table.length s.Table.count s.Table.del ;
+    debug := 0
 end

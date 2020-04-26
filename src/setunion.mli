@@ -24,86 +24,84 @@
 
 (** {i Data type of finite sets with disjoint union.}
 
-  @author Harald Ruess
-*)
+    @author Harald Ruess *)
 
 (** Used for input signature of {!Setunion.Make}. *)
 module type ELT = Type.EQUAL
 
-
 (** {i Finite sets}. Output signature of {!Setunion.Make}. *)
 module type S = sig
+  (** Element type. *)
   type elt
-    (** Element type. *)
 
-    (** Representation of sets. 
+  (** Representation of sets.
+
       - [Empty] is the empty set;
       - [Singleton(x)] is the singleton set [{x}];
-      - [Add(x, s)] represents [{x} union s], as 
-      an invariant [x] not in [s];
-      - [Union(s1, s2)] represents [s1 union s2],
-      as an invariant [s1] and [s2] are disjoint. *)
+      - [Add(x, s)] represents [{x} union s], as an invariant [x] not in
+        [s];
+      - [Union(s1, s2)] represents [s1 union s2], as an invariant [s1] and
+        [s2] are disjoint. *)
   type t = private
-     | Empty
-     | Singleton of elt
-     | Add of elt * t
-     | Union of t * t
+    | Empty
+    | Singleton of elt
+    | Add of elt * t
+    | Union of t * t
 
   val equal : t -> t -> bool
-    (** [equal s1 s2] holds iff for all elements,
-      [mem x s1] holds iff [mem x s2] holds. *)
+  (** [equal s1 s2] holds iff for all elements, [mem x s1] holds iff
+      [mem x s2] holds. *)
 
   val is_empty : t -> bool
-    (** [is_empty s] holds iff [s] represents the
-      empty set. *)
+  (** [is_empty s] holds iff [s] represents the empty set. *)
 
   val is_singleton : t -> bool
-    (** [is_singleton s] iff [s] represents a singleton
-      set with only one elements. *)
+  (** [is_singleton s] iff [s] represents a singleton set with only one
+      elements. *)
 
   val pp : Format.formatter -> t -> unit
-    (** Print a set on the given formatter. *)
+  (** Print a set on the given formatter. *)
 
-  val mem :  elt -> t -> bool
-    (** [mem x s] holds iff [x] is an element in [s]. *)
+  val mem : elt -> t -> bool
+  (** [mem x s] holds iff [x] is an element in [s]. *)
 
   val empty : t
-    (** The empty set. *)
+  (** The empty set. *)
 
   val singleton : elt -> t
-    (** [singleton x] represents the singleton set [{x}]. *)
+  (** [singleton x] represents the singleton set [{x}]. *)
 
-  val add : elt -> t -> t   
-    (** For [x] not in [s], [add x s] represents the set [{x} union s]. *)
+  val add : elt -> t -> t
+  (** For [x] not in [s], [add x s] represents the set [{x} union s]. *)
 
   val rem : elt -> t -> t
-    (** For [x] in [s] , [rem x s] removes [x] from [s]. *)
+  (** For [x] in [s] , [rem x s] removes [x] from [s]. *)
 
   val disjoint : t -> t -> bool
-    (** [disjoint s1 s2] holds iff the sets [s1] and [s2] are disjoint. *)
+  (** [disjoint s1 s2] holds iff the sets [s1] and [s2] are disjoint. *)
 
   val union : t -> t -> t
-    (** For disjoint sets [s1] and [s2], [union s1 s2] returns the union
-      of the two sets. [union] is a constant time operation. *)
+  (** For disjoint sets [s1] and [s2], [union s1 s2] returns the union of
+      the two sets. [union] is a constant time operation. *)
 
   val to_list : t -> elt list
-    (** [to_list s] contains all the elements of [s]. *)
+  (** [to_list s] contains all the elements of [s]. *)
 
   val iter : (elt -> unit) -> t -> unit
-    (** [iter f s] applies [f x] to all elements [x] of [s]. *)
+  (** [iter f s] applies [f x] to all elements [x] of [s]. *)
 
   val for_all : (elt -> bool) -> t -> bool
-    (** [for_all p s] holds iff [p x] holds for all elements [x] of [s]. *)
+  (** [for_all p s] holds iff [p x] holds for all elements [x] of [s]. *)
 
   val exists : (elt -> bool) -> t -> bool
-    (** [exists p s] holds iff there exists [x] in [s] with [p x]. *)
+  (** [exists p s] holds iff there exists [x] in [s] with [p x]. *)
 
   val choose : (elt -> bool) -> t -> elt
-    (** If there is an [x] such that [p x] holds, then
-      [choose p s] returns such an [x]; otherwise, [Not_found] is raised. *)
+  (** If there is an [x] such that [p x] holds, then [choose p s] returns
+      such an [x]; otherwise, [Not_found] is raised. *)
 end
 
-(** {!Setunion.Make} constructs a finite set implementation with
-  elements of type [Elt.t]. The [union] operator of this implementation
-  is restriced to disjoint sets and is constant time. *)
-module Make(Elt: ELT): (S with type elt = Elt.t)
+(** {!Setunion.Make} constructs a finite set implementation with elements of
+    type [Elt.t]. The [union] operator of this implementation is restriced
+    to disjoint sets and is constant time. *)
+module Make (Elt : ELT) : S with type elt = Elt.t

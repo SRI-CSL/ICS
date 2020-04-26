@@ -22,9 +22,9 @@
  * SOFTWARE.
  *)
 
- 
 type t = int
-let equal = (==)
+
+let equal = ( == )
 let compare i j = if i == j then 0 else if i > j then 1 else -1
 let hash i = if i < 0 then -1 else i
 let pp fmt = Format.fprintf fmt "<int %d>"

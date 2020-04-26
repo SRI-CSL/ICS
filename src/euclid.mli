@@ -22,106 +22,97 @@
  * SOFTWARE.
  *)
 
-(** Module [Euclid]: Euclidean solver for diophantine equations. 
-  
-  @author Harald Ruess
-*)
+(** Module [Euclid]: Euclidean solver for diophantine equations.
+
+    @author Harald Ruess *)
 
 (** Input signature of the functor {!Euclid.Make}
-  May be instantiated with a structure isomorphic to the rationals. *)
+
+    May be instantiated with a structure isomorphic to the rationals. *)
 module type RAT = sig
+  (** Rationals. *)
   type t
-    (** Rationals. *)
 
   val eq : t -> t -> bool
-    (** Equality. *)
+  (** Equality. *)
 
   val pp : Format.formatter -> t -> unit
-    (** Print a rational. *)
+  (** Print a rational. *)
 
   val ( + ) : t -> t -> t
-    (** Addition. *)
+  (** Addition. *)
 
   val zero : t
-    (** Neutral element of addition. *)
+  (** Neutral element of addition. *)
 
   val neg : t -> t
-    (** Negation of a a rational. *)
+  (** Negation of a a rational. *)
 
   val ( * ) : t -> t -> t
-    (** Multiplication. *)
+  (** Multiplication. *)
 
   val one : t
-    (* Neutral element of multiplication. *)
+  (** Neutral element of multiplication. *)
 
   val ( / ) : t -> t -> t
-    (** Inverse of Multiplication. *)
+  (** Inverse of Multiplication. *)
 
   val floor : t -> t
-    (** Floor function on rationals. *)
-    
+  (** Floor function on rationals. *)
+
   val is_int : t -> bool
-    (** Integer test of a rational. *)
+  (** Integer test of a rational. *)
 end
 
-
-(** Polynomials as used for the input signature 
-  for {!Euclid.General}. *)
+(** Polynomials as used for the input signature for {!Euclid.General}. *)
 module type POLYNOMIAL = sig
+  (** Coefficients of polynomial. *)
   type q
-    (** Coefficients of polynomial. *)
 
+  (** Representation of polynomials. *)
   type t
-    (** Representation of polynomials. *)
 
   val pp : Format.formatter -> t -> unit
-    (** Printing polynomials. *)
+  (** Printing polynomials. *)
 
   val fresh : unit -> t
-    (** Construct a {i fresh} polynomial 
-      representing an indeterminate. The notion
-    of freshness depends on the context of use. *)
+  (** Construct a {i fresh} polynomial representing an indeterminate. The
+      notion of freshness depends on the context of use. *)
 
   val of_q : q -> t
-    (** Create a constraint polynomial. *)
+  (** Create a constraint polynomial. *)
 
   val add : t -> t -> t
-    (** Add two polynomials. *)
+  (** Add two polynomials. *)
 
   val multq : q -> t -> t
-    (** Multiply a polynomial by a constant factor. *)
+  (** Multiply a polynomial by a constant factor. *)
 end
-
 
 (** Particular solution of linear diophantine equations. *)
-module Particular(Q: RAT) : sig
+module Particular (Q : RAT) : sig
   val euclid : Q.t -> Q.t -> Q.t * Q.t * Q.t
-    (** Given two rational numbers [p], [q], 
-      [euclid p q] finds integers  [x], [y], [(p, q)] satisfying  
-      [p * x + q * y = (p, q)], where [(p, q)] denotes the 
-      greatest common divisor of [p], [q]. *)
+  (** Given two rational numbers [p], [q], [euclid p q] finds integers [x],
+      [y], [(p, q)] satisfying [p * x + q * y = (p, q)], where [(p, q)]
+      denotes the greatest common divisor of [p], [q]. *)
 
+  (** Raised by [solve]. *)
   exception Unsolvable
-    (** Raised by [solve]. *)
-      
-  val solve : Q.t list -> Q.t -> Q.t * Q.t list
-    (** [solve [c1;...;cn] b] yields a particular solution
-      for a linear diophantine equation [c0 * x0 + ... + cn * xn = b]
-      with nonzero, rational coefficients [ci], for [i = 1,...,n] 
-      with [n >= 1]. In case such a solution exists, it returns the gcd 
-      of the coefficients and a list of solutions [li] for variable [xi]. *)  
 
+  val solve : Q.t list -> Q.t -> Q.t * Q.t list
+  (** [solve \[c1;...;cn\] b] yields a particular solution for a linear
+      diophantine equation [c0 * x0 + ... + cn * xn = b] with nonzero,
+      rational coefficients [ci], for [i = 1,...,n] with [n >= 1]. In case
+      such a solution exists, it returns the gcd of the coefficients and a
+      list of solutions [li] for variable [xi]. *)
 end
 
-
-
 (** General solution of linear diophantine equations. *)
-module Solve(Q: RAT)(P: POLYNOMIAL with type q = Q.t) : sig
+module Solve (Q : RAT) (P : POLYNOMIAL with type q = Q.t) : sig
   exception Unsolvable
 
   val solve : Q.t list -> Q.t -> P.t list
 end
-
 
 (**/**)
 

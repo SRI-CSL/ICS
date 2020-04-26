@@ -22,9 +22,9 @@
  * SOFTWARE.
  *)
 
-
 module type ELT = sig
   type t
+
   val equal : t -> t -> bool
   val pp : Format.formatter -> t -> unit
   val zero : t
@@ -35,7 +35,8 @@ end
 
 module type S = sig
   type elt
-  type t 
+  type t
+
   val dim : t -> int
   val get : t -> int -> elt
   val sub : t -> int -> int -> t
@@ -48,64 +49,61 @@ module type S = sig
   val ( ** ) : t -> t -> elt
 end
 
-
-module Make(E: ELT) = struct
+module Make (E : ELT) = struct
   type elt = E.t
-
   type t = elt array
 
   let get = Array.get
   let set = Array.set
   let dim = Array.length
   let sub = Array.sub
- 
-  let postfix i a = 
-    assert(0 <= i && i < dim a);
+
+  let postfix i a =
+    assert (0 <= i && i < dim a) ;
     Array.sub a i (dim a - i + 1)
 
-  let const n e = 
-    assert(0 <= n && n < Sys.max_array_length);
+  let const n e =
+    assert (0 <= n && n < Sys.max_array_length) ;
     Array.create n e
 
-  let pp fmt a = 
+  let pp fmt a =
     let n = dim a in
-      Format.fprintf fmt "@[<";
-      if n > 0 then 
-	(for i = 0 to n - 1 do
-	   E.pp fmt (get a i);
-	   Format.fprintf fmt ", ";
-	 done;
-	 E.pp fmt (get a n));
-      Format.fprintf fmt ">@]"
-	
-  let iter f a = 
+    Format.fprintf fmt "@[<" ;
+    if n > 0 then (
+      for i = 0 to n - 1 do
+        E.pp fmt (get a i) ;
+        Format.fprintf fmt ", "
+      done ;
+      E.pp fmt (get a n) ) ;
+    Format.fprintf fmt ">@]"
+
+  let iter f a =
     for i = 0 to dim a do
       f (get a i)
     done
 
-  let add a b = 
-    assert(dim a = dim b);
+  let add a b =
+    assert (dim a = dim b) ;
     let c = Array.copy b in
-      for i = 0 to dim a do
-	let e = E.add (get a i) (get c i) in
-	  set c i e
-      done;
-      c
-      
+    for i = 0 to dim a do
+      let e = E.add (get a i) (get c i) in
+      set c i e
+    done ;
+    c
 
-  let map f a = 
+  let map f a =
     let b = Array.copy a in
-      for i = 0 to dim a do
-	let e = get a i in
-	  set b i (f e)
-      done;
-      b
+    for i = 0 to dim a do
+      let e = get a i in
+      set b i (f e)
+    done ;
+    b
 
-  let ( ** ) a b = 
-    assert(dim a = dim b);
+  let ( ** ) a b =
+    assert (dim a = dim b) ;
     let acc = ref E.zero in
-      for i = 0 to dim a do
-	acc := E.add !acc (E.mult (get a i) (get b i))
-      done;
-      !acc
+    for i = 0 to dim a do
+      acc := E.add !acc (E.mult (get a i) (get b i))
+    done ;
+    !acc
 end

@@ -24,275 +24,279 @@
 
 (** {i Open inference system for renaming monadic predicates.}
 
-  This module provides an open inference system for renaming monadic 
-  predicates [p(x)], where [p] is a predicate symbol and [x] a term, 
-  and variable equalities[x = y] with propositional variables. 
+    This module provides an open inference system for renaming monadic
+    predicates [p(x)], where [p] is a predicate symbol and [x] a term, and
+    variable equalities[x = y] with propositional variables.
 
-  @author Harald Ruess
-*)
-
+    @author Harald Ruess *)
 
 (** {i Propositional variables.} *)
 module type PROPVAR = sig
+  (** Representation of propositional variables. *)
   type t
-    (** Representation of propositional variables. *)
 
   val equal : t -> t -> bool
-    (** Equality relation. *)
+  (** Equality relation. *)
 
   val compare : t -> t -> int
-    (** [compare u v] is [0] iff [equal u v] holds. Furthermore,
+  (** [compare u v] is [0] iff [equal u v] holds. Furthermore,
       [compare u v > 0] iff [compare v u < 0]. *)
 
   val hash : t -> int
-    (** Nonnegative hash value of a variable. *)
+  (** Nonnegative hash value of a variable. *)
 
   val pp : Format.formatter -> t -> unit
-    (** Pretty-printing a variable. *)
+  (** Pretty-printing a variable. *)
 
   val fresh : unit -> t
-    (** Generate a {i fresh} variable. *)
+  (** Generate a {i fresh} variable. *)
 end
 
 (** {i Monadic predicate symbols.} *)
 module type PREDSYM = sig
+  (** Represetnation of monadic predicate symbols. *)
   type t
-    (** Represetnation of monadic predicate symbols. *)
 
   val equal : t -> t -> bool
-    (** Equality relation. *)
+  (** Equality relation. *)
 
   val compare : t -> t -> int
-    (** [compare p q] is [0] iff [equal p q] holds. Furthermore,
+  (** [compare p q] is [0] iff [equal p q] holds. Furthermore,
       [compare p q > 0] iff [compare q p < 0]. *)
 
   val hash : t -> int
-    (** Nonnegative hash value of a predicate symbol. *)
+  (** Nonnegative hash value of a predicate symbol. *)
 
   val pp : Format.formatter -> t -> unit
-    (** Printing a predicate symbol on the given formatter. *)
+  (** Printing a predicate symbol on the given formatter. *)
 
   val sub : t -> t -> bool
-    (** [sub p q] holds iff [forall x. p(x) => q(x)] is valid. *)
+  (** [sub p q] holds iff [forall x. p(x) => q(x)] is valid. *)
 
   val disjoint : t -> t -> bool
-    (** [disjoint p q] holds iff [forall x, y. not(p(x) & q(y))] is valid. *)
+  (** [disjoint p q] holds iff [forall x, y. not(p(x) & q(y))] is valid. *)
 end
 
 (** {i Term variables.} *)
 module type VAR = sig
+  (** Representation of term variables. *)
   type t
-    (** Representation of term variables. *)
 
   val equal : t -> t -> bool
-    (** Equality relation. *)
+  (** Equality relation. *)
 
   val compare : t -> t -> int
-    (** [compare x y] is [0] iff [equal x y] holds. Furthermore,
+  (** [compare x y] is [0] iff [equal x y] holds. Furthermore,
       [compare x y > 0] iff [compare y x < 0]. *)
 
   val hash : t -> int
-    (** Nonnegative hash value of a predicate symbol. *)
+  (** Nonnegative hash value of a predicate symbol. *)
 
   val pp : Format.formatter -> t -> unit
-    (** Printing a predicate symbol on the given formatter. *)
+  (** Printing a predicate symbol on the given formatter. *)
 end
-  
 
-(** {i Interface of renaming inference system.} 
-  The interface for the open {i renaming} inference 
-  system has logical contexts [(E,D,P,L)] with 
-  - [E] a set of variable equalities,
-  - [D] a set of variable disequalities,
-  - [P] a set of propositional formulas,
-  - [L] a set of monadic applications [p(x)] and negations thereof.
-  [E] induces an equivalence relation [=E] with [x =E y] iff [E |=x = y],
-  that is [x = y] is valid in [E]. The equivalence class modulo [E] 
-  containting [x] is denoted by [E[x]]. *)
+(** {i Interface of renaming inference system.} The interface for the open
+    {i renaming} inference system has logical contexts [(E,D,P,L)] with
+
+    - [E] a set of variable equalities,
+    - [D] a set of variable disequalities,
+    - [P] a set of propositional formulas,
+    - [L] a set of monadic applications [p(x)] and negations thereof. [E]
+      induces an equivalence relation [=E] with [x =E y] iff [E |=x = y],
+      that is [x = y] is valid in [E]. The equivalence class modulo [E]
+      containting [x] is denoted by [E\[x\]]. *)
 module type INTERFACE = sig
+  (** Representation of propositional variables. *)
   type propvar
-    (** Representation of propositional variables. *)
 
+  (** Representation of monadic function symbols. *)
   type predsym
-    (** Representation of monadic function symbols. *)
 
+  (** Representation of term variables. *)
   type var
-    (** Representation of term variables. *)
 
   val find : var -> var
-    (** [find x] returns a canonical representative [y] of [E[x]] *)
+  (** [find x] returns a canonical representative [y] of [E\[x\]] *)
 
   val canonical : var -> bool
-    (** [canonical x] holds iff [x] is the canonical representative of [E[x]]*)
+  (** [canonical x] holds iff [x] is the canonical representative of
+      [E\[x\]]*)
 
   val equal : var -> var -> bool
-    (** [equal x y] holds iff [E |= x = y]. *)
+  (** [equal x y] holds iff [E |= x = y]. *)
 
   val diseq : var -> var -> bool
-    (** [diseq x y] holds iff [E,D |= x <> y]. *)
+  (** [diseq x y] holds iff [E,D |= x <> y]. *)
 
   val equiv : propvar -> propvar -> unit
-    (** [equiv u v] adds the equivalence constaint [u<=>v] to [P]. *)
+  (** [equiv u v] adds the equivalence constaint [u<=>v] to [P]. *)
 
-  val disjoint : propvar -> propvar -> unit 
-    (** [disjoint u v] conjoins the exclusive or constraint [u#v] to [P]. *)
+  val disjoint : propvar -> propvar -> unit
+  (** [disjoint u v] conjoins the exclusive or constraint [u#v] to [P]. *)
 
   val implies : propvar -> propvar -> unit
-    (** [implies u v] adds the implication [u=>v] to [P]. *)
+  (** [implies u v] adds the implication [u=>v] to [P]. *)
 
   val valid0 : propvar -> unit
-    (** [valid0 u] adds the propositional variable [u] to [P]. *)
+  (** [valid0 u] adds the propositional variable [u] to [P]. *)
 
   val unsat0 : propvar -> unit
-    (** [unsat0 u] adds the negation [~u] of the 
-      propositional variable [u] to [P]. *)
+  (** [unsat0 u] adds the negation [~u] of the propositional variable [u] to
+      [P]. *)
 
   val valid1 : predsym -> var -> unit
-    (** [valid1 p x] adds the monadic constraint [p(x)] to [L]. *)
+  (** [valid1 p x] adds the monadic constraint [p(x)] to [L]. *)
 
-  val unsat1: predsym -> var -> unit 
-    (** [valid1 p x] adds the negated monadic constraint [~p(x)] to [L]. *)
+  val unsat1 : predsym -> var -> unit
+  (** [valid1 p x] adds the negated monadic constraint [~p(x)] to [L]. *)
 
   val union : var -> var -> unit
-    (** [union x y] adds the equality [x = y] to [E]. *)
+  (** [union x y] adds the equality [x = y] to [E]. *)
 
   val separate : var -> var -> unit
-    (** [separate x y] adds the disequality [x <> y] to [E]. *)
+  (** [separate x y] adds the disequality [x <> y] to [E]. *)
 end
 
-
-(** {i Renaming inference system.} 
-  Configurations of the {i renaming} inference system consist of
-  a finite set of bindings of the form [u |-> p(x)] and [v |-> y = z],
-  with [u], [v] propositional variables, [p] a monadic predicate symbol,
-  and [x],[y],[z] term variables. For a description of the interface
-  configuration [(E,D,P,L)] see above. The inference system progresses by
-  updating a {i current configuration}. *)
+(** {i Renaming inference system.} Configurations of the {i renaming}
+    inference system consist of a finite set of bindings of the form
+    [u |-> p(x)] and [v |-> y = z], with [u], [v] propositional variables,
+    [p] a monadic predicate symbol, and [x],[y],[z] term variables. For a
+    description of the interface configuration [(E,D,P,L)] see above. The
+    inference system progresses by updating a {i current configuration}. *)
 module type INFSYS = sig
-  type propvar 
-    (** Representation of propositional variables. *)
+  (** Representation of propositional variables. *)
+  type propvar
 
+  (** Representation of monadic predicate symbols. *)
   type predsym
-    (** Representation of monadic predicate symbols. *)
 
-  type var 
-    (** Representation of term variables. *)
+  (** Representation of term variables. *)
+  type var
 
+  (** Representation of renaming configurations. *)
   type t
-    (** Representation of renaming configurations. *)
 
-  val empty : t 
-    (** The empty renaming configuration. *)
+  val empty : t
+  (** The empty renaming configuration. *)
 
   val initialize : t -> unit
-    (** [initialize s] initializes the {i current configuration} 
-      with [s]. *)
+  (** [initialize s] initializes the {i current configuration} with [s]. *)
 
   val reset : unit -> unit
-    (** [reset()] is synonymous with [initialize empty]. *)
+  (** [reset()] is synonymous with [initialize empty]. *)
 
   val unchanged : unit -> bool
-    (** [unchanged()] holds iff the current configuration
-      has not been modified since the last [initialize] or [reset]. *)
+  (** [unchanged()] holds iff the current configuration has not been
+      modified since the last [initialize] or [reset]. *)
 
   val is_empty : unit -> bool
-    (** Test if current renaming map is empty. *)
+  (** Test if current renaming map is empty. *)
 
-  val current : unit -> t 
-    (** [current()] returns the current configuration. *)
+  val current : unit -> t
+  (** [current()] returns the current configuration. *)
 
-  module Monadic : (Maps.S with type key=propvar and type value = predsym*var) 
+  module Monadic :
+    Maps.S with type key = propvar and type value = predsym * var
 
-  module Equal : (Maps.S with type key = propvar and type value = var*var)
+  module Equal : Maps.S with type key = propvar and type value = var * var
 
-  val monadic: unit -> Monadic.t
-    (** Return all current bindings of the form [u |-> p(x)]. *)
+  val monadic : unit -> Monadic.t
+  (** Return all current bindings of the form [u |-> p(x)]. *)
 
   val equal : unit -> Equal.t
-    (** Return all current bindings of the form [u |-> x = y]. *)
+  (** Return all current bindings of the form [u |-> x = y]. *)
 
-  val aliasMonadic : predsym -> var -> propvar
-    (** [aliasMonadic p x] returns [u] if there is a [y]
-      with [x =E y] such that [u |-> p(y)]; otherwise the
-      current configuration is extended with a binding [u |-> p(x)]
-      where [u] a fresh propositional variable. *)
+  val alias_monadic : predsym -> var -> propvar
+  (** [alias_monadic p x] returns [u] if there is a [y] with [x =E y] such
+      that [u |-> p(y)]; otherwise the current configuration is extended
+      with a binding [u |-> p(x)] where [u] a fresh propositional variable. *)
 
-  val aliasEqual : var -> var -> propvar
-    (** [aliasEqual x y] returns [u] if there is a [x'],[y']
-      with [E |= x=y <=> x'=y'] such that [u |-> x' = y']; 
-      otherwise the current configuration is extended with such 
-      a binding [u |-> x = y] where [u] a fresh propositional variable. *)
+  val alias_equal : var -> var -> propvar
+  (** [alias_equal x y] returns [u] if there is a [x'],[y'] with
+      [E |= x=y <=> x'=y'] such that [u |-> x' = y']; otherwise the current
+      configuration is extended with such a binding [u |-> x = y] where [u]
+      a fresh propositional variable. *)
 
-  val propagateEq : var -> var -> unit
-    (** [propagateEq x y] propagates new variable equalities [x = y]
-      in [E] with [y] canonical in [E]. Whenever such a new equality 
-      is derived, it is assumed that [propagateEq x y] is called before 
-      any other function in this interface. [propagateEq] adds
-      newly derived constraints to the interface configuration. 
+  val propagate_eq : var -> var -> unit
+  (** [propagate_eq x y] propagates new variable equalities [x = y] in [E]
+      with [y] canonical in [E]. Whenever such a new equality is derived, it
+      is assumed that [propagate_eq x y] is called before any other function
+      in this interface. [propagate_eq] adds newly derived constraints to
+      the interface configuration.
+
       - [x=Ey, u|->p(x'), v|->p(y'), x=Ex', y=Ey' ==> u<=>v]
       - [x=Ey, u|->p(x'), v|->q(y'), disjoint(p,q),x=Ex', y=Ey' ==> u#v]
       - [x=Ey, u|->p(x'), v|->q(y'), sub(p,q),x=Ex', y=Ey' ==> u=>q]
-      - [u|->x'=y', v|->x''=y'', x'=Ex'', y'=Ey'' ==>  u<=>v]. *)
+      - [u|->x'=y', v|->x''=y'', x'=Ex'', y'=Ey'' ==> u<=>v]. *)
 
-  val propagateDeq : var -> var -> unit
-    (** [propagateDeq x y] is called by the interface for newly
-      derived disequalities [x <> y] and is used to derive new
-      constraints from the renaming context as follows:
+  val propagate_deq : var -> var -> unit
+  (** [propagate_deq x y] is called by the interface for newly derived
+      disequalities [x <> y] and is used to derive new constraints from the
+      renaming context as follows:
+
       - [x<>y, u |-> x'=y', E |= (x'=y')<=>(x=y) ==> ~u] *)
 
-  val propagateValid0 : propvar -> unit
-    (** [propagateValid0 u] is called by the interface for newly
-      derived valid propositional variables [u]. It is used to
-      derive new constraints from the renaming context as follows:
+  val propagate_valid0 : propvar -> unit
+  (** [propagate_valid0 u] is called by the interface for newly derived
+      valid propositional variables [u]. It is used to derive new
+      constraints from the renaming context as follows:
+
       - [u, u |-> p(x) ==> p(x)]
       - [u, u |-> x = y => x = y] *)
 
-  val propagateUnsat0 : propvar -> unit
-    (** [propagateUnsat0 u] is called by the interface for newly
-      derived unsatisfiable propositional variables [u]. It is used 
-      to derive new constraints from the renaming context.
+  val propagate_unsat0 : propvar -> unit
+  (** [propagate_unsat0 u] is called by the interface for newly derived
+      unsatisfiable propositional variables [u]. It is used to derive new
+      constraints from the renaming context.
+
       - [~u, u |-> p(x) ==> ~p(x)]
       - [~u, u |-> x = y => x <> y] *)
 
-  val propagateValid1 : predsym -> var -> unit
-    (** [propagateValid1 p x] is called by the interface for newly
-      derived monadic constraints [p(x)]. It is used to derive new 
-      constraints from the renaming context as follows:
+  val propagate_valid1 : predsym -> var -> unit
+  (** [propagate_valid1 p x] is called by the interface for newly derived
+      monadic constraints [p(x)]. It is used to derive new constraints from
+      the renaming context as follows:
+
       - [p(x), u |-> q(y), x =E y, implies(q,p) ==> u] *)
 
-  val propagateUnsat1 : predsym -> var -> unit
-    (** [propagateUnsat1 p x] is called by the interface for newly
-      derived monadic constraints [~p(x)]. It is used to derive new 
-      constraints from the renaming context as follows:
+  val propagate_unsat1 : predsym -> var -> unit
+  (** [propagate_unsat1 p x] is called by the interface for newly derived
+      monadic constraints [~p(x)]. It is used to derive new constraints from
+      the renaming context as follows:
+
       - [~p(x), u |-> q(y), x =E y, implies(q,p) ==> ~u] *)
 end
 
+(** Construction of a closed renaming inference system from an
+    implementation [Propvar] of propositional variables, [Sym] of predicate
+    symbols, [Var] of term variables, and an [Interface] inference system.
 
-(** Construction of a closed renaming inference system from
-  an implementation [Propvar] of propositional variables,
-  [Sym] of predicate symbols, [Var] of term variables, and 
-  an [Interface] inference system. 
+    The interface must fulfill the following requirements:
 
-  The interface must fulfill the following requirements:
-  - For each newly derived facts [u], [~u], [p(x)], [~p(x)],
-  [x = y], [x <> y] the corresponding propagator must be
-  called at least once to guarantee completeness.
-  - In addition, propagation of a variable equality [x = y]
-  must be {i synchronized} as to ensure the corresponing
-  [propagateEq x y] call is performed before any other function
-  of the renaming interface system is used and before another
-  equality is added in the environment itself. This stringent
-  requirement ensure certain invariants of internal indices.
-  - The interface must ensure that all functions of the
-  renaming interface are {i executed atomically}. In 
-  particular, an outcall of an interface functionality may not 
-  trigger  another call of a renaming inference system functionality
-  before the original call to the renaming system is not completed. *)
-module Make(Propvar: PROPVAR)(Sym: PREDSYM)(Var: VAR)
-  (Interface: INTERFACE with type propvar = Propvar.t
-			and type predsym = Sym.t
-			and type var = Var.t)
-  : (INFSYS with type propvar = Propvar.t
-	    and type predsym = Sym.t
-	    and type var = Var.t)
-  
+    - For each newly derived facts [u], [~u], [p(x)], [~p(x)], [x = y],
+      [x <> y] the corresponding propagator must be called at least once to
+      guarantee completeness.
+    - In addition, propagation of a variable equality [x = y] must be
+      {i synchronized} as to ensure the corresponing [propagate_eq x y] call
+      is performed before any other function of the renaming interface
+      system is used and before another equality is added in the environment
+      itself. This stringent requirement ensure certain invariants of
+      internal indices.
+    - The interface must ensure that all functions of the renaming interface
+      are {i executed atomically}. In particular, an outcall of an interface
+      functionality may not trigger another call of a renaming inference
+      system functionality before the original call to the renaming system
+      is not completed. *)
+module Make
+    (Propvar : PROPVAR)
+    (Sym : PREDSYM)
+    (Var : VAR)
+    (Interface : INTERFACE
+                   with type propvar = Propvar.t
+                    and type predsym = Sym.t
+                    and type var = Var.t) :
+  INFSYS
+    with type propvar = Propvar.t
+     and type predsym = Sym.t
+     and type var = Var.t

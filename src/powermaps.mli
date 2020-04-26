@@ -22,35 +22,35 @@
  * SOFTWARE.
  *)
 
+(** {i Exponential maps}
 
-(** {i Exponential maps} 
-  
-  This module implements finite maps with bindings
-  of the form [x |-> {x{1},...,x{n}}].  All update operations 
-  over maps are destructive (side-effects).
+    This module implements finite maps with bindings of the form
+    [x |-> {x{1},...,x{n}}]. All update operations over maps are destructive
+    (side-effects).
 
-  The implementation uses {i Splay trees} for dynamic balancing of 
-  binary tree representations.  Therefore, insertion of a new element, 
-  for example, is of {i amortized} logarithmic cost.
-*)
-
+    The implementation uses {i Splay trees} for dynamic balancing of binary
+    tree representations. Therefore, insertion of a new element, for
+    example, is of {i amortized} logarithmic cost. *)
 
 (** Output signature of the functor {!Powermaps.Make}. *)
-module type S = sig 
+module type S = sig
   type key
-  module Values : (Sets.S with type elt = key)
-  type t  
-  val empty: unit -> t
-  val is_empty: t -> bool
+
+  module Values : Sets.S with type elt = key
+
+  type t
+
+  val empty : unit -> t
+  val is_empty : t -> bool
   val singleton : key -> Values.t -> t
   val is_singleton : t -> bool
-  val find: key -> t -> Values.t
-  val set: key -> Values.t -> t -> unit    
-  val remove: key -> t -> unit
+  val find : key -> t -> Values.t
+  val set : key -> Values.t -> t -> unit
+  val remove : key -> t -> unit
   val copy : t -> t
-  val mem: key -> t -> bool    
-  val iter: (key -> Values.t -> unit) -> t -> unit
-  val fold: (key -> Values.t -> 'b -> 'b) -> t -> 'b -> 'b
+  val mem : key -> t -> bool
+  val iter : (key -> Values.t -> unit) -> t -> unit
+  val fold : (key -> Values.t -> 'b -> 'b) -> t -> 'b -> 'b
   val cardinal : t -> int
   val map : (Values.t -> Values.t) -> t -> t
   val replace : t -> key -> key -> t
@@ -63,7 +63,7 @@ module type S = sig
   val pp : Format.formatter -> t -> unit
 end
 
-(** {i Exponential maps}. Functor building an implementation of 
-  maps with bindings of the form [x |-> {x{1},...,x{n}}] given 
-  a totally ordered type [T]. *)
-module Make(T: Maps.OrderedType): (S with type key = T.t)
+(** {i Exponential maps}. Functor building an implementation of maps with
+    bindings of the form [x |-> {x{1},...,x{n}}] given a totally ordered
+    type [T]. *)
+module Make (T : Maps.OrderedType) : S with type key = T.t

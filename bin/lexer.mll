@@ -101,8 +101,8 @@ let keyword =
       try Hashtbl.find kw_table s with Not_found -> IDENT s
 
 let endmarker = ref "."
-
-let withEndmarker s f a =
+                  
+let with_endmarker s f a =
   let save = !endmarker in
     endmarker := s;
     try

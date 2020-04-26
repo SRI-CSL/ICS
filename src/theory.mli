@@ -23,44 +23,36 @@
  *)
 
 (** Theory names.
-  
-  @author Harald Ruess
-*)
 
-type t = 
-  | Top
-  | U
-  | A 
-  | P 
-  | F
+    @author Harald Ruess *)
+
+type t = Top | U | A | P | F
 
 val equal : t -> t -> bool
-
 val sub : t -> t -> bool
-
 val pp : Format.formatter -> t -> unit
 
 val to_string : t -> string
-  (** [to_string i] returns a name for theory [i]. *)
+(** [to_string i] returns a name for theory [i]. *)
 
 val description : t -> string
-  (** Return a description of the theory. *)
+(** Return a description of the theory. *)
 
-module Set : (Set.S with type elt = t)
-  (** Finite sets of theories. *)
-  
-module Map : (Map.S with type key = t)
-  (** Finite maps with theories as domain. *)
-  
-module Hash :  (Hashtbl.S with type key = t)
-  (** Hash table with theories as keys. *)
+(** Finite sets of theories. *)
+module Set : Set.S with type elt = t
+
+(** Finite maps with theories as domain. *)
+module Map : Map.S with type key = t
+
+(** Hash table with theories as keys. *)
+module Hash : Hashtbl.S with type key = t
 
 module type T = sig
   val theory : t
 end
 
-module Top: T
-module U: T
-module A: T
-module P: T
-module F: T
+module Top : T
+module U : T
+module A : T
+module P : T
+module F : T

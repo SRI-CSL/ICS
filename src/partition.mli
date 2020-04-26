@@ -23,155 +23,149 @@
  *)
 
 (** {i Inference system for the theory of pure identity.}
-   
-  This module provides an inference system for
-  - building up {i union-find} structures for finite conjunctions of
-  variable equalities [E] and variable disequalities [D], and for
-  - deciding the {i uniform word problems} [V |= E,D => x = y] 
-  and [V |= E,D => x <> y] in the {i theory of pure identify}. 
 
-  @author Harald Ruess
-*)
+    This module provides an inference system for
+
+    - building up {i union-find} structures for finite conjunctions of
+      variable equalities [E] and variable disequalities [D], and for
+    - deciding the {i uniform word problems} [V |= E,D => x = y] and
+      [V |= E,D => x <> y] in the {i theory of pure identify}.
+
+    @author Harald Ruess *)
 
 (** Input signature for {!Partition.Make}. *)
 module type VAR = sig
+  (** Representation of variables. *)
   type t
-    (** Representation of variables. *)
 
   val equal : t -> t -> bool
-    (** Equality on variables. *)
+  (** Equality on variables. *)
 
   val compare : t -> t -> int
-    (** A total ordering on variables. 
-      This is a two-argument function [f] such that
-      [f x y] is [0] iff [equal x y], and 
-      [f x y] is strictly negative if [x] is smaller than [y],
-      and [f x y] is strictly positive if [y] is greater than [x]. *)
+  (** A total ordering on variables. This is a two-argument function [f]
+      such that [f x y] is [0] iff [equal x y], and [f x y] is strictly
+      negative if [x] is smaller than [y], and [f x y] is strictly positive
+      if [y] is greater than [x]. *)
 
   val preference : t -> t -> int
-    (** A partial ordering on variables. [prefence x y] is said to 
-      be {i defined} if it does not throw [Not_found]. If [preference x y] is 
-      defined, then [preference y x] is also assumed to be defined 
-      and [preference x y > 0] iff [preference y x < 0]. *)
+  (** A partial ordering on variables. [preference x y] is said to be
+      {i defined} if it does not throw [Not_found]. If [preference x y] is
+      defined, then [preference y x] is also assumed to be defined and
+      [preference x y > 0] iff [preference y x < 0]. *)
 
   val hash : t -> int
-    (** Nonnegative hash value of a variable. *)
+  (** Nonnegative hash value of a variable. *)
 
   val pp : Format.formatter -> t -> unit
-    (** Pretty-printing a variable. *)
+  (** Pretty-printing a variable. *)
 end
 
-(** {i Inference system} for online processing of variable equalities
-  and variable disequalities. The configuations of the inference
-  system represent the conjunction of a finite set [E] of equalities
-  and a finite set [D] of disequalities. [E] induces an equivalence
-  class [=E]on variables with [x =E y] iff [E |= x = y] in the
-  theory of pure identity. *)
+(** {i Inference system} for online processing of variable equalities and
+    variable disequalities. The configuations of the inference system
+    represent the conjunction of a finite set [E] of equalities and a finite
+    set [D] of disequalities. [E] induces an equivalence class [=E] on
+    variables with [x =E y] iff [E |= x = y] in the theory of pure identity. *)
 module type INFSYS = sig
+  (** Representation of variables. *)
   type var
-    (** Representation of variables. *)
 
-  module Disequalities : (Sets.S with type elt = var * var)
-    (** Finite set of variables disequalities. *)
+  (** Finite set of variables disequalities. *)
+  module Disequalities : Sets.S with type elt = var * var
 
-  module Equalities : (Maps.S with type key = var and type value = var)
-    (** Finite set of variable equalities [x = y] represented as a map 
+  (** Finite set of variable equalities [x = y] represented as a map
       [x |-> y] with [x], [y] variables. As an invariant, if
-      [Var.preference x y > 0], then there is no binding [y |-> x] 
-      in such a map. *)
+      [Var.preference x y > 0], then there is no binding [y |-> x] in such a
+      map. *)
+  module Equalities : Maps.S with type key = var and type value = var
 
+  (** Representation of configurations. *)
   type t
-    (** Representation of configurations. *)
 
   val equalities : unit -> Equalities.t
-    (** Returns a representation of the set of variable equalities in the 
+  (** Returns a representation of the set of variable equalities in the
       current configuration. *)
 
-  val disequalities: unit -> Disequalities.t 
-    (** Returns a representation of the set of variable disequalities in the 
+  val disequalities : unit -> Disequalities.t
+  (** Returns a representation of the set of variable disequalities in the
       current configuration. *)
 
-  val current : unit -> t  
-    (** Returns a representation of the current configuration. *)
+  val current : unit -> t
+  (** Returns a representation of the current configuration. *)
 
-  val reset : unit -> unit 
-    (** Reset the current configuration to the [empty] configuration. 
+  val reset : unit -> unit
+  (** Reset the current configuration to the [empty] configuration.
       [reset()] is synonymous with [initialize empty]. *)
 
-  val initialize : t -> unit  
-    (** Initialize the current configuration with the argument 
-      configuration. *)
+  val initialize : t -> unit
+  (** Initialize the current configuration with the argument configuration. *)
 
   val unchanged : unit -> bool
-    (** [unchanged()] holds iff the current configuration is logically 
-      equivalent with the initial configuration as set by [initialize] 
-      or [reset]. *)
+  (** [unchanged()] holds iff the current configuration is logically
+      equivalent with the initial configuration as set by [initialize] or
+      [reset]. *)
 
   val find : var -> var
-    (** [find x] returns the canonical representative [y] for the 
-      equivalence class [=E] containing [x]. In particular, 
-      [canonical (find x)] holds. *) 
+  (** [find x] returns the canonical representative [y] for the equivalence
+      class [=E] containing [x]. In particular, [canonical (find x)] holds. *)
 
   val canonical : var -> bool
-    (** [canonical x] if [x] is the canonical representative of the equivalence
-      class generated by the current variable equalities. *)
+  (** [canonical x] if [x] is the canonical representative of the
+      equivalence class generated by the current variable equalities. *)
 
-  module Varset : (Sets.S with type elt = var)
-    (** Representation of a set of variables. *)
+  (** Representation of a set of variables. *)
+  module Varset : Sets.S with type elt = var
 
   val deqs : var -> Varset.t
-    (** [y] in [deqs x] iff [E,D |= x <> y]. This set is not necessarily 
+  (** [y] in [deqs x] iff [E,D |= x <> y]. This set is not necessarily
       minimal as it may contain [y], [y'] with [v =E v']. *)
 
   val eqs : var -> Varset.t
-    (** [y] in [eqs x] iff [E |= x = y]. *)
+  (** [y] in [eqs x] iff [E |= x = y]. *)
 
   val equal : var -> var -> bool
-    (** [equal x y] holds iff [E |= x = y]. *)
+  (** [equal x y] holds iff [E |= x = y]. *)
 
   val diseq : var -> var -> bool
-    (** [diseq x y] holds iff [E,D |= x <> y]. *)
+  (** [diseq x y] holds iff [E,D |= x <> y]. *)
 
-  val empty : t  
-    (** The empty configuration. *)
+  val empty : t
+  (** The empty configuration. *)
 
   exception Unsat
+
   val union : (var -> var -> unit) -> var -> var -> unit
-    (** [union x y] extends the current equalities [E] to [E'] such 
-      that [E' |= x = y] or throws [Unsat] if [x = y] is inconsistent 
-      with the current configuration [(E, D)].
+  (** [union x y] extends the current equalities [E] to [E'] such that
+      [E' |= x = y] or throws [Unsat] if [x = y] is inconsistent with the
+      current configuration [(E, D)].
 
-      More specifically, if [E |= x = y], then the current configuration is 
-      unchanged, that is [E' = E] and [unchanged()] still continues to 
-      hold. 
+      More specifically, if [E |= x = y], then the current configuration is
+      unchanged, that is [E' = E] and [unchanged()] still continues to hold.
 
-      For [x], [y] canonical, if [preference x y] holds, then [x] 
-      is chosen as a canonical representative of the extended equivalence 
-      class. *)
+      For [x], [y] canonical, if [preference x y] holds, then [x] is chosen
+      as a canonical representative of the extended equivalence class. *)
 
-  val separate : var -> var -> unit 
-    (** [separate x y] adds the disequality [x <> y] to the current 
-      configuration [(E, D)] or throws [Unsat] if [E, D |= x = y]. 
-      If [E, D |= x <> y], then the current configuration
-      is left unchanged. *)
+  val separate : var -> var -> unit
+  (** [separate x y] adds the disequality [x <> y] to the current
+      configuration [(E, D)] or throws [Unsat] if [E, D |= x = y]. If
+      [E, D |= x <> y], then the current configuration is left unchanged. *)
 
-  val iterEquiv : (var -> unit) -> var -> unit
-    (** [iterEquiv f x] applies [f y] for each [y] with [x =E y].  
-      This operation is linear in the number of equalities in [E]. Since no
-      specific indices are being used, this iteration also requires iterating
-      over all noncanonical variables [z] with [z =E x], and should therefore
-      be avoided. *)
+  val iter_equiv : (var -> unit) -> var -> unit
+  (** [iter_equiv f x] applies [f y] for each [y] with [x =E y]. This
+      operation is linear in the number of equalities in [E]. Since no
+      specific indices are being used, this iteration also requires
+      iterating over all noncanonical variables [z] with [z =E x], and
+      should therefore be avoided. *)
 
-  val chooseEquiv : (var -> bool) -> var -> var
-    (** [chooseEquiv f x] chooses [y] with [f y] and [x =E y].
-      If there is no such [y], then [Not_found] is raised. *)
+  val choose_equiv : (var -> bool) -> var -> var
+  (** [choose_equiv f x] chooses [y] with [f y] and [x =E y]. If there is no
+      such [y], then [Not_found] is raised. *)
 
-  val iterDiseqs : (var -> var -> unit) -> var -> unit
-    (** [iterDiseqs f x] applies [f x' y'] with [x' =E x], [y'] canonical,
+  val iter_diseqs : (var -> var -> unit) -> var -> unit
+  (** [iter_diseqs f x] applies [f x' y'] with [x' =E x], [y'] canonical,
       and [E, D |= x' <> y']. [f x' y'] is called at most once for any such
       disequality, and the order of application is unspecified. *)
 end
 
-(** {i Inference system for the theory of pure identity}
-  for variables [Var.t]. *)
-module Make(Var: VAR): (INFSYS with type var = Var.t)
+(** {i Inference system for the theory of pure identity} for variables
+    [Var.t]. *)
+module Make (Var : VAR) : INFSYS with type var = Var.t

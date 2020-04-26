@@ -24,11 +24,11 @@
 
 (** {i Datatype of vectors}
 
-  @author Harald Ruess
-*)
+    @author Harald Ruess *)
 
 module type ELT = sig
   type t
+
   val equal : t -> t -> bool
   val pp : Format.formatter -> t -> unit
   val zero : t
@@ -40,8 +40,9 @@ end
 module type S = sig
   type elt
   type t
+
   val dim : t -> int
-  val get : t -> int -> elt 
+  val get : t -> int -> elt
   val sub : t -> int -> int -> t
   val postfix : int -> t -> t
   val const : int -> elt -> t
@@ -52,4 +53,4 @@ module type S = sig
   val ( ** ) : t -> t -> elt
 end
 
-module Make(E: ELT): (S with type elt = E.t)
+module Make (E : ELT) : S with type elt = E.t

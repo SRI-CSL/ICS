@@ -22,12 +22,12 @@
  * SOFTWARE.
  *)
 
-
 module type PROPVAR = Type.ORDERED
 
 module type PROP = sig
   type var
   type t
+
   val mk_true : t
   val mk_false : t
   val mk_posvar : var -> t
@@ -36,16 +36,17 @@ module type PROP = sig
   val mk_disj : t -> t -> t
   val union : var -> var -> t -> t
   val separate : var -> var -> t -> t
-  val cofactorPos : t -> var -> t
-  val cofactorNeg : t -> var -> t
+  val cofactor_pos : t -> var -> t
+  val cofactor_neg : t -> var -> t
   val is_valid : t -> bool
   val is_unsat : t -> bool
   val occurs : var -> t -> bool
-  val andElim : t -> var list * var list * t
+  val and_elim : t -> var list * var list * t
 end
 
 module type INTERFACE = sig
   type var
+
   val valid : var -> unit
   val unsat : var -> unit
 end
@@ -53,82 +54,74 @@ end
 module type INFSYS = sig
   type var
   type t
+
   val empty : t
   val initialize : t -> unit
   val reset : unit -> unit
   val unchanged : unit -> bool
   val is_valid : unit -> bool
   val current : unit -> t
+
   exception Unsat
-  val processConjoin : t -> unit
-  val processUnion : var -> var -> unit
-  val processSeparate : var -> var -> unit  
-  val processSub : var -> var -> unit 
-  val propagateValid : var -> unit
-  val propagateUnsat : var -> unit
+
+  val process_conjoin : t -> unit
+  val process_union : var -> var -> unit
+  val process_separate : var -> var -> unit
+  val process_sub : var -> var -> unit
+  val propagate_valid : var -> unit
+  val propagate_unsat : var -> unit
 end
 
 module Make
-  (Var: PROPVAR)
-  (Prop: PROP with type var = Var.t)
-  (I: INTERFACE with type var = Var.t) = 
+    (Var : PROPVAR)
+    (Prop : PROP with type var = Var.t)
+    (I : INTERFACE with type var = Var.t) =
 struct
   type var = Var.t
-
   type t = Prop.t
 
   let empty = Prop.mk_true
-
   let init = ref empty
-
   let curr = ref empty
 
   let initialize p =
-    init := p; curr := p
+    init := p ;
+    curr := p
 
   let reset () = initialize empty
-
-  let unchanged () = 
-    !init == !curr
-
+  let unchanged () = !init == !curr
   let is_valid () = Prop.is_valid !curr
-
   let current () = !curr
 
   exception Unsat
 
-  let rec update p = 
-    curr := p;
-    close();
+  let rec update p =
+    curr := p ;
+    close () ;
     if Prop.is_unsat !curr then raise Unsat
 
-  and close() =
-    let pl, nl, next = Prop.andElim !curr in
-      if pl <> [] || nl <> [] then
-	begin
-	  curr := next;
-	  List.iter I.valid pl;
-	  List.iter I.unsat nl
-	end
+  and close () =
+    let pl, nl, next = Prop.and_elim !curr in
+    if pl <> [] || nl <> [] then (
+      curr := next ;
+      List.iter I.valid pl ;
+      List.iter I.unsat nl )
 
-  let processConjoin p = 
-    if Prop.is_valid p then () else
-      update (Prop.mk_conj p !curr)
+  let process_conjoin p =
+    if Prop.is_valid p then () else update (Prop.mk_conj p !curr)
 
-  let processUnion x y =
-    update (Prop.union x y !curr)
+  let process_union x y = update (Prop.union x y !curr)
+  let process_separate x y = update (Prop.separate x y !curr)
 
-  let processSeparate x y =
-    update (Prop.separate x y !curr)
+  let process_sub x y =
+    update
+      (Prop.mk_conj
+         (Prop.mk_disj (Prop.mk_negvar x) (Prop.mk_posvar y))
+         !curr)
 
-  let processSub x y =
-    update (Prop.mk_conj (Prop.mk_disj (Prop.mk_negvar x) (Prop.mk_posvar y)) !curr)
+  let propagate_valid x =
+    if Prop.occurs x !curr then update (Prop.cofactor_pos !curr x)
 
-  let propagateValid x = 
-    if Prop.occurs x !curr then
-      update (Prop.cofactorPos !curr x)
-
-  let propagateUnsat x = 
-    if Prop.occurs x !curr then
-      update (Prop.cofactorNeg !curr x) 
+  let propagate_unsat x =
+    if Prop.occurs x !curr then update (Prop.cofactor_neg !curr x)
 end

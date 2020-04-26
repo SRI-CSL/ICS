@@ -45,12 +45,12 @@
     let mem i = Hashtbl.mem symtab i
     let rec pp () =
       Format.fprintf fmt "@[";
-      Hashtbl.iter ppBinding symtab;
+      Hashtbl.iter pp_binding symtab;
       Format.fprintf fmt "@]"
-    and ppIndex i = 
+    and pp_index i = 
       Format.fprintf fmt "s!%d" i
-    and ppBinding i s = 
-      ppIndex i;
+    and pp_binding i s = 
+      pp_index i;
       Format.fprintf fmt " |-> ";
       Ics.pp fmt s
     let remove i = 
@@ -540,18 +540,18 @@
       }
     ]
 
-  let shortDescription cmd = (List.assoc cmd descriptions).short
+  let short_description cmd = (List.assoc cmd descriptions).short
 
   let description cmd = 
     let descr = List.assoc cmd descriptions in
       Format.fprintf fmt "NAME\n   %s --- %s \n" cmd descr.short;
       Format.fprintf fmt "SYNOPSIS\n   %s %s\n" cmd (Ebnf.to_string descr.args);
-      let longDescr = descr.description in
-      let seeAlso = descr.seealso in
+      let long_descr = descr.description in
+      let see_also = descr.seealso in
       let examples = descr.examples in
-	if longDescr <> "" then
-	  Format.fprintf fmt "DESCRIPTION\n %s\n" longDescr;
-	if seeAlso <> [] then
+	if long_descr <> "" then
+	  Format.fprintf fmt "DESCRIPTION\n %s\n" long_descr;
+	if see_also <> [] then
 	  begin
 	    Format.fprintf fmt "SEE ALSO\n   ";
 	    let rec loop = function
@@ -559,7 +559,7 @@
 	      | [str] -> Format.fprintf fmt "%s" str
               | str :: strl -> Format.fprintf fmt "%s" str; Format.fprintf fmt ", "; loop strl
 	    in
-	      loop seeAlso
+	      loop see_also
 	  end;
 	if examples <> [] then
 	  begin  
@@ -586,7 +586,7 @@ end
     | "u" | "U" -> Ics.U
     | str -> invalid_arg("No such theory: " ^ str)
 
-  let doProcess fml = 
+  let do_process fml = 
     try 
       Ics.process fml;
       (match Ics.status() with
@@ -718,8 +718,8 @@ atom:
                         { let p = Ics.Predsym.uninterp $1 in
 		          let t = Ics.tuple $3 in
 			    Ics.poslit p t                  }
-| REAL LPAR term RPAR                        {Ics.isReal $3 }
-| INTEGER LPAR term RPAR                    {Ics.isInteger $3 }
+| REAL LPAR term RPAR                        {Ics.is_real $3 }
+| INTEGER LPAR term RPAR                    {Ics.is_integer $3 }
 | term EQUAL term                            { Ics.eq $1 $3 }
 | term DISEQ term                           { Ics.deq $1 $3 }
 | term LESS term                             { Ics.lt $1 $3 }
@@ -765,7 +765,7 @@ command:
 		       Format.fprintf fmt ":true@?"
 		     else
 		       Format.fprintf fmt ":false@?" }
-| ASSERT fml       { doProcess $2 }
+| ASSERT fml       { do_process $2 }
 | RESOLVE          { let st = Ics.resolve() in
 		     let res = status_to_string st in
 		       Format.fprintf fmt ":%s@?" res }
@@ -790,7 +790,7 @@ command:
                      let i = Symtab.extend s in
 		       Undo.push s;
 		       Format.fprintf fmt ":state ";
-		       Symtab.ppIndex i;
+		       Symtab.pp_index i;
 		       Format.fprintf fmt "@?" }
 | RESTORE index    { try
 		       let s = Symtab.find $2 in
@@ -816,15 +816,15 @@ command:
 | STATUS           { let res = status_to_string (Ics.status()) in
 		       Format.fprintf fmt ":%s@?" res }
 | CONTEXT          { Format.fprintf fmt ":context ";
-		     Ics.ppContext();
+		     Ics.pp_context();
 		     Format.fprintf fmt "@?" }
 | CONFIG           { Format.fprintf fmt ":config\n";
-		     Ics.ppConfig();
+		     Ics.pp_config ();
 		     Format.fprintf fmt "@?" }
 | EQUALS IDENT     { try
 		       let th = string_to_theory $2 in
 			 Format.fprintf fmt ":formulas ";
-			 Ics.Formulas.pp fmt (Ics.theoryEquals th);
+			 Ics.Formulas.pp fmt (Ics.theory_equals th);
 			 Format.fprintf fmt "@?"
 		     with
 			 Invalid_argument _ -> 
@@ -833,14 +833,14 @@ command:
 			     Ics.V.Varset.pp fmt xs;
 			     Format.fprintf fmt "@?" }
 | EQUALS           { Format.fprintf fmt "\n:map"; 
-		     Ics.Vareqs.pp fmt (Ics.varEquals());
+		     Ics.Vareqs.pp fmt (Ics.var_equals());
 		     Format.fprintf fmt "@?" }
 | DISEQS var       { let xs = Ics.V.deqs $2 in
 		       Format.fprintf fmt ":vars ";
 		       Ics.V.Varset.pp fmt xs;
 		       Format.fprintf fmt "@?" }
 | DISEQS           { Format.fprintf fmt "\n:formulas"; 
-		     Ics.Formulas.pp fmt (Ics.varDiseqs());
+		     Ics.Formulas.pp fmt (Ics.var_diseqs());
 		     Format.fprintf fmt "@?" }
 | LITERALS         { Format.fprintf fmt "\n:formulas"; 
 		     Ics.Formulas.pp fmt (Ics.literals());
@@ -855,13 +855,13 @@ command:
 		     Ics.Vars.pp fmt (Ics.slacks());
 		     Format.fprintf fmt "@?" }
 | CONSTANTS        { Format.fprintf fmt "\n:formulas"; 
-		     Ics.Formulas.pp fmt (Ics.constantEquals());
+		     Ics.Formulas.pp fmt (Ics.constant_equals());
 		     Format.fprintf fmt "@?" }
 | REGULAR          { Format.fprintf fmt "\n:formulas"; 
-		     Ics.Formulas.pp fmt (Ics.regularEquals());
+		     Ics.Formulas.pp fmt (Ics.regular_equals());
 		     Format.fprintf fmt "@?" }
 | TABLEAU          { Format.fprintf fmt "\n:formulas"; 
-		     Ics.Formulas.pp fmt (Ics.tableauEquals());
+		     Ics.Formulas.pp fmt (Ics.tableau_equals());
 		     Format.fprintf fmt "@?" }
 | FIND theory var  { try
 		       let t = Ics.find $2 $3 in
@@ -894,7 +894,7 @@ command:
 | DROP             { failwith "drop" }
 | ECHO IDENT       { Format.fprintf fmt "%s@?" $2 }
 | HELP IDENT       { try
-		       let short = Cmd.shortDescription $2 in
+		       let short = Cmd.short_description $2 in
 			 Format.fprintf fmt ":string %s@?" short
 		     with
 			 Invalid_argument _ -> 
@@ -921,16 +921,16 @@ nt : LESS IDENT GREATER      { try Ebnf.string_to_nt $2 with Not_found ->
 
 /* Following included for compatibility with older ICS. */
 oldcmd:
-| DEF IDENT ASSIGN term     { doProcess (Ics.eq (Ics.var (Ics.Var.of_string $2)) $4) }
+| DEF IDENT ASSIGN term     { do_process (Ics.eq (Ics.var (Ics.Var.of_string $2)) $4) }
 | PROP IDENT ASSIGN fml    { let p = Ics.Propvar.of_string $2 in
-			       doProcess (Ics.equiv (Ics.posvar p) $4) }
+			       do_process (Ics.equiv (Ics.posvar p) $4) }
 | SIG idents COLON REAL      { List.iter 
 				 (fun x -> 
-				    doProcess 
-				    (Ics.isReal 
+				    do_process 
+				    (Ics.is_real 
 				       (Ics.var (Ics.Var.of_string x))))
 			         $2 }
-| SAT fml                    { doProcess $2 }
+| SAT fml                    { do_process $2 }
 ;
 
 idents:                                { [] }

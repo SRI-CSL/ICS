@@ -24,55 +24,54 @@
 
 (** {i Datatype of stacks.}
 
-  @author Harald Ruess
-*)
+    @author Harald Ruess *)
 
-
+(** The type of stacks containing elements of type ['a]. *)
 type 'a t
-  (** The type of stacks containing elements of type ['a]. *)
 
+(** Raised when {!Stacks.pop} or {!Stacks.top} is applied to an empty stack. *)
 exception Empty
-  (** Raised when {!Stacks.pop} or {!Stacks.top} is applied to an empty stack. *)
 
 val create : unit -> 'a t
-  (** Return a new stack, initially empty. *)
+(** Return a new stack, initially empty. *)
 
-val top : 'a t -> 'a 
-  (** [top s] returns the top of the stack for nonempty stack [s]. *)
+val top : 'a t -> 'a
+(** [top s] returns the top of the stack for nonempty stack [s]. *)
 
 val push : 'a -> 'a t -> unit
-  (** [push x s] adds the element [x] at the top of stack [s]. *)
+(** [push x s] adds the element [x] at the top of stack [s]. *)
 
 val pop : 'a t -> 'a
-  (** [pop s] removes and returns the topmost element in stack [s],
-    or raises [Empty] if the stack is empty. *)
+(** [pop s] removes and returns the topmost element in stack [s], or raises
+    [Empty] if the stack is empty. *)
 
 val clear : 'a t -> unit
-  (** Discard all elements from a stack. *)
+(** Discard all elements from a stack. *)
 
 val is_empty : 'a t -> bool
-  (** Return [true] if the given stack is empty, [false] otherwise. *)
-  
+(** Return [true] if the given stack is empty, [false] otherwise. *)
+
 val length : 'a t -> int
-  (** Return the number of elements in a stack. *)
+(** Return the number of elements in a stack. *)
 
 val iter : ('a -> unit) -> 'a t -> unit
-  (** [iter f s] applies [f] in turn to all elements of [s],
-    from the element at the top of the stack to the element at the
-    bottom of the stack. The stack itself is unchanged. *)
+(** [iter f s] applies [f] in turn to all elements of [s], from the element
+    at the top of the stack to the element at the bottom of the stack. The
+    stack itself is unchanged. *)
 
 val map : ('a -> 'a) -> 'a t -> unit
-  (** [map f s] applies [f] to all elements [a] in [s] and replaces [a] with [f a]. *)
+(** [map f s] applies [f] to all elements [a] in [s] and replaces [a] with
+    [f a]. *)
 
 val to_list : 'a t -> 'a list
-  (** [to_list s] collects elements of stack in a list. *)
+(** [to_list s] collects elements of stack in a list. *)
 
 val mem : ('a -> 'a -> bool) -> 'a -> 'a t -> bool
-  (** [mem eq a s] tests if there is [b] in [s] such that [eq a b]. *)
+(** [mem eq a s] tests if there is [b] in [s] such that [eq a b]. *)
 
 val for_all : ('a -> bool) -> 'a t -> bool
-  (** [for_all p s] tests if [p a] holds for each element [a] on stack [s]. *)
+(** [for_all p s] tests if [p a] holds for each element [a] on stack [s]. *)
 
 val sort : ('a -> 'a -> int) -> 'a t -> unit
-  (** [Stacks.sort cmp s] sorts the elements of the stack [s] with [top s] the smallest 
-    element according to the comparison function [cmp]. *)
+(** [Stacks.sort cmp s] sorts the elements of the stack [s] with [top s] the
+    smallest element according to the comparison function [cmp]. *)

@@ -22,111 +22,100 @@
  * SOFTWARE.
  *)
 
-
 (** Propositional formulas with equality.
 
- This module includes functionality for constructing {i binary decision diagrams}  (BDDs).
+    This module includes functionality for constructing
+    {i binary decision diagrams} (BDDs).
 
-  @author Harald Ruess
-*)
+    @author Harald Ruess *)
 
 module type VAR = sig
   type t
+
   val equal : t -> t -> bool
   val compare : t -> t -> int
   val hash : t -> int
   val pp : Format.formatter -> t -> unit
 end
 
-
 module type INFSYS = sig
   type var
   type t
+
   val empty : t
   val initialize : t -> unit
   val reset : unit -> unit
   val unchanged : unit -> bool
   val current : unit -> t
-  module Valid : (Sets.S with type elt = var)
-  module Unsat : (Sets.S with type elt = var)
+
+  module Valid : Sets.S with type elt = var
+  module Unsat : Sets.S with type elt = var
+
   val valid : unit -> Valid.t
   val unsat : unit -> Unsat.t
-  val isValid : var -> bool
-  val isUnsat : var -> bool  
+  val is_valid : var -> bool
+  val is_unsat : var -> bool
   val pp : Format.formatter -> unit
+
   exception Unsat
-  val processValid : var -> unit
-  val processUnsat : var -> unit
+
+  val process_valid : var -> unit
+  val process_unsat : var -> unit
 end
 
-module Make(Var: VAR) =  struct
+module Make (Var : VAR) = struct
   type var = Var.t
 
-  module Valid = Sets.Make(Var)
-  module Unsat = Sets.Make(Var)
+  module Valid = Sets.Make (Var)
+  module Unsat = Sets.Make (Var)
 
-  type t = {
-    mutable valid : Valid.t;
-    mutable unsat : Unsat.t;
-  }
+  type t = {mutable valid: Valid.t; mutable unsat: Unsat.t}
 
-  let empty = { 
-    valid = Valid.empty();
-    unsat = Unsat.empty()
-  }
-  
+  let empty = {valid= Valid.empty (); unsat= Unsat.empty ()}
   let init = ref empty
-   
+
   module Config = struct
-    module Valid = Config.Set(Valid)
-    module Unsat = Config.Set(Unsat)
+    module Valid = Config.Set (Valid)
+    module Unsat = Config.Set (Unsat)
   end
 
   let valid = Config.Valid.current
   let unsat = Config.Unsat.current
 
   let initialize s =
-    init := s;
-    Config.Valid.initialize s.valid;
+    init := s ;
+    Config.Valid.initialize s.valid ;
     Config.Unsat.initialize s.unsat
 
-  let reset () = 
-    initialize empty
-      
-  let unchanged () = 
-    Config.Valid.unchanged() &&
-    Config.Unsat.unchanged()
-      
-  let current () = 
-    if unchanged () then !init else {
-      valid = Config.Valid.current();
-      unsat = Config.Unsat.current()
-    }
+  let reset () = initialize empty
+  let unchanged () = Config.Valid.unchanged () && Config.Unsat.unchanged ()
 
-  let isValid = Config.Valid.mem 
+  let current () =
+    if unchanged () then !init
+    else {valid= Config.Valid.current (); unsat= Config.Unsat.current ()}
 
-  let isUnsat = Config.Unsat.mem
+  let is_valid = Config.Valid.mem
+  let is_unsat = Config.Unsat.mem
 
-  let pp fmt = 
-    Format.fprintf fmt "@[";
-    Format.fprintf fmt "valid: "; Valid.pp fmt (valid());
-    Format.fprintf fmt "unsat: "; Unsat.pp fmt (unsat());
+  let pp fmt =
+    Format.fprintf fmt "@[" ;
+    Format.fprintf fmt "valid: " ;
+    Valid.pp fmt (valid ()) ;
+    Format.fprintf fmt "unsat: " ;
+    Unsat.pp fmt (unsat ()) ;
     Format.fprintf fmt "@]@?"
-   
+
   exception Unsat
 
-  let processValid p = 
-    if isValid p then () else
-      begin
-	Config.Valid.add p;
-	if isUnsat p then raise Unsat
-      end
-	  
-  let processUnsat p = 
-    if isUnsat p then () else 
-      begin 
-	Config.Unsat.add p;
-	if isValid p then raise Unsat
-      end
-end
+  let process_valid p =
+    if is_valid p then ()
+    else (
+      Config.Valid.add p ;
+      if is_unsat p then raise Unsat )
 
+  let process_unsat p =
+    if is_unsat p then ()
+    else (
+      Config.Unsat.add p ;
+      if is_valid p then raise Unsat )
+end

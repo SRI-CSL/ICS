@@ -24,54 +24,51 @@
 
 (** {i Datatype of names}
 
-  A {i name} is a string with constant time equality test. This 
-  is achieved by associating a unique integer with every string.
+    A {i name} is a string with constant time equality test. This is
+    achieved by associating a unique integer with every string.
 
-  @author Harald Ruess
-*)
+    @author Harald Ruess *)
 
-
+(** Representation of strings with constant time equality. *)
 type t
-  (** Representation of strings with constant time equality. *)
 
 val to_string : t -> string
-  (** [to_string n] returns the string associated with [n]. *)
+(** [to_string n] returns the string associated with [n]. *)
 
 val of_string : string -> t
-  (** [of_string s] constructs a name with associated string [s]. *) 
+(** [of_string s] constructs a name with associated string [s]. *)
 
 val of_int : int -> t
-  (* [of_int i] is the same as [of_string (Pervasives.string_of_int i)]. *)
+(** [of_int i] is the same as [of_string (Pervasives.string_of_int i)]. *)
 
 val fresh : unit -> t
-  (** [fresh s] return a name [n] with [to_string n] of the form [s!k]
-    with [k] an integer. *)
+(** [fresh s] return a name [n] with [to_string n] of the form [s!k] with
+    [k] an integer. *)
 
 val hash : t -> int
-  (** Returns a hash value for a name [n]; that is,
+(** Returns a hash value for a name [n]; that is,
     [to_string n = to_string m] implies [hash n = hash m]. *)
-  
+
 val equal : t -> t -> bool
-  (** [equal n m] holds iff [to_string n] equals [to_string m]. 
-    This equality test has constant runtime. *)
+(** [equal n m] holds iff [to_string n] equals [to_string m]. This equality
+    test has constant runtime. *)
 
 val compare : t -> t -> int
-  (** If [s] ([t]) is the string associated to [n] ([m]), then
-    [compare n m] equals [0] iff [equal n m]. Furthermore, 
-    if [compare n m] equals [i], then [compare m n] equals [-i]. *)
+(** If [s] ([t]) is the string associated to [n] ([m]), then [compare n m]
+    equals [0] iff [equal n m]. Furthermore, if [compare n m] equals [i],
+    then [compare m n] equals [-i]. *)
 
 val length : t -> int
-  (** Length of a name. *)
+(** Length of a name. *)
 
 val pp : Format.formatter -> t -> unit
-  (** Pretty-printing of names. *)
+(** Pretty-printing of names. *)
 
-module Set : (Set.S with type elt = t)
-  (** Sets of names. *)
+(** Sets of names. *)
+module Set : Set.S with type elt = t
 
-module Map : (Map.S with type key = t)
-  (** Maps with names in the domain. *)
+(** Maps with names in the domain. *)
+module Map : Map.S with type key = t
 
-module Hash :  (Hashtbl.S with type key = t)
-  (** Hash table with names as keys. *)
-  
+(** Hash table with names as keys. *)
+module Hash : Hashtbl.S with type key = t

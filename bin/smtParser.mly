@@ -1,5 +1,4 @@
 %{
-
   open SmtBench
 %}
 
@@ -84,10 +83,10 @@ attributes:
 ;
 
 attribute:
-  | ASSUMPTION formula                         { Fill.addAssumption $2 }
-  | FORMULA formula                            { Fill.setConclusion $2 }
-  | STATUS status                              { Fill.setStatus $2 }
-  | LOGIC logic                                { Fill.setLogic $2 }
+  | ASSUMPTION formula                         { Fill.add_assumption $2 }
+  | FORMULA formula                            { Fill.set_conclusion $2 }
+  | STATUS status                              { Fill.set_status $2 }
+  | LOGIC logic                                { Fill.set_logic $2 }
   | EXTRASORTS LPAREN sortDecls RPAREN         { () }
   | EXTRAFUNS LPAREN funsymDecls RPAREN        { () }
   | EXTRAPREDS LPAREN predsymDecls RPAREN      { () }
@@ -106,8 +105,8 @@ status:
 
 
 sortDecls:
-    SYM                  { Fill.addSortDecl $1 }
-  | sortDecls SYM        { Fill.addSortDecl $2 }
+    SYM                  { Fill.add_sort_decl $1 }
+  | sortDecls SYM        { Fill.add_sort_decl $2 }
 ;
 
 sorts :
@@ -130,13 +129,13 @@ funsymDecls:
 
 funsymDecl:
   | LPAREN funsym sort annotations RPAREN
-       { Fill.addFunsymDecl $2 {Ast.dom = []; Ast.cod = $3}  } 
+       { Fill.add_funsym_decl $2 {Ast.dom = []; Ast.cod = $3}  } 
   | LPAREN funsym sort RPAREN
-       { Fill.addFunsymDecl $2 {Ast.dom = []; Ast.cod = $3}  } 
+       { Fill.add_funsym_decl $2 {Ast.dom = []; Ast.cod = $3}  } 
   | LPAREN funsym sort sorts annotations RPAREN 
-       { Fill.addFunsymDecl $2 {Ast.dom = $4; Ast.cod = $3}  }
+       { Fill.add_funsym_decl $2 {Ast.dom = $4; Ast.cod = $3}  }
   | LPAREN funsym sort sorts RPAREN 
-       { Fill.addFunsymDecl $2 {Ast.dom = $4; Ast.cod = $3}  }
+       { Fill.add_funsym_decl $2 {Ast.dom = $4; Ast.cod = $3}  }
 ;
 
 
@@ -153,13 +152,13 @@ predsymDecls:
 
 predsymDecl:
   | LPAREN predsym annotations RPAREN 
-      { Fill.addPredsymDecl $2 [] } 
+      { Fill.add_predsym_decl $2 [] } 
   | LPAREN predsym sorts annotations RPAREN  
-      { Fill.addPredsymDecl $2 $3 }
+      { Fill.add_predsym_decl $2 $3 }
   | LPAREN predsym RPAREN 
-      { Fill.addPredsymDecl $2 [] } 
+      { Fill.add_predsym_decl $2 [] } 
   | LPAREN predsym sorts RPAREN  
-      { Fill.addPredsymDecl $2 $3 }
+      { Fill.add_predsym_decl $2 $3 }
 ;
 
 predsym: 
@@ -259,6 +258,3 @@ annotations:
     annotation             { [] } 
   | annotations annotation { [] } 
 ;
-
-
-

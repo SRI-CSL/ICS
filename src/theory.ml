@@ -22,13 +22,7 @@
  * SOFTWARE.
  *)
 
-
-type t = 
-  | Top
-  | U
-  | A 
-  | P 
-  | F
+type t = Top | U | A | P | F
 
 let to_string = function
   | Top -> "top"
@@ -37,38 +31,30 @@ let to_string = function
   | P -> "p"
   | F -> "f"
 
-let index = function
-  | U -> 0
-  | A -> 1
-  | P -> 2
-  | F -> 3 
-  | Top -> 4 
-
+let index = function U -> 0 | A -> 1 | P -> 2 | F -> 3 | Top -> 4
 let pp fmt t = Format.fprintf fmt "%s@?" (to_string t)
+let equal = ( == )
 
-let equal = (==)
-  
 let compare t1 t2 =
   let i1 = index t1 and i2 = index t2 in
-    if i1 == i2 then 0 else 
-      if i1 > i2 then 1 else -1
+  if i1 == i2 then 0 else if i1 > i2 then 1 else -1
 
-let sub t1 = function
-  | Top -> true
-  | t2 -> t1 == t2
-    
-module T = struct 
+let sub t1 = function Top -> true | t2 -> t1 == t2
+
+module T = struct
   type theory = t (* avoid name clash. *)
+
   type t = theory
+
   let equal = equal
   let compare = compare
   let hash = index
   let pp = pp
 end
 
-module Map = Map.Make(T)
-module Set =  Set.Make(T)
-module Hash = Hashtbl.Make(T)
+module Map = Map.Make (T)
+module Set = Set.Make (T)
+module Hash = Hashtbl.Make (T)
 
 let description = function
   | Top -> "The (disjoint) union of the theories U, A, P, F."
@@ -81,9 +67,22 @@ module type T = sig
   val theory : t
 end
 
-module Top: T = struct let theory = Top end
-module U: T = struct let theory = U end
-module A: T = struct let theory = A end
-module P: T = struct let theory = P end
-module F: T = struct let theory = F end
+module Top : T = struct
+  let theory = Top
+end
 
+module U : T = struct
+  let theory = U
+end
+
+module A : T = struct
+  let theory = A
+end
+
+module P : T = struct
+  let theory = P
+end
+
+module F : T = struct
+  let theory = F
+end
