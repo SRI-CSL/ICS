@@ -111,6 +111,8 @@ module Tuple(Var: VAR) = struct
 
   type term = t (* nickname *)
 
+  let is_var = function Var _ -> true | _ -> false
+
   let isTuple n = function
     | Tuple a  -> Array.length a.args = n
     | _ -> false
@@ -227,10 +229,6 @@ module Tuple(Var: VAR) = struct
     Format.fprintf fmt "proj[%d,%d](" p.index p.width;
     pp fmt p.arg;
     Format.fprintf fmt ")"
-
-  let is_var = function Var _ -> true | _ -> false
-  let is_tuple = function Tuple _ -> true | _ -> false
-  let is_proj = function Proj _ -> true | _ -> false
 
   let to_var = function
     | Var x -> x
@@ -367,13 +365,13 @@ module Tuple(Var: VAR) = struct
       struct
 	type t = term
 	let rec equal s t =
-	  assert(is_proj s);
-	  assert(is_proj t);
+	  assert(isProj s);
+	  assert(isProj t);
 	  match s, t with
 	     | Proj p, Proj q -> equalProj p q
 	     | _ -> assert false
 	let hash t = 
-	  assert(is_proj t);
+	  assert(isProj t);
 	  match t with
 	    | Proj p -> hashProj p
 	    | _ -> assert false
