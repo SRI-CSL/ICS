@@ -102,6 +102,8 @@ module type INFSYS = sig
   val propagate_unsat1 : predsym -> var -> unit
 end
 
+let trace (k : Trace.pf -> _) = [%Trace.infok k]
+
 module Make
     (Propvar : PROPVAR)
     (Sym : PREDSYM)
@@ -229,74 +231,6 @@ struct
     in
     check "depWF" dep_wf && check "disjoint" disjoint
 
-  module Trace = struct
-    let debug = ref true
-
-    open Format
-
-    let var_print = Var.pp err_formatter
-    let pvar_print = Propvar.pp err_formatter
-    let apply_print = Apply.pp err_formatter
-
-    let alias_equal u x y =
-      if !debug then (
-        eprintf "\nAlias(R): " ;
-        pvar_print u ;
-        eprintf " |->" ;
-        var_print x ;
-        eprintf " = " ;
-        var_print y ;
-        eprintf "@?" )
-
-    let alias_monadic u p y =
-      if !debug then (
-        eprintf "\nAlias(R): " ;
-        pvar_print u ;
-        eprintf " |->" ;
-        apply_print (p, y) ;
-        eprintf "@?" )
-
-    let prop_eq x y =
-      if !debug then (
-        eprintf "\nProp(R): " ;
-        var_print x ;
-        eprintf " = " ;
-        var_print y ;
-        eprintf "@?" )
-
-    let prop_deq x y =
-      if !debug then (
-        eprintf "\nProp(R): " ;
-        var_print x ;
-        eprintf " <> " ;
-        var_print y ;
-        eprintf "@?" )
-
-    let prop_valid0 u =
-      if !debug then (
-        eprintf "\nProp(R): " ;
-        pvar_print u ;
-        eprintf "@?" )
-
-    let prop_unsat0 u =
-      if !debug then (
-        eprintf "\nProp(R): ~" ;
-        pvar_print u ;
-        eprintf "@?" )
-
-    let prop_valid1 p x =
-      if !debug then (
-        eprintf "\nProp(R): " ;
-        apply_print (p, x) ;
-        eprintf "@?" )
-
-    let prop_unsat1 p x =
-      if !debug then (
-        eprintf "\nProp(R): ~" ;
-        apply_print (p, x) ;
-        eprintf "@?" )
-  end
-
   let initialize s =
     init := s ;
     Config.Monadic.initialize s.monadic ;
@@ -358,9 +292,8 @@ struct
     with Not_found ->
       let x = I.find x in
       let u = Propvar.fresh () in
-      assert (
-        Trace.alias_monadic u p x ;
-        true ) ;
+      trace (fun {pf} ->
+          pf "Alias(R): %a |-> %a" Propvar.pp u Apply.pp (p, x) ) ;
       Config.Monadic.set u (p, x) ;
       Config.Dep.set x (Propvars.singleton u) ;
       assert (well_formed ()) ;
@@ -381,9 +314,8 @@ struct
     with Not_found ->
       let x = I.find x and y = I.find y in
       let u = Propvar.fresh () in
-      assert (
-        Trace.alias_equal u x y ;
-        true ) ;
+      trace (fun {pf} ->
+          pf "Alias(R): %a |-> %a = %a" Propvar.pp u Var.pp x Var.pp y ) ;
       Config.Equal.set u (x, y) ;
       add_dep u x ;
       add_dep u y ;
@@ -465,9 +397,7 @@ struct
     with Not_found -> ()
 
   let propagate_eq x y =
-    assert (
-      Trace.prop_eq x y ;
-      true ) ;
+    trace (fun {pf} -> pf "Prop(R): %a = %a" Var.pp x Var.pp y) ;
     assert (I.equal x y) ;
     assert (I.canonical y) ;
     assert (not (I.canonical x)) ;
@@ -477,9 +407,7 @@ struct
     assert (well_formed ())
 
   let propagate_deq x y =
-    assert (
-      Trace.prop_deq x y ;
-      true ) ;
+    trace (fun {pf} -> pf "Prop(R): %a <> %a" Var.pp x Var.pp y) ;
     assert (I.diseq x y) ;
     Propvars.iter
       (fun u ->
@@ -493,9 +421,7 @@ struct
       (deps x)
 
   let propagate_valid0 u =
-    assert (
-      Trace.prop_valid0 u ;
-      true ) ;
+    trace (fun {pf} -> pf "Prop(R): %a" Propvar.pp u) ;
     try
       let p, x = Config.Monadic.find u in
       I.valid1 p (I.find x)
@@ -506,9 +432,7 @@ struct
       with Not_found -> () )
 
   let propagate_unsat0 u =
-    assert (
-      Trace.prop_unsat0 u ;
-      true ) ;
+    trace (fun {pf} -> pf "Prop(R): ~%a" Propvar.pp u) ;
     try
       let p, x = Config.Monadic.find u in
       I.unsat1 p (I.find x)
@@ -519,18 +443,14 @@ struct
       with Not_found -> () )
 
   let propagate_valid1 p x =
-    assert (
-      Trace.prop_valid1 p x ;
-      true ) ;
+    trace (fun {pf} -> pf "Prop(R): %a" Apply.pp (p, x)) ;
     try
       let u = inv_monadic p x in
       I.valid0 u
     with Not_found -> ()
 
   let propagate_unsat1 p x =
-    assert (
-      Trace.prop_unsat1 p x ;
-      true ) ;
+    trace (fun {pf} -> pf "Prop(R): ~%a" Apply.pp (p, x)) ;
     try
       let u = inv_monadic p x in
       I.unsat0 u
