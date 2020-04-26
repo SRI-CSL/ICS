@@ -22,27 +22,4 @@
  * SOFTWARE.
  *)
 
-(** {i Integers}
-
-    The signature matches the totally ordered type {!Type.ORDERED}.
-
-    @author Harald Ruess *)
-
-(** Integers. *)
-type t = int
-
-val equal : t -> t -> bool
-(** Equality on integers. *)
-
-val compare : t -> t -> int
-(** The result of [compare n m]
-
-    - equals [0] iff [n = m],
-    - is negative if [n < m], and
-    - it is positive [n > m]. *)
-
-val hash : t -> int
-(** [hash n] returns a nonnegative hash value. *)
-
-val pp : Format.formatter -> t -> unit
-(** Pretty-print an integer on the given formatter. *)
+include module type of NS.Int

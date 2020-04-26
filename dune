@@ -41,7 +41,7 @@
  src
  (library
   (public_name ics)
-  (libraries ppx_trace.trace num unix zarith)
+  (libraries ppx_trace.trace nonstdlib num unix zarith)
   (flags (:standard))
   (preprocess
    (pps ppx_trace))))

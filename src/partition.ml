@@ -75,7 +75,15 @@ module Make (Var : VAR) = struct
   module Varset = Sets.Make (Var)
   module Parent = Varmap
   module Diseqs = Maps.Make (Var) (Varset)
-  module Rank = Maps.Make (Var) (Int)
+
+  module Rank =
+    Maps.Make
+      (Var)
+      (struct
+        include Int
+
+        let pp fmt = Format.fprintf fmt "<int %d>"
+      end)
 
   type t =
     { mutable parent: Parent.t

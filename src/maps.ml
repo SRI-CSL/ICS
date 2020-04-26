@@ -242,7 +242,7 @@ end
 
 (* [@warning "-60"] *)
 let () =
-  let open MakeGraph (Int) (Int) in
+  let open MakeGraph (Name) (Name) in
   ()
 
 module Make (Key : OrderedType) (Val : EqType) :
