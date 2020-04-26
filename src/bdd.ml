@@ -78,12 +78,12 @@ module Make (Var : VAR) = struct
   (* Enable path compression for dynamic ordering *)
   let path_compression = false
 
-  let _ =
-    assert (
-      Format.eprintf
-        "\n BDD checks  = true; dynamicOrder = %b; pathCompression = %b@?"
-        dynamic_order path_compression ;
-      true )
+  (* let _ =
+   *   assert (
+   *     Format.eprintf
+   *       "\n BDD checks  = true; dynamicOrder = %b; pathCompression = %b@?"
+   *       dynamic_order path_compression ;
+   *     true ) *)
 
   (** Dynamic variable ordering (see [topvar]). *)
   module Ge = struct
