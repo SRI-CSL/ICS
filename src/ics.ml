@@ -755,6 +755,8 @@ end = struct
     Stacks.push y rhs
 
   let propagate x y =
+    [%Trace.call fun {pf} -> pf "(U): %a = %a" Var.pp x Var.pp y]
+    ;
     assert (V.canonical y) ;
     assert (not (V.canonical x)) ;
     assert (V.equal x y) ;
@@ -764,6 +766,8 @@ end = struct
     T.propagate x y ;
     F.propagate_eq x y ;
     R.propagate_eq x y
+    |>
+    [%Trace.retn fun {pf} () -> pf ""]
 
   let process_critical x y =
     [%Trace.call fun {pf} -> pf "(U): %a = %a" Var.pp x Var.pp y]
