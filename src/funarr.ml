@@ -97,14 +97,14 @@ module Flat (Var : VAR) = struct
     Var.pp fmt i ;
     Format.fprintf fmt ":=" ;
     Var.pp fmt x ;
-    Format.fprintf fmt "]@]@?"
+    Format.fprintf fmt "]@]"
 
   let pp_lookup fmt a i =
     Format.fprintf fmt "@[" ;
     Var.pp fmt a ;
     Format.fprintf fmt "[" ;
     Var.pp fmt i ;
-    Format.fprintf fmt "]@]@?"
+    Format.fprintf fmt "]@]"
 
   let pp fmt = function
     | Update (a, i, x) -> pp_update fmt a i x
@@ -175,7 +175,7 @@ struct
     Find.pp fmt (Config.Find.current ()) ;
     Format.fprintf fmt "@[\ndep: " ;
     Dep.pp fmt (Config.Dep.current ()) ;
-    Format.fprintf fmt "@]@?"
+    Format.fprintf fmt "@]"
 
   let dom x = Config.Find.mem x
   let lookup = Config.Find.find

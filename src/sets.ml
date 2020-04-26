@@ -188,7 +188,7 @@ struct
       in
       Format.fprintf fmt "@[{" ;
       iterate (to_list s) ;
-      Format.fprintf fmt "}@]@?"
+      Format.fprintf fmt "}@]"
 
     let rec pp_debug fmt n =
       if is_empty n then Format.fprintf fmt "nil"

@@ -25,7 +25,7 @@
 type t = {mutable name: string; mutable hash: int}
 type name = t (* nickname *)
 
-let pp fmt n = Format.fprintf fmt "%s@?" n.name
+let pp fmt n = Format.fprintf fmt "%s" n.name
 
 let hash n =
   if n.hash >= 0 then n.hash

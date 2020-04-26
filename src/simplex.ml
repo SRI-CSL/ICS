@@ -1062,7 +1062,7 @@ struct
     T.pp fmt ;
     Format.fprintf fmt "\nslacks: " ;
     S.pp fmt ;
-    Format.fprintf fmt "@]@?"
+    Format.fprintf fmt "@]"
 
   let init = ref empty
 

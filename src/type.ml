@@ -83,7 +83,7 @@ module Product (Ordered1 : ORDERED) (Ordered2 : ORDERED) = struct
     Ordered1.pp fmt p.lhs ;
     Format.fprintf fmt ", " ;
     Ordered2.pp fmt p.rhs ;
-    Format.fprintf fmt ">@]@?"
+    Format.fprintf fmt ">@]"
 end
 
 module Triple (Ordered1 : ORDERED) (Ordered2 : ORDERED) (Ordered3 : ORDERED) =
@@ -145,5 +145,5 @@ struct
     Ordered2.pp fmt p.arg2 ;
     Format.fprintf fmt ", " ;
     Ordered3.pp fmt p.arg3 ;
-    Format.fprintf fmt ">@]@?"
+    Format.fprintf fmt ">@]"
 end

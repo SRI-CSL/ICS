@@ -307,8 +307,7 @@ module Make (Var : VAR) = struct
     maxdepth := maxdepth_curr ;
     let table = if !shared then occurrences b else Hashtbl.create 0 in
     pp_term 0 table fmt b ;
-    if !shared then pp_defs fmt table ;
-    Format.fprintf fmt "@?"
+    if !shared then pp_defs fmt table
 
   let to_string b =
     pp (false, false, -1) Format.str_formatter b ;
@@ -342,8 +341,7 @@ module Make (Var : VAR) = struct
       pp (false, false, -1) Format.err_formatter b ;
       if dynamic_order then (
         Format.eprintf "\n Succ: " ;
-        Ge.Succ.pp Format.err_formatter (Ge.to_map ()) ) ;
-      Format.eprintf "@?" ) ;
+        Ge.Succ.pp Format.err_formatter (Ge.to_map ()) ) ) ;
     res
 
   module Node = struct

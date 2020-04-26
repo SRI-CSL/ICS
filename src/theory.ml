@@ -32,7 +32,7 @@ let to_string = function
   | F -> "f"
 
 let index = function U -> 0 | A -> 1 | P -> 2 | F -> 3 | Top -> 4
-let pp fmt t = Format.fprintf fmt "%s@?" (to_string t)
+let pp fmt t = Format.fprintf fmt "%s" (to_string t)
 let equal = ( == )
 
 let compare t1 t2 =

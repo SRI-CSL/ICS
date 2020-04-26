@@ -256,7 +256,7 @@ module Make (Var : VAR) = struct
       Var.pp fmt x ;
       Format.fprintf fmt " <> " ;
       Var.pp fmt y ;
-      Format.fprintf fmt "@]@?"
+      Format.fprintf fmt "@]"
   end)
 
   let equalities () =

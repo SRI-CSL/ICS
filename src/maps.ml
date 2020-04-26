@@ -79,7 +79,7 @@ module MakeGraph (Key : OrderedType) (Val : EqType) : S = struct
       Key.pp fmt k ;
       Format.fprintf fmt " |-> " ;
       Val.pp fmt v ;
-      Format.fprintf fmt "@]@?"
+      Format.fprintf fmt "@]"
   end
 
   module Graph = Sets.Make (Bndng)
@@ -300,9 +300,9 @@ module Make (Key : OrderedType) (Val : EqType) :
   let pp fmt m =
     let pp_sep fmt () = Format.fprintf fmt ", " in
     let pp_kv fmt (k, v) =
-      Format.fprintf fmt "@[%a |-> %a@]@?" Key.pp k Val.pp v
+      Format.fprintf fmt "@[%a |-> %a@]" Key.pp k Val.pp v
     in
-    Format.fprintf fmt "@[{%a}@]@?"
+    Format.fprintf fmt "@[{%a}@]"
       (Format.pp_print_list ~pp_sep pp_kv)
       (to_list m)
 end

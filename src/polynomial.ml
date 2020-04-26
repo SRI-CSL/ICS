@@ -173,7 +173,7 @@ module Make (C : COEFF) (X : INDETERMINATE) = struct
       for i = 1 to n - 1 do
         pp_signed_monomial ma.(i)
       done ) ;
-    Format.fprintf fmt "@]@?"
+    Format.fprintf fmt "@]"
 
   let to_string x =
     pp Format.str_formatter x ;

@@ -103,7 +103,7 @@ module Make (Var : VAR) = struct
     Valid.pp fmt (valid ()) ;
     Format.fprintf fmt "unsat: " ;
     Unsat.pp fmt (unsat ()) ;
-    Format.fprintf fmt "@]@?"
+    Format.fprintf fmt "@]"
 
   exception Unsat
 

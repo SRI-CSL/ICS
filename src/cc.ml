@@ -74,7 +74,7 @@ module Apply (Var : VAR) (Funsym : FUNSYM) = struct
     Funsym.pp fmt a.funsym ;
     Format.fprintf fmt "(" ;
     Var.pp fmt a.arg ;
-    Format.fprintf fmt ")@?"
+    Format.fprintf fmt ")"
 
   let make f x = {funsym= f; arg= x}
 end

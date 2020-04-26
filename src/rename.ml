@@ -126,7 +126,7 @@ struct
       Sym.pp fmt p ;
       Format.fprintf fmt "(" ;
       Var.pp fmt x ;
-      Format.fprintf fmt ")@?"
+      Format.fprintf fmt ")"
   end
 
   module Var2 = struct

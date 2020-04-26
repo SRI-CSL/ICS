@@ -180,5 +180,5 @@ module Make (Elt : ELT) = struct
           printl xl
     in
     printl (to_list s) ;
-    Format.fprintf fmt "}@]@?"
+    Format.fprintf fmt "}@]"
 end

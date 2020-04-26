@@ -72,7 +72,7 @@ struct
       if equal x y then 0 else if hash x > hash y then 1 else -1
 
     let to_string x = x.name
-    let pp fmt x = Format.fprintf fmt "%s@?" x.name
+    let pp fmt x = Format.fprintf fmt "%s" x.name
   end
 
   (** {i Internal names} *)
@@ -85,7 +85,7 @@ struct
 
     let compare x y = if x == y then 0 else if x > y then 1 else -1
     let to_string x = Format.sprintf "%s!%d" Fresh.name x
-    let pp fmt x = Format.fprintf fmt "%s@?" (to_string x)
+    let pp fmt x = Format.fprintf fmt "%s" (to_string x)
   end
 
   type t = Extern of Extern.t | Intern of Intern.t
@@ -1162,7 +1162,7 @@ let print_context fmt =
 let pp fmt s =
   Format.fprintf fmt "@[ctxt(" ;
   print_context fmt s.context ;
-  Format.fprintf fmt ")@]@?"
+  Format.fprintf fmt ")@]"
 
 let pp_status fmt status =
   Format.fprintf fmt "%s"
