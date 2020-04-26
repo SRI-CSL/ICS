@@ -630,12 +630,6 @@ module Footprint = struct
 
   let v = Term.of_var
 
-  let equal x y =
-    if !footprint then (
-      out "prop" ;
-      pp (mk_equal (v x) (v y)) ;
-      flush () )
-
   let diseq x y =
     if !footprint then (
       out "prop" ;
@@ -772,11 +766,12 @@ end = struct
     R.propagate_eq x y
 
   let process_critical x y =
+    [%Trace.call fun {pf} -> pf "(U): %a = %a" Var.pp x Var.pp y]
+    ;
     let x = V.find x and y = V.find y in
-    if V.equal x y then ()
+    ( if V.equal x y then ()
     else
       try
-        if !footprint then Footprint.equal x y ;
         critical := true ;
         (* let dx = V.deqs x and dy = V.deqs y in *)
         V.union ~propagate_deq:Separate.propagate x y ;
@@ -785,7 +780,9 @@ end = struct
         critical := false
       with exc ->
         critical := false ;
-        raise exc
+        raise exc )
+    |>
+    [%Trace.retn fun {pf} () -> pf ""]
 
   let process x y =
     if V.equal x y then ()
