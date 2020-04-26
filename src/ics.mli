@@ -512,11 +512,14 @@ type t = private
   ; upper: int
   ; mutable status: status }
 
-val empty : t
-(** The empty decision procedure state with empty logical context [\[\]]. *)
-
 val pp : Format.formatter -> t -> unit
 (** Printing a decision procedure state. *)
+
+val pp_status : Format.formatter -> status -> unit
+(** Pretty-print a status *)
+
+val empty : t
+(** The empty decision procedure state with empty logical context [\[\]]. *)
 
 val equal : t -> t -> bool
 (** [equal s1 s2] holds if [s1] is identical with [s2]. This test is

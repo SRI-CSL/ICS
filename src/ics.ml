@@ -666,12 +666,6 @@ module Footprint = struct
       Propvar.pp stderr p ;
       flush () )
 
-  let process p =
-    if !footprint then (
-      out "process" ;
-      pp p ;
-      flush () )
-
   let close () =
     if !footprint then (
       out "close" ;
@@ -1170,6 +1164,13 @@ let pp fmt s =
   print_context fmt s.context ;
   Format.fprintf fmt ")@]@?"
 
+let pp_status fmt status =
+  Format.fprintf fmt "%s"
+    ( match status with
+    | Sat _ -> "sat"
+    | Unsat _ -> "unsat"
+    | Unknown -> "unknown" )
+
 let init = ref empty
 let curr_context = ref []
 let curr_status = ref Unknown
@@ -1661,7 +1662,6 @@ let normalize () =
 
 let process_exn p =
   assert (closed ()) ;
-  if !footprint then Footprint.process p ;
   let add p =
     if Formula.is_true p || is_unsat () then ()
     else (
@@ -1675,8 +1675,12 @@ let process_exn p =
   apply_process add p
 
 let process p =
+  [%Trace.call fun {pf} -> pf "%a" Formula.pp p]
+  ;
   (try process_exn p with Unsatisfiable -> ()) ;
   !curr_status
+  |>
+  [%Trace.retn fun {pf} -> pf "%a" pp_status]
 
 let context () = !curr_context
 let status () = !curr_status
