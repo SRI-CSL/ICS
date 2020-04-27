@@ -1312,96 +1312,41 @@ let renames () =
 
 let prop () = Formula.mk_prop (P.current ())
 
-let pp_vareqs fmt () =
-  let v = var_equals () in
-  if not (Vareqs.is_empty v) then (
-    Format.fprintf fmt "v: " ;
-    Vareqs.pp fmt v ;
-    Format.fprintf fmt "\n" )
-
-let pp_vardiseqs fmt () =
-  let d = var_diseqs () in
-  if not (Formulas.is_empty d) then (
-    Format.fprintf fmt "d: " ;
-    Formulas.pp fmt d ;
-    Format.fprintf fmt "\n" )
-
-let pp_arith fmt () =
-  let c = constant_equals () in
-  let r = regular_equals () in
-  let t = tableau_equals () in
-  let sl = slacks () in
-  if not (Formulas.is_empty c && Formulas.is_empty r && Formulas.is_empty t)
-  then (
-    if not (Formulas.is_empty c) then (
-      Format.fprintf fmt "c: " ;
-      Formulas.pp fmt c ;
-      Format.fprintf fmt "\n" ) ;
-    if not (Formulas.is_empty r) then (
-      Format.fprintf fmt "r: " ;
-      Formulas.pp fmt r ;
-      Format.fprintf fmt "\n" ) ;
-    if not (Formulas.is_empty t) then (
-      Format.fprintf fmt "t: " ;
-      Formulas.pp fmt t ;
-      Format.fprintf fmt "\n" ) ;
-    if not (Vars.is_empty sl) then (
-      Format.fprintf fmt "slacks: " ;
-      Vars.pp fmt sl ;
-      Format.fprintf fmt "\n" ) )
-
-let pp_uninterp fmt () =
-  let u = uninterp_equals () in
-  if not (Formulas.is_empty u) then (
-    Format.fprintf fmt "u: " ;
-    Formulas.pp fmt u ;
-    Format.fprintf fmt "\n" )
-
-let pp_tuple fmt () =
-  let t = tuple_equals () in
-  if not (Formulas.is_empty t) then (
-    Format.fprintf fmt "t: " ;
-    Formulas.pp fmt t ;
-    Format.fprintf fmt "\n" )
-
-let pp_array fmt () =
-  let f = array_equals () in
-  if not (Formulas.is_empty f) then (
-    Format.fprintf fmt "f: " ;
-    Formulas.pp fmt f ;
-    Format.fprintf fmt "\n" )
-
-let pp_rename fmt () =
-  let r = renames () in
-  if not (Rename.is_empty r) then (
-    Format.fprintf fmt "r: " ;
-    Rename.pp fmt r ;
-    Format.fprintf fmt "\n" )
-
-let pp_literals fmt () =
-  let r = literals () in
-  if not (Formulas.is_empty r) then (
-    Format.fprintf fmt "l: " ;
-    Formulas.pp fmt r ;
-    Format.fprintf fmt "\n" )
-
-let pp_prop fmt () =
-  let p = prop () in
-  if not (Formula.is_true p) then (
-    Format.fprintf fmt "p: " ;
-    Formula.pp fmt p ;
-    Format.fprintf fmt "\n" )
-
 let pp_config fmt () =
-  pp_vareqs fmt () ;
-  pp_vardiseqs fmt () ;
-  pp_arith fmt () ;
-  pp_uninterp fmt () ;
-  pp_tuple fmt () ;
-  pp_array fmt () ;
-  pp_rename fmt () ;
-  pp_literals fmt () ;
-  pp_prop fmt ()
+  let unless p f x = if p x then [] else [f x] in
+  Format.fprintf fmt "@[<hv>%a@]"
+    (NS.List.pp "@;<2 0>" ( |> ))
+    ( unless Vareqs.is_empty
+        (Format.dprintf "v: %a" Vareqs.pp)
+        (var_equals ())
+    @ unless Formulas.is_empty
+        (Format.dprintf "d: %a" Formulas.pp)
+        (var_diseqs ())
+    @ unless Formulas.is_empty
+        (Format.dprintf "c: %a" Formulas.pp)
+        (constant_equals ())
+    @ unless Formulas.is_empty
+        (Format.dprintf "a: %a" Formulas.pp)
+        (regular_equals ())
+    @ unless Formulas.is_empty
+        (Format.dprintf "i: %a" Formulas.pp)
+        (tableau_equals ())
+    @ unless Vars.is_empty (Format.dprintf "s: %a" Vars.pp) (slacks ())
+    @ unless Formulas.is_empty
+        (Format.dprintf "u: %a" Formulas.pp)
+        (uninterp_equals ())
+    @ unless Formulas.is_empty
+        (Format.dprintf "t: %a" Formulas.pp)
+        (tuple_equals ())
+    @ unless Formulas.is_empty
+        (Format.dprintf "f: %a" Formulas.pp)
+        (array_equals ())
+    @ unless Rename.is_empty (Format.dprintf "r: %a" Rename.pp) (renames ())
+    @ unless Formulas.is_empty
+        (Format.dprintf "l: %a" Formulas.pp)
+        (literals ())
+    @ unless Formula.is_true (Format.dprintf "p: %a" Formula.pp) (prop ())
+    )
 
 let reset_channels () =
   Union.reset () ;
@@ -1643,7 +1588,7 @@ let add_formula = function
 let rec close () =
   if closed () then ()
   else (
-    [%Trace.info "close"] ;
+    [%Trace.info "close: %a" pp_config ()] ;
     Union.close () ;
     Separate.close () ;
     Valid0.close () ;
