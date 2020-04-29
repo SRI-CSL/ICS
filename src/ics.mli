@@ -512,8 +512,8 @@ type t = private
   ; upper: int
   ; mutable status: status }
 
-val pp : Format.formatter -> t -> unit
-(** Printing a decision procedure state. *)
+val pp_current : Format.formatter -> unit -> unit
+(** Print the current decision procedure state. *)
 
 val pp_status : Format.formatter -> status -> unit
 (** Pretty-print a status *)
@@ -564,6 +564,9 @@ val var_diseqs : unit -> Formulas.t
 (** Return the set of variable disequalities [D] of the current
     configuration. *)
 
+val uninterp_equals : unit -> Formulas.t
+(** Return the set of uninterpreted equalities of the current configuration. *)
+
 val constant_equals : unit -> Formulas.t
 (** Return the set of constant equalities [x = c], with [c] a rational
     constant, of the current configuration. *)
@@ -578,6 +581,12 @@ val tableau_equals : unit -> Formulas.t
 
 val slacks : unit -> Vars.t
 (** Return the set of slack variables of the current configuration. *)
+
+val tuple_equals : unit -> Formulas.t
+(** Return the set of tuple equalities of the current configuration. *)
+
+val array_equals : unit -> Formulas.t
+(** Return the set of array equalities of the current configuration. *)
 
 val theory_equals : theory -> Formulas.t
 (** For given theory [i], [theory_equals i] returns the set of equalities
@@ -594,19 +603,13 @@ val prop : unit -> Formula.t
 (** {i Renames}. Set of bindings [u |-> p(x)] or [v |-> x = y] with [p] a
     predicate symbol, [x], [y] term variables, and [u], [v] propositional
     variables. *)
-module Rename : Maps.S with type key = Propvar.t and type value = Formula.t
+module Renames : Maps.S with type key = Propvar.t and type value = Formula.t
 
-val renames : unit -> Rename.t
+val renames : unit -> Renames.t
 (** Return the set of renames of the current configuration. *)
 
 val status : unit -> status
 (** Return the status of the current state. *)
-
-val pp_context : unit -> unit
-(** Print the current logical context on [stdout]. *)
-
-val pp_config : Format.formatter -> unit -> unit
-(** Print the current configuration. *)
 
 (** {9:termconstr Term constructors} *)
 

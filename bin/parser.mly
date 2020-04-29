@@ -42,12 +42,15 @@
 	Hashtbl.add symtab i s;
 	i
     let find i = Hashtbl.find symtab i
+    let pp_context fmt s =
+      NS.List.pp ~pre:"@[ctxt(" ", " Ics.Formula.pp ~suf:")@]"
+        fmt s.Ics.context
     let pp_index i = 
       Format.fprintf fmt "s!%d" i
     let pp_binding i s = 
       pp_index i;
       Format.fprintf fmt " |-> ";
-      Ics.pp fmt s
+      pp_context fmt s
     let pp () =
       Format.fprintf fmt "@[";
       Hashtbl.iter pp_binding symtab;
@@ -812,10 +815,11 @@ command:
 | STATUS           { let res = status_to_string (Ics.status()) in
 		       Format.fprintf fmt ":%s@?" res }
 | CONTEXT          { Format.fprintf fmt ":context ";
-		     Ics.pp_context();
+                     NS.List.pp ", " Ics.Formula.pp Format.std_formatter
+                       (Ics.context ());
 		     Format.fprintf fmt "@?" }
 | CONFIG           { Format.fprintf fmt ":config\n";
-		     Ics.pp_config Format.std_formatter ();
+		     Ics.pp_current Format.std_formatter ();
 		     Format.fprintf fmt "@?" }
 | EQUALS IDENT     { try
 		       let th = string_to_theory $2 in
@@ -842,7 +846,7 @@ command:
 		     Ics.Formulas.pp fmt (Ics.literals());
 		     Format.fprintf fmt "@?" }
 | RENAMES          { Format.fprintf fmt "\n:formulas"; 
-		     Ics.Rename.pp fmt (Ics.renames());
+		     Ics.Renames.pp fmt (Ics.renames());
 		     Format.fprintf fmt "@?" }
 | PROP             { Format.fprintf fmt "\n:formula"; 
 		     Ics.Formula.pp fmt (Ics.prop());
@@ -881,7 +885,7 @@ command:
 | SYMTAB index    { try
 		       let s = Symtab.find $2 in
 			 Format.fprintf fmt ":state ";
-			 Ics.pp fmt s;
+			 Symtab.pp_context fmt s;
 			 Format.fprintf fmt "@?"
 		     with
 			 Not_found -> 

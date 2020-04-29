@@ -24,9 +24,6 @@
 
 exception Unsatisfiable
 
-let stdout = Format.std_formatter
-let stderr = Format.err_formatter
-
 type theory = U | A | T | F
 
 (** {i Rationals} *)
@@ -173,6 +170,9 @@ end)
 
 (** {i Set of term variables} *)
 module Vars = Sets.Make (Var)
+
+(** {i Variable equalities} *)
+module Vareqs = Maps.Make (Var) (Vars)
 
 (** {i Unintepreted function symbols.} *)
 module Funsym = Name
@@ -615,12 +615,14 @@ module Formula = struct
 end
 
 module Formulas = Sets.Make (Formula)
+module Renames = Maps.Make (Propvar) (Formula)
 
 let footprint = ref false
 
 module Footprint = struct
   open Formula
 
+  let stderr = Format.err_formatter
   let out name = Format.eprintf "\n%s: " name
   let flush () = Format.eprintf "@."
 
@@ -1112,8 +1114,7 @@ end = struct
     | Predsym.Arith.Int -> L1.process_neg Predsym.integer (A.alias t)
 end
 
-(* silence spurious unused module warning *)
-type _t = Interface.var
+and State_t : sig
 type status = Sat of Formula.t | Unsat of Formula.t list | Unknown
 
 type t =
@@ -1129,50 +1130,62 @@ type t =
   ; f: F.t
   ; upper: int
   ; mutable status: status }
+end =
+  State_t
 
-let empty =
-  { context= []
-  ; upper= 0
-  ; status= Sat Formula.mk_true
-  ; p= P.empty
-  ; l0= L0.empty
-  ; l1= L1.empty
-  ; r= R.empty
-  ; v= V.empty
-  ; u= U.empty
-  ; a= A.empty
-  ; t= T.empty
-  ; f= F.empty }
+and State : sig
+  val prop : unit -> Formulas.elt
+  val literals : unit -> Formulas.t
+  val renames : unit -> Renames.t
+  val var_equals : unit -> Vareqs.t
+  val var_diseqs : unit -> Formulas.t
+  val uninterp_equals : unit -> Formulas.t
+  val constant_equals : unit -> Formulas.t
+  val regular_equals : unit -> Formulas.t
+  val tableau_equals : unit -> Formulas.t
+  val slacks : unit -> Vareqs.value
+  val tuple_equals : unit -> Formulas.t
+  val array_equals : unit -> Formulas.t
+  val theory_equals : theory -> Formulas.t
+  val pp_current : Format.formatter -> unit -> unit
+end = struct
+  let prop () = Formula.mk_prop (P.current ())
 
-let print_context fmt =
-  let rec loop = function
-    | [] -> ()
-    | [p] -> Formula.pp fmt p
-    | p :: pl ->
-        Formula.pp fmt p ;
-        Format.fprintf fmt ", " ;
-        loop pl
-  in
-  loop
+  let literals () =
+    let acc = Formulas.empty () in
+    L0.Valid.iter
+      (fun p -> Formulas.add (Formula.mk_prop (Formula.Bdd.mk_posvar p)) acc)
+      (L0.valid ()) ;
+    L0.Unsat.iter
+      (fun p -> Formulas.add (Formula.mk_prop (Formula.Bdd.mk_negvar p)) acc)
+      (L0.unsat ()) ;
+    L1.Pos.iter
+      (fun x ps ->
+        L1.Set.iter
+          (fun p -> Formulas.add (Formula.mk_apply p (Term.of_var x)) acc)
+          ps )
+      (L1.pos ()) ;
+    L1.Neg.iter
+      (fun x ps ->
+        L1.Set.iter
+          (fun p -> Formulas.add (Formula.mk_negapply p (Term.of_var x)) acc)
+          ps )
+      (L1.neg ()) ;
+    acc
 
-let pp fmt s =
-  Format.fprintf fmt "@[ctxt(" ;
-  print_context fmt s.context ;
-  Format.fprintf fmt ")@]"
-
-let pp_status fmt status =
-  Format.fprintf fmt "%s"
-    ( match status with
-    | Sat _ -> "sat"
-    | Unsat _ -> "unsat"
-    | Unknown -> "unknown" )
-
-let init = ref empty
-let curr_context = ref []
-let curr_status = ref Unknown
-let pp_context () = print_context stdout !curr_context
-
-module Vareqs = Maps.Make (Var) (Vars)
+  let renames () =
+    let acc = Renames.empty () in
+    R.Monadic.iter
+      (fun u (p, x) ->
+        Renames.set u (Formula.mk_apply p (Term.of_var x)) acc )
+      (R.monadic ()) ;
+    R.Equal.iter
+      (fun u (x, y) ->
+        assert (not (Renames.mem u acc)) ;
+        Renames.set u (Formula.mk_equal (Term.of_var x) (Term.of_var y)) acc
+        )
+      (R.equal ()) ;
+    acc
 
 let var_equals () =
   let acc = Vareqs.empty () in
@@ -1198,9 +1211,19 @@ let var_diseqs () =
   let acc = Formulas.empty () in
   V.Disequalities.iter
     (fun (x, y) ->
-      Formulas.add (Formula.mk_diseq (Term.of_var x) (Term.of_var y)) acc )
+        Formulas.add (Formula.mk_diseq (Term.of_var x) (Term.of_var y)) acc
+        )
     (V.disequalities ()) ;
   acc
+
+  let uninterp_equals () =
+    let acc = Formulas.empty () in
+    U.Find.iter
+      (fun u a ->
+        let e = Formula.mk_equal (Term.of_var u) (Term.of_apply a) in
+        Formulas.add e acc )
+      (U.context ()) ;
+    acc
 
 let constant_equals () =
   let acc = Formulas.empty () in
@@ -1229,10 +1252,9 @@ let tableau_equals () =
     (A.T.solset ()) ;
   acc
 
-let arith_equals () =
-  let acc = constant_equals () in
-  Formulas.union (regular_equals ()) acc ;
-  Formulas.union (tableau_equals ()) acc ;
+  let slacks () =
+    let acc = Vars.empty () in
+    A.S.Slacks.iter (fun x -> Vars.add x acc) (A.S.current ()) ;
   acc
 
 let tuple_equals () =
@@ -1253,13 +1275,10 @@ let array_equals () =
     (F.config ()) ;
   acc
 
-let uninterp_equals () =
-  let acc = Formulas.empty () in
-  U.Find.iter
-    (fun u a ->
-      let e = Formula.mk_equal (Term.of_var u) (Term.of_apply a) in
-      Formulas.add e acc )
-    (U.context ()) ;
+  let arith_equals () =
+    let acc = constant_equals () in
+    Formulas.union (regular_equals ()) acc ;
+    Formulas.union (tableau_equals ()) acc ;
   acc
 
 let theory_equals i =
@@ -1269,50 +1288,7 @@ let theory_equals i =
   | U -> uninterp_equals ()
   | F -> array_equals ()
 
-let slacks () =
-  let acc = Vars.empty () in
-  A.S.Slacks.iter (fun x -> Vars.add x acc) (A.S.current ()) ;
-  acc
-
-let literals () =
-  let acc = Formulas.empty () in
-  L0.Valid.iter
-    (fun p -> Formulas.add (Formula.mk_prop (Formula.Bdd.mk_posvar p)) acc)
-    (L0.valid ()) ;
-  L0.Unsat.iter
-    (fun p -> Formulas.add (Formula.mk_prop (Formula.Bdd.mk_negvar p)) acc)
-    (L0.unsat ()) ;
-  L1.Pos.iter
-    (fun x ps ->
-      L1.Set.iter
-        (fun p -> Formulas.add (Formula.mk_apply p (Term.of_var x)) acc)
-        ps )
-    (L1.pos ()) ;
-  L1.Neg.iter
-    (fun x ps ->
-      L1.Set.iter
-        (fun p -> Formulas.add (Formula.mk_negapply p (Term.of_var x)) acc)
-        ps )
-    (L1.neg ()) ;
-  acc
-
-module Rename = Maps.Make (Propvar) (Formula)
-
-let renames () =
-  let acc = Rename.empty () in
-  R.Monadic.iter
-    (fun u (p, x) -> Rename.set u (Formula.mk_apply p (Term.of_var x)) acc)
-    (R.monadic ()) ;
-  R.Equal.iter
-    (fun u (x, y) ->
-      assert (not (Rename.mem u acc)) ;
-      Rename.set u (Formula.mk_equal (Term.of_var x) (Term.of_var y)) acc )
-    (R.equal ()) ;
-  acc
-
-let prop () = Formula.mk_prop (P.current ())
-
-let pp_config fmt () =
+  let pp_current fmt () =
   let unless p f x = if p x then [] else [f x] in
   Format.fprintf fmt "@[<hv>%a@]"
     (NS.List.pp "@;<2 0>" ( |> ))
@@ -1341,12 +1317,46 @@ let pp_config fmt () =
     @ unless Formulas.is_empty
         (Format.dprintf "f: %a" Formulas.pp)
         (array_equals ())
-    @ unless Rename.is_empty (Format.dprintf "r: %a" Rename.pp) (renames ())
+      @ unless Renames.is_empty
+          (Format.dprintf "r: %a" Renames.pp)
+          (renames ())
     @ unless Formulas.is_empty
         (Format.dprintf "l: %a" Formulas.pp)
         (literals ())
     @ unless Formula.is_true (Format.dprintf "p: %a" Formula.pp) (prop ())
     )
+end
+
+(* silence spurious unused module warning *)
+type _t = Interface.var
+
+include State_t
+include State
+
+let pp_status fmt status =
+  Format.fprintf fmt "%s"
+    ( match status with
+    | Sat _ -> "sat"
+    | Unsat _ -> "unsat"
+    | Unknown -> "unknown" )
+
+let empty =
+  { context= []
+  ; upper= 0
+  ; status= Sat Formula.mk_true
+  ; p= P.empty
+  ; l0= L0.empty
+  ; l1= L1.empty
+  ; r= R.empty
+  ; v= V.empty
+  ; u= U.empty
+  ; a= A.empty
+  ; t= T.empty
+  ; f= F.empty }
+
+let init = ref empty
+let curr_context = ref []
+let curr_status = ref Unknown
 
 let reset_channels () =
   Union.reset () ;
@@ -1588,7 +1598,7 @@ let add_formula = function
 let rec close () =
   if closed () then ()
   else (
-    [%Trace.info "close: %a" pp_config ()] ;
+    [%Trace.info "close: %a" pp_current ()] ;
     Union.close () ;
     Separate.close () ;
     Valid0.close () ;

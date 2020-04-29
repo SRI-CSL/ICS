@@ -152,7 +152,7 @@ let batch name =
       Format.printf "\n%s processed in %f seconds.@?" name time ;
     if !config_flag then (
       Format.printf "\nFinal configuration: \n" ;
-      Ics.pp_config Format.std_formatter () )
+      Ics.pp_current Format.std_formatter () )
   with exc ->
     let msg = Printexc.to_string exc in
     Format.printf ":error %s@." msg
@@ -178,7 +178,7 @@ let smt name =
       Format.printf "\n%s processed in %f seconds.@?" name time ;
     if !config_flag then (
       Format.printf "\nFinal configuration: \n" ;
-      Ics.pp_config Format.std_formatter () ) ;
+      Ics.pp_current Format.std_formatter () ) ;
     Format.eprintf "\n@?"
   with
   | Parsing.Parse_error ->
