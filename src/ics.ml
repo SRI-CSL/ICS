@@ -755,7 +755,8 @@ end = struct
     Stacks.push y rhs
 
   let propagate x y =
-    [%Trace.call fun {pf} -> pf "(U): %a = %a" Var.pp x Var.pp y]
+    [%Trace.call fun {pf} ->
+      pf "(U): %a = %a @ %a" Var.pp x Var.pp y State.pp_current ()]
     ;
     assert (V.canonical y) ;
     assert (not (V.canonical x)) ;
@@ -767,10 +768,11 @@ end = struct
     F.propagate_eq x y ;
     R.propagate_eq x y
     |>
-    [%Trace.retn fun {pf} () -> pf ""]
+    [%Trace.retn fun {pf} () -> pf "%a" State.pp_current ()]
 
   let process_critical x y =
-    [%Trace.call fun {pf} -> pf "(U): %a = %a" Var.pp x Var.pp y]
+    [%Trace.call fun {pf} ->
+      pf "(U): %a = %a @ %a" Var.pp x Var.pp y State.pp_current ()]
     ;
     let x = V.find x and y = V.find y in
     ( if V.equal x y then ()
@@ -786,13 +788,17 @@ end = struct
         critical := false ;
         raise exc )
     |>
-    [%Trace.retn fun {pf} () -> pf ""]
+    [%Trace.retn fun {pf} () -> pf "%a" State.pp_current ()]
 
   let process x y =
-    if V.equal x y then ()
+    [%Trace.call fun {pf} -> pf "(U): %a = %a" Var.pp x Var.pp y]
+    ;
+    ( if V.equal x y then ()
     else if V.diseq x y then raise Unsatisfiable
     else if !critical then delay x y
-    else process_critical x y
+    else process_critical x y )
+    |>
+    [%Trace.retn fun {pf} () -> pf "%a" State.pp_current ()]
 
   let closed () = Stacks.is_empty lhs
 
@@ -1636,12 +1642,12 @@ let process_exn p =
   apply_process add p
 
 let process p =
-  [%Trace.call fun {pf} -> pf "%a" Formula.pp p]
+  [%Trace.call fun {pf} -> pf "%a: %a" Formula.pp p pp_current ()]
   ;
   (try process_exn p with Unsatisfiable -> ()) ;
   !curr_status
   |>
-  [%Trace.retn fun {pf} -> pf "%a" pp_status]
+  [%Trace.retn fun {pf} s -> pf "%a: %a" pp_status s pp_current ()]
 
 let context () = !curr_context
 let status () = !curr_status
@@ -1769,9 +1775,13 @@ let left = proj 0 2
 let right = proj 1 2
 
 let apply f t =
+  ([%Trace.call fun {pf} -> pf "%a %a" Funsym.pp f Term.pp t]
+  ;
   let n = alias t in
   try Term.of_var (V.find (U.inv f n))
-  with Not_found -> Term.of_apply (Term.Uninterp.make f n)
+  with Not_found -> Term.of_apply (Term.Uninterp.make f n))
+  |>
+  [%Trace.retn fun {pf} -> pf "%a" Term.pp]
 
 let constant f = apply f (nil ())
 
