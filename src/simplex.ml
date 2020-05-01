@@ -1716,7 +1716,12 @@ struct
           add_eq0 r
       with Not_found -> (
         if not (cod x) then ()
-        else try R.fuse x (R.find y) with Not_found -> R.fuse_var x y ) ) ;
+        else
+          match R.find y with
+          | exception Not_found -> R.fuse_var x y
+          | q ->
+              (* cannot [R.fuse x q] since [P.mem x q] may hold *)
+              add_eq0 (P.sub (T.can q) (P.indet x)) ) ) ;
     ensure_combined_solset () ;
     assert (R.well_formed ()) ;
     assert (not (R.occ x))
