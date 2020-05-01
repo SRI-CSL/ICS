@@ -504,6 +504,8 @@ struct
       assert (not (cod y))
 
     let fuse y t =
+      ([%Trace.call fun {pf} -> pf "%a = %a" Var.pp y P.pp t]
+      ;
       assert (not (dom y)) ;
       assert (not (P.mem y t)) ;
       assert (canonical t) ;
@@ -520,7 +522,9 @@ struct
             with Not_found -> ()
           in
           Dep.Values.iter fuse1 (deps y) ;
-          assert (not (cod y)) )
+          assert (not (cod y)) ))
+      |>
+      [%Trace.retn fun {pf} () -> pf ""]
 
     let extend_var x y =
       assert (not (is_slack x)) ;
@@ -920,18 +924,8 @@ struct
 
   type t = {regular: R.t; tableau: T.t; slacks: S.t}
 
+  let pp = Format.dprintf "@[<hv>r: %t@ t: %t@ s: %t@]" R.pp T.pp S.pp
   let empty = {regular= R.empty; tableau= T.empty; slacks= S.empty ()}
-
-  let pp fmt =
-    Format.fprintf fmt "@[" ;
-    Format.fprintf fmt "r: " ;
-    R.pp fmt ;
-    Format.fprintf fmt "\nt: " ;
-    T.pp fmt ;
-    Format.fprintf fmt "\nslacks: " ;
-    S.pp fmt ;
-    Format.fprintf fmt "@]"
-
   let init = ref empty
 
   let initialize s =
@@ -1539,6 +1533,8 @@ struct
         T.compose v q
 
   let add_eq0 p =
+    ([%Trace.call fun {pf} -> pf "(A): 0 = %a @ %t" P.pp p pp]
+    ;
     assert (canonical p) ;
     try
       let c = P.d_constant p in
@@ -1552,49 +1548,59 @@ struct
         assert (restricted p) ;
         assert (T.canonical p) ;
         if C.compare (P.const p) C.zero <= 0 then add_eq_t p
-        else add_eq_t (P.minus p) )
+        else add_eq_t (P.minus p) ))
+    |>
+    [%Trace.retn fun {pf} () -> pf "%t" pp]
 
   let process_eq0 p =
+    [%Trace.call fun {pf} -> pf "(A): 0 = %a @ %t" P.pp p pp]
+    ;
     assert (synchronized ()) ;
     let p = can p in
     add_eq0 p ;
     Deduce.real p ;
     ensure_combined_solset ()
+    |>
+    [%Trace.retn fun {pf} () -> pf "%t" pp]
 
   let propagate_eq x y =
+    ([%Trace.call fun {pf} -> pf "(A): %a = %a @ %t" Var.pp x Var.pp y pp]
+    ;
     assert (not (is_slack x)) ;
     assert (not (is_slack y)) ;
     assert (V.equal x y) ;
     assert (not (V.canonical x)) ;
     assert (V.canonical y) ;
     assert (R.well_formed ()) ;
-    ( try
-        let p = T.can (R.find x) in
-        R.restrict x ;
-        try
-          (* [R;T] not a solution set, therefore slacks in [find] need to be
-             instantiated. *)
-          let q = T.can (R.find y) in
-          if P.equal p q then ()
-          else
-            let r = P.sub p q in
-            assert (canonical r) ;
-            add_eq0 r
-        with Not_found ->
-          let r = P.sub p (P.indet y) in
+    try
+      let p = T.can (R.find x) in
+      R.restrict x ;
+      try
+        (* [R;T] not a solution set, therefore slacks in [find] need to be
+           instantiated. *)
+        let q = T.can (R.find y) in
+        if P.equal p q then ()
+        else
+          let r = P.sub p q in
           assert (canonical r) ;
           add_eq0 r
-      with Not_found -> (
-        if not (cod x) then ()
-        else
-          match R.find y with
-          | exception Not_found -> R.fuse_var x y
-          | q ->
-              (* cannot [R.fuse x q] since [P.mem x q] may hold *)
-              add_eq0 (P.sub (T.can q) (P.indet x)) ) ) ;
-    ensure_combined_solset () ;
-    assert (R.well_formed ()) ;
-    assert (not (R.occ x))
+      with Not_found ->
+        let r = P.sub p (P.indet y) in
+        assert (canonical r) ;
+        add_eq0 r
+    with Not_found ->
+      ( if not (cod x) then ()
+      else
+        match R.find y with
+        | exception Not_found -> R.fuse_var x y
+        | q ->
+            (* cannot [R.fuse x q] since [P.mem x q] may hold *)
+            add_eq0 (P.sub (T.can q) (P.indet x)) ) ;
+      ensure_combined_solset () ;
+      assert (R.well_formed ()) ;
+      assert (not (R.occ x)))
+    |>
+    [%Trace.retn fun {pf} () -> pf "%t" pp]
 
   let gc_slacks = ref true
 
