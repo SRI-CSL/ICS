@@ -69,347 +69,347 @@ struct
 
   type theory = U | A | T | F
 
-let k = ref 0
+  let k = ref 0
 
-module Intern (Fresh : sig
-  val name : string
-end) =
-struct
-  (** {i External names} *)
-  module Extern = struct
+  module Intern (Fresh : sig
+    val name : string
+  end) =
+  struct
+    (** {i External names} *)
+    module Extern = struct
       type t = {mutable id: Ident.t; mutable hash: int}
 
-    let hash x =
-      if x.hash >= 0 then x.hash
-      else
+      let hash x =
+        if x.hash >= 0 then x.hash
+        else
           let h = Ident.hash x.id in
-        x.hash <- h ;
-        h
+          x.hash <- h ;
+          h
 
       let equal x y = hash x == hash y && x.id = y.id
 
-    let compare x y =
-      if equal x y then 0 else if hash x > hash y then 1 else -1
+      let compare x y =
+        if equal x y then 0 else if hash x > hash y then 1 else -1
 
       let pp fs x = Ident.pp fs x.id
       let to_ident x = x.id
-  end
+    end
 
-  (** {i Internal names} *)
-  module Intern = struct
-    type t = int
-
-    let hash x =
-      assert (x >= 0) ;
-      x
-
-    let compare x y = if x == y then 0 else if x > y then 1 else -1
-    let to_string x = Format.sprintf "%s!%d" Fresh.name x
-    let pp fmt x = Format.fprintf fmt "%s" (to_string x)
-  end
-
-  type t = Extern of Extern.t | Intern of Intern.t
-  type var = t (* nickname *)
-
-  let is_internal = function Extern _ -> false | Intern _ -> true
-  let is_external = function Extern _ -> true | Intern _ -> false
-  let equal = ( == ) (* hashconsed. *)
-
-  let compare x y =
-    match (x, y) with
-    | Extern e1, Extern e2 -> Extern.compare e1 e2
-    | Intern i1, Intern i2 -> Intern.compare i1 i2
-    | Intern _, Extern _ -> 1
-    | Extern _, Intern _ -> -1
-
-  let preference x y =
-    match (x, y) with
-    | Extern _, Intern _ -> 1
-    | Intern _, Extern _ -> -1
-    | _ -> raise Not_found
-
-    let of_ident =
-    let module Cache = Weak.Make (struct
-      type t = var
-
-      let equal x y =
-        assert (is_external x) ;
-        assert (is_external y) ;
-        match (x, y) with
-        | Extern e1, Extern e2 -> Extern.equal e1 e2
-        | _ -> assert false
+    (** {i Internal names} *)
+    module Intern = struct
+      type t = int
 
       let hash x =
-        assert (is_external x) ;
-        match x with Extern e -> Extern.hash e | _ -> assert false
-    end) in
-    let cache = Cache.create 17 in
+        assert (x >= 0) ;
+        x
+
+      let compare x y = if x == y then 0 else if x > y then 1 else -1
+      let to_string x = Format.sprintf "%s!%d" Fresh.name x
+      let pp fmt x = Format.fprintf fmt "%s" (to_string x)
+    end
+
+    type t = Extern of Extern.t | Intern of Intern.t
+    type var = t (* nickname *)
+
+    let is_internal = function Extern _ -> false | Intern _ -> true
+    let is_external = function Extern _ -> true | Intern _ -> false
+    let equal = ( == ) (* hashconsed. *)
+
+    let compare x y =
+      match (x, y) with
+      | Extern e1, Extern e2 -> Extern.compare e1 e2
+      | Intern i1, Intern i2 -> Intern.compare i1 i2
+      | Intern _, Extern _ -> 1
+      | Extern _, Intern _ -> -1
+
+    let preference x y =
+      match (x, y) with
+      | Extern _, Intern _ -> 1
+      | Intern _, Extern _ -> -1
+      | _ -> raise Not_found
+
+    let of_ident =
+      let module Cache = Weak.Make (struct
+        type t = var
+
+        let equal x y =
+          assert (is_external x) ;
+          assert (is_external y) ;
+          match (x, y) with
+          | Extern e1, Extern e2 -> Extern.equal e1 e2
+          | _ -> assert false
+
+        let hash x =
+          assert (is_external x) ;
+          match x with Extern e -> Extern.hash e | _ -> assert false
+      end) in
+      let cache = Cache.create 17 in
       let extern = {Extern.id= Ident.dummy; hash= -1} in
-    let dummy = Extern extern in
+      let dummy = Extern extern in
       fun id ->
         extern.id <- id ;
         extern.hash <- -1 ;
-      try Cache.find cache dummy
-      with Not_found ->
+        try Cache.find cache dummy
+        with Not_found ->
           let x = Extern {id; hash= extern.hash} in
-        Cache.add cache x ;
-        x
+          Cache.add cache x ;
+          x
 
     let to_ident = function Extern e -> Some e.id | Intern _ -> None
 
-  let internal =
-    let cache = Hashtbl.create 17 in
-    fun k ->
-      try Hashtbl.find cache k
-      with Not_found ->
-        let x = Intern k in
-        Hashtbl.add cache k x ;
-        x
+    let internal =
+      let cache = Hashtbl.create 17 in
+      fun k ->
+        try Hashtbl.find cache k
+        with Not_found ->
+          let x = Intern k in
+          Hashtbl.add cache k x ;
+          x
 
-  let fresh () =
-    incr k ;
-    internal !k
+    let fresh () =
+      incr k ;
+      internal !k
 
-  let hash = function
-    | Extern e -> Extern.hash e
-    | Intern e -> Intern.hash e
+    let hash = function
+      | Extern e -> Extern.hash e
+      | Intern e -> Intern.hash e
 
-  let pp fmt = function
-    | Extern e -> Extern.pp fmt e
-    | Intern i -> Intern.pp fmt i
+    let pp fmt = function
+      | Extern e -> Extern.pp fmt e
+      | Intern i -> Intern.pp fmt i
 
-  let is_fresh = function Intern i -> i > !k | Extern _ -> false
-  let dummy = Intern (-1)
-end
+    let is_fresh = function Intern i -> i > !k | Extern _ -> false
+    let dummy = Intern (-1)
+  end
 
-(** {i Term variables} *)
-module Var = Intern (struct
-  let name = "v"
-end)
+  (** {i Term variables} *)
+  module Var = Intern (struct
+    let name = "v"
+  end)
 
-(** {i Set of term variables} *)
-module Vars = Sets.Make (Var)
+  (** {i Set of term variables} *)
+  module Vars = Sets.Make (Var)
 
-(** {i Variable equalities} *)
-module Vareqs = Maps.Make (Var) (Vars)
+  (** {i Variable equalities} *)
+  module Vareqs = Maps.Make (Var) (Vars)
 
-(** {i Terms} *)
-module Term = struct
-  (** {i Polynomials with rational coefficients.} *)
-  module Polynomial = Polynomial.Make (Q) (Var)
+  (** {i Terms} *)
+  module Term = struct
+    (** {i Polynomials with rational coefficients.} *)
+    module Polynomial = Polynomial.Make (Q) (Var)
 
-  (** {i Uninterpreted term application} *)
+    (** {i Uninterpreted term application} *)
     module Uninterp = Cc.Apply (Var) (UFunsym)
 
-  (** {i Tuple terms} *)
-  module Tuple = Tuple.Tuple (Var)
+    (** {i Tuple terms} *)
+    module Tuple = Tuple.Tuple (Var)
 
-  (** {i Functional Array Terms} *)
-  module Array = Funarr.Flat (Var)
+    (** {i Functional Array Terms} *)
+    module Array = Funarr.Flat (Var)
 
-  type t =
-    | Var of Var.t
-    | Uninterp of Uninterp.t
-    | Arith of Polynomial.t
-    | Tuple of Tuple.t
-    | Array of Array.t
+    type t =
+      | Var of Var.t
+      | Uninterp of Uninterp.t
+      | Arith of Polynomial.t
+      | Tuple of Tuple.t
+      | Array of Array.t
 
-  let hash = function
-    | Var x -> Var.hash x
-    | Uninterp a -> Uninterp.hash a
-    | Arith p -> Polynomial.hash p
-    | Tuple t -> Tuple.hash t
-    | Array a -> Array.hash a
+    let hash = function
+      | Var x -> Var.hash x
+      | Uninterp a -> Uninterp.hash a
+      | Arith p -> Polynomial.hash p
+      | Tuple t -> Tuple.hash t
+      | Array a -> Array.hash a
 
-  let pp fmt = function
-    | Var x -> Var.pp fmt x
-    | Uninterp a -> Uninterp.pp fmt a
-    | Arith p -> Polynomial.pp fmt p
-    | Tuple t -> Tuple.pp fmt t
-    | Array a -> Array.pp fmt a
+    let pp fmt = function
+      | Var x -> Var.pp fmt x
+      | Uninterp a -> Uninterp.pp fmt a
+      | Arith p -> Polynomial.pp fmt p
+      | Tuple t -> Tuple.pp fmt t
+      | Array a -> Array.pp fmt a
 
-  let to_string t =
-    pp Format.str_formatter t ;
-    Format.flush_str_formatter ()
+    let to_string t =
+      pp Format.str_formatter t ;
+      Format.flush_str_formatter ()
 
-  let[@warning "-32"] well_formed = function
-    | Var _ | Uninterp _ -> true
-    | Arith p -> not (Polynomial.is_indet p)
-    | Tuple t -> not (Tuple.is_var t)
-    | Array _ -> true
+    let[@warning "-32"] well_formed = function
+      | Var _ | Uninterp _ -> true
+      | Arith p -> not (Polynomial.is_indet p)
+      | Tuple t -> not (Tuple.is_var t)
+      | Array _ -> true
 
-  let equal = ( == ) (* hashconsing constructors *)
+    let equal = ( == ) (* hashconsing constructors *)
 
-  let diseq s t =
-    match (s, t) with
-    | Arith p, Arith q -> Polynomial.diseq p q
-    | Tuple ss, Tuple tt -> Tuple.diseq ss tt
-    | (Arith _ | Array _), Tuple tt -> Tuple.is_tuple 0 tt
-    | Tuple tt, (Arith _ | Array _) -> Tuple.is_tuple 0 tt
-    | _ -> false
+    let diseq s t =
+      match (s, t) with
+      | Arith p, Arith q -> Polynomial.diseq p q
+      | Tuple ss, Tuple tt -> Tuple.diseq ss tt
+      | (Arith _ | Array _), Tuple tt -> Tuple.is_tuple 0 tt
+      | Tuple tt, (Arith _ | Array _) -> Tuple.is_tuple 0 tt
+      | _ -> false
 
-  exception Variable
+    exception Variable
 
-  let theory = function
-    | Uninterp _ -> U
-    | Arith _ -> A
-    | Tuple _ -> T
-    | Array _ -> F
-    | Var _ -> raise Variable
+    let theory = function
+      | Uninterp _ -> U
+      | Arith _ -> A
+      | Tuple _ -> T
+      | Array _ -> F
+      | Var _ -> raise Variable
 
-  let compare s t =
-    match (s, t) with
-    | Var x, Var y -> Var.compare x y
-    | Var _, _ -> -1
-    | _, Var _ -> 1
-    | Uninterp a, Uninterp b -> Uninterp.compare a b
-    | Uninterp _, _ -> -1
-    | _, Uninterp _ -> 1
-    | Arith p, Arith q -> Polynomial.compare p q
-    | Arith _, _ -> -1
-    | _, Arith _ -> 1
-    | Tuple ss, Tuple tt -> Tuple.compare ss tt
-    | Tuple _, _ -> -1
-    | _, Tuple _ -> 1
-    | Array a, Array b -> Array.compare a b
+    let compare s t =
+      match (s, t) with
+      | Var x, Var y -> Var.compare x y
+      | Var _, _ -> -1
+      | _, Var _ -> 1
+      | Uninterp a, Uninterp b -> Uninterp.compare a b
+      | Uninterp _, _ -> -1
+      | _, Uninterp _ -> 1
+      | Arith p, Arith q -> Polynomial.compare p q
+      | Arith _, _ -> -1
+      | _, Arith _ -> 1
+      | Tuple ss, Tuple tt -> Tuple.compare ss tt
+      | Tuple _, _ -> -1
+      | _, Tuple _ -> 1
+      | Array a, Array b -> Array.compare a b
 
-  let to_var = function
-    | Var x -> x
-    | _ -> raise (Invalid_argument "not a variable")
+    let to_var = function
+      | Var x -> x
+      | _ -> raise (Invalid_argument "not a variable")
 
-  let of_var =
-    let module Cache = Ephemeron.K1.Make (Var) in
-    let universe = Cache.create 153 in
-    fun x ->
-      try Cache.find universe x
-      with Not_found ->
-        let t = Var x in
-        assert (not (Cache.mem universe x)) ;
-        Cache.add universe x t ;
-        t
-
-  let of_apply =
-    let module Cache = Ephemeron.K1.Make (Uninterp) in
-    let table = Cache.create 107 in
-    fun a ->
-      try Cache.find table a
-      with Not_found ->
-        let t = Uninterp a in
-        assert (not (Cache.mem table a)) ;
-        Cache.add table a t ;
-        t
-
-  let of_poly =
-    let module Cache = Ephemeron.K1.Make (Polynomial) in
-    let table = Cache.create 107 in
-    fun p ->
-      try of_var (Polynomial.d_indet p)
-      with Polynomial.Nonindet -> (
-        try Cache.find table p
+    let of_var =
+      let module Cache = Ephemeron.K1.Make (Var) in
+      let universe = Cache.create 153 in
+      fun x ->
+        try Cache.find universe x
         with Not_found ->
-          let t = Arith p in
-          assert (not (Cache.mem table p)) ;
-          Cache.add table p t ;
-          t )
+          let t = Var x in
+          assert (not (Cache.mem universe x)) ;
+          Cache.add universe x t ;
+          t
 
-  let of_num c = of_poly (Polynomial.constant c)
+    let of_apply =
+      let module Cache = Ephemeron.K1.Make (Uninterp) in
+      let table = Cache.create 107 in
+      fun a ->
+        try Cache.find table a
+        with Not_found ->
+          let t = Uninterp a in
+          assert (not (Cache.mem table a)) ;
+          Cache.add table a t ;
+          t
 
-  let of_tuple =
-    let module Cache = Ephemeron.K1.Make (Tuple) in
-    let table = Cache.create 107 in
-    fun tt ->
-      if Tuple.is_var tt then of_var (Tuple.to_var tt)
-      else
+    let of_poly =
+      let module Cache = Ephemeron.K1.Make (Polynomial) in
+      let table = Cache.create 107 in
+      fun p ->
+        try of_var (Polynomial.d_indet p)
+        with Polynomial.Nonindet -> (
+          try Cache.find table p
+          with Not_found ->
+            let t = Arith p in
+            assert (not (Cache.mem table p)) ;
+            Cache.add table p t ;
+            t )
+
+    let of_num c = of_poly (Polynomial.constant c)
+
+    let of_tuple =
+      let module Cache = Ephemeron.K1.Make (Tuple) in
+      let table = Cache.create 107 in
+      fun tt ->
+        if Tuple.is_var tt then of_var (Tuple.to_var tt)
+        else
+          try Cache.find table tt
+          with Not_found ->
+            let t = Tuple tt in
+            assert (not (Cache.mem table tt)) ;
+            Cache.add table tt t ;
+            t
+
+    let of_array =
+      let module Cache = Ephemeron.K1.Make (Array) in
+      let table = Cache.create 107 in
+      fun tt ->
         try Cache.find table tt
         with Not_found ->
-          let t = Tuple tt in
+          let t = Array tt in
           assert (not (Cache.mem table tt)) ;
           Cache.add table tt t ;
           t
 
-  let of_array =
-    let module Cache = Ephemeron.K1.Make (Array) in
-    let table = Cache.create 107 in
-    fun tt ->
-      try Cache.find table tt
-      with Not_found ->
-        let t = Array tt in
-        assert (not (Cache.mem table tt)) ;
-        Cache.add table tt t ;
-        t
+    let iter f =
+      let iterf = function
+        | Var x -> f x
+        | Uninterp {Uninterp.funsym= _; Uninterp.arg= x} -> f x
+        | Arith p ->
+            let fc _ = () and fm x _ = f x in
+            Polynomial.iter fc fm p
+        | Tuple t -> Tuple.iter f t
+        | Array (Array.Update (x, y, z)) ->
+            f x ;
+            f y ;
+            f z
+        | Array (Array.Lookup (x, y)) ->
+            f x ;
+            f y
+      in
+      iterf
 
-  let iter f =
-    let iterf = function
-      | Var x -> f x
-      | Uninterp {Uninterp.funsym= _; Uninterp.arg= x} -> f x
-      | Arith p ->
-          let fc _ = () and fm x _ = f x in
-          Polynomial.iter fc fm p
-      | Tuple t -> Tuple.iter f t
-      | Array (Array.Update (x, y, z)) ->
-          f x ;
-          f y ;
-          f z
-      | Array (Array.Lookup (x, y)) ->
-          f x ;
-          f y
-    in
-    iterf
+    exception Witness
 
-  exception Witness
+    let exists p t =
+      let test x = if p x then raise Witness in
+      try
+        iter test t ;
+        false
+      with Witness -> true
 
-  let exists p t =
-    let test x = if p x then raise Witness in
-    try
-      iter test t ;
-      false
-    with Witness -> true
-
-  let[@warning "-32"] contains_fresh = exists Var.is_fresh
-end
-
-module Propvar = Intern (struct
-  let name = "p"
-end)
-
-(** {i Predicate symbols.} *)
-module Predsym = struct
-  (** {i Arithmetic predicate symbols} *)
-  module Arith = struct
-    type t = Nonneg | Pos | Real | Equal0 | Diseq0 | Int
-
-    let equal = ( == )
-
-    let to_string = function
-      | Nonneg -> "nonneg"
-      | Pos -> "pos"
-      | Real -> "real"
-      | Equal0 -> "equal0"
-      | Diseq0 -> "diseq0"
-      | Int -> "int"
-
-    let pp fmt p = Format.fprintf fmt "%s" (to_string p)
-
-    let hash = function
-      | Nonneg -> 127
-      | Pos -> 255
-      | Real -> 511
-      | Equal0 -> 753
-      | Diseq0 -> 911
-      | Int -> 1357
-
-    let sub p q =
-      match (p, q) with
-      | Equal0, Nonneg -> true
-      | Int, Real -> true
-      | _ -> false
-
-    let disjoint p q =
-      match (p, q) with
-      | Equal0, Diseq0 -> true
-      | Diseq0, Equal0 -> true
-      | _ -> false
+    let[@warning "-32"] contains_fresh = exists Var.is_fresh
   end
+
+  module Propvar = Intern (struct
+    let name = "p"
+  end)
+
+  (** {i Predicate symbols.} *)
+  module Predsym = struct
+    (** {i Arithmetic predicate symbols} *)
+    module Arith = struct
+      type t = Nonneg | Pos | Real | Equal0 | Diseq0 | Int
+
+      let equal = ( == )
+
+      let to_string = function
+        | Nonneg -> "nonneg"
+        | Pos -> "pos"
+        | Real -> "real"
+        | Equal0 -> "equal0"
+        | Diseq0 -> "diseq0"
+        | Int -> "int"
+
+      let pp fmt p = Format.fprintf fmt "%s" (to_string p)
+
+      let hash = function
+        | Nonneg -> 127
+        | Pos -> 255
+        | Real -> 511
+        | Equal0 -> 753
+        | Diseq0 -> 911
+        | Int -> 1357
+
+      let sub p q =
+        match (p, q) with
+        | Equal0, Nonneg -> true
+        | Int, Real -> true
+        | _ -> false
+
+      let disjoint p q =
+        match (p, q) with
+        | Equal0, Diseq0 -> true
+        | Diseq0, Equal0 -> true
+        | _ -> false
+    end
 
     type t =
       | Uninterp of UPredsym.t
@@ -417,50 +417,50 @@ module Predsym = struct
       | Tuple of int
       | Array
 
-  let uninterp =
+    let uninterp =
       let module Cache = Ephemeron.K1.Make (UPredsym) in
-    let table = Cache.create 7 in
+      let table = Cache.create 7 in
       fun n ->
-      try Cache.find table n
-      with Not_found ->
-        let p = Uninterp n in
-        assert (not (Cache.mem table n)) ;
-        Cache.add table n p ;
-        p
+        try Cache.find table n
+        with Not_found ->
+          let p = Uninterp n in
+          assert (not (Cache.mem table n)) ;
+          Cache.add table n p ;
+          p
 
-  let nonneg = Arith Arith.Nonneg
-  let pos = Arith Arith.Pos
-  let real = Arith Arith.Real
-  let equal0 = Arith Arith.Equal0
-  let diseq0 = Arith Arith.Diseq0
-  let integer = Arith Arith.Int
+    let nonneg = Arith Arith.Nonneg
+    let pos = Arith Arith.Pos
+    let real = Arith Arith.Real
+    let equal0 = Arith Arith.Equal0
+    let diseq0 = Arith Arith.Diseq0
+    let integer = Arith Arith.Int
 
-  let of_arith = function
-    | Arith.Nonneg -> nonneg
-    | Arith.Pos -> pos
-    | Arith.Real -> real
-    | Arith.Equal0 -> equal0
-    | Arith.Diseq0 -> diseq0
-    | Arith.Int -> integer
+    let of_arith = function
+      | Arith.Nonneg -> nonneg
+      | Arith.Pos -> pos
+      | Arith.Real -> real
+      | Arith.Equal0 -> equal0
+      | Arith.Diseq0 -> diseq0
+      | Arith.Int -> integer
 
-  let tuple =
-    let module Cache = Hashtbl.Make (Int) in
-    let table = Cache.create 7 in
-    fun i ->
-      assert (i >= 0) ;
-      try Cache.find table i
-      with Not_found ->
-        let p = Tuple i in
-        Cache.add table i p ;
-        p
+    let tuple =
+      let module Cache = Hashtbl.Make (Int) in
+      let table = Cache.create 7 in
+      fun i ->
+        assert (i >= 0) ;
+        try Cache.find table i
+        with Not_found ->
+          let p = Tuple i in
+          Cache.add table i p ;
+          p
 
-  let array = Array
+    let array = Array
 
-  let[@warning "-32"] theory = function
-    | Uninterp _ -> U
-    | Arith _ -> A
-    | Tuple _ -> T
-    | Array -> F
+    let[@warning "-32"] theory = function
+      | Uninterp _ -> U
+      | Arith _ -> A
+      | Tuple _ -> T
+      | Array -> F
 
     let pp fs = function
       | Uninterp p -> UPredsym.pp fs p
@@ -468,1762 +468,1830 @@ module Predsym = struct
       | Tuple n -> Format.fprintf fs "tuple[%d]" n
       | Array -> Format.fprintf fs "array"
 
-  let hash = function
+    let hash = function
       | Uninterp n -> UPredsym.hash n
-    | Arith p -> Arith.hash p
-    | Tuple n -> n
-    | Array -> 53
+      | Arith p -> Arith.hash p
+      | Tuple n -> n
+      | Array -> 53
 
-  let equal = ( == )
+    let equal = ( == )
 
-  let sub p q =
-    equal p q
-    || match (p, q) with Arith p, Arith q -> Arith.sub p q | _ -> false
+    let sub p q =
+      equal p q
+      || match (p, q) with Arith p, Arith q -> Arith.sub p q | _ -> false
 
-  let compare = Stdlib.compare
+    let compare = Stdlib.compare
 
-  let disjoint p q =
-    match (p, q) with
-    | Arith _, (Tuple _ | Array) -> true
-    | (Tuple _ | Array), Arith _ -> true
-    | Tuple n, Tuple m -> n <> m
-    | Tuple _, Array -> true
-    | Array, Tuple _ -> true
-    | Arith p, Arith q -> Arith.disjoint p q
-    | _ -> false
-end
+    let disjoint p q =
+      match (p, q) with
+      | Arith _, (Tuple _ | Array) -> true
+      | (Tuple _ | Array), Arith _ -> true
+      | Tuple n, Tuple m -> n <> m
+      | Tuple _, Array -> true
+      | Array, Tuple _ -> true
+      | Arith p, Arith q -> Arith.disjoint p q
+      | _ -> false
+  end
 
-(** {i Datatype of formulas} *)
-module Formula = struct
-  (** {i Binary decision diagrams with propositional variables as
-         conditions}. *)
-  module Bdd = Bdd.Make (Propvar)
+  (** {i Datatype of formulas} *)
+  module Formula = struct
+    (** {i Binary decision diagrams with propositional variables as
+           conditions}. *)
+    module Bdd = Bdd.Make (Propvar)
 
-  type t =
-    | Equal of Term.t * Term.t
-    | Diseq of Term.t * Term.t
-    | Poslit of Predsym.t * Term.t
-    | Neglit of Predsym.t * Term.t
-    | Arith of Predsym.Arith.t * Term.Polynomial.t
-    | Prop of Bdd.t
+    type t =
+      | Equal of Term.t * Term.t
+      | Diseq of Term.t * Term.t
+      | Poslit of Predsym.t * Term.t
+      | Neglit of Predsym.t * Term.t
+      | Arith of Predsym.Arith.t * Term.Polynomial.t
+      | Prop of Bdd.t
 
-  let pretty = ref true
-  let maxdepth = ref (-1)
+    let pretty = ref true
+    let maxdepth = ref (-1)
 
-  let pp fmt = function
-    | Equal (s, t) ->
-        Term.pp fmt s ;
-        Format.fprintf fmt " = " ;
-        Term.pp fmt t
-    | Diseq (s, t) ->
-        Term.pp fmt s ;
-        Format.fprintf fmt " <> " ;
-        Term.pp fmt t
-    | Poslit (p, t) ->
-        Predsym.pp fmt p ;
-        Format.fprintf fmt "(" ;
-        Term.pp fmt t ;
-        Format.fprintf fmt ")"
-    | Neglit (p, t) ->
-        Format.fprintf fmt "~" ;
-        Predsym.pp fmt p ;
-        Format.fprintf fmt "(" ;
-        Term.pp fmt t ;
-        Format.fprintf fmt ")"
-    | Arith (p, t) ->
-        Predsym.Arith.pp fmt p ;
-        Format.fprintf fmt "(" ;
-        Term.Polynomial.pp fmt t ;
-        Format.fprintf fmt ")"
-    | Prop p -> Bdd.pp (!pretty, !pretty, !maxdepth) fmt p
+    let pp fmt = function
+      | Equal (s, t) ->
+          Term.pp fmt s ;
+          Format.fprintf fmt " = " ;
+          Term.pp fmt t
+      | Diseq (s, t) ->
+          Term.pp fmt s ;
+          Format.fprintf fmt " <> " ;
+          Term.pp fmt t
+      | Poslit (p, t) ->
+          Predsym.pp fmt p ;
+          Format.fprintf fmt "(" ;
+          Term.pp fmt t ;
+          Format.fprintf fmt ")"
+      | Neglit (p, t) ->
+          Format.fprintf fmt "~" ;
+          Predsym.pp fmt p ;
+          Format.fprintf fmt "(" ;
+          Term.pp fmt t ;
+          Format.fprintf fmt ")"
+      | Arith (p, t) ->
+          Predsym.Arith.pp fmt p ;
+          Format.fprintf fmt "(" ;
+          Term.Polynomial.pp fmt t ;
+          Format.fprintf fmt ")"
+      | Prop p -> Bdd.pp (!pretty, !pretty, !maxdepth) fmt p
 
-  let to_string p =
-    pp Format.str_formatter p ;
-    Format.flush_str_formatter ()
+    let to_string p =
+      pp Format.str_formatter p ;
+      Format.flush_str_formatter ()
 
-  let hash = function
-    | Equal (s, _) -> Term.hash s
-    | Diseq (s, _) -> Term.hash s
-    | Poslit (_, s) -> Term.hash s
-    | Neglit (_, s) -> Term.hash s
-    | Arith (_, p) -> Term.Polynomial.hash p
-    | Prop b -> Bdd.hash b
+    let hash = function
+      | Equal (s, _) -> Term.hash s
+      | Diseq (s, _) -> Term.hash s
+      | Poslit (_, s) -> Term.hash s
+      | Neglit (_, s) -> Term.hash s
+      | Arith (_, p) -> Term.Polynomial.hash p
+      | Prop b -> Bdd.hash b
 
-  let equal = ( == )
-  let is_true = function Prop b -> Bdd.is_valid b | _ -> false
-  let is_false = function Prop b -> Bdd.is_unsat b | _ -> false
+    let equal = ( == )
+    let is_true = function Prop b -> Bdd.is_valid b | _ -> false
+    let is_false = function Prop b -> Bdd.is_unsat b | _ -> false
 
-  let compare p q =
-    let hp = hash p and hq = hash q in
-    if hp < hq then -1
-    else if hp > hq then 1
-    else if equal p q then 0
-    else Stdlib.compare p q
+    let compare p q =
+      let hp = hash p and hq = hash q in
+      if hp < hq then -1
+      else if hp > hq then 1
+      else if equal p q then 0
+      else Stdlib.compare p q
 
-  let mk_equal =
-    let module Cache = Ephemeron.K2.Make (Term) (Term) in
-    let table = Cache.create 107 in
-    fun s t ->
-      try Cache.find table (s, t)
-      with Not_found ->
-        let e = Equal (s, t) in
-        assert (not (Cache.mem table (s, t))) ;
-        Cache.add table (s, t) e ;
-        e
+    let mk_equal =
+      let module Cache = Ephemeron.K2.Make (Term) (Term) in
+      let table = Cache.create 107 in
+      fun s t ->
+        try Cache.find table (s, t)
+        with Not_found ->
+          let e = Equal (s, t) in
+          assert (not (Cache.mem table (s, t))) ;
+          Cache.add table (s, t) e ;
+          e
 
-  let mk_diseq =
-    let module Cache = Ephemeron.K2.Make (Term) (Term) in
-    let table = Cache.create 107 in
-    fun s t ->
-      try Cache.find table (s, t)
-      with Not_found ->
-        let e = Diseq (s, t) in
-        assert (not (Cache.mem table (s, t))) ;
-        Cache.add table (s, t) e ;
-        e
+    let mk_diseq =
+      let module Cache = Ephemeron.K2.Make (Term) (Term) in
+      let table = Cache.create 107 in
+      fun s t ->
+        try Cache.find table (s, t)
+        with Not_found ->
+          let e = Diseq (s, t) in
+          assert (not (Cache.mem table (s, t))) ;
+          Cache.add table (s, t) e ;
+          e
 
-  let mk_apply =
-    let module Cache = Ephemeron.K2.Make (Predsym) (Term) in
-    let table = Cache.create 7 in
-    fun p t ->
-      try Cache.find table (p, t)
-      with Not_found ->
-        let a = Poslit (p, t) in
-        assert (not (Cache.mem table (p, t))) ;
-        Cache.add table (p, t) a ;
-        a
+    let mk_apply =
+      let module Cache = Ephemeron.K2.Make (Predsym) (Term) in
+      let table = Cache.create 7 in
+      fun p t ->
+        try Cache.find table (p, t)
+        with Not_found ->
+          let a = Poslit (p, t) in
+          assert (not (Cache.mem table (p, t))) ;
+          Cache.add table (p, t) a ;
+          a
 
-  let mk_negapply =
-    let module Cache = Ephemeron.K2.Make (Predsym) (Term) in
-    let table = Cache.create 7 in
-    fun p t ->
-      try Cache.find table (p, t)
-      with Not_found ->
-        let a = Neglit (p, t) in
-        assert (not (Cache.mem table (p, t))) ;
-        Cache.add table (p, t) a ;
-        a
+    let mk_negapply =
+      let module Cache = Ephemeron.K2.Make (Predsym) (Term) in
+      let table = Cache.create 7 in
+      fun p t ->
+        try Cache.find table (p, t)
+        with Not_found ->
+          let a = Neglit (p, t) in
+          assert (not (Cache.mem table (p, t))) ;
+          Cache.add table (p, t) a ;
+          a
 
-  let mk_arith =
-    let module Cache = Ephemeron.K2.Make (Predsym.Arith) (Term.Polynomial)
-    in
-    let table = Cache.create 7 in
-    fun p t ->
-      try Cache.find table (p, t)
-      with Not_found ->
-        let a = Arith (p, t) in
-        assert (not (Cache.mem table (p, t))) ;
-        Cache.add table (p, t) a ;
-        a
+    let mk_arith =
+      let module Cache = Ephemeron.K2.Make (Predsym.Arith) (Term.Polynomial)
+      in
+      let table = Cache.create 7 in
+      fun p t ->
+        try Cache.find table (p, t)
+        with Not_found ->
+          let a = Arith (p, t) in
+          assert (not (Cache.mem table (p, t))) ;
+          Cache.add table (p, t) a ;
+          a
 
-  let mk_prop =
-    let module Cache = Ephemeron.K1.Make (Bdd) in
-    let cache = Cache.create 7 in
-    fun b ->
-      try Cache.find cache b
-      with Not_found ->
-        let p = Prop b in
-        assert (not (Cache.mem cache b)) ;
-        Cache.add cache b p ;
-        p
+    let mk_prop =
+      let module Cache = Ephemeron.K1.Make (Bdd) in
+      let cache = Cache.create 7 in
+      fun b ->
+        try Cache.find cache b
+        with Not_found ->
+          let p = Prop b in
+          assert (not (Cache.mem cache b)) ;
+          Cache.add cache b p ;
+          p
 
-  let mk_true = mk_prop Bdd.mk_true
-  let[@warning "-32"] mk_false = mk_prop Bdd.mk_false
-end
+    let mk_true = mk_prop Bdd.mk_true
+    let[@warning "-32"] mk_false = mk_prop Bdd.mk_false
+  end
 
-module Formulas = Sets.Make (Formula)
-module Renames = Maps.Make (Propvar) (Formula)
+  module Formulas = Sets.Make (Formula)
+  module Renames = Maps.Make (Propvar) (Formula)
 
-let footprint = ref false
+  let footprint = ref false
 
-module Footprint = struct
-  open Formula
+  module Footprint = struct
+    open Formula
 
-  let stderr = Format.err_formatter
-  let out name = Format.eprintf "\n%s: " name
-  let flush () = Format.eprintf "@."
+    let stderr = Format.err_formatter
+    let out name = Format.eprintf "\n%s: " name
+    let flush () = Format.eprintf "@."
 
-  let pp p =
-    Formula.pp stderr p ;
-    Format.eprintf "@?"
+    let pp p =
+      Formula.pp stderr p ;
+      Format.eprintf "@?"
 
-  let v = Term.of_var
+    let v = Term.of_var
 
-  let diseq x y =
-    if !footprint then (
-      out "prop" ;
-      pp (mk_diseq (v x) (v y)) ;
-      flush () )
+    let diseq x y =
+      if !footprint then (
+        out "prop" ;
+        pp (mk_diseq (v x) (v y)) ;
+        flush () )
 
-  let valid1 p x =
-    if !footprint then (
-      out "prop" ;
-      pp (mk_apply p (v x)) ;
-      flush () )
+    let valid1 p x =
+      if !footprint then (
+        out "prop" ;
+        pp (mk_apply p (v x)) ;
+        flush () )
 
-  let unsat1 p x =
-    if !footprint then (
-      out "prop" ;
-      pp (mk_negapply p (v x)) ;
-      flush () )
+    let unsat1 p x =
+      if !footprint then (
+        out "prop" ;
+        pp (mk_negapply p (v x)) ;
+        flush () )
 
-  let valid0 p =
-    if !footprint then (
-      out "prop" ;
-      Propvar.pp stderr p ;
-      flush () )
+    let valid0 p =
+      if !footprint then (
+        out "prop" ;
+        Propvar.pp stderr p ;
+        flush () )
 
-  let unsat0 p =
-    if !footprint then (
-      out "prop" ;
-      Propvar.pp stderr p ;
-      flush () )
+    let unsat0 p =
+      if !footprint then (
+        out "prop" ;
+        Propvar.pp stderr p ;
+        flush () )
 
-  let resolve () =
-    if !footprint then (
-      out "resolve" ;
-      flush () )
+    let resolve () =
+      if !footprint then (
+        out "resolve" ;
+        flush () )
 
-  let learned p =
-    if !footprint then (
-      out "learned" ;
-      pp (Formula.mk_prop p) ;
-      flush () )
+    let learned p =
+      if !footprint then (
+        out "learned" ;
+        pp (Formula.mk_prop p) ;
+        flush () )
 
-  let implicant p =
-    if !footprint then (
-      out "implicant" ;
-      pp (Formula.mk_prop p) ;
-      flush () )
+    let implicant p =
+      if !footprint then (
+        out "implicant" ;
+        pp (Formula.mk_prop p) ;
+        flush () )
 
-  let implicant_candidate n =
-    if !footprint then Format.eprintf "implicant(%d)@?" n
-end
+    let implicant_candidate n =
+      if !footprint then Format.eprintf "implicant(%d)@?" n
+  end
 
-(** Names for inference system signatures. *)
+  (** Names for inference system signatures. *)
 
-module type PARTITION = Partition.INFSYS with type var = Var.t
+  module type PARTITION = Partition.INFSYS with type var = Var.t
 
-module type SIMPLEX =
-  Simplex.INFSYS
-    with type var = Var.t
-     and type coeff = Q.t
-     and type poly = Term.Polynomial.t
+  module type SIMPLEX =
+    Simplex.INFSYS
+      with type var = Var.t
+       and type coeff = Q.t
+       and type poly = Term.Polynomial.t
 
-module type PROP =
-  Prop.INFSYS with type var = Propvar.t and type t = Formula.Bdd.t
+  module type PROP =
+    Prop.INFSYS with type var = Propvar.t and type t = Formula.Bdd.t
 
-module type CC =
-  Cc.INFSYS
-    with type var = Var.t
+  module type CC =
+    Cc.INFSYS
+      with type var = Var.t
        and type funsym = UFunsym.t
-     and type apply = Term.Uninterp.t
+       and type apply = Term.Uninterp.t
 
-module type TUPLE =
-  Shostak.INFSYS with type var = Var.t and type trm = Term.Tuple.t
+  module type TUPLE =
+    Shostak.INFSYS with type var = Var.t and type trm = Term.Tuple.t
 
-module type FUNARR =
-  Funarr.INFSYS with type var = Var.t and type flat = Term.Array.t
+  module type FUNARR =
+    Funarr.INFSYS with type var = Var.t and type flat = Term.Array.t
 
-module type LITERAL =
-  Literal.INFSYS with type predsym = Predsym.t and type var = Var.t
+  module type LITERAL =
+    Literal.INFSYS with type predsym = Predsym.t and type var = Var.t
 
-module type PROPVAR = Nullary.INFSYS with type var = Propvar.t
+  module type PROPVAR = Nullary.INFSYS with type var = Propvar.t
 
-module type RENAME =
-  Rename.INFSYS
-    with type propvar = Propvar.t
-     and type predsym = Predsym.t
-     and type var = Var.t
+  module type RENAME =
+    Rename.INFSYS
+      with type propvar = Propvar.t
+       and type predsym = Predsym.t
+       and type var = Var.t
 
-module V : PARTITION = Partition.Make (Var)
-module L0 : PROPVAR = Nullary.Make (Propvar)
-module L1open = Literal.Make (Var) (Predsym)
-module Aopen = Simplex.Make (Term.Polynomial)
+  module V : PARTITION = Partition.Make (Var)
+  module L0 : PROPVAR = Nullary.Make (Propvar)
+  module L1open = Literal.Make (Var) (Predsym)
+  module Aopen = Simplex.Make (Term.Polynomial)
   module Uopen = Cc.Make (Var) (UFunsym) (Term.Uninterp)
-module Topen = Tuple.Infsys (Var) (Term.Tuple)
-module Fopen = Funarr.Make (Var) (Term.Array)
-module Ropen = Rename.Make (Propvar) (Predsym) (Var)
-module Popen = Prop.Make (Propvar) (Formula.Bdd)
+  module Topen = Tuple.Infsys (Var) (Term.Tuple)
+  module Fopen = Funarr.Make (Var) (Term.Array)
+  module Ropen = Rename.Make (Propvar) (Predsym) (Var)
+  module Popen = Prop.Make (Propvar) (Formula.Bdd)
 
-(** Flag for indicating that a propagation rule might not be called
+  (** Flag for indicating that a propagation rule might not be called
       immediately. In this case, application of this rule is delayed until
       it is safe to apply it. *)
-let critical = ref false
+  let critical = ref false
 
-module rec Union : sig
-  val process : Var.t -> Var.t -> unit
-  val closed : unit -> bool
-  val close : unit -> unit
-  val reset : unit -> unit
-end = struct
-  let lhs = Stacks.create ()
-  let rhs = Stacks.create ()
+  module rec Union : sig
+    val process : Var.t -> Var.t -> unit
+    val delayed : unit -> Formulas.t
+    val closed : unit -> bool
+    val close : unit -> unit
+    val reset : unit -> unit
+  end = struct
+    let lhs = Stacks.create ()
+    let rhs = Stacks.create ()
 
-  let reset () =
-    Stacks.clear lhs ;
-    Stacks.clear rhs
+    let reset () =
+      Stacks.clear lhs ;
+      Stacks.clear rhs
 
-  let delay x y =
-    Stacks.push x lhs ;
-    Stacks.push y rhs
+    let delay x y =
+      Stacks.push x lhs ;
+      Stacks.push y rhs
 
-  let propagate x y =
-    [%Trace.call fun {pf} ->
-      pf "(U): %a = %a @ %a" Var.pp x Var.pp y State.pp_current ()]
-    ;
-    assert (V.canonical y) ;
-    assert (not (V.canonical x)) ;
-    assert (V.equal x y) ;
-    U.close x y ;
-    A.propagate_eq x y ;
-    L1.propagate_eq x y ;
-    T.propagate x y ;
-    F.propagate_eq x y ;
-    R.propagate_eq x y
-    |>
-    [%Trace.retn fun {pf} () -> pf "%a" State.pp_current ()]
+    let delayed () =
+      let acc = Formulas.empty () in
+      let add x y =
+        Formulas.add (Formula.mk_equal (Term.of_var x) (Term.of_var y)) acc
+      in
+      List.iter2 add (Stacks.to_list lhs) (Stacks.to_list rhs) ;
+      acc
 
-  let process_critical x y =
-    [%Trace.call fun {pf} ->
-      pf "(U): %a = %a @ %a" Var.pp x Var.pp y State.pp_current ()]
-    ;
-    let x = V.find x and y = V.find y in
-    ( if V.equal x y then ()
-    else
-      try
+    let propagate x y =
+      [%Trace.call fun {pf} ->
+        pf "(U): %a = %a @ %a" Var.pp x Var.pp y State.pp_current ()]
+      ;
+      assert (V.canonical y) ;
+      assert (not (V.canonical x)) ;
+      assert (V.equal x y) ;
+      U.close x y ;
+      A.propagate_eq x y ;
+      L1.propagate_eq x y ;
+      T.propagate x y ;
+      F.propagate_eq x y ;
+      R.propagate_eq x y
+      |>
+      [%Trace.retn fun {pf} () -> pf "%a" State.pp_current ()]
+
+    let process_critical x y =
+      [%Trace.call fun {pf} ->
+        pf "(U): %a = %a @ %a" Var.pp x Var.pp y State.pp_current ()]
+      ;
+      let x = V.find x and y = V.find y in
+      ( if V.equal x y then ()
+      else
+        try
+          critical := true ;
+          (* let dx = V.deqs x and dy = V.deqs y in *)
+          V.union ~propagate_deq:Separate.propagate x y ;
+          assert (V.canonical x || V.canonical y) ;
+          if V.canonical y then propagate x y else propagate y x ;
+          critical := false
+        with exc ->
+          critical := false ;
+          raise exc )
+      |>
+      [%Trace.retn fun {pf} () -> pf "%a" State.pp_current ()]
+
+    let process x y =
+      [%Trace.call fun {pf} -> pf "(U): %a = %a" Var.pp x Var.pp y]
+      ;
+      ( if V.equal x y then ()
+      else if V.diseq x y then raise Unsatisfiable
+      else if !critical then delay x y
+      else process_critical x y )
+      |>
+      [%Trace.retn fun {pf} () -> pf "%a" State.pp_current ()]
+
+    let closed () = Stacks.is_empty lhs
+
+    let close () =
+      while not (Stacks.is_empty lhs) do
+        let x = Stacks.pop lhs and y = Stacks.pop rhs in
+        process_critical x y
+      done
+  end
+
+  and Separate : sig
+    val propagate : Var.t -> Var.t -> unit
+    val process : Var.t -> Var.t -> unit
+    val delayed : unit -> Formulas.t
+    val closed : unit -> bool
+    val close : unit -> unit
+    val reset : unit -> unit
+  end = struct
+    let lhs = Stacks.create ()
+    let rhs = Stacks.create ()
+
+    let reset () =
+      Stacks.clear lhs ;
+      Stacks.clear rhs
+
+    let delay x y =
+      Stacks.push x lhs ;
+      Stacks.push y rhs
+
+    let delayed () =
+      let acc = Formulas.empty () in
+      let add x y =
+        Formulas.add (Formula.mk_diseq (Term.of_var x) (Term.of_var y)) acc
+      in
+      List.iter2 add (Stacks.to_list lhs) (Stacks.to_list rhs) ;
+      acc
+
+    let propagate x y =
+      let x = V.find x and y = V.find y in
+      F.propagate_deq x y ;
+      R.propagate_deq x y
+
+    let process_critical x y =
+      if !footprint then Footprint.diseq x y ;
+      critical := true ;
+      V.separate x y ;
+      propagate x y ;
+      critical := false
+
+    let process x y =
+      if V.diseq x y then ()
+      else if V.equal x y then raise Unsatisfiable
+      else if !critical then delay x y
+      else process_critical x y
+
+    let closed () = Stacks.is_empty lhs
+
+    let close () =
+      while not (Stacks.is_empty lhs) do
+        let x = Stacks.pop lhs and y = Stacks.pop rhs in
+        process_critical x y
+      done
+  end
+
+  and Valid0 : sig
+    val process : Propvar.t -> unit
+    val delayed : unit -> Formulas.t
+    val closed : unit -> bool
+    val close : unit -> unit
+    val reset : unit -> unit
+  end = struct
+    let vars = Stacks.create ()
+    let reset () = Stacks.clear vars
+    let delay x = Stacks.push x vars
+
+    let delayed () =
+      let acc = Formulas.empty () in
+      let add p =
+        Formulas.add (Formula.mk_prop (Formula.Bdd.mk_posvar p)) acc
+      in
+      Stacks.iter add vars ;
+      acc
+
+    let propagate p =
+      P.propagate_valid p ;
+      R.propagate_valid0 p
+
+    let process_critical x =
+      if L0.is_valid x then ()
+      else if L0.is_unsat x then raise Unsatisfiable
+      else (
+        if !footprint then Footprint.valid0 x ;
         critical := true ;
-        (* let dx = V.deqs x and dy = V.deqs y in *)
-        V.union ~propagate_deq:Separate.propagate x y ;
-        assert (V.canonical x || V.canonical y) ;
-        if V.canonical y then propagate x y else propagate y x ;
-        critical := false
-      with exc ->
-        critical := false ;
-        raise exc )
-    |>
-    [%Trace.retn fun {pf} () -> pf "%a" State.pp_current ()]
+        L0.process_valid x ;
+        propagate x ;
+        critical := false )
 
-  let process x y =
-    [%Trace.call fun {pf} -> pf "(U): %a = %a" Var.pp x Var.pp y]
-    ;
-    ( if V.equal x y then ()
-    else if V.diseq x y then raise Unsatisfiable
-    else if !critical then delay x y
-    else process_critical x y )
-    |>
-    [%Trace.retn fun {pf} () -> pf "%a" State.pp_current ()]
+    let process x =
+      if L0.is_valid x then ()
+      else if L0.is_unsat x then raise Unsatisfiable
+      else if !critical then delay x
+      else process_critical x
 
-  let closed () = Stacks.is_empty lhs
+    let closed () = Stacks.is_empty vars
 
-  let close () =
-    while not (Stacks.is_empty lhs) do
-      let x = Stacks.pop lhs and y = Stacks.pop rhs in
-      process_critical x y
-    done
-end
+    let close () =
+      while not (closed ()) do
+        process_critical (Stacks.pop vars)
+      done
+  end
 
-and Separate : sig
-  val propagate : Var.t -> Var.t -> unit
-  val process : Var.t -> Var.t -> unit
-  val closed : unit -> bool
-  val close : unit -> unit
-  val reset : unit -> unit
-end = struct
-  let lhs = Stacks.create ()
-  let rhs = Stacks.create ()
+  and Unsat0 : sig
+    val process : Propvar.t -> unit
+    val delayed : unit -> Formulas.t
+    val closed : unit -> bool
+    val close : unit -> unit
+    val reset : unit -> unit
+  end = struct
+    let vars = Stacks.create ()
+    let reset () = Stacks.clear vars
+    let delay x = Stacks.push x vars
 
-  let reset () =
-    Stacks.clear lhs ;
-    Stacks.clear rhs
+    let delayed () =
+      let acc = Formulas.empty () in
+      let add p =
+        Formulas.add (Formula.mk_prop (Formula.Bdd.mk_negvar p)) acc
+      in
+      Stacks.iter add vars ;
+      acc
 
-  let delay x y =
-    Stacks.push x lhs ;
-    Stacks.push y rhs
+    let propagate p =
+      P.propagate_unsat p ;
+      R.propagate_unsat0 p
 
-  let propagate x y =
-    let x = V.find x and y = V.find y in
-    F.propagate_deq x y ;
-    R.propagate_deq x y
+    let process_critical x =
+      if L0.is_unsat x then ()
+      else if L0.is_valid x then raise Unsatisfiable
+      else (
+        if !footprint then Footprint.unsat0 x ;
+        critical := true ;
+        L0.process_unsat x ;
+        propagate x ;
+        critical := false )
 
-  let process_critical x y =
-    if !footprint then Footprint.diseq x y ;
-    critical := true ;
-    V.separate x y ;
-    propagate x y ;
-    critical := false
+    let process x =
+      if L0.is_unsat x then ()
+      else if L0.is_valid x then raise Unsatisfiable
+      else if !critical then delay x
+      else process_critical x
 
-  let process x y =
-    if V.diseq x y then ()
-    else if V.equal x y then raise Unsatisfiable
-    else if !critical then delay x y
-    else process_critical x y
+    let closed () = Stacks.is_empty vars
 
-  let closed () = Stacks.is_empty lhs
+    let close () =
+      while not (closed ()) do
+        process_critical (Stacks.pop vars)
+      done
+  end
 
-  let close () =
-    while not (Stacks.is_empty lhs) do
-      let x = Stacks.pop lhs and y = Stacks.pop rhs in
-      process_critical x y
-    done
-end
+  and Valid1 : sig
+    val process : Predsym.t -> Var.t -> unit
+    val delayed : unit -> Formulas.t
+    val closed : unit -> bool
+    val close : unit -> unit
+    val reset : unit -> unit
+  end = struct
+    let preds = Stacks.create ()
+    let args = Stacks.create ()
 
-and Valid0 : sig
-  val process : Propvar.t -> unit
-  val closed : unit -> bool
-  val close : unit -> unit
-  val reset : unit -> unit
-end = struct
-  let vars = Stacks.create ()
-  let reset () = Stacks.clear vars
-  let delay x = Stacks.push x vars
+    let reset () =
+      Stacks.clear preds ;
+      Stacks.clear args
 
-  let propagate p =
-    P.propagate_valid p ;
-    R.propagate_valid0 p
+    let delay p x =
+      Stacks.push p preds ;
+      Stacks.push x args
 
-  let process_critical x =
-    if L0.is_valid x then ()
-    else if L0.is_unsat x then raise Unsatisfiable
-    else (
-      if !footprint then Footprint.valid0 x ;
-      critical := true ;
-      L0.process_valid x ;
-      propagate x ;
-      critical := false )
+    let delayed () =
+      let acc = Formulas.empty () in
+      let add p a = Formulas.add (Formula.mk_apply p (Term.of_var a)) acc in
+      List.iter2 add (Stacks.to_list preds) (Stacks.to_list args) ;
+      acc
 
-  let process x =
-    if L0.is_valid x then ()
-    else if L0.is_unsat x then raise Unsatisfiable
-    else if !critical then delay x
-    else process_critical x
+    let propagate p x =
+      match p with
+      | Predsym.Arith p -> Add.arith p (Term.Polynomial.indet x)
+      | _ -> R.propagate_valid1 p x
 
-  let closed () = Stacks.is_empty vars
+    let process_critical p x =
+      let x = V.find x in
+      if L1.valid p x then ()
+      else if L1.unsat p x then raise Unsatisfiable
+      else (
+        if !footprint then Footprint.valid1 p x ;
+        critical := true ;
+        L1.process_pos p x ;
+        propagate p x ;
+        critical := false )
 
-  let close () =
-    while not (closed ()) do
-      process_critical (Stacks.pop vars)
-    done
-end
+    let process p x =
+      if L1.valid p x then ()
+      else if L1.unsat p x then raise Unsatisfiable
+      else if !critical then delay p x
+      else process_critical p (V.find x)
 
-and Unsat0 : sig
-  val process : Propvar.t -> unit
-  val closed : unit -> bool
-  val close : unit -> unit
-  val reset : unit -> unit
-end = struct
-  let vars = Stacks.create ()
-  let reset () = Stacks.clear vars
-  let delay x = Stacks.push x vars
+    let closed () = Stacks.is_empty preds
 
-  let propagate p =
-    P.propagate_unsat p ;
-    R.propagate_unsat0 p
+    let close () =
+      while not (closed ()) do
+        let p = Stacks.pop preds and x = Stacks.pop args in
+        process_critical p x
+      done
+  end
 
-  let process_critical x =
-    if L0.is_unsat x then ()
-    else if L0.is_valid x then raise Unsatisfiable
-    else (
-      if !footprint then Footprint.unsat0 x ;
-      critical := true ;
-      L0.process_unsat x ;
-      propagate x ;
-      critical := false )
+  and Unsat1 : sig
+    val process : Predsym.t -> Var.t -> unit
+    val delayed : unit -> Formulas.t
+    val closed : unit -> bool
+    val close : unit -> unit
+    val reset : unit -> unit
+  end = struct
+    let preds = Stacks.create ()
+    let args = Stacks.create ()
 
-  let process x =
-    if L0.is_unsat x then ()
-    else if L0.is_valid x then raise Unsatisfiable
-    else if !critical then delay x
-    else process_critical x
+    let reset () =
+      Stacks.clear preds ;
+      Stacks.clear args
 
-  let closed () = Stacks.is_empty vars
+    let delay p x =
+      Stacks.push p preds ;
+      Stacks.push x args
 
-  let close () =
-    while not (closed ()) do
-      process_critical (Stacks.pop vars)
-    done
-end
+    let delayed () =
+      let acc = Formulas.empty () in
+      let add p a =
+        Formulas.add (Formula.mk_negapply p (Term.of_var a)) acc
+      in
+      List.iter2 add (Stacks.to_list preds) (Stacks.to_list args) ;
+      acc
 
-and Valid1 : sig
-  val process : Predsym.t -> Var.t -> unit
-  val closed : unit -> bool
-  val close : unit -> unit
-  val reset : unit -> unit
-end = struct
-  let preds = Stacks.create ()
-  let args = Stacks.create ()
+    let propagate p x =
+      match p with
+      | Predsym.Arith p -> Add.negarith p (Term.Polynomial.indet x)
+      | _ -> R.propagate_unsat1 p x
 
-  let reset () =
-    Stacks.clear preds ;
-    Stacks.clear args
+    let process_critical p x =
+      let x = V.find x in
+      if L1.unsat p x then ()
+      else if L1.valid p x then raise Unsatisfiable
+      else (
+        if !footprint then Footprint.unsat1 p x ;
+        critical := true ;
+        L1.process_neg p x ;
+        propagate p x ;
+        critical := false )
 
-  let delay p x =
-    Stacks.push p preds ;
-    Stacks.push x args
+    let process p x =
+      if L1.unsat p x then ()
+      else if L1.valid p x then raise Unsatisfiable
+      else if !critical then delay p x
+      else process_critical p (V.find x)
 
-  let propagate p x =
-    match p with
-    | Predsym.Arith p -> Add.arith p (Term.Polynomial.indet x)
-    | _ -> R.propagate_valid1 p x
+    let closed () = Stacks.is_empty preds
 
-  let process_critical p x =
-    let x = V.find x in
-    if L1.valid p x then ()
-    else if L1.unsat p x then raise Unsatisfiable
-    else (
-      if !footprint then Footprint.valid1 p x ;
-      critical := true ;
-      L1.process_pos p x ;
-      propagate p x ;
-      critical := false )
+    let close () =
+      while not (closed ()) do
+        let p = Stacks.pop preds and x = Stacks.pop args in
+        process_critical p x
+      done
+  end
 
-  let process p x =
-    if L1.valid p x then ()
-    else if L1.unsat p x then raise Unsatisfiable
-    else if !critical then delay p x
-    else process_critical p (V.find x)
+  (** Closing inference systems. *)
 
-  let closed () = Stacks.is_empty preds
+  and Interface : sig
+    type var = Var.t
 
-  let close () =
-    while not (closed ()) do
-      let p = Stacks.pop preds and x = Stacks.pop args in
-      process_critical p x
-    done
-end
+    val find : var -> var
+    val canonical : var -> bool
+    val equal : var -> var -> bool
+    val diseq : var -> var -> bool
+    val union : var -> var -> unit
+    val separate : var -> var -> unit
+  end = struct
+    type var = Var.t
 
-and Unsat1 : sig
-  val process : Predsym.t -> Var.t -> unit
-  val closed : unit -> bool
-  val close : unit -> unit
-  val reset : unit -> unit
-end = struct
-  let preds = Stacks.create ()
-  let args = Stacks.create ()
+    let find = V.find
+    let canonical = V.canonical
+    let equal = V.equal
+    let diseq = V.diseq
+    let union = Union.process
+    let separate = Separate.process
+  end
 
-  let reset () =
-    Stacks.clear preds ;
-    Stacks.clear args
+  and L1 : LITERAL = L1open (Interface)
+  and U : CC = Uopen (Interface)
 
-  let delay p x =
-    Stacks.push p preds ;
-    Stacks.push x args
+  and A : SIMPLEX = Aopen (struct
+    include Interface
 
-  let propagate p x =
-    match p with
-    | Predsym.Arith p -> Add.negarith p (Term.Polynomial.indet x)
-    | _ -> R.propagate_unsat1 p x
+    let is_real x = L1.valid Predsym.real x
+    let is_integer x = L1.valid Predsym.integer x
+    let real x = L1.process_pos Predsym.real x
+    let integer x = L1.process_pos Predsym.integer x
+  end)
 
-  let process_critical p x =
-    let x = V.find x in
-    if L1.unsat p x then ()
-    else if L1.valid p x then raise Unsatisfiable
-    else (
-      if !footprint then Footprint.unsat1 p x ;
-      critical := true ;
-      L1.process_neg p x ;
-      propagate p x ;
-      critical := false )
+  and T : TUPLE = Topen (Interface)
 
-  let process p x =
-    if L1.unsat p x then ()
-    else if L1.valid p x then raise Unsatisfiable
-    else if !critical then delay p x
-    else process_critical p (V.find x)
+  and F : FUNARR = Fopen (struct
+    include Interface
 
-  let closed () = Stacks.is_empty preds
+    let choose_equiv = V.choose_equiv
+    let iter_equiv = V.iter_equiv
+    let iter_diseqs = V.iter_diseqs
 
-  let close () =
-    while not (closed ()) do
-      let p = Stacks.pop preds and x = Stacks.pop args in
-      process_critical p x
-    done
-end
+    let ite (x, y) (a, b) (c, d) =
+      let z = Formula.Bdd.mk_posvar (R.alias_equal x y) in
+      let p = Formula.Bdd.mk_posvar (R.alias_equal a b) in
+      let n = Formula.Bdd.mk_posvar (R.alias_equal c d) in
+      P.process_conjoin (Formula.Bdd.mk_ite z p n)
 
-(** Closing inference systems. *)
+    let array = L1.process_pos Predsym.array
+  end)
 
-and Interface : sig
-  type var = Var.t
+  and R : RENAME = Ropen (struct
+    include Interface
 
-  val find : var -> var
-  val canonical : var -> bool
-  val equal : var -> var -> bool
-  val diseq : var -> var -> bool
-  val union : var -> var -> unit
-  val separate : var -> var -> unit
-end = struct
-  type var = Var.t
+    type propvar = Propvar.t
+    type predsym = Predsym.t
 
-  let find = V.find
-  let canonical = V.canonical
-  let equal = V.equal
-  let diseq = V.diseq
-  let union = Union.process
-  let separate = Separate.process
-end
+    let equiv = P.process_union
+    let disjoint = P.process_separate
+    let implies = P.process_sub
+    let valid0 = Valid0.process
+    let unsat0 = Unsat0.process
+    let valid1 = Valid1.process
+    let unsat1 = Unsat1.process
+  end)
 
-and L1 : LITERAL = L1open (Interface)
-and U : CC = Uopen (Interface)
+  and P : PROP = Popen (struct
+    type var = Propvar.t
 
-and A : SIMPLEX = Aopen (struct
-  include Interface
+    let valid = Valid0.process
+    let unsat = Unsat0.process
+  end)
 
-  let is_real x = L1.valid Predsym.real x
-  let is_integer x = L1.valid Predsym.integer x
-  let real x = L1.process_pos Predsym.real x
-  let integer x = L1.process_pos Predsym.integer x
-end)
+  and Add : sig
+    val arith : Predsym.Arith.t -> A.poly -> unit
+    val negarith : Predsym.Arith.t -> A.poly -> unit
+  end = struct
+    let arith p t =
+      match p with
+      | Predsym.Arith.Nonneg -> A.process_nonneg t
+      | Predsym.Arith.Pos -> A.process_pos t
+      | Predsym.Arith.Equal0 -> A.process_eq0 t
+      | Predsym.Arith.Diseq0 -> A.process_deq0 t
+      | Predsym.Arith.Real -> L1.process_pos Predsym.real (A.alias t)
+      | Predsym.Arith.Int -> L1.process_pos Predsym.integer (A.alias t)
 
-and T : TUPLE = Topen (Interface)
+    let negarith p t =
+      match p with
+      | Predsym.Arith.Nonneg -> A.process_pos (Term.Polynomial.minus t)
+      | Predsym.Arith.Pos -> A.process_nonneg (Term.Polynomial.minus t)
+      | Predsym.Arith.Equal0 -> A.process_deq0 t
+      | Predsym.Arith.Diseq0 -> A.process_eq0 t
+      | Predsym.Arith.Real -> L1.process_neg Predsym.real (A.alias t)
+      | Predsym.Arith.Int -> L1.process_neg Predsym.integer (A.alias t)
+  end
 
-and F : FUNARR = Fopen (struct
-  include Interface
+  and State_t : sig
+    type status = Sat of Formula.t | Unsat of Formula.t list | Unknown
 
-  let choose_equiv = V.choose_equiv
-  let iter_equiv = V.iter_equiv
-  let iter_diseqs = V.iter_diseqs
+    type t =
+      { context: Formula.t list
+      ; p: P.t
+      ; l0: L0.t
+      ; l1: L1.t
+      ; r: R.t
+      ; v: V.t
+      ; u: U.t
+      ; a: A.t
+      ; t: T.t
+      ; f: F.t
+      ; upper: int
+      ; mutable status: status }
+  end =
+    State_t
 
-  let ite (x, y) (a, b) (c, d) =
-    let z = Formula.Bdd.mk_posvar (R.alias_equal x y) in
-    let p = Formula.Bdd.mk_posvar (R.alias_equal a b) in
-    let n = Formula.Bdd.mk_posvar (R.alias_equal c d) in
-    P.process_conjoin (Formula.Bdd.mk_ite z p n)
+  and State : sig
+    val prop : unit -> Formulas.elt
+    val literals : unit -> Formulas.t
+    val renames : unit -> Renames.t
+    val var_equals : unit -> Vareqs.t
+    val var_diseqs : unit -> Formulas.t
+    val uninterp_equals : unit -> Formulas.t
+    val constant_equals : unit -> Formulas.t
+    val regular_equals : unit -> Formulas.t
+    val tableau_equals : unit -> Formulas.t
+    val slacks : unit -> Vareqs.value
+    val tuple_equals : unit -> Formulas.t
+    val array_equals : unit -> Formulas.t
+    val theory_equals : theory -> Formulas.t
+    val pp_current : Format.formatter -> unit -> unit
+  end = struct
+    let prop () = Formula.mk_prop (P.current ())
 
-  let array = L1.process_pos Predsym.array
-end)
-
-and R : RENAME = Ropen (struct
-  include Interface
-
-  type propvar = Propvar.t
-  type predsym = Predsym.t
-
-  let equiv = P.process_union
-  let disjoint = P.process_separate
-  let implies = P.process_sub
-  let valid0 = Valid0.process
-  let unsat0 = Unsat0.process
-  let valid1 = Valid1.process
-  let unsat1 = Unsat1.process
-end)
-
-and P : PROP = Popen (struct
-  type var = Propvar.t
-
-  let valid = Valid0.process
-  let unsat = Unsat0.process
-end)
-
-and Add : sig
-  val arith : Predsym.Arith.t -> A.poly -> unit
-  val negarith : Predsym.Arith.t -> A.poly -> unit
-end = struct
-  let arith p t =
-    match p with
-    | Predsym.Arith.Nonneg -> A.process_nonneg t
-    | Predsym.Arith.Pos -> A.process_pos t
-    | Predsym.Arith.Equal0 -> A.process_eq0 t
-    | Predsym.Arith.Diseq0 -> A.process_deq0 t
-    | Predsym.Arith.Real -> L1.process_pos Predsym.real (A.alias t)
-    | Predsym.Arith.Int -> L1.process_pos Predsym.integer (A.alias t)
-
-  let negarith p t =
-    match p with
-    | Predsym.Arith.Nonneg -> A.process_pos (Term.Polynomial.minus t)
-    | Predsym.Arith.Pos -> A.process_nonneg (Term.Polynomial.minus t)
-    | Predsym.Arith.Equal0 -> A.process_deq0 t
-    | Predsym.Arith.Diseq0 -> A.process_eq0 t
-    | Predsym.Arith.Real -> L1.process_neg Predsym.real (A.alias t)
-    | Predsym.Arith.Int -> L1.process_neg Predsym.integer (A.alias t)
-end
-
-and State_t : sig
-type status = Sat of Formula.t | Unsat of Formula.t list | Unknown
-
-type t =
-  { context: Formula.t list
-  ; p: P.t
-  ; l0: L0.t
-  ; l1: L1.t
-  ; r: R.t
-  ; v: V.t
-  ; u: U.t
-  ; a: A.t
-  ; t: T.t
-  ; f: F.t
-  ; upper: int
-  ; mutable status: status }
-end =
-  State_t
-
-and State : sig
-  val prop : unit -> Formulas.elt
-  val literals : unit -> Formulas.t
-  val renames : unit -> Renames.t
-  val var_equals : unit -> Vareqs.t
-  val var_diseqs : unit -> Formulas.t
-  val uninterp_equals : unit -> Formulas.t
-  val constant_equals : unit -> Formulas.t
-  val regular_equals : unit -> Formulas.t
-  val tableau_equals : unit -> Formulas.t
-  val slacks : unit -> Vareqs.value
-  val tuple_equals : unit -> Formulas.t
-  val array_equals : unit -> Formulas.t
-  val theory_equals : theory -> Formulas.t
-  val pp_current : Format.formatter -> unit -> unit
-end = struct
-  let prop () = Formula.mk_prop (P.current ())
-
-  let literals () =
-    let acc = Formulas.empty () in
-    L0.Valid.iter
+    let literals () =
+      let acc = Formulas.empty () in
+      L0.Valid.iter
         (fun p ->
           Formulas.add (Formula.mk_prop (Formula.Bdd.mk_posvar p)) acc )
-      (L0.valid ()) ;
-    L0.Unsat.iter
+        (L0.valid ()) ;
+      L0.Unsat.iter
         (fun p ->
           Formulas.add (Formula.mk_prop (Formula.Bdd.mk_negvar p)) acc )
-      (L0.unsat ()) ;
-    L1.Pos.iter
-      (fun x ps ->
-        L1.Set.iter
-          (fun p -> Formulas.add (Formula.mk_apply p (Term.of_var x)) acc)
-          ps )
-      (L1.pos ()) ;
-    L1.Neg.iter
-      (fun x ps ->
-        L1.Set.iter
+        (L0.unsat ()) ;
+      L1.Pos.iter
+        (fun x ps ->
+          L1.Set.iter
+            (fun p -> Formulas.add (Formula.mk_apply p (Term.of_var x)) acc)
+            ps )
+        (L1.pos ()) ;
+      L1.Neg.iter
+        (fun x ps ->
+          L1.Set.iter
             (fun p ->
               Formulas.add (Formula.mk_negapply p (Term.of_var x)) acc )
-          ps )
-      (L1.neg ()) ;
-    acc
+            ps )
+        (L1.neg ()) ;
+      acc
 
-  let renames () =
-    let acc = Renames.empty () in
-    R.Monadic.iter
-      (fun u (p, x) ->
-        Renames.set u (Formula.mk_apply p (Term.of_var x)) acc )
-      (R.monadic ()) ;
-    R.Equal.iter
-      (fun u (x, y) ->
-        assert (not (Renames.mem u acc)) ;
+    let renames () =
+      let acc = Renames.empty () in
+      R.Monadic.iter
+        (fun u (p, x) ->
+          Renames.set u (Formula.mk_apply p (Term.of_var x)) acc )
+        (R.monadic ()) ;
+      R.Equal.iter
+        (fun u (x, y) ->
+          assert (not (Renames.mem u acc)) ;
           Renames.set u
             (Formula.mk_equal (Term.of_var x) (Term.of_var y))
             acc )
-      (R.equal ()) ;
-    acc
+        (R.equal ()) ;
+      acc
 
-let var_equals () =
-  let acc = Vareqs.empty () in
-  let add x y =
-    let y' = V.find y in
+    let var_equals () =
+      let acc = Vareqs.empty () in
+      let add x y =
+        let y' = V.find y in
         let zs = try Vareqs.find y' acc with Not_found -> Vars.empty () in
-      Vars.add x zs ;
-      Vars.add y zs ;
-      Vars.add y' zs ;
-      Vareqs.set y' zs acc
-  in
-  V.Equalities.iter add (V.equalities ()) ;
-  acc
+        Vars.add x zs ;
+        Vars.add y zs ;
+        Vars.add y' zs ;
+        Vareqs.set y' zs acc
+      in
+      V.Equalities.iter add (V.equalities ()) ;
+      acc
 
-let var_diseqs () =
-  let acc = Formulas.empty () in
-  V.Disequalities.iter
-    (fun (x, y) ->
+    let var_diseqs () =
+      let acc = Formulas.empty () in
+      V.Disequalities.iter
+        (fun (x, y) ->
           Formulas.add
             (Formula.mk_diseq (Term.of_var x) (Term.of_var y))
             acc )
-    (V.disequalities ()) ;
-  acc
+        (V.disequalities ()) ;
+      acc
 
-  let uninterp_equals () =
-    let acc = Formulas.empty () in
-    U.Find.iter
-      (fun u a ->
-        let e = Formula.mk_equal (Term.of_var u) (Term.of_apply a) in
-        Formulas.add e acc )
-      (U.context ()) ;
-    acc
+    let uninterp_equals () =
+      let acc = Formulas.empty () in
+      U.Find.iter
+        (fun u a ->
+          let e = Formula.mk_equal (Term.of_var u) (Term.of_apply a) in
+          Formulas.add e acc )
+        (U.context ()) ;
+      acc
 
-let constant_equals () =
-  let acc = Formulas.empty () in
-  A.R.Constant.iter
-    (fun x c ->
-      let e = Formula.mk_equal (Term.of_var x) (Term.of_num c) in
-      Formulas.add e acc )
-    (A.R.constant ()) ;
-  acc
+    let constant_equals () =
+      let acc = Formulas.empty () in
+      A.R.Constant.iter
+        (fun x c ->
+          let e = Formula.mk_equal (Term.of_var x) (Term.of_num c) in
+          Formulas.add e acc )
+        (A.R.constant ()) ;
+      acc
 
-let regular_equals () =
-  let acc = Formulas.empty () in
-  A.R.Solset.iter
-    (fun x p ->
-      let e = Formula.mk_equal (Term.of_var x) (Term.of_poly p) in
-      Formulas.add e acc )
-    (A.R.solset ()) ;
-  acc
+    let regular_equals () =
+      let acc = Formulas.empty () in
+      A.R.Solset.iter
+        (fun x p ->
+          let e = Formula.mk_equal (Term.of_var x) (Term.of_poly p) in
+          Formulas.add e acc )
+        (A.R.solset ()) ;
+      acc
 
-let tableau_equals () =
-  let acc = Formulas.empty () in
-  A.T.Solset.iter
-    (fun x p ->
-      let e = Formula.mk_equal (Term.of_var x) (Term.of_poly p) in
-      Formulas.add e acc )
-    (A.T.solset ()) ;
-  acc
+    let tableau_equals () =
+      let acc = Formulas.empty () in
+      A.T.Solset.iter
+        (fun x p ->
+          let e = Formula.mk_equal (Term.of_var x) (Term.of_poly p) in
+          Formulas.add e acc )
+        (A.T.solset ()) ;
+      acc
 
-  let slacks () =
-    let acc = Vars.empty () in
-    A.S.Slacks.iter (fun x -> Vars.add x acc) (A.S.current ()) ;
-  acc
+    let slacks () =
+      let acc = Vars.empty () in
+      A.S.Slacks.iter (fun x -> Vars.add x acc) (A.S.current ()) ;
+      acc
 
-let tuple_equals () =
-  let acc = Formulas.empty () in
-  T.Subst.iter
-    (fun x t ->
-      let e = Formula.mk_equal (Term.of_var x) (Term.of_tuple t) in
-      Formulas.add e acc )
-    (T.config ()) ;
-  acc
+    let tuple_equals () =
+      let acc = Formulas.empty () in
+      T.Subst.iter
+        (fun x t ->
+          let e = Formula.mk_equal (Term.of_var x) (Term.of_tuple t) in
+          Formulas.add e acc )
+        (T.config ()) ;
+      acc
 
-let array_equals () =
-  let acc = Formulas.empty () in
-  F.Cfg.iter
-    (fun x t ->
-      let e = Formula.mk_equal (Term.of_var x) (Term.of_array t) in
-      Formulas.add e acc )
-    (F.config ()) ;
-  acc
+    let array_equals () =
+      let acc = Formulas.empty () in
+      F.Cfg.iter
+        (fun x t ->
+          let e = Formula.mk_equal (Term.of_var x) (Term.of_array t) in
+          Formulas.add e acc )
+        (F.config ()) ;
+      acc
 
-  let arith_equals () =
-    let acc = constant_equals () in
-    Formulas.union (regular_equals ()) acc ;
-    Formulas.union (tableau_equals ()) acc ;
-  acc
+    let arith_equals () =
+      let acc = constant_equals () in
+      Formulas.union (regular_equals ()) acc ;
+      Formulas.union (tableau_equals ()) acc ;
+      acc
 
-let theory_equals i =
-  match i with
-  | A -> arith_equals ()
-  | T -> tuple_equals ()
-  | U -> uninterp_equals ()
-  | F -> array_equals ()
+    let theory_equals i =
+      match i with
+      | A -> arith_equals ()
+      | T -> tuple_equals ()
+      | U -> uninterp_equals ()
+      | F -> array_equals ()
 
-  let pp_current fmt () =
-  let unless p f x = if p x then [] else [f x] in
-  Format.fprintf fmt "@[<hv>%a@]"
-    (NS.List.pp "@;<2 0>" ( |> ))
-    ( unless Vareqs.is_empty
-        (Format.dprintf "v: %a" Vareqs.pp)
-        (var_equals ())
-    @ unless Formulas.is_empty
-        (Format.dprintf "d: %a" Formulas.pp)
-        (var_diseqs ())
-    @ unless Formulas.is_empty
-        (Format.dprintf "c: %a" Formulas.pp)
-        (constant_equals ())
-    @ unless Formulas.is_empty
-        (Format.dprintf "a: %a" Formulas.pp)
-        (regular_equals ())
-    @ unless Formulas.is_empty
-        (Format.dprintf "i: %a" Formulas.pp)
-        (tableau_equals ())
-    @ unless Vars.is_empty (Format.dprintf "s: %a" Vars.pp) (slacks ())
-    @ unless Formulas.is_empty
-        (Format.dprintf "u: %a" Formulas.pp)
-        (uninterp_equals ())
-    @ unless Formulas.is_empty
-        (Format.dprintf "t: %a" Formulas.pp)
-        (tuple_equals ())
-    @ unless Formulas.is_empty
-        (Format.dprintf "f: %a" Formulas.pp)
-        (array_equals ())
-      @ unless Renames.is_empty
-          (Format.dprintf "r: %a" Renames.pp)
-          (renames ())
-    @ unless Formulas.is_empty
-        (Format.dprintf "l: %a" Formulas.pp)
-        (literals ())
+    let pp_current fmt () =
+      let unless p f x = if p x then [] else [f x] in
+      Format.fprintf fmt "@[<hv>%a@]"
+        (NS.List.pp "@;<2 0>" ( |> ))
+        ( unless Vareqs.is_empty
+            (Format.dprintf "v: %a" Vareqs.pp)
+            (var_equals ())
+        @ unless Formulas.is_empty
+            (Format.dprintf "d: %a" Formulas.pp)
+            (var_diseqs ())
+        @ unless Formulas.is_empty
+            (Format.dprintf "c: %a" Formulas.pp)
+            (constant_equals ())
+        @ unless Formulas.is_empty
+            (Format.dprintf "a: %a" Formulas.pp)
+            (regular_equals ())
+        @ unless Formulas.is_empty
+            (Format.dprintf "i: %a" Formulas.pp)
+            (tableau_equals ())
+        @ unless Vars.is_empty (Format.dprintf "s: %a" Vars.pp) (slacks ())
+        @ unless Formulas.is_empty
+            (Format.dprintf "u: %a" Formulas.pp)
+            (uninterp_equals ())
+        @ unless Formulas.is_empty
+            (Format.dprintf "t: %a" Formulas.pp)
+            (tuple_equals ())
+        @ unless Formulas.is_empty
+            (Format.dprintf "f: %a" Formulas.pp)
+            (array_equals ())
+        @ unless Renames.is_empty
+            (Format.dprintf "r: %a" Renames.pp)
+            (renames ())
+        @ unless Formulas.is_empty
+            (Format.dprintf "l: %a" Formulas.pp)
+            (literals ())
         @ unless Formula.is_true
             (Format.dprintf "p: %a" Formula.pp)
-            (prop ()) )
-end
+            (prop ())
+        @ (fun delayed ->
+            if NS.List.is_empty delayed then delayed
+            else Format.dprintf "pnd" :: delayed )
+        @@ unless Formulas.is_empty
+             (Format.dprintf "v: %a" Formulas.pp)
+             (Union.delayed ())
+        @ unless Formulas.is_empty
+            (Format.dprintf "d: %a" Formulas.pp)
+            (Separate.delayed ())
+        @ unless Formulas.is_empty
+            (Format.dprintf "l: %a" Formulas.pp)
+            (let s = Valid0.delayed () in
+             Formulas.union (Unsat0.delayed ()) s ;
+             Formulas.union (Valid1.delayed ()) s ;
+             Formulas.union (Unsat1.delayed ()) s ;
+             s ) )
+  end
 
-(* silence spurious unused module warning *)
-type _t = Interface.var
+  (* silence spurious unused module warning *)
+  type _t = Interface.var
 
-include State_t
-include State
+  include State_t
+  include State
 
-let pp_status fmt status =
-  Format.fprintf fmt "%s"
-    ( match status with
-    | Sat _ -> "sat"
-    | Unsat _ -> "unsat"
-    | Unknown -> "unknown" )
+  let pp_status fmt status =
+    Format.fprintf fmt "%s"
+      ( match status with
+      | Sat _ -> "sat"
+      | Unsat _ -> "unsat"
+      | Unknown -> "unknown" )
 
-let empty =
-  { context= []
-  ; upper= 0
-  ; status= Sat Formula.mk_true
-  ; p= P.empty
-  ; l0= L0.empty
-  ; l1= L1.empty
-  ; r= R.empty
-  ; v= V.empty
-  ; u= U.empty
-  ; a= A.empty
-  ; t= T.empty
-  ; f= F.empty }
+  let empty =
+    { context= []
+    ; upper= 0
+    ; status= Sat Formula.mk_true
+    ; p= P.empty
+    ; l0= L0.empty
+    ; l1= L1.empty
+    ; r= R.empty
+    ; v= V.empty
+    ; u= U.empty
+    ; a= A.empty
+    ; t= T.empty
+    ; f= F.empty }
 
-let init = ref empty
-let curr_context = ref []
-let curr_status = ref Unknown
+  let init = ref empty
+  let curr_context = ref []
+  let curr_status = ref Unknown
 
-let reset_channels () =
-  Union.reset () ;
-  Separate.reset () ;
-  Valid0.reset () ;
-  Unsat0.reset () ;
-  Valid1.reset () ;
-  Unsat1.reset ()
+  let reset_channels () =
+    Union.reset () ;
+    Separate.reset () ;
+    Valid0.reset () ;
+    Unsat0.reset () ;
+    Valid1.reset () ;
+    Unsat1.reset ()
 
-let initialize s =
-  init := s ;
-  k := s.upper ;
-  curr_context := s.context ;
-  curr_status := s.status ;
-  V.initialize s.v ;
-  P.initialize s.p ;
-  L0.initialize s.l0 ;
-  L1.initialize s.l1 ;
-  R.initialize s.r ;
-  V.initialize s.v ;
-  U.initialize s.u ;
-  A.initialize s.a ;
-  T.initialize s.t ;
-  F.initialize s.f ;
-  reset_channels ()
+  let initialize s =
+    init := s ;
+    k := s.upper ;
+    curr_context := s.context ;
+    curr_status := s.status ;
+    V.initialize s.v ;
+    P.initialize s.p ;
+    L0.initialize s.l0 ;
+    L1.initialize s.l1 ;
+    R.initialize s.r ;
+    V.initialize s.v ;
+    U.initialize s.u ;
+    A.initialize s.a ;
+    T.initialize s.t ;
+    F.initialize s.f ;
+    reset_channels ()
 
-let reset () = initialize empty
+  let reset () = initialize empty
 
-let unchanged () =
-  P.unchanged ()
-  && L0.unchanged ()
-  && L1.unchanged ()
-  && R.unchanged ()
-  && V.unchanged ()
-  && U.unchanged ()
-  && A.unchanged ()
-  && T.unchanged ()
-  && F.unchanged ()
+  let unchanged () =
+    P.unchanged ()
+    && L0.unchanged ()
+    && L1.unchanged ()
+    && R.unchanged ()
+    && V.unchanged ()
+    && U.unchanged ()
+    && A.unchanged ()
+    && T.unchanged ()
+    && F.unchanged ()
 
-let closed () =
-  Union.closed ()
-  && Separate.closed ()
-  && Valid0.closed ()
-  && Unsat0.closed ()
-  && Valid1.closed ()
-  && Unsat1.closed ()
+  let closed () =
+    Union.closed ()
+    && Separate.closed ()
+    && Valid0.closed ()
+    && Unsat0.closed ()
+    && Valid1.closed ()
+    && Unsat1.closed ()
 
-let current () =
-  assert (closed ()) ;
-  if unchanged () then !init
-  else
-    { context= !curr_context
-    ; upper= !k
-    ; status= !curr_status
-    ; p= P.current ()
-    ; l0= L0.current ()
-    ; l1= L1.current ()
-    ; r= R.current ()
-    ; v= V.current ()
-    ; u= U.current ()
-    ; a= A.current ()
-    ; t= T.current ()
-    ; f= F.current () }
+  let current () =
+    assert (closed ()) ;
+    if unchanged () then !init
+    else
+      { context= !curr_context
+      ; upper= !k
+      ; status= !curr_status
+      ; p= P.current ()
+      ; l0= L0.current ()
+      ; l1= L1.current ()
+      ; r= R.current ()
+      ; v= V.current ()
+      ; u= U.current ()
+      ; a= A.current ()
+      ; t= T.current ()
+      ; f= F.current () }
 
-let find i x =
-  match i with
-  | U -> Term.of_var x
-  | A -> Term.of_poly (A.find x)
-  | T -> Term.of_tuple (T.find x)
-  | F -> Term.of_array (F.find x)
+  let find i x =
+    match i with
+    | U -> Term.of_var x
+    | A -> Term.of_poly (A.find x)
+    | T -> Term.of_tuple (T.find x)
+    | F -> Term.of_array (F.find x)
 
-let inv = function
+  let inv = function
     | Term.Uninterp a ->
         U.inv (Term.Uninterp.funsym a) (Term.Uninterp.arg a)
-  | Term.Arith p -> A.inv p
-  | Term.Tuple t -> T.inv t
-  | Term.Array a -> F.inv a
-  | Term.Var _ -> raise Not_found
+    | Term.Arith p -> A.inv p
+    | Term.Tuple t -> T.inv t
+    | Term.Array a -> F.inv a
+    | Term.Var _ -> raise Not_found
 
-let canonical = function
-  | Term.Var x -> V.canonical x
-  | Term.Uninterp a -> (
-      let f = Term.Uninterp.funsym a and x = Term.Uninterp.arg a in
-      V.canonical x
-      &&
-      try
-        let _ = U.inv f x in
-        false
-      with Not_found -> true )
-  | Term.Array a -> (
-    try
-      let _ = F.inv a in
-      false
-    with Not_found -> (
-      match a with
-      | Term.Array.Update (a, i, x) ->
-          V.canonical a && V.canonical i && V.canonical x
-      | Term.Array.Lookup (a, i) -> V.canonical a && V.canonical i ) )
-  | Term.Arith p -> (
-      let canonical_m x _ = V.canonical x in
-      Term.Polynomial.Map.for_all canonical_m p.Term.Polynomial.monomials
-      &&
-      try
-        let _ = A.inv p in
-        false
-      with Not_found -> true )
-  | _ -> true
-
-let can t =
-  let t' =
-    match t with
-    | Term.Var x ->
-        let y = V.find x in
-        if Var.equal x y then t else Term.of_var y
+  let canonical = function
+    | Term.Var x -> V.canonical x
     | Term.Uninterp a -> (
         let f = Term.Uninterp.funsym a and x = Term.Uninterp.arg a in
-        let y = V.find x in
-        try Term.of_var (V.find (U.inv f y))
-        with Not_found ->
-          if Var.equal x y then t
-          else Term.of_apply (Term.Uninterp.make f y) )
-    | Term.Arith p -> (
-        let q = Term.Polynomial.map A.find p in
-        try Term.of_var (V.find (A.inv q))
-        with Not_found ->
-          if Term.Polynomial.equal p q then t else Term.of_poly q )
-    | Term.Tuple tt -> (
-        let tt' = Term.Tuple.map T.find tt in
-        try Term.of_var (V.find (T.inv tt'))
-        with Not_found ->
-          if Term.Tuple.equal tt tt' then t else Term.of_tuple tt' )
+        V.canonical x
+        &&
+        try
+          let _ = U.inv f x in
+          false
+        with Not_found -> true )
     | Term.Array a -> (
-        let a' = Term.Array.map V.find a in
-        try Term.of_var (V.find (F.inv a'))
-        with Not_found ->
-          if Term.Array.equal a a' then t else Term.of_array a' )
-  in
-  assert (canonical t') ;
-  t'
+      try
+        let _ = F.inv a in
+        false
+      with Not_found -> (
+        match a with
+        | Term.Array.Update (a, i, x) ->
+            V.canonical a && V.canonical i && V.canonical x
+        | Term.Array.Lookup (a, i) -> V.canonical a && V.canonical i ) )
+    | Term.Arith p -> (
+        let canonical_m x _ = V.canonical x in
+        Term.Polynomial.Map.for_all canonical_m p.Term.Polynomial.monomials
+        &&
+        try
+          let _ = A.inv p in
+          false
+        with Not_found -> true )
+    | _ -> true
 
-let diseq =
-  let memoize deq x y =
-    let res = deq x y in
-    if res then Separate.process x y ;
-    res
-  in
-  fun x y ->
-    let x = V.find x and y = V.find y in
-    memoize V.diseq x y || memoize U.diseq x y || memoize L1.diseq x y
+  let can t =
+    let t' =
+      match t with
+      | Term.Var x ->
+          let y = V.find x in
+          if Var.equal x y then t else Term.of_var y
+      | Term.Uninterp a -> (
+          let f = Term.Uninterp.funsym a and x = Term.Uninterp.arg a in
+          let y = V.find x in
+          try Term.of_var (V.find (U.inv f y))
+          with Not_found ->
+            if Var.equal x y then t
+            else Term.of_apply (Term.Uninterp.make f y) )
+      | Term.Arith p -> (
+          let q = Term.Polynomial.map A.find p in
+          try Term.of_var (V.find (A.inv q))
+          with Not_found ->
+            if Term.Polynomial.equal p q then t else Term.of_poly q )
+      | Term.Tuple tt -> (
+          let tt' = Term.Tuple.map T.find tt in
+          try Term.of_var (V.find (T.inv tt'))
+          with Not_found ->
+            if Term.Tuple.equal tt tt' then t else Term.of_tuple tt' )
+      | Term.Array a -> (
+          let a' = Term.Array.map V.find a in
+          try Term.of_var (V.find (F.inv a'))
+          with Not_found ->
+            if Term.Array.equal a a' then t else Term.of_array a' )
+    in
+    assert (canonical t') ;
+    t'
 
-let alias = function
-  | Term.Var x -> V.find x
-  | Term.Arith p -> A.alias p
-  | Term.Tuple t -> T.alias t
-  | Term.Array a -> F.alias a
-  | Term.Uninterp a ->
-      U.alias (Term.Uninterp.funsym a) (Term.Uninterp.arg a)
+  let diseq =
+    let memoize deq x y =
+      let res = deq x y in
+      if res then Separate.process x y ;
+      res
+    in
+    fun x y ->
+      let x = V.find x and y = V.find y in
+      memoize V.diseq x y || memoize U.diseq x y || memoize L1.diseq x y
 
-let term2poly = function
-  | Term.Var n -> (
-    try A.find n with Not_found -> Term.Polynomial.indet n )
-  | Term.Arith q -> q
-  | t -> Term.Polynomial.indet (alias t)
+  let alias = function
+    | Term.Var x -> V.find x
+    | Term.Arith p -> A.alias p
+    | Term.Tuple t -> T.alias t
+    | Term.Array a -> F.alias a
+    | Term.Uninterp a ->
+        U.alias (Term.Uninterp.funsym a) (Term.Uninterp.arg a)
 
-let poly2term p =
-  try Term.of_var (V.find (A.inv p)) with Not_found -> Term.of_poly p
+  let term2poly = function
+    | Term.Var n -> (
+      try A.find n with Not_found -> Term.Polynomial.indet n )
+    | Term.Arith q -> q
+    | t -> Term.Polynomial.indet (alias t)
 
-let do_normalize = ref true
-let is_sat () = R.is_empty () || P.is_valid ()
-let is_unsat () = match !curr_status with Unsat _ -> true | _ -> false
+  let poly2term p =
+    try Term.of_var (V.find (A.inv p)) with Not_found -> Term.of_poly p
 
-let apply_process process p =
-  try process p
-  with
-  | Unsatisfiable | L0.Unsat | L1.Unsat | A.Unsat | V.Unsat | P.Unsat ->
-    curr_status := Unsat !curr_context ;
-    reset_channels () ;
-    raise Unsatisfiable
+  let do_normalize = ref true
+  let is_sat () = R.is_empty () || P.is_valid ()
+  let is_unsat () = match !curr_status with Unsat _ -> true | _ -> false
 
-let add_equal s t =
-  if Term.equal s t then ()
-  else
-    match (s, t) with
-    | Term.Arith p, Term.Arith q ->
-        A.process_eq0 (Term.Polynomial.sub (A.can p) (A.can q))
-    | Term.Arith p, _ ->
-        let q = Term.Polynomial.indet (alias t) in
-        A.process_eq0 (Term.Polynomial.sub (A.can p) (A.can q))
-    | _, Term.Arith q ->
-        let p = Term.Polynomial.indet (alias s) in
-        A.process_eq0 (Term.Polynomial.sub (A.can p) (A.can q))
-    | Term.Tuple ss, Term.Tuple tt -> T.process_eq ss tt
-    | Term.Tuple ss, _ ->
-        let tt = Term.Tuple.of_var (alias t) in
-        T.process_eq ss tt
-    | _, Term.Tuple tt ->
-        let ss = Term.Tuple.of_var (alias s) in
-        T.process_eq ss tt
-    | _ ->
-        let x = alias s and y = alias t in
-        if V.equal x y then () else Union.process x y
+  let apply_process process p =
+    try process p
+    with
+    | Unsatisfiable | L0.Unsat | L1.Unsat | A.Unsat | V.Unsat | P.Unsat ->
+      curr_status := Unsat !curr_context ;
+      reset_channels () ;
+      raise Unsatisfiable
 
-let add_diseq s t =
-  if Term.equal s t then raise Unsatisfiable
-  else
-    match (s, t) with
-    | Term.Arith p, Term.Arith q ->
-        A.process_deq0 (Term.Polynomial.sub (A.can p) (A.can q))
-    | Term.Arith p, _ ->
-        let q = Term.Polynomial.indet (alias t) in
-        A.process_deq0 (Term.Polynomial.sub (A.can p) (A.can q))
-    | _, Term.Arith q ->
-        let p = Term.Polynomial.indet (alias s) in
-        A.process_deq0 (Term.Polynomial.sub (A.can p) (A.can q))
-    | _ ->
-        let x = alias s and y = alias t in
-        Separate.process x y
+  let add_equal s t =
+    if Term.equal s t then ()
+    else
+      match (s, t) with
+      | Term.Arith p, Term.Arith q ->
+          A.process_eq0 (Term.Polynomial.sub (A.can p) (A.can q))
+      | Term.Arith p, _ ->
+          let q = Term.Polynomial.indet (alias t) in
+          A.process_eq0 (Term.Polynomial.sub (A.can p) (A.can q))
+      | _, Term.Arith q ->
+          let p = Term.Polynomial.indet (alias s) in
+          A.process_eq0 (Term.Polynomial.sub (A.can p) (A.can q))
+      | Term.Tuple ss, Term.Tuple tt -> T.process_eq ss tt
+      | Term.Tuple ss, _ ->
+          let tt = Term.Tuple.of_var (alias t) in
+          T.process_eq ss tt
+      | _, Term.Tuple tt ->
+          let ss = Term.Tuple.of_var (alias s) in
+          T.process_eq ss tt
+      | _ ->
+          let x = alias s and y = alias t in
+          if V.equal x y then () else Union.process x y
 
-let add_arith = Add.arith
-let add_negarith = Add.negarith
+  let add_diseq s t =
+    if Term.equal s t then raise Unsatisfiable
+    else
+      match (s, t) with
+      | Term.Arith p, Term.Arith q ->
+          A.process_deq0 (Term.Polynomial.sub (A.can p) (A.can q))
+      | Term.Arith p, _ ->
+          let q = Term.Polynomial.indet (alias t) in
+          A.process_deq0 (Term.Polynomial.sub (A.can p) (A.can q))
+      | _, Term.Arith q ->
+          let p = Term.Polynomial.indet (alias s) in
+          A.process_deq0 (Term.Polynomial.sub (A.can p) (A.can q))
+      | _ ->
+          let x = alias s and y = alias t in
+          Separate.process x y
 
-let add_poslit p t =
-  match p with
-  | Predsym.Arith p -> add_arith p (term2poly t)
-  | _ -> L1.process_pos p (alias t)
+  let add_arith = Add.arith
+  let add_negarith = Add.negarith
 
-let add_neglit p t =
-  match p with
-  | Predsym.Arith p -> add_negarith p (term2poly t)
-  | _ -> L1.process_neg p (alias t)
+  let add_poslit p t =
+    match p with
+    | Predsym.Arith p -> add_arith p (term2poly t)
+    | _ -> L1.process_pos p (alias t)
 
-let add_formula = function
-  | Formula.Equal (s, t) -> add_equal s t
-  | Formula.Diseq (s, t) -> add_diseq s t
-  | Formula.Arith (p, t) -> add_arith p t
-  | Formula.Poslit (p, t) -> add_poslit p t
-  | Formula.Neglit (p, t) -> add_neglit p t
-  | Formula.Prop b -> P.process_conjoin b
+  let add_neglit p t =
+    match p with
+    | Predsym.Arith p -> add_negarith p (term2poly t)
+    | _ -> L1.process_neg p (alias t)
 
-let rec close () =
-  if closed () then ()
-  else (
-    [%Trace.info "close: %a" pp_current ()] ;
-    Union.close () ;
-    Separate.close () ;
-    Valid0.close () ;
-    Unsat0.close () ;
-    Valid1.close () ;
-    Unsat1.close () ;
-    close () )
+  let add_formula = function
+    | Formula.Equal (s, t) -> add_equal s t
+    | Formula.Diseq (s, t) -> add_diseq s t
+    | Formula.Arith (p, t) -> add_arith p t
+    | Formula.Poslit (p, t) -> add_poslit p t
+    | Formula.Neglit (p, t) -> add_neglit p t
+    | Formula.Prop b -> P.process_conjoin b
 
-let normalize () =
-  A.normalize () ;
-  T.normalize ()
-
-let process_exn p =
-  assert (closed ()) ;
-  let add p =
-    if Formula.is_true p || is_unsat () then ()
+  let rec close () =
+    if closed () then ()
     else (
-      curr_context := p :: !curr_context ;
-      add_formula p ;
-      close () ;
-      if !do_normalize then normalize () ;
-      curr_status := if is_sat () then Sat Formula.mk_true else Unknown ;
-      assert (closed ()) )
-  in
-  apply_process add p
+      [%Trace.info "close: %a" pp_current ()] ;
+      Union.close () ;
+      Separate.close () ;
+      Valid0.close () ;
+      Unsat0.close () ;
+      Valid1.close () ;
+      Unsat1.close () ;
+      close () )
 
-let process p =
-  [%Trace.call fun {pf} -> pf "%a: %a" Formula.pp p pp_current ()]
-  ;
-  (try process_exn p with Unsatisfiable -> ()) ;
-  !curr_status
-  |>
-  [%Trace.retn fun {pf} s -> pf "%a: %a" pp_status s pp_current ()]
+  let normalize () =
+    A.normalize () ;
+    T.normalize ()
 
-let context () = !curr_context
-let status () = !curr_status
-let equal s1 s2 = s1.context == s2.context
+  let process_exn p =
+    assert (closed ()) ;
+    let add p =
+      if Formula.is_true p || is_unsat () then ()
+      else (
+        curr_context := p :: !curr_context ;
+        add_formula p ;
+        close () ;
+        if !do_normalize then normalize () ;
+        curr_status := if is_sat () then Sat Formula.mk_true else Unknown ;
+        assert (closed ()) )
+    in
+    apply_process add p
 
-let descendant s1 s2 =
-  let c1 = s1.context and c2 = s2.context in
-  let rec search c = c == c2 || ((not (c = [])) && search (List.tl c)) in
-  search c1
+  let process p =
+    [%Trace.call fun {pf} -> pf "%a: %a" Formula.pp p pp_current ()]
+    ;
+    (try process_exn p with Unsatisfiable -> ()) ;
+    !curr_status
+    |>
+    [%Trace.retn fun {pf} s -> pf "%a: %a" pp_status s pp_current ()]
 
-let var n = Term.of_var (V.find n)
+  let context () = !curr_context
+  let status () = !curr_status
+  let equal s1 s2 = s1.context == s2.context
 
-let is_num c =
-  let poly_is_num c p =
-    try Q.equal c (Term.Polynomial.d_constant p)
-    with Term.Polynomial.Nonnum -> false
-  in
-  function
-  | Term.Var n -> (
-    try poly_is_num c (A.find (V.find n)) with Not_found -> false )
-  | Term.Arith p -> poly_is_num c p
-  | _ -> false
+  let descendant s1 s2 =
+    let c1 = s1.context and c2 = s2.context in
+    let rec search c = c == c2 || ((not (c = [])) && search (List.tl c)) in
+    search c1
 
-let d_num t =
-  try
-    match t with
-    | Term.Var x -> Term.Polynomial.d_constant (A.find (V.find x))
-    | Term.Arith p -> Term.Polynomial.d_constant p
-    | _ -> raise Not_found
-  with Term.Polynomial.Nonnum -> raise Not_found
+  let var n = Term.of_var (V.find n)
 
-let max t =
-  let p = A.can (term2poly t) in
-  if A.restricted p then poly2term (A.max p) else t
+  let is_num c =
+    let poly_is_num c p =
+      try Q.equal c (Term.Polynomial.d_constant p)
+      with Term.Polynomial.Nonnum -> false
+    in
+    function
+    | Term.Var n -> (
+      try poly_is_num c (A.find (V.find n)) with Not_found -> false )
+    | Term.Arith p -> poly_is_num c p
+    | _ -> false
 
-let min t =
-  let p = A.can (Term.Polynomial.minus (term2poly t)) in
+  let d_num t =
+    try
+      match t with
+      | Term.Var x -> Term.Polynomial.d_constant (A.find (V.find x))
+      | Term.Arith p -> Term.Polynomial.d_constant p
+      | _ -> raise Not_found
+    with Term.Polynomial.Nonnum -> raise Not_found
+
+  let max t =
+    let p = A.can (term2poly t) in
+    if A.restricted p then poly2term (A.max p) else t
+
+  let min t =
+    let p = A.can (Term.Polynomial.minus (term2poly t)) in
     if A.restricted p then poly2term (Term.Polynomial.minus (A.max p))
     else t
 
-let sup t =
-  let p = A.can (term2poly t) in
-  if not (A.restricted p) then raise Not_found
-  else
-    let p = A.max p in
-    if A.maximized p then Term.Polynomial.const p else raise Not_found
+  let sup t =
+    let p = A.can (term2poly t) in
+    if not (A.restricted p) then raise Not_found
+    else
+      let p = A.max p in
+      if A.maximized p then Term.Polynomial.const p else raise Not_found
 
-let inf t =
-  let p = A.can (term2poly t) in
-  if not (A.restricted p) then raise Not_found
-  else
-    let p = A.max (Term.Polynomial.minus p) in
-    if A.maximized p then Q.neg (Term.Polynomial.const p)
-    else raise Not_found
+  let inf t =
+    let p = A.can (term2poly t) in
+    if not (A.restricted p) then raise Not_found
+    else
+      let p = A.max (Term.Polynomial.minus p) in
+      if A.maximized p then Q.neg (Term.Polynomial.const p)
+      else raise Not_found
 
-let constz z = poly2term (Term.Polynomial.constant (Q.of_bigint z))
-let constq q = poly2term (Term.Polynomial.constant q)
+  let constz z = poly2term (Term.Polynomial.constant (Q.of_bigint z))
+  let constq q = poly2term (Term.Polynomial.constant q)
 
-let mult c t =
-  assert (canonical t) ;
-  if Q.equal Q.zero c then constz Z.zero
-  else if Q.equal Q.one c then t
-  else
-    let p =
-      try Term.Polynomial.constant (Q.mul c (d_num t))
-      with Not_found -> Term.Polynomial.multc c (term2poly t)
-    in
-    poly2term p
+  let mult c t =
+    assert (canonical t) ;
+    if Q.equal Q.zero c then constz Z.zero
+    else if Q.equal Q.one c then t
+    else
+      let p =
+        try Term.Polynomial.constant (Q.mul c (d_num t))
+        with Not_found -> Term.Polynomial.multc c (term2poly t)
+      in
+      poly2term p
 
-let multq = mult
+  let multq = mult
 
-let addc c t =
-  if Q.equal Q.zero c then t
-  else
-    let p =
-      try Term.Polynomial.constant (Q.add c (d_num t))
-      with Not_found -> Term.Polynomial.addc c (term2poly t)
-    in
-    poly2term p
+  let addc c t =
+    if Q.equal Q.zero c then t
+    else
+      let p =
+        try Term.Polynomial.constant (Q.add c (d_num t))
+        with Not_found -> Term.Polynomial.addc c (term2poly t)
+      in
+      poly2term p
 
-let add s t =
-  try addc (d_num s) t
-  with Not_found -> (
-    try addc (d_num t) s
+  let add s t =
+    try addc (d_num s) t
+    with Not_found -> (
+      try addc (d_num t) s
+      with Not_found ->
+        poly2term (Term.Polynomial.add (term2poly s) (term2poly t)) )
+
+  let sub s t =
+    try addc (Q.neg (d_num t)) s
     with Not_found ->
-      poly2term (Term.Polynomial.add (term2poly s) (term2poly t)) )
+      poly2term (Term.Polynomial.sub (term2poly s) (term2poly t))
 
-let sub s t =
-  try addc (Q.neg (d_num t)) s
-  with Not_found ->
-    poly2term (Term.Polynomial.sub (term2poly s) (term2poly t))
+  let minus t = poly2term (Term.Polynomial.minus (term2poly t))
 
-let minus t = poly2term (Term.Polynomial.minus (term2poly t))
+  let term2tuple = function
+    | Term.Var n -> ( try T.find n with Not_found -> Term.Tuple.of_var n )
+    | Term.Tuple t -> t
+    | t -> Term.Tuple.of_var (alias t)
 
-let term2tuple = function
-  | Term.Var n -> ( try T.find n with Not_found -> Term.Tuple.of_var n )
-  | Term.Tuple t -> t
-  | t -> Term.Tuple.of_var (alias t)
+  let tuple2term t =
+    try Term.of_var (V.find (T.inv t)) with Not_found -> Term.of_tuple t
 
-let tuple2term t =
-  try Term.of_var (V.find (T.inv t)) with Not_found -> Term.of_tuple t
+  let nil () = tuple2term Term.Tuple.nil
+  let pair s t = tuple2term (Term.Tuple.pair (term2tuple s) (term2tuple t))
 
-let nil () = tuple2term Term.Tuple.nil
-let pair s t = tuple2term (Term.Tuple.pair (term2tuple s) (term2tuple t))
+  let triple s t r =
+    tuple2term
+      (Term.Tuple.triple (term2tuple s) (term2tuple t) (term2tuple r))
 
-let triple s t r =
-  tuple2term
-    (Term.Tuple.triple (term2tuple s) (term2tuple t) (term2tuple r))
-
-let tuple = function
+  let tuple = function
     | [||] -> nil ()
     | [|t|] -> t
     | [|s; t|] -> pair s t
     | [|s; t; r|] -> triple s t r
     | ts -> tuple2term (Term.Tuple.tuple (Array.map term2tuple ts))
 
-let proj i n t = tuple2term (Term.Tuple.proj i n (term2tuple t))
-let left = proj 0 2
-let right = proj 1 2
+  let proj i n t = tuple2term (Term.Tuple.proj i n (term2tuple t))
+  let left = proj 0 2
+  let right = proj 1 2
 
-let apply f t =
+  let apply f t =
     ([%Trace.call fun {pf} -> pf "%a %a" UFunsym.pp f Term.pp t]
-  ;
-  let n = alias t in
-  try Term.of_var (V.find (U.inv f n))
-  with Not_found -> Term.of_apply (Term.Uninterp.make f n))
-  |>
-  [%Trace.retn fun {pf} -> pf "%a" Term.pp]
+    ;
+    let n = alias t in
+    try Term.of_var (V.find (U.inv f n))
+    with Not_found -> Term.of_apply (Term.Uninterp.make f n))
+    |>
+    [%Trace.retn fun {pf} -> pf "%a" Term.pp]
 
-let constant f = apply f (nil ())
+  let constant f = apply f (nil ())
 
-let array2term a =
-  try Term.of_var (V.find (F.inv a)) with Not_found -> Term.of_array a
+  let array2term a =
+    try Term.of_var (V.find (F.inv a)) with Not_found -> Term.of_array a
 
-let lookup a i =
-  let i = alias i in
-  match a with
-  | Term.Array (Term.Array.Update (_, j, y)) when V.equal i j ->
-      Term.of_var y
-  | Term.Array (Term.Array.Update (b, j, _)) when V.diseq i j ->
-      array2term (Term.Array.lookup b i)
-  | _ -> array2term (Term.Array.lookup (alias a) i)
+  let lookup a i =
+    let i = alias i in
+    match a with
+    | Term.Array (Term.Array.Update (_, j, y)) when V.equal i j ->
+        Term.of_var y
+    | Term.Array (Term.Array.Update (b, j, _)) when V.diseq i j ->
+        array2term (Term.Array.lookup b i)
+    | _ -> array2term (Term.Array.lookup (alias a) i)
 
-let update_var a i x = array2term (Term.Array.update a i x)
+  let update_var a i x = array2term (Term.Array.update a i x)
 
-let update a i x =
-  let i = alias i in
-  let x = alias x in
-  match a with
-  | Term.Array (Term.Array.Update (b, j, _)) when V.equal i j ->
-      update_var b i x
-  | Term.Array (Term.Array.Update (b, j, y))
-    when Var.compare i j > 0 && V.diseq i j ->
-      update_var (alias (update_var b i x)) j y
-  | _ -> update_var (alias a) i x
+  let update a i x =
+    let i = alias i in
+    let x = alias x in
+    match a with
+    | Term.Array (Term.Array.Update (b, j, _)) when V.equal i j ->
+        update_var b i x
+    | Term.Array (Term.Array.Update (b, j, y))
+      when Var.compare i j > 0 && V.diseq i j ->
+        update_var (alias (update_var b i x)) j y
+    | _ -> update_var (alias a) i x
 
-let do_minimize = ref false
+  let do_minimize = ref false
 
-let with_do_minimize arith_test p =
-  let save_flag = !A.complete in
-  try
-    A.complete := !do_minimize ;
-    let res = arith_test p in
-    A.complete := save_flag ;
-    res
-  with exc ->
-    A.complete := save_flag ;
-    raise exc
+  let with_do_minimize arith_test p =
+    let save_flag = !A.complete in
+    try
+      A.complete := !do_minimize ;
+      let res = arith_test p in
+      A.complete := save_flag ;
+      res
+    with exc ->
+      A.complete := save_flag ;
+      raise exc
 
-let valid_equal s t =
-  let s = can s and t = can t in
-  Term.equal s t
+  let valid_equal s t =
+    let s = can s and t = can t in
+    Term.equal s t
 
-let valid_diseq s t =
-  match (can s, can t) with
-  | Term.Var x, Term.Var y -> diseq x y
-  | s, t -> Term.diseq s t
+  let valid_diseq s t =
+    match (can s, can t) with
+    | Term.Var x, Term.Var y -> diseq x y
+    | s, t -> Term.diseq s t
 
-let rec valid_bdd b =
-  if Formula.Bdd.is_valid b then true
-  else if Formula.Bdd.is_unsat b then false
-  else
-    let p = Formula.Bdd.cond b
-    and pos = Formula.Bdd.pos b
-    and neg = Formula.Bdd.neg b in
-    if L0.is_valid p then valid_bdd pos
-    else if L0.is_unsat p then valid_bdd neg
-    else Formula.Bdd.implies (P.current ()) b
+  let rec valid_bdd b =
+    if Formula.Bdd.is_valid b then true
+    else if Formula.Bdd.is_unsat b then false
+    else
+      let p = Formula.Bdd.cond b
+      and pos = Formula.Bdd.pos b
+      and neg = Formula.Bdd.neg b in
+      if L0.is_valid p then valid_bdd pos
+      else if L0.is_unsat p then valid_bdd neg
+      else Formula.Bdd.implies (P.current ()) b
 
-let valid_arith p t =
-  match p with
-  | Predsym.Arith.Nonneg -> with_do_minimize A.is_nonneg t
-  | Predsym.Arith.Pos -> with_do_minimize A.is_pos t
-  | Predsym.Arith.Equal0 -> with_do_minimize A.is_equal0 t
-  | Predsym.Arith.Diseq0 -> with_do_minimize A.is_diseq0 t
-  | Predsym.Arith.Real -> (
+  let valid_arith p t =
+    match p with
+    | Predsym.Arith.Nonneg -> with_do_minimize A.is_nonneg t
+    | Predsym.Arith.Pos -> with_do_minimize A.is_pos t
+    | Predsym.Arith.Equal0 -> with_do_minimize A.is_equal0 t
+    | Predsym.Arith.Diseq0 -> with_do_minimize A.is_diseq0 t
+    | Predsym.Arith.Real -> (
       try L1.valid Predsym.real (Term.Polynomial.d_indet t)
       with _ -> false )
-  | Predsym.Arith.Int -> (
-    try L1.valid Predsym.integer (Term.Polynomial.d_indet t)
-    with _ -> false )
+    | Predsym.Arith.Int -> (
+      try L1.valid Predsym.integer (Term.Polynomial.d_indet t)
+      with _ -> false )
 
-let valid_uninterp p t =
-  match can t with
+  let valid_uninterp p t =
+    match can t with
     | Term.Var x -> L1.valid (Predsym.uninterp p) x
-  | _ -> false
+    | _ -> false
 
-let valid_tuple n t =
-  match can t with
-  | Term.Var x -> L1.valid (Predsym.tuple n) x
-  | Term.Tuple tt when Term.Tuple.is_tuple n tt -> true
-  | _ -> false
+  let valid_tuple n t =
+    match can t with
+    | Term.Var x -> L1.valid (Predsym.tuple n) x
+    | Term.Tuple tt when Term.Tuple.is_tuple n tt -> true
+    | _ -> false
 
-let valid_array t =
-  match can t with
-  | Term.Var x -> L1.valid Predsym.array x
-  | Term.Array _ -> true
-  | _ -> false
+  let valid_array t =
+    match can t with
+    | Term.Var x -> L1.valid Predsym.array x
+    | Term.Array _ -> true
+    | _ -> false
 
-let valid_poslit p t =
-  match p with
-  | Predsym.Arith p -> valid_arith p (term2poly t)
-  | Predsym.Uninterp p -> valid_uninterp p t
-  | Predsym.Tuple n -> valid_tuple n t
-  | Predsym.Array -> valid_array t
+  let valid_poslit p t =
+    match p with
+    | Predsym.Arith p -> valid_arith p (term2poly t)
+    | Predsym.Uninterp p -> valid_uninterp p t
+    | Predsym.Tuple n -> valid_tuple n t
+    | Predsym.Array -> valid_array t
 
-let valid_neglit _p _t = false
+  let valid_neglit _p _t = false
 
-let valid p =
-  match p with
-  | Formula.Equal (s, t) -> valid_equal s t
-  | Formula.Diseq (s, t) -> valid_diseq s t
-  | Formula.Poslit (p, t) -> valid_poslit p t
-  | Formula.Neglit (p, t) -> valid_neglit p t
-  | Formula.Arith (p, t) -> valid_arith p t
-  | Formula.Prop b -> valid_bdd b
+  let valid p =
+    match p with
+    | Formula.Equal (s, t) -> valid_equal s t
+    | Formula.Diseq (s, t) -> valid_diseq s t
+    | Formula.Poslit (p, t) -> valid_poslit p t
+    | Formula.Neglit (p, t) -> valid_neglit p t
+    | Formula.Arith (p, t) -> valid_arith p t
+    | Formula.Prop b -> valid_bdd b
 
-let tt = Formula.mk_prop Formula.Bdd.mk_true
-let ff = Formula.mk_prop Formula.Bdd.mk_false
+  let tt = Formula.mk_prop Formula.Bdd.mk_true
+  let ff = Formula.mk_prop Formula.Bdd.mk_false
 
-let posvar p =
-  if L0.is_valid p then tt
-  else if L0.is_unsat p then ff
-  else Formula.mk_prop (Formula.Bdd.mk_posvar p)
+  let posvar p =
+    if L0.is_valid p then tt
+    else if L0.is_unsat p then ff
+    else Formula.mk_prop (Formula.Bdd.mk_posvar p)
 
-let negvar p =
-  if L0.is_valid p then ff
-  else if L0.is_unsat p then tt
-  else Formula.mk_prop (Formula.Bdd.mk_negvar p)
+  let negvar p =
+    if L0.is_valid p then ff
+    else if L0.is_unsat p then tt
+    else Formula.mk_prop (Formula.Bdd.mk_negvar p)
 
-let equal0 p =
-  let p = A.can p in
-  if A.is_equal0 p then tt
-  else if A.is_diseq0 p then ff
-  else Formula.mk_arith Predsym.Arith.Equal0 p
+  let equal0 p =
+    let p = A.can p in
+    if A.is_equal0 p then tt
+    else if A.is_diseq0 p then ff
+    else Formula.mk_arith Predsym.Arith.Equal0 p
 
-let eq s t =
-  let mk_eq s t =
-    if Term.compare s t > 0 then Formula.mk_equal s t
-    else Formula.mk_equal t s
-  in
-  let mk_eq0 p q =
-    equal0
+  let eq s t =
+    let mk_eq s t =
+      if Term.compare s t > 0 then Formula.mk_equal s t
+      else Formula.mk_equal t s
+    in
+    let mk_eq0 p q =
+      equal0
         ( if
           Q.compare (Term.Polynomial.const p) (Term.Polynomial.const q) <= 0
-      then Term.Polynomial.sub p q
-      else Term.Polynomial.sub q p )
-  in
-  let s = can s in
-  let t = can t in
-  if is_num Q.zero t then equal0 (term2poly s)
-  else if is_num Q.zero s then equal0 (term2poly t)
-  else
-    match (s, t) with
-    | Term.Var x, Term.Var y ->
-        if V.equal x y then tt else if diseq x y then ff else mk_eq s t
-    | Term.Arith p, Term.Arith q -> mk_eq0 p q
-    | Term.Arith p, _ -> mk_eq0 p (term2poly t)
-    | _, Term.Arith q -> mk_eq0 (term2poly s) q
-    | _ ->
-        if Term.equal s t then tt
-        else if Term.diseq s t then ff
-        else mk_eq s t
+        then Term.Polynomial.sub p q
+        else Term.Polynomial.sub q p )
+    in
+    let s = can s in
+    let t = can t in
+    if is_num Q.zero t then equal0 (term2poly s)
+    else if is_num Q.zero s then equal0 (term2poly t)
+    else
+      match (s, t) with
+      | Term.Var x, Term.Var y ->
+          if V.equal x y then tt else if diseq x y then ff else mk_eq s t
+      | Term.Arith p, Term.Arith q -> mk_eq0 p q
+      | Term.Arith p, _ -> mk_eq0 p (term2poly t)
+      | _, Term.Arith q -> mk_eq0 (term2poly s) q
+      | _ ->
+          if Term.equal s t then tt
+          else if Term.diseq s t then ff
+          else mk_eq s t
 
-let diseq0 p =
-  let p = A.can p in
-  if A.is_equal0 p then ff
-  else if A.is_diseq0 p then tt
-  else if Term.Polynomial.is_monomial p then (
-    let x = Term.Polynomial.indet_of_monomial p in
-    assert (not (Q.equal (Term.Polynomial.coeff_of_monomial p) Q.zero)) ;
-    Formula.mk_arith Predsym.Arith.Diseq0 (Term.Polynomial.indet x) )
-  else Formula.mk_arith Predsym.Arith.Diseq0 p
+  let diseq0 p =
+    let p = A.can p in
+    if A.is_equal0 p then ff
+    else if A.is_diseq0 p then tt
+    else if Term.Polynomial.is_monomial p then (
+      let x = Term.Polynomial.indet_of_monomial p in
+      assert (not (Q.equal (Term.Polynomial.coeff_of_monomial p) Q.zero)) ;
+      Formula.mk_arith Predsym.Arith.Diseq0 (Term.Polynomial.indet x) )
+    else Formula.mk_arith Predsym.Arith.Diseq0 p
 
-let deq s t =
-  let mk_deq s t =
-    if Term.compare s t > 0 then Formula.mk_diseq s t
-    else Formula.mk_diseq t s
-  in
-  if Term.equal s t then ff
-  else if Term.diseq s t then tt
-  else
-    match (s, t) with
-    | Term.Var x, Term.Var y ->
-        if V.equal x y then ff else if diseq x y then tt else mk_deq s t
-    | Term.Arith p, Term.Arith q -> diseq0 (Term.Polynomial.sub p q)
-    | Term.Arith p, _ -> diseq0 (Term.Polynomial.sub p (term2poly t))
-    | _, Term.Arith q -> diseq0 (Term.Polynomial.sub (term2poly s) q)
-    | _ -> mk_deq s t
+  let deq s t =
+    let mk_deq s t =
+      if Term.compare s t > 0 then Formula.mk_diseq s t
+      else Formula.mk_diseq t s
+    in
+    if Term.equal s t then ff
+    else if Term.diseq s t then tt
+    else
+      match (s, t) with
+      | Term.Var x, Term.Var y ->
+          if V.equal x y then ff else if diseq x y then tt else mk_deq s t
+      | Term.Arith p, Term.Arith q -> diseq0 (Term.Polynomial.sub p q)
+      | Term.Arith p, _ -> diseq0 (Term.Polynomial.sub p (term2poly t))
+      | _, Term.Arith q -> diseq0 (Term.Polynomial.sub (term2poly s) q)
+      | _ -> mk_deq s t
 
-let nonneg t =
-  let p = A.can (term2poly t) in
-  let c = Term.Polynomial.const p in
-  let sgn = Q.sign c in
-  if sgn >= 0 && A.minimized p then tt
-  else if sgn < 0 && A.maximized p then ff
-  else if !do_minimize && A.restricted p then
-    let p = A.min p in
+  let nonneg t =
+    let p = A.can (term2poly t) in
+    let c = Term.Polynomial.const p in
+    let sgn = Q.sign c in
     if sgn >= 0 && A.minimized p then tt
     else if sgn < 0 && A.maximized p then ff
+    else if !do_minimize && A.restricted p then
+      let p = A.min p in
+      if sgn >= 0 && A.minimized p then tt
+      else if sgn < 0 && A.maximized p then ff
+      else Formula.mk_arith Predsym.Arith.Nonneg p
     else Formula.mk_arith Predsym.Arith.Nonneg p
-  else Formula.mk_arith Predsym.Arith.Nonneg p
 
-let pos t =
-  let p = A.can (term2poly t) in
-  let c = Term.Polynomial.const p in
-  let sgn = Q.sign c in
-  if sgn > 0 && A.minimized p then tt
-  else if sgn <= 0 && A.maximized p then ff
-  else if !do_minimize && A.restricted p then
-    let p = A.min p in
+  let pos t =
+    let p = A.can (term2poly t) in
+    let c = Term.Polynomial.const p in
+    let sgn = Q.sign c in
     if sgn > 0 && A.minimized p then tt
     else if sgn <= 0 && A.maximized p then ff
+    else if !do_minimize && A.restricted p then
+      let p = A.min p in
+      if sgn > 0 && A.minimized p then tt
+      else if sgn <= 0 && A.maximized p then ff
+      else Formula.mk_arith Predsym.Arith.Pos p
     else Formula.mk_arith Predsym.Arith.Pos p
-  else Formula.mk_arith Predsym.Arith.Pos p
 
-let ge s t = nonneg (sub s t)
-let gt s t = pos (sub s t)
-let le s t = ge t s
-let lt s t = gt t s
+  let ge s t = nonneg (sub s t)
+  let gt s t = pos (sub s t)
+  let le s t = ge t s
+  let lt s t = gt t s
 
-let is_tuple n = function
-  | Term.Tuple t -> if Term.Tuple.is_tuple n t then tt else ff
-  | Term.Var x ->
-      let p = Predsym.tuple n in
+  let is_tuple n = function
+    | Term.Tuple t -> if Term.Tuple.is_tuple n t then tt else ff
+    | Term.Var x ->
+        let p = Predsym.tuple n in
+        if L1.valid p x then tt
+        else if L1.unsat p x then ff
+        else Formula.mk_apply p (Term.of_var x)
+    | t -> Formula.mk_apply (Predsym.tuple n) t
+
+  let is_array t =
+    match t with
+    | Term.Tuple _ | Term.Arith _ -> ff
+    | Term.Var x ->
+        if L1.valid Predsym.array x then tt
+        else if L1.unsat Predsym.array x then ff
+        else Formula.mk_apply Predsym.array t
+    | _ -> Formula.mk_apply Predsym.array t
+
+  let is_real t =
+    assert (canonical t) ;
+    match t with
+    | Term.Arith _ -> tt
+    | Term.Var x ->
+        if L1.valid Predsym.real x then tt
+        else if L1.unsat Predsym.real x then ff
+        else Formula.mk_apply Predsym.real t
+    | Term.Tuple _ | Term.Array _ -> ff
+    | Term.Uninterp _ -> Formula.mk_apply Predsym.real t
+
+  let is_integer t =
+    assert (canonical t) ;
+    match t with
+    | Term.Arith _ -> ff (* needs to be made more precise *)
+    | Term.Var x ->
+        if L1.valid Predsym.integer x then tt
+        else if L1.unsat Predsym.integer x then ff
+        else Formula.mk_apply Predsym.integer t
+    | Term.Tuple _ | Term.Array _ -> ff
+    | Term.Uninterp _ -> Formula.mk_apply Predsym.integer t
+
+  let uninterp p t =
+    try
+      let x = inv t in
       if L1.valid p x then tt
       else if L1.unsat p x then ff
-      else Formula.mk_apply p (Term.of_var x)
-  | t -> Formula.mk_apply (Predsym.tuple n) t
+      else Formula.mk_apply p t
+    with Not_found -> Formula.mk_apply p t
 
-let is_array t =
-  match t with
-  | Term.Tuple _ | Term.Arith _ -> ff
-  | Term.Var x ->
-      if L1.valid Predsym.array x then tt
-      else if L1.unsat Predsym.array x then ff
-      else Formula.mk_apply Predsym.array t
-  | _ -> Formula.mk_apply Predsym.array t
+  let poslit p t =
+    let t = can t in
+    match p with
+    | Predsym.Arith Predsym.Arith.Nonneg -> nonneg t
+    | Predsym.Arith Predsym.Arith.Pos -> pos t
+    | Predsym.Arith Predsym.Arith.Real -> is_real t
+    | Predsym.Arith Predsym.Arith.Int -> is_integer t
+    | Predsym.Arith Predsym.Arith.Equal0 -> equal0 (term2poly t)
+    | Predsym.Arith Predsym.Arith.Diseq0 -> diseq0 (term2poly t)
+    | Predsym.Uninterp _ -> uninterp p t
+    | Predsym.Tuple n -> is_tuple n t
+    | Predsym.Array -> is_array t
 
-let is_real t =
-  assert (canonical t) ;
-  match t with
-  | Term.Arith _ -> tt
-  | Term.Var x ->
-      if L1.valid Predsym.real x then tt
-      else if L1.unsat Predsym.real x then ff
-      else Formula.mk_apply Predsym.real t
-  | Term.Tuple _ | Term.Array _ -> ff
-  | Term.Uninterp _ -> Formula.mk_apply Predsym.real t
+  let neg_arith p t =
+    match p with
+    | Predsym.Arith.Nonneg -> pos (poly2term (Term.Polynomial.minus t))
+    | Predsym.Arith.Pos -> nonneg (poly2term (Term.Polynomial.minus t))
+    | Predsym.Arith.Equal0 -> diseq0 t
+    | Predsym.Arith.Diseq0 -> equal0 t
+    | Predsym.Arith.Real ->
+        let u = R.alias_monadic Predsym.real (A.alias t) in
+        Formula.mk_prop (Formula.Bdd.mk_negvar u)
+    | Predsym.Arith.Int ->
+        let u = R.alias_monadic Predsym.integer (A.alias t) in
+        Formula.mk_prop (Formula.Bdd.mk_negvar u)
 
-let is_integer t =
-  assert (canonical t) ;
-  match t with
-  | Term.Arith _ -> ff (* needs to be made more precise *)
-  | Term.Var x ->
-      if L1.valid Predsym.integer x then tt
-      else if L1.unsat Predsym.integer x then ff
-      else Formula.mk_apply Predsym.integer t
-  | Term.Tuple _ | Term.Array _ -> ff
-  | Term.Uninterp _ -> Formula.mk_apply Predsym.integer t
-
-let uninterp p t =
-  try
-    let x = inv t in
-    if L1.valid p x then tt
-    else if L1.unsat p x then ff
-    else Formula.mk_apply p t
-  with Not_found -> Formula.mk_apply p t
-
-let poslit p t =
-  let t = can t in
-  match p with
-  | Predsym.Arith Predsym.Arith.Nonneg -> nonneg t
-  | Predsym.Arith Predsym.Arith.Pos -> pos t
-  | Predsym.Arith Predsym.Arith.Real -> is_real t
-  | Predsym.Arith Predsym.Arith.Int -> is_integer t
-  | Predsym.Arith Predsym.Arith.Equal0 -> equal0 (term2poly t)
-  | Predsym.Arith Predsym.Arith.Diseq0 -> diseq0 (term2poly t)
-  | Predsym.Uninterp _ -> uninterp p t
-  | Predsym.Tuple n -> is_tuple n t
-  | Predsym.Array -> is_array t
-
-let neg_arith p t =
-  match p with
-  | Predsym.Arith.Nonneg -> pos (poly2term (Term.Polynomial.minus t))
-  | Predsym.Arith.Pos -> nonneg (poly2term (Term.Polynomial.minus t))
-  | Predsym.Arith.Equal0 -> diseq0 t
-  | Predsym.Arith.Diseq0 -> equal0 t
-  | Predsym.Arith.Real ->
-      let u = R.alias_monadic Predsym.real (A.alias t) in
-      Formula.mk_prop (Formula.Bdd.mk_negvar u)
-  | Predsym.Arith.Int ->
-      let u = R.alias_monadic Predsym.integer (A.alias t) in
-      Formula.mk_prop (Formula.Bdd.mk_negvar u)
-
-let neglit p t =
-  let t = can t in
-  match p with
-  | Predsym.Arith p -> neg_arith p (term2poly t)
-  | _ ->
-      let u = R.alias_monadic p (alias t) in
-      Formula.mk_prop (Formula.Bdd.mk_negvar u)
-
-let formula2bdd = function
-  | Formula.Equal (s, t) ->
-      Formula.Bdd.mk_posvar (R.alias_equal (alias s) (alias t))
-  | Formula.Diseq (s, t) ->
-      Formula.Bdd.mk_negvar (R.alias_equal (alias s) (alias t))
-  | Formula.Arith (p, t) ->
-      Formula.Bdd.mk_posvar
-        (R.alias_monadic (Predsym.of_arith p) (A.alias t))
-  | Formula.Poslit (p, t) ->
-      Formula.Bdd.mk_posvar (R.alias_monadic p (alias t))
-  | Formula.Neglit (p, t) ->
-      Formula.Bdd.mk_negvar (R.alias_monadic p (alias t))
-  | Formula.Prop b -> b
-
-let neg = function
-  | Formula.Equal (s, t) -> deq s t
-  | Formula.Diseq (s, t) -> eq s t
-  | Formula.Poslit (p, t) -> neglit p t
-  | Formula.Neglit (p, t) -> poslit p t
-  | Formula.Arith (p, t) -> neg_arith p t
-  | Formula.Prop b -> Formula.mk_prop (Formula.Bdd.mk_neg b)
-
-let valid_atom p =
-  match p with
-  | Formula.Equal (s, t) -> valid_equal s t
-  | Formula.Diseq (s, t) -> valid_diseq s t
-  | Formula.Poslit (p, t) -> valid_poslit p t
-  | Formula.Arith (p, t) -> valid_arith p t
-  | Formula.Neglit _ -> false
-  | Formula.Prop _ -> false
-
-let andthen p q =
-  if Formula.equal p q then p
-  else if valid_atom p then q
-  else if valid_atom q then p
-  else
-    match (p, q) with
-    | Formula.Poslit (qsym, s), Formula.Poslit (psym, t)
-      when Term.equal s t && Predsym.sub qsym psym ->
-        q
-    | Formula.Poslit (qsym, s), Formula.Poslit (psym, t)
-      when Term.equal s t && Predsym.sub psym qsym ->
-        p
+  let neglit p t =
+    let t = can t in
+    match p with
+    | Predsym.Arith p -> neg_arith p (term2poly t)
     | _ ->
-        let b = formula2bdd p and c = formula2bdd q in
-        if Formula.Bdd.is_unsat b || Formula.Bdd.is_unsat c then ff
-        else if Formula.Bdd.is_valid b then q
-        else if Formula.Bdd.is_valid c then p
-        else Formula.mk_prop (Formula.Bdd.mk_conj b c)
+        let u = R.alias_monadic p (alias t) in
+        Formula.mk_prop (Formula.Bdd.mk_negvar u)
 
-let orelse p q =
-  if Formula.equal p q then p
-  else if valid_atom p then tt
-  else if valid_atom q then ff
-  else
-    let b = formula2bdd p and c = formula2bdd q in
-    if Formula.Bdd.is_valid b || Formula.Bdd.is_valid c then tt
-    else if Formula.Bdd.is_unsat b then q
-    else if Formula.Bdd.is_unsat c then p
-    else Formula.mk_prop (Formula.Bdd.mk_disj b c)
+  let formula2bdd = function
+    | Formula.Equal (s, t) ->
+        Formula.Bdd.mk_posvar (R.alias_equal (alias s) (alias t))
+    | Formula.Diseq (s, t) ->
+        Formula.Bdd.mk_negvar (R.alias_equal (alias s) (alias t))
+    | Formula.Arith (p, t) ->
+        Formula.Bdd.mk_posvar
+          (R.alias_monadic (Predsym.of_arith p) (A.alias t))
+    | Formula.Poslit (p, t) ->
+        Formula.Bdd.mk_posvar (R.alias_monadic p (alias t))
+    | Formula.Neglit (p, t) ->
+        Formula.Bdd.mk_negvar (R.alias_monadic p (alias t))
+    | Formula.Prop b -> b
 
-let equiv p q =
-  if Formula.equal p q then tt
-  else if valid_atom p then p
-  else if valid_atom q then p
-  else
-    let b = formula2bdd p and c = formula2bdd q in
-    Formula.mk_prop (Formula.Bdd.mk_iff b c)
+  let neg = function
+    | Formula.Equal (s, t) -> deq s t
+    | Formula.Diseq (s, t) -> eq s t
+    | Formula.Poslit (p, t) -> neglit p t
+    | Formula.Neglit (p, t) -> poslit p t
+    | Formula.Arith (p, t) -> neg_arith p t
+    | Formula.Prop b -> Formula.mk_prop (Formula.Bdd.mk_neg b)
 
-let implies p q =
-  if Formula.equal p q then tt
-  else if valid_atom q then tt
-  else
-    let b = formula2bdd p and c = formula2bdd q in
-    Formula.mk_prop (Formula.Bdd.mk_imp b c)
+  let valid_atom p =
+    match p with
+    | Formula.Equal (s, t) -> valid_equal s t
+    | Formula.Diseq (s, t) -> valid_diseq s t
+    | Formula.Poslit (p, t) -> valid_poslit p t
+    | Formula.Arith (p, t) -> valid_arith p t
+    | Formula.Neglit _ -> false
+    | Formula.Prop _ -> false
 
-let ite p q r =
-  if Formula.equal q r then q
-  else if valid_atom p then q
-  else
-    let b = formula2bdd p in
-    if Formula.Bdd.is_valid b then q
-    else if Formula.Bdd.is_unsat b then r
+  let andthen p q =
+    if Formula.equal p q then p
+    else if valid_atom p then q
+    else if valid_atom q then p
     else
-      let c = formula2bdd q and d = formula2bdd r in
-      Formula.mk_prop (Formula.Bdd.mk_ite b c d)
+      match (p, q) with
+      | Formula.Poslit (qsym, s), Formula.Poslit (psym, t)
+        when Term.equal s t && Predsym.sub qsym psym ->
+          q
+      | Formula.Poslit (qsym, s), Formula.Poslit (psym, t)
+        when Term.equal s t && Predsym.sub psym qsym ->
+          p
+      | _ ->
+          let b = formula2bdd p and c = formula2bdd q in
+          if Formula.Bdd.is_unsat b || Formula.Bdd.is_unsat c then ff
+          else if Formula.Bdd.is_valid b then q
+          else if Formula.Bdd.is_valid c then p
+          else Formula.mk_prop (Formula.Bdd.mk_conj b c)
 
-let xor p q = ite p (neg q) q
+  let orelse p q =
+    if Formula.equal p q then p
+    else if valid_atom p then tt
+    else if valid_atom q then ff
+    else
+      let b = formula2bdd p and c = formula2bdd q in
+      if Formula.Bdd.is_valid b || Formula.Bdd.is_valid c then tt
+      else if Formula.Bdd.is_unsat b then q
+      else if Formula.Bdd.is_unsat c then p
+      else Formula.mk_prop (Formula.Bdd.mk_disj b c)
 
-let apply_with s f a =
-  assert (closed ()) ;
-  let save = current () in
-  initialize s ;
-  try
-    let b = f a in
-    initialize save ;
-    b
-  with exc ->
-    initialize save ;
-    raise exc
+  let equiv p q =
+    if Formula.equal p q then tt
+    else if valid_atom p then p
+    else if valid_atom q then p
+    else
+      let b = formula2bdd p and c = formula2bdd q in
+      Formula.mk_prop (Formula.Bdd.mk_iff b c)
 
-let rec xp b c a =
-  let split c =
-    let rec spl c1 c2 n =
-      assert (c2 <> []) ;
-      match (n, c2) with
-      | 0, _ -> (c1, c2)
-      | n, e :: c2' -> spl (e :: c1) c2' (n - 1)
-      | _ -> assert false
-    in
-    assert (List.length c >= 2) ;
-    spl [] c (List.length c / 2)
-  in
-  let processl s pl =
+  let implies p q =
+    if Formula.equal p q then tt
+    else if valid_atom q then tt
+    else
+      let b = formula2bdd p and c = formula2bdd q in
+      Formula.mk_prop (Formula.Bdd.mk_imp b c)
+
+  let ite p q r =
+    if Formula.equal q r then q
+    else if valid_atom p then q
+    else
+      let b = formula2bdd p in
+      if Formula.Bdd.is_valid b then q
+      else if Formula.Bdd.is_unsat b then r
+      else
+        let c = formula2bdd q and d = formula2bdd r in
+        Formula.mk_prop (Formula.Bdd.mk_ite b c d)
+
+  let xor p q = ite p (neg q) q
+
+  let apply_with s f a =
+    assert (closed ()) ;
+    let save = current () in
     initialize s ;
-    let todo = ref pl in
-    while !todo <> [] do
-      try
-        process_exn (List.hd !todo) ;
-        todo := List.tl !todo
-      with Unsatisfiable -> todo := []
-    done ;
-    current ()
-  in
-  match b.status with
-  | Unsat _ -> a
-  | _ -> (
-    match c with
-    | [] -> a
-    | [p] -> p :: a
-    | _ ->
-        let c1, c2 = split c in
-        let b' = processl b c1 in
-        let a' = xp b' c2 a in
-        let b'' = processl b a' in
-        xp b'' c1 a' )
+    try
+      let b = f a in
+      initialize save ;
+      b
+    with exc ->
+      initialize save ;
+      raise exc
 
-(** The [s] argument is the context, [c] is the unprocessed literals, and
-    [a] is the accumulator. The invariants are that
+  let rec xp b c a =
+    let split c =
+      let rec spl c1 c2 n =
+        assert (c2 <> []) ;
+        match (n, c2) with
+        | 0, _ -> (c1, c2)
+        | n, e :: c2' -> spl (e :: c1) c2' (n - 1)
+        | _ -> assert false
+      in
+      assert (List.length c >= 2) ;
+      spl [] c (List.length c / 2)
+    in
+    let processl s pl =
+      initialize s ;
+      let todo = ref pl in
+      while !todo <> [] do
+        try
+          process_exn (List.hd !todo) ;
+          todo := List.tl !todo
+        with Unsatisfiable -> todo := []
+      done ;
+      current ()
+    in
+    match b.status with
+    | Unsat _ -> a
+    | _ -> (
+      match c with
+      | [] -> a
+      | [p] -> p :: a
+      | _ ->
+          let c1, c2 = split c in
+          let b' = processl b c1 in
+          let a' = xp b' c2 a in
+          let b'' = processl b a' in
+          xp b'' c1 a' )
 
-    - [a] is always already asserted in context [s], and
-    - [assert(s, C)] is inconsistent.
+  (** The [s] argument is the context, [c] is the unprocessed literals, and
+      [a] is the accumulator. The invariants are that
 
-    The algorithm is based on Juncker's quick explain:
+      - [a] is always already asserted in context [s], and
+      - [assert(s, C)] is inconsistent.
 
-    {v
+      The algorithm is based on Juncker's quick explain:
+
+      {v
        xp B C A = 
          if empty?(C) || inconsistent?(B) then A else 
            if singleton?(C) then A U C else 
@@ -2232,110 +2300,110 @@ let rec xp b c a =
               let A' = xp(B', C2, A) in
               let B'' = assert(S, A') in
                   xp(B'', C1, A')
-    v} *)
-let explain pl =
-  let save = current () in
-  try
-    let ql = xp empty pl [] in
-    initialize save ;
-    ql
-  with exc ->
-    initialize save ;
-    raise exc
-
-type resolve = Implicant of Formula.Bdd.t | Learned of Formula.Bdd.t
-
-let process_implicant imp =
-  if Queue.is_empty imp then Implicant Formula.Bdd.mk_true
-  else
-    let ctxt = ref Formula.Bdd.mk_true in
-    let learned = ref Formula.Bdd.mk_true in
+      v} *)
+  let explain pl =
     let save = current () in
     try
+      let ql = xp empty pl [] in
       initialize save ;
-      while not (Queue.is_empty imp) do
-        match Queue.take imp with
-        | true, p ->
-            let curr = Formula.Bdd.mk_posvar p in
-            if L0.is_valid p then
-              learned :=
-                  Formula.Bdd.mk_conj !learned
-                    (Formula.Bdd.mk_imp !ctxt curr)
-            else (
-              ctxt := Formula.Bdd.mk_conj !ctxt curr ;
-              process_exn (Formula.mk_prop curr) )
-        | false, p ->
-            let curr = Formula.Bdd.mk_negvar p in
-            if L0.is_unsat p then
-              learned :=
-                  Formula.Bdd.mk_conj !learned
-                    (Formula.Bdd.mk_imp !ctxt curr)
-            else (
-              ctxt := Formula.Bdd.mk_conj !ctxt curr ;
-              process_exn (Formula.mk_prop curr) )
-      done ;
-      Implicant !ctxt
-    with Unsatisfiable ->
+      ql
+    with exc ->
       initialize save ;
-      (* Learned(Formula.Bdd.mk_conj (Formula.Bdd.mk_neg !ctxt) !learned) *)
-      Learned (Formula.Bdd.mk_neg !ctxt)
+      raise exc
 
-(** [implicant()] returns either an implicant or raises [Unsatisfiable]. *)
-let implicant =
-  let queue = Queue.create () in
-  let conjoin_learned b =
-    P.process_conjoin b ;
-    close ()
-  in
-  fun () ->
-    let rec loop () =
-      let b = P.current () in
-      if Formula.Bdd.is_unsat b then raise Unsatisfiable
-      else if Formula.Bdd.is_valid b then b
-      else (
-        Formula.Bdd.implicant b queue ;
-        if !footprint then
-          Footprint.implicant_candidate (Queue.length queue) ;
-        match process_implicant queue with
-        | Implicant impl ->
-            if !footprint then Footprint.implicant impl ;
-            impl
-        | Learned l ->
-            if !footprint then Footprint.learned l ;
-            apply_process conjoin_learned l ;
-            loop () )
-    in
-    loop ()
+  type resolve = Implicant of Formula.Bdd.t | Learned of Formula.Bdd.t
 
-let unsat_cores = ref true
-
-let resolve () =
-  match status () with
-  | Unsat _ as st -> st
-  | Sat _ as st -> st
-  | Unknown -> (
-      if !footprint then Footprint.resolve () ;
+  let process_implicant imp =
+    if Queue.is_empty imp then Implicant Formula.Bdd.mk_true
+    else
+      let ctxt = ref Formula.Bdd.mk_true in
+      let learned = ref Formula.Bdd.mk_true in
+      let save = current () in
       try
-        let impl = implicant () in
-        assert (not (Formula.Bdd.is_unsat impl)) ;
-        curr_status := Sat (Formula.mk_prop impl) ;
-        !curr_status
+        initialize save ;
+        while not (Queue.is_empty imp) do
+          match Queue.take imp with
+          | true, p ->
+              let curr = Formula.Bdd.mk_posvar p in
+              if L0.is_valid p then
+                learned :=
+                  Formula.Bdd.mk_conj !learned
+                    (Formula.Bdd.mk_imp !ctxt curr)
+              else (
+                ctxt := Formula.Bdd.mk_conj !ctxt curr ;
+                process_exn (Formula.mk_prop curr) )
+          | false, p ->
+              let curr = Formula.Bdd.mk_negvar p in
+              if L0.is_unsat p then
+                learned :=
+                  Formula.Bdd.mk_conj !learned
+                    (Formula.Bdd.mk_imp !ctxt curr)
+              else (
+                ctxt := Formula.Bdd.mk_conj !ctxt curr ;
+                process_exn (Formula.mk_prop curr) )
+        done ;
+        Implicant !ctxt
       with Unsatisfiable ->
-        let xp =
-          if !unsat_cores then explain !curr_context else !curr_context
-        in
-        curr_status := Unsat xp ;
-        !curr_status )
+        initialize save ;
+        (* Learned(Formula.Bdd.mk_conj (Formula.Bdd.mk_neg !ctxt) !learned) *)
+        Learned (Formula.Bdd.mk_neg !ctxt)
 
-let valid_complete fml =
-  assert (closed ()) ;
-  let check p =
-    try
-      process_exn (neg p) ;
-      false
-    with Unsatisfiable -> true
-  in
-  apply_with (current ()) check fml
+  (** [implicant()] returns either an implicant or raises [Unsatisfiable]. *)
+  let implicant =
+    let queue = Queue.create () in
+    let conjoin_learned b =
+      P.process_conjoin b ;
+      close ()
+    in
+    fun () ->
+      let rec loop () =
+        let b = P.current () in
+        if Formula.Bdd.is_unsat b then raise Unsatisfiable
+        else if Formula.Bdd.is_valid b then b
+        else (
+          Formula.Bdd.implicant b queue ;
+          if !footprint then
+            Footprint.implicant_candidate (Queue.length queue) ;
+          match process_implicant queue with
+          | Implicant impl ->
+              if !footprint then Footprint.implicant impl ;
+              impl
+          | Learned l ->
+              if !footprint then Footprint.learned l ;
+              apply_process conjoin_learned l ;
+              loop () )
+      in
+      loop ()
 
-let[@warning "-32"] implied fml = valid fml || valid_complete fml
+  let unsat_cores = ref true
+
+  let resolve () =
+    match status () with
+    | Unsat _ as st -> st
+    | Sat _ as st -> st
+    | Unknown -> (
+        if !footprint then Footprint.resolve () ;
+        try
+          let impl = implicant () in
+          assert (not (Formula.Bdd.is_unsat impl)) ;
+          curr_status := Sat (Formula.mk_prop impl) ;
+          !curr_status
+        with Unsatisfiable ->
+          let xp =
+            if !unsat_cores then explain !curr_context else !curr_context
+          in
+          curr_status := Unsat xp ;
+          !curr_status )
+
+  let valid_complete fml =
+    assert (closed ()) ;
+    let check p =
+      try
+        process_exn (neg p) ;
+        false
+      with Unsatisfiable -> true
+    in
+    apply_with (current ()) check fml
+
+  let[@warning "-32"] implied fml = valid fml || valid_complete fml
 end
