@@ -157,8 +157,12 @@ struct
   let dom x = Find.mem x (context ())
 
   let dep x =
+    ([%Trace.call fun {pf} -> pf "%a" Var.pp x]
+    ;
     try Dep.find (V.find x) (Config.Dep.current ())
-    with Not_found -> Varset.empty
+    with Not_found -> Varset.empty)
+    |>
+    [%Trace.retn fun {pf} -> pf "%a" Varset.pp]
 
   let well_formed () =
     let for_all p = Dep.for_all (fun y -> Varset.for_all (p y)) in
@@ -211,7 +215,19 @@ struct
       in
       Varset.choose found xs
 
+  let inv f y =
+    ([%Trace.call fun {pf} -> pf "%a %a" Funsym.pp f Var.pp y]
+    ;
+    try inv f y
+    with exn ->
+      [%Trace.retn fun {pf} () -> pf "%a" NS.Exn.pp exn] () ;
+      raise exn)
+    |>
+    [%Trace.retn fun {pf} -> pf "%a" Var.pp]
+
   let alias f y =
+    ([%Trace.call fun {pf} -> pf "%a %a" Funsym.pp f Var.pp y]
+    ;
     try inv f y
     with Not_found ->
       let u = Var.fresh () in
@@ -219,7 +235,9 @@ struct
       assert (not (Varset.mem u (dep y))) ;
       Config.Find.set u (Apply.make f y) ;
       Config.Dep.set y (Varset.add u (dep y)) ;
-      u
+      u)
+    |>
+    [%Trace.retn fun {pf} -> pf "%a" Var.pp]
 
   let close x y =
     assert (not (V.canonical x)) ;
