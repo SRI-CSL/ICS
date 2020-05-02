@@ -22,7 +22,13 @@
  * SOFTWARE.
  *)
 
-module type ELT = Type.EQUAL
+module type ELT = sig
+  type t
+
+  val equal : t -> t -> bool
+  val hash : t -> int
+  val pp : Format.formatter -> t -> unit
+end
 
 module type S = sig
   type elt

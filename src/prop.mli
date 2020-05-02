@@ -30,9 +30,6 @@
 
     @author Harald Ruess *)
 
-(** {i Ordered type of propositional variables.} *)
-module type PROPVAR = Type.ORDERED
-
 (** {i Propositional formulas.} *)
 module type PROP = sig
   (** Representation of propositional variables. *)
@@ -183,8 +180,9 @@ end
 (** Construction of a closed inference system from a representation of
     propositional variables [Var], propositional formulas [Prop], and an
     interface inference system [I]. *)
-module Make
-    (Var : PROPVAR)
-    (Prop : PROP with type var = Var.t)
-    (_ : INTERFACE with type var = Var.t) :
+module Make (Var : sig
+  type t
+end)
+(Prop : PROP with type var = Var.t)
+(_ : INTERFACE with type var = Var.t) :
   INFSYS with type var = Var.t and type t = Prop.t

@@ -27,7 +27,13 @@
     @author Harald Ruess *)
 
 (** Used for input signature of {!Setunion.Make}. *)
-module type ELT = Type.EQUAL
+module type ELT = sig
+  type t
+
+  val equal : t -> t -> bool
+  val hash : t -> int
+  val pp : Format.formatter -> t -> unit
+end
 
 (** {i Finite sets}. Output signature of {!Setunion.Make}. *)
 module type S = sig

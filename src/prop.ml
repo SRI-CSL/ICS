@@ -22,8 +22,6 @@
  * SOFTWARE.
  *)
 
-module type PROPVAR = Type.ORDERED
-
 module type PROP = sig
   type var
   type t
@@ -72,10 +70,11 @@ module type INFSYS = sig
   val propagate_unsat : var -> unit
 end
 
-module Make
-    (Var : PROPVAR)
-    (Prop : PROP with type var = Var.t)
-    (I : INTERFACE with type var = Var.t) =
+module Make (Var : sig
+  type t
+end)
+(Prop : PROP with type var = Var.t)
+(I : INTERFACE with type var = Var.t) =
 struct
   type var = Var.t
   type t = Prop.t
