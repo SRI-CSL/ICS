@@ -372,7 +372,7 @@ module Make (C : COEFF) (X : INDETERMINATE) = struct
 
   let constant =
     let empty = Map.empty () in
-    let module Cache = Weakhash.Make (C) (T) in
+    let module Cache = Ephemeron.K1.Make (C) in
     let table = Cache.create 17 in
     fun c ->
       try Cache.find table c
@@ -393,7 +393,7 @@ module Make (C : COEFF) (X : INDETERMINATE) = struct
     if Map.is_empty p.monomials then p.constant else raise Nonnum
 
   let indet =
-    let module Cache = Weakhash.Make (X) (T) in
+    let module Cache = Ephemeron.K1.Make (X) in
     let table = Cache.create 17 in
     fun x ->
       try Cache.find table x

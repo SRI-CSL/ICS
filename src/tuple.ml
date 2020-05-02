@@ -248,7 +248,7 @@ module Tuple (Var : VAR) = struct
     | _ -> invalid_arg "Tuple.to_var: argument not a variable."
 
   let of_var =
-    let module Cache = Weakhash.Make (Var) (T) in
+    let module Cache = Ephemeron.K1.Make (Var) in
     let universe = Cache.create 27 in
     fun x ->
       try Cache.find universe x

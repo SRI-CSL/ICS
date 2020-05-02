@@ -53,18 +53,7 @@ end
 
 module Make (Elt : ELT) = struct
   type elt = Elt.t
-
-  module T = struct
-    type t =
-      | Empty
-      | Singleton of Elt.t
-      | Add of Elt.t * t
-      | Union of t * t
-
-    let dummy = Empty
-  end
-
-  include T
+  type t = Empty | Singleton of Elt.t | Add of Elt.t * t | Union of t * t
 
   let equal = ( = )
 
@@ -79,7 +68,7 @@ module Make (Elt : ELT) = struct
   let is_singleton = function Singleton _ -> true | _ -> false
 
   let singleton =
-    let module Cache = Weakhash.Make (Elt) (T) in
+    let module Cache = Ephemeron.K1.Make (Elt) in
     let table = Cache.create 7 in
     fun x ->
       try Cache.find table x

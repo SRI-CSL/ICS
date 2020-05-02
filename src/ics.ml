@@ -221,18 +221,12 @@ module Term = struct
   (** {i Functional Array Terms} *)
   module Array = Funarr.Flat (Var)
 
-  module T = struct
-    type t =
-      | Var of Var.t
-      | Uninterp of Uninterp.t
-      | Arith of Polynomial.t
-      | Tuple of Tuple.t
-      | Array of Array.t
-
-    let dummy = Tuple Tuple.nil
-  end
-
-  include T
+  type t =
+    | Var of Var.t
+    | Uninterp of Uninterp.t
+    | Arith of Polynomial.t
+    | Tuple of Tuple.t
+    | Array of Array.t
 
   let hash = function
     | Var x -> Var.hash x
@@ -298,7 +292,7 @@ module Term = struct
     | _ -> raise (Invalid_argument "not a variable")
 
   let of_var =
-    let module Cache = Weakhash.Make (Var) (T) in
+    let module Cache = Ephemeron.K1.Make (Var) in
     let universe = Cache.create 153 in
     fun x ->
       try Cache.find universe x
@@ -309,7 +303,7 @@ module Term = struct
         t
 
   let of_apply =
-    let module Cache = Weakhash.Make (Uninterp) (T) in
+    let module Cache = Ephemeron.K1.Make (Uninterp) in
     let table = Cache.create 107 in
     fun a ->
       try Cache.find table a
@@ -320,7 +314,7 @@ module Term = struct
         t
 
   let of_poly =
-    let module Cache = Weakhash.Make (Polynomial) (T) in
+    let module Cache = Ephemeron.K1.Make (Polynomial) in
     let table = Cache.create 107 in
     fun p ->
       try of_var (Polynomial.d_indet p)
@@ -335,7 +329,7 @@ module Term = struct
   let of_num c = of_poly (Polynomial.constant c)
 
   let of_tuple =
-    let module Cache = Weakhash.Make (Tuple) (T) in
+    let module Cache = Ephemeron.K1.Make (Tuple) in
     let table = Cache.create 107 in
     fun tt ->
       if Tuple.is_var tt then of_var (Tuple.to_var tt)
@@ -348,7 +342,7 @@ module Term = struct
           t
 
   let of_array =
-    let module Cache = Weakhash.Make (Array) (T) in
+    let module Cache = Ephemeron.K1.Make (Array) in
     let table = Cache.create 107 in
     fun tt ->
       try Cache.find table tt
@@ -388,8 +382,6 @@ module Term = struct
   let[@warning "-32"] contains_fresh = exists Var.is_fresh
 end
 
-module Term2 = Type.Product (Term) (Term)
-
 module Propvar = Intern (struct
   let name = "p"
 end)
@@ -420,8 +412,6 @@ module Predsym = struct
       | Diseq0 -> 911
       | Int -> 1357
 
-    let compare = Stdlib.compare
-
     let sub p q =
       match (p, q) with
       | Equal0, Nonneg -> true
@@ -433,20 +423,12 @@ module Predsym = struct
       | Equal0, Diseq0 -> true
       | Diseq0, Equal0 -> true
       | _ -> false
-
-    let dummy = Nonneg
   end
 
-  module T = struct
-    type t = Uninterp of Name.t | Arith of Arith.t | Tuple of int | Array
-
-    let dummy = Array
-  end
-
-  include T
+  type t = Uninterp of Name.t | Arith of Arith.t | Tuple of int | Array
 
   let uninterp =
-    let module Cache = Weakhash.Make (Name) (T) in
+    let module Cache = Ephemeron.K1.Make (Name) in
     let table = Cache.create 7 in
     fun str ->
       let n = Name.of_string str in
@@ -530,19 +512,13 @@ module Formula = struct
          conditions}. *)
   module Bdd = Bdd.Make (Propvar)
 
-  module T = struct
-    type t =
-      | Equal of Term.t * Term.t
-      | Diseq of Term.t * Term.t
-      | Poslit of Predsym.t * Term.t
-      | Neglit of Predsym.t * Term.t
-      | Arith of Predsym.Arith.t * Term.Polynomial.t
-      | Prop of Bdd.t
-
-    let dummy = Prop Bdd.mk_true
-  end
-
-  include T
+  type t =
+    | Equal of Term.t * Term.t
+    | Diseq of Term.t * Term.t
+    | Poslit of Predsym.t * Term.t
+    | Neglit of Predsym.t * Term.t
+    | Arith of Predsym.Arith.t * Term.Polynomial.t
+    | Prop of Bdd.t
 
   let pretty = ref true
   let maxdepth = ref (-1)
@@ -598,80 +574,63 @@ module Formula = struct
     else Stdlib.compare p q
 
   let mk_equal =
-    let module Cache = Weakhash.Make (Term2) (T) in
+    let module Cache = Ephemeron.K2.Make (Term) (Term) in
     let table = Cache.create 107 in
-    let dummy = Term2.make Term.dummy Term.dummy in
     fun s t ->
-      Term2.fill dummy s t ;
-      try Cache.find table dummy
+      try Cache.find table (s, t)
       with Not_found ->
         let e = Equal (s, t) in
-        assert (not (Cache.mem table (Term2.make s t))) ;
-        Cache.add table (Term2.make s t) e ;
+        assert (not (Cache.mem table (s, t))) ;
+        Cache.add table (s, t) e ;
         e
 
   let mk_diseq =
-    let module Cache = Weakhash.Make (Term2) (T) in
+    let module Cache = Ephemeron.K2.Make (Term) (Term) in
     let table = Cache.create 107 in
-    let dummy = Term2.make Term.dummy Term.dummy in
     fun s t ->
-      Term2.fill dummy s t ;
-      try Cache.find table dummy
+      try Cache.find table (s, t)
       with Not_found ->
         let e = Diseq (s, t) in
-        assert (not (Cache.mem table (Term2.make s t))) ;
-        Cache.add table (Term2.make s t) e ;
+        assert (not (Cache.mem table (s, t))) ;
+        Cache.add table (s, t) e ;
         e
 
   let mk_apply =
-    let module Apply = Type.Product (Predsym) (Term) in
-    let module Cache = Weakhash.Make (Apply) (T) in
+    let module Cache = Ephemeron.K2.Make (Predsym) (Term) in
     let table = Cache.create 7 in
-    let dummy = Apply.make Predsym.dummy Term.dummy in
     fun p t ->
-      Apply.fill dummy p t ;
-      try Cache.find table dummy
+      try Cache.find table (p, t)
       with Not_found ->
         let a = Poslit (p, t) in
-        assert (not (Cache.mem table (Apply.make p t))) ;
-        Cache.add table (Apply.make p t) a ;
+        assert (not (Cache.mem table (p, t))) ;
+        Cache.add table (p, t) a ;
         a
 
   let mk_negapply =
-    let module Apply = Type.Product (Predsym) (Term) in
-    let module Cache = Weakhash.Make (Apply) (T) in
+    let module Cache = Ephemeron.K2.Make (Predsym) (Term) in
     let table = Cache.create 7 in
-    let dummy = Apply.make Predsym.dummy Term.dummy in
     fun p t ->
-      Apply.fill dummy p t ;
-      try Cache.find table dummy
+      try Cache.find table (p, t)
       with Not_found ->
         let a = Neglit (p, t) in
-        assert (not (Cache.mem table (Apply.make p t))) ;
-        Cache.add table (Apply.make p t) a ;
+        assert (not (Cache.mem table (p, t))) ;
+        Cache.add table (p, t) a ;
         a
 
   let mk_arith =
-    let module Apply = Type.Product (Predsym.Arith) (Term.Polynomial) in
-    let module Cache = Weakhash.Make (Apply) (T) in
+    let module Cache = Ephemeron.K2.Make (Predsym.Arith) (Term.Polynomial)
+    in
     let table = Cache.create 7 in
-    let dummy = Apply.make Predsym.Arith.dummy Term.Polynomial.dummy in
     fun p t ->
-      Apply.fill dummy p t ;
-      try Cache.find table dummy
+      try Cache.find table (p, t)
       with Not_found ->
         let a = Arith (p, t) in
-        assert (not (Cache.mem table (Apply.make p t))) ;
-        Cache.add table (Apply.make p t) a ;
+        assert (not (Cache.mem table (p, t))) ;
+        Cache.add table (p, t) a ;
         a
 
   let mk_prop =
-    let module Prop = struct
-      include Bdd
-
-      let pp = Bdd.pp (!pretty, !pretty, !maxdepth)
-    end in
-    let module Cache = Weakhash.Make (Prop) (T) in
+    let module Cache = Ephemeron.K1.Make (Bdd) in
     let cache = Cache.create 7 in
     fun b ->
       try Cache.find cache b
