@@ -88,7 +88,7 @@ module Make (Var : VAR) = struct
   (** Dynamic variable ordering (see [topvar]). *)
   module Ge = struct
     module Vars = Sets.Make (Var)
-    module Table = Hashtbl.Make (Var)
+    module Table = Ephemeron.K1.Make (Var)
 
     let table = Table.create 7
 
@@ -101,31 +101,12 @@ module Make (Var : VAR) = struct
           assert (Vars.is_empty empty) ;
           empty
 
-    let delete x y =
+    let store x y =
       try
         let zs = Table.find table x in
-        if Vars.mem y zs then (
-          Vars.remove y zs ;
-          if Vars.is_empty zs then Table.remove table x
-          else Table.add table x zs )
-      with Not_found -> ()
-
-    let store x y =
-      let finalise f x =
-        try Gc.finalise f x
-        with exc ->
-          Format.eprintf "\nWarning: %s when gc of @?"
-            (Printexc.to_string exc) ;
-          Var.pp Format.err_formatter x ;
-          Format.eprintf "@?"
-      in
-      ( try
-          let zs = Table.find table x in
-          Vars.add y zs ;
-          Table.add table x zs
-        with Not_found -> Table.add table x (Vars.singleton y) ) ;
-      finalise (fun z -> delete z y) x ;
-      finalise (fun z -> delete x z) y
+        Vars.add y zs ;
+        Table.replace table x zs
+      with Not_found -> Table.add table x (Vars.singleton y)
 
     (** [x >= y] holds iff
 
@@ -475,30 +456,25 @@ module Make (Var : VAR) = struct
     assert (ordered b') ;
     b'
 
-  let finalise f b =
-    try Gc.finalise f b
-    with exc ->
-      Format.eprintf "\nWarning(%s): %s@?" (to_string b)
-        (Printexc.to_string exc)
-
   (** Build a BDD using Shannon expansion:
       [ite(p,pos,neg) = p & cofactor_pos(pos,p) | ~p & cofactor_neg(neg,p)]. *)
   module Build = struct
     module Fml = struct
       type t = bdd
 
-      let pp = pp (false, false, -1)
       let hash = hash
-      let compare = compare
       let equal = equal
-      let dummy = dummy
     end
 
-    module Triple = Type.Triple (Fml) (Fml) (Fml)
-    module Table = Hashtbl.Make (Triple)
+    module Table = Ephemeron.Kn.Make (Fml)
 
     let table = Table.create 17
-    let dummy = Triple.dummy ()
+    let dummy = [|dummy; dummy; dummy|]
+
+    let fill_dummy a b c =
+      dummy.(0) <- a ;
+      dummy.(1) <- b ;
+      dummy.(2) <- c
 
     let cof_pos b p =
       assert (ordered b) ;
@@ -654,19 +630,11 @@ module Make (Var : VAR) = struct
       assert (ordered b3) ;
       if b2 == b3 then b2
       else (
-        Triple.fill dummy b1 b2 b3 ;
+        fill_dummy b1 b2 b3 ;
         try Table.find table dummy
         with Not_found ->
-          let args = Triple.make b1 b2 b3 in
-          let rem _ = Table.remove table args in
           let b = build b1 b2 b3 in
-          (* remove hash table entry whenever one of the args becomes
-             invalidated. *)
-          if is_ite b1 then finalise rem b1 ;
-          if is_ite b2 then finalise rem b2 ;
-          if is_ite b3 then finalise rem b3 ;
-          if is_ite b then finalise rem b ;
-          Table.add table args b ;
+          Table.add table [|b1; b2; b3|] b ;
           assert (ordered b) ;
           b )
   end
