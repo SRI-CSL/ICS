@@ -270,19 +270,7 @@ module Make (Var : VAR) = struct
   (* negative value means there is no [maxdepth] set. *)
   let maxdepth = ref (-1)
 
-  let rec pp (infix_curr, shared_curr, maxdepth_curr) fmt b =
-    let[@warning "-26"] save_infix = !infix in
-    let[@warning "-26"] save_shared = !shared in
-    let[@warning "-26"] save_maxdepth = !maxdepth in
-    infix := infix_curr ;
-    shared := shared_curr ;
-    maxdepth := maxdepth_curr ;
-    let table = if !shared then occurrences b else Hashtbl.create 0 in
-    pp_term 0 table fmt b ;
-    if !shared then pp_defs fmt table ;
-    Format.fprintf fmt "@?"
-
-  and pp_term depth table fmt b =
+  let rec pp_term depth table fmt b =
     if is_valid b then Format.fprintf fmt "true"
     else if is_unsat b then Format.fprintf fmt "false"
     else
@@ -319,7 +307,7 @@ module Make (Var : VAR) = struct
       pp_term (depth + 1) table fmt b.neg ;
       Format.fprintf fmt ")@]" )
 
-  and pp_defs fmt table =
+  let pp_defs fmt table =
     if some_binding table then (
       Format.fprintf fmt "\nwhere " ;
       let pp_binding b = function
@@ -329,6 +317,18 @@ module Make (Var : VAR) = struct
             pp_ite 0 table fmt b
       in
       Hashtbl.iter pp_binding table )
+
+  let pp (infix_curr, shared_curr, maxdepth_curr) fmt b =
+    let[@warning "-26"] save_infix = !infix in
+    let[@warning "-26"] save_shared = !shared in
+    let[@warning "-26"] save_maxdepth = !maxdepth in
+    infix := infix_curr ;
+    shared := shared_curr ;
+    maxdepth := maxdepth_curr ;
+    let table = if !shared then occurrences b else Hashtbl.create 0 in
+    pp_term 0 table fmt b ;
+    if !shared then pp_defs fmt table ;
+    Format.fprintf fmt "@?"
 
   let to_string b =
     pp (false, false, -1) Format.str_formatter b ;
@@ -341,6 +341,12 @@ module Make (Var : VAR) = struct
     in
     occx
 
+  let less b p =
+    is_const b
+    ||
+    let q = b.guard in
+    (not (Var.equal p q)) && p >>= q
+
   let rec ordered b =
     is_const b
     || (not (b.pos == b.neg))
@@ -348,12 +354,6 @@ module Make (Var : VAR) = struct
        && less b.neg b.guard
        && ordered b.pos
        && ordered b.neg
-
-  and less b p =
-    is_const b
-    ||
-    let q = b.guard in
-    (not (Var.equal p q)) && p >>= q
 
   let ordered b =
     let res = ordered b in
@@ -504,28 +504,95 @@ module Make (Var : VAR) = struct
     let table = Table.create 17
     let dummy = Triple.dummy ()
 
-    (** Memoized build. *)
-    let rec make b1 b2 b3 =
-      assert (ordered b1) ;
+    let cof_pos b p =
+      assert (ordered b) ;
+      if is_const b then b
+      else
+        let b' = if Var.equal p b.guard then b.pos else b in
+        assert (less b' p) ;
+        b'
+
+    let cof_neg b p =
+      assert (ordered b) ;
+      if is_const b then b
+      else
+        let b' = if Var.equal p b.guard then b.neg else b in
+        assert (less b' p) ;
+        b'
+
+    let max p q = if Var.compare p q >= 0 then p else q
+
+    let max2 prefer p q =
+      match Ge.compare p q with
+      | Ge.True -> p
+      | Ge.False -> q
+      | Ge.Unknown ->
+          if prefer then (
+            (* prefer [p] over [q]. *)
+            Ge.add p q ;
+            p )
+          else if Var.compare p q >= 0 then (
+            Ge.add p q ;
+            p )
+          else (
+            Ge.add q p ;
+            q )
+
+    let max3 prefer p1 p2 p3 =
+      match (Ge.compare p2 p1, Ge.compare p3 p1) with
+      | Ge.True, Ge.True -> max2 prefer p2 p3
+      | Ge.False, Ge.False -> p1
+      | Ge.Unknown, Ge.Unknown ->
+          max2 prefer (max2 prefer p1 p2) (max2 prefer p1 p3)
+      | Ge.True, Ge.False -> p2
+      | Ge.False, Ge.True -> p3
+      | Ge.False, Ge.Unknown -> max2 prefer p1 p3
+      | Ge.True, Ge.Unknown -> max2 prefer p2 p3
+      | Ge.Unknown, Ge.False -> max2 prefer p1 p2
+      | Ge.Unknown, Ge.True -> max2 prefer p3 p2
+
+    let topvar_static p1 b2 b3 =
+      match (is_const b2, is_const b3) with
+      | true, true -> p1
+      | true, false -> max p1 b3.guard
+      | false, true -> max p1 b2.guard
+      | false, false -> max p1 (max b2.guard b3.guard)
+
+    (* Maximal variable wrt to current variable ordering. Prefers variable
+       [p1]; builds up dynamic variable ordering. *)
+    let topvar_dynamic prefer p1 b2 b3 =
+      match (is_const b2, is_const b3) with
+      | false, false -> max3 prefer p1 b2.guard b3.guard
+      | false, true -> max2 prefer p1 b2.guard
+      | true, false -> max2 prefer p1 b3.guard
+      | true, true -> p1
+
+    let topvar prefer p1 b2 b3 =
+      if dynamic_order then topvar_dynamic prefer p1 b2 b3
+      else topvar_static p1 b2 b3
+
+    let rec build_var p b2 b3 =
       assert (ordered b2) ;
       assert (ordered b3) ;
       if b2 == b3 then b2
-      else (
-        Triple.fill dummy b1 b2 b3 ;
-        try Table.find table dummy
-        with Not_found ->
-          let args = Triple.make b1 b2 b3 in
-          let rem _ = Table.remove table args in
-          let b = build b1 b2 b3 in
-          (* remove hash table entry whenever one of the args becomes
-             invalidated. *)
-          if is_ite b1 then finalise rem b1 ;
-          if is_ite b2 then finalise rem b2 ;
-          if is_ite b3 then finalise rem b3 ;
-          if is_ite b then finalise rem b ;
-          Table.add table args b ;
-          assert (ordered b) ;
-          b )
+      else if is_ite b2 && Var.equal p b2.guard then
+        (* [ite(p, ite(p, x, _), b3) = ite(p, x, b3)]. *)
+        build_var p b2.pos b3
+      else if is_ite b3 && Var.equal p b3.guard then
+        (* [ite(p, b2, ite(p, _, y)) = ite(p, b2, y)]. *)
+        build_var p b2 b3.neg
+      else
+        let max = topvar true p b2 b3 in
+        if Var.equal max p then (
+          assert (less b2 max) ;
+          assert (less b3 max) ;
+          hashconsed_ite max b2 b3 )
+        else
+          let pos = make (mk_posvar p) (cof_pos b2 max) (cof_pos b3 max) in
+          let neg = make (mk_posvar p) (cof_neg b2 max) (cof_neg b3 max) in
+          assert (less pos max) ;
+          assert (less neg max) ;
+          if pos == neg then pos else hashconsed_ite max pos neg
 
     (** Select {i top predicate} and build recursively using positive and
         negative cofactors. The following equalities are applied from
@@ -584,94 +651,28 @@ module Make (Var : VAR) = struct
         assert (less neg max) ;
         if pos == neg then pos else hashconsed_ite max pos neg
 
-    and cof_pos b p =
-      assert (ordered b) ;
-      if is_const b then b
-      else
-        let b' = if Var.equal p b.guard then b.pos else b in
-        assert (less b' p) ;
-        b'
-
-    and cof_neg b p =
-      assert (ordered b) ;
-      if is_const b then b
-      else
-        let b' = if Var.equal p b.guard then b.neg else b in
-        assert (less b' p) ;
-        b'
-
-    and build_var p b2 b3 =
+    (** Memoized build. *)
+    and make b1 b2 b3 =
+      assert (ordered b1) ;
       assert (ordered b2) ;
       assert (ordered b3) ;
       if b2 == b3 then b2
-      else if is_ite b2 && Var.equal p b2.guard then
-        (* [ite(p, ite(p, x, _), b3) = ite(p, x, b3)]. *)
-        build_var p b2.pos b3
-      else if is_ite b3 && Var.equal p b3.guard then
-        (* [ite(p, b2, ite(p, _, y)) = ite(p, b2, y)]. *)
-        build_var p b2 b3.neg
-      else
-        let max = topvar true p b2 b3 in
-        if Var.equal max p then (
-          assert (less b2 max) ;
-          assert (less b3 max) ;
-          hashconsed_ite max b2 b3 )
-        else
-          let pos = make (mk_posvar p) (cof_pos b2 max) (cof_pos b3 max) in
-          let neg = make (mk_posvar p) (cof_neg b2 max) (cof_neg b3 max) in
-          assert (less pos max) ;
-          assert (less neg max) ;
-          if pos == neg then pos else hashconsed_ite max pos neg
-
-    and topvar prefer p1 b2 b3 =
-      if dynamic_order then topvar_dynamic prefer p1 b2 b3
-      else topvar_static p1 b2 b3
-
-    and topvar_static p1 b2 b3 =
-      let max p q = if Var.compare p q >= 0 then p else q in
-      match (is_const b2, is_const b3) with
-      | true, true -> p1
-      | true, false -> max p1 b3.guard
-      | false, true -> max p1 b2.guard
-      | false, false -> max p1 (max b2.guard b3.guard)
-
-    (* Maximal variable wrt to current variable ordering. Prefers variable
-       [p1]; builds up dynamic variable ordering. *)
-    and topvar_dynamic prefer p1 b2 b3 =
-      match (is_const b2, is_const b3) with
-      | false, false -> max3 prefer p1 b2.guard b3.guard
-      | false, true -> max2 prefer p1 b2.guard
-      | true, false -> max2 prefer p1 b3.guard
-      | true, true -> p1
-
-    and max2 prefer p q =
-      match Ge.compare p q with
-      | Ge.True -> p
-      | Ge.False -> q
-      | Ge.Unknown ->
-          if prefer then (
-            (* prefer [p] over [q]. *)
-            Ge.add p q ;
-            p )
-          else if Var.compare p q >= 0 then (
-            Ge.add p q ;
-            p )
-          else (
-            Ge.add q p ;
-            q )
-
-    and max3 prefer p1 p2 p3 =
-      match (Ge.compare p2 p1, Ge.compare p3 p1) with
-      | Ge.True, Ge.True -> max2 prefer p2 p3
-      | Ge.False, Ge.False -> p1
-      | Ge.Unknown, Ge.Unknown ->
-          max2 prefer (max2 prefer p1 p2) (max2 prefer p1 p3)
-      | Ge.True, Ge.False -> p2
-      | Ge.False, Ge.True -> p3
-      | Ge.False, Ge.Unknown -> max2 prefer p1 p3
-      | Ge.True, Ge.Unknown -> max2 prefer p2 p3
-      | Ge.Unknown, Ge.False -> max2 prefer p1 p2
-      | Ge.Unknown, Ge.True -> max2 prefer p3 p2
+      else (
+        Triple.fill dummy b1 b2 b3 ;
+        try Table.find table dummy
+        with Not_found ->
+          let args = Triple.make b1 b2 b3 in
+          let rem _ = Table.remove table args in
+          let b = build b1 b2 b3 in
+          (* remove hash table entry whenever one of the args becomes
+             invalidated. *)
+          if is_ite b1 then finalise rem b1 ;
+          if is_ite b2 then finalise rem b2 ;
+          if is_ite b3 then finalise rem b3 ;
+          if is_ite b then finalise rem b ;
+          Table.add table args b ;
+          assert (ordered b) ;
+          b )
   end
 
   module Check = struct

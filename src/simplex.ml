@@ -549,7 +549,31 @@ struct
     let inv p =
       try inv_const (P.d_constant p) with P.Nonnum -> inv_nonconst p
 
-    let rec update x p q =
+    let update_var x p y =
+      if is_slack y then (
+        assert (wf_binding x (P.indet y)) ;
+        Config.Subst.set x (P.indet y) ;
+        var_iter (Config.Dep.rem x) p ;
+        Config.Dep.add x y ;
+        assert (well_formed ()) )
+      else (
+        Config.Subst.remove x ;
+        var_iter (Config.Dep.rem x) p ;
+        Deduce.union x y ;
+        assert (well_formed ()) )
+
+    let update_const x p c =
+      let d = P.const p in
+      (* 1. [c = p <= d], 2. [c = p >= d]. *)
+      if maximized p && C.compare c d > 0 then raise Unsat ;
+      if minimized p && C.compare c d < 0 then raise Unsat ;
+      Config.Subst0.set x c ;
+      Config.Inv0.set c x ;
+      Config.Subst.remove x ;
+      var_iter (Config.Dep.rem x) p ;
+      assert (well_formed ())
+
+    let update x p q =
       assert (dom x) ;
       assert (P.equal (find_nonconst x) p) ;
       try
@@ -577,31 +601,40 @@ struct
             var_iter adddepx q ;
             assert (well_formed ()) ) )
 
-    and update_const x p c =
-      let d = P.const p in
-      (* 1. [c = p <= d], 2. [c = p >= d]. *)
-      if maximized p && C.compare c d > 0 then raise Unsat ;
-      if minimized p && C.compare c d < 0 then raise Unsat ;
-      Config.Subst0.set x c ;
-      Config.Inv0.set c x ;
-      Config.Subst.remove x ;
-      var_iter (Config.Dep.rem x) p ;
-      assert (well_formed ())
+    let fuse_const y c =
+      assert (Trace.fuse_const y c) ;
+      assert (not (dom y)) ;
+      let fuse1 x =
+        (* assert(dom x); *)
+        try
+          let p = find_nonconst x in
+          let q = P.instantiate y c p in
+          (* assert(P.mem y p); *)
+          assert (not (P.mem y q)) ;
+          update x p q
+        with Not_found -> ()
+      in
+      Dep.Values.iter fuse1 (deps y) ;
+      assert (not (cod y))
 
-    and update_var x p y =
-      if is_slack y then (
-        assert (wf_binding x (P.indet y)) ;
-        Config.Subst.set x (P.indet y) ;
-        var_iter (Config.Dep.rem x) p ;
-        Config.Dep.add x y ;
-        assert (well_formed ()) )
-      else (
-        Config.Subst.remove x ;
-        var_iter (Config.Dep.rem x) p ;
-        Deduce.union x y ;
-        assert (well_formed ()) )
+    let fuse_var y z =
+      assert (Trace.fuse_var y z) ;
+      assert (not (dom y)) ;
+      assert (not (Var.equal y z)) ;
+      let fuse1 x =
+        assert (dom x) ;
+        try
+          let p = find x in
+          assert (P.mem y p) ;
+          let q = P.rename y z p in
+          assert (not (P.mem y q)) ;
+          update x p q
+        with Not_found -> ()
+      in
+      Dep.Values.iter fuse1 (deps y) ;
+      assert (not (cod y))
 
-    let rec fuse y t =
+    let fuse y t =
       assert (not (dom y)) ;
       assert (not (P.mem y t)) ;
       assert (canonical t) ;
@@ -620,57 +653,7 @@ struct
           Dep.Values.iter fuse1 (deps y) ;
           assert (not (cod y)) )
 
-    and fuse_const y c =
-      assert (Trace.fuse_const y c) ;
-      assert (not (dom y)) ;
-      let fuse1 x =
-        (* assert(dom x); *)
-        try
-          let p = find_nonconst x in
-          let q = P.instantiate y c p in
-          (* assert(P.mem y p); *)
-          assert (not (P.mem y q)) ;
-          update x p q
-        with Not_found -> ()
-      in
-      Dep.Values.iter fuse1 (deps y) ;
-      assert (not (cod y))
-
-    and fuse_var y z =
-      assert (Trace.fuse_var y z) ;
-      assert (not (dom y)) ;
-      assert (not (Var.equal y z)) ;
-      let fuse1 x =
-        assert (dom x) ;
-        try
-          let p = find x in
-          assert (P.mem y p) ;
-          let q = P.rename y z p in
-          assert (not (P.mem y q)) ;
-          update x p q
-        with Not_found -> ()
-      in
-      Dep.Values.iter fuse1 (deps y) ;
-      assert (not (cod y))
-
-    let rec extend x p =
-      assert (not (is_slack x)) ;
-      assert (Trace.extend x p) ;
-      assert (not (dom x)) ;
-      try extend_const x (P.d_constant p)
-      with P.Nonnum -> extend_nonconst x p
-
-    and extend_const x c =
-      assert (not (dom x)) ;
-      try
-        let y = inv_const c in
-        Deduce.union x y
-      with Not_found ->
-        Config.Subst0.set x c ;
-        Config.Inv0.set c x ;
-        assert (well_formed ())
-
-    and extend_var x y =
+    let extend_var x y =
       assert (not (is_slack x)) ;
       if is_slack y then (
         let p = P.indet y in
@@ -679,7 +662,7 @@ struct
         Config.Dep.add x y )
       else Deduce.union x y
 
-    and extend_nonconst x p =
+    let extend_nonconst x p =
       assert (not (is_slack x)) ;
       assert (not (dom x)) ;
       assert (not (P.is_constant p)) ;
@@ -692,18 +675,24 @@ struct
           var_iter (Config.Dep.add x) p ;
           assert (well_formed ()) )
 
-    let rec compose x p =
-      assert (Trace.compose x p) ;
+    let extend_const x c =
       assert (not (dom x)) ;
-      try compose_const x (P.d_constant p)
-      with P.Nonnum -> compose_nonconst x p
+      try
+        let y = inv_const c in
+        Deduce.union x y
+      with Not_found ->
+        Config.Subst0.set x c ;
+        Config.Inv0.set c x ;
+        assert (well_formed ())
 
-    and compose_const x c =
+    let extend x p =
+      assert (not (is_slack x)) ;
+      assert (Trace.extend x p) ;
       assert (not (dom x)) ;
-      fuse_const x c ;
-      extend_const x c
+      try extend_const x (P.d_constant p)
+      with P.Nonnum -> extend_nonconst x p
 
-    and compose_var x y =
+    let compose_var x y =
       assert (not (dom x)) ;
       if is_slack y then (
         try
@@ -720,7 +709,7 @@ struct
         fuse_var x y ;
         Deduce.union x y )
 
-    and compose_nonconst x p =
+    let compose_nonconst x p =
       assert (not (dom x)) ;
       assert (not (P.is_constant p)) ;
       try compose_var x (P.d_indet p)
@@ -732,6 +721,17 @@ struct
         with Not_found ->
           fuse x p ;
           extend_nonconst x p )
+
+    let compose_const x c =
+      assert (not (dom x)) ;
+      fuse_const x c ;
+      extend_const x c
+
+    let compose x p =
+      assert (Trace.compose x p) ;
+      assert (not (dom x)) ;
+      try compose_const x (P.d_constant p)
+      with P.Nonnum -> compose_nonconst x p
 
     let restrict x =
       assert (well_formed ()) ;
@@ -866,55 +866,23 @@ struct
       var_iter (Config.Dep.rem x) p ;
       assert (well_formed ())
 
-    let rec fuse y t =
-      assert (not (dom y)) ;
-      assert (not (P.mem y t)) ;
-      assert (not (P.is_constant t)) ;
-      assert (not (P.is_indet t)) ;
-      let fuse1 x =
-        try
-          let s = find x in
-          (* assert(P.mem y s); *)
-          (* ?? *)
-          let s' = P.replace y t s in
-          assert (not (P.mem y s')) ;
-          update x s s'
-        with Not_found ->
-          (* Might occur because of calls to [restrict] in this loop. *)
-          ()
-      in
-      Dep.Values.iter fuse1 (deps y) ;
-      assert (not (cod y))
+    let update_const x p c =
+      assert (dom x) ;
+      assert (P.equal (find x) p) ;
+      if C.compare c C.zero < 0 then raise Unsat
+      else (
+        restrict x p ;
+        R.fuse_const x c ;
+        assert (R.well_formed ()) )
 
-    and fuse_var y z =
-      assert (not (dom z)) ;
-      let fuse1 u =
-        try
-          let p = find u in
-          let q = P.rename y z p in
-          assert (P.mem y p) ;
-          (* ?? *)
-          assert (not (P.mem y q)) ;
-          update u p q
-        with Not_found -> ()
-      in
-      Dep.Values.iter fuse1 (deps y) ;
-      assert (not (cod y))
+    let update_var x p y =
+      assert (dom x) ;
+      assert (P.equal (find x) p) ;
+      restrict x p ;
+      R.fuse_var x y ;
+      assert (R.well_formed ())
 
-    and fuse_const y c =
-      let fuse1 u =
-        try
-          let p = find u in
-          let q = P.instantiate y c p in
-          assert (P.mem y p) ;
-          assert (not (P.mem y q)) ;
-          update u p q
-        with Not_found -> ()
-      in
-      Dep.Values.iter fuse1 (deps y) ;
-      assert (not (cod y))
-
-    and update x p q =
+    let rec update x p q =
       assert (dom x) ;
       assert (P.equal (find x) p) ;
       try update_const x p (P.d_constant q)
@@ -945,22 +913,6 @@ struct
               var_iter (fun y -> Config.Dep.add x y) q ;
               assert (well_formed ()) ) ) )
 
-    and update_const x p c =
-      assert (dom x) ;
-      assert (P.equal (find x) p) ;
-      if C.compare c C.zero < 0 then raise Unsat
-      else (
-        restrict x p ;
-        R.fuse_const x c ;
-        assert (R.well_formed ()) )
-
-    and update_var x p y =
-      assert (dom x) ;
-      assert (P.equal (find x) p) ;
-      restrict x p ;
-      R.fuse_var x y ;
-      assert (R.well_formed ())
-
     and derive_zeros x q =
       assert (is_slack x) ;
       assert (maximized_at_zero q) ;
@@ -970,6 +922,54 @@ struct
         fuse_const y C.zero
       in
       var_iter fuse0 q
+
+    and fuse_const y c =
+      let fuse1 u =
+        try
+          let p = find u in
+          let q = P.instantiate y c p in
+          assert (P.mem y p) ;
+          assert (not (P.mem y q)) ;
+          update u p q
+        with Not_found -> ()
+      in
+      Dep.Values.iter fuse1 (deps y) ;
+      assert (not (cod y))
+
+    let fuse_var y z =
+      assert (not (dom z)) ;
+      let fuse1 u =
+        try
+          let p = find u in
+          let q = P.rename y z p in
+          assert (P.mem y p) ;
+          (* ?? *)
+          assert (not (P.mem y q)) ;
+          update u p q
+        with Not_found -> ()
+      in
+      Dep.Values.iter fuse1 (deps y) ;
+      assert (not (cod y))
+
+    let fuse y t =
+      assert (not (dom y)) ;
+      assert (not (P.mem y t)) ;
+      assert (not (P.is_constant t)) ;
+      assert (not (P.is_indet t)) ;
+      let fuse1 x =
+        try
+          let s = find x in
+          (* assert(P.mem y s); *)
+          (* ?? *)
+          let s' = P.replace y t s in
+          assert (not (P.mem y s')) ;
+          update x s s'
+        with Not_found ->
+          (* Might occur because of calls to [restrict] in this loop. *)
+          ()
+      in
+      Dep.Values.iter fuse1 (deps y) ;
+      assert (not (cod y))
 
     let extend x p =
       assert (not (dom x)) ;
@@ -989,7 +989,36 @@ struct
           var_iter (Config.Dep.add x) p ;
           assert (well_formed ())
 
-    let rec compose x p =
+    let compose_const x c =
+      assert (not (dom x)) ;
+      if C.compare c C.zero < 0 then raise Unsat
+      else (
+        R.fuse_const x c ;
+        fuse_const x c ;
+        assert (not (occ x)) ;
+        assert (R.well_formed ()) )
+
+    let compose_var x y =
+      assert (not (dom x)) ;
+      R.fuse_var x y ;
+      fuse_var x y ;
+      assert (not (occ x)) ;
+      assert (R.well_formed ())
+
+    let compose_max_at0 x p =
+      assert (not (dom x)) ;
+      assert (not (P.mem x p)) ;
+      assert (restricted p) ;
+      assert (C.equal (P.const p) C.zero && maximized p) ;
+      R.fuse_const x C.zero ;
+      let fuse0 y =
+        R.fuse_const y C.zero ;
+        fuse_const y C.zero
+      in
+      var_iter fuse0 p ;
+      assert (R.well_formed ())
+
+    let compose x p =
       assert (Trace.compose x p) ;
       assert (not (dom x)) ;
       assert (not (P.mem x p)) ;
@@ -1002,35 +1031,6 @@ struct
           else (
             fuse x p ;
             extend x p ) )
-
-    and compose_const x c =
-      assert (not (dom x)) ;
-      if C.compare c C.zero < 0 then raise Unsat
-      else (
-        R.fuse_const x c ;
-        fuse_const x c ;
-        assert (not (occ x)) ;
-        assert (R.well_formed ()) )
-
-    and compose_var x y =
-      assert (not (dom x)) ;
-      R.fuse_var x y ;
-      fuse_var x y ;
-      assert (not (occ x)) ;
-      assert (R.well_formed ())
-
-    and compose_max_at0 x p =
-      assert (not (dom x)) ;
-      assert (not (P.mem x p)) ;
-      assert (restricted p) ;
-      assert (C.equal (P.const p) C.zero && maximized p) ;
-      R.fuse_const x C.zero ;
-      let fuse0 y =
-        R.fuse_const y C.zero ;
-        fuse_const y C.zero
-      in
-      var_iter fuse0 p ;
-      assert (R.well_formed ())
 
     let pivot u v =
       assert (Trace.pivot u v) ;
@@ -1359,14 +1359,7 @@ struct
     let rec inc_bounded () =
       assert (Trace.inc_bounded (Focus.to_list ())) ;
       let changed = ref false in
-      let rec inspect_entry0 _u p =
-        assert (C.equal (P.const p) C.zero) ;
-        posvar_iter inspect_posvar p
-      and inspect_posvar v =
-        if (not (Focus.mem v)) && occurs_neg v then (
-          changed := true ;
-          Focus.add v )
-      and occurs_neg v =
+      let occurs_neg v =
         let test u =
           Focus.mem u
           &&
@@ -1377,6 +1370,15 @@ struct
           with Not_found -> false
         in
         Dep.Values.exists test (T.deps v)
+      in
+      let inspect_posvar v =
+        if (not (Focus.mem v)) && occurs_neg v then (
+          changed := true ;
+          Focus.add v )
+      in
+      let inspect_entry0 _u p =
+        assert (C.equal (P.const p) C.zero) ;
+        posvar_iter inspect_posvar p
       in
       T.iter0 inspect_entry0 ;
       if !changed then inc_bounded ()
@@ -1444,13 +1446,7 @@ struct
           T.fuse_const z C.zero ) ;
       assert (not (occ z))
 
-    let rec find_zeroes () =
-      if not (is_empty ()) then (
-        assert (Trace.find_zeroes ()) ;
-        zbnd_star () ;
-        maxentries () )
-
-    and maxentries () =
+    let maxentries () =
       try
         let u, p = choose_entry () in
         let p' = max0 p in
@@ -1467,6 +1463,12 @@ struct
         (* find_zeroes() *)
       with Not_found -> ()
 
+    let find_zeroes () =
+      if not (is_empty ()) then (
+        assert (Trace.find_zeroes ()) ;
+        zbnd_star () ;
+        maxentries () )
+
     let inc_zeroes w p =
       assert (Trace.inc_zeroes w p) ;
       assert (is_slack w) ;
@@ -1479,44 +1481,7 @@ struct
       find_zeroes ()
   end
 
-  let rec process_nonneg p =
-    assert (synchronized ()) ;
-    let p = can p in
-    let c = P.const p in
-    if C.compare c C.zero >= 0 && minimized p then ()
-    else if C.compare c C.zero < 0 && maximized p then raise Unsat
-    else (
-      add_nonneg p ;
-      Deduce.real p ;
-      ensure_combined_solset () )
-
-  and add_nonneg p =
-    assert (canonical p) ;
-    try
-      let y = choose_unrestricted p in
-      assert (not (is_slack y)) ;
-      add_ineq_r y p
-    with Restricted ->
-      assert (restricted p) ;
-      add_ineq_t p
-
-  and add_ineq_r y p =
-    assert (not (is_slack y)) ;
-    assert (canonical p) ;
-    let w = fresh_slack () in
-    let q = P.pivot w y p in
-    assert (not (P.mem y q)) ;
-    R.compose y q
-
-  and add_ineq_t p =
-    assert (restricted p) ;
-    assert (canonical p) ;
-    if minimized_nonneg p then ()
-    else
-      let w = fresh_slack () in
-      add_ineq w p
-
-  and add_ineq w p =
+  let rec add_ineq w p =
     assert (is_slack w) ;
     assert (restricted p) ;
     assert (T.canonical p) ;
@@ -1549,38 +1514,44 @@ struct
         T.compose v (P.pivot v w p) )
     else failwith "add_ineq: Unreachable"
 
-  let rec process_pos p =
-    assert (synchronized ()) ;
-    let p = can p in
-    let c = P.const p in
-    if C.compare c C.zero > 0 && minimized p then ()
-    else if C.compare c C.zero <= 0 && maximized p then raise Unsat
-    else (
-      add_strict_ineq p ;
-      Deduce.real p ;
-      ensure_combined_solset () )
+  let add_ineq_r y p =
+    assert (not (is_slack y)) ;
+    assert (canonical p) ;
+    let w = fresh_slack () in
+    let q = P.pivot w y p in
+    assert (not (P.mem y q)) ;
+    R.compose y q
 
-  and add_strict_ineq p =
+  let add_ineq_t p =
+    assert (restricted p) ;
+    assert (canonical p) ;
+    if minimized_nonneg p then ()
+    else
+      let w = fresh_slack () in
+      add_ineq w p
+
+  let add_nonneg p =
     assert (canonical p) ;
     try
       let y = choose_unrestricted p in
       assert (not (is_slack y)) ;
-      add_strict_ineq_r y p
+      add_ineq_r y p
     with Restricted ->
       assert (restricted p) ;
-      add_strict_ineq_t p
+      add_ineq_t p
 
-  and add_strict_ineq_r y p =
-    assert (not (is_slack y)) ;
-    assert (canonical p) ;
-    let z = alias_const C.zero in
-    let w = fresh_slack () in
-    let q = P.pivot w y p in
-    assert (not (P.mem y q)) ;
-    R.compose y q ;
-    Deduce.separate y z
+  let process_nonneg p =
+    assert (synchronized ()) ;
+    let p = can p in
+    let c = P.const p in
+    if C.compare c C.zero >= 0 && minimized p then ()
+    else if C.compare c C.zero < 0 && maximized p then raise Unsat
+    else (
+      add_nonneg p ;
+      Deduce.real p ;
+      ensure_combined_solset () )
 
-  and add_strict_ineq_t p =
+  let add_strict_ineq_t p =
     assert (restricted p) ;
     assert (canonical p) ;
     let w = fresh_slack () in
@@ -1591,7 +1562,47 @@ struct
     assert (not (is_slack x)) ;
     Deduce.separate x z
 
-  let rec process_deq0 p =
+  let add_strict_ineq_r y p =
+    assert (not (is_slack y)) ;
+    assert (canonical p) ;
+    let z = alias_const C.zero in
+    let w = fresh_slack () in
+    let q = P.pivot w y p in
+    assert (not (P.mem y q)) ;
+    R.compose y q ;
+    Deduce.separate y z
+
+  let add_strict_ineq p =
+    assert (canonical p) ;
+    try
+      let y = choose_unrestricted p in
+      assert (not (is_slack y)) ;
+      add_strict_ineq_r y p
+    with Restricted ->
+      assert (restricted p) ;
+      add_strict_ineq_t p
+
+  let process_pos p =
+    assert (synchronized ()) ;
+    let p = can p in
+    let c = P.const p in
+    if C.compare c C.zero > 0 && minimized p then ()
+    else if C.compare c C.zero <= 0 && maximized p then raise Unsat
+    else (
+      add_strict_ineq p ;
+      Deduce.real p ;
+      ensure_combined_solset () )
+
+  let add_deq0 p =
+    assert (canonical p) ;
+    let p = if C.compare (P.const p) C.zero >= 0 then p else P.minus p in
+    let z = alias_const C.zero in
+    let x = alias p in
+    assert (not (is_slack z)) ;
+    assert (not (is_slack x)) ;
+    Deduce.separate x z
+
+  let process_deq0 p =
     assert (synchronized ()) ;
     let p = can p in
     if P.is_zero p then raise Unsat
@@ -1603,39 +1614,7 @@ struct
         Deduce.real p ;
         ensure_combined_solset () )
 
-  and add_deq0 p =
-    assert (canonical p) ;
-    let p = if C.compare (P.const p) C.zero >= 0 then p else P.minus p in
-    let z = alias_const C.zero in
-    let x = alias p in
-    assert (not (is_slack z)) ;
-    assert (not (is_slack x)) ;
-    Deduce.separate x z
-
-  let rec process_eq0 p =
-    assert (synchronized ()) ;
-    let p = can p in
-    add_eq0 p ;
-    Deduce.real p ;
-    ensure_combined_solset ()
-
-  and add_eq0 p =
-    assert (canonical p) ;
-    try
-      let c = P.d_constant p in
-      if C.equal c C.zero then () else raise Unsat
-    with P.Nonnum -> (
-      try
-        let y = choose_unrestricted p in
-        assert (not (is_slack y)) ;
-        add_eq_r y p
-      with Restricted ->
-        assert (restricted p) ;
-        assert (T.canonical p) ;
-        if C.compare (P.const p) C.zero <= 0 then add_eq_t p
-        else add_eq_t (P.minus p) )
-
-  and add_eq_r y p =
+  let add_eq_r y p =
     assert (not (is_slack y)) ;
     assert (C.compare (P.coeff y p) C.zero <> 0) ;
     assert (canonical p) ;
@@ -1643,7 +1622,7 @@ struct
     assert (not (P.mem y q)) ;
     R.compose y q
 
-  and add_eq_t p =
+  let rec add_eq_t p =
     assert (restricted p) ;
     assert (T.canonical p) ;
     assert (C.compare (P.const p) C.zero <= 0) ;
@@ -1688,6 +1667,29 @@ struct
         let v = choose_posvar p in
         let q = P.solve0_for v p in
         T.compose v q
+
+  let add_eq0 p =
+    assert (canonical p) ;
+    try
+      let c = P.d_constant p in
+      if C.equal c C.zero then () else raise Unsat
+    with P.Nonnum -> (
+      try
+        let y = choose_unrestricted p in
+        assert (not (is_slack y)) ;
+        add_eq_r y p
+      with Restricted ->
+        assert (restricted p) ;
+        assert (T.canonical p) ;
+        if C.compare (P.const p) C.zero <= 0 then add_eq_t p
+        else add_eq_t (P.minus p) )
+
+  let process_eq0 p =
+    assert (synchronized ()) ;
+    let p = can p in
+    add_eq0 p ;
+    Deduce.real p ;
+    ensure_combined_solset ()
 
   let propagate_eq x y =
     assert (not (is_slack x)) ;

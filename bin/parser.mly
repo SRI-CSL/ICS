@@ -42,16 +42,16 @@
 	Hashtbl.add symtab i s;
 	i
     let find i = Hashtbl.find symtab i
-    let rec pp () =
-      Format.fprintf fmt "@[";
-      Hashtbl.iter pp_binding symtab;
-      Format.fprintf fmt "@]"
-    and pp_index i = 
+    let pp_index i = 
       Format.fprintf fmt "s!%d" i
-    and pp_binding i s = 
+    let pp_binding i s = 
       pp_index i;
       Format.fprintf fmt " |-> ";
       Ics.pp fmt s
+    let pp () =
+      Format.fprintf fmt "@[";
+      Hashtbl.iter pp_binding symtab;
+      Format.fprintf fmt "@]"
     let remove i = 
       Hashtbl.remove symtab i
   end

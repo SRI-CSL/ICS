@@ -533,6 +533,13 @@ val footprint : bool ref
 (** Output trace information on [stderr] when flag {!Ics.footprint} is set
     to [true]. *)
 
+(** Status [Sat] ([Unsat]) means that the current context is {i satisfiable}
+    ({i unsatisfiable}) in the combined ICS theory, and [Unknown] indicates
+    that the ICS inference system has, for sake of efficiency, not been run
+    to completion. In the latter case, the status might be resolved by
+    explicitly calling [Ics.resolve()]. *)
+type status = Sat of Formula.t | Unsat of Formula.t list | Unknown
+
 (** {i Decision procedure states.} A decision procedure state consists of
 
     - a {i combined configuration} [(P, L0, L1, R, V, U, A, T, F)] which is
@@ -562,13 +569,6 @@ type t = private
   ; f: F.t
   ; upper: int
   ; mutable status: status }
-
-(** Status [Sat] ([Unsat]) means that the current context is {i satisfiable}
-    ({i unsatisfiable}) in the combined ICS theory, and [Unknown] indicates
-    that the ICS inference system has, for sake of efficiency, not been run
-    to completion. In the latter case, the status might be resolved by
-    explicitly calling [Ics.resolve()]. *)
-and status = Sat of Formula.t | Unsat of Formula.t list | Unknown
 
 val empty : t
 (** The empty decision procedure state with empty logical context [\[\]]. *)

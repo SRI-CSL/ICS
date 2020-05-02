@@ -366,7 +366,16 @@ struct
       assert (well_formed ()) ;
       u
 
-  let rec alias_equal x y =
+  let add_dep u x =
+    assert (I.canonical x) ;
+    let vs = deps x in
+    if Propvars.mem u vs then ()
+    else
+      let vs' = Propvars.copy vs in
+      Propvars.add u vs' ;
+      Config.Dep.set x vs'
+
+  let alias_equal x y =
     assert (synchronized ()) ;
     try inv_equal x y
     with Not_found ->
@@ -381,72 +390,7 @@ struct
       assert (well_formed ()) ;
       u
 
-  and add_dep u x =
-    assert (I.canonical x) ;
-    let vs = deps x in
-    if Propvars.mem u vs then ()
-    else
-      let vs' = Propvars.copy vs in
-      Propvars.add u vs' ;
-      Config.Dep.set x vs'
-
-  let rec propagate_eq x y =
-    assert (
-      Trace.prop_eq x y ;
-      true ) ;
-    assert (I.equal x y) ;
-    assert (I.canonical y) ;
-    assert (not (I.canonical x)) ;
-    deduce_monadic x y ;
-    deduce_equal x y ;
-    merge_deps x y ;
-    assert (well_formed ())
-
-  and merge_deps x y =
-    assert (I.equal x y) ;
-    assert (I.canonical y) ;
-    assert (not (I.canonical x)) ;
-    try
-      let us = Config.Dep.find x in
-      Config.Dep.remove x ;
-      try
-        let vs = Config.Dep.find y in
-        let vs' = Propvars.copy vs in
-        Propvars.union us vs' ;
-        Config.Dep.set y vs'
-      with Not_found -> Config.Dep.set y us
-    with Not_found -> ()
-
-  and deduce_monadic x y =
-    try
-      let us = Config.Dep.find x in
-      let vs = Config.Dep.find y in
-      Propvars.iter
-        (fun u ->
-          assert (dom u) ;
-          try
-            let p, y = Config.Monadic.find u in
-            (* [u |-> p(y)] *)
-            Propvars.iter
-              (fun v ->
-                assert (dom v) ;
-                try
-                  if Propvar.equal u v then ()
-                  else
-                    let q, z = Config.Monadic.find v in
-                    (* [v |-> q(z)].*)
-                    assert (I.equal y z) ;
-                    if Sym.equal p q then I.equiv u v
-                    else if Sym.disjoint p q then I.disjoint u v
-                    else if Sym.sub p q then I.implies u v
-                    else if Sym.sub q p then I.implies v u
-                with Not_found -> () )
-              vs
-          with Not_found -> () )
-        us
-    with Not_found -> ()
-
-  and deduce_equal x y =
+  let deduce_equal x y =
     try
       let us = Config.Dep.find x in
       let vs = Config.Dep.find y in
@@ -475,6 +419,62 @@ struct
           with Not_found -> () )
         us
     with Not_found -> ()
+
+  let deduce_monadic x y =
+    try
+      let us = Config.Dep.find x in
+      let vs = Config.Dep.find y in
+      Propvars.iter
+        (fun u ->
+          assert (dom u) ;
+          try
+            let p, y = Config.Monadic.find u in
+            (* [u |-> p(y)] *)
+            Propvars.iter
+              (fun v ->
+                assert (dom v) ;
+                try
+                  if Propvar.equal u v then ()
+                  else
+                    let q, z = Config.Monadic.find v in
+                    (* [v |-> q(z)].*)
+                    assert (I.equal y z) ;
+                    if Sym.equal p q then I.equiv u v
+                    else if Sym.disjoint p q then I.disjoint u v
+                    else if Sym.sub p q then I.implies u v
+                    else if Sym.sub q p then I.implies v u
+                with Not_found -> () )
+              vs
+          with Not_found -> () )
+        us
+    with Not_found -> ()
+
+  let merge_deps x y =
+    assert (I.equal x y) ;
+    assert (I.canonical y) ;
+    assert (not (I.canonical x)) ;
+    try
+      let us = Config.Dep.find x in
+      Config.Dep.remove x ;
+      try
+        let vs = Config.Dep.find y in
+        let vs' = Propvars.copy vs in
+        Propvars.union us vs' ;
+        Config.Dep.set y vs'
+      with Not_found -> Config.Dep.set y us
+    with Not_found -> ()
+
+  let propagate_eq x y =
+    assert (
+      Trace.prop_eq x y ;
+      true ) ;
+    assert (I.equal x y) ;
+    assert (I.canonical y) ;
+    assert (not (I.canonical x)) ;
+    deduce_monadic x y ;
+    deduce_equal x y ;
+    merge_deps x y ;
+    assert (well_formed ())
 
   let propagate_deq x y =
     assert (

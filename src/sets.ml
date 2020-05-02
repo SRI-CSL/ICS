@@ -176,9 +176,7 @@ module Splay (Ord : OrderedType) = struct
       in
       elements [] n
 
-    let rec pp fmt s = if !debug then pp_debug fmt s else pp_set fmt s
-
-    and pp_set fmt s =
+    let pp_set fmt s =
       let sep () = Format.fprintf fmt ", " in
       let rec iterate = function
         | [] -> ()
@@ -192,7 +190,7 @@ module Splay (Ord : OrderedType) = struct
       iterate (to_list s) ;
       Format.fprintf fmt "}@]@?"
 
-    and pp_debug fmt n =
+    let rec pp_debug fmt n =
       if is_empty n then Format.fprintf fmt "nil"
       else (
         Format.fprintf fmt "@[(" ;
@@ -202,6 +200,8 @@ module Splay (Ord : OrderedType) = struct
         Format.fprintf fmt ",@ " ;
         pp fmt n.right ;
         Format.fprintf fmt ")[%d]@]" n.refcount )
+
+    and pp fmt s = if !debug then pp_debug fmt s else pp_set fmt s
 
     let to_string n =
       pp Format.str_formatter n ;
@@ -362,59 +362,8 @@ module Splay (Ord : OrderedType) = struct
       assert (n.refcount = 0) ;
       n
 
-    (** Reorganize the splay tree [x] so that element [i] is at the root if
-        [mem i x].
-
-        - {i Empty}. The splay of [Empty] is Empty.
-        - {i Base}. If [x] has a parent [p] but no grandparent, we just
-          [rotate x p]. *)
-    let rec splay i p =
-      assert (well_formed p) ;
-      if not (is_empty p) then splay_node i p ;
-      assert (well_formed p)
-
-    and splay_node i p =
-      assert (is_node p) ;
-      assert (well_formed p) ;
-      let cmp = Ord.compare i p.elt in
-      if cmp < 0 then (
-        splay i p.left ;
-        rrotate p )
-      else if cmp > 0 then (
-        splay i p.right ;
-        lrotate p ) ;
-      assert (well_formed p) ;
-      assert (mem i p = (Ord.compare i p.elt == 0))
-
-    (** Right rotation: [p<l<a,j,b>,k,c>] ==> [p<a,j,n<b,k,c>>]. If the
-        reference count of [l] is [1], then this node is reused for building
-        node [n]. *)
-    and rrotate p =
-      assert (is_node p) ;
-      assert (well_formed p) ;
-      let l = p.left in
-      if is_node l then (
-        let k = p.elt and c = p.right in
-        ( if l.refcount = 1 then (
-          (* reuse [l]. *)
-          p.left <- l.left ;
-          p.elt <- l.elt ;
-          p.right <- l ;
-          l.left <- l.right ;
-          l.elt <- k ;
-          l.right <- c )
-        else
-          let n = create l.right k c in
-          incr n ;
-          decr l ;
-          p.left <- l.left ;
-          p.elt <- l.elt ;
-          p.right <- n ) ;
-        assert (refcount p.right = 1) ;
-        assert (well_formed p) )
-
     (** Left rotation: [p<a,k,r<b,j,c>>] ==> [p<n<a,k,b>,j,c>] *)
-    and lrotate p =
+    let lrotate p =
       assert (is_node p) ;
       assert (well_formed p) ;
       let r = p.right in
@@ -440,6 +389,57 @@ module Splay (Ord : OrderedType) = struct
           p.right <- c ) ;
         assert (refcount p.left = 1) ;
         assert (well_formed p) )
+
+    (** Right rotation: [p<l<a,j,b>,k,c>] ==> [p<a,j,n<b,k,c>>]. If the
+        reference count of [l] is [1], then this node is reused for building
+        node [n]. *)
+    let rrotate p =
+      assert (is_node p) ;
+      assert (well_formed p) ;
+      let l = p.left in
+      if is_node l then (
+        let k = p.elt and c = p.right in
+        ( if l.refcount = 1 then (
+          (* reuse [l]. *)
+          p.left <- l.left ;
+          p.elt <- l.elt ;
+          p.right <- l ;
+          l.left <- l.right ;
+          l.elt <- k ;
+          l.right <- c )
+        else
+          let n = create l.right k c in
+          incr n ;
+          decr l ;
+          p.left <- l.left ;
+          p.elt <- l.elt ;
+          p.right <- n ) ;
+        assert (refcount p.right = 1) ;
+        assert (well_formed p) )
+
+    let rec splay_node i p =
+      assert (is_node p) ;
+      assert (well_formed p) ;
+      let cmp = Ord.compare i p.elt in
+      if cmp < 0 then (
+        splay i p.left ;
+        rrotate p )
+      else if cmp > 0 then (
+        splay i p.right ;
+        lrotate p ) ;
+      assert (well_formed p) ;
+      assert (mem i p = (Ord.compare i p.elt == 0))
+
+    (** Reorganize the splay tree [x] so that element [i] is at the root if
+        [mem i x].
+
+        - {i Empty}. The splay of [Empty] is Empty.
+        - {i Base}. If [x] has a parent [p] but no grandparent, we just
+          [rotate x p]. *)
+    and splay i p =
+      assert (well_formed p) ;
+      if not (is_empty p) then splay_node i p ;
+      assert (well_formed p)
 
     (** Return a node [m] which contains [k] and all elements of [n]. If the
         refcount of [n] is [1], then [n] might be updated to contain a

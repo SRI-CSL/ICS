@@ -268,7 +268,49 @@ module Make (Var : VAR) = struct
 
   exception Unsat
 
-  let rec union f x y =
+  let combine xs ys =
+    assert (not (Varset.is_empty xs)) ;
+    assert (not (Varset.is_empty ys)) ;
+    let cmb xs ys =
+      assert (Varset.cardinal xs >= Varset.cardinal ys) ;
+      let acc = Varset.copy xs in
+      let mem z = Varset.exists (equal z) acc in
+      let add z = if not (mem z) then Varset.add (find z) acc in
+      Varset.iter add ys ;
+      assert (not (Varset.is_empty acc)) ;
+      acc
+    in
+    let n = Varset.cardinal xs and m = Varset.cardinal ys in
+    if n >= m then cmb xs ys else cmb ys xs
+
+  let merge_d propagate x y =
+    assert (equal x y) ;
+    try
+      let xs = Diseqs.find x (diseqs ()) in
+      Config.Diseqs.remove x ;
+      try
+        let ys = Diseqs.find y (diseqs ()) in
+        let xys = combine xs ys in
+        assert (not (Varset.is_empty xys)) ;
+        Config.Diseqs.set y xys ;
+        Varset.iter
+          (fun x -> if not (Varset.mem x ys) then propagate y x)
+          xys
+      with Not_found ->
+        Config.Diseqs.set y xs ;
+        Varset.iter (propagate y) xs
+    with Not_found -> ()
+
+  let merge f x y =
+    assert (canonical x) ;
+    assert (canonical y) ;
+    assert (not (equal x y)) ;
+    Config.Parent.set x y ;
+    Config.Rank.remove x ;
+    merge_d f x y ;
+    assert (not (canonical x))
+
+  let union f x y =
     assert (well_formed ()) ;
     let x = find x and y = find y in
     let rx = rk x and ry = rk y in
@@ -293,59 +335,7 @@ module Make (Var : VAR) = struct
           Config.Rank.set y (ry + 1) ) ) ;
     assert (well_formed ())
 
-  and merge f x y =
-    assert (canonical x) ;
-    assert (canonical y) ;
-    assert (not (equal x y)) ;
-    Config.Parent.set x y ;
-    Config.Rank.remove x ;
-    merge_d f x y ;
-    assert (not (canonical x))
-
-  and merge_d propagate x y =
-    assert (equal x y) ;
-    try
-      let xs = Diseqs.find x (diseqs ()) in
-      Config.Diseqs.remove x ;
-      try
-        let ys = Diseqs.find y (diseqs ()) in
-        let xys = combine xs ys in
-        assert (not (Varset.is_empty xys)) ;
-        Config.Diseqs.set y xys ;
-        Varset.iter
-          (fun x -> if not (Varset.mem x ys) then propagate y x)
-          xys
-      with Not_found ->
-        Config.Diseqs.set y xs ;
-        Varset.iter (propagate y) xs
-    with Not_found -> ()
-
-  and combine xs ys =
-    assert (not (Varset.is_empty xs)) ;
-    assert (not (Varset.is_empty ys)) ;
-    let cmb xs ys =
-      assert (Varset.cardinal xs >= Varset.cardinal ys) ;
-      let acc = Varset.copy xs in
-      let mem z = Varset.exists (equal z) acc in
-      let add z = if not (mem z) then Varset.add (find z) acc in
-      Varset.iter add ys ;
-      assert (not (Varset.is_empty acc)) ;
-      acc
-    in
-    let n = Varset.cardinal xs and m = Varset.cardinal ys in
-    if n >= m then cmb xs ys else cmb ys xs
-
-  let rec separate x y =
-    assert (well_formed ()) ;
-    let x = find x and y = find y in
-    if diseq x y then ()
-    else (
-      install_d x y ;
-      install_d y x ;
-      assert (well_formed ()) ;
-      if Var.equal x y then raise Unsat )
-
-  and install_d x y =
+  let install_d x y =
     assert (canonical x) ;
     assert (canonical y) ;
     assert (not (equal x y)) ;
@@ -358,4 +348,14 @@ module Make (Var : VAR) = struct
     with Not_found ->
       let xs' = Varset.singleton y in
       Config.Diseqs.set x xs'
+
+  let separate x y =
+    assert (well_formed ()) ;
+    let x = find x and y = find y in
+    if diseq x y then ()
+    else (
+      install_d x y ;
+      install_d y x ;
+      assert (well_formed ()) ;
+      if Var.equal x y then raise Unsat )
 end

@@ -123,7 +123,14 @@ let args () =
     "Usage: ics [args] <file> ... <file>" ;
   List.rev !files
 
-let rec repl inch =
+let eval_cmd inch =
+  try Parser.command Lexer.token (Lexing.from_channel inch) with
+  | Parsing.Parse_error ->
+      Format.fprintf Format.std_formatter ":parse_error"
+  | End_of_file -> exit 0
+  | Sys.Break -> exit 1
+
+let repl inch =
   usage () ;
   while true do
     Format.fprintf Format.std_formatter "\n%s @?" !prompt ;
@@ -133,14 +140,12 @@ let rec repl inch =
         (Printexc.to_string exc)
   done
 
-and eval_cmd inch =
-  try Parser.command Lexer.token (Lexing.from_channel inch) with
-  | Parsing.Parse_error ->
-      Format.fprintf Format.std_formatter ":parse_error"
-  | End_of_file -> exit 0
-  | Sys.Break -> exit 1
+let process_batch inch =
+  let start = (Unix.times ()).Unix.tms_utime in
+  repl inch ;
+  (Unix.times ()).Unix.tms_utime -. start
 
-let rec batch name =
+let batch name =
   Format.printf "\nBatch Input: %s@?" name ;
   try
     let inch = Stdlib.open_in name in
@@ -155,12 +160,17 @@ let rec batch name =
     let msg = Printexc.to_string exc in
     Format.printf ":error %s@." msg
 
-and process_batch inch =
+let smt_process inch =
   let start = (Unix.times ()).Unix.tms_utime in
-  repl inch ;
-  (Unix.times ()).Unix.tms_utime -. start
+  SmtBench.Fill.reset () ;
+  SmtLexer.linenumber := 0 ;
+  SmtParser.benchmark SmtLexer.token (Lexing.from_channel inch) ;
+  let b = SmtBench.Fill.finalize () in
+  let status = SmtBench.decide !smt_incomplete_flag b in
+  let time = (Unix.times ()).Unix.tms_utime -. start in
+  (status, time)
 
-let rec smt name =
+let smt name =
   Format.eprintf "\nSMT Batch Input: %s@?" name ;
   try
     let inch = Stdlib.open_in name in
@@ -180,16 +190,6 @@ let rec smt name =
   | exc ->
       let msg = Printexc.to_string exc in
       Format.fprintf Format.std_formatter ":error %s@?" msg
-
-and smt_process inch =
-  let start = (Unix.times ()).Unix.tms_utime in
-  SmtBench.Fill.reset () ;
-  SmtLexer.linenumber := 0 ;
-  SmtParser.benchmark SmtLexer.token (Lexing.from_channel inch) ;
-  let b = SmtBench.Fill.finalize () in
-  let status = SmtBench.decide !smt_incomplete_flag b in
-  let time = (Unix.times ()).Unix.tms_utime -. start in
-  (status, time)
 
 let main () =
   match args () with

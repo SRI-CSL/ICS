@@ -90,11 +90,7 @@ module Flat (Var : VAR) = struct
     | Update _, Lookup _ -> 1
     | Lookup _, Update _ -> -1
 
-  let rec pp fmt = function
-    | Update (a, i, x) -> pp_update fmt a i x
-    | Lookup (a, i) -> pp_lookup fmt a i
-
-  and pp_update fmt a i x =
+  let pp_update fmt a i x =
     Format.fprintf fmt "@[" ;
     Var.pp fmt a ;
     Format.fprintf fmt "[" ;
@@ -103,12 +99,16 @@ module Flat (Var : VAR) = struct
     Var.pp fmt x ;
     Format.fprintf fmt "]@]@?"
 
-  and pp_lookup fmt a i =
+  let pp_lookup fmt a i =
     Format.fprintf fmt "@[" ;
     Var.pp fmt a ;
     Format.fprintf fmt "[" ;
     Var.pp fmt i ;
     Format.fprintf fmt "]@]@?"
+
+  let pp fmt = function
+    | Update (a, i, x) -> pp_update fmt a i x
+    | Lookup (a, i) -> pp_lookup fmt a i
 end
 
 module type INTERFACE = sig
@@ -264,11 +264,7 @@ struct
     | Flat.Lookup (a, i), Flat.Lookup (b, j) -> V.equal a b && V.equal i j
     | _ -> false
 
-  let rec inv = function
-    | Flat.Update (a, i, x) -> inv_update a i x
-    | Flat.Lookup (a, i) -> inv_lookup a i
-
-  and inv_update a i x =
+  let inv_update a i x =
     let repr_update u =
       assert (dom u) ;
       match lookup u with
@@ -278,7 +274,7 @@ struct
     in
     Dep.Values.choose_if repr_update (dep i)
 
-  and inv_lookup a i =
+  let inv_lookup a i =
     let repr_lookup u =
       assert (dom u) ;
       match lookup u with
@@ -286,6 +282,10 @@ struct
       | _ -> false
     in
     Dep.Values.choose_if repr_lookup (dep i)
+
+  let inv = function
+    | Flat.Update (a, i, x) -> inv_update a i x
+    | Flat.Lookup (a, i) -> inv_lookup a i
 
   let iterate_update_index i f =
     let i = V.find i in
@@ -346,30 +346,7 @@ struct
         Config.Dep.add u a ;
         Config.Dep.add u i
 
-  let rec alias t =
-    let x =
-      match t with
-      | Flat.Update (a, i, x) -> alias_update a i x
-      | Flat.Lookup (a, i) -> alias_lookup a i
-    in
-    assert (Trace.alias x t) ;
-    x
-
-  and alias_update a i x =
-    let a = V.find a and i = V.find i and x = V.find x in
-    try inv_update a i x
-    with Not_found ->
-      let u = Var.fresh () in
-      let t = Flat.update a i x in
-      Config.Find.set u t ;
-      dep_add u t ;
-      chain_on_update u a i x ;
-      split_on_update u a i x ;
-      V.array u ;
-      V.array a ;
-      u
-
-  and alias_lookup a i =
+  let rec alias_lookup a i =
     let a = V.find a and i = V.find i in
     try inv_lookup a i
     with Not_found ->
@@ -381,17 +358,12 @@ struct
       V.array a ;
       u
 
-  (** From [u = a\[i:=x\]], [v = b\[j\]], [u = b] derive
-      [if i = j then v = x else v = a\[j\]]. *)
-  and split_on_update u a i x =
-    assert (mem_update u a i x) ;
-    let split v = function
-      | Flat.Lookup (b, j) when V.equal u b ->
-          assert (mem_lookup v u j) ;
-          do_split i j v x a
-      | _ -> ()
-    in
-    Find.iter split (Config.Find.current ())
+  and do_split i j v x a =
+    if V.equal i j then deduce v x
+    else if V.diseq i j then deduce v (alias_lookup a j)
+    else (
+      assert (Trace.split i j) ;
+      V.ite (i, j) (v, x) (v, alias_lookup a j) )
 
   (** From [v = b\[j\]], [u = a\[i:=x\]], [u = b] derive
       [if i = j then v = x else v = a\[j\]]. *)
@@ -408,29 +380,25 @@ struct
     in
     V.iter_equiv split b
 
-  and do_split i j v x a =
-    if V.equal i j then deduce v x
-    else if V.diseq i j then deduce v (alias_lookup a j)
-    else (
-      assert (Trace.split i j) ;
-      V.ite (i, j) (v, x) (v, alias_lookup a j) )
-
-  (** Forward chainining on new updates [u = a\[i:=x\]]. *)
-  and chain_on_update u a i x =
-    chain_on_update1 u a i x ;
-    chain_on_update2 u a i x ;
-    chain_on_update3one u a i x ;
-    chain_on_update3two u a i x ;
-    chain_on_update4one u a i x ;
-    chain_on_update4two u a i x
+  (** From [u = a\[i:=x\]], [v = b\[j\]], [u = b] derive
+      [if i = j then v = x else v = a\[j\]]. *)
+  let split_on_update u a i x =
+    assert (mem_update u a i x) ;
+    let split v = function
+      | Flat.Lookup (b, j) when V.equal u b ->
+          assert (mem_lookup v u j) ;
+          do_split i j v x a
+      | _ -> ()
+    in
+    Find.iter split (Config.Find.current ())
 
   (** [u = a\[i:=x\]] ==> [x = u\[i\]] *)
-  and chain_on_update1 u a i x =
+  let chain_on_update1 u a i x =
     assert (mem_update u a i x) ;
     deduce x (alias_lookup u i)
 
   (** [u = a\[i:=x\]], [i' <> j], [i = i'] ==> [u\[j\] = a\[j\]] *)
-  and chain_on_update2 u a i x =
+  let chain_on_update2 u a i x =
     assert (mem_update u a i x) ;
     let chain_diseq i' j =
       assert (V.diseq i' j) ;
@@ -441,7 +409,7 @@ struct
 
   (** [u = a\[i:=x\]], [i<>j], [v = u'\[j:=y\]], [u = u'] ==>
       [v = a\[j:=y\]\[i:=x\]] *)
-  and chain_on_update3one u a i x =
+  let rec chain_on_update3one u a i x =
     assert (mem_update u a i x) ;
     let chain3 i' j =
       assert (V.diseq i' j) ;
@@ -496,6 +464,38 @@ struct
         | _ -> ()
     in
     Dep.Values.iter chain4 (dep i)
+
+  and alias_update a i x =
+    let a = V.find a and i = V.find i and x = V.find x in
+    try inv_update a i x
+    with Not_found ->
+      let u = Var.fresh () in
+      let t = Flat.update a i x in
+      Config.Find.set u t ;
+      dep_add u t ;
+      chain_on_update u a i x ;
+      split_on_update u a i x ;
+      V.array u ;
+      V.array a ;
+      u
+
+  (** Forward chainining on new updates [u = a\[i:=x\]]. *)
+  and chain_on_update u a i x =
+    chain_on_update1 u a i x ;
+    chain_on_update2 u a i x ;
+    chain_on_update3one u a i x ;
+    chain_on_update3two u a i x ;
+    chain_on_update4one u a i x ;
+    chain_on_update4two u a i x
+
+  let alias t =
+    let x =
+      match t with
+      | Flat.Update (a, i, x) -> alias_update a i x
+      | Flat.Lookup (a, i) -> alias_lookup a i
+    in
+    assert (Trace.alias x t) ;
+    x
 
   (** Forward chain: [i<>j], [u = a\[i':=x\]], [i = i'] ==>
       [u\[j\] = a\[j\]] *)

@@ -115,14 +115,13 @@ struct
     Config.Pos.initialize s.pos ;
     Config.Neg.initialize s.neg
 
-  let rec synchronized () = synchronized_pos () && synchronized_neg ()
-
-  and synchronized_pos () =
+  let synchronized_pos () =
     Pos.for_all (fun x _ -> Partition.canonical x) (pos ())
 
-  and synchronized_neg () =
+  let synchronized_neg () =
     Neg.for_all (fun x _ -> Partition.canonical x) (neg ())
 
+  let synchronized () = synchronized_pos () && synchronized_neg ()
   let reset () = initialize empty
   let unchanged () = Config.Pos.unchanged () && Config.Neg.unchanged ()
 
@@ -190,24 +189,7 @@ struct
       Set.add p ps ;
       Config.Neg.set x ps
 
-  let rec propagate_eq x y =
-    assert (Partition.equal x y) ;
-    assert (not (Partition.canonical x)) ;
-    assert (Partition.canonical y) ;
-    propagate_eq_pos x y ;
-    propagate_eq_neg x y
-
-  and propagate_eq_pos x y =
-    try
-      let ps = Config.Pos.find x in
-      Config.Pos.remove x ;
-      try
-        let qs = Config.Pos.find y in
-        Config.Pos.set y (merge_pos qs ps)
-      with Not_found -> Config.Pos.set y ps
-    with Not_found -> ()
-
-  and merge_pos qs ps =
+  let merge_pos qs ps =
     let rs = Set.copy ps in
     let add q =
       if Set.exists (P.disjoint q) ps then raise Unsat
@@ -217,7 +199,27 @@ struct
     Set.iter add qs ;
     rs
 
-  and propagate_eq_neg x y =
+  let propagate_eq_pos x y =
+    try
+      let ps = Config.Pos.find x in
+      Config.Pos.remove x ;
+      try
+        let qs = Config.Pos.find y in
+        Config.Pos.set y (merge_pos qs ps)
+      with Not_found -> Config.Pos.set y ps
+    with Not_found -> ()
+
+  let merge_neg qs ps =
+    let rs = Set.copy ps in
+    let add q =
+      if Set.exists (P.disjoint q) ps then raise Unsat
+      else if Set.exists (P.sub q) ps then ()
+      else Set.add q rs
+    in
+    Set.iter add qs ;
+    rs
+
+  let propagate_eq_neg x y =
     try
       let ps = Config.Neg.find x in
       Config.Neg.remove x ;
@@ -227,13 +229,10 @@ struct
       with Not_found -> Config.Neg.set y ps
     with Not_found -> ()
 
-  and merge_neg qs ps =
-    let rs = Set.copy ps in
-    let add q =
-      if Set.exists (P.disjoint q) ps then raise Unsat
-      else if Set.exists (P.sub q) ps then ()
-      else Set.add q rs
-    in
-    Set.iter add qs ;
-    rs
+  let propagate_eq x y =
+    assert (Partition.equal x y) ;
+    assert (not (Partition.canonical x)) ;
+    assert (Partition.canonical y) ;
+    propagate_eq_pos x y ;
+    propagate_eq_neg x y
 end

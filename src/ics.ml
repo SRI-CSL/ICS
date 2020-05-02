@@ -843,17 +843,11 @@ module Union = struct
     Stacks.clear lhs ;
     Stacks.clear rhs
 
-  let rec process x y =
-    if V.equal x y then ()
-    else if V.diseq x y then raise Unsatisfiable
-    else if !critical then delay x y
-    else process_critical x y
-
-  and delay x y =
+  let delay x y =
     Stacks.push x lhs ;
     Stacks.push y rhs
 
-  and process_critical x y =
+  let process_critical x y =
     let x = V.find x and y = V.find y in
     if V.equal x y then ()
     else
@@ -868,6 +862,12 @@ module Union = struct
       with exc ->
         critical := false ;
         raise exc
+
+  let process x y =
+    if V.equal x y then ()
+    else if V.diseq x y then raise Unsatisfiable
+    else if !critical then delay x y
+    else process_critical x y
 
   let closed () = Stacks.is_empty lhs
 
@@ -888,22 +888,22 @@ module Separate = struct
 
   let propagate : (Var.t -> Var.t -> unit) ref = ref (fun _ _ -> ())
 
-  let rec process x y =
-    if V.diseq x y then ()
-    else if V.equal x y then raise Unsatisfiable
-    else if !critical then delay x y
-    else process_critical x y
-
-  and delay x y =
+  let delay x y =
     Stacks.push x lhs ;
     Stacks.push y rhs
 
-  and process_critical x y =
+  let process_critical x y =
     if !footprint then Footprint.diseq x y ;
     critical := true ;
     V.separate x y ;
     !propagate x y ;
     critical := false
+
+  let process x y =
+    if V.diseq x y then ()
+    else if V.equal x y then raise Unsatisfiable
+    else if !critical then delay x y
+    else process_critical x y
 
   let closed () = Stacks.is_empty lhs
 
@@ -917,16 +917,9 @@ end
 module Valid0 = struct
   let vars = Stacks.create ()
   let reset () = Stacks.clear vars
+  let delay x = Stacks.push x vars
 
-  let rec process x =
-    if L0.is_valid x then ()
-    else if L0.is_unsat x then raise Unsatisfiable
-    else if !critical then delay x
-    else process_critical x
-
-  and delay x = Stacks.push x vars
-
-  and process_critical x =
+  let process_critical x =
     if L0.is_valid x then ()
     else if L0.is_unsat x then raise Unsatisfiable
     else (
@@ -935,6 +928,12 @@ module Valid0 = struct
       L0.process_valid x ;
       !propagate_valid0 x ;
       critical := false )
+
+  let process x =
+    if L0.is_valid x then ()
+    else if L0.is_unsat x then raise Unsatisfiable
+    else if !critical then delay x
+    else process_critical x
 
   let closed () = Stacks.is_empty vars
 
@@ -947,16 +946,9 @@ end
 module Unsat0 = struct
   let vars = Stacks.create ()
   let reset () = Stacks.clear vars
+  let delay x = Stacks.push x vars
 
-  let rec process x =
-    if L0.is_unsat x then ()
-    else if L0.is_valid x then raise Unsatisfiable
-    else if !critical then delay x
-    else process_critical x
-
-  and delay x = Stacks.push x vars
-
-  and process_critical x =
+  let process_critical x =
     if L0.is_unsat x then ()
     else if L0.is_valid x then raise Unsatisfiable
     else (
@@ -965,6 +957,12 @@ module Unsat0 = struct
       L0.process_unsat x ;
       !propagate_unsat0 x ;
       critical := false )
+
+  let process x =
+    if L0.is_unsat x then ()
+    else if L0.is_valid x then raise Unsatisfiable
+    else if !critical then delay x
+    else process_critical x
 
   let closed () = Stacks.is_empty vars
 
@@ -993,17 +991,11 @@ module Valid1 = struct
     Stacks.clear preds ;
     Stacks.clear args
 
-  let rec process p x =
-    if L1.valid p x then ()
-    else if L1.unsat p x then raise Unsatisfiable
-    else if !critical then delay p x
-    else process_critical p (V.find x)
-
-  and delay p x =
+  let delay p x =
     Stacks.push p preds ;
     Stacks.push x args
 
-  and process_critical p x =
+  let process_critical p x =
     let x = V.find x in
     if L1.valid p x then ()
     else if L1.unsat p x then raise Unsatisfiable
@@ -1013,6 +1005,12 @@ module Valid1 = struct
       L1.process_pos p x ;
       !propagate_valid1 p x ;
       critical := false )
+
+  let process p x =
+    if L1.valid p x then ()
+    else if L1.unsat p x then raise Unsatisfiable
+    else if !critical then delay p x
+    else process_critical p (V.find x)
 
   let closed () = Stacks.is_empty preds
 
@@ -1031,17 +1029,11 @@ module Unsat1 = struct
     Stacks.clear preds ;
     Stacks.clear args
 
-  let rec process p x =
-    if L1.unsat p x then ()
-    else if L1.valid p x then raise Unsatisfiable
-    else if !critical then delay p x
-    else process_critical p (V.find x)
-
-  and delay p x =
+  let delay p x =
     Stacks.push p preds ;
     Stacks.push x args
 
-  and process_critical p x =
+  let process_critical p x =
     let x = V.find x in
     if L1.unsat p x then ()
     else if L1.valid p x then raise Unsatisfiable
@@ -1051,6 +1043,12 @@ module Unsat1 = struct
       L1.process_neg p x ;
       !propagate_unsat1 p x ;
       critical := false )
+
+  let process p x =
+    if L1.unsat p x then ()
+    else if L1.valid p x then raise Unsatisfiable
+    else if !critical then delay p x
+    else process_critical p (V.find x)
 
   let closed () = Stacks.is_empty preds
 
@@ -1213,6 +1211,8 @@ let _ =
       | Predsym.Arith p -> add_negarith p (Term.Polynomial.indet x)
       | _ -> R.propagate_unsat1 p x
 
+type status = Sat of Formula.t | Unsat of Formula.t list | Unknown
+
 type t =
   { context: Formula.t list
   ; p: P.t
@@ -1226,8 +1226,6 @@ type t =
   ; f: F.t
   ; upper: int
   ; mutable status: status }
-
-and status = Sat of Formula.t | Unsat of Formula.t list | Unknown
 
 let empty =
   { context= []
@@ -1321,20 +1319,13 @@ let tableau_equals () =
     (A.T.solset ()) ;
   acc
 
-let rec theory_equals i =
-  match i with
-  | A -> arith_equals ()
-  | T -> tuple_equals ()
-  | U -> uninterp_equals ()
-  | F -> array_equals ()
-
-and arith_equals () =
+let arith_equals () =
   let acc = constant_equals () in
   Formulas.union (regular_equals ()) acc ;
   Formulas.union (tableau_equals ()) acc ;
   acc
 
-and tuple_equals () =
+let tuple_equals () =
   let acc = Formulas.empty () in
   T.Subst.iter
     (fun x t ->
@@ -1343,7 +1334,7 @@ and tuple_equals () =
     (T.config ()) ;
   acc
 
-and array_equals () =
+let array_equals () =
   let acc = Formulas.empty () in
   F.Cfg.iter
     (fun x t ->
@@ -1352,7 +1343,7 @@ and array_equals () =
     (F.config ()) ;
   acc
 
-and uninterp_equals () =
+let uninterp_equals () =
   let acc = Formulas.empty () in
   U.Find.iter
     (fun u a ->
@@ -1360,6 +1351,13 @@ and uninterp_equals () =
       Formulas.add e acc )
     (U.context ()) ;
   acc
+
+let theory_equals i =
+  match i with
+  | A -> arith_equals ()
+  | T -> tuple_equals ()
+  | U -> uninterp_equals ()
+  | F -> array_equals ()
 
 let slacks () =
   let acc = Vars.empty () in
@@ -1404,32 +1402,21 @@ let renames () =
 
 let prop () = Formula.mk_prop (P.current ())
 
-let rec pp_config () =
-  pp_vareqs () ;
-  pp_vardiseqs () ;
-  pp_arith () ;
-  pp_uninterp () ;
-  pp_tuple () ;
-  pp_array () ;
-  pp_rename () ;
-  pp_literals () ;
-  pp_prop ()
-
-and pp_vareqs () =
+let pp_vareqs () =
   let v = var_equals () in
   if not (Vareqs.is_empty v) then (
     Format.fprintf stdout "v: " ;
     Vareqs.pp stdout v ;
     Format.fprintf stdout "\n" )
 
-and pp_vardiseqs () =
+let pp_vardiseqs () =
   let d = var_diseqs () in
   if not (Formulas.is_empty d) then (
     Format.fprintf stdout "d: " ;
     Formulas.pp stdout d ;
     Format.fprintf stdout "\n" )
 
-and pp_arith () =
+let pp_arith () =
   let c = constant_equals () in
   let r = regular_equals () in
   let t = tableau_equals () in
@@ -1453,49 +1440,68 @@ and pp_arith () =
       Vars.pp stdout sl ;
       Format.fprintf stdout "\n" ) )
 
-and pp_uninterp () =
+let pp_uninterp () =
   let u = uninterp_equals () in
   if not (Formulas.is_empty u) then (
     Format.fprintf stdout "u: " ;
     Formulas.pp stdout u ;
     Format.fprintf stdout "\n" )
 
-and pp_tuple () =
+let pp_tuple () =
   let t = tuple_equals () in
   if not (Formulas.is_empty t) then (
     Format.fprintf stdout "t: " ;
     Formulas.pp stdout t ;
     Format.fprintf stdout "\n" )
 
-and pp_array () =
+let pp_array () =
   let f = array_equals () in
   if not (Formulas.is_empty f) then (
     Format.fprintf stdout "f: " ;
     Formulas.pp stdout f ;
     Format.fprintf stdout "\n" )
 
-and pp_rename () =
+let pp_rename () =
   let r = renames () in
   if not (Rename.is_empty r) then (
     Format.fprintf stdout "r: " ;
     Rename.pp stdout r ;
     Format.fprintf stdout "\n" )
 
-and pp_literals () =
+let pp_literals () =
   let r = literals () in
   if not (Formulas.is_empty r) then (
     Format.fprintf stdout "l: " ;
     Formulas.pp stdout r ;
     Format.fprintf stdout "\n" )
 
-and pp_prop () =
+let pp_prop () =
   let p = prop () in
   if not (Formula.is_true p) then (
     Format.fprintf stdout "p: " ;
     Formula.pp stdout p ;
     Format.fprintf stdout "\n" )
 
-let rec initialize s =
+let pp_config () =
+  pp_vareqs () ;
+  pp_vardiseqs () ;
+  pp_arith () ;
+  pp_uninterp () ;
+  pp_tuple () ;
+  pp_array () ;
+  pp_rename () ;
+  pp_literals () ;
+  pp_prop ()
+
+let reset_channels () =
+  Union.reset () ;
+  Separate.reset () ;
+  Valid0.reset () ;
+  Unsat0.reset () ;
+  Valid1.reset () ;
+  Unsat1.reset ()
+
+let initialize s =
   init := s ;
   k := s.upper ;
   curr_context := s.context ;
@@ -1511,14 +1517,6 @@ let rec initialize s =
   T.initialize s.t ;
   F.initialize s.f ;
   reset_channels ()
-
-and reset_channels () =
-  Union.reset () ;
-  Separate.reset () ;
-  Valid0.reset () ;
-  Unsat0.reset () ;
-  Valid1.reset () ;
-  Unsat1.reset ()
 
 let reset () = initialize empty
 
@@ -1672,30 +1670,7 @@ let apply_process process p =
     reset_channels () ;
     raise Unsatisfiable
 
-let rec process p =
-  assert (closed ()) ;
-  if !footprint then Footprint.process p ;
-  let add p =
-    if Formula.is_true p || is_unsat () then ()
-    else (
-      curr_context := p :: !curr_context ;
-      add_formula p ;
-      close () ;
-      if !do_normalize then normalize () ;
-      curr_status := if is_sat () then Sat Formula.mk_true else Unknown ;
-      assert (closed ()) )
-  in
-  apply_process add p
-
-and add_formula = function
-  | Formula.Equal (s, t) -> add_equal s t
-  | Formula.Diseq (s, t) -> add_diseq s t
-  | Formula.Arith (p, t) -> add_arith p t
-  | Formula.Poslit (p, t) -> add_poslit p t
-  | Formula.Neglit (p, t) -> add_neglit p t
-  | Formula.Prop b -> P.process_conjoin b
-
-and add_equal s t =
+let add_equal s t =
   if Term.equal s t then ()
   else
     match (s, t) with
@@ -1718,7 +1693,7 @@ and add_equal s t =
         let x = alias s and y = alias t in
         if V.equal x y then () else Union.process x y
 
-and add_diseq s t =
+let add_diseq s t =
   if Term.equal s t then raise Unsatisfiable
   else
     match (s, t) with
@@ -1734,17 +1709,25 @@ and add_diseq s t =
         let x = alias s and y = alias t in
         Separate.process x y
 
-and add_poslit p t =
+let add_poslit p t =
   match p with
   | Predsym.Arith p -> add_arith p (term2poly t)
   | _ -> L1.process_pos p (alias t)
 
-and add_neglit p t =
+let add_neglit p t =
   match p with
   | Predsym.Arith p -> add_negarith p (term2poly t)
   | _ -> L1.process_neg p (alias t)
 
-and close () =
+let add_formula = function
+  | Formula.Equal (s, t) -> add_equal s t
+  | Formula.Diseq (s, t) -> add_diseq s t
+  | Formula.Arith (p, t) -> add_arith p t
+  | Formula.Poslit (p, t) -> add_poslit p t
+  | Formula.Neglit (p, t) -> add_neglit p t
+  | Formula.Prop b -> P.process_conjoin b
+
+let rec close () =
   if closed () then ()
   else (
     if !footprint then Footprint.close () ;
@@ -1756,9 +1739,24 @@ and close () =
     Unsat1.close () ;
     close () )
 
-and normalize () =
+let normalize () =
   A.normalize () ;
   T.normalize ()
+
+let process p =
+  assert (closed ()) ;
+  if !footprint then Footprint.process p ;
+  let add p =
+    if Formula.is_true p || is_unsat () then ()
+    else (
+      curr_context := p :: !curr_context ;
+      add_formula p ;
+      close () ;
+      if !do_normalize then normalize () ;
+      curr_status := if is_sat () then Sat Formula.mk_true else Unknown ;
+      assert (closed ()) )
+  in
+  apply_process add p
 
 let context () = !curr_context
 let status () = !curr_status
@@ -1908,7 +1906,9 @@ let lookup a i =
       array2term (Term.Array.lookup b i)
   | _ -> array2term (Term.Array.lookup (alias a) i)
 
-let rec update a i x =
+let update_var a i x = array2term (Term.Array.update a i x)
+
+let update a i x =
   let i = alias i in
   let x = alias x in
   match a with
@@ -1918,8 +1918,6 @@ let rec update a i x =
     when Var.compare i j > 0 && V.diseq i j ->
       update_var (alias (update_var b i x)) j y
   | _ -> update_var (alias a) i x
-
-and update_var a i x = array2term (Term.Array.update a i x)
 
 let do_minimize = ref false
 
@@ -1934,25 +1932,16 @@ let with_do_minimize arith_test p =
     A.complete := save_flag ;
     raise exc
 
-let rec valid p =
-  match p with
-  | Formula.Equal (s, t) -> valid_equal s t
-  | Formula.Diseq (s, t) -> valid_diseq s t
-  | Formula.Poslit (p, t) -> valid_poslit p t
-  | Formula.Neglit (p, t) -> valid_neglit p t
-  | Formula.Arith (p, t) -> valid_arith p t
-  | Formula.Prop b -> valid_bdd b
-
-and valid_equal s t =
+let valid_equal s t =
   let s = can s and t = can t in
   Term.equal s t
 
-and valid_diseq s t =
+let valid_diseq s t =
   match (can s, can t) with
   | Term.Var x, Term.Var y -> diseq x y
   | s, t -> Term.diseq s t
 
-and valid_bdd b =
+let rec valid_bdd b =
   if Formula.Bdd.is_valid b then true
   else if Formula.Bdd.is_unsat b then false
   else
@@ -1963,14 +1952,7 @@ and valid_bdd b =
     else if L0.is_unsat p then valid_bdd neg
     else Formula.Bdd.implies (P.current ()) b
 
-and valid_poslit p t =
-  match p with
-  | Predsym.Arith p -> valid_arith p (term2poly t)
-  | Predsym.Uninterp p -> valid_uninterp p t
-  | Predsym.Tuple n -> valid_tuple n t
-  | Predsym.Array -> valid_array t
-
-and valid_arith p t =
+let valid_arith p t =
   match p with
   | Predsym.Arith.Nonneg -> with_do_minimize A.is_nonneg t
   | Predsym.Arith.Pos -> with_do_minimize A.is_pos t
@@ -1982,24 +1964,40 @@ and valid_arith p t =
     try L1.valid Predsym.integer (Term.Polynomial.d_indet t)
     with _ -> false )
 
-and valid_uninterp p t =
+let valid_uninterp p t =
   match can t with
   | Term.Var x -> L1.valid (Predsym.uninterp (Name.to_string p)) x
   | _ -> false
 
-and valid_tuple n t =
+let valid_tuple n t =
   match can t with
   | Term.Var x -> L1.valid (Predsym.tuple n) x
   | Term.Tuple tt when Term.Tuple.is_tuple n tt -> true
   | _ -> false
 
-and valid_array t =
+let valid_array t =
   match can t with
   | Term.Var x -> L1.valid Predsym.array x
   | Term.Array _ -> true
   | _ -> false
 
-and valid_neglit _p _t = false
+let valid_poslit p t =
+  match p with
+  | Predsym.Arith p -> valid_arith p (term2poly t)
+  | Predsym.Uninterp p -> valid_uninterp p t
+  | Predsym.Tuple n -> valid_tuple n t
+  | Predsym.Array -> valid_array t
+
+let valid_neglit _p _t = false
+
+let valid p =
+  match p with
+  | Formula.Equal (s, t) -> valid_equal s t
+  | Formula.Diseq (s, t) -> valid_diseq s t
+  | Formula.Poslit (p, t) -> valid_poslit p t
+  | Formula.Neglit (p, t) -> valid_neglit p t
+  | Formula.Arith (p, t) -> valid_arith p t
+  | Formula.Prop b -> valid_bdd b
 
 let tt = Formula.mk_prop Formula.Bdd.mk_true
 let ff = Formula.mk_prop Formula.Bdd.mk_false
@@ -2163,15 +2161,7 @@ let poslit p t =
   | Predsym.Tuple n -> is_tuple n t
   | Predsym.Array -> is_array t
 
-let rec neglit p t =
-  let t = can t in
-  match p with
-  | Predsym.Arith p -> neg_arith p (term2poly t)
-  | _ ->
-      let u = R.alias_monadic p (alias t) in
-      Formula.mk_prop (Formula.Bdd.mk_negvar u)
-
-and neg_arith p t =
+let neg_arith p t =
   match p with
   | Predsym.Arith.Nonneg -> pos (poly2term (Term.Polynomial.minus t))
   | Predsym.Arith.Pos -> nonneg (poly2term (Term.Polynomial.minus t))
@@ -2182,6 +2172,14 @@ and neg_arith p t =
       Formula.mk_prop (Formula.Bdd.mk_negvar u)
   | Predsym.Arith.Int ->
       let u = R.alias_monadic Predsym.integer (A.alias t) in
+      Formula.mk_prop (Formula.Bdd.mk_negvar u)
+
+let neglit p t =
+  let t = can t in
+  match p with
+  | Predsym.Arith p -> neg_arith p (term2poly t)
+  | _ ->
+      let u = R.alias_monadic p (alias t) in
       Formula.mk_prop (Formula.Bdd.mk_negvar u)
 
 let formula2bdd = function
@@ -2285,35 +2283,7 @@ let apply_with s f a =
     initialize save ;
     raise exc
 
-(** The [s] argument is the context, [c] is the unprocessed literals, and
-    [a] is the accumulator. The invariants are that
-
-    - [a] is always already asserted in context [s], and
-    - [assert(s, C)] is inconsistent.
-
-    The algorithm is based on Juncker's quick explain:
-
-    {v
-       xp B C A = 
-         if empty?(C) || inconsistent?(B) then A else 
-           if singleton?(C) then A U C else 
-              let (C1,C2) = split(C) in
-              let B' = assert(B, C1) in
-              let A' = xp(B', C2, A) in
-              let B'' = assert(S, A') in
-                  xp(B'', C1, A')
-    v} *)
-let rec explain pl =
-  let save = current () in
-  try
-    let ql = xp empty pl [] in
-    initialize save ;
-    ql
-  with exc ->
-    initialize save ;
-    raise exc
-
-and xp b c a =
+let rec xp b c a =
   let split c =
     let rec spl c1 c2 n =
       assert (c2 <> []) ;
@@ -2349,36 +2319,37 @@ and xp b c a =
         let b'' = processl b a' in
         xp b'' c1 a' )
 
+(** The [s] argument is the context, [c] is the unprocessed literals, and
+    [a] is the accumulator. The invariants are that
+
+    - [a] is always already asserted in context [s], and
+    - [assert(s, C)] is inconsistent.
+
+    The algorithm is based on Juncker's quick explain:
+
+    {v
+       xp B C A = 
+         if empty?(C) || inconsistent?(B) then A else 
+           if singleton?(C) then A U C else 
+              let (C1,C2) = split(C) in
+              let B' = assert(B, C1) in
+              let A' = xp(B', C2, A) in
+              let B'' = assert(S, A') in
+                  xp(B'', C1, A')
+    v} *)
+let explain pl =
+  let save = current () in
+  try
+    let ql = xp empty pl [] in
+    initialize save ;
+    ql
+  with exc ->
+    initialize save ;
+    raise exc
+
 type resolve = Implicant of Formula.Bdd.t | Learned of Formula.Bdd.t
 
-(** [implicant()] returns either an implicant or raises [Unsatisfiable]. *)
-let rec implicant =
-  let queue = Queue.create () in
-  let conjoin_learned b =
-    P.process_conjoin b ;
-    close ()
-  in
-  fun () ->
-    let rec loop () =
-      let b = P.current () in
-      if Formula.Bdd.is_unsat b then raise Unsatisfiable
-      else if Formula.Bdd.is_valid b then b
-      else (
-        Formula.Bdd.implicant b queue ;
-        if !footprint then
-          Footprint.implicant_candidate (Queue.length queue) ;
-        match process_implicant queue with
-        | Implicant impl ->
-            if !footprint then Footprint.implicant impl ;
-            impl
-        | Learned l ->
-            if !footprint then Footprint.learned l ;
-            apply_process conjoin_learned l ;
-            loop () )
-    in
-    loop ()
-
-and process_implicant imp =
+let process_implicant imp =
   if Queue.is_empty imp then Implicant Formula.Bdd.mk_true
   else
     let ctxt = ref Formula.Bdd.mk_true in
@@ -2410,6 +2381,33 @@ and process_implicant imp =
       initialize save ;
       (* Learned(Formula.Bdd.mk_conj (Formula.Bdd.mk_neg !ctxt) !learned) *)
       Learned (Formula.Bdd.mk_neg !ctxt)
+
+(** [implicant()] returns either an implicant or raises [Unsatisfiable]. *)
+let implicant =
+  let queue = Queue.create () in
+  let conjoin_learned b =
+    P.process_conjoin b ;
+    close ()
+  in
+  fun () ->
+    let rec loop () =
+      let b = P.current () in
+      if Formula.Bdd.is_unsat b then raise Unsatisfiable
+      else if Formula.Bdd.is_valid b then b
+      else (
+        Formula.Bdd.implicant b queue ;
+        if !footprint then
+          Footprint.implicant_candidate (Queue.length queue) ;
+        match process_implicant queue with
+        | Implicant impl ->
+            if !footprint then Footprint.implicant impl ;
+            impl
+        | Learned l ->
+            if !footprint then Footprint.learned l ;
+            apply_process conjoin_learned l ;
+            loop () )
+    in
+    loop ()
 
 let unsat_cores = ref true
 

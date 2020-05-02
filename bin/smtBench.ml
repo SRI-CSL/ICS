@@ -230,16 +230,17 @@ let decide incomplete_flag b =
         in
         addl (Ics.constz 0) tl
     | Mult tl ->
-        let rec multl acc = function
-          | [] -> acc
-          | [t] -> mult2 (trm2ics t) acc
-          | t :: tl -> multl (mult2 (trm2ics t) acc) tl
-        and mult2 t1 t2 =
+        let mult2 t1 t2 =
           try Ics.multq (Ics.d_num t1) t2
           with Not_found -> (
             try Ics.multq (Ics.d_num t2) t1
             with Not_found ->
               Ics.apply (Ics.Funsym.of_string "*") (Ics.pair t1 t2) )
+        in
+        let rec multl acc = function
+          | [] -> acc
+          | [t] -> mult2 (trm2ics t) acc
+          | t :: tl -> multl (mult2 (trm2ics t) acc) tl
         in
         multl (Ics.constz 1) tl
     | Div (s, t) -> (

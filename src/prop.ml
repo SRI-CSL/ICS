@@ -95,17 +95,17 @@ struct
 
   exception Unsat
 
-  let rec update p =
-    curr := p ;
-    close () ;
-    if Prop.is_unsat !curr then raise Unsat
-
-  and close () =
+  let close () =
     let pl, nl, next = Prop.and_elim !curr in
     if pl <> [] || nl <> [] then (
       curr := next ;
       List.iter I.valid pl ;
       List.iter I.unsat nl )
+
+  let update p =
+    curr := p ;
+    close () ;
+    if Prop.is_unsat !curr then raise Unsat
 
   let process_conjoin p =
     if Prop.is_valid p then () else update (Prop.mk_conj p !curr)

@@ -259,7 +259,19 @@ module Make (H : HASH) : S with type key = H.t = struct
         with_protected body j
       done )
 
-  let rec add t k u =
+  let output t k _u =
+    Format.eprintf "Error: " ;
+    H.pp Format.err_formatter k ;
+    Format.eprintf " already in weak hash table@?" ;
+    Format.eprintf " \n Elements(%d) " (count t) ;
+    iter
+      (fun k _ ->
+        H.pp Format.err_formatter k ;
+        Format.eprintf ", " )
+      t ;
+    Format.eprintf "\n@?"
+
+  let add t k u =
     assert (
       Trace.add k u ;
       true ) ;
@@ -276,18 +288,6 @@ module Make (H : HASH) : S with type key = H.t = struct
     with Overflow ->
       resize t ;
       add_aux t k u
-
-  and output t k _u =
-    Format.eprintf "Error: " ;
-    H.pp Format.err_formatter k ;
-    Format.eprintf " already in weak hash table@?" ;
-    Format.eprintf " \n Elements(%d) " (count t) ;
-    iter
-      (fun k _ ->
-        H.pp Format.err_formatter k ;
-        Format.eprintf ", " )
-      t ;
-    Format.eprintf "\n@?"
 end
 
 (**/**)
@@ -351,18 +351,18 @@ module Test = struct
       | _ -> Gc.minor ()
   end
 
-  let rec run () =
+  let statistics () =
+    Format.eprintf "\n\nStatistics: @?" ;
+    let s = Table.stats table in
+    Format.eprintf "\n length = %d;\n count = %d; \n del = %d@?"
+      s.Table.length s.Table.count s.Table.del ;
+    debug := 0
+
+  let run () =
     debug := 3 ;
     for i = 0 to !maxruns do
       Op.random () ;
       if i mod 100 = 0 then statistics ()
     done ;
     statistics ()
-
-  and statistics () =
-    Format.eprintf "\n\nStatistics: @?" ;
-    let s = Table.stats table in
-    Format.eprintf "\n length = %d;\n count = %d; \n del = %d@?"
-      s.Table.length s.Table.count s.Table.del ;
-    debug := 0
 end

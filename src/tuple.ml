@@ -172,7 +172,18 @@ module Tuple (Var : VAR) = struct
 
   let equal_tuple a b = array_for_all2 ( == ) a.args b.args
 
-  let rec diseq s t =
+  let rec diseq_proj a t =
+    equal a.arg t
+    || match a.arg with Proj b -> diseq_proj b t | _ -> false
+
+  let diseq_tuple a t =
+    let equalt s = if equal s t then raise Witness in
+    try
+      Array.iter equalt a.args ;
+      false
+    with Witness -> true
+
+  let diseq s t =
     match (s, t) with
     | Tuple a, Tuple b when Array.length a.args <> Array.length b.args ->
         true
@@ -181,17 +192,6 @@ module Tuple (Var : VAR) = struct
     | Proj a, _ -> diseq_proj a t
     | _, Proj b -> diseq_proj b s
     | _ -> false
-
-  and diseq_tuple a t =
-    let equalt s = if equal s t then raise Witness in
-    try
-      Array.iter equalt a.args ;
-      false
-    with Witness -> true
-
-  and diseq_proj a t =
-    equal a.arg t
-    || match a.arg with Proj b -> diseq_proj b t | _ -> false
 
   let compare s t =
     if s == t then 0
@@ -211,13 +211,7 @@ module Tuple (Var : VAR) = struct
       let d = Stdlib.compare p.width q.width in
       if d <> 0 then d else compare p.arg q.arg
 
-  let rec pp fmt t =
-    match t with
-    | Var x -> Var.pp fmt x
-    | Tuple a -> pp_tuple fmt a
-    | Proj p -> pp_proj fmt p
-
-  and pp_tuple fmt a =
+  let rec pp_tuple fmt a =
     let n = Array.length a.args in
     if n = 0 then Format.fprintf fmt "<>"
     else (
@@ -234,6 +228,12 @@ module Tuple (Var : VAR) = struct
     Format.fprintf fmt "proj[%d,%d](" p.index p.width ;
     pp fmt p.arg ;
     Format.fprintf fmt ")"
+
+  and pp fmt t =
+    match t with
+    | Var x -> Var.pp fmt x
+    | Tuple a -> pp_tuple fmt a
+    | Proj p -> pp_proj fmt p
 
   let to_var = function
     | Var x -> x

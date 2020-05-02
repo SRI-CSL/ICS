@@ -139,7 +139,26 @@ struct
     Config.Subst.for_all (fun x t ->
         V.canonical x && Term.for_all V.canonical t )
 
-  let rec well_formed () =
+  let dep_wf () =
+    let rho = Config.Subst.current () in
+    let dep = Config.Dep.current () in
+    Dep.for_all
+      (fun y dy ->
+        Dep.Values.for_all
+          (fun x -> Subst.dom x rho && Term.occurs y (Subst.lookup rho x))
+          dy )
+      dep
+
+  let is_inverse_functional () =
+    let for_all p = Subst.for_all p (Config.Subst.current ()) in
+    for_all (fun x t ->
+        for_all (fun y s -> Var.equal x y || not (Term.equal s t)) )
+
+  let is_solved () =
+    let rho = Config.Subst.current () in
+    Subst.for_all wf_binding rho
+
+  let well_formed () =
     let debug = ref true in
     let check name pred =
       if not !debug then pred ()
@@ -158,25 +177,6 @@ struct
     check "isSolved" is_solved
     && check "isInverseFunctional" is_inverse_functional
     && check "depWF" dep_wf
-
-  and is_solved () =
-    let rho = Config.Subst.current () in
-    Subst.for_all wf_binding rho
-
-  and is_inverse_functional () =
-    let for_all p = Subst.for_all p (Config.Subst.current ()) in
-    for_all (fun x t ->
-        for_all (fun y s -> Var.equal x y || not (Term.equal s t)) )
-
-  and dep_wf () =
-    let rho = Config.Subst.current () in
-    let dep = Config.Dep.current () in
-    Dep.for_all
-      (fun y dy ->
-        Dep.Values.for_all
-          (fun x -> Subst.dom x rho && Term.occurs y (Subst.lookup rho x))
-          dy )
-      dep
 
   let initialize s =
     init := s ;
@@ -234,13 +234,7 @@ struct
       lookup. *)
   exception Found of var
 
-  let rec inv t =
-    try
-      let y = choose_var t in
-      inv_non_ground y t
-    with Ground -> Subst.inv (Config.Subst.current ()) t
-
-  and inv_non_ground y t =
+  let inv_non_ground y t =
     assert (Term.occurs y t) ;
     let check_inv x =
       assert (dom x) ;
@@ -250,6 +244,12 @@ struct
       Dep.Values.iter check_inv (deps y) ;
       raise Not_found
     with Found x -> x
+
+  let inv t =
+    try
+      let y = choose_var t in
+      inv_non_ground y t
+    with Ground -> Subst.inv (Config.Subst.current ()) t
 
   let restrict x =
     assert (well_formed ()) ;
@@ -339,14 +339,7 @@ struct
         extend v t ;
         v
 
-  let rec process_eq s t =
-    assert (confluent ()) ;
-    let s = can s and t = can t in
-    if Term.equal s t then ()
-    else if Term.diseq s t then raise Term.Unsat
-    else add_eq s t
-
-  and add_eq s t =
+  let add_eq s t =
     let rho = Term.solve s t in
     let install_fresh _ r =
       let install x =
@@ -357,6 +350,13 @@ struct
     in
     Term.Subst.iter install_fresh rho ;
     compose rho
+
+  let process_eq s t =
+    assert (confluent ()) ;
+    let s = can s and t = can t in
+    if Term.equal s t then ()
+    else if Term.diseq s t then raise Term.Unsat
+    else add_eq s t
 
   let propagate x y =
     assert (not (V.canonical x)) ;
