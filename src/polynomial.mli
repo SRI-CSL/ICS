@@ -252,7 +252,6 @@ module type P = sig
   val is_monomial : t -> bool
   val coeff_of_monomial : t -> coeff
   val indet_of_monomial : t -> indet
-  val dummy : t
 end
 
 (** {!Polynomial.Make} constructs polynomials with the given coefficients

@@ -30,7 +30,6 @@ module type VAR = sig
   val hash : t -> int
   val pp : Format.formatter -> t -> unit
   val fresh : unit -> t
-  val dummy : t
 end
 
 module type T = sig
@@ -70,7 +69,6 @@ module type T = sig
   exception Unsat
 
   val solve : t -> t -> Subst.t
-  val dummy : t
 end
 
 exception Witness

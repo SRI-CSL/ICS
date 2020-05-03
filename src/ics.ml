@@ -1825,11 +1825,10 @@ let tuple = function
   | [s; t] -> pair s t
   | [s; t; r] -> triple s t r
   | tl ->
-      let (n : int) = List.length tl in
-      let a = Array.make n Term.Tuple.dummy in
-      for i = 0 to n - 1 do
-        let (t : Term.Tuple.t) = term2tuple (List.nth tl i) in
-        a.(i) <- t
+      let n = List.length tl in
+      let a = Array.make n (term2tuple (List.hd tl)) in
+      for i = 1 to n - 1 do
+        a.(i) <- term2tuple (List.nth tl i)
       done ;
       tuple2term (Term.Tuple.tuple a)
 

@@ -53,8 +53,6 @@ module type VAR = sig
   val fresh : unit -> t
   (** Creating a fresh variable. Here, the notion of freshness depends on
       the context. *)
-
-  val dummy : t
 end
 
 (** The {i signature} [T] consists of the
@@ -204,8 +202,6 @@ module type T = sig
       - returns a substitution [x{1} |-> t{1}, ...,x{n} |-> t{n}] with
         [x{i}] a variable either in [s] or [t] and
         [x{1} = t{1} & ... & x{n} = t{n}] is [T]-equivalent to [s = t]. *)
-
-  val dummy : t
 end
 
 (** {i Implementation of tuple theory} with given variables [Var.t]. *)

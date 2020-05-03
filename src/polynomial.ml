@@ -111,7 +111,6 @@ module type P = sig
   val is_monomial : t -> bool
   val coeff_of_monomial : t -> coeff
   val indet_of_monomial : t -> indet
-  val dummy : t
 end
 
 module Make (C : COEFF) (X : INDETERMINATE) = struct
@@ -123,13 +122,7 @@ module Make (C : COEFF) (X : INDETERMINATE) = struct
   module Set = Sets.Make (X)
   module Map = Maps.Make (X) (C)
 
-  module T = struct
-    type t = {constant: C.t; monomials: Map.t; mutable hash: int}
-
-    let dummy = {constant= C.zero; monomials= Map.empty (); hash= -1}
-  end
-
-  include T
+  type t = {constant: C.t; monomials: Map.t; mutable hash: int}
 
   let ordered_monomials p =
     let n = Map.cardinal p.monomials in
