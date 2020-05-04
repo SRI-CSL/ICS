@@ -677,13 +677,13 @@ app: IDENT LPAR termlist RPAR
 		       Ics.apply f t }
 
 arith:
-  INTCONST                                              { Ics.constz $1 }
-| INTCONST DIVIDE INTCONST                           { Ics.constq $1 $3 }
+  INTCONST                                   { Ics.constz (Z.of_int $1) }
+| INTCONST DIVIDE INTCONST               { Ics.constq (Q.of_ints $1 $3) }
 | term PLUS term                                        { Ics.add $1 $3 }
 | term MINUS term                                       { Ics.sub $1 $3 }
 | MINUS term %prec prec_unary                            { Ics.minus $2 }
-| INTCONST TIMES term                  { Ics.multq (Ics.Q.of_int $1) $3 }
-| INTCONST DIVIDE INTCONST TIMES term { Ics.multq (Ics.Q.make $1 $3) $5 }
+| INTCONST TIMES term                  { Ics.multq (Q.of_int $1) $3 }
+| INTCONST DIVIDE INTCONST TIMES term  { Ics.multq (Q.of_ints $1 $3) $5 }
 ;
 
 tuple:
@@ -767,12 +767,12 @@ command:
 		       Format.fprintf fmt ":%s@?" res }
 | INF term         { try
 		       let inf = Ics.inf $2 in
-			 Format.fprintf fmt ":inf %s @?" (Ics.Q.to_string inf)
+			 Format.fprintf fmt ":inf %s @?" (Q.to_string inf)
 		     with
 			 Not_found -> Format.fprintf fmt ":none@?" }
 | SUP term         { try
 		       let sup = Ics.sup $2 in
-			 Format.fprintf fmt ":sup%s @?" (Ics.Q.to_string sup)
+			 Format.fprintf fmt ":sup%s @?" (Q.to_string sup)
 		     with
 			 Not_found-> Format.fprintf fmt ":none@?" }
 | ALIAS term       { Format.fprintf fmt ":alias ";

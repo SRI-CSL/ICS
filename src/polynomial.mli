@@ -40,7 +40,7 @@
 
 (** {i Coefficients of polynomials.} Signature of the {i coefficients}
     argument of the functor {!Polynomial.Make}. The structure
-    [(t, add, minus, zero, mult, one, inv)] is supposed to be a {i field}. *)
+    [(t, add, neg, zero, mul, one, inv)] is supposed to be a {i field}. *)
 module type COEFF = sig
   (** Representation type for coefficients. *)
   type t
@@ -61,8 +61,8 @@ module type COEFF = sig
   val one : t
   val add : t -> t -> t
   val sub : t -> t -> t
-  val minus : t -> t
-  val mult : t -> t -> t
+  val neg : t -> t
+  val mul : t -> t -> t
   val inv : t -> t
 
   val random : unit -> t

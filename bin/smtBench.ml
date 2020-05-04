@@ -80,7 +80,7 @@ module Ast = struct
   module Funsym = Name
   module Predsym = Name
   module Sort = Name
-  module Numeral = Big_int
+  module Numeral = Z
 
   let intern = Name.of_string
   let extern = Name.to_string
@@ -94,7 +94,7 @@ module Ast = struct
 
   type trm =
     | Var of var
-    | Num of Numeral.big_int
+    | Num of Numeral.t
     | Apply of Funsym.t * trm list
     | Cond of fml * trm * trm
     | Add of trm list
@@ -203,7 +203,7 @@ let decide incomplete_flag b =
     | Var x -> (
       try Hashtbl.find let_decls x
       with Not_found -> Ics.var (Ics.Var.of_name x) )
-    | Num n -> Ics.bigint n
+    | Num n -> Ics.constz n
     | Apply (f, []) -> Ics.apply (funsym f) (Ics.nil ())
     | Apply (f, [t]) -> Ics.apply (funsym f) (trm2ics t)
     | Apply (f, tl) ->
@@ -228,7 +228,7 @@ let decide incomplete_flag b =
           | [t] -> Ics.add (trm2ics t) acc
           | t :: tl -> addl (Ics.add (trm2ics t) acc) tl
         in
-        addl (Ics.constz 0) tl
+        addl (Ics.constz Z.zero) tl
     | Mult tl ->
         let mult2 t1 t2 =
           try Ics.multq (Ics.d_num t1) t2
@@ -242,10 +242,10 @@ let decide incomplete_flag b =
           | [t] -> mult2 (trm2ics t) acc
           | t :: tl -> multl (mult2 (trm2ics t) acc) tl
         in
-        multl (Ics.constz 1) tl
+        multl (Ics.constz Z.one) tl
     | Div (s, t) -> (
         let t1 = trm2ics s and t2 = trm2ics t in
-        try Ics.multq (Ics.Q.inv (Ics.d_num t2)) t1
+        try Ics.multq (Q.inv (Ics.d_num t2)) t1
         with Not_found ->
           Ics.apply (Ics.Funsym.of_string "div") (Ics.pair t1 t2) )
     | Sub (s, t) -> Ics.sub (trm2ics s) (trm2ics t)

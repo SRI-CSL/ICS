@@ -31,40 +31,6 @@ type theory = U | A | T | F
 
 (** {i Rationals} *)
 module Q = struct
-  open Num
-
-  type t = num
-
-  let of_int = num_of_int
-  let make x y = div_num (num_of_int x) (num_of_int y)
-  let zero = of_int 0
-  let one = of_int 1
-  let add = add_num
-  let sub = sub_num
-  let minus = minus_num
-  let mult = mult_num
-  let div = div_num
-  let inv = div one
-  let compare = compare_num
-  let equal = eq_num
-  let is_zero = equal zero
-  let is_one = equal one
-  let lt = lt_num
-  let le = le_num
-  let gt = gt_num
-  let ge = ge_num
-  let is_pos x = gt x zero
-  let is_neg x = lt x zero
-  let is_nonneg x = ge x zero
-  let is_nonpos x = le x zero
-  let of_z = num_of_big_int
-  let ratio x = Ratio.cautious_normalize_ratio (ratio_of_num x)
-  let denominator x = Ratio.denominator_ratio (ratio x)
-  let numerator x = Ratio.numerator_ratio (ratio x)
-  let is_integer = is_integer_num
-  let hash = Hashtbl.hash
-  let to_string = string_of_num
-  let pp fmt x = Format.fprintf fmt "%s" (to_string x)
   let max_random = ref 20
 
   let random =
@@ -74,7 +40,12 @@ module Q = struct
         Random.self_init () ;
         initialized := true ) ;
       let d = Random.int !max_random and n = Random.int !max_random in
-      if n = 0 then of_int d else make d n
+      if n = 0 then Q.of_int d else Q.of_ints d n
+
+  include Q
+
+  let pp = pp_print
+  let hash = Hashtbl.hash
 end
 
 module Name = Name
@@ -1758,23 +1729,19 @@ let inf t =
   if not (A.restricted p) then raise Not_found
   else
     let p = A.max (Term.Polynomial.minus p) in
-    if A.maximized p then Q.minus (Term.Polynomial.const p)
+    if A.maximized p then Q.neg (Term.Polynomial.const p)
     else raise Not_found
 
-let bigint k = poly2term (Term.Polynomial.constant (Q.of_z k))
-let constz k = poly2term (Term.Polynomial.constant (Q.of_int k))
-
-let constq n d =
-  let q = Q.make n d in
-  poly2term (Term.Polynomial.constant q)
+let constz z = poly2term (Term.Polynomial.constant (Q.of_bigint z))
+let constq q = poly2term (Term.Polynomial.constant q)
 
 let mult c t =
   assert (canonical t) ;
-  if Q.is_zero c then constz 0
-  else if Q.is_one c then t
+  if Q.equal Q.zero c then constz Z.zero
+  else if Q.equal Q.one c then t
   else
     let p =
-      try Term.Polynomial.constant (Q.mult c (d_num t))
+      try Term.Polynomial.constant (Q.mul c (d_num t))
       with Not_found -> Term.Polynomial.multc c (term2poly t)
     in
     poly2term p
@@ -1782,7 +1749,7 @@ let mult c t =
 let multq = mult
 
 let addc c t =
-  if Q.is_zero c then t
+  if Q.equal Q.zero c then t
   else
     let p =
       try Term.Polynomial.constant (Q.add c (d_num t))
@@ -1798,7 +1765,7 @@ let add s t =
       poly2term (Term.Polynomial.add (term2poly s) (term2poly t)) )
 
 let sub s t =
-  try addc (Q.minus (d_num t)) s
+  try addc (Q.neg (d_num t)) s
   with Not_found ->
     poly2term (Term.Polynomial.sub (term2poly s) (term2poly t))
 
@@ -2023,24 +1990,26 @@ let deq s t =
 let nonneg t =
   let p = A.can (term2poly t) in
   let c = Term.Polynomial.const p in
-  if Q.is_nonneg c && A.minimized p then tt
-  else if Q.is_neg c && A.maximized p then ff
+  let sgn = Q.sign c in
+  if sgn >= 0 && A.minimized p then tt
+  else if sgn < 0 && A.maximized p then ff
   else if !do_minimize && A.restricted p then
     let p = A.min p in
-    if Q.is_nonneg c && A.minimized p then tt
-    else if Q.is_neg c && A.maximized p then ff
+    if sgn >= 0 && A.minimized p then tt
+    else if sgn < 0 && A.maximized p then ff
     else Formula.mk_arith Predsym.Arith.Nonneg p
   else Formula.mk_arith Predsym.Arith.Nonneg p
 
 let pos t =
   let p = A.can (term2poly t) in
   let c = Term.Polynomial.const p in
-  if Q.is_pos c && A.minimized p then tt
-  else if Q.is_nonpos c && A.maximized p then ff
+  let sgn = Q.sign c in
+  if sgn > 0 && A.minimized p then tt
+  else if sgn <= 0 && A.maximized p then ff
   else if !do_minimize && A.restricted p then
     let p = A.min p in
-    if Q.is_pos c && A.minimized p then tt
-    else if Q.is_nonpos c && A.maximized p then ff
+    if sgn > 0 && A.minimized p then tt
+    else if sgn <= 0 && A.maximized p then ff
     else Formula.mk_arith Predsym.Arith.Pos p
   else Formula.mk_arith Predsym.Arith.Pos p
 

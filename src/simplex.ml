@@ -1174,7 +1174,7 @@ struct
   let gain t u v =
     assert (pivot_candidate t u v) ;
     let p = T.find u in
-    C.mult (C.minus (P.const p)) (C.inv (P.coeff v p))
+    C.mul (C.neg (P.const p)) (C.inv (P.coeff v p))
 
   let pivotable t u v =
     pivot_candidate t u v
@@ -1188,7 +1188,7 @@ struct
   (** Given a bounded [v] search for [u] such that [pivotable u v] according
       to Bland's rule. *)
   let bland_pivot =
-    let arbg = C.minus C.one and arbu = Var.dummy in
+    let arbg = C.neg C.one and arbu = Var.dummy in
     let ming = ref arbg and minu = ref arbu in
     fun t v ->
       assert (bounded t v) ;
@@ -1204,7 +1204,7 @@ struct
           (* (u = c + d * v + p'] with [d < 0]. *)
           assert (C.compare c C.zero >= 0) ;
           if C.compare d C.zero < 0 then (
-            let g = C.mult (C.minus c) (C.inv d) in
+            let g = C.mul (C.neg c) (C.inv d) in
             assert (C.compare g C.zero >= 0) ;
             if C.compare !ming C.zero < 0 then (
               (* undefined *)
@@ -1642,9 +1642,7 @@ struct
       try
         let u, v = bland all p in
         let cmp =
-          C.compare
-            (C.mult (C.minus c) (C.inv (P.coeff v p)))
-            (gain all u v)
+          C.compare (C.mul (C.neg c) (C.inv (P.coeff v p))) (gain all u v)
         in
         if cmp < 0 then
           (* EqSwap *)

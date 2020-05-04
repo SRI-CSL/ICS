@@ -37,7 +37,7 @@
  src
  (library
   (public_name ics)
-  (libraries num unix)
+  (libraries num unix zarith)
   (flags (:standard))))
 
 (subdir

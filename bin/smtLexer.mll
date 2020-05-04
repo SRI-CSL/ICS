@@ -91,7 +91,7 @@ rule token = parse
   | '"' [^ '"']* '"'     {STRING(Lexing.lexeme lexbuf)}
   | '{' [^ '{' '}']* '}' {USER_VAL(Lexing.lexeme lexbuf)}
   | sym                  {keyword (Lexing.lexeme lexbuf)}
-  | num                  {NUMERAL(Big_int.big_int_of_string(Lexing.lexeme lexbuf))}
+  | num                  {NUMERAL(Z.of_string(Lexing.lexeme lexbuf))}
   | var                  {VAR(intern(Lexing.lexeme lexbuf))}
   | fvar                 {FVAR(intern(Lexing.lexeme lexbuf))}
   | attr                 {attribute (Lexing.lexeme lexbuf)}

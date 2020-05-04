@@ -2,7 +2,7 @@
   open SmtBench
 %}
 
-%token <Big_int.big_int> NUMERAL
+%token <Z.t> NUMERAL
 %token <SmtBench.Ast.Sym.t> VAR  
 %token <SmtBench.Ast.Sym.t> FVAR
 %token <SmtBench.Ast.Sym.t> SYM

@@ -50,62 +50,6 @@ type theory = U | A | T | F
 
 (** {9 Terms} *)
 
-(** {i Multi-precision rationals.} *)
-module Q : sig
-  (** Representation of rationals. *)
-  type t
-
-  val compare : t -> t -> int
-  (** [compare p q] equals [0] iff [p = q] holds in the rationals, it is
-      greater than [0] iff [p > q], and smaller than [0] if [p < q]. *)
-
-  val equal : t -> t -> bool
-  (** [equal p q] holds iff [p] is equal to [q] in the rationals. *)
-
-  val pp : Format.formatter -> t -> unit
-  (** Pretty-printing a rational. *)
-
-  val to_string : t -> string
-  (** Print rational to a string. *)
-
-  val make : int -> int -> t
-  (** [make n d] constructs a rational [n/d] from the numerator [n] and the
-      denominator [d]. *)
-
-  val of_int : int -> t
-  (** [of_int n] creates an integral rational [n]. *)
-
-  val numerator : t -> Big_int.big_int
-  (** Numerator [n] of a rational of the form [n/d]. *)
-
-  val denominator : t -> Big_int.big_int
-  (** Denominator [d] of a rational of the form [n/d]. *)
-
-  val add : t -> t -> t
-  (** [add p q] returns the sum of of the rationals [p] and [q]. *)
-
-  val sub : t -> t -> t
-  (** [sub p q] substracts rational [q] from [q]. *)
-
-  val minus : t -> t
-  (** [minus q] returns the negation of [q]. *)
-
-  val mult : t -> t -> t
-  (** [mult p q] multiplies the rationals [p] and [q]. *)
-
-  val div : t -> t -> t
-  (** [div p q] divides rational [p] by rational [q], unless [q] is zero. *)
-
-  val inv : t -> t
-  (** [inv q] returns the inverse of [q], unless [q] is zero. *)
-
-  val is_integer : t -> bool
-  (** [is_integer q] holds iff [q] is integral. *)
-
-  val random : unit -> t
-  (** Randomly choose a rational. *)
-end
-
 module Name = Name
 
 (** {i Term variables.} Variables are partitioned into {i external} and
@@ -674,20 +618,15 @@ val var : Var.t -> Term.t
 (** [var x] constructs a term variable for the canonical representative [x']
     of the [E]-equivalence class containing [x]. *)
 
-val constz : int -> Term.t
-(** For an integer [c] ([c <= max_int]), [int c] either returns a term
+val constz : Z.t -> Term.t
+(** For an arbitrary precision integer [c], [constz c] either returns a term
     numeral [c] or an [E]-canonical variable [x] if [x = c] is valid in the
     current state. *)
 
-val bigint : Big_int.big_int -> Term.t
-(** For an arbitrary precision integer [c], [int c] either returns a term
-    numeral [c] or an [E]-canonical variable [x] if [x = c] is valid in the
-    current state. *)
-
-val constq : int -> int -> Term.t
-(** For integers [n], [d], [rat n d] either returns a term numeral
-    representing [n/d] or an [E]-canonical variable [x] if [x = n/d] is
-    valid in the current state. *)
+val constq : Q.t -> Term.t
+(** For rational [q], [constq q] either returns a term numeral representing
+    [q] or an [E]-canonical variable [x] if [x = q] is valid in the current
+    state. *)
 
 val multq : Q.t -> Term.t -> Term.t
 (** For a rational [q] and a term [t], the constructor [mult q t] for

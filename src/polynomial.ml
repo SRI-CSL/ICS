@@ -33,8 +33,8 @@ module type COEFF = sig
   val one : t
   val add : t -> t -> t
   val sub : t -> t -> t
-  val minus : t -> t
-  val mult : t -> t -> t
+  val neg : t -> t
+  val mul : t -> t -> t
   val inv : t -> t
   val random : unit -> t
 end
@@ -161,7 +161,7 @@ module Make (C : COEFF) (X : INDETERMINATE) = struct
           pp_monomial (c, x) )
         else (
           Format.fprintf fmt " - " ;
-          pp_monomial (C.minus c, x) )
+          pp_monomial (C.neg c, x) )
       in
       let ma = ordered_monomials p in
       let n = Array.length ma in
@@ -246,7 +246,7 @@ module Make (C : COEFF) (X : INDETERMINATE) = struct
 
   let eval rho p =
     assert (well_formed p) ;
-    let fc c = c and fm x c = C.add (C.mult c (Interp.apply rho x)) in
+    let fc c = c and fm x c = C.add (C.mul c (Interp.apply rho x)) in
     fold fc fm p
 
   let for_all fc fm p =
@@ -439,7 +439,7 @@ module Make (C : COEFF) (X : INDETERMINATE) = struct
     if C.equal C.zero c then zero
     else if C.equal C.one c then p
     else
-      let mc = C.mult c in
+      let mc = C.mul c in
       let q = make (mc p.constant) (Map.map mc p.monomials) in
       assert (well_formed q) ;
       assert (
@@ -450,15 +450,15 @@ module Make (C : COEFF) (X : INDETERMINATE) = struct
   let neg p =
     assert (well_formed p) ;
     let q =
-      let c' = C.minus p.constant in
+      let c' = C.neg p.constant in
       let m' = Map.empty () in
-      let invert x c = Map.set x (C.minus c) m' in
+      let invert x c = Map.set x (C.neg c) m' in
       Map.iter invert p.monomials ;
       make c' m'
     in
     assert (well_formed q) ;
     assert (
-      let neg_rel u v = C.equal (C.minus u) v in
+      let neg_rel u v = C.equal (C.neg u) v in
       Check.valid1 neg_rel p q ) ;
     q
 
@@ -474,7 +474,7 @@ module Make (C : COEFF) (X : INDETERMINATE) = struct
       q
 
   let incr = addc C.one
-  let[@warning "-32"] decr = addc (C.minus C.one)
+  let[@warning "-32"] decr = addc (C.neg C.one)
 
   let addm c x p =
     assert (well_formed p) ;
@@ -526,7 +526,7 @@ module Make (C : COEFF) (X : INDETERMINATE) = struct
   let sub p1 p2 =
     assert (well_formed p1) ;
     assert (well_formed p2) ;
-    try addc (C.minus (d_constant p2)) p1
+    try addc (C.neg (d_constant p2)) p1
     with Nonnum ->
       let c' = C.sub p1.constant p2.constant in
       let m' = Map.copy p1.monomials in
@@ -536,7 +536,7 @@ module Make (C : COEFF) (X : INDETERMINATE) = struct
           let d = Map.find x m' in
           let cd = C.sub c d in
           if C.equal C.zero cd then Map.remove x m' else Map.set x cd m'
-        with Not_found -> Map.set x (C.minus c) m'
+        with Not_found -> Map.set x (C.neg c) m'
       in
       Map.iter subtract p2.monomials ;
       let p = make c' m' in
@@ -557,9 +557,9 @@ module Make (C : COEFF) (X : INDETERMINATE) = struct
     make c' m'
 
   let minus p =
-    let q = mapc C.minus p in
+    let q = mapc C.neg p in
     assert (
-      let min_rel u v = C.equal (C.minus u) v in
+      let min_rel u v = C.equal (C.neg u) v in
       Check.valid1 min_rel p q ) ;
     q
 
@@ -567,7 +567,7 @@ module Make (C : COEFF) (X : INDETERMINATE) = struct
 
   (* let c = p.constant and d = q.constant in
    * let ml = p.monomials and nl = q.monomials in
-   * C.equal (C.minus c) d && failwith "negated: to do" *)
+   * C.equal (C.neg c) d && failwith "negated: to do" *)
 
   let map f p =
     let c = p.constant and ms = p.monomials in
@@ -607,7 +607,7 @@ module Make (C : COEFF) (X : INDETERMINATE) = struct
     let k = coeff x p in
     if C.equal C.zero k then p
     else
-      let d' = C.add p.constant (C.mult k c) in
+      let d' = C.add p.constant (C.mul k c) in
       let mp' = Map.copy p.monomials in
       Map.remove x mp' ;
       make d' mp'
@@ -625,10 +625,10 @@ module Make (C : COEFF) (X : INDETERMINATE) = struct
         let addm z e =
           try
             let f = Map.find z m' in
-            let g = C.add f (C.mult d e) in
+            let g = C.add f (C.mul d e) in
             if C.equal C.zero g then Map.remove z m' else Map.set z g m'
           with Not_found ->
-            let de = C.mult d e in
+            let de = C.mul d e in
             if C.equal C.zero de then () else Map.set z de m'
         in
         Map.remove x m' ;
@@ -649,12 +649,12 @@ module Make (C : COEFF) (X : INDETERMINATE) = struct
       (* [c + d*x + m = 0] <=> [x = -c/d -1/d*m] *)
       let x, d, m = Map.destruct top p.monomials in
       assert (not (C.equal C.zero d)) ;
-      let neginvd = C.minus (C.inv d) in
-      let c' = C.mult c neginvd in
+      let neginvd = C.neg (C.inv d) in
+      let c' = C.mul c neginvd in
       if Map.is_empty m then (x, constant c')
       else
         let m' = Map.empty () in
-        let mult_neginvd x e = Map.set x (C.mult neginvd e) m' in
+        let mult_neginvd x e = Map.set x (C.mul neginvd e) m' in
         Map.iter mult_neginvd m ;
         let q = make c' m' in
         assert (well_formed q) ;
@@ -675,7 +675,7 @@ module Make (C : COEFF) (X : INDETERMINATE) = struct
       pm
     in
     (* ==> [x = - 1/d * (q + c)]. *)
-    multc (C.minus (C.inv d)) (make c q)
+    multc (C.neg (C.inv d)) (make c q)
 
   (** Transform [x = p\[y\]] to equivalent [y = q\[x\]]. *)
   let pivot x y p =
@@ -687,11 +687,11 @@ module Make (C : COEFF) (X : INDETERMINATE) = struct
       (* [x = c + d*y + m'] ==> [y = 1/d*x + (-c/d - 1/d*m')] *)
       let d = Map.find y m in
       let invd = C.inv d in
-      let neginvd = C.minus invd in
-      let c' = C.mult c neginvd in
+      let neginvd = C.neg invd in
+      let c' = C.mul c neginvd in
       let m' = Map.empty () in
       let add z e =
-        if X.equal z y then () else Map.set z (C.mult e neginvd) m'
+        if X.equal z y then () else Map.set z (C.mul e neginvd) m'
       in
       Map.iter add m ;
       let q = addm invd x (make c' m') in
@@ -733,43 +733,6 @@ module Test = struct
   [@@@warning "-32"]
 
   module C = struct
-    open Num
-
-    type t = num
-
-    let of_int = num_of_int
-    let make x y = div_num (num_of_int x) (num_of_int y)
-    let zero = of_int 0
-    let one = of_int 1
-    let two = of_int 2
-    let add = add_num
-    let sub = sub_num
-    let minus = minus_num
-    let mult = mult_num
-    let div = div_num
-    let inv = div one
-    let compare = compare_num
-    let equal = eq_num
-    let is_zero = equal zero
-    let is_one = equal one
-    let lt = lt_num
-    let le = le_num
-    let gt = gt_num
-    let ge = ge_num
-    let is_pos x = gt x zero
-    let is_neg x = lt x zero
-    let is_nonneg x = ge x zero
-    let is_nonpos x = le x zero
-    let of_z = num_of_big_int
-    let to_z = big_int_of_num
-    let ratio x = Ratio.cautious_normalize_ratio (ratio_of_num x)
-    let denominator x = Ratio.denominator_ratio (ratio x)
-    let numerator x = Ratio.numerator_ratio (ratio x)
-    let is_integer = is_integer_num
-    let hash = Hashtbl.hash
-    let to_string = string_of_num
-    let of_string = num_of_string
-    let pp fmt x = Format.fprintf fmt "%s" (to_string x)
     let max_random = ref 20
 
     let random =
@@ -779,7 +742,12 @@ module Test = struct
           Random.self_init () ;
           initialized := true ) ;
         let d = Random.int !max_random and n = Random.int !max_random in
-        if n = 0 then of_int d else make d n
+        if n = 0 then Q.of_int d else Q.of_ints d n
+
+    include Q
+
+    let pp = pp_print
+    let hash = Hashtbl.hash
   end
 
   module X = struct
