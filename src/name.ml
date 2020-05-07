@@ -62,6 +62,7 @@ let is_defined =
   let dummy = {name= ""; hash= -1} in
   fun str ->
     dummy.name <- str ;
+    dummy.hash <- -1 ;
     Table.mem table dummy
 
 let fresh =
