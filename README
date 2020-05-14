@@ -1,17 +1,10 @@
-ICS 2.1:  Integrated Canonizer and Solver
+ICS 2.2:  Integrated Canonizer and Solver
 ========================================
 
 Decision procedure for the combination of t
 heories based on Shostak's procedure. See also:
 
 http://ics.csl.sri.com
-
-
-License:
---------
-
-Please, carefully read and sign the license 
-fm-license.pdf before starting to use ICS.
 
 
 Requirements:
