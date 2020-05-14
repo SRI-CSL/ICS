@@ -1,5 +1,0 @@
-#!/bin/sh
-(ICS_DIR=__ICS_DIR__;
- export ICS_DIR;
- if test -z "$ICS_LICENSE_CERTIFICATE"; then ICS_LICENSE_CERTIFICATE=$ICS_DIR/certificate; export ICS_LICENSE_CERTIFICATE; fi;
- $ICS_DIR/bin/ics.exec "$@")
