@@ -292,10 +292,10 @@ module Make
     (Propvar : PROPVAR)
     (Sym : PREDSYM)
     (Var : VAR)
-    (Interface : INTERFACE
-                   with type propvar = Propvar.t
-                    and type predsym = Sym.t
-                    and type var = Var.t) :
+    (_ : INTERFACE
+           with type propvar = Propvar.t
+            and type predsym = Sym.t
+            and type var = Var.t) :
   INFSYS
     with type propvar = Propvar.t
      and type predsym = Sym.t

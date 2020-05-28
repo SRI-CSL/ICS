@@ -310,5 +310,5 @@ end
 module Make
     (Var : VAR)
     (Term : TERM with type var = Var.t)
-    (V : V with type var = Var.t) :
+    (_ : V with type var = Var.t) :
   INFSYS with type var = Var.t and type trm = Term.t

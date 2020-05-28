@@ -265,7 +265,7 @@ module Make
     (Var : VAR)
     (Funsym : FUNSYM)
     (Apply : APPLY with type var = Var.t and type funsym = Funsym.t)
-    (V : INTERFACE with type var = Var.t) :
+    (_ : INTERFACE with type var = Var.t) :
   INFSYS
     with type var = Var.t
      and type funsym = Funsym.t

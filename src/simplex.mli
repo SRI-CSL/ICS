@@ -355,7 +355,7 @@ end
 
 (** Given an implementation [P] of polynomials and an environment inference
     system [P], [Make] constructs a closed Simplex inference system. *)
-module Make (P : Polynomial.P) (V : INTERFACE with type var = P.indet) :
+module Make (P : Polynomial.P) (_ : INTERFACE with type var = P.indet) :
   INFSYS
     with type var = P.indet
      and type coeff = P.coeff

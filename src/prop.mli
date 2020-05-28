@@ -186,5 +186,5 @@ end
 module Make
     (Var : PROPVAR)
     (Prop : PROP with type var = Var.t)
-    (I : INTERFACE with type var = Var.t) :
+    (_ : INTERFACE with type var = Var.t) :
   INFSYS with type var = Var.t and type t = Prop.t

@@ -227,5 +227,5 @@ end
 module Make
     (Var : VAR)
     (Predsym : PREDSYM)
-    (Partition : PARTITION with type var = Var.t) :
+    (_ : PARTITION with type var = Var.t) :
   INFSYS with type predsym = Predsym.t and type var = Var.t

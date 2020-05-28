@@ -249,5 +249,5 @@ end
 module Make
     (Var : VAR)
     (Term : FLAT with type var = Var.t)
-    (I : INTERFACE with type var = Var.t) :
+    (_ : INTERFACE with type var = Var.t) :
   INFSYS with type var = Var.t and type flat = Term.t

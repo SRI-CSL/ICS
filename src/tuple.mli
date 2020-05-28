@@ -214,5 +214,5 @@ module Tuple (Var : VAR) : T with type var = Var.t
 module Infsys
     (Var : VAR)
     (Tuple : T with type var = Var.t)
-    (IF : Shostak.V with type var = Var.t) :
+    (_ : Shostak.V with type var = Var.t) :
   Shostak.INFSYS with type var = Var.t and type trm = Tuple.t
