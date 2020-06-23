@@ -40,9 +40,6 @@
   @author Harald Ruess
 *)
 
-val version : unit -> string
-  (** [version()] outputs the current ICS version including build date. *)
-
 (** Names of component theories.
   - {!Ics.A}: rational linear arithmetic,
   - {!Ics.U}: equality over uninterpreted functions,

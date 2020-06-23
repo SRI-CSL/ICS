@@ -23,34 +23,6 @@
  *)
 
 
-let buildDate = Unix.localtime (Unix.time())
-
-let version () = 
-  let debug = ref false in
-  let day = 
-    function 
-      | 1 -> "Mon" | 2 -> "Tue" | 3 -> "Wed" | 4 -> "Thu" 
-      | 5 -> "Fri" | 6 -> "Sat" | 0 -> "Sun" | _ -> "???" in 
-  let month = 
-    function 
-      | 0 -> "Jan" | 1 -> "Feb" | 2 -> "Mar" | 3 -> "Apr" | 4 -> "May" 
-      | 5 -> "Jun" | 6 -> "Jul" | 7 -> "Aug" | 8 -> "Sep" | 9 -> "Oct" 
-      | 10 -> "Nov" | 11 -> "Dec" | _ -> "???" 
-  in                  (* Assertions enabled only in DEBUGGING mode  *)
-    assert(debug := true; true);
-    let vrs = 
-      Format.sprintf "ICS 2.2 experimental (%s %s %d %d:%d:%d PST %d)"
-	(day buildDate.Unix.tm_wday)
-	(month (buildDate.Unix.tm_mon))
-	buildDate.Unix.tm_mday
-	buildDate.Unix.tm_hour
-	buildDate.Unix.tm_min
-	buildDate.Unix.tm_sec
-	(buildDate.Unix.tm_year + 1900)
-    in
-    let dbg = (if !debug then "(DEBUG = true)" else "") in
-      vrs ^ dbg
-
 exception Unsatisfiable
 
 let stdout = Format.std_formatter
@@ -2361,7 +2333,6 @@ and validComplete fml =
 
 (** {i Callbacks} for C interface (see file [icsapi.c]) *)
 module Callbacks = struct
-  let _ = Callback.register "ics_version" version
   let _ = Callback.register "ics_gc" Gc.full_major
   let _ = Callback.register "ics_flush" Format.print_flush
 

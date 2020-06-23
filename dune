@@ -44,7 +44,7 @@
  (executable
   (name main)
   (public_name ics)
-  (libraries ics)
+  (libraries dune-build-info ics)
   (flags
    (:standard -w -a)))
  (ocamllex lexer smtLexer)

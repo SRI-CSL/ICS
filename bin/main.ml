@@ -26,7 +26,7 @@
 let _ = Sys.catch_break true
 
 let usage () =
-  Format.eprintf "\n%s" (Ics.version());
+  Format.eprintf "\n%s" Version.version;
   Format.eprintf "\nType 'help help.' for help about help, and 'Ctrl-d' to exit.@."
 
 let set_gc_alarm () =
@@ -63,8 +63,10 @@ let prompt = ref "ics>"
 let args () =
   let files = ref [] in
     (Arg.parse
-      [ "-version", Arg.Unit(fun() -> Format.eprintf "%s@." (Ics.version()); exit 0),
+      [ "-version", Arg.Unit(fun() -> Format.eprintf "%s@." Version.version; exit 0),
         "Display version number.";
+        "-build-info", Arg.Unit(fun() -> Format.eprintf "%s@." Version.build_info; exit 0),
+        "Display build info.";
         "-footprint", Arg.Unit(fun() -> Ics.footprint := true),
         "Print progress in debugging mode(Default: false).";
 	"-explain", Arg.Unit(fun() -> Ics.unsatCores := true),

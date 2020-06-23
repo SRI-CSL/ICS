@@ -22,15 +22,8 @@
  * SOFTWARE.
  *)
 
+(** Version information populated by build system *)
 
-(** Version number
-
-  @author Harald Ruess
-*)
-
+val debug : bool
 val version : string
-
-val debug : int ref
-  (** Level of debugging.
-    - [0] no debugging
-    - [1] debugging information turned on. *)
+val build_info : string
