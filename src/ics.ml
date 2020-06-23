@@ -39,7 +39,7 @@ let version () =
   in                  (* Assertions enabled only in DEBUGGING mode  *)
     assert(debug := true; true);
     let vrs = 
-      Format.sprintf "ICS 2.1 experimental (%s %s %d %d:%d:%d PST %d)"
+      Format.sprintf "ICS 2.2 experimental (%s %s %d %d:%d:%d PST %d)"
 	(day buildDate.Unix.tm_wday)
 	(month (buildDate.Unix.tm_mon))
 	buildDate.Unix.tm_mday

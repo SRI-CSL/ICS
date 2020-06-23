@@ -31,7 +31,7 @@ open Unix
 
 let date = gmtime (time())
  
-let version = Format.sprintf "ICS 2.1 (%d:%d:%d GMC, %d/%d/%d)" 
+let version = Format.sprintf "ICS 2.2 (%d:%d:%d GMC, %d/%d/%d)" 
 		date.tm_sec
 		date.tm_min
 		date.tm_hour
