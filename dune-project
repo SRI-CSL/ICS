@@ -14,4 +14,7 @@
  (synopsis "Integrated Canonizer and Solver")
  (description
   "Decision procedure for the combination of theories based on Shostak's \
-   procedure."))
+   procedure.")
+ (depends
+  (ocaml (>= 4.07))
+  dune-build-info))
