@@ -50,8 +50,6 @@ type theory = U | A | T | F
 
 (** {9 Terms} *)
 
-module Name = Name
-
 (** {i Term variables.} Variables are partitioned into {i external} and
     {i internal} variables.
 
@@ -915,3 +913,7 @@ val resolve : unit -> status
     context which is still unsatisfiable and which is {i irredundant} in the
     sense that removing any formula from the core yields a satisfiable
     logical context. *)
+
+(**/**)
+
+module Name = Name

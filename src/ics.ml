@@ -48,7 +48,6 @@ module Q = struct
   let hash = Hashtbl.hash
 end
 
-module Name = Name
 
 let k = ref 0
 
@@ -2360,3 +2359,5 @@ let valid_complete fml =
   apply_with (current ()) check fml
 
 let[@warning "-32"] implied fml = valid fml || valid_complete fml
+
+module Name = Name
