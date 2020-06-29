@@ -25,6 +25,8 @@
 /* Module [Parser]: parser for ICS terms, formulas, and commands. */
 
 %{
+  module Name = Ics.Name
+  module Ics = Ics_
 
   let fmt = Format.std_formatter
 
@@ -623,10 +625,10 @@ end
 %right EXPT
 %nonassoc prec_unary
 
-%type <Ics.Term.t> termeof
-%type <Ics.Formula.t> fmleof
-%type <Ics.Term.t> term
-%type <Ics.Formula.t> fml
+%type <Ics_.Term.t> termeof
+%type <Ics_.Formula.t> fmleof
+%type <Ics_.Term.t> term
+%type <Ics_.Formula.t> fml
 %type <unit> command
 %type <unit> commands
 %type <unit> commandseof
@@ -671,7 +673,7 @@ term:
 | array            { $1 }
 ;
 
-var: IDENT         { Ics.Var.of_string $1 }
+var: IDENT         { Ics.Var.of_ident (Name.of_string $1) }
 | BANG INTCONST    { Ics.Var.internal $2 }
 
 app: IDENT LPAR termlist RPAR 
@@ -712,7 +714,7 @@ array:
 /*** Formulas ***/
 
 atom: 
-  IDENT             { Ics.posvar (Ics.Propvar.of_string $1) }
+  IDENT             { Ics.posvar (Ics.Propvar.of_ident (Name.of_string $1)) }
 | IDENT LPAR termlist RPAR 
                         { let p = Ics.Predsym.uninterp $1 in
 		          let t = Ics.tuple $3 in
@@ -828,7 +830,7 @@ command:
 			 Format.fprintf fmt "@?"
 		     with
 			 Invalid_argument _ -> 
-			   let xs = Ics.V.eqs (Ics.Var.of_string $2) in
+			   let xs = Ics.V.eqs (Ics.Var.of_ident (Name.of_string $2)) in
 			     Format.fprintf fmt ":vars ";
 			     Ics.V.Varset.pp fmt xs;
 			     Format.fprintf fmt "@?" }
@@ -921,14 +923,14 @@ nt : LESS IDENT GREATER      { try Ebnf.string_to_nt $2 with Not_found ->
 
 /* Following included for compatibility with older ICS. */
 oldcmd:
-| DEF IDENT ASSIGN term     { do_process (Ics.eq (Ics.var (Ics.Var.of_string $2)) $4) }
-| PROP IDENT ASSIGN fml    { let p = Ics.Propvar.of_string $2 in
+| DEF IDENT ASSIGN term     { do_process (Ics.eq (Ics.var (Ics.Var.of_ident (Name.of_string $2))) $4) }
+| PROP IDENT ASSIGN fml    { let p = Ics.Propvar.of_ident (Name.of_string $2) in
 			       do_process (Ics.equiv (Ics.posvar p) $4) }
 | SIG idents COLON REAL      { List.iter 
 				 (fun x -> 
 				    do_process 
 				    (Ics.is_real 
-				       (Ics.var (Ics.Var.of_string x))))
+				       (Ics.var (Ics.Var.of_ident (Name.of_string x)))))
 			         $2 }
 | SAT fml                    { do_process $2 }
 ;

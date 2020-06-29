@@ -22,10 +22,6 @@
  * SOFTWARE.
  *)
 
-exception Unsatisfiable
-
-type theory = U | A | T | F
-
 (** {i Rationals} *)
 module Q = struct
   let max_random = ref 20
@@ -45,6 +41,17 @@ module Q = struct
   let hash = Hashtbl.hash
 end
 
+module Make (Ident : sig
+  type t
+
+  val hash : t -> int
+  val pp : Format.formatter -> t -> unit
+  val dummy : t
+end) =
+struct
+  exception Unsatisfiable
+
+  type theory = U | A | T | F
 
 let k = ref 0
 
@@ -54,22 +61,22 @@ end) =
 struct
   (** {i External names} *)
   module Extern = struct
-    type t = {mutable name: string; mutable hash: int}
+      type t = {mutable id: Ident.t; mutable hash: int}
 
     let hash x =
       if x.hash >= 0 then x.hash
       else
-        let h = Hashtbl.hash_param 4 4 x.name in
+          let h = Ident.hash x.id in
         x.hash <- h ;
         h
 
-    let equal x y = hash x == hash y && x.name = y.name
+      let equal x y = hash x == hash y && x.id = y.id
 
     let compare x y =
       if equal x y then 0 else if hash x > hash y then 1 else -1
 
-    let to_string x = x.name
-    let pp fmt x = Format.fprintf fmt "%s" x.name
+      let pp fs x = Ident.pp fs x.id
+      let to_ident x = x.id
   end
 
   (** {i Internal names} *)
@@ -105,7 +112,7 @@ struct
     | Intern _, Extern _ -> -1
     | _ -> raise Not_found
 
-  let of_string =
+    let of_ident =
     let module Cache = Weak.Make (struct
       type t = var
 
@@ -121,22 +128,18 @@ struct
         match x with Extern e -> Extern.hash e | _ -> assert false
     end) in
     let cache = Cache.create 17 in
-    let extern = {Extern.name= ""; Extern.hash= -1} in
+      let extern = {Extern.id= Ident.dummy; hash= -1} in
     let dummy = Extern extern in
-    fun s ->
-      extern.Extern.name <- s ;
-      extern.Extern.hash <- -1 ;
+      fun id ->
+        extern.id <- id ;
+        extern.hash <- -1 ;
       try Cache.find cache dummy
       with Not_found ->
-        let x = Extern {Extern.name= s; hash= extern.Extern.hash} in
+          let x = Extern {id; hash= extern.hash} in
         Cache.add cache x ;
         x
 
-  let of_name n = of_string (Name.to_string n)
-
-  let to_string = function
-    | Extern e -> Extern.to_string e
-    | Intern i -> Intern.to_string i
+    let to_ident = function Extern e -> Some e.id | Intern _ -> None
 
   let internal =
     let cache = Hashtbl.create 17 in
@@ -730,8 +733,8 @@ module Ropen = Rename.Make (Propvar) (Predsym) (Var)
 module Popen = Prop.Make (Propvar) (Formula.Bdd)
 
 (** Flag for indicating that a propagation rule might not be called
-    immediately. In this case, application of this rule is delayed until it
-    is safe to apply it. *)
+      immediately. In this case, application of this rule is delayed until
+      it is safe to apply it. *)
 let critical = ref false
 
 module rec Union : sig
@@ -1154,10 +1157,12 @@ end = struct
   let literals () =
     let acc = Formulas.empty () in
     L0.Valid.iter
-      (fun p -> Formulas.add (Formula.mk_prop (Formula.Bdd.mk_posvar p)) acc)
+        (fun p ->
+          Formulas.add (Formula.mk_prop (Formula.Bdd.mk_posvar p)) acc )
       (L0.valid ()) ;
     L0.Unsat.iter
-      (fun p -> Formulas.add (Formula.mk_prop (Formula.Bdd.mk_negvar p)) acc)
+        (fun p ->
+          Formulas.add (Formula.mk_prop (Formula.Bdd.mk_negvar p)) acc )
       (L0.unsat ()) ;
     L1.Pos.iter
       (fun x ps ->
@@ -1168,7 +1173,8 @@ end = struct
     L1.Neg.iter
       (fun x ps ->
         L1.Set.iter
-          (fun p -> Formulas.add (Formula.mk_negapply p (Term.of_var x)) acc)
+            (fun p ->
+              Formulas.add (Formula.mk_negapply p (Term.of_var x)) acc )
           ps )
       (L1.neg ()) ;
     acc
@@ -1182,8 +1188,9 @@ end = struct
     R.Equal.iter
       (fun u (x, y) ->
         assert (not (Renames.mem u acc)) ;
-        Renames.set u (Formula.mk_equal (Term.of_var x) (Term.of_var y)) acc
-        )
+          Renames.set u
+            (Formula.mk_equal (Term.of_var x) (Term.of_var y))
+            acc )
       (R.equal ()) ;
     acc
 
@@ -1211,8 +1218,9 @@ let var_diseqs () =
   let acc = Formulas.empty () in
   V.Disequalities.iter
     (fun (x, y) ->
-        Formulas.add (Formula.mk_diseq (Term.of_var x) (Term.of_var y)) acc
-        )
+          Formulas.add
+            (Formula.mk_diseq (Term.of_var x) (Term.of_var y))
+            acc )
     (V.disequalities ()) ;
   acc
 
@@ -1323,8 +1331,9 @@ let theory_equals i =
     @ unless Formulas.is_empty
         (Format.dprintf "l: %a" Formulas.pp)
         (literals ())
-    @ unless Formula.is_true (Format.dprintf "p: %a" Formula.pp) (prop ())
-    )
+        @ unless Formula.is_true
+            (Format.dprintf "p: %a" Formula.pp)
+            (prop ()) )
 end
 
 (* silence spurious unused module warning *)
@@ -1429,7 +1438,8 @@ let find i x =
   | F -> Term.of_array (F.find x)
 
 let inv = function
-  | Term.Uninterp a -> U.inv (Term.Uninterp.funsym a) (Term.Uninterp.arg a)
+    | Term.Uninterp a ->
+        U.inv (Term.Uninterp.funsym a) (Term.Uninterp.arg a)
   | Term.Arith p -> A.inv p
   | Term.Tuple t -> T.inv t
   | Term.Array a -> F.inv a
@@ -1669,7 +1679,8 @@ let max t =
 
 let min t =
   let p = A.can (Term.Polynomial.minus (term2poly t)) in
-  if A.restricted p then poly2term (Term.Polynomial.minus (A.max p)) else t
+    if A.restricted p then poly2term (Term.Polynomial.minus (A.max p))
+    else t
 
 let sup t =
   let p = A.can (term2poly t) in
@@ -1829,7 +1840,8 @@ let valid_arith p t =
   | Predsym.Arith.Equal0 -> with_do_minimize A.is_equal0 t
   | Predsym.Arith.Diseq0 -> with_do_minimize A.is_diseq0 t
   | Predsym.Arith.Real -> (
-    try L1.valid Predsym.real (Term.Polynomial.d_indet t) with _ -> false )
+      try L1.valid Predsym.real (Term.Polynomial.d_indet t)
+      with _ -> false )
   | Predsym.Arith.Int -> (
     try L1.valid Predsym.integer (Term.Polynomial.d_indet t)
     with _ -> false )
@@ -1895,7 +1907,8 @@ let eq s t =
   in
   let mk_eq0 p q =
     equal0
-      ( if Q.compare (Term.Polynomial.const p) (Term.Polynomial.const q) <= 0
+        ( if
+          Q.compare (Term.Polynomial.const p) (Term.Polynomial.const q) <= 0
       then Term.Polynomial.sub p q
       else Term.Polynomial.sub q p )
   in
@@ -2235,7 +2248,8 @@ let process_implicant imp =
             let curr = Formula.Bdd.mk_posvar p in
             if L0.is_valid p then
               learned :=
-                Formula.Bdd.mk_conj !learned (Formula.Bdd.mk_imp !ctxt curr)
+                  Formula.Bdd.mk_conj !learned
+                    (Formula.Bdd.mk_imp !ctxt curr)
             else (
               ctxt := Formula.Bdd.mk_conj !ctxt curr ;
               process_exn (Formula.mk_prop curr) )
@@ -2243,7 +2257,8 @@ let process_implicant imp =
             let curr = Formula.Bdd.mk_negvar p in
             if L0.is_unsat p then
               learned :=
-                Formula.Bdd.mk_conj !learned (Formula.Bdd.mk_imp !ctxt curr)
+                  Formula.Bdd.mk_conj !learned
+                    (Formula.Bdd.mk_imp !ctxt curr)
             else (
               ctxt := Formula.Bdd.mk_conj !ctxt curr ;
               process_exn (Formula.mk_prop curr) )
@@ -2312,5 +2327,6 @@ let valid_complete fml =
   apply_with (current ()) check fml
 
 let[@warning "-32"] implied fml = valid fml || valid_complete fml
+end
 
 module Name = Name

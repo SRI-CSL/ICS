@@ -22,7 +22,8 @@
  * SOFTWARE.
  *)
 
-open Ics
+module Name = Ics.Name
+module Ics = Ics_
 
 module Logic = struct
   type t =
@@ -196,13 +197,13 @@ let decide incomplete_flag b =
   let term_cond = Hashtbl.create 7 in
   let funsym f = Ics.Funsym.of_string (extern f) in
   let predsym p = Ics.Predsym.uninterp (extern p) in
-  let propvar p = Ics.Propvar.of_string (extern p) in
+  let propvar p = Ics.Propvar.of_ident p in
   Ics.reset () ;
   let rec trm2ics t =
     match t with
     | Var x -> (
       try Hashtbl.find let_decls x
-      with Not_found -> Ics.var (Ics.Var.of_name x) )
+      with Not_found -> Ics.var (Ics.Var.of_ident x) )
     | Num n -> Ics.constz n
     | Apply (f, []) -> Ics.apply (funsym f) (Ics.nil ())
     | Apply (f, [t]) -> Ics.apply (funsym f) (trm2ics t)

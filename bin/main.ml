@@ -22,6 +22,8 @@
  * SOFTWARE.
  *)
 
+module Ics = Ics_
+
 let _ = Sys.catch_break true
 
 let usage () =
