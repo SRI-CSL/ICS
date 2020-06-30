@@ -186,7 +186,7 @@ end) : sig
         [a\[i\]] or an update [a\[i:=x\]]. *)
     module Array : Funarr.FLAT with type var = Var.t
 
-    (** Representation of pure terms. As an invariant, all application term
+    (** Representation of pure terms. As an invariant, all application terms
         are {i canonical} in their respective theories. *)
     type t = private
       | Var of Var.t
@@ -359,7 +359,7 @@ end) : sig
           of arithmetic predicates [q] is represented separately using
           [Arith(q, t)] where [t] is a polynomial.
         - [Prop(b)] represents a binary decision diagram (BDD) with
-          propositional formulas. The ordering used to built BDDs is
+          propositional formulas. The ordering used to build BDDs is
           unspecified. *)
     type t = private
       | Equal of Term.t * Term.t
@@ -867,9 +867,8 @@ end) : sig
       a term [t] does not exist. *)
 
   val inv : Term.t -> Var.t
-  (** [inv t] returns a variable [x] if there is a term of theory [i] and an
-      equality [x = t] in the current equality configuration
-      [theory_equals i]. *)
+  (** [inv t] returns a variable [x] if there is an equality [x = t] in the
+      current equality configuration. *)
 
   val can : Term.t -> Term.t
   (** [can t] returns a term [t'] with [t = t'] valid in the current

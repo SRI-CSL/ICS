@@ -26,7 +26,7 @@
 
     This module provides an open inference system for renaming monadic
     predicates [p(x)], where [p] is a predicate symbol and [x] a term, and
-    variable equalities[x = y] with propositional variables.
+    variable equalities [x = y] with propositional variables.
 
     @author Harald Ruess *)
 
@@ -103,7 +103,7 @@ end
     - [D] a set of variable disequalities,
     - [P] a set of propositional formulas,
     - [L] a set of monadic applications [p(x)] and negations thereof. [E]
-      induces an equivalence relation [=E] with [x =E y] iff [E |=x = y],
+      induces an equivalence relation [=E] with [x =E y] iff [E |= x = y],
       that is [x = y] is valid in [E]. The equivalence class modulo [E]
       containting [x] is denoted by [E\[x\]]. *)
 module type INTERFACE = sig

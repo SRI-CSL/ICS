@@ -49,7 +49,7 @@ module type PROP = sig
       variable [x]. *)
 
   val mk_negvar : var -> t
-  (** [mk_posvar x] constructs a propositional formula for the negated
+  (** [mk_negvar x] constructs a propositional formula for the negated
       propositional variable [x]. *)
 
   val mk_conj : t -> t -> t
@@ -64,7 +64,7 @@ module type PROP = sig
   (** [union x y p] is equivalent to [(x <=> y) & p]. *)
 
   val separate : var -> var -> t -> t
-  (** [union x y p] is equivalent to [(x # y) & p] with [#] exclusive or. *)
+  (** [separate x y p] is equivalent to [(x # y) & p] with [#] exclusive or. *)
 
   val cofactor_pos : t -> var -> t
   (** [cofactor_pos p x] is equivalent with [p'] obtained by substituting

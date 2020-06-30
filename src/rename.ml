@@ -156,7 +156,7 @@ struct
 
       - [x] is [V]-canonical
       - [u{i}] for [i=1,...,n] is in the domain of either [monadic] or
-        [find]. *)
+        [equal]. *)
   type t =
     {mutable monadic: Monadic.t; mutable equal: Equal.t; mutable dep: Dep.t}
 

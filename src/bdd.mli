@@ -171,7 +171,7 @@ module type FML = sig
 
   val is_ite : t -> bool
   (** [is_ite b] holds iff [b] is of the form [ITE(x, p, n)]. For a BDD [b],
-      exactly one of [is_true b], [is_false b], and [is_ite b] holds. *)
+      exactly one of [is_valid b], [is_unsat b], and [is_ite b] holds. *)
 
   val occurs : var -> t -> bool
   (** [occurs x b] holds iff the variable [x] occurs in the BDD [b]. *)

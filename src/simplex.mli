@@ -87,9 +87,6 @@ end
       interpreted over the nonnegative reals,
     - constant assignments [x{1} = c{1};... x{n} = c{n}] with [x{i}]
       non-slack variables and [c{n}] rational constants,
-    - a {i regular} solution set including equalities of the form [x = a]
-      with [x] a non-slack variable and [a] a linear arithmetic term which
-      is not a non-slack variable,
     - a {i regular} solution set with equalities of the form [x = a] with
       [x] a non-slack variable and [a] a linear arithmetic term which is not
       a non-slack variable,
@@ -135,7 +132,7 @@ module type INFSYS = sig
       - [x{i}] a non-slack variable,
       - [p{i}] a linear arithmetic term which is not a non-slack variable,
       - [x{i}] not in [vars(p{j})] for all [i], [j], and
-      - [x{i}] is disequal from [x{j}] for [i /\ j], and
+      - [x{i}] is disequal from [x{j}] for [i /= j], and
       - [p{i}] is disequal from [p{j}] for [i /= j]. *)
   module R : sig
     (** Representation of a regular solution set. *)

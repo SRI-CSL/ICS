@@ -74,7 +74,7 @@ module type INFSYS = sig
 
   (** Finite set of variable equalities [x = y] represented as a map
       [x |-> y] with [x], [y] variables. As an invariant, if
-      [Var.preference x y > 0], then there is no binding [y |-> x] in such a
+      [Var.preference x y > 0], then there is no binding [x |-> y] in such a
       map. *)
   module Equalities : Maps.S with type key = var and type value = var
 
@@ -141,8 +141,9 @@ module type INFSYS = sig
       More specifically, if [E |= x = y], then the current configuration is
       unchanged, that is [E' = E] and [unchanged()] still continues to hold.
 
-      For [x], [y] canonical, if [preference x y] holds, then [x] is chosen
-      as a canonical representative of the extended equivalence class. *)
+      For [x], [y] canonical, if [preference x y > 0] holds, then [x] is
+      chosen as a canonical representative of the extended equivalence
+      class. *)
 
   val separate : var -> var -> unit
   (** [separate x y] adds the disequality [x <> y] to the current

@@ -174,7 +174,7 @@ struct
     let for_all f = Find.for_all f (Config.Find.current ()) in
     for_all (fun u {Apply.funsym= _f; Apply.arg= x} ->
         for_all (fun v {Apply.funsym= _g; Apply.arg= y} ->
-            (* ToDo: why ignore funsyms? *)
+            (* CR: why ignore funsyms? *)
             if V.equal x y then V.equal u v else true ) )
 
   let initialize s =
@@ -192,6 +192,7 @@ struct
   let is_empty () = Find.is_empty (Config.Find.current ())
 
   let lookup u =
+    (* CR: suspicious ignored arg of test *)
     let test v {Apply.funsym= _; Apply.arg= _y} = V.equal u v in
     let _, ({Apply.funsym= f; Apply.arg= y} as a) =
       Find.choose_if test (Config.Find.current ())

@@ -158,7 +158,7 @@ module type INTERFACE = sig
       [x = y] to [E]; otherwise, the configuration is left unchanged. *)
 
   val ite : var * var -> var * var -> var * var -> unit
-  (** [ite (x, y) (u, u') (v, v')] adds a {i conditinal equality}
+  (** [ite (x, y) (u, u') (v, v')] adds a {i conditional equality}
       [if x = y then u = u' else v = v'] to the [P] configuration. *)
 
   val array : var -> unit
