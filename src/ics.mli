@@ -679,6 +679,12 @@ end) : sig
       current state. If [s], [t] are canonical, then the result also
       canonical. *)
 
+  val triple : Term.t -> Term.t -> Term.t -> Term.t
+  (** [triple s t r] returns either a canonical term for representing the
+      triple [<s, t, r>] or a canonical variable [x] with [x = <s,t,r>]
+      valid in the current state. If [s], [t], [r] are canonical, then the
+      result also canonical. *)
+
   val tuple : Term.t array -> Term.t
   (** [tuple ta] returns either a canonical term for representing the tuple
       [<t{1},...,t{n}>] or a canonical variable [x] with
