@@ -125,7 +125,7 @@ module Make (Var : VAR) = struct
     let acc = Varset.empty () in
     let addeq x y =
       if Var.equal (find x) z then Varset.add x acc ;
-      if Var.equal (find y) z then Varset.add x acc
+      if Var.equal (find y) z then Varset.add y acc
     in
     Parent.iter addeq (parent ()) ;
     acc
