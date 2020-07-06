@@ -41,7 +41,16 @@ module Q = struct
   let hash = Hashtbl.hash
 end
 
-module Make (Ident : sig
+module Make (UFunsym : sig
+  (** {i Unintepreted function symbols.} *)
+  type t
+
+  val compare : t -> t -> int
+  val equal : t -> t -> bool
+  val hash : t -> int
+  val pp : Format.formatter -> t -> unit
+end) (Ident : sig
+  (** {i Identifiers of external variable.} *)
   type t
 
   val hash : t -> int
@@ -177,16 +186,13 @@ module Vars = Sets.Make (Var)
 (** {i Variable equalities} *)
 module Vareqs = Maps.Make (Var) (Vars)
 
-(** {i Unintepreted function symbols.} *)
-module Funsym = Name
-
 (** {i Terms} *)
 module Term = struct
   (** {i Polynomials with rational coefficients.} *)
   module Polynomial = Polynomial.Make (Q) (Var)
 
   (** {i Uninterpreted term application} *)
-  module Uninterp = Cc.Apply (Var) (Funsym)
+    module Uninterp = Cc.Apply (Var) (UFunsym)
 
   (** {i Tuple terms} *)
   module Tuple = Tuple.Tuple (Var)
@@ -702,7 +708,7 @@ module type PROP =
 module type CC =
   Cc.INFSYS
     with type var = Var.t
-     and type funsym = Name.t
+       and type funsym = UFunsym.t
      and type apply = Term.Uninterp.t
 
 module type TUPLE =
@@ -726,7 +732,7 @@ module V : PARTITION = Partition.Make (Var)
 module L0 : PROPVAR = Nullary.Make (Propvar)
 module L1open = Literal.Make (Var) (Predsym)
 module Aopen = Simplex.Make (Term.Polynomial)
-module Uopen = Cc.Make (Var) (Funsym) (Term.Uninterp)
+  module Uopen = Cc.Make (Var) (UFunsym) (Term.Uninterp)
 module Topen = Tuple.Infsys (Var) (Term.Tuple)
 module Fopen = Funarr.Make (Var) (Term.Array)
 module Ropen = Rename.Make (Propvar) (Predsym) (Var)
@@ -1762,7 +1768,7 @@ let left = proj 0 2
 let right = proj 1 2
 
 let apply f t =
-  ([%Trace.call fun {pf} -> pf "%a %a" Funsym.pp f Term.pp t]
+    ([%Trace.call fun {pf} -> pf "%a %a" UFunsym.pp f Term.pp t]
   ;
   let n = alias t in
   try Term.of_var (V.find (U.inv f n))

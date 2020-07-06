@@ -195,7 +195,7 @@ let decide incomplete_flag b =
   let flet_decls = Hashtbl.create 7 in
   let quant_cache = Hashtbl.create 7 in
   let term_cond = Hashtbl.create 7 in
-  let funsym f = Ics.Funsym.of_string (extern f) in
+  let funsym f = Funsym.of_string (extern f) in
   let predsym p = Ics.Predsym.uninterp (extern p) in
   let propvar p = Ics.Propvar.of_ident p in
   Ics.reset () ;
@@ -237,7 +237,7 @@ let decide incomplete_flag b =
           with Not_found -> (
             try Ics.multq (Ics.d_num t2) t1
             with Not_found ->
-              Ics.apply (Ics.Funsym.of_string "*") (Ics.pair t1 t2) )
+              Ics.apply (Funsym.of_string "*") (Ics.pair t1 t2) )
         in
         let rec multl acc = function
           | [] -> acc
@@ -249,7 +249,7 @@ let decide incomplete_flag b =
         let t1 = trm2ics s and t2 = trm2ics t in
         try Ics.multq (Q.inv (Ics.d_num t2)) t1
         with Not_found ->
-          Ics.apply (Ics.Funsym.of_string "div") (Ics.pair t1 t2) )
+          Ics.apply (Funsym.of_string "div") (Ics.pair t1 t2) )
     | Sub (s, t) -> Ics.sub (trm2ics s) (trm2ics t)
     | Select (s, t) -> Ics.lookup (trm2ics s) (trm2ics t)
     | Store (s, t, r) -> Ics.update (trm2ics s) (trm2ics t) (trm2ics r)

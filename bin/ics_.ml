@@ -22,10 +22,12 @@
  * SOFTWARE.
  *)
 
-(** Ics instantiated with Name identifiers *)
+(** Ics instantiated with Name funsyms and identifiers *)
 
-include Ics.Make (struct
-  include Ics.Name
+include Ics.Make
+          (Ics.Name)
+          (struct
+            include Ics.Name
 
-  let dummy = of_string ""
-end)
+            let dummy = of_string ""
+          end)

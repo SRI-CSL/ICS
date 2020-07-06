@@ -677,7 +677,7 @@ var: IDENT         { Ics.Var.of_ident (Name.of_string $1) }
 | BANG INTCONST    { Ics.Var.internal $2 }
 
 app: IDENT LPAR termlist RPAR 
-                   { let f = Ics.Funsym.of_string $1 in
+                   { let f = Name.of_string $1 in
 		     let t = Ics.tuple (Array.of_list $3) in
 		       Ics.apply f t }
 

@@ -40,7 +40,18 @@
 
     @author Harald Ruess *)
 
-module Make (Ident : sig
+module Make (UFunsym : sig
+  (** {i Uninterpreted function symbols}. The {i arity} of all function
+      symbols is [1], since multiple arguments in term applications are
+      represented using tuples of type [Ics.Term.Tuple.t]. *)
+  type t
+
+  val compare : t -> t -> int
+  val equal : t -> t -> bool
+  val hash : t -> int
+  val pp : Format.formatter -> t -> unit
+end) (Ident : sig
+  (** {i Identifiers of external variable.} *)
   type t
 
   val hash : t -> int
@@ -117,41 +128,6 @@ end) : sig
   (** {i Set of variables.} *)
   module Vars : Sets.S with type elt = Var.t
 
-  (** {i Uninterpreted function symbols}. The {i arity} of all function
-      symbols is [1], since multiple arguments in term applications are
-      represented using tuples of type [Ics.Term.Tuple.t]. *)
-  module Funsym : sig
-    (** Representation of an uninterpreted function symbol. *)
-    type t
-
-    val of_string : string -> t
-    (** [of_string s] creates an uninterpreted function symbol with name
-        [s]. *)
-
-    val to_string : t -> string
-    (** [to_string f] returns the name associated with a function symbol
-        [f]. *)
-
-    val equal : t -> t -> bool
-    (** The equality test [equal f g] holds iff the associated names
-        [to_string f] and [to_string g] are equal. Unlike equality on
-        string, the equality test on function symbols is constant time. *)
-
-    val compare : t -> t -> int
-    (** [compare f g] returns [0] iff [equal f g] holds; furthermore,
-        [compare f g > 0] iff [compare f g < 0]. In particular, {!compare}
-        does not necessarily respect the natural ordering on names of
-        function symbols. Also, the order might change between different
-        runs of ICS. *)
-
-    val hash : t -> int
-    (** Nonnegative hash value for a function symbol. *)
-
-    val pp : Format.formatter -> t -> unit
-    (** [pp fmt f] prints the name associated with function symbol [f] onto
-        the formatting string [fmt]. *)
-  end
-
   (** {i Terms}. A {i term} is either
 
       - a {i term variable} or
@@ -173,9 +149,9 @@ end) : sig
       Polynomial.P with type coeff = Q.t and type indet = Var.t
 
     (** An {i uninterpreted application} is of the form [f(x)] with [f] a
-        function symbol in {!Ics.Funsym.t} and [x] a variable. *)
+        function symbol in {!UFunsym.t} and [x] a variable. *)
     module Uninterp :
-      Cc.APPLY with type var = Var.t and type funsym = Funsym.t
+      Cc.APPLY with type var = Var.t and type funsym = UFunsym.t
 
     (** A term in the theory of tuples is either a tuple
         [<t{0},...,t{n-1}>], with [t{i}] tuple terms, or a projection
@@ -442,7 +418,7 @@ end) : sig
   module U :
     Cc.INFSYS
       with type var = Var.t
-       and type funsym = Funsym.t
+       and type funsym = UFunsym.t
        and type apply = Term.Uninterp.t
 
   (** {i Linear arithmetic inference system.} The [A] inference system
@@ -707,11 +683,11 @@ end) : sig
   val right : Term.t -> Term.t
   (** The {i right projection} [right t] is synonymous with [proj 1 2 t]. *)
 
-  val constant : Funsym.t -> Term.t
+  val constant : UFunsym.t -> Term.t
   (** [constant f] returns either an uninterpreted application term [f()] or
       a canonical variable [x] with [x = f()]. *)
 
-  val apply : Funsym.t -> Term.t -> Term.t
+  val apply : UFunsym.t -> Term.t -> Term.t
   (** [apply f t] returns either an uninterpreted term application [f(x)]
       with [x = t] valid in a possibly updated current state or [y] with
       [y = f(t)] is valid in the current state. *)
