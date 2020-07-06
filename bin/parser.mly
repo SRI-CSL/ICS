@@ -678,7 +678,7 @@ var: IDENT         { Ics.Var.of_ident (Name.of_string $1) }
 
 app: IDENT LPAR termlist RPAR 
                    { let f = Ics.Funsym.of_string $1 in
-		     let t = Ics.tuple $3 in
+		     let t = Ics.tuple (Array.of_list $3) in
 		       Ics.apply f t }
 
 arith:
@@ -693,7 +693,7 @@ arith:
 
 tuple:
   CONS LPAR term COMMA term RPAR          { Ics.pair $3 $5 }
-| LESS termlist GREATER                  { Ics.tuple $2 }
+| LESS termlist GREATER     { Ics.tuple (Array.of_list $2) }
 | CAR LPAR term RPAR                     { Ics.proj 0 2 $3 }
 | CDR LPAR term RPAR                     { Ics.proj 1 2 $3 }
 | PROJ LPAR INTCONST COMMA INTCONST RPAR LPAR term RPAR  
@@ -716,9 +716,9 @@ array:
 atom: 
   IDENT             { Ics.posvar (Ics.Propvar.of_ident (Name.of_string $1)) }
 | IDENT LPAR termlist RPAR 
-                        { let p = Ics.Predsym.uninterp $1 in
-		          let t = Ics.tuple $3 in
-			    Ics.poslit p t                  }
+                  { let p = Ics.Predsym.uninterp $1 in
+                    let t = Ics.tuple (Array.of_list $3) in
+                      Ics.poslit p t                        }
 | REAL LPAR term RPAR                        {Ics.is_real $3 }
 | INTEGER LPAR term RPAR                    {Ics.is_integer $3 }
 | term EQUAL term                            { Ics.eq $1 $3 }

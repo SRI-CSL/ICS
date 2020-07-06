@@ -1758,17 +1758,11 @@ let triple s t r =
     (Term.Tuple.triple (term2tuple s) (term2tuple t) (term2tuple r))
 
 let tuple = function
-  | [] -> nil ()
-  | [t] -> t
-  | [s; t] -> pair s t
-  | [s; t; r] -> triple s t r
-  | tl ->
-      let n = List.length tl in
-      let a = Array.make n (term2tuple (List.hd tl)) in
-      for i = 1 to n - 1 do
-        a.(i) <- term2tuple (List.nth tl i)
-      done ;
-      tuple2term (Term.Tuple.tuple a)
+    | [||] -> nil ()
+    | [|t|] -> t
+    | [|s; t|] -> pair s t
+    | [|s; t; r|] -> triple s t r
+    | ts -> tuple2term (Term.Tuple.tuple (Array.map term2tuple ts))
 
 let proj i n t = tuple2term (Term.Tuple.proj i n (term2tuple t))
 let left = proj 0 2

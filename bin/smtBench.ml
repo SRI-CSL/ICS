@@ -208,7 +208,8 @@ let decide incomplete_flag b =
     | Apply (f, []) -> Ics.apply (funsym f) (Ics.nil ())
     | Apply (f, [t]) -> Ics.apply (funsym f) (trm2ics t)
     | Apply (f, tl) ->
-        Ics.apply (funsym f) (Ics.tuple (List.map trm2ics tl))
+        Ics.apply (funsym f)
+          (Ics.tuple (Array.of_list (List.map trm2ics tl)))
     | Cond (c, p, n) ->
         let c' = fml2ics c in
         if Ics.Formula.is_true c' then trm2ics p
@@ -268,7 +269,8 @@ let decide incomplete_flag b =
     | Predapply (p, []) -> Ics.posvar (propvar p)
     | Predapply (p, [t]) -> Ics.poslit (predsym p) (trm2ics t)
     | Predapply (p, tl) ->
-        Ics.poslit (predsym p) (Ics.tuple (List.map trm2ics tl))
+        Ics.poslit (predsym p)
+          (Ics.tuple (Array.of_list (List.map trm2ics tl)))
     | Distinct _ ->
         (* ToDo: handle distinct *)
         Ics.tt

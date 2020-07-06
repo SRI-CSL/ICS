@@ -679,8 +679,8 @@ end) : sig
       current state. If [s], [t] are canonical, then the result also
       canonical. *)
 
-  val tuple : Term.t list -> Term.t
-  (** [tuple tl] returns either a canonical term for representing the tuple
+  val tuple : Term.t array -> Term.t
+  (** [tuple ta] returns either a canonical term for representing the tuple
       [<t{1},...,t{n}>] or a canonical variable [x] with
       [x = <t{1},...,t{n}>] valid in the current state. If all [t{i}] are
       canonical, then the result also canonical. *)
