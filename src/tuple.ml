@@ -113,7 +113,7 @@ module Tuple (Var : VAR) = struct
       { mutable index: int
       ; mutable width: int
       ; mutable arg: t
-      ; mutable hashp: int }
+      ; mutable hash: int }
 
     let dummy = Tuple {args= [||]; hash= 0}
   end
@@ -165,10 +165,10 @@ module Tuple (Var : VAR) = struct
       hsh
 
   and hash_proj p =
-    if p.hashp >= 0 then p.hashp
+    if p.hash >= 0 then p.hash
     else
       let hsh = (hash p.arg + p.index + p.width) land 0x3FFFFFFF in
-      p.hashp <- hsh ;
+      p.hash <- hsh ;
       hsh
 
   let equal = ( == ) (* terms are hashconsed *)
@@ -399,7 +399,7 @@ module Tuple (Var : VAR) = struct
         match t with Proj p -> hash_proj p | _ -> assert false
     end) in
     let cache = Cache.create 7 in
-    let proj = {index= 0; width= 0; arg= dummy; hashp= -1} in
+    let proj = {index= 0; width= 0; arg= dummy; hash= -1} in
     let dummy = Proj proj in
     fun i n t ->
       assert (0 <= i && i < n && n < max_int) ;
@@ -409,11 +409,11 @@ module Tuple (Var : VAR) = struct
           proj.index <- i ;
           proj.width <- n ;
           proj.arg <- t ;
-          proj.hashp <- -1 ;
+          proj.hash <- -1 ;
           try Cache.find cache dummy
           with Not_found ->
             (* reuse hash. *)
-            let p = Proj {index= i; width= n; arg= t; hashp= proj.hashp} in
+            let p = Proj {index= i; width= n; arg= t; hash= proj.hash} in
             Cache.add cache p ;
             p )
 
@@ -583,8 +583,7 @@ module Tuple (Var : VAR) = struct
           for j = 0 to n - 1 do
             let k = Var.fresh () in
             let q =
-              if i = j then p
-              else {index= j; width= n; arg= p.arg; hashp= -1}
+              if i = j then p else {index= j; width= n; arg= p.arg; hash= -1}
             in
             Table.set q k !current ;
             fresh_args.(j) <- of_var k
