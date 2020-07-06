@@ -1204,14 +1204,7 @@ let var_equals () =
   let acc = Vareqs.empty () in
   let add x y =
     let y' = V.find y in
-    try
-      let zs = Vareqs.find y' acc in
-      Vars.add x zs ;
-      Vars.add y zs ;
-      Vars.add y' zs ;
-      Vareqs.set y' zs acc
-    with Not_found ->
-      let zs = Vars.empty () in
+        let zs = try Vareqs.find y' acc with Not_found -> Vars.empty () in
       Vars.add x zs ;
       Vars.add y zs ;
       Vars.add y' zs ;
