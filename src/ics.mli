@@ -439,7 +439,11 @@ end) : sig
   (** {i Congruence closure inference system.} The [U] inference system
       maintains a congruence-closed representation for a finite set of
       equalities over uninterpreted (monadic) terms. *)
-  module U : Cc.INFSYS with type var = Var.t and type funsym = Funsym.t
+  module U :
+    Cc.INFSYS
+      with type var = Var.t
+       and type funsym = Funsym.t
+       and type apply = Term.Uninterp.t
 
   (** {i Linear arithmetic inference system.} The [A] inference system
       maintains a configuration equivalent to a conjunction of linear
