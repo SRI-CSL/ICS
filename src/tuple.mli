@@ -153,6 +153,9 @@ module type T = sig
   val is_proj : t -> bool
   (** [is_proj t] holds iff [t] is a term of the form [proj(i,n)(t)]. *)
 
+  val d_proj : t -> (int * int * t) option
+  (** [d_proj t] is [Some (n, i, a)] if [t] is of the form [proj(i,n)(a)]. *)
+
   val proj : int -> int -> t -> t
   (** For [0 <= i < n], [proj i n t] constructs a [T]-canonical term [s]
       with [s = proj(i,n)(t)] is valid in [T]. *)

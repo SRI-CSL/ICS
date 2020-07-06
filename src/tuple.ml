@@ -54,6 +54,7 @@ module type T = sig
   val is_triple : t -> bool
   val is_tuple : int -> t -> bool
   val is_proj : t -> bool
+  val d_proj : t -> (int * int * t) option
   val proj : int -> int -> t -> t
   val map : (var -> t) -> t -> t
   val exists : (var -> bool) -> t -> bool
@@ -121,6 +122,10 @@ module Tuple (Var : VAR) = struct
   include T
 
   type term = t (* nickname *)
+
+  let d_proj = function
+    | Proj {index; width; arg; _} -> Some (width, index, arg)
+    | _ -> None
 
   let is_var = function Var _ -> true | _ -> false
 
