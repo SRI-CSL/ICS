@@ -253,11 +253,23 @@ end) : sig
       - tuple constraints [tuple(n)], and
       - the [array] constraint. *)
   module Predsym : sig
+    (** {i Arithmetic predicate symbols} *)
+    module Arith : sig
+      type t = Nonneg | Pos | Real | Equal0 | Diseq0 | Int
+    end
+
     (** Representation of monadic predicate symbols. *)
-    type t
+    type t = private
+      | Uninterp of UPredsym.t
+      | Arith of Arith.t
+      | Tuple of int
+      | Array
 
     val uninterp : UPredsym.t -> t
     (** [uninterp s] constructs an uninterpreted symbol of name [s]. *)
+
+    val of_arith : Arith.t -> t
+    (** Inject an arithmetic predicate symbol. *)
 
     val nonneg : t
     (** Extension of [nonneg] are all nonnegative reals. *)
@@ -277,13 +289,13 @@ end) : sig
     val integer : t
     (** Extension of [integer] are all integers. *)
 
-    val array : t
-    (** Extension of [array] are all arrays (disjoint from tuples and
-        reals). *)
-
     val tuple : int -> t
     (** Extension of [tuple n] are all tuples (disjoint form arrays and
         reals) of length [n] ([n >= 0]). *)
+
+    val array : t
+    (** Extension of [array] are all arrays (disjoint from tuples and
+        reals). *)
 
     val equal : t -> t -> bool
     (** [equal p q] holds for uninterpreted [p], [q] if the associated names
@@ -307,14 +319,6 @@ end) : sig
 
     val pp : Format.formatter -> t -> unit
     (** [pp fmt p] prints [p] on formatter [fmt]. *)
-
-    (** {i Arithmetic predicate symbols} *)
-    module Arith : sig
-      type t = Nonneg | Pos | Real | Equal0 | Diseq0 | Int
-    end
-
-    val of_arith : Arith.t -> t
-    (** Inject an arithmetic predicate symbol. *)
   end
 
   (** {i Formulas.} A formula is either
