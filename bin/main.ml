@@ -99,9 +99,6 @@ let args () =
             smt_flag := true ;
             smt_incomplete_flag := true )
       , "Process SMT format but no implicant computation" )
-    ; ( "-completeTests"
-      , Arg.Unit (fun () -> Ics.complete_tests := true)
-      , "Have a complete but expensive validity test (Default: false)." )
     ; ( "-config"
       , Arg.Unit (fun () -> config_flag := true)
       , "Print final configuration in batch mode (Default: false)." )

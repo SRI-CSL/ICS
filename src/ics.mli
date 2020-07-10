@@ -872,22 +872,14 @@ val alias : Term.t -> Var.t
 (** [alias t] returns a variable [x] such that [x = t] is valid in a
     possibly modified state. *)
 
-val complete_tests : bool ref
-(** The value of [complete_tests] determines if {!Ics.valid} is complete. *)
-
 val valid : Formula.t -> bool
 (** If [valid fml] holds, then [fml] is valid in the current state. The
-    contraposite, however, does not hold in general. The completeness of
-    [valid] is influenced by the flags {!Ics.do_minimize} and
-    {!Ics.complete_tests}.
-
-    - If {!Ics.do_minimize} is unset, then more formulas are detected to be
-      valid. In fact, if [prop()] is trivially true, then [valid] is
-      complete. In this case, [valid] is polynomial in the size of the
-      current configuration.
-    - If {!Ics.complete_tests} is set, then [valid] is complete. In this
-      case, [valid] might take time exponential in the number of variables
-      in [prop()]. *)
+    contrapositive, however, does not hold in general. The completeness of
+    [valid] is influenced by the flag {!Ics.do_minimize}. If
+    {!Ics.do_minimize} is unset, then more formulas are detected to be
+    valid. In fact, if [prop()] is trivially true, then [valid] is complete.
+    In this case, [valid] is polynomial in the size of the current
+    configuration. *)
 
 (** Indicates unsatisfiability of the current state. *)
 exception Unsatisfiable

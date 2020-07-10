@@ -2346,8 +2346,6 @@ let resolve () =
         curr_status := Unsat xp ;
         !curr_status )
 
-let complete_tests = ref false
-
 let valid_complete fml =
   assert (closed ()) ;
   let check p =
