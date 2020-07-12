@@ -50,6 +50,13 @@ module Make (UFunsym : sig
   val equal : t -> t -> bool
   val hash : t -> int
   val pp : Format.formatter -> t -> unit
+end) (UPredsym : sig
+  (** {i Unintepreted predicate symbols.} *)
+  type t
+
+  val equal : t -> t -> bool
+  val hash : t -> int
+  val pp : Format.formatter -> t -> unit
 end) (Ident : sig
   (** {i Identifiers of external variable.} *)
   type t
@@ -249,7 +256,7 @@ end) : sig
     (** Representation of monadic predicate symbols. *)
     type t
 
-    val uninterp : string -> t
+    val uninterp : UPredsym.t -> t
     (** [uninterp s] constructs an uninterpreted symbol of name [s]. *)
 
     val nonneg : t
@@ -277,10 +284,6 @@ end) : sig
     val tuple : int -> t
     (** Extension of [tuple n] are all tuples (disjoint form arrays and
         reals) of length [n] ([n >= 0]). *)
-
-    val to_string : t -> string
-    (** [to_string p] returns unique name associated with predicate symbol
-        [p]. *)
 
     val equal : t -> t -> bool
     (** [equal p q] holds for uninterpreted [p], [q] if the associated names
@@ -916,7 +919,3 @@ end) : sig
       {i irredundant} in the sense that removing any formula from the core
       yields a satisfiable logical context. *)
 end
-
-(**/**)
-
-module Name = Name

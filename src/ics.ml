@@ -49,6 +49,13 @@ module Make (UFunsym : sig
   val equal : t -> t -> bool
   val hash : t -> int
   val pp : Format.formatter -> t -> unit
+end) (UPredsym : sig
+  (** {i Unintepreted predicate symbols.} *)
+  type t
+
+  val equal : t -> t -> bool
+  val hash : t -> int
+  val pp : Format.formatter -> t -> unit
 end) (Ident : sig
   (** {i Identifiers of external variable.} *)
   type t
@@ -404,13 +411,16 @@ module Predsym = struct
       | _ -> false
   end
 
-  type t = Uninterp of Name.t | Arith of Arith.t | Tuple of int | Array
+    type t =
+      | Uninterp of UPredsym.t
+      | Arith of Arith.t
+      | Tuple of int
+      | Array
 
   let uninterp =
-    let module Cache = Ephemeron.K1.Make (Name) in
+      let module Cache = Ephemeron.K1.Make (UPredsym) in
     let table = Cache.create 7 in
-    fun str ->
-      let n = Name.of_string str in
+      fun n ->
       try Cache.find table n
       with Not_found ->
         let p = Uninterp n in
@@ -452,16 +462,14 @@ module Predsym = struct
     | Tuple _ -> T
     | Array -> F
 
-  let to_string = function
-    | Uninterp p -> Name.to_string p
-    | Arith p -> Arith.to_string p
-    | Tuple n -> Format.sprintf "tuple[%d]" n
-    | Array -> "array"
-
-  let pp fmt p = Format.fprintf fmt "%s" (to_string p)
+    let pp fs = function
+      | Uninterp p -> UPredsym.pp fs p
+      | Arith p -> Arith.pp fs p
+      | Tuple n -> Format.fprintf fs "tuple[%d]" n
+      | Array -> Format.fprintf fs "array"
 
   let hash = function
-    | Uninterp n -> Name.hash n
+      | Uninterp n -> UPredsym.hash n
     | Arith p -> Arith.hash p
     | Tuple n -> n
     | Array -> 53
@@ -1851,7 +1859,7 @@ let valid_arith p t =
 
 let valid_uninterp p t =
   match can t with
-  | Term.Var x -> L1.valid (Predsym.uninterp (Name.to_string p)) x
+    | Term.Var x -> L1.valid (Predsym.uninterp p) x
   | _ -> false
 
 let valid_tuple n t =
@@ -2331,5 +2339,3 @@ let valid_complete fml =
 
 let[@warning "-32"] implied fml = valid fml || valid_complete fml
 end
-
-module Name = Name

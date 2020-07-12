@@ -24,10 +24,9 @@
 
 (** Ics instantiated with Name funsyms and identifiers *)
 
-include Ics.Make
-          (Ics.Name)
+include Ics.Make (Name) (Name)
           (struct
-            include Ics.Name
+            include Name
 
             let dummy = of_string ""
           end)

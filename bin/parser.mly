@@ -25,7 +25,6 @@
 /* Module [Parser]: parser for ICS terms, formulas, and commands. */
 
 %{
-  module Name = Ics.Name
   module Ics = Ics_
 
   let fmt = Format.std_formatter
@@ -716,7 +715,7 @@ array:
 atom: 
   IDENT             { Ics.posvar (Ics.Propvar.of_ident (Name.of_string $1)) }
 | IDENT LPAR termlist RPAR 
-                  { let p = Ics.Predsym.uninterp $1 in
+                  { let p = Ics.Predsym.uninterp (Name.of_string $1) in
                     let t = Ics.tuple (Array.of_list $3) in
                       Ics.poslit p t                        }
 | REAL LPAR term RPAR                        {Ics.is_real $3 }

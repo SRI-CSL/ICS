@@ -22,7 +22,6 @@
  * SOFTWARE.
  *)
 
-module Name = Ics.Name
 module Ics = Ics_
 
 module Logic = struct
@@ -196,7 +195,7 @@ let decide incomplete_flag b =
   let quant_cache = Hashtbl.create 7 in
   let term_cond = Hashtbl.create 7 in
   let funsym f = Funsym.of_string (extern f) in
-  let predsym p = Ics.Predsym.uninterp (extern p) in
+  let predsym p = Ics.Predsym.uninterp p in
   let propvar p = Ics.Propvar.of_ident p in
   Ics.reset () ;
   let rec trm2ics t =
