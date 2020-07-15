@@ -510,7 +510,10 @@ end) : sig
     ; upper: int
     ; mutable status: status }
 
-  val pp_current : Format.formatter -> unit -> unit
+  val pp : Format.formatter -> t -> unit
+  (** Print a decision procedure state. *)
+
+  val pp_current : Format.formatter -> unit
   (** Print the current decision procedure state. *)
 
   val pp_status : Format.formatter -> status -> unit

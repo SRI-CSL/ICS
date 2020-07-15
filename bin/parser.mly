@@ -820,7 +820,7 @@ command:
                        (Ics.context ());
 		     Format.fprintf fmt "@?" }
 | CONFIG           { Format.fprintf fmt ":config\n";
-		     Ics.pp_current Format.std_formatter ();
+		     Ics.pp_current Format.std_formatter;
 		     Format.fprintf fmt "@?" }
 | EQUALS IDENT     { try
 		       let th = string_to_theory $2 in

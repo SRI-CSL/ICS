@@ -779,7 +779,7 @@ struct
 
     let propagate x y =
       [%Trace.call fun {pf} ->
-        pf "(U): %a = %a @ %a" Var.pp x Var.pp y State.pp_current ()]
+        pf "(U): %a = %a @ %t" Var.pp x Var.pp y State.pp_current]
       ;
       assert (V.canonical y) ;
       assert (not (V.canonical x)) ;
@@ -791,11 +791,11 @@ struct
       F.propagate_eq x y ;
       R.propagate_eq x y
       |>
-      [%Trace.retn fun {pf} () -> pf "%a" State.pp_current ()]
+      [%Trace.retn fun {pf} () -> pf "%t" State.pp_current]
 
     let process_critical x y =
       [%Trace.call fun {pf} ->
-        pf "(U): %a = %a @ %a" Var.pp x Var.pp y State.pp_current ()]
+        pf "(U): %a = %a @ %t" Var.pp x Var.pp y State.pp_current]
       ;
       let x = V.find x and y = V.find y in
       ( if V.equal x y then ()
@@ -811,7 +811,7 @@ struct
           critical := false ;
           raise exc )
       |>
-      [%Trace.retn fun {pf} () -> pf "%a" State.pp_current ()]
+      [%Trace.retn fun {pf} () -> pf "%t" State.pp_current]
 
     let process x y =
       [%Trace.call fun {pf} -> pf "(U): %a = %a" Var.pp x Var.pp y]
@@ -821,7 +821,7 @@ struct
       else if !critical then delay x y
       else process_critical x y )
       |>
-      [%Trace.retn fun {pf} () -> pf "%a" State.pp_current ()]
+      [%Trace.retn fun {pf} () -> pf "%t" State.pp_current]
 
     let closed () = Stacks.is_empty lhs
 
@@ -1222,7 +1222,7 @@ struct
     val tuple_equals : unit -> Formulas.t
     val array_equals : unit -> Formulas.t
     val theory_equals : theory -> Formulas.t
-    val pp_current : Format.formatter -> unit -> unit
+    val pp_current : Format.formatter -> unit
   end = struct
     let prop () = Formula.mk_prop (P.current ())
 
@@ -1361,7 +1361,7 @@ struct
       | U -> uninterp_equals ()
       | F -> array_equals ()
 
-    let pp_current fmt () =
+    let pp_current fmt =
       let unless p f x = if p x then [] else [f x] in
       Format.fprintf fmt "@[<hv>%a@]"
         (NS.List.pp "@;<2 0>" ( |> ))
@@ -1510,6 +1510,10 @@ struct
       ; a= A.current ()
       ; t= T.current ()
       ; f= F.current () }
+
+  let pp fs s =
+    initialize s ;
+    pp_current fs
 
   let find i x =
     match i with
@@ -1689,7 +1693,7 @@ struct
   let rec close () =
     if closed () then ()
     else (
-      [%Trace.info "close: %a" pp_current ()] ;
+      [%Trace.info "close: %t" pp_current] ;
       Union.close () ;
       Separate.close () ;
       Valid0.close () ;
@@ -1717,12 +1721,12 @@ struct
     apply_process add p
 
   let process p =
-    [%Trace.call fun {pf} -> pf "%a: %a" Formula.pp p pp_current ()]
+    [%Trace.call fun {pf} -> pf "%a: %t" Formula.pp p pp_current]
     ;
     (try process_exn p with Unsatisfiable -> ()) ;
     !curr_status
     |>
-    [%Trace.retn fun {pf} s -> pf "%a: %a" pp_status s pp_current ()]
+    [%Trace.retn fun {pf} s -> pf "%a: %t" pp_status s pp_current]
 
   let context () = !curr_context
   let status () = !curr_status
