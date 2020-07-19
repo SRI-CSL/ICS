@@ -418,7 +418,8 @@ struct
       Config.Subst.initialize s.subst ;
       Config.Dep.initialize s.dep
 
-    let unchanged = Config.Subst.unchanged
+    let unchanged () =
+      Config.Subst.unchanged () && Config.Subst0.unchanged ()
 
     let current () =
       if unchanged () then !init
