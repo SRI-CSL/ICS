@@ -118,6 +118,7 @@ module type INFSYS = sig
   val initialize : t -> unit
   val reset : unit -> unit
   val unchanged : unit -> bool
+  val fresh_slack : unit -> var
   val alias : poly -> var
   val alias_const : coeff -> var
 

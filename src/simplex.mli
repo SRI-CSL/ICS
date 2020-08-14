@@ -307,6 +307,9 @@ module type INFSYS = sig
   (** [unchanged()] holds iff the current configuration has been unchanged
       since the latest [reset] or [initialize]. *)
 
+  val fresh_slack : unit -> var
+  (** Returns a fresh slack variable (in an extended configuration). *)
+
   val alias : poly -> var
   (** In a synchronized configuration, [alias p] returns a canonical
       non-slack variable [x] with [x = p] valid in a possible extended
