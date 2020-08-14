@@ -206,6 +206,8 @@ module type INFSYS = sig
   (** Representation of configurations as substitutions. *)
   module Subst : Subst.S with type var = var and type trm = trm
 
+  module Dep : Powermaps.S with type key = var
+
   val config : unit -> Subst.t
   (** Return the current configuration. *)
 
@@ -228,6 +230,10 @@ module type INFSYS = sig
   val inv : trm -> var
   (** [inv t] returns [x] if there is a binding [x |-> t] in the current
       configuration [S]; otherwise, [Not_found] is raised. *)
+
+  val deps : var -> Dep.Values.t
+  (** [x] is in [deps y] iff there exists [x = t] in [S] with [y] in
+      [vars(t)]. *)
 
   val dom : var -> bool
   (** [dom x] holds iff there is a binding [x |-> t] in the current

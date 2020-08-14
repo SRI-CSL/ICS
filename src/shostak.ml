@@ -74,12 +74,14 @@ module type INFSYS = sig
   type t
 
   module Subst : Subst.S with type var = var and type trm = trm
+  module Dep : Powermaps.S with type key = var
 
   val config : unit -> Subst.t
   val pp : Format.formatter -> unit
   val can : trm -> trm
   val find : var -> trm
   val inv : trm -> var
+  val deps : var -> Dep.Values.t
   val dom : var -> bool
   val cod : var -> bool
   val local : var -> bool
